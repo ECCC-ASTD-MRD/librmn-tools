@@ -37,7 +37,8 @@ if(WITH_OPENMP)
   set(Clang_CFLAGS -fopenmp)
   set(PGI_FFLAGS -byteswapio -mp)
   set(PGI_CFLAGS -mp)
-  set(LLVM_FFLAGS -byteswapio)
+  set(LLVM_FFLAGS -fconvert=big-endian -fopenmp)
+  set(LLVM_CFLAGS -fopenmp)
 else()
   set(Intel_FFLAGS -convert big_endian -align array32byte -assume byterecl)
   set(GNU_FFLAGS -fconvert=big-endian -fcray-pointer -frecord-marker=4 -fno-second-underscore -ldl -pthread)
@@ -45,6 +46,10 @@ else()
   set(PGI_FFLAGS -byteswapio)
   set(LLVM_FFLAGS -fconvert=big-endian)
 endif()
+
+set(INCLUDE_INSTALL_DIR include)
+set(LIB_INSTALL_DIR lib)
+set(BIN_INSTALL_DIR bin)
 
 # ======================== PROJECT FILES ======================
 add_subdirectory(tests)
@@ -147,9 +152,6 @@ file(GLOB PROJECT_INCLUDE_FILES src/PUBLIC_INCLUDES/rmn/*)
 install(FILES ${PROJECT_INCLUDE_FILES} DESTINATION include/rmn)
 
 # Generate the config file for the project to be usable via cmake's find_package command
-set(INCLUDE_INSTALL_DIR include)
-set(LIB_INSTALL_DIR lib)
-set(BIN_INSTALL_DIR bin)
 set(CONFIG_INSTALL_DIR "${LIB_INSTALL_DIR}/cmake/${PROJECT_NAME}-${PROJECT_VERSION}")
 
 include(CMakePackageConfigHelpers)
@@ -176,15 +178,4 @@ install(
         "${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}Config.cmake"
         "${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}ConfigVersion.cmake"
     DESTINATION "${CONFIG_INSTALL_DIR}"
-)
-
-install(
-    FILES
-        "${CMAKE_CURRENT_BINARY_DIR}/tests/test_c"
-        "${CMAKE_CURRENT_BINARY_DIR}/tests/test_f"
-        "${CMAKE_CURRENT_BINARY_DIR}/tests/test_identify_compiler_c"
-        "${CMAKE_CURRENT_BINARY_DIR}/tests/test_identify_compiler_f"
-        "${CMAKE_CURRENT_BINARY_DIR}/tests/test_timers"
-    DESTINATION "${BIN_INSTALL_DIR}"
-    PERMISSIONS OWNER_EXECUTE OWNER_WRITE OWNER_READ GROUP_EXECUTE GROUP_READ WORLD_EXECUTE WORLD_READ
 )
