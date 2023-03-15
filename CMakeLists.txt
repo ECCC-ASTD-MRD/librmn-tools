@@ -27,7 +27,7 @@ include(ec_openmp)          # Enable OpenMP (-DWITH_OPENMP=TRUE)
 message(STATUS "(EC ${PROJECT_NAME}) WITH_OPENMP=${WITH_OPENMP}" )
 #include(ec_doxygen)         # Doxygen target doc
 
-# Fortran compiler options required to build this project (used in tets also)
+# Fortran compiler options required to build this project (also used in tests)
 if(WITH_OPENMP)
   set(Intel_FFLAGS -convert big_endian -align array32byte -assume byterecl -qopenmp)
   set(Intel_CFLAGS -qopenmp)
@@ -52,7 +52,6 @@ set(LIB_INSTALL_DIR lib)
 set(BIN_INSTALL_DIR bin)
 
 # ======================== PROJECT FILES ======================
-add_subdirectory(tests)
 
 include_directories(
    include
@@ -86,15 +85,16 @@ set_target_properties(rmntools PROPERTIES
     VERSION ${PROJECT_VERSION}
     PUBLIC_HEADER ${CMAKE_CURRENT_SOURCE_DIR}/src/PUBLIC_INCLUDES/rmntools.h
     POSITION_INDEPENDENT_CODE ON
-    OUTPUT_NAME rmntools)
+    OUTPUT_NAME rmntools_static)
 
 # Fortran static library (will make calls to C library)
 add_library(rmntoolsf STATIC ${PROJECT_F_FILES})
 set_target_properties(rmntoolsf PROPERTIES
+    LINK_LIBRARIES ${CMAKE_CURRENT_BINARY_DIR}/librmntools.a;
     VERSION ${PROJECT_VERSION}
     PUBLIC_HEADER ${CMAKE_CURRENT_SOURCE_DIR}/src/PUBLIC_INCLUDES/rmntools.h
     POSITION_INDEPENDENT_CODE ON
-    OUTPUT_NAME rmntoolsf)
+    OUTPUT_NAME rmntoolsf_static)
 
 # C shared library
 add_library(rmntoolsshared SHARED ${PROJECT_C_FILES})
@@ -108,7 +108,7 @@ set_target_properties(rmntoolsshared PROPERTIES
 # Fortran shared library, needs to link to C shared library
 add_library(rmntoolssharedf SHARED ${PROJECT_F_FILES})
 set_target_properties(rmntoolssharedf PROPERTIES
-    LINK_LIBRARIES ${CMAKE_CURRENT_BINARY_DIR}/librmntools.so;
+#     LINK_LIBRARIES ${CMAKE_CURRENT_BINARY_DIR}/librmntools.so;
     VERSION ${PROJECT_VERSION}
     PUBLIC_HEADER ${CMAKE_CURRENT_SOURCE_DIR}/src/PUBLIC_INCLUDES/rmntools.h
     POSITION_INDEPENDENT_CODE ON
@@ -120,6 +120,7 @@ set_target_properties(rmntoolssharedf PROPERTIES
 add_dependencies(rmntoolssharedf rmntoolsshared)
 
 set(TARGETS rmntools rmntoolsf rmntoolsshared rmntoolssharedf)
+target_link_options(rmntoolsf INTERFACE ${PROJECT_NAME} )
 
 foreach(TARGET IN ITEMS ${TARGETS})
     set_target_properties(${TARGET} PROPERTIES Fortran_MODULE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/modules/${TARGET})
@@ -144,8 +145,18 @@ install(TARGETS ${TARGETS})
 
 # Symbolic link for archive numbered version
 add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
-    COMMAND ln -sfv lib${PROJECT_NAME}.a lib${PROJECT_NAME}_${PROJECT_VERSION}.a)
+    COMMAND ln -sfv lib${PROJECT_NAME}_static.a lib${PROJECT_NAME}_${PROJECT_VERSION}.a)
 install(FILES ${CMAKE_CURRENT_BINARY_DIR}/lib${PROJECT_NAME}_${PROJECT_VERSION}.a DESTINATION lib)
+add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+    COMMAND ln -sfv lib${PROJECT_NAME}f_static.a lib${PROJECT_NAME}f_${PROJECT_VERSION}.a)
+install(FILES ${CMAKE_CURRENT_BINARY_DIR}/lib${PROJECT_NAME}f_${PROJECT_VERSION}.a DESTINATION lib)
+
+add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+    COMMAND ln -sfv lib${PROJECT_NAME}_static.a lib${PROJECT_NAME}.a)
+install(FILES ${CMAKE_CURRENT_BINARY_DIR}/lib${PROJECT_NAME}.a DESTINATION lib)
+add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+    COMMAND ln -sfv lib${PROJECT_NAME}f_static.a lib${PROJECT_NAME}f.a)
+install(FILES ${CMAKE_CURRENT_BINARY_DIR}/lib${PROJECT_NAME}f.a DESTINATION lib)
 
 #install public includes
 file(GLOB PROJECT_INCLUDE_FILES src/PUBLIC_INCLUDES/rmn/*)
@@ -179,3 +190,6 @@ install(
         "${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}ConfigVersion.cmake"
     DESTINATION "${CONFIG_INSTALL_DIR}"
 )
+
+include(CTest)
+add_subdirectory(tests)

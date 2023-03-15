@@ -1,1 +1,5 @@
 !! comment
+interface
+  subroutine pred_dummy_c() bind(C, name='pred_dummy_c')
+  end
+end interface
