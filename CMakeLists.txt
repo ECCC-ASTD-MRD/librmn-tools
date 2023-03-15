@@ -1,13 +1,16 @@
-# The minimum version can not be 3.16 because of the LINK_LANGUAGE generator expression in Config.cmake.in
 cmake_minimum_required(VERSION 3.20)
 
+include(CMakePrintHelpers)
 # Append EC specific module path
 list(APPEND CMAKE_MODULE_PATH $ENV{EC_CMAKE_MODULE_PATH} ${CMAKE_SOURCE_DIR}/cmake_rpn/modules)
 
-if(NOT DEFINED COMPILER_SUITE)
-  set(COMPILER_SUITE "gnu")
-  message(STATUS "(rmntools) COMPILER_SUITE not defined, set to gnu" )
-endif()
+# It was setting my COMPILER_SUITE to GNU even if I had loaded the intel ssm
+# package, which caused find_package(OpenMP REQUIRED) to fail.  I didn't want
+# to bother troubleshooting that so I commented this part:
+# if(NOT DEFINED COMPILER_SUITE)
+#   set(COMPILER_SUITE "gnu")
+#   message(STATUS "(rmntools) COMPILER_SUITE not defined, set to gnu" )
+# endif()
 
 include(ec_init)           # Initialise compilers and ec specific functions
 ec_git_version()           # Get version from git state
@@ -47,18 +50,14 @@ else()
   set(LLVM_FFLAGS -fconvert=big-endian)
 endif()
 
-set(INCLUDE_INSTALL_DIR include)
-set(LIB_INSTALL_DIR lib)
-set(BIN_INSTALL_DIR bin)
+include(GNUInstallDirs)
+# Provides CMAKE_INSTALL_<dir> where
+# - CMAKE_INSTALL_LIBDIR = lib
+# - CMAKE_INSTALL_INCLUDEDIR = include
+# - CMAKE_INSTALL_BINDIR = bin
+# these are the defaults for X DESTINATION in install command
 
 # ======================== PROJECT FILES ======================
-
-include_directories(
-   include
-   src/PUBLIC_INCLUDES
-)
-set(MY_INCLUDES ${CMAKE_CURRENT_SOURCE_DIR}/../include ${CMAKE_CURRENT_SOURCE_DIR}/../src/PUBLIC_INCLUDES )
-
 file(GLOB PROJECT_C_FILES
    src/*.c
    src/*/*.c
@@ -85,16 +84,25 @@ set_target_properties(rmntools PROPERTIES
     VERSION ${PROJECT_VERSION}
     PUBLIC_HEADER ${CMAKE_CURRENT_SOURCE_DIR}/src/PUBLIC_INCLUDES/rmntools.h
     POSITION_INDEPENDENT_CODE ON
-    OUTPUT_NAME rmntools_static)
+    OUTPUT_NAME rmntools)
+if(WITH_OPENMP)
+    target_compile_definitions(rmntools PUBLIC WITH_OPENMP)
+    target_link_libraries(rmntools PUBLIC OpenMP::OpenMP_C)
+endif()
 
-# Fortran static library (will make calls to C library)
+# Fortran static library
 add_library(rmntoolsf STATIC ${PROJECT_F_FILES})
 set_target_properties(rmntoolsf PROPERTIES
-    LINK_LIBRARIES ${CMAKE_CURRENT_BINARY_DIR}/librmntools.a;
     VERSION ${PROJECT_VERSION}
     PUBLIC_HEADER ${CMAKE_CURRENT_SOURCE_DIR}/src/PUBLIC_INCLUDES/rmntools.h
     POSITION_INDEPENDENT_CODE ON
-    OUTPUT_NAME rmntoolsf_static)
+    OUTPUT_NAME rmntoolsf)
+# (will make calls to C library)
+target_link_libraries(rmntoolsf PUBLIC rmntools)
+if(WITH_OPENMP)
+    target_compile_definitions(rmntoolsf PUBLIC WITH_OPENMP)
+    target_link_libraries(rmntoolsf PUBLIC OpenMP::OpenMP_Fortran)
+endif()
 
 # C shared library
 add_library(rmntoolsshared SHARED ${PROJECT_C_FILES})
@@ -104,23 +112,28 @@ set_target_properties(rmntoolsshared PROPERTIES
     POSITION_INDEPENDENT_CODE ON
     SOVERSION ${SOVERSION}
     OUTPUT_NAME rmntools)
+if(WITH_OPENMP)
+    target_compile_definitions(rmntoolsshared PUBLIC WITH_OPENMP)
+    target_link_libraries(rmntoolsshared PUBLIC OpenMP::OpenMP_C)
+endif()
 
-# Fortran shared library, needs to link to C shared library
+# Fortran shared library
 add_library(rmntoolssharedf SHARED ${PROJECT_F_FILES})
 set_target_properties(rmntoolssharedf PROPERTIES
-#     LINK_LIBRARIES ${CMAKE_CURRENT_BINARY_DIR}/librmntools.so;
     VERSION ${PROJECT_VERSION}
     PUBLIC_HEADER ${CMAKE_CURRENT_SOURCE_DIR}/src/PUBLIC_INCLUDES/rmntools.h
     POSITION_INDEPENDENT_CODE ON
     SOVERSION ${SOVERSION}
     OUTPUT_NAME rmntoolsf)
+# needs to link to C shared library
+target_link_libraries(rmntoolssharedf PUBLIC rmntoolsshared)
+if(WITH_OPENMP)
+    target_compile_definitions(rmntoolssharedf PUBLIC WITH_OPENMP)
+    target_link_libraries(rmntoolssharedf PUBLIC OpenMP::OpenMP_Fortran)
+endif()
 
-# Required to prevent missing Fortran modules when building in parallel
-# (make -j) with GNU compilers
-add_dependencies(rmntoolssharedf rmntoolsshared)
 
 set(TARGETS rmntools rmntoolsf rmntoolsshared rmntoolssharedf)
-target_link_options(rmntoolsf INTERFACE ${PROJECT_NAME} )
 
 foreach(TARGET IN ITEMS ${TARGETS})
     set_target_properties(${TARGET} PROPERTIES Fortran_MODULE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/modules/${TARGET})
@@ -136,41 +149,50 @@ foreach(TARGET IN ITEMS ${TARGETS})
                $<$<COMPILE_LANG_AND_ID:Fortran,LLVMFlang>:${LLVM_FFLAGS}>
                $<$<COMPILE_LANG_AND_ID:Fortran,NVHPC>:${PGI_FFLAGS}>
                $<$<COMPILE_LANG_AND_ID:C,NVHPC>:${PGI_CFLAGS}>
-              )
-    add_dependencies(${TARGET}
-        ${PROJECT_NAME}_build_info)
+    )
+    target_include_directories(${TARGET}
+        PUBLIC
+            $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+            $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/PUBLIC_INCLUDES>
+        INTERFACE
+            $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/modules/${TARGET}>
+            $<INSTALL_INTERFACE:modules/${TARGET}>
+    )
+    # add_dependencies(${TARGET} ${PROJECT_NAME}_build_info)
 endforeach()
 
-install(TARGETS ${TARGETS})
+cmake_print_variables(TARGETS)
+install(TARGETS ${TARGETS}
+    EXPORT rmntools-targets
+    INCLUDES DESTINATION include
+    LIBRARY DESTINATION lib
+    ARCHIVE DESTINATION lib # Defaults to lib64, so this is necessary for the links to work
+    PUBLIC_HEADER DESTINATION include)
 
 # Symbolic link for archive numbered version
-add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
-    COMMAND ln -sfv lib${PROJECT_NAME}_static.a lib${PROJECT_NAME}_${PROJECT_VERSION}.a)
-install(FILES ${CMAKE_CURRENT_BINARY_DIR}/lib${PROJECT_NAME}_${PROJECT_VERSION}.a DESTINATION lib)
-add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
-    COMMAND ln -sfv lib${PROJECT_NAME}f_static.a lib${PROJECT_NAME}f_${PROJECT_VERSION}.a)
-install(FILES ${CMAKE_CURRENT_BINARY_DIR}/lib${PROJECT_NAME}f_${PROJECT_VERSION}.a DESTINATION lib)
+function(add_static_lib_link target link_name)
+    add_custom_command(TARGET ${target} POST_BUILD
+        COMMAND ln -sfv lib${target}.a ${link_name}
+        WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
+    install(FILES ${CMAKE_CURRENT_BINARY_DIR}/${link_name} DESTINATION lib)
+endfunction()
+add_static_lib_link(rmntools librmntools_${PROJECT_VERSION}.a)
+add_static_lib_link(rmntoolsf librmntoolsf_${PROJECT_VERSION}.a)
 
-add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
-    COMMAND ln -sfv lib${PROJECT_NAME}_static.a lib${PROJECT_NAME}.a)
-install(FILES ${CMAKE_CURRENT_BINARY_DIR}/lib${PROJECT_NAME}.a DESTINATION lib)
-add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
-    COMMAND ln -sfv lib${PROJECT_NAME}f_static.a lib${PROJECT_NAME}f.a)
-install(FILES ${CMAKE_CURRENT_BINARY_DIR}/lib${PROJECT_NAME}f.a DESTINATION lib)
-
-#install public includes
 file(GLOB PROJECT_INCLUDE_FILES src/PUBLIC_INCLUDES/rmn/*)
 install(FILES ${PROJECT_INCLUDE_FILES} DESTINATION include/rmn)
 
 # Generate the config file for the project to be usable via cmake's find_package command
-set(CONFIG_INSTALL_DIR "${LIB_INSTALL_DIR}/cmake/${PROJECT_NAME}-${PROJECT_VERSION}")
+set(CONFIG_INSTALL_DIR "${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME}-${PROJECT_VERSION}")
+
+install(EXPORT rmntools-targets DESTINATION ${CONFIG_INSTALL_DIR})
 
 include(CMakePackageConfigHelpers)
 configure_package_config_file(
     "Config.cmake.in"
     "${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}Config.cmake"
     INSTALL_DESTINATION "${CONFIG_INSTALL_DIR}"
-    PATH_VARS INCLUDE_INSTALL_DIR LIB_INSTALL_DIR
+    PATH_VARS CMAKE_INSTALL_INCLUDEDIR CMAKE_INSTALL_LIBDIR
 )
 write_basic_package_version_file(
     "${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}ConfigVersion.cmake"
@@ -180,7 +202,7 @@ write_basic_package_version_file(
 # Fortran modules are installed in the modules/TARGET directory
 install(DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/modules/
         DESTINATION modules
-        FILES_MATCHING PATTERN "*.mod" 
+        FILES_MATCHING PATTERN "*.mod"
         PATTERN "*.smod"
         )
 
