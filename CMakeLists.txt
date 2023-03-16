@@ -24,6 +24,12 @@ message(STATUS "(EC) ${PROJECT_NAME} version = ${PROJECT_VERSION}")
 ec_build_info()            # Generate build information
 
 include(ec_compiler_presets)
+option(NO_SIMD "Control the use of SIMD.  Set to ON to use pure C code" OFF)
+if(NOT NO_SIMD)
+    message(STATUS "NOTE: Project will be built with SIMD, re-run CMake with -DNO_SIMD=ON to use pure C code")
+    # If you really want people to see it, but it's pretty scary
+    # message(WARNING "Project will be built with SIMD, re-run CMake with -DNO_SIMD=ON to use pure C code")
+endif()
 
 set(WITH_OPENMP TRUE CACHE BOOL "Control whether to use OpenMP")
 include(ec_openmp)          # Enable OpenMP (-DWITH_OPENMP=TRUE)
@@ -150,6 +156,9 @@ foreach(TARGET IN ITEMS ${TARGETS})
                $<$<COMPILE_LANG_AND_ID:Fortran,NVHPC>:${PGI_FFLAGS}>
                $<$<COMPILE_LANG_AND_ID:C,NVHPC>:${PGI_CFLAGS}>
     )
+    if(NO_SIMD)
+        target_compile_definitions(${TARGET} PUBLIC NO_SIMD)
+    endif()
     target_include_directories(${TARGET}
         PUBLIC
             $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
