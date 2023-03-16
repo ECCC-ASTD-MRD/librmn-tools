@@ -36,24 +36,35 @@ include(ec_openmp)          # Enable OpenMP (-DWITH_OPENMP=TRUE)
 message(STATUS "(EC ${PROJECT_NAME}) WITH_OPENMP=${WITH_OPENMP}" )
 #include(ec_doxygen)         # Doxygen target doc
 
-# Fortran compiler options required to build this project (also used in tests)
+# Fortran compiler options required to build this project (also used in tests
+# because they are set as PUBLIC flags of rmntools[shared][f] targets and
+# the tests link with one of those targets)
+set(Intel_FFLAGS -convert big_endian -align array32byte -assume byterecl)
+set(GNU_FFLAGS   -fconvert=big-endian -fcray-pointer -frecord-marker=4 -fno-second-underscore)
+set(Flang_FFLAGS -Mbyteswapio)
+set(PGI_FFLAGS   -byteswapio)
+set(LLVM_FFLAGS  -fconvert=big-endian)
 if(WITH_OPENMP)
-  set(Intel_FFLAGS -convert big_endian -align array32byte -assume byterecl -qopenmp)
-  set(Intel_CFLAGS -qopenmp)
-  set(GNU_FFLAGS -fconvert=big-endian -fcray-pointer -frecord-marker=4 -fno-second-underscore -fopenmp)
-  set(GNU_CFLAGS -fopenmp)
-  set(Flang_FFLAGS -Mbyteswapio -fopenmp)
-  set(Clang_CFLAGS -fopenmp)
-  set(PGI_FFLAGS -byteswapio -mp)
-  set(PGI_CFLAGS -mp)
-  set(LLVM_FFLAGS -fconvert=big-endian -fopenmp)
-  set(LLVM_CFLAGS -fopenmp)
+  list(APPEND Intel_FFLAGS -qopenmp)
+  list(APPEND Intel_CFLAGS -qopenmp)
+  list(APPEND GNU_FFLAGS   -fopenmp)
+  list(APPEND GNU_CFLAGS   -fopenmp)
+  list(APPEND Flang_FFLAGS -fopenmp)
+  list(APPEND Clang_CFLAGS -fopenmp)
+  list(APPEND PGI_FFLAGS   -mp)
+  list(APPEND PGI_CFLAGS   -mp)
+  list(APPEND LLVM_FFLAGS  -fopenmp)
+  list(APPEND LLVM_CFLAGS  -fopenmp)
 else()
-  set(Intel_FFLAGS -convert big_endian -align array32byte -assume byterecl)
-  set(GNU_FFLAGS -fconvert=big-endian -fcray-pointer -frecord-marker=4 -fno-second-underscore -ldl -pthread)
-  set(Flang_FFLAGS -Mbyteswapio)
-  set(PGI_FFLAGS -byteswapio)
-  set(LLVM_FFLAGS -fconvert=big-endian)
+  # I know -ldl is a link flag and I'm not sure about -pthread
+  # but if it's meant to go in a linking command,
+  # - target_link_options(${TARGET} [PUBLIC|PRIVATE|INTERFACE] -pthread)
+  # - target_link_libraries(${TARGET} [PUBLIC|PRIVATE|INTERFACE] dl)
+  #   because dl is not a target and is not a file path, this will add -ldl
+  #   to the linking command.  We could also put -ldl in target_link_options()
+  #   and we can even put -ldl in target_link_libraries, it will only add '-l'
+  #   if it is not already there.
+  list(APPEND GNU_FFLAGS -ldl -pthread)
 endif()
 
 include(GNUInstallDirs)
