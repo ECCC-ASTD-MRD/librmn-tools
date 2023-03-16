@@ -3,10 +3,12 @@ message(STATUS "(EC) Generating librmn tests")
 
 option(INSTALL_TESTS OFF)
 function(add_rmntools_test name source link_libs)
-    # Use same name for target as for file
+    # Use same name for target and test
     add_executable(${name} ${source})
     target_link_libraries(${name} PRIVATE ${link_libs})
-    add_test(NAME ${name} COMMAND $<TARGET_FILE:${name}>)
+    add_test(NAME ${name}
+        COMMAND sh -c "$<TARGET_FILE:${name}> 2>&1 | tee ${name}_output_$(date +%Y-%m-%d_%H.%M.%S).log"
+        WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
     add_dependencies(check ${name})
     if(INSTALL_TESTS)
         install(TARGETS ${name} RUNTIME DESTINATION bin)
