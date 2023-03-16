@@ -105,7 +105,7 @@ if(WITH_OPENMP)
 endif()
 
 # C shared library
-add_library(rmntoolsshared SHARED ${PROJECT_C_FILES})
+add_library(rmntoolsshared SHARED $<TARGET_OBJECTS:rmntools>)
 set_target_properties(rmntoolsshared PROPERTIES
     VERSION ${PROJECT_VERSION}
     PUBLIC_HEADER ${CMAKE_CURRENT_SOURCE_DIR}/src/PUBLIC_INCLUDES/rmntools.h
@@ -118,7 +118,7 @@ if(WITH_OPENMP)
 endif()
 
 # Fortran shared library
-add_library(rmntoolssharedf SHARED ${PROJECT_F_FILES})
+add_library(rmntoolssharedf SHARED $<TARGET_OBJECTS:rmntoolsf>)
 set_target_properties(rmntoolssharedf PROPERTIES
     VERSION ${PROJECT_VERSION}
     PUBLIC_HEADER ${CMAKE_CURRENT_SOURCE_DIR}/src/PUBLIC_INCLUDES/rmntools.h
