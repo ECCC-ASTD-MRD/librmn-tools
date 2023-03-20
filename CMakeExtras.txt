@@ -1,0 +1,40 @@
+# process HELP request and extra compilation defiens for all source files
+# variable USAGE_DESCRIPTION is expected to contain the useful information
+if(DEFINED ENV{HELP})   # if environment variable HELP is defined, set variable HELP to its value
+  set(HELP $ENV{HELP})
+endif()
+if(HELP OR help)      # recognize both upper and lower case forms
+  unset(HELP CACHE)   # DO NOT CACHE
+  unset(help CACHE)   # DO NOT CACHE
+  message("USAGE:\n " ${USAGE_DESCRIPTION})
+  set(MUST_RETURN ON)   # tell caller to issue a return()
+  return()
+endif()
+#
+# get extra definitions for this configure run
+# these extra definitions should not be cached
+if(EXTRA_DEFINES)
+  string(REGEX REPLACE "[, ]" ";" LOCAL ${EXTRA_DEFINES})
+  unset(EXTRA_DEFINES CACHE)
+  foreach(ITEM IN ITEMS ${LOCAL})
+    set(EXTRA_DEFINES "${EXTRA_DEFINES} -D${ITEM}")
+    add_compile_options(-D${ITEM})
+  endforeach()
+endif()
+if(EXTRA_DEFINES)
+  message(STATUS "extra defines : ${EXTRA_DEFINES}")
+endif()
+#
+# get extra compilation options for this configure run
+# these extra definitions should not be cached
+if(EXTRA_OPTIONS)
+  string(REGEX REPLACE "[, ]" ";" LOCAL ${EXTRA_OPTIONS})
+  unset(EXTRA_OPTIONS CACHE)
+  foreach(ITEM IN ITEMS ${LOCAL})
+    set(EXTRA_OPTIONS "${EXTRA_OPTIONS} ${ITEM}")
+    add_compile_options(${ITEM})
+  endforeach()
+endif()
+if(EXTRA_OPTIONS)
+  message(STATUS "extra compilation options : ${EXTRA_OPTIONS}")
+endif()

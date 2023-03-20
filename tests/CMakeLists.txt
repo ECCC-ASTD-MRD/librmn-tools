@@ -1,76 +1,31 @@
-# The minimum version can not be 3.16 because of the LINK_LANGUAGE generator expression in Config.cmake.in
-cmake_minimum_required(VERSION 3.20)
 add_custom_target(check COMMAND CTEST_OUTPUT_ON_FAILURE=true ${CMAKE_CTEST_COMMAND})
 message(STATUS "(EC) Generating librmn tests")
 
-add_executable(test_c test_c.c)
+option(INSTALL_TESTS OFF)
+function(add_rmntools_test name source link_libs)
+    # Use same name for target as for file
+    add_executable(${name} ${source})
+    target_link_libraries(${name} PRIVATE ${link_libs})
+    add_test(NAME ${name} COMMAND $<TARGET_FILE:${name}> ${name})
+    add_dependencies(check ${name})
+    if(INSTALL_TESTS)
+        install(TARGETS ${name} RUNTIME DESTINATION bin)
+    else()
+        set_target_properties(${name} PROPERTIES EXCLUDE_FROM_ALL TRUE)
+    endif()
+endfunction()
+
+add_rmntools_test(test_c test_c.c rmntoolsshared)   # link with shared libraries
 target_compile_definitions(test_c PRIVATE TESTC)
-add_test(NAME test_c COMMAND ${CMAKE_CURRENT_BINARY_DIR}/test_c)
 
-add_executable(test_f test_f.F90)
+add_rmntools_test(test_f test_f.F90 rmntoolsf)   # link with static libraries
 target_compile_definitions(test_f PRIVATE TESTF)
-add_test(NAME test_f COMMAND ${CMAKE_CURRENT_BINARY_DIR}/test_f)
 
-add_executable(test_identify_compiler_c test_identify_compiler_c.c)
-add_test(NAME test_identify_compiler_c COMMAND ${CMAKE_CURRENT_BINARY_DIR}/test_identify_compiler_c)
+add_rmntools_test(test_identify_compiler_c test_identify_compiler_c.c rmntools)
+add_rmntools_test(test_identify_compiler_f test_identify_compiler_f.F90 rmntoolsf)
+add_rmntools_test(test_timers test_timers.c rmntools)
 
-add_executable(test_identify_compiler_f test_identify_compiler_f.F90)
-add_test(NAME test_identify_compiler_f COMMAND ${CMAKE_CURRENT_BINARY_DIR}/test_identify_compiler_f)
+add_rmntools_test(test_lorenzo_c test_lorenzo_c.c rmntools)
+add_rmntools_test(test_lorenzo_f test_lorenzo.F90 rmntoolsf)
+SET_SOURCE_FILES_PROPERTIES( test_lorenzo.F90 PROPERTIES COMPILE_FLAGS -DNO_FORTRAN_CODE )
 
-add_executable(test_timers test_timers.c)
-add_test(NAME test_timers COMMAND ${CMAKE_CURRENT_BINARY_DIR}/test_timers)
-
-add_executable(test_lorenzo_f test_lorenzo.F90)
-add_test(NAME test_lorenzo_f COMMAND ${CMAKE_CURRENT_BINARY_DIR}/test_lorenzo_f)
-
-add_executable(test_lorenzo_c test_lorenzo_c.c)
-add_test(NAME test_lorenzo_c COMMAND ${CMAKE_CURRENT_BINARY_DIR}/test_lorenzo_c)
-
-# add_executable(test_lorenzo test_lorenzo.c)
-
-set(TARGETS
-    test_identify_compiler_c
-    test_identify_compiler_f
-    test_timers
-#     test_lorenzo
-    test_lorenzo_c
-    test_lorenzo_f
-    test_f
-    test_c)
-
-# currently set to build with shared libraries, build with .a commented for now
-# libraries expected to be found in ../lib relative to executable directory
-# (an extra $ORIGIN/.. item will be found in the rpath)
-foreach(TARGET IN ITEMS ${TARGETS})
-    target_include_directories(${TARGET}
-      PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/../modules/rmntoolssharedf
-      PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../include
-      PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../src/PUBLIC_INCLUDES 
-      PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../src
-      )
-    set_target_properties(${TARGET} PROPERTIES BUILD_RPATH "$ORIGIN/../lib" BUILD_RPATH_USE_ORIGIN true)
-    target_link_options(${TARGET}
-        PRIVATE $<$<COMPILE_LANG_AND_ID:Fortran,GNU>:${GNU_FFLAGS}>
-               $<$<COMPILE_LANG_AND_ID:C,GNU>:${GNU_CFLAGS}>
-               $<$<COMPILE_LANG_AND_ID:Fortran,Intel>:${Intel_FFLAGS}>
-               $<$<COMPILE_LANG_AND_ID:C,Intel>:${Intel_CFLAGS}>
-               $<$<COMPILE_LANG_AND_ID:Fortran,Flang>:${Flang_FFLAGS}>
-               $<$<COMPILE_LANG_AND_ID:C,Clang>:${Clang_CFLAGS}>
-               $<$<COMPILE_LANG_AND_ID:Fortran,PGI>:${PGI_FFLAGS}>
-               $<$<COMPILE_LANG_AND_ID:C,PGI>:${PGI_CFLAGS}>
-               $<$<COMPILE_LANG_AND_ID:Fortran,LLVMFlang>:${LLVM_FFLAGS}>
-               $<$<COMPILE_LANG_AND_ID:C,LLVMClang>:${LLVM_CFLAGS}>
-               $<$<COMPILE_LANG_AND_ID:Fortran,NVHPC>:${PGI_FFLAGS}>
-               $<$<COMPILE_LANG_AND_ID:C,NVHPC>:${PGI_CFLAGS}>
-               )
-#     target_link_libraries(${TARGET} PRIVATE ${PROJECT_NAME}f ${PROJECT_NAME})
-#     target_link_libraries(${TARGET} PRIVATE ${PROJECT_NAME}sharedf ${PROJECT_NAME}shared)
-    target_link_libraries(${TARGET} PRIVATE  -L.. ${PROJECT_NAME}f_static.a ${PROJECT_NAME}_static.a)
-endforeach()
-
-foreach(TARGET IN ITEMS ${TARGETS})
-    install(
-        PROGRAMS "${CMAKE_CURRENT_BINARY_DIR}/${TARGET}"
-        DESTINATION "${BIN_INSTALL_DIR}"
-    )
-endforeach()
