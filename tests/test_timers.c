@@ -32,4 +32,6 @@ int main(int argc, char **argv){
   for(i=0 ; i<NT ; i++) tu = elapsed_us() ;
   t1 = elapsed_cycles() ;
   printf("avg call to %d elapsed_us     = %ld cycles, %8.2f ns\n", NT, (t1-t0)/NT, (t1-t0)/NT*t*1.0E+9) ;
+
+  if(timer_max == 0) printf("timer_max ==0, should not happen\n");
 }

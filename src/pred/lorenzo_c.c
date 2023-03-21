@@ -44,7 +44,7 @@ static void LorenzoPredictShort(int32_t * restrict orig, int32_t * restrict diff
 // n    : number of points in row
 STATIC inline void LorenzoPredictRow0(int32_t * restrict row, int32_t * restrict diff, int n){
 #if defined(WITH_SIMD) && defined(__AVX2__) && defined(__x86_64__)
-    __m256i vi, vi1, vj1, vij1, t ;
+    __m256i vi, vi1 ;
     int i0, ii0 ;
 #endif
   int i ;
@@ -78,7 +78,7 @@ static inline void LorenzoPredictRow0_inplace_07(int32_t * restrict row, int n){
 #if defined(__x86_64__) && defined(__AVX2__) && defined(WITH_SIMD)
 
 STATIC inline void LorenzoPredictRow0_inplace(int32_t * restrict row, int n){
-  int i, i0, j0, n7 = (n & 7) ;
+  int i0, j0, n7 = (n & 7) ;
   __m256i vi, vi1, vt, vr, v0, vs ;
 
   if(n < 8) {
@@ -152,7 +152,7 @@ STATIC inline void LorenzoPredictRow0_inplace(int32_t * restrict row, int n){
 // this function WILL NOT WORK IN-PLACE (i.e. if diff == top)
 STATIC inline void LorenzoPredictRowJ(int32_t * restrict top, int32_t * restrict bot, int32_t * restrict diff, int n){
 #if defined(WITH_SIMD) && defined(__AVX2__) && defined(__x86_64__)
-    __m256i vi, vi1, vj1, vij1, t ;
+    __m256i vi, vi1, vj1, vij1 ;
     int i0, ii0 ;
 #endif
   int i ;
@@ -190,7 +190,7 @@ static void LorenzoPredictRowJ_inplace_07(int32_t * restrict top, int32_t * rest
 #if defined(__x86_64__) && defined(__AVX2__) && defined(WITH_SIMD)
 
 STATIC inline void LorenzoPredictRowJ_inplace(int32_t * restrict top, int32_t * restrict bot, int n){
-  int i, i0, j0, n7 = (n & 7) ;
+  int i0, j0, n7 = (n & 7) ;
   __m256i vi, vi1, vj1, vij1, vt, vr, v0, vs ;
 
   if(n < 8) {
@@ -290,7 +290,7 @@ void LorenzoPredict_c(int32_t * restrict orig, int32_t * restrict diff, int ni, 
 // in place version of above function
 // in order to operate in place, prediction is done backwards from top row to bottom row
 void LorenzoPredictInplace_c(int32_t * restrict orig, int ni, int lnio, int nj){
-  int32_t diff[ni] ;
+//   int32_t diff[ni] ;
   orig += (lnio * (nj - 1)) ;
   while(--nj > 0){                                    // all rows other than bottom row
     LorenzoPredictRowJ_inplace(orig, orig-lnio, ni) ;

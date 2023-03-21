@@ -152,10 +152,11 @@ STATIC inline uint64_t elapsed_cycles_fast(void) {
 #endif
 }
 
+static uint64_t misc = 0ul ;
 // elapsed timer ticks, WITH serializing, NO fencing
 static inline uint64_t elapsed_cycles_nofence(void) {
 #if defined(__x86_64__)
-  uint64_t lo, hi, misc ;
+  uint64_t lo, hi ;
   __asm__ volatile ("rdtscp": /* outputs   */ "=a" (lo), "=d" (hi), "=c" (misc) );
   return lo | (hi << 32);
 #elif defined(__aarch64__)
@@ -170,7 +171,7 @@ static inline uint64_t elapsed_cycles_nofence(void) {
 // elapsed timer ticks, WITH serializing, WITH memory fencing after
 static inline uint64_t elapsed_cycles_fenced(void) {
 #if defined(__x86_64__)
-  uint64_t lo, hi, misc ;
+  uint64_t lo, hi ;
   __asm__ volatile ("rdtscp": /* outputs   */ "=a" (lo), "=d" (hi), "=c" (misc) );
   __asm__ volatile ("mfence");
   return lo | (hi << 32);

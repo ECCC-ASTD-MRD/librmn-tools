@@ -26,6 +26,9 @@ add_rmntools_test(test_identify_compiler_f test_identify_compiler_f.F90 rmntools
 add_rmntools_test(test_timers test_timers.c rmntools)
 
 add_rmntools_test(test_bi_endian_pack test_bi_endian_pack.c rmntools)
+SET_SOURCE_FILES_PROPERTIES( test_bi_endian_pack PROPERTIES COMPILE_FLAGS -O3 )
+add_rmntools_test(test_pack_macros test_pack_macros.c rmntools)
+SET_SOURCE_FILES_PROPERTIES( test_pack_macros PROPERTIES COMPILE_FLAGS -O3 )
 
 add_rmntools_test(test_lorenzo_c test_lorenzo_c.c rmntools)
 add_rmntools_test(test_lorenzo_f test_lorenzo.F90 rmntoolsf)

@@ -2,7 +2,7 @@
 cmake_minimum_required(VERSION 3.20)
 list(APPEND USAGE_DESCRIPTION 
             "-DCMAKE_INSTALL_PREFIX=/some/path " "-DWITH_OPENMP=ON|OFF\n "
-            "-DCOMPILER_SUITE=gnu|intel|aocc|llvm|nvhpc " "-DINSTALL_TESTS=ON|OFF\n "
+            "-DCOMPILER_SUITE=gnu|intel|aocc|llvm|nvhpc " "-DUSE_ICX " "-DINSTALL_TESTS=ON|OFF\n "
             "-DEXTRA_DEFINES=opt1[=v1][,opt2[=v2]] ... [,optn[=vn]]\n "
             "  options : QUIET_SIMD MINI_FORTRAN\n " "-DHELP=1\n "
 )
@@ -43,21 +43,41 @@ message(STATUS "(EC ${PROJECT_NAME}) WITH_OPENMP=${WITH_OPENMP}" )
 #include(ec_doxygen)         # Doxygen target doc
 
 # Fortran compiler options required to build this project (also used in tests)
+message(STATUS "CMAKE_C_COMPILER == ${CMAKE_C_COMPILER}")
+if(${CMAKE_C_COMPILER} MATCHES ".*icc\$")
+  set(CMAKE_C_COMPILER "icx")
+message(STATUS "CMAKE_C_COMPILER == ${CMAKE_C_COMPILER}")
+endif()
 if(WITH_OPENMP)
   set(Intel_FFLAGS -convert big_endian -align array32byte -assume byterecl -qopenmp)
-  set(Intel_CFLAGS -qopenmp)
+  if(${CMAKE_C_COMPILER} MATCHES ".*icx\$")
+    set(Intel_CFLAGS -qopenmp -Wno-static-in-inline)
+  else()
+    set(Intel_CFLAGS -qopenmp)
+  endif()
+
   set(GNU_FFLAGS -fconvert=big-endian -fcray-pointer -frecord-marker=4 -fno-second-underscore -fopenmp)
-  set(GNU_CFLAGS -fopenmp)
+  set(GNU_CFLAGS -fopenmp -march=native)
+
   set(Flang_FFLAGS -Mbyteswapio -fopenmp)
-  set(Clang_CFLAGS -fopenmp)
+  if(${CMAKE_C_COMPILER} MATCHES ".*clang\$")
+    set(Clang_CFLAGS -fopenmp -Wno-static-in-inline -march=native)
+  else()
+    set(Clang_CFLAGS -fopenmp -march=native)
+  endif()
+
   set(PGI_FFLAGS -byteswapio -mp)
   set(PGI_CFLAGS -mp)
+
   set(LLVM_FFLAGS -fconvert=big-endian -fopenmp)
   set(LLVM_CFLAGS -fopenmp)
 else()
   set(Intel_FFLAGS -convert big_endian -align array32byte -assume byterecl)
+  set(Intel_CFLAGS -Wno-static-in-inline)
   set(GNU_FFLAGS -fconvert=big-endian -fcray-pointer -frecord-marker=4 -fno-second-underscore -ldl -pthread)
+  set(GNU_CFLAGS -march=native)
   set(Flang_FFLAGS -Mbyteswapio)
+  set(Clang_CFLAGS -Wno-static-in-inline -march=native)
   set(PGI_FFLAGS -byteswapio)
   set(LLVM_FFLAGS -fconvert=big-endian)
 endif()
@@ -71,13 +91,14 @@ include(GNUInstallDirs)
 
 # ======================== PROJECT FILES ======================
 set(PROJECT_C_FILES 
+  src/id/identify_compiler.c
   src/timers/rmn_timers.c
   src/pred/lorenzo_c.c
   src/pack/bi_endian_pack.c
   src/pred/pred_dummy.c
   src/dummy.c
-  src/id/identify_compiler.c
 )
+SET_SOURCE_FILES_PROPERTIES( src/pred/lorenzo_c.c PROPERTIES COMPILE_FLAGS "-O3 -DQUIET_SIMD")
 # file(GLOB PROJECT_C_FILES
 #    src/*.c
 #    src/*/*.c
@@ -92,7 +113,7 @@ set(PROJECT_F_FILES
 #    src/*.F90
 #    src/*/*.F90
 # )
-SET_SOURCE_FILES_PROPERTIES( src/pred/lorenzo_mod.F90 PROPERTIES COMPILE_FLAGS -DNO_FORTRAN_CODE )
+SET_SOURCE_FILES_PROPERTIES( src/pred/lorenzo_mod.F90 PROPERTIES COMPILE_FLAGS -DNO_EXTRA_FORTRAN )
 set(PROJECT_H_FILES
   src/PUBLIC_INCLUDES/rmntools.h
   src/PUBLIC_INCLUDES/rmn/lorenzo.h
@@ -102,6 +123,7 @@ set(PROJECT_H_FILES
   src/PUBLIC_INCLUDES/rmn/tools_types.h
   src/PUBLIC_INCLUDES/rmn/pack_macros.h
   src/PUBLIC_INCLUDES/rmn/bi_endian_pack.h
+  src/PUBLIC_INCLUDES/rmn/bits.h
   src/PUBLIC_INCLUDES/rmn/identify_compiler_c.h
   src/PUBLIC_INCLUDES/rmn/is_fortran_compiler.h
 )

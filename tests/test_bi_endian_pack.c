@@ -34,11 +34,11 @@ int main(int argc, char **argv){
   uint32_t unpacked[NPTS], packedle[NPTS], packedbe[NPTS], restored[NPTS] ;
   int32_t unpacked_signed[NPTS], signed_restored[NPTS] ;
   bitstream ple, pbe ;
-  int i, j, nbits, errors, errorsle, errorsbe, errorsles, errorsbes ;
+  int i, nbits, errors, errorsle, errorsbe, errorsles, errorsbes ;
   uint32_t mask ;
-  uint64_t t0, t1, tmin, tmax, tavg, freq ;
+  uint64_t tmin, tmax, tavg, freq ;
   double nano ;
-  uint64_t t[NTIMES] ;
+//   uint64_t t[NTIMES] ;
   char buf[1024] ;
   size_t bufsiz = sizeof(buf) ;
   uint32_t peek_u, peek_u2 ;
@@ -47,7 +47,7 @@ int main(int argc, char **argv){
   freq = cycles_counter_freq() ;
   nano = 1000000000 ;
   nano /= freq ;
-  for(i=0 ; i<NTIMES ; i++) t[i] = 0 ;
+//   for(i=0 ; i<NTIMES ; i++) t[i] = 0 ;
 
   for(i=0 ; i<NPTS ; i++) unpacked[i] = i + 16 ;
   for(i=0 ; i<NPTS   ; i+=2) unpacked_signed[i] = -unpacked[i] ;
@@ -220,4 +220,6 @@ int main(int argc, char **argv){
 //     printf(" %8.8x %8.8x", signed_restored[NPTS/2 + nbits], signed_restored[NPTS/2 + nbits + 1]);
     printf("\n");
   }
+
+  if(tmax == 0) printf("tmax == 0, should not happen\n") ;
 }

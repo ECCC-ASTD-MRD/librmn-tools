@@ -16,11 +16,11 @@ int main(int argc, char **argv){
   int32_t data[NPTS+1][NPTS] ;
   int32_t data2[NPTS+1][NPTS] ;
   int32_t pred[NPTS+1][NPTS] ;
-  int32_t pred2[NPTS+1][NPTS] ;
+//   int32_t pred2[NPTS+1][NPTS] ;
   int i, j, errors ;
   uint64_t tmin, tmax, freq ;
   double nano, tavg ;
-  int niter = NTIMES ;
+//   int niter = NTIMES ;
   char buf[1024] ;
   size_t bufsiz = sizeof(buf) ;
 
@@ -35,7 +35,7 @@ int main(int argc, char **argv){
       data[j][i]  = (2*i + 3*j + 5) ;
       data2[j][i] = 999999 ;
       pred[j][i]  = 999999 ;
-      pred2[j][i] = 999999 ;
+//       pred2[j][i] = 999999 ;
     }
   }
 
@@ -87,4 +87,6 @@ int main(int argc, char **argv){
 
   TIME_LOOP(tmin, tmax, tavg, NTIMES, (NPTS*NPTS), buf, bufsiz, LorenzoUnpredict_c(&data[0][0], &pred[0][0], NPTS, NPTS, NPTS, NPTS) )
   printf("LorenzoUnpredict_c_ : %s\n",buf);
+
+  if(tmax == 0) printf("tmax == 0, should not happen\n") ;
 }
