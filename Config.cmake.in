@@ -55,7 +55,7 @@ target_compile_options(${CMAKE_FIND_PACKAGE_NAME}
               $<$<COMPILE_LANG_AND_ID:Fortran,Intel>:@Intel_FFLAGS@>
               $<$<COMPILE_LANG_AND_ID:Fortran,Flang>:@Flang_FFLAGS@>
               $<$<COMPILE_LANG_AND_ID:Fortran,PGI>:${PGI_FFLAGS}>
-              $<$<COMPILE_LANG_AND_ID:Fortran,LLVM>:${LLVM_FFLAGS}>
+              $<$<COMPILE_LANG_AND_ID:Fortran,LLVMFlang>:${LLVM_FFLAGS}>
               $<$<COMPILE_LANG_AND_ID:Fortran,NVHPC>:${PGI_FFLAGS}>)
 
 #----- Check that everything is there and undefines ${PACKAGE_NAME}_FOUND if it's not the case
