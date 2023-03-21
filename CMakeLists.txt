@@ -95,8 +95,6 @@ set(PROJECT_C_FILES
   src/timers/rmn_timers.c
   src/pred/lorenzo_c.c
   src/pack/bi_endian_pack.c
-  src/pred/pred_dummy.c
-  src/dummy.c
 )
 SET_SOURCE_FILES_PROPERTIES( src/pred/lorenzo_c.c PROPERTIES COMPILE_FLAGS "-O3 -DQUIET_SIMD")
 SET_SOURCE_FILES_PROPERTIES( src/pred/bi_endian_pack.c PROPERTIES COMPILE_FLAGS -O3)
@@ -106,9 +104,7 @@ SET_SOURCE_FILES_PROPERTIES( src/pred/bi_endian_pack.c PROPERTIES COMPILE_FLAGS 
 # )
 set(PROJECT_F_FILES
   src/timers/rmn_timers_mod.F90
-  src/pred/pred_dummy.F90
   src/pred/lorenzo_mod.F90
-  src/dummy.F90
 )
 # file(GLOB PROJECT_F_FILES
 #    src/*.F90

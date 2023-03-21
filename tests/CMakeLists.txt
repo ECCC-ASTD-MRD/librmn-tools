@@ -15,11 +15,10 @@ function(add_rmntools_test name source link_libs)
     endif()
 endfunction()
 
-add_rmntools_test(test_c test_c.c rmntoolsshared)   # link with shared libraries
-target_compile_definitions(test_c PRIVATE TESTC)
-
-add_rmntools_test(test_f test_f.F90 rmntoolsf)   # link with static libraries
-target_compile_definitions(test_f PRIVATE TESTF)
+# add_rmntools_test(test_c test_c.c rmntoolsshared)   # link with shared libraries
+# target_compile_definitions(test_c PRIVATE TESTC)
+# add_rmntools_test(test_f test_f.F90 rmntoolsf)   # link with static libraries
+# target_compile_definitions(test_f PRIVATE TESTF)
 
 add_rmntools_test(test_identify_compiler_c test_identify_compiler_c.c rmntools)
 add_rmntools_test(test_identify_compiler_f test_identify_compiler_f.F90 rmntoolsf)
