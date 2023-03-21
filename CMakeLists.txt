@@ -51,9 +51,9 @@ endif()
 if(WITH_OPENMP)
   set(Intel_FFLAGS -convert big_endian -align array32byte -assume byterecl -qopenmp)
   if(${CMAKE_C_COMPILER} MATCHES ".*icx\$")
-    set(Intel_CFLAGS -qopenmp -Wno-static-in-inline)
+    set(Intel_CFLAGS -qopenmp -Wno-static-in-inline -march=native)
   else()
-    set(Intel_CFLAGS -qopenmp)
+    set(Intel_CFLAGS -qopenmp -march=native)
   endif()
 
   set(GNU_FFLAGS -fconvert=big-endian -fcray-pointer -frecord-marker=4 -fno-second-underscore -fopenmp)
@@ -99,6 +99,7 @@ set(PROJECT_C_FILES
   src/dummy.c
 )
 SET_SOURCE_FILES_PROPERTIES( src/pred/lorenzo_c.c PROPERTIES COMPILE_FLAGS "-O3 -DQUIET_SIMD")
+SET_SOURCE_FILES_PROPERTIES( src/pred/bi_endian_pack.c PROPERTIES COMPILE_FLAGS -O3)
 # file(GLOB PROJECT_C_FILES
 #    src/*.c
 #    src/*/*.c
