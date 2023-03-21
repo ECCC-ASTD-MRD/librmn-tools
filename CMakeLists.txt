@@ -73,7 +73,7 @@ include(GNUInstallDirs)
 set(PROJECT_C_FILES 
   src/timers/rmn_timers.c
   src/pred/lorenzo_c.c
-  src/pred/lorenzo_predict.c
+  src/pack/bi_endian_pack.c
   src/pred/pred_dummy.c
   src/dummy.c
   src/id/identify_compiler.c
@@ -99,6 +99,9 @@ set(PROJECT_H_FILES
   src/PUBLIC_INCLUDES/rmn/rmn_tools.h
   src/PUBLIC_INCLUDES/rmn/identify_compiler_f.h
   src/PUBLIC_INCLUDES/rmn/timers.h
+  src/PUBLIC_INCLUDES/rmn/tools_types.h
+  src/PUBLIC_INCLUDES/rmn/pack_macros.h
+  src/PUBLIC_INCLUDES/rmn/bi_endian_pack.h
   src/PUBLIC_INCLUDES/rmn/identify_compiler_c.h
   src/PUBLIC_INCLUDES/rmn/is_fortran_compiler.h
 )

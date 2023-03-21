@@ -25,6 +25,8 @@ add_rmntools_test(test_identify_compiler_c test_identify_compiler_c.c rmntools)
 add_rmntools_test(test_identify_compiler_f test_identify_compiler_f.F90 rmntoolsf)
 add_rmntools_test(test_timers test_timers.c rmntools)
 
+add_rmntools_test(test_bi_endian_pack test_bi_endian_pack.c rmntools)
+
 add_rmntools_test(test_lorenzo_c test_lorenzo_c.c rmntools)
 add_rmntools_test(test_lorenzo_f test_lorenzo.F90 rmntoolsf)
 SET_SOURCE_FILES_PROPERTIES( test_lorenzo.F90 PROPERTIES COMPILE_FLAGS -DNO_FORTRAN_CODE )
