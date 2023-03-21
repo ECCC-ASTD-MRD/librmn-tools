@@ -1,17 +1,23 @@
-# process HELP request and extra compilation defiens for all source files
+#
+# process HELP request and extra compilation defines for all source files
 # variable USAGE_DESCRIPTION is expected to contain the useful information
 if(DEFINED ENV{HELP})   # if environment variable HELP is defined, set variable HELP to its value
   set(HELP $ENV{HELP})
 endif()
-if(HELP OR help)      # recognize both upper and lower case forms
+if(HELP OR help)      # recognize both upper and lower case forms (cmake ... -DHELP=value)
   unset(HELP CACHE)   # DO NOT CACHE
   unset(help CACHE)   # DO NOT CACHE
   message("USAGE:\n " ${USAGE_DESCRIPTION})
-  set(MUST_RETURN ON)   # tell caller to issue a return()
+  macro(conditional_return)     # return command if HELP
+      return()
+  endmacro()
   return()
+else()
+  macro(conditional_return)     # NO-OP otherwise
+  endmacro()
 endif()
 #
-# get extra definitions for this configure run
+# get extra definitions for this configuration run
 # these extra definitions should not be cached
 if(EXTRA_DEFINES)
   string(REGEX REPLACE "[, ]" ";" LOCAL ${EXTRA_DEFINES})
@@ -25,7 +31,7 @@ if(EXTRA_DEFINES)
   message(STATUS "extra defines : ${EXTRA_DEFINES}")
 endif()
 #
-# get extra compilation options for this configure run
+# get extra compilation options for this configuration run
 # these extra definitions should not be cached
 if(EXTRA_OPTIONS)
   string(REGEX REPLACE "[, ]" ";" LOCAL ${EXTRA_OPTIONS})

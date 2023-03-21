@@ -1,14 +1,15 @@
 # The minimum version can not be 3.16 because of the LINK_LANGUAGE generator expression in Config.cmake.in
 cmake_minimum_required(VERSION 3.20)
 list(APPEND USAGE_DESCRIPTION 
-            "-DCMAKE_INSTALL_PREFIX=/some/path" "-DWITH_OPENMP=ON|OFF\n "
+            "-DCMAKE_INSTALL_PREFIX=/some/path " "-DWITH_OPENMP=ON|OFF\n "
             "-DCOMPILER_SUITE=gnu|intel|aocc|llvm|nvhpc " "-DINSTALL_TESTS=ON|OFF\n "
-            "-DEXTRA_DEFINES=[opt1[=v1]][,opt2[=v2]]]...[,optn[=vn]]"
+            "-DEXTRA_DEFINES=opt1[=v1][,opt2[=v2]] ... [,optn[=vn]]\n "
+            "  options : QUIET_SIMD MINI_FORTRAN\n " "-DHELP=1\n "
 )
-include(CMakeExtras.txt)
-if(MUST_RETURN)
-  return()
+if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/CMakeExtras.txt)
+  include(CMakeExtras.txt)
 endif()
+conditional_return()    # return if help requested
 
 if(DEFINED COMPILER_SUITE)
   string(TOLOWER "${COMPILER_SUITE}" COMPILER_SUITE)
@@ -30,7 +31,7 @@ ec_parse_manifest()        # Parse MANIFEST file
 project(${NAME} DESCRIPTION "${DESCRIPTION}" LANGUAGES C Fortran)
 set(PROJECT_VERSION ${VERSION}${STATE})
 set(rmntools_VERSION ${PROJECT_VERSION} CACHE INTERNAL "rmntools version" FORCE) # Needed for cascaded version identification
-message(STATUS "(EC) ${PROJECT_NAME} version = ${PROJECT_VERSION}")
+message(STATUS "(EC) ${PROJECT_NAME} version = ${PROJECT_VERSION} GENERATOR = ${CMAKE_GENERATOR}")
 
 ec_build_info()            # Generate build information
 
@@ -69,19 +70,42 @@ include(GNUInstallDirs)
 # these are the defaults for X DESTINATION in install command
 
 # ======================== PROJECT FILES ======================
-file(GLOB PROJECT_C_FILES
-   src/*.c
-   src/*/*.c
+set(PROJECT_C_FILES 
+  src/timers/rmn_timers.c
+  src/pred/lorenzo_c.c
+  src/pred/lorenzo_predict.c
+  src/pred/pred_dummy.c
+  src/dummy.c
+  src/id/identify_compiler.c
 )
-file(GLOB PROJECT_F_FILES
-   src/*.F90
-   src/*/*.F90
+# file(GLOB PROJECT_C_FILES
+#    src/*.c
+#    src/*/*.c
+# )
+set(PROJECT_F_FILES
+  src/timers/rmn_timers_mod.F90
+  src/pred/pred_dummy.F90
+  src/pred/lorenzo_mod.F90
+  src/dummy.F90
 )
+# file(GLOB PROJECT_F_FILES
+#    src/*.F90
+#    src/*/*.F90
+# )
 SET_SOURCE_FILES_PROPERTIES( src/pred/lorenzo_mod.F90 PROPERTIES COMPILE_FLAGS -DNO_FORTRAN_CODE )
-file(GLOB PROJECT_H_FILES
-   src/*/*.h
-   src/*/*/*.h
+set(PROJECT_H_FILES
+  src/PUBLIC_INCLUDES/rmntools.h
+  src/PUBLIC_INCLUDES/rmn/lorenzo.h
+  src/PUBLIC_INCLUDES/rmn/rmn_tools.h
+  src/PUBLIC_INCLUDES/rmn/identify_compiler_f.h
+  src/PUBLIC_INCLUDES/rmn/timers.h
+  src/PUBLIC_INCLUDES/rmn/identify_compiler_c.h
+  src/PUBLIC_INCLUDES/rmn/is_fortran_compiler.h
 )
+# file(GLOB PROJECT_H_FILES
+#    src/*/*.h
+#    src/*/*/*.h
+# )
 # ================================================================
 
 string(REGEX MATCH "([0-9]+)" SOVERSION ${PROJECT_VERSION})

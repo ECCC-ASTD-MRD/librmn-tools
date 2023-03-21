@@ -75,6 +75,7 @@ program lorenzo_test
     enddo
   endif
 
+#if defined(EXTRA_FORTRAN)
   do k = 1, NTIMES
     f = fr
     t(k) = timer_cycles()
@@ -88,6 +89,7 @@ program lorenzo_test
       print 1, j, f(1:lnio,j)
     enddo
   endif
+#endif
 
   do k = 1, NTIMES
     f = fr
@@ -118,6 +120,7 @@ program lorenzo_test
     enddo
   endif
 
+#if defined(EXTRA_FORTRAN)
   f = fr
   do k = 1, NTIMES
     t(k) = timer_cycles()
@@ -131,6 +134,7 @@ program lorenzo_test
       print 1, j, pred(1:lnid,j)
     enddo
   endif
+#endif
 
   f = fr
   do k = 1, NTIMES
@@ -170,6 +174,7 @@ program lorenzo_test
   enddo
   print *,'errors =',errors
 
+#if defined(EXTRA_FORTRAN)
   do k = 1, NTIMES
     fp = fr
     call lorenzopredictinplace_f(fp, ni, lnio, nj)
@@ -191,6 +196,7 @@ program lorenzo_test
   enddo
   enddo
   print *,'errors =',errors
+#endif
 
   do k = 1, NTIMES
     fp = fr
@@ -238,6 +244,7 @@ program lorenzo_test
   enddo
   print *,'errors =',errors
 
+#if defined(EXTRA_FORTRAN)
   call lorenzopredict(fr, pred, ni, lnio, lnid, nj)
   f = 999
   do k = 1, NTIMES
@@ -259,6 +266,7 @@ program lorenzo_test
   enddo
   enddo
   print *,'errors =',errors
+#endif
 
   call lorenzopredict(fr, pred, ni, lnio, lnid, nj)
   f = 999
