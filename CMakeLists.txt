@@ -1,15 +1,35 @@
 # The minimum version can not be 3.16 because of the LINK_LANGUAGE generator expression in Config.cmake.in
 cmake_minimum_required(VERSION 3.20)
-list(APPEND USAGE_DESCRIPTION 
-            "-DCMAKE_INSTALL_PREFIX=/some/path " "-DWITH_OPENMP=ON|OFF\n "
-            "-DCOMPILER_SUITE=gnu|intel|aocc|llvm|nvhpc " "-DUSE_ICX " "-DINSTALL_TESTS=ON|OFF\n "
-            "-DEXTRA_DEFINES=opt1[=v1][,opt2[=v2]] ... [,optn[=vn]]\n "
-            "  options : QUIET_SIMD MINI_FORTRAN\n " "-DHELP=1\n "
-)
+# what follows gets written in terminal window if 
+# - the HELP nevironment variable is defined
+# - or -DHELP=1 is used in cmake call
+#[[StartHelp
+optional cmake recognized variables :
+  -DHELP=ON
+  -DCMAKE_INSTALL_PREFIX=/some/path
+  -DWITH_OPENMP=ON|OFF
+  -DCOMPILER_SUITE=gnu|intel|aocc|llvm|nvhpc
+  -DUSE_ICX
+  -DINSTALL_TESTS=ON|OFF
+  -DEXTRA_DEFINES=def1[=v1][ ,def2[=v2] ] ... [ ,defn[=vn] ]
+     QUIET_SIMD 
+     EXTRA_FORTRAN
+EndHelp]]
+if(HELP OR DEFINED ENV{HELP})
+  unset(HELP CACHE)
+  execute_process( 
+    COMMAND bash -c "sed -n '/^#[[]*StartHelp/,/^EndHelp]]/{//!p;}' CMakeLists.txt"
+    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+  )
+  return()  # irrelevant error messages will appear about Ninja version when using Ninja
+  # this is inelegant, but suppresses irrelevant error messages about Ninja version
+#   message(FATAL_ERROR "HELP mode fake error to stop processing")
+endif()
+
 if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/CMakeExtras.txt)
   include(CMakeExtras.txt)
 endif()
-conditional_return()    # return if help requested
+# conditional_return()    # return if help requested
 
 if(DEFINED COMPILER_SUITE)
   string(TOLOWER "${COMPILER_SUITE}" COMPILER_SUITE)
@@ -95,6 +115,7 @@ set(PROJECT_C_FILES
   src/timers/rmn_timers.c
   src/pred/lorenzo_c.c
   src/pack/bi_endian_pack.c
+  src/diag/tee_print.c
 )
 SET_SOURCE_FILES_PROPERTIES( src/pred/lorenzo_c.c PROPERTIES COMPILE_FLAGS "-O3 -DQUIET_SIMD")
 SET_SOURCE_FILES_PROPERTIES( src/pred/bi_endian_pack.c PROPERTIES COMPILE_FLAGS -O3)
@@ -121,6 +142,7 @@ set(PROJECT_H_FILES
   src/PUBLIC_INCLUDES/rmn/pack_macros.h
   src/PUBLIC_INCLUDES/rmn/bi_endian_pack.h
   src/PUBLIC_INCLUDES/rmn/bits.h
+  src/PUBLIC_INCLUDES/rmn/tee_print.h
   src/PUBLIC_INCLUDES/rmn/identify_compiler_c.h
   src/PUBLIC_INCLUDES/rmn/is_fortran_compiler.h
 )
