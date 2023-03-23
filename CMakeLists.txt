@@ -1,5 +1,11 @@
 # The minimum version can not be 3.16 because of the LINK_LANGUAGE generator expression in Config.cmake.in
 cmake_minimum_required(VERSION 3.20)
+if(PROJECT_SOURCE_DIR STREQUAL PROJECT_BINARY_DIR)
+  message(FATAL_ERROR "In-source builds are disabled for this project")
+else()
+  # Git auto-ignore out-of-source build directory
+  file(GENERATE OUTPUT .gitignore CONTENT "*")
+endif()
 # what follows gets written in terminal window if 
 # - the HELP nevironment variable is defined
 # - or -DHELP=1 is used in cmake call
