@@ -25,7 +25,10 @@ FILE *open_tee_file(char *fname) ;
 FILE *set_tee_file(FILE *f) ;
 FILE *get_tee_file(void) ;
 
+// "replacement" for printf
 #define TEE_PRINTF(level, ...) { char _TeMp_[4096] ; snprintf(_TeMp_, sizeof(_TeMp_),  __VA_ARGS__) ; print_diag(stdout, _TeMp_, level) ; }
+
+// "replacement" for fprintf
 #define TEE_FPRINTF(level, file, ...) { char _TeMp_[4096] ; snprintf(_TeMp_, sizeof(_TeMp_),  __VA_ARGS__) ; print_diag(file, _TeMp_, level) ; }
 
 #endif

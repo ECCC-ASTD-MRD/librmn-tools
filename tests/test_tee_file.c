@@ -4,7 +4,7 @@
 
 static FILE *tee_file = NULL ;
 
-// override the weak entry point
+// override the weak entry point print_diag
 void print_diag__(FILE *f, char *what, int level){
   if(level < 0) return ;
   fprintf(f, "MY PRINT DIAG %s", what) ;
@@ -16,7 +16,7 @@ void print_diag__(FILE *f, char *what, int level){
 int main(int argc, char **argv){
   TEE_FPRINTF(-1, stderr, "MUST NOT SEE : %d %d %d\n", 10, 20, 30) ;
   TEE_FPRINTF(1, stderr, "MUST SEE : %d %d %d\n", 10, 20, 30) ;
-  FILE *f1 = open_tee_file("test_tee_file.txt") ;
+  FILE *f1 = open_tee_file("test_tee_file.log") ;
   tee_file = get_tee_file() ;
   TEE_FPRINTF(-1, stderr, "MUST NOT SEE : %d %d %d\n", 1, 2, 3) ;
   TEE_FPRINTF(1, stderr, "MUST SEE : %d %d %d\n", 1, 2, 3) ;
