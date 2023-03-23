@@ -20,7 +20,9 @@
 
 #include <stdio.h>
 
-void print_diag(FILE *f, char *what, int level) ;
+void print_diag(FILE *f, char *what, int level) ;  // print_diag is a WEAK entry point
+
+int32_t set_tee_auto_open(int32_t mode) ;
 FILE *open_tee_file(char *fname) ;
 FILE *set_tee_file(FILE *f) ;
 FILE *get_tee_file(void) ;
