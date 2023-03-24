@@ -118,6 +118,7 @@ include(GNUInstallDirs)
 # ======================== PROJECT FILES ======================
 set(PROJECT_C_FILES 
   src/id/identify_compiler.c
+  src/id/identify_mpi_child.c
   src/timers/rmn_timers.c
   src/pred/lorenzo_c.c
   src/pack/bi_endian_pack.c
@@ -150,6 +151,7 @@ set(PROJECT_H_FILES
   src/PUBLIC_INCLUDES/rmn/bits.h
   src/PUBLIC_INCLUDES/rmn/tee_print.h
   src/PUBLIC_INCLUDES/rmn/identify_compiler_c.h
+  src/PUBLIC_INCLUDES/rmn/identify_mpi_child.h
   src/PUBLIC_INCLUDES/rmn/is_fortran_compiler.h
 )
 # file(GLOB PROJECT_H_FILES

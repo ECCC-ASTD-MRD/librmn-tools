@@ -20,7 +20,8 @@
 
 #include <stdio.h>
 
-void print_diag(FILE *f, char *what, int level) ;  // print_diag is a WEAK entry point
+// print_diag is a WEAK entry point that can be overriden by a user supplied function
+void print_diag(FILE *f, char *what, int level) ;
 
 int32_t set_tee_auto_open(int32_t mode) ;
 FILE *open_tee_file(char *fname) ;

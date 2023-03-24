@@ -22,6 +22,7 @@
 
 #include <rmn/timers.h>
 #include <rmn/bi_endian_pack.h>
+#include <rmn/tee_print.h>
 
 #if !defined(NPTS)
 #define NPTS 524289

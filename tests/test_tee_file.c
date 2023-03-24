@@ -4,14 +4,16 @@
 
 static FILE *tee_file = NULL ;
 
+#if defined(OVERRIDE_WITH_LOCAL)
 // override the weak entry point print_diag
-void print_diag__(FILE *f, char *what, int level){
+void print_diag(FILE *f, char *what, int level){
   if(level < 0) return ;
   fprintf(f, "MY PRINT DIAG %s", what) ;
   if(tee_file != NULL){
     fprintf(tee_file, "MY PRINT DIAG %s", what) ;
   }
 }
+#endif
 
 int main(int argc, char **argv){
   TEE_FPRINTF(-1, stderr, "MUST NOT SEE : %d %d %d\n", 10, 20, 30) ;
