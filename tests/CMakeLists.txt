@@ -22,26 +22,34 @@ endfunction()
 
 # add_rmntools_test(test_c test_c.c rmntoolsshared)   # link with shared libraries
 # target_compile_definitions(test_c PRIVATE TESTC)
-# add_rmntools_test(test_f test_f.F90 rmntoolsf)   # link with static libraries
+# add_rmntools_test(test_f test_f.F90 RMNTOOLSF)   # link with static libraries
 # target_compile_definitions(test_f PRIVATE TESTF)
+if(BUILD_SHARED_LIBS)
+  set(RMNTOOLSF rmntoolsf-shared)
+  set(RMNTOOLS rmntools-shared)
+endif()
+if(BUILD_STATIC_LIBS)
+  set(RMNTOOLSF rmntoolsf)
+  set(RMNTOOLS rmntools)
+endif()
 
-add_rmntools_test(test_identify_mpi_child test_identify_mpi_child.c rmntools "mpirun -n 2")
+add_rmntools_test(test_identify_mpi_child test_identify_mpi_child.c ${RMNTOOLS} "mpirun -n 2")
 
-add_rmntools_test(test_identify_compiler_c test_identify_compiler_c.c rmntools)
-add_rmntools_test(test_identify_compiler_f test_identify_compiler_f.F90 rmntoolsf)
-add_rmntools_test(test_timers test_timers.c rmntools)
+add_rmntools_test(test_identify_compiler_c test_identify_compiler_c.c ${RMNTOOLS})
+add_rmntools_test(test_identify_compiler_f test_identify_compiler_f.F90 ${RMNTOOLSF})
+add_rmntools_test(test_timers test_timers.c ${RMNTOOLS})
 
-add_rmntools_test(test_tee_file test_tee_file.c rmntools)
-add_rmntools_test(test_tee_file_local test_tee_file.c rmntools)
+add_rmntools_test(test_tee_file test_tee_file.c ${RMNTOOLS})
+add_rmntools_test(test_tee_file_local test_tee_file.c ${RMNTOOLS})
 TARGET_COMPILE_DEFINITIONS(test_tee_file_local PRIVATE -DOVERRIDE_WITH_LOCAL)
 
-add_rmntools_test(test_bi_endian_pack test_bi_endian_pack.c rmntools)
+add_rmntools_test(test_bi_endian_pack test_bi_endian_pack.c ${RMNTOOLS})
 SET_SOURCE_FILES_PROPERTIES( test_bi_endian_pack PROPERTIES COMPILE_FLAGS -O3 )
 
-add_rmntools_test(test_pack_macros test_pack_macros.c rmntools)
+add_rmntools_test(test_pack_macros test_pack_macros.c ${RMNTOOLS})
 SET_SOURCE_FILES_PROPERTIES( test_pack_macros PROPERTIES COMPILE_FLAGS -O3 )
 
-add_rmntools_test(test_lorenzo_c test_lorenzo_c.c rmntools)
-add_rmntools_test(test_lorenzo_f test_lorenzo.F90 rmntoolsf)
+add_rmntools_test(test_lorenzo_c test_lorenzo_c.c ${RMNTOOLS})
+add_rmntools_test(test_lorenzo_f test_lorenzo.F90 "rmn::rmn;${RMNTOOLSF}")
 SET_SOURCE_FILES_PROPERTIES( test_lorenzo.F90 PROPERTIES COMPILE_FLAGS -DNO_FORTRAN_CODE )
 

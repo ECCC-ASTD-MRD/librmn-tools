@@ -46,6 +46,12 @@ else()
   endif()
 endif()
 
+if(BUILD_SHARED_LIBS)
+  unset(BUILD_STATIC_LIBS)
+else()
+  set(BUILD_STATIC_LIBS BOOL ON)
+endif()
+
 include(CMakePrintHelpers)
 # Append EC specific module path
 list(APPEND CMAKE_MODULE_PATH $ENV{EC_CMAKE_MODULE_PATH} ${CMAKE_SOURCE_DIR}/cmake_rpn/modules)
@@ -53,6 +59,10 @@ list(APPEND CMAKE_MODULE_PATH $ENV{EC_CMAKE_MODULE_PATH} ${CMAKE_SOURCE_DIR}/cma
 include(ec_init)           # Initialise compilers and ec specific functions
 ec_git_version()           # Get version from git state
 ec_parse_manifest()        # Parse MANIFEST file
+
+if (NOT rmn_FOUND)
+   find_package(rmn ${rmn_REQ_VERSION} COMPONENTS REQUIRED)
+endif()
 
 project(${NAME} DESCRIPTION "${DESCRIPTION}" LANGUAGES C Fortran)
 set(PROJECT_VERSION ${VERSION}${STATE})
@@ -124,6 +134,10 @@ set(PROJECT_C_FILES
   src/pack/bi_endian_pack.c
   src/diag/tee_print.c
 )
+set(PROJECT_PLUGIN_FILES 
+  src/pred/lorenzo_c.c
+  src/pack/bi_endian_pack.c
+)
 SET_SOURCE_FILES_PROPERTIES( src/pred/lorenzo_c.c PROPERTIES COMPILE_FLAGS "-O3 -DQUIET_SIMD")
 SET_SOURCE_FILES_PROPERTIES( src/pred/bi_endian_pack.c PROPERTIES COMPILE_FLAGS -O3)
 # file(GLOB PROJECT_C_FILES
@@ -158,14 +172,21 @@ set(PROJECT_H_FILES
 #    src/*/*.h
 #    src/*/*/*.h
 # )
+set(PROJECT_INCLUDES
+  -I${CMAKE_CURRENT_SOURCE_DIR}/include
+  -I${CMAKE_CURRENT_SOURCE_DIR}/src/PUBLIC_INCLUDES
+  )
 # ================================================================
 
 string(REGEX MATCH "([0-9]+)" SOVERSION ${PROJECT_VERSION})
 
+if(BUILD_SHARED_LIBS)
 set(CMAKE_BUILD_RPATH_USE_ORIGIN true)
 set(CMAKE_INSTALL_RPATH "$ORIGIN:$ORIGIN/../lib")
 # set(CMAKE_INSTALL_RPATH "$ORIGIN")
+endif()
 
+if(BUILD_STATIC_LIBS)
 # C static library
 add_library(rmntools STATIC ${PROJECT_C_FILES})
 set_target_properties(rmntools PROPERTIES
@@ -179,52 +200,79 @@ if(WITH_OPENMP)
 endif()
 
 # Fortran static library (will make calls to C library)
-add_library(rmntoolsf STATIC ${PROJECT_F_FILES})
+# include C objects in Fortran library
+add_library(rmntoolsf STATIC ${PROJECT_F_FILES} $<TARGET_OBJECTS:rmntools>)
 set_target_properties(rmntoolsf PROPERTIES
     VERSION ${PROJECT_VERSION}
     PUBLIC_HEADER ${CMAKE_CURRENT_SOURCE_DIR}/src/PUBLIC_INCLUDES/rmntools.h
     POSITION_INDEPENDENT_CODE ON
     OUTPUT_NAME rmntoolsf)
 # (will make calls to C library)
-target_link_libraries(rmntoolsf PUBLIC rmntools)
+# target_link_libraries(rmntoolsf PUBLIC rmntools)
 if(WITH_OPENMP)
     target_compile_definitions(rmntoolsf PUBLIC WITH_OPENMP)
     target_link_libraries(rmntoolsf PUBLIC OpenMP::OpenMP_Fortran)
 endif()
+endif(BUILD_STATIC_LIBS)
 
-# C shared library
-add_library(rmntoolsshared SHARED ${PROJECT_C_FILES})
-set_target_properties(rmntoolsshared PROPERTIES
+if(BUILD_SHARED_LIBS)
+add_library(rmntools-shared SHARED ${PROJECT_C_FILES})
+set_target_properties(rmntools-shared PROPERTIES
     VERSION ${PROJECT_VERSION}
     PUBLIC_HEADER ${CMAKE_CURRENT_SOURCE_DIR}/src/PUBLIC_INCLUDES/rmntools.h
     POSITION_INDEPENDENT_CODE ON
     SOVERSION ${SOVERSION}
-    OUTPUT_NAME rmntools)
+    OUTPUT_NAME rmntools-shared)
+# C shared library
+add_library(rmntools-plugins MODULE ${PROJECT_PLUGIN_FILES})
+# SET_SOURCE_FILES_PROPERTIES( src/pred/lorenzo_c.c PROPERTIES COMPILE_FLAGS -I${CMAKE_CURRENT_SOURCE_DIR}/include)
+set_target_properties(rmntools-plugins PROPERTIES
+    VERSION ${PROJECT_VERSION}
+#     PUBLIC_HEADER ${CMAKE_CURRENT_SOURCE_DIR}/src/PUBLIC_INCLUDES/rmntools.h
+    POSITION_INDEPENDENT_CODE ON
+    COMPILE_OPTIONS "${PROJECT_INCLUDES}"
+    SOVERSION ${SOVERSION}
+    OUTPUT_NAME rmntools-plugins)
 if(WITH_OPENMP)
-    target_compile_definitions(rmntoolsshared PUBLIC WITH_OPENMP)
-    target_link_libraries(rmntoolsshared PUBLIC OpenMP::OpenMP_C)
+    target_compile_definitions(rmntools-shared PUBLIC WITH_OPENMP)
+    target_link_libraries(rmntools-shared PUBLIC OpenMP::OpenMP_C)
+    target_compile_definitions(rmntools-plugins PUBLIC WITH_OPENMP)
+    target_link_libraries(rmntools-plugins PUBLIC OpenMP::OpenMP_C)
 endif()
 
 # Fortran shared library, needs to link to C shared library
-add_library(rmntoolssharedf SHARED ${PROJECT_F_FILES})
-set_target_properties(rmntoolssharedf PROPERTIES
+# include C objects in Fortran library
+add_library(rmntoolsf-shared SHARED ${PROJECT_F_FILES} $<TARGET_OBJECTS:rmntools-shared>)
+set_target_properties(rmntoolsf-shared PROPERTIES
     VERSION ${PROJECT_VERSION}
     PUBLIC_HEADER ${CMAKE_CURRENT_SOURCE_DIR}/src/PUBLIC_INCLUDES/rmntools.h
     POSITION_INDEPENDENT_CODE ON
     SOVERSION ${SOVERSION}
     OUTPUT_NAME rmntoolsf)
 # needs to link to C shared library
-target_link_libraries(rmntoolssharedf PUBLIC rmntoolsshared)
+# target_link_libraries(rmntoolsf-shared PUBLIC rmntools-shared)
 if(WITH_OPENMP)
-    target_compile_definitions(rmntoolssharedf PUBLIC WITH_OPENMP)
-    target_link_libraries(rmntoolssharedf PUBLIC OpenMP::OpenMP_Fortran)
+    target_compile_definitions(rmntoolsf-shared PUBLIC WITH_OPENMP)
+    target_link_libraries(rmntoolsf-shared PUBLIC OpenMP::OpenMP_Fortran)
+endif()
+endif(BUILD_SHARED_LIBS)
+
+if(BUILD_SHARED_LIBS)
+message(STATUS "add_library(${PROJECT_NAME}::${PROJECT_NAME} ALIAS ${PROJECT_NAME}-shared)")
+    add_library(${PROJECT_NAME}::${PROJECT_NAME} ALIAS ${PROJECT_NAME}-shared)
+set(TARGETS rmntools-shared rmntoolsf-shared)
+endif()
+if(BUILD_STATIC_LIBS)
+message(STATUS "add_library(${PROJECT_NAME}::${PROJECT_NAME} ALIAS ${PROJECT_NAME})")
+    add_library(${PROJECT_NAME}::${PROJECT_NAME} ALIAS ${PROJECT_NAME})
+set(TARGETS rmntools rmntoolsf)
 endif()
 
 # Required to prevent missing Fortran modules when building in parallel
 # (make -j) with GNU compilers
-# add_dependencies(rmntoolssharedf rmntoolsshared)
+# add_dependencies(rmntoolsf-shared rmntools-shared)
 
-set(TARGETS rmntools rmntoolsf rmntoolsshared rmntoolssharedf)
+# set(TARGETS rmntools rmntoolsf rmntools-shared rmntoolsf-shared)
 
 foreach(TARGET IN ITEMS ${TARGETS})
     # avoid ninja problem with multiple rules generating the same target
@@ -275,8 +323,10 @@ function(add_static_lib_link target link_name)
     install(FILES ${CMAKE_CURRENT_BINARY_DIR}/${link_name} DESTINATION lib)
 endfunction()
 
+if(BUILD_STATIC_LIBS)
 add_static_lib_link(rmntools librmntools_${PROJECT_VERSION}.a)
 add_static_lib_link(rmntoolsf librmntoolsf_${PROJECT_VERSION}.a)
+endif()
 
 #install public includes
 file(GLOB PROJECT_INCLUDE_FILES src/PUBLIC_INCLUDES/rmn/*)
