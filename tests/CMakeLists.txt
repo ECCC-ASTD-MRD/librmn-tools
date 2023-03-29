@@ -20,6 +20,21 @@ function(add_rmntools_test name source link_libs)
     endif()
 endfunction()
 
+add_library(shared0 SHARED plugin_0.c)
+add_rmntools_test(test_shared_0 test_shared.c shared0)
+add_library(shared1 SHARED plugin_1.c)
+add_rmntools_test(test_shared_1 test_shared.c shared1)
+add_library(shared2 SHARED plugin_2.c)
+add_rmntools_test(test_shared_2 test_shared.c shared2)
+add_rmntools_test(test_shared_012 test_shared_012.c "shared2;shared1;shared0")
+
+add_library(plugin0 MODULE plugin_0.c)
+add_library(plugin1 MODULE plugin_1.c)
+add_library(plugin2 MODULE plugin_2.c)
+add_rmntools_test(test_plugins test_plugins.c "dl")
+# target_link_libraries(test_shared_012 PRIVATE dl)
+# 
+
 # add_rmntools_test(test_c test_c.c rmntoolsshared)   # link with shared libraries
 # target_compile_definitions(test_c PRIVATE TESTC)
 # add_rmntools_test(test_f test_f.F90 RMNTOOLSF)   # link with static libraries
