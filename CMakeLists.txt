@@ -46,11 +46,11 @@ else()
   endif()
 endif()
 
-if(BUILD_SHARED_LIBS)
-  unset(BUILD_STATIC_LIBS)
-else()
-  set(BUILD_STATIC_LIBS BOOL ON)
-endif()
+# if(BUILD_SHARED_LIBS)
+#   unset(BUILD_STATIC_LIBS)
+# else()
+#   set(BUILD_STATIC_LIBS BOOL ON)
+# endif()
 
 include(CMakePrintHelpers)
 # Append EC specific module path
@@ -61,6 +61,7 @@ ec_git_version()           # Get version from git state
 ec_parse_manifest()        # Parse MANIFEST file
 
 if (NOT rmn_FOUND)
+message(STATUS "NOT rmn_FOUND, looking for package rmn")
    find_package(rmn ${rmn_REQ_VERSION} COMPONENTS REQUIRED)
 endif()
 
@@ -80,16 +81,22 @@ message(STATUS "(EC ${PROJECT_NAME}) WITH_OPENMP=${WITH_OPENMP}" )
 
 # Fortran compiler options required to build this project (also used in tests)
 message(STATUS "CMAKE_C_COMPILER == ${CMAKE_C_COMPILER}")
-if(${CMAKE_C_COMPILER} MATCHES ".*icc\$")
-  set(CMAKE_C_COMPILER "icx")
-message(STATUS "CMAKE_C_COMPILER == ${CMAKE_C_COMPILER}")
-endif()
+# if(${CMAKE_C_COMPILER} MATCHES ".*icc\$")
+# #   set(CMAKE_C_COMPILER "icx")
+#   list(APPEND Intel_CFLAGS -xznver3)
+# message(STATUS "CMAKE_C_COMPILER == ${CMAKE_C_COMPILER}")
+# endif()
 if(WITH_OPENMP)
-  set(Intel_FFLAGS -convert big_endian -align array32byte -assume byterecl -qopenmp)
+  set(Intel_FFLAGS -convert big_endian -align array32byte -assume byterecl -qopenmp -march=skylake)
+  list(APPEND IntelLLVM_FFLAGS -convert big_endian -align array32byte -assume byterecl -qopenmp -march=skylake)
+  list(APPEND IntelLLVM_CFLAGS -qopenmp -Wno-static-in-inline -march=znver3)
   if(${CMAKE_C_COMPILER} MATCHES ".*icx\$")
-    set(Intel_CFLAGS -qopenmp -Wno-static-in-inline -march=native)
+    message(STATUS "(COMPILER) Intel icx detected")
+    add_link_options( -march=native )
+    add_compile_options( -march=native )
   else()
-    set(Intel_CFLAGS -qopenmp -march=native)
+    set(Intel_CFLAGS -qopenmp -march=skylake)
+    list(APPEND IntelLLVM_CFLAGS -qopenmp -march=skylake)
   endif()
 
   set(GNU_FFLAGS -fconvert=big-endian -fcray-pointer -frecord-marker=4 -fno-second-underscore -fopenmp)
@@ -108,8 +115,10 @@ if(WITH_OPENMP)
   set(LLVM_FFLAGS -fconvert=big-endian -fopenmp)
   set(LLVM_CFLAGS -fopenmp)
 else()
-  set(Intel_FFLAGS -convert big_endian -align array32byte -assume byterecl)
-  set(Intel_CFLAGS -Wno-static-in-inline)
+  set(Intel_FFLAGS -convert big_endian -align array32byte -assume byterecl -march=skylake)
+  list(APPEND IntelLLVM_FFLAGS -convert big_endian -align array32byte -assume byterecl -march=skylake)
+  set(Intel_CFLAGS -Wno-static-in-inline -march=skylake)
+  list(APPEND IntelLLVM_CFLAGS -Wno-static-in-inline -march=skylake)
   set(GNU_FFLAGS -fconvert=big-endian -fcray-pointer -frecord-marker=4 -fno-second-underscore -ldl -pthread)
   set(GNU_CFLAGS -march=native)
   set(Flang_FFLAGS -Mbyteswapio)
@@ -138,8 +147,8 @@ set(PROJECT_PLUGIN_FILES
   src/pred/lorenzo_c.c
   src/pack/bi_endian_pack.c
 )
-SET_SOURCE_FILES_PROPERTIES( src/pred/lorenzo_c.c PROPERTIES COMPILE_FLAGS "-O3 -DQUIET_SIMD")
-SET_SOURCE_FILES_PROPERTIES( src/pred/bi_endian_pack.c PROPERTIES COMPILE_FLAGS -O3)
+SET_SOURCE_FILES_PROPERTIES( src/pred/lorenzo_c.c PROPERTIES COMPILE_FLAGS "-O3 -DQUIET_SIMD -march=skylake")
+SET_SOURCE_FILES_PROPERTIES( src/pred/bi_endian_pack.c PROPERTIES COMPILE_FLAGS "-O3 -march=skylake")
 # file(GLOB PROJECT_C_FILES
 #    src/*.c
 #    src/*/*.c
@@ -216,7 +225,7 @@ endif()
 endif(BUILD_STATIC_LIBS)
 
 if(BUILD_SHARED_LIBS)
-add_library(rmntools-shared SHARED ${PROJECT_C_FILES})
+add_library(rmntools-shared SHARED $<TARGET_OBJECTS:rmntools>)
 set_target_properties(rmntools-shared PROPERTIES
     VERSION ${PROJECT_VERSION}
     PUBLIC_HEADER ${CMAKE_CURRENT_SOURCE_DIR}/src/PUBLIC_INCLUDES/rmntools.h
@@ -242,7 +251,7 @@ endif()
 
 # Fortran shared library, needs to link to C shared library
 # include C objects in Fortran library
-add_library(rmntoolsf-shared SHARED ${PROJECT_F_FILES} $<TARGET_OBJECTS:rmntools-shared>)
+add_library(rmntoolsf-shared SHARED $<TARGET_OBJECTS:rmntoolsf>)
 set_target_properties(rmntoolsf-shared PROPERTIES
     VERSION ${PROJECT_VERSION}
     PUBLIC_HEADER ${CMAKE_CURRENT_SOURCE_DIR}/src/PUBLIC_INCLUDES/rmntools.h
@@ -257,16 +266,25 @@ if(WITH_OPENMP)
 endif()
 endif(BUILD_SHARED_LIBS)
 
-if(BUILD_SHARED_LIBS)
-message(STATUS "add_library(${PROJECT_NAME}::${PROJECT_NAME} ALIAS ${PROJECT_NAME}-shared)")
-    add_library(${PROJECT_NAME}::${PROJECT_NAME} ALIAS ${PROJECT_NAME}-shared)
-set(TARGETS rmntools-shared rmntoolsf-shared)
-endif()
+add_library(${PROJECT_NAME}::${PROJECT_NAME} ALIAS ${PROJECT_NAME})
 if(BUILD_STATIC_LIBS)
-message(STATUS "add_library(${PROJECT_NAME}::${PROJECT_NAME} ALIAS ${PROJECT_NAME})")
-    add_library(${PROJECT_NAME}::${PROJECT_NAME} ALIAS ${PROJECT_NAME})
-set(TARGETS rmntools rmntoolsf)
+  list(APPEND TARGETS rmntools rmntoolsf)
 endif()
+if(BUILD_SHARED_LIBS)
+  list(APPEND TARGETS rmntools-shared rmntoolsf-shared)
+endif()
+# set(TARGETS rmntools rmntoolsf rmntools-shared rmntoolsf-shared)
+
+# if(BUILD_SHARED_LIBS)
+# message(STATUS "add_library(${PROJECT_NAME}::${PROJECT_NAME} ALIAS ${PROJECT_NAME}-shared)")
+#     add_library(${PROJECT_NAME}::${PROJECT_NAME} ALIAS ${PROJECT_NAME}-shared)
+# set(TARGETS rmntools-shared rmntoolsf-shared)
+# endif()
+# if(BUILD_STATIC_LIBS)
+# message(STATUS "add_library(${PROJECT_NAME}::${PROJECT_NAME} ALIAS ${PROJECT_NAME})")
+#     add_library(${PROJECT_NAME}::${PROJECT_NAME} ALIAS ${PROJECT_NAME})
+# set(TARGETS rmntools rmntoolsf)
+# endif()
 
 # Required to prevent missing Fortran modules when building in parallel
 # (make -j) with GNU compilers
@@ -295,7 +313,9 @@ foreach(TARGET IN ITEMS ${TARGETS})
         PUBLIC $<$<COMPILE_LANG_AND_ID:Fortran,GNU>:${GNU_FFLAGS}>
                $<$<COMPILE_LANG_AND_ID:C,GNU>:${GNU_CFLAGS}>
                $<$<COMPILE_LANG_AND_ID:Fortran,Intel>:${Intel_FFLAGS}>
+               $<$<COMPILE_LANG_AND_ID:Fortran,IntelLLVM>:${IntelLLVM_FFLAGS}>
                $<$<COMPILE_LANG_AND_ID:C,Intel>:${Intel_CFLAGS}>
+               $<$<COMPILE_LANG_AND_ID:C,IntelLLVM>:${IntelLLVM_CFLAGS}>
                $<$<COMPILE_LANG_AND_ID:Fortran,Flang>:${Flang_FFLAGS}>
                $<$<COMPILE_LANG_AND_ID:C,Clang>:${Clang_CFLAGS}>
                $<$<COMPILE_LANG_AND_ID:Fortran,PGI>:${PGI_FFLAGS}>
