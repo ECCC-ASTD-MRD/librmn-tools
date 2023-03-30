@@ -2,7 +2,7 @@
 
 program identify_compiler
   implicit none
-#include <rmn/identify_compiler_f.h>
+#include <rmn/identify_compiler_f.hf>
 
 #if defined(IN_FORTRAN_CODE)
   print *, "IN_FORTRAN_CODE is defined"

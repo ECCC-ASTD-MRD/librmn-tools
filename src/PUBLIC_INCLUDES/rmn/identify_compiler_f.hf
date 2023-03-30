@@ -14,8 +14,12 @@
 !  Author:
 !      M. Valin,   Recherche en Prevision Numerique, 2023
 !
-! attempt to identify the Fortran compiler used to compile code including this file
-
+!  attempt to identify the Fortran compiler used
+!
+!  #include <rmn/identify_compiler_f.hf>
+!
+!  N.B.
+!    FORTRAN_COMPILER value consistent with value FORTRAN_COMPILER_KIND from is_fortran_compiler.h
 #if defined(__x86_64__) || defined(__LP64__)
   integer, parameter :: ADDRESS_SIZE = 64   ! 64 bit addresses
 
@@ -31,19 +35,19 @@
   character(len=*), parameter :: FORTRAN_COMPILER = 'GNU'            ! gfortran
 
 #elif defined(__INTEL_LLVM_COMPILER)
-    character(len=*), parameter :: FORTRAN_COMPILER = 'INTEL_IFX'    ! ifx
+    character(len=*), parameter :: FORTRAN_COMPILER = 'INTEL-IFX'    ! ifx
 
 #elif defined(__INTEL_COMPILER)
-    character(len=*), parameter :: FORTRAN_COMPILER = 'INTEL_IFORT'  ! ifort
+    character(len=*), parameter :: FORTRAN_COMPILER = 'INTEL-IFORT'  ! ifort
 
 #elif defined(__PGIF90__)
-  character(len=*), parameter :: FORTRAN_COMPILER = 'PGI/Nvidia'     ! pgfortran/nvfortran
+  character(len=*), parameter :: FORTRAN_COMPILER = 'PGI-Nvidia'     ! pgfortran/nvfortran
 
 #elif defined(__FLANG)
-  character(len=*), parameter :: FORTRAN_COMPILER = 'AOCC'           ! aocc flang
+  character(len=*), parameter :: FORTRAN_COMPILER = 'FLANG-TRADITIONAL'           ! aocc flang
 
 #elif defined(__flang__)
-  character(len=*), parameter :: FORTRAN_COMPILER = 'LLVM'           ! llvm flang
+  character(len=*), parameter :: FORTRAN_COMPILER = 'FLANG-LLVM'           ! llvm flang
 
 #else
   character(len=*), parameter :: FORTRAN_COMPILER = 'UNKNOWN'        ! unknown

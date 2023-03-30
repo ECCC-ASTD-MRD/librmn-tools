@@ -170,7 +170,7 @@ set(PROJECT_H_FILES
   src/PUBLIC_INCLUDES/rmntools.h
   src/PUBLIC_INCLUDES/rmn/lorenzo.h
   src/PUBLIC_INCLUDES/rmn/rmn_tools.h
-  src/PUBLIC_INCLUDES/rmn/identify_compiler_f.h
+  src/PUBLIC_INCLUDES/rmn/identify_compiler_f.hf
   src/PUBLIC_INCLUDES/rmn/timers.h
   src/PUBLIC_INCLUDES/rmn/tools_types.h
   src/PUBLIC_INCLUDES/rmn/pack_macros.h
