@@ -59,16 +59,13 @@ list(APPEND CMAKE_MODULE_PATH $ENV{EC_CMAKE_MODULE_PATH} ${CMAKE_SOURCE_DIR}/cma
 include(ec_init)           # Initialise compilers and ec specific functions
 ec_git_version()           # Get version from git state
 ec_parse_manifest()        # Parse MANIFEST file
+project(${NAME} DESCRIPTION "${DESCRIPTION}" LANGUAGES C Fortran)
 
-# project(${NAME} DESCRIPTION "${DESCRIPTION}" LANGUAGES C Fortran)
-enable_language(C Fortran)
+# enable_language(C Fortran)
 if (NOT rmn_FOUND)
 message(STATUS "NOT rmn_FOUND, looking for package rmn")
    find_package(rmn ${rmn_REQ_VERSION} COMPONENTS REQUIRED)
 endif()
-
-# project(${NAME} DESCRIPTION "${DESCRIPTION}" LANGUAGES C Fortran)
-project(${NAME} DESCRIPTION "${DESCRIPTION}")
 
 set(PROJECT_VERSION ${VERSION}${STATE})
 set(rmntools_VERSION ${PROJECT_VERSION} CACHE INTERNAL "rmntools version" FORCE) # Needed for cascaded version identification
