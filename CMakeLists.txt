@@ -275,7 +275,7 @@ if(BUILD_STATIC_LIBS)
   list(APPEND TARGETS rmntools rmntoolsf)
 endif()
 if(BUILD_SHARED_LIBS)
-  list(APPEND TARGETS rmntools-shared rmntoolsf-shared)
+  list(APPEND TARGETS rmntools-shared rmntoolsf-shared rmntools-plugins)
 endif()
 # set(TARGETS rmntools rmntoolsf rmntools-shared rmntoolsf-shared)
 
@@ -312,6 +312,10 @@ foreach(TARGET IN ITEMS ${TARGETS})
         INTERFACE
             $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/modules>
             $<INSTALL_INTERFACE:modules>
+    )
+    target_link_options(${TARGET}
+        PRIVATE $<$<COMPILE_LANG_AND_ID:C,Intel>:-diag-disable=10441,10121>
+                $<$<COMPILE_LANG_AND_ID:Fortran,Intel>:-diag-disable=5268,10121>
     )
     target_compile_options(${TARGET}
         PUBLIC $<$<COMPILE_LANG_AND_ID:Fortran,GNU>:${GNU_FFLAGS}>
