@@ -79,8 +79,8 @@ interface
   end subroutine lorenzounpredictinplace_c
 end interface
 
-contains
 #if defined(EXTRA_FORTRAN)
+contains
 ! 3 point Lorenzo predictor (forward derivative)
 ! upon exit, diff contains original value - predicted value
 ! with explicit SIMD primitives, the C version (LorenzoPredict_c) outperforms the Fortran version

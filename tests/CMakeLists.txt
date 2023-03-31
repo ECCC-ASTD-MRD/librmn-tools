@@ -5,6 +5,12 @@ option(INSTALL_TESTS OFF)
 function(add_rmntools_test name source link_libs)
     # Use same name for target as for file
     add_executable(${name} ${source})
+    if($<COMPILE_LANG_AND_ID:C,Intel>)
+      set_target_properties(${name} PROPERTIES LINK_FLAGS "-diag-disable=10441,10121" COMPILE_OPTIONS "-diag-disable=10441,10121")
+    endif()
+    if($<COMPILE_LANG_AND_ID:Fortran,Intel>)
+      set_target_properties(${name} PROPERTIES LINK_FLAGS "-diag-disable=5268,10121" COMPILE_OPTIONS "-diag-disable=5268,10121")
+    endif()
     target_link_libraries(${name} PRIVATE ${link_libs})
     #     add_test(NAME ${name} COMMAND $<TARGET_FILE:${name}> ${name})
     list(APPEND ARGN " ")           # make sure that list is not empty

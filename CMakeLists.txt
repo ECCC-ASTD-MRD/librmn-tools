@@ -88,7 +88,7 @@ message(STATUS "CMAKE_C_COMPILER == ${CMAKE_C_COMPILER}")
 # message(STATUS "CMAKE_C_COMPILER == ${CMAKE_C_COMPILER}")
 # endif()
 if(WITH_OPENMP)
-  set(Intel_FFLAGS -convert big_endian -align array32byte -assume byterecl -qopenmp -march=skylake)
+  set(Intel_FFLAGS -convert big_endian -align array32byte -assume byterecl -qopenmp -march=skylake -diag-disable=5268,10121)
   list(APPEND IntelLLVM_FFLAGS -convert big_endian -align array32byte -assume byterecl -qopenmp -march=skylake)
   list(APPEND IntelLLVM_CFLAGS -qopenmp -Wno-static-in-inline -march=znver3)
   if(${CMAKE_C_COMPILER} MATCHES ".*icx\$")
@@ -96,7 +96,7 @@ if(WITH_OPENMP)
     add_link_options( -march=native )
     add_compile_options( -march=native )
   else()
-    set(Intel_CFLAGS -qopenmp -march=skylake)
+    set(Intel_CFLAGS -qopenmp -march=skylake -diag-disable=10441,10121)
     list(APPEND IntelLLVM_CFLAGS -qopenmp -march=skylake)
   endif()
 
@@ -116,9 +116,9 @@ if(WITH_OPENMP)
   set(LLVM_FFLAGS -fconvert=big-endian -fopenmp)
   set(LLVM_CFLAGS -fopenmp)
 else()
-  set(Intel_FFLAGS -convert big_endian -align array32byte -assume byterecl -march=skylake)
+  set(Intel_FFLAGS -convert big_endian -align array32byte -assume byterecl -march=skylake -diag-disable=5268,10121)
   list(APPEND IntelLLVM_FFLAGS -convert big_endian -align array32byte -assume byterecl -march=skylake)
-  set(Intel_CFLAGS -Wno-static-in-inline -march=skylake)
+  set(Intel_CFLAGS -Wno-static-in-inline -march=skylake -diag-disable=10441,10121)
   list(APPEND IntelLLVM_CFLAGS -Wno-static-in-inline -march=skylake)
   set(GNU_FFLAGS -fconvert=big-endian -fcray-pointer -frecord-marker=4 -fno-second-underscore -ldl -pthread)
   set(GNU_CFLAGS -march=native)
@@ -157,6 +157,7 @@ SET_SOURCE_FILES_PROPERTIES( src/pred/bi_endian_pack.c PROPERTIES COMPILE_FLAGS 
 set(PROJECT_F_FILES
   src/timers/rmn_timers_mod.F90
   src/pred/lorenzo_mod.F90
+  src/plugins/fortran_plugins.F90
 )
 # file(GLOB PROJECT_F_FILES
 #    src/*.F90
@@ -177,6 +178,8 @@ set(PROJECT_H_FILES
   src/PUBLIC_INCLUDES/rmn/identify_compiler_c.h
   src/PUBLIC_INCLUDES/rmn/identify_mpi_child.h
   src/PUBLIC_INCLUDES/rmn/is_fortran_compiler.h
+  src/PUBLIC_INCLUDES/rmn/plugins.h
+  src/PUBLIC_INCLUDES/rmn/plugins.hf
 )
 # file(GLOB PROJECT_H_FILES
 #    src/*/*.h
