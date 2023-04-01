@@ -37,6 +37,10 @@ if(HELP OR DEFINED ENV{HELP})
 #   message(FATAL_ERROR "HELP mode fake error to stop processing")
 endif()
 
+option(BUILD_SHARED_LIBS "build shared libs" ON)
+option(BUILD_STATIC_LIBS "build static libs" ON)
+option(WITH_OPENMP "use OpenMP options" ON)
+
 if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/CMakeExtras.txt)
   include(CMakeExtras.txt)
 endif()
