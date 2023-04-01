@@ -31,8 +31,7 @@ return(arg);
 void __attribute__ ((constructor)) Constructor0(void) {
    printf("plugin constructor for plugin_0\n");
    if( FortranConstructor0 ){
-     printf("FortranConstructor0 is Available [%p]\n", &FortranConstructor0) ;
-     FortranConstructor0(123456) ;
+     printf("FortranConstructor0 is Available [%p], result = %d\n", &FortranConstructor0, FortranConstructor0(123456)) ;
    }else{
      printf("FortranConstructor0 is NOT FOUND\n") ;
    }
