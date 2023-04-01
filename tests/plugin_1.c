@@ -1,6 +1,8 @@
 #include <stdio.h>
 #include <string.h>
 
+int FortranConstructor1(int) __attribute__((weak)) ;
+
 // list of names, NULL terminated, mandatory
 char *EntryList_[4] = { "name1","name2","name3",NULL} ;
 
@@ -36,6 +38,12 @@ int get_symbol_number(){  // like fortran, function to get number of symbols, op
 
 void __attribute__ ((constructor)) Constructor1(void) {
    printf("plugin constructor for plugin_1\n");
+   if( FortranConstructor1 ){
+     printf("FortranConstructor1 is Available [%p]\n", &FortranConstructor1) ;
+     FortranConstructor1(123456) ;
+   }else{
+     printf("FortranConstructor1 is NOT FOUND\n") ;
+   }
 }
 
 void __attribute__ ((destructor)) Destructor1(void) {
