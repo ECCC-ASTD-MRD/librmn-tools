@@ -7,14 +7,8 @@ function(add_rmntools_test name source link_libs)
     add_executable(${name} ${source})
     target_link_libraries(${name} PRIVATE ${link_libs})
     #     add_test(NAME ${name} COMMAND $<TARGET_FILE:${name}> ${name})
-    target_link_options(${name}
-        PRIVATE $<$<COMPILE_LANG_AND_ID:C,Intel>:-diag-disable=10441,10121>
-                $<$<COMPILE_LANG_AND_ID:Fortran,Intel>:-diag-disable=5268,10121>
-    )
-    target_compile_options(${name}
-        PRIVATE $<$<COMPILE_LANG_AND_ID:C,Intel>:-diag-disable=10441,10121>
-                $<$<COMPILE_LANG_AND_ID:Fortran,Intel>:-diag-disable=5268,10121>
-    )
+    extra_target_link_options(${name} PRIVATE)
+    extra_target_compile_options(${name} PRIVATE)
     list(APPEND ARGN " ")           # make sure that list is not empty
     list(GET ARGN 0 RUN_WITH_MPI)   # first optional argument " " if none
     add_test(NAME ${name}
@@ -43,14 +37,8 @@ add_rmntools_test(test_plugins test_plugins.c "dl")
 
 set(XTRA_SHARED shared0 shared1 shared2 plugin0 plugin1 plugin2)
 foreach(ITEM IN ITEMS ${XTRA_SHARED})
-  target_link_options(${ITEM}
-      PRIVATE $<$<COMPILE_LANG_AND_ID:C,Intel>:-diag-disable=10441,10121>
-              $<$<COMPILE_LANG_AND_ID:Fortran,Intel>:-diag-disable=5268,10121>
-  )
-  target_compile_options(${ITEM}
-      PRIVATE $<$<COMPILE_LANG_AND_ID:C,Intel>:-diag-disable=10441,10121>
-              $<$<COMPILE_LANG_AND_ID:Fortran,Intel>:-diag-disable=5268,10121>
-  )
+  extra_target_link_options(${ITEM} PRIVATE)
+  extra_target_compile_options(${ITEM} PRIVATE)
 endforeach()
 
 # target_link_libraries(test_shared_012 PRIVATE dl)
