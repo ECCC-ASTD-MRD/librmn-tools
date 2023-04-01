@@ -19,13 +19,13 @@ int main(int argc, char **argv){
   if(plugin2 == NULL) printf("ERROR : plugin2 open failed '%s'\n", dlerror()) ;
   printf("plugin addresses = %p %p %p\n", plugin0, plugin1, plugin2) ;
 
-  name1_0 = dlsym(plugin0, "name1") ; printf("%d\n", (*name1_0)(1) ) ;
-  name2_0 = dlsym(plugin0, "name2") ; printf("%d\n", (*name2_0)(2) ) ;
-  name3_0 = dlsym(plugin0, "name3") ; printf("%d\n", (*name3_0)(3) ) ;
-  name1_1 = dlsym(plugin1, "name1") ; printf("%d\n", (*name1_1)(1) ) ;
-  name2_1 = dlsym(plugin1, "name2") ; printf("%d\n", (*name2_1)(2) ) ;
-  name3_1 = dlsym(plugin1, "name3") ; printf("%d\n", (*name3_1)(3) ) ;
-  name1_2 = dlsym(plugin2, "name1") ; printf("%d\n", (*name1_2)(1) ) ;
-  name2_2 = dlsym(plugin2, "name2") ; printf("%d\n", (*name2_2)(2) ) ;
-  name3_2 = dlsym(plugin2, "name3") ; printf("%d\n", (*name3_2)(3) ) ;
+  name1_0 = (fptr) dlsym(plugin0, "name1") ; printf("%d\n", (*name1_0)(1) ) ;
+  name2_0 = (fptr) dlsym(plugin0, "name2") ; printf("%d\n", (*name2_0)(2) ) ;
+  name3_0 = (fptr) dlsym(plugin0, "name3") ; printf("%d\n", (*name3_0)(3) ) ;
+  name1_1 = (fptr) dlsym(plugin1, "name1") ; printf("%d\n", (*name1_1)(1) ) ;
+  name2_1 = (fptr) dlsym(plugin1, "name2") ; printf("%d\n", (*name2_1)(2) ) ;
+  name3_1 = (fptr) dlsym(plugin1, "name3") ; printf("%d\n", (*name3_1)(3) ) ;
+  name1_2 = (fptr) dlsym(plugin2, "name1") ; printf("%d\n", (*name1_2)(1) ) ;
+  name2_2 = (fptr) dlsym(plugin2, "name2") ; printf("%d\n", (*name2_2)(2) ) ;
+  name3_2 = (fptr) dlsym(plugin2, "name3") ; printf("%d\n", (*name3_2)(3) ) ;
 }
