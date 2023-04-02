@@ -203,7 +203,7 @@
 #include <string.h>
 #include <dlfcn.h>
 
-#include <plugins.h>
+#include <rmn/plugins.h>
 
 typedef int (*fnptr)();             // pointer to function
 
