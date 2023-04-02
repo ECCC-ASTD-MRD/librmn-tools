@@ -1,21 +1,31 @@
 # target check to run all tests
 add_custom_target(check COMMAND CTEST_OUTPUT_ON_FAILURE=true ${CMAKE_CTEST_COMMAND})
+add_custom_target(mpicheck COMMAND CTEST_OUTPUT_ON_FAILURE=true ${CMAKE_CTEST_COMMAND})
 message(STATUS "(EC) Generating librmntools tests")
 
 function(add_rmntools_test name source link_libs)
     # Use same name for target as for file
     add_executable(${name} ${source})
     target_link_libraries(${name} PRIVATE ${link_libs})
-    #     add_test(NAME ${name} COMMAND $<TARGET_FILE:${name}> ${name})
     extra_target_link_options(${name} PRIVATE)
     extra_target_compile_options(${name} PRIVATE)
-    list(APPEND ARGN " ")           # make sure that list is not empty
-    list(GET ARGN 0 RUN_WITH_MPI)   # first optional argument " " if none
-    add_test(NAME ${name}
-        COMMAND bash -c "${RUN_WITH_MPI} $<TARGET_FILE:${name}> 2>&1 | tee ${name}_$(date +%Y-%m-%d_%H.%M.%S).log"
-        WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
-    add_dependencies(check ${name})                  # target check depends on this test
-    add_dependencies(${name} ${TEST_DEPENDENCIES})  # some Fortran modules are needed for the tests
+    set(extra_args ${ARGN})
+    list(LENGTH extra_args extra_count)
+    if(${extra_count} GREATER 0)
+      list(GET ARGN 0 RUN_WITH_MPI)   # first optional argument " " if none
+    endif()
+#     list(APPEND ARGN " ")           # make sure that list is not empty
+#     list(GET ARGN 0 RUN_WITH_MPI)   # first optional argument " " if none
+    if(NO_TEST_LOG)
+      add_test(NAME ${name} COMMAND $<TARGET_FILE:${name}> ${name})
+    else()
+      add_test(NAME ${name}
+#           COMMAND bash -c "${RUN_WITH_MPI} $<TARGET_FILE:${name}> 2>&1 | tee ${name}_$(date +%Y-%m-%d_%H.%M.%S).log"
+          COMMAND bash -c "${RUN_WITH_MPI} $<TARGET_FILE:${name}> 2>&1 | tee ${TEE_LOG_MODE} ${name}.log"
+          WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
+    endif()
+    add_dependencies(check ${name})                         # target check depends on this test
+    add_dependencies(${name} ${PROJECT_TEST_DEPENDENCIES})  # some Fortran modules are needed for the tests
     if(INSTALL_TESTS)
         install(TARGETS ${name} RUNTIME DESTINATION bin)
     else()
@@ -62,6 +72,7 @@ if(BUILD_STATIC_LIBS)
 endif()
 
 add_rmntools_test(test_identify_mpi_child test_identify_mpi_child.c ${RMNTOOLS} "mpirun -n 2")
+add_dependencies(mpicheck test_identify_mpi_child)
 
 add_rmntools_test(test_identify_compiler_c test_identify_compiler_c.c ${RMNTOOLS})
 add_rmntools_test(test_identify_compiler_f test_identify_compiler_f.F90 ${RMNTOOLSF})

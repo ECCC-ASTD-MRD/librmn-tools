@@ -1,3 +1,15 @@
+# test log mode
+if(APPEND_LOG)
+  set(NO_TEST_LOG BOOL OFF)   # override NO_TEST_LOG=ON
+  set(APPEND_LOG "-a")
+  message(STATUS "(EC) test log mode : append to log files")
+else()
+  if(NO_TEST_LOG)
+    message(STATUS "(EC) test log mode : NO LOG")
+  else()
+    message(STATUS "(EC) test log mode : overwrite log files")
+  endif()
+endif()
 #
 # get extra defines for this configuration run
 # these extra definitions should not be cached
@@ -8,7 +20,7 @@ if(EXTRA_DEFINES)
     set(EXTRA_DEFINES "${EXTRA_DEFINES} -D${ITEM}")
     add_compile_options(-D${ITEM})
   endforeach()
-  message(STATUS "extra defines : ${EXTRA_DEFINES}")
+  message(STATUS "(EC) extra defines : ${EXTRA_DEFINES}")
 endif()
 #
 # get extra compilation options for this configuration run
@@ -20,5 +32,5 @@ if(EXTRA_OPTIONS)
     set(EXTRA_OPTIONS "${EXTRA_OPTIONS} ${ITEM}")
     add_compile_options(${ITEM})
   endforeach()
-  message(STATUS "extra compilation options : ${EXTRA_OPTIONS}")
+  message(STATUS "(EC) extra compilation options : ${EXTRA_OPTIONS}")
 endif()

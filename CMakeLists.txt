@@ -6,24 +6,38 @@ else()
   # Git auto-ignore out-of-source build directory
   file(GENERATE OUTPUT .gitignore CONTENT "*")
 endif()
+
+option(BUILD_SHARED_LIBS "build shared libs" ON)
+option(BUILD_STATIC_LIBS "build static libs" ON)
+option(WITH_OPENMP "use OpenMP options" ON)
+option(INSTALL_TESTS OFF)
+option(NO_TEST_LOG OFF)
+option(APPEND_LOG OFF)
+
+if(NOT BUILD_STATIC_LIBS AND NOT BUILD_SHARED_LIBS)
+  message(SEND_ERROR " (EC) at least ONE of BUILD_STATIC_LIBS and BUILD_SHARED_LIBS MUST BE ON")
+  set(HELP BOOL ON)
+endif()
+
 # what follows gets written in terminal window if 
-# - the HELP nevironment variable is defined
-# - or -DHELP=1 is used in cmake call
+# - the HELP environment variable is defined
+# - or -DHELP=any_value is used in cmake call
 #[[StartHelp
 cmake recognized variables :
   -DHELP=ON
   -DCMAKE_INSTALL_PREFIX=/some/path
-  -DWITH_OPENMP=ON|OFF
+  -DWITH_OPENMP=ON|OFF        (compile and link with OpenMP)
   -DCOMPILER_SUITE=gnu|intel|aocc|llvm|nvhpc
   -DUSE_ICX
   -DINSTALL_TESTS=ON|OFF
-  -DWITH_OPENMP=ON|OFF
-  -DBUILD_SHARED_LIBS=ON|OFF
+  -DBUILD_SHARED_LIBS=ON|OFF  (at least ONE of BUILD_STATIC_LIBS and BUILD_SHARED_LIBS MUST BE ON)
   -DBUILD_STATIC_LIBS=ON|OFF
-  -DINSTALL_TESTS=ON|OFF
+  -DNO_TEST_LOG=ON|OFF        ( do not keep log files with test outputs if ON (default OFF))
+  -DAPPEND_LOG=ON|OFF         ( accumulate successive tests in log file  (default=do not))
   -DEXTRA_DEFINES=def1[=v1][ ,def2[=v2] ] ... [ ,defn[=vn] ]
-     QUIET_SIMD 
-     EXTRA_FORTRAN
+     QUIET_SIMD               ( suppress message telling that SIMD code is used )
+     EXTRA_FORTRAN            ( keep optional Fortran code in some source files )
+     WITHOUT_SIMD             ( do not use SIMD code, use pure C code )
   -G Ninja
 EndHelp]]
 if(HELP OR DEFINED ENV{HELP})
@@ -36,11 +50,6 @@ if(HELP OR DEFINED ENV{HELP})
   # this is inelegant, but suppresses irrelevant error messages about Ninja version
 #   message(FATAL_ERROR "HELP mode fake error to stop processing")
 endif()
-
-option(BUILD_SHARED_LIBS "build shared libs" ON)
-option(BUILD_STATIC_LIBS "build static libs" ON)
-option(WITH_OPENMP "use OpenMP options" ON)
-option(INSTALL_TESTS OFF)
 
 if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/CMakeExtras.txt)
   include(CMakeExtras.txt)
@@ -218,7 +227,7 @@ if(BUILD_SHARED_LIBS)
 endif()
 
 if(BUILD_STATIC_LIBS)
-  LIST(APPEND TEST_DEPENDENCIES rmntoolsf)
+  LIST(APPEND PROJECT_TEST_DEPENDENCIES rmntoolsf)
 
   # C static library
   add_library(rmntools STATIC ${PROJECT_C_FILES})
@@ -250,7 +259,7 @@ if(BUILD_STATIC_LIBS)
 endif(BUILD_STATIC_LIBS)
 
 if(BUILD_SHARED_LIBS)
-  LIST(APPEND TEST_DEPENDENCIES rmntoolsf-shared)
+  LIST(APPEND PROJECT_TEST_DEPENDENCIES rmntoolsf-shared)
   # C shared library
   if(BUILD_STATIC_LIBS)
     add_library(rmntools-shared SHARED $<TARGET_OBJECTS:rmntools>)
@@ -272,7 +281,7 @@ if(BUILD_SHARED_LIBS)
   add_library(rmntools-plugins MODULE ${PROJECT_PLUGIN_FILES})
   set_target_properties(rmntools-plugins PROPERTIES
       VERSION ${PROJECT_VERSION}
-  #     PUBLIC_HEADER ${CMAKE_CURRENT_SOURCE_DIR}/src/PUBLIC_INCLUDES/rmntools.h
+      PUBLIC_HEADER ${CMAKE_CURRENT_SOURCE_DIR}/src/PUBLIC_INCLUDES/rmntools.h
       POSITION_INDEPENDENT_CODE ON
       COMPILE_OPTIONS "${PROJECT_INCLUDES}"
       SOVERSION ${SOVERSION}
