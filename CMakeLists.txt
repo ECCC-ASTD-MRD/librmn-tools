@@ -169,6 +169,7 @@ set(PROJECT_C_FILES
   src/pred/lorenzo_c.c
   src/pack/bi_endian_pack.c
   src/diag/tee_print.c
+  src/plugins/plugin_code.c
 )
 set(PROJECT_PLUGIN_FILES 
   src/pred/lorenzo_c.c
@@ -234,6 +235,7 @@ if(BUILD_STATIC_LIBS)
   # Fortran static library
   # include C objects in Fortran library to avoid needing C library
   add_library(rmntoolsf STATIC ${PROJECT_F_FILES} $<TARGET_OBJECTS:rmntools>)
+#   add_library(rmntoolsf STATIC ${PROJECT_F_FILES} ${PROJECT_C_FILES})
   set_target_properties(rmntoolsf PROPERTIES
       VERSION ${PROJECT_VERSION}
       PUBLIC_HEADER ${CMAKE_CURRENT_SOURCE_DIR}/src/PUBLIC_INCLUDES/rmntools.h
@@ -250,7 +252,11 @@ endif(BUILD_STATIC_LIBS)
 if(BUILD_SHARED_LIBS)
   LIST(APPEND TEST_DEPENDENCIES rmntoolsf-shared)
   # C shared library
-  add_library(rmntools-shared SHARED $<TARGET_OBJECTS:rmntools>)
+  if(BUILD_STATIC_LIBS)
+    add_library(rmntools-shared SHARED $<TARGET_OBJECTS:rmntools>)
+  else()
+    add_library(rmntools-shared SHARED ${PROJECT_C_FILES})
+  endif()
   set_target_properties(rmntools-shared PROPERTIES
       VERSION ${PROJECT_VERSION}
       PUBLIC_HEADER ${CMAKE_CURRENT_SOURCE_DIR}/src/PUBLIC_INCLUDES/rmntools.h
@@ -278,7 +284,11 @@ if(BUILD_SHARED_LIBS)
 
   # Fortran shared library, needs to link to C shared library
   # include C objects in Fortran library
-  add_library(rmntoolsf-shared SHARED $<TARGET_OBJECTS:rmntoolsf>)
+  if(BUILD_STATIC_LIBS)
+    add_library(rmntoolsf-shared SHARED $<TARGET_OBJECTS:rmntoolsf>)
+  else()
+    add_library(rmntoolsf-shared SHARED ${PROJECT_F_FILES} $<TARGET_OBJECTS:rmntools-shared>)
+  endif()
   set_target_properties(rmntoolsf-shared PROPERTIES
       VERSION ${PROJECT_VERSION}
       PUBLIC_HEADER ${CMAKE_CURRENT_SOURCE_DIR}/src/PUBLIC_INCLUDES/rmntools.h
@@ -293,11 +303,12 @@ if(BUILD_SHARED_LIBS)
   endif()
 endif(BUILD_SHARED_LIBS)
 
-add_library(${PROJECT_NAME}::${PROJECT_NAME} ALIAS ${PROJECT_NAME})
 if(BUILD_STATIC_LIBS)
+  add_library(${PROJECT_NAME}::${PROJECT_NAME} ALIAS ${PROJECT_NAME})
   list(APPEND TARGETS rmntools rmntoolsf)
 endif()
 if(BUILD_SHARED_LIBS)
+  add_library(${PROJECT_NAME}::${PROJECT_NAME}-shared ALIAS ${PROJECT_NAME}-shared)
   list(APPEND TARGETS rmntools-shared rmntoolsf-shared rmntools-plugins)
 endif()
 
