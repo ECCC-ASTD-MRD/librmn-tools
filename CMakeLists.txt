@@ -40,6 +40,7 @@ endif()
 option(BUILD_SHARED_LIBS "build shared libs" ON)
 option(BUILD_STATIC_LIBS "build static libs" ON)
 option(WITH_OPENMP "use OpenMP options" ON)
+option(INSTALL_TESTS OFF)
 
 if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/CMakeExtras.txt)
   include(CMakeExtras.txt)
@@ -216,6 +217,8 @@ if(BUILD_SHARED_LIBS)
 endif()
 
 if(BUILD_STATIC_LIBS)
+  LIST(APPEND TEST_DEPENDENCIES rmntoolsf)
+
   # C static library
   add_library(rmntools STATIC ${PROJECT_C_FILES})
   set_target_properties(rmntools PROPERTIES
@@ -245,6 +248,7 @@ if(BUILD_STATIC_LIBS)
 endif(BUILD_STATIC_LIBS)
 
 if(BUILD_SHARED_LIBS)
+  LIST(APPEND TEST_DEPENDENCIES rmntoolsf-shared)
   # C shared library
   add_library(rmntools-shared SHARED $<TARGET_OBJECTS:rmntools>)
   set_target_properties(rmntools-shared PROPERTIES

@@ -1,7 +1,7 @@
+# target check to run all tests
 add_custom_target(check COMMAND CTEST_OUTPUT_ON_FAILURE=true ${CMAKE_CTEST_COMMAND})
-message(STATUS "(EC) Generating librmn tests")
+message(STATUS "(EC) Generating librmntools tests")
 
-option(INSTALL_TESTS OFF)
 function(add_rmntools_test name source link_libs)
     # Use same name for target as for file
     add_executable(${name} ${source})
@@ -14,7 +14,8 @@ function(add_rmntools_test name source link_libs)
     add_test(NAME ${name}
         COMMAND bash -c "${RUN_WITH_MPI} $<TARGET_FILE:${name}> 2>&1 | tee ${name}_$(date +%Y-%m-%d_%H.%M.%S).log"
         WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
-    add_dependencies(check ${name})
+    add_dependencies(check ${name})                  # target check depends on this test
+    add_dependencies(${name} ${TEST_DEPENDENCIES})  # some Fortran modules are needed for the tests
     if(INSTALL_TESTS)
         install(TARGETS ${name} RUNTIME DESTINATION bin)
     else()
@@ -33,7 +34,10 @@ add_rmntools_test(test_shared_012 test_shared_012.c "shared2;shared1;shared0")
 add_library(plugin0 MODULE plugin_0.c plugin_0.F90)
 add_library(plugin1 MODULE plugin_1.c)
 add_library(plugin2 MODULE plugin_2.c)
-add_rmntools_test(test_plugins test_plugins.c "dl")
+add_rmntools_test(test_plugins_c test_plugins.c "dl")
+
+add_rmntools_test(test_plugins_f test_plugins.F90 "dl")
+SET_SOURCE_FILES_PROPERTIES( test_plugins.F90 PROPERTIES COMPILE_FLAGS -I${CMAKE_CURRENT_BINARY_DIR}/../modules )
 
 set(XTRA_SHARED shared0 shared1 shared2 plugin0 plugin1 plugin2)
 foreach(ITEM IN ITEMS ${XTRA_SHARED})
