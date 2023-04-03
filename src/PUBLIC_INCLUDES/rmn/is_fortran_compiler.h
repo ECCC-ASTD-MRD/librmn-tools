@@ -26,28 +26,28 @@
 #if ! defined(IN_FORTRAN_CODE)
 
 #if defined(__GFORTRAN__)
-! GNU gfortran
+/* GNU gfortran */
 #define IN_FORTRAN_CODE 1
 #define FORTRAN_COMPILER_KIND "GNU"
 
 #elif defined(__INTEL_LLVM_COMPILER)
-! macro unfortunately also set for the C compiler
+/* macro unfortunately also set for the C compiler */
 
 #elif defined(__INTEL_COMPILER)
-! macro unfortunately also set for the C compiler
+/* macro unfortunately also set for the C compiler */
 
 #elif defined(__PGIF90__)
-! Nvidia/PGI compiler
+/* Nvidia/PGI compiler */
 #define IN_FORTRAN_CODE 1
 #define FORTRAN_COMPILER_KIND "PGI/Nvidia"
 
 #elif defined(__FLANG)
-! aocc flang compiler
+/* aocc flang compiler */
 #define IN_FORTRAN_CODE 1
 #define FORTRAN_COMPILER_KIND "FLANG-TRADITIONAL"
 
 #elif defined(__flang__)
-! llvm flang-new (f18) compiler
+/* llvm flang-new (f18) compiler */
 #define IN_FORTRAN_CODE 1
 #define FORTRAN_COMPILER_KIND "FLANG-LLVM"
 
