@@ -1,4 +1,5 @@
 #include <rmn/timers.h>
+#include <test_helpers.h>
 
 #define NT 10000
 int main(int argc, char **argv){
@@ -7,7 +8,8 @@ int main(int argc, char **argv){
   int i ;
   TIME_LOOP_DATA ;
 
-  printf("test of fine grained timers\n") ;
+  start_of_test("fine grained timers") ;
+//   printf("test of fine grained timers\n") ;
   tf = cycles_counter_freq() ;    // counter frequency in Hz
   t = 1.0 ;
   t  /= tf ;                      // one time counter cycle in seconds

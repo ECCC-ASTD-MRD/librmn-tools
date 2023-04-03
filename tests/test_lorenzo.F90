@@ -38,7 +38,10 @@ program lorenzo_test
   integer(C_INT64_T) :: t0, t1, freq
   integer(C_INT64_T), dimension(NTIMES) :: t
   real(kind=4) :: ns, avg
+  character(len=128) :: version_librmn
 
+  call start_of_test("Fortran Lorenzo predictor"//achar(0))
+  call rmnlib_version(version_librmn, .true.)
   freq = timer_freq()
   ns = freq
   ns = 1.0E9/freq
