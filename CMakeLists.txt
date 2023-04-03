@@ -7,12 +7,12 @@ else()
   file(GENERATE OUTPUT .gitignore CONTENT "*")
 endif()
 
-option(BUILD_SHARED_LIBS "build shared libs" ON)
-option(BUILD_STATIC_LIBS "build static libs" ON)
-option(WITH_OPENMP "use OpenMP options" ON)
-option(INSTALL_TESTS OFF)
-option(NO_TEST_LOG OFF)
-option(APPEND_LOG OFF)
+option(BUILD_SHARED_LIBS "build shared libs"               ON)
+option(BUILD_STATIC_LIBS "build static libs"               ON)
+option(WITH_OPENMP       "use OpenMP options"              ON)
+option(INSTALL_TESTS     "install test programs"           OFF)
+option(WITH_TEST_LOG     "activate test log file"          ON)
+option(APPEND_LOG        "append to log file across tests" OFF)
 
 if(NOT BUILD_STATIC_LIBS AND NOT BUILD_SHARED_LIBS)
   message(SEND_ERROR " (EC) at least ONE of BUILD_STATIC_LIBS and BUILD_SHARED_LIBS MUST BE ON")
@@ -32,7 +32,7 @@ cmake recognized variables :
   -DINSTALL_TESTS=ON|OFF
   -DBUILD_SHARED_LIBS=ON|OFF  (at least ONE of BUILD_STATIC_LIBS and BUILD_SHARED_LIBS MUST BE ON)
   -DBUILD_STATIC_LIBS=ON|OFF
-  -DNO_TEST_LOG=ON|OFF        ( do not keep log files with test outputs if ON (default OFF))
+  -DWITH_TEST_LOG=ON|OFF      ( do not keep log files with test outputs if OFF (default ON))
   -DAPPEND_LOG=ON|OFF         ( accumulate successive tests in log file  (default=do not))
   -DEXTRA_DEFINES=def1[=v1][ ,def2[=v2] ] ... [ ,defn[=vn] ]
      QUIET_SIMD               ( suppress message telling that SIMD code is used )
@@ -92,6 +92,14 @@ include(ec_openmp)          # Enable OpenMP (-DWITH_OPENMP=TRUE)
 message(STATUS "(EC ${PROJECT_NAME}) WITH_OPENMP=${WITH_OPENMP}" )
 #include(ec_doxygen)         # Doxygen target doc
 
+include(GNUInstallDirs)
+# Provides CMAKE_INSTALL_<dir> where
+# - CMAKE_INSTALL_LIBDIR = lib
+# - CMAKE_INSTALL_INCLUDEDIR = include
+# - CMAKE_INSTALL_BINDIR = bin
+# these are the defaults for X DESTINATION in install command
+
+# ======================== flags for specific compilers ======================
 # Fortran compiler options required to build this project (also used in tests)
 message(STATUS "CMAKE_C_COMPILER == ${CMAKE_C_COMPILER}")
 # if(${CMAKE_C_COMPILER} MATCHES ".*icc\$")
@@ -99,47 +107,6 @@ message(STATUS "CMAKE_C_COMPILER == ${CMAKE_C_COMPILER}")
 #   list(APPEND Intel_CFLAGS -xznver3)
 # message(STATUS "CMAKE_C_COMPILER == ${CMAKE_C_COMPILER}")
 # endif()
-# if(WITH_OPENMP)
-#   set(Intel_FFLAGS -convert big_endian -align array32byte -assume byterecl -qopenmp -march=skylake -diag-disable=5268,10121)
-#   list(APPEND IntelLLVM_FFLAGS -convert big_endian -align array32byte -assume byterecl -qopenmp -march=skylake)
-#   list(APPEND IntelLLVM_CFLAGS -qopenmp -Wno-static-in-inline -march=znver3)
-#   if(${CMAKE_C_COMPILER} MATCHES ".*icx\$")
-#     message(STATUS "(COMPILER) Intel icx detected")
-#     add_link_options( -march=native )
-#     add_compile_options( -march=native )
-#   else()
-#     set(Intel_CFLAGS -qopenmp -march=skylake -diag-disable=10441,10121)
-#     list(APPEND IntelLLVM_CFLAGS -qopenmp -march=skylake)
-#   endif()
-# 
-#   set(GNU_FFLAGS -fconvert=big-endian -fcray-pointer -frecord-marker=4 -fno-second-underscore -fopenmp)
-#   set(GNU_CFLAGS -fopenmp -march=native)
-# 
-#   set(Flang_FFLAGS -Mbyteswapio -fopenmp)
-#   if(${CMAKE_C_COMPILER} MATCHES ".*clang\$")
-#     set(Clang_CFLAGS -fopenmp -Wno-static-in-inline -march=native)
-#   else()
-#     set(Clang_CFLAGS -fopenmp -march=native)
-#   endif()
-# 
-#   set(PGI_FFLAGS -byteswapio -mp)
-#   set(PGI_CFLAGS -mp)
-# 
-#   set(LLVM_FFLAGS -fconvert=big-endian -fopenmp)
-#   set(LLVM_CFLAGS -fopenmp)
-# else()
-#   set(Intel_FFLAGS -convert big_endian -align array32byte -assume byterecl -march=skylake -diag-disable=5268,10121)
-#   list(APPEND IntelLLVM_FFLAGS -convert big_endian -align array32byte -assume byterecl -march=skylake)
-#   set(Intel_CFLAGS -Wno-static-in-inline -march=skylake -diag-disable=10441,10121)
-#   list(APPEND IntelLLVM_CFLAGS -Wno-static-in-inline -march=skylake)
-#   set(GNU_FFLAGS -fconvert=big-endian -fcray-pointer -frecord-marker=4 -fno-second-underscore -ldl -pthread)
-#   set(GNU_CFLAGS -march=native)
-#   set(Flang_FFLAGS -Mbyteswapio)
-#   set(Clang_CFLAGS -Wno-static-in-inline -march=native)
-#   set(PGI_FFLAGS -byteswapio)
-#   set(LLVM_FFLAGS -fconvert=big-endian)
-# endif()
-
 if(WITH_OPENMP)
   set(Q_OPENMP -qopenmp)
   set(F_OPENMP -fopenmp)
@@ -163,12 +130,32 @@ set(LLVM_CFLAGS  ${F_OPENMP})
 set(Intel_L_FFLAGS -diag-disable=5268,10121 ${Q_OPENMP})
 set(Intel_L_CFLAGS -diag-disable=10441,10121 ${Q_OPENMP})
 
-include(GNUInstallDirs)
-# Provides CMAKE_INSTALL_<dir> where
-# - CMAKE_INSTALL_LIBDIR = lib
-# - CMAKE_INSTALL_INCLUDEDIR = include
-# - CMAKE_INSTALL_BINDIR = bin
-# these are the defaults for X DESTINATION in install command
+# name = target_name, type = PUBLIC|PRIVATE|INTERFACE
+function(extra_target_link_options name type)
+  target_link_options(${name}
+      ${type} $<$<COMPILE_LANG_AND_ID:C,Intel>:${Intel_L_CFLAGS}>
+              $<$<COMPILE_LANG_AND_ID:Fortran,Intel>:${Intel_L_FFLAGS}>
+  )
+endfunction()
+
+# name = target_name, type = PUBLIC|PRIVATE|INTERFACE
+function(extra_target_compile_options name type)
+  target_compile_options(${name}
+      ${type} $<$<COMPILE_LANG_AND_ID:Fortran,GNU>:${GNU_FFLAGS}>
+              $<$<COMPILE_LANG_AND_ID:C,GNU>:${GNU_CFLAGS}>
+              $<$<COMPILE_LANG_AND_ID:Fortran,Intel>:${Intel_FFLAGS}>
+              $<$<COMPILE_LANG_AND_ID:Fortran,IntelLLVM>:${IntelLLVM_FFLAGS}>
+              $<$<COMPILE_LANG_AND_ID:C,Intel>:${Intel_CFLAGS}>
+              $<$<COMPILE_LANG_AND_ID:C,IntelLLVM>:${IntelLLVM_CFLAGS}>
+              $<$<COMPILE_LANG_AND_ID:Fortran,Flang>:${Flang_FFLAGS}>
+              $<$<COMPILE_LANG_AND_ID:C,Clang>:${Clang_CFLAGS}>
+              $<$<COMPILE_LANG_AND_ID:Fortran,PGI>:${PGI_FFLAGS}>
+              $<$<COMPILE_LANG_AND_ID:C,PGI>:${PGI_CFLAGS}>
+              $<$<COMPILE_LANG_AND_ID:Fortran,LLVMFlang>:${LLVM_FFLAGS}>
+              $<$<COMPILE_LANG_AND_ID:Fortran,NVHPC>:${PGI_FFLAGS}>
+              $<$<COMPILE_LANG_AND_ID:C,NVHPC>:${PGI_CFLAGS}>
+  )
+endfunction()
 
 # ======================== PROJECT FILES ======================
 set(PROJECT_C_FILES 
@@ -226,6 +213,7 @@ if(BUILD_SHARED_LIBS)
   set(CMAKE_INSTALL_RPATH "$ORIGIN:$ORIGIN/../lib")
 endif()
 
+# ======================== LIBRARY TARGETS ======================
 if(BUILD_STATIC_LIBS)
   LIST(APPEND PROJECT_TEST_DEPENDENCIES rmntoolsf)
 
@@ -250,16 +238,23 @@ if(BUILD_STATIC_LIBS)
       PUBLIC_HEADER ${CMAKE_CURRENT_SOURCE_DIR}/src/PUBLIC_INCLUDES/rmntools.h
       POSITION_INDEPENDENT_CODE ON
       OUTPUT_NAME rmntoolsf)
-  # (no longer makes calls to C library)
+  # (Fortran library no longer makes calls to C library, it includes it)
   # target_link_libraries(rmntoolsf PUBLIC rmntools)
   if(WITH_OPENMP)
       target_compile_definitions(rmntoolsf PUBLIC WITH_OPENMP)
       target_link_libraries(rmntoolsf PUBLIC OpenMP::OpenMP_Fortran dl)
   endif()
+
+  add_library(${PROJECT_NAME}::${PROJECT_NAME} ALIAS ${PROJECT_NAME})
+  list(APPEND TARGETS rmntools rmntoolsf)
+
 endif(BUILD_STATIC_LIBS)
 
 if(BUILD_SHARED_LIBS)
   LIST(APPEND PROJECT_TEST_DEPENDENCIES rmntoolsf-shared)
+  set(CMAKE_BUILD_RPATH_USE_ORIGIN true)
+  set(CMAKE_INSTALL_RPATH "$ORIGIN:$ORIGIN/../lib")
+
   # C shared library
   if(BUILD_STATIC_LIBS)
     add_library(rmntools-shared SHARED $<TARGET_OBJECTS:rmntools>)
@@ -291,7 +286,6 @@ if(BUILD_SHARED_LIBS)
       target_link_libraries(rmntools-plugins PUBLIC OpenMP::OpenMP_C dl)
   endif()
 
-  # Fortran shared library, needs to link to C shared library
   # include C objects in Fortran library
   if(BUILD_STATIC_LIBS)
     add_library(rmntoolsf-shared SHARED $<TARGET_OBJECTS:rmntoolsf>)
@@ -304,53 +298,21 @@ if(BUILD_SHARED_LIBS)
       POSITION_INDEPENDENT_CODE ON
       SOVERSION ${SOVERSION}
       OUTPUT_NAME rmntoolsf)
-  # needs to link to C shared library
+  # (Fortran library no longer makes calls to C library, it includes it)
   # target_link_libraries(rmntoolsf-shared PUBLIC rmntools-shared)
   if(WITH_OPENMP)
       target_compile_definitions(rmntoolsf-shared PUBLIC WITH_OPENMP)
       target_link_libraries(rmntoolsf-shared PUBLIC OpenMP::OpenMP_Fortran dl)
   endif()
-endif(BUILD_SHARED_LIBS)
 
-if(BUILD_STATIC_LIBS)
-  add_library(${PROJECT_NAME}::${PROJECT_NAME} ALIAS ${PROJECT_NAME})
-  list(APPEND TARGETS rmntools rmntoolsf)
-endif()
-if(BUILD_SHARED_LIBS)
   add_library(${PROJECT_NAME}::${PROJECT_NAME}-shared ALIAS ${PROJECT_NAME}-shared)
   list(APPEND TARGETS rmntools-shared rmntoolsf-shared rmntools-plugins)
-endif()
+
+endif(BUILD_SHARED_LIBS)
 
 # Required to prevent missing Fortran modules when building in parallel
 # (make -j) with GNU compilers
 # add_dependencies(rmntoolsf-shared rmntools-shared)
-
-# name = target_name, type = PUBLIC|PRIVATE|INTERFACE
-function(extra_target_link_options name type)
-  target_link_options(${name}
-      ${type} $<$<COMPILE_LANG_AND_ID:C,Intel>:${Intel_L_CFLAGS}>
-              $<$<COMPILE_LANG_AND_ID:Fortran,Intel>:${Intel_L_FFLAGS}>
-  )
-endfunction()
-
-# name = target_name, type = PUBLIC|PRIVATE|INTERFACE
-function(extra_target_compile_options name type)
-  target_compile_options(${name}
-      ${type} $<$<COMPILE_LANG_AND_ID:Fortran,GNU>:${GNU_FFLAGS}>
-              $<$<COMPILE_LANG_AND_ID:C,GNU>:${GNU_CFLAGS}>
-              $<$<COMPILE_LANG_AND_ID:Fortran,Intel>:${Intel_FFLAGS}>
-              $<$<COMPILE_LANG_AND_ID:Fortran,IntelLLVM>:${IntelLLVM_FFLAGS}>
-              $<$<COMPILE_LANG_AND_ID:C,Intel>:${Intel_CFLAGS}>
-              $<$<COMPILE_LANG_AND_ID:C,IntelLLVM>:${IntelLLVM_CFLAGS}>
-              $<$<COMPILE_LANG_AND_ID:Fortran,Flang>:${Flang_FFLAGS}>
-              $<$<COMPILE_LANG_AND_ID:C,Clang>:${Clang_CFLAGS}>
-              $<$<COMPILE_LANG_AND_ID:Fortran,PGI>:${PGI_FFLAGS}>
-              $<$<COMPILE_LANG_AND_ID:C,PGI>:${PGI_CFLAGS}>
-              $<$<COMPILE_LANG_AND_ID:Fortran,LLVMFlang>:${LLVM_FFLAGS}>
-              $<$<COMPILE_LANG_AND_ID:Fortran,NVHPC>:${PGI_FFLAGS}>
-              $<$<COMPILE_LANG_AND_ID:C,NVHPC>:${PGI_CFLAGS}>
-  )
-endfunction()
 
 foreach(TARGET IN ITEMS ${TARGETS})
     # avoid ninja problem with multiple rules generating the same target

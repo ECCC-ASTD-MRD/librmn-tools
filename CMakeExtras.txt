@@ -1,10 +1,10 @@
 # test log mode
 if(APPEND_LOG)
-  set(NO_TEST_LOG BOOL OFF)   # override NO_TEST_LOG=ON
-  set(APPEND_LOG "-a")
+  set(WITH_TEST_LOG BOOL ON)   # override NO_TEST_LOG=ON
+  set(TEE_LOG_MODE "-a")
   message(STATUS "(EC) test log mode : append to log files")
 else()
-  if(NO_TEST_LOG)
+  if(NOT WITH_TEST_LOG)
     message(STATUS "(EC) test log mode : NO LOG")
   else()
     message(STATUS "(EC) test log mode : overwrite log files")
