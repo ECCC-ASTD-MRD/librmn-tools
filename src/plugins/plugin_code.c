@@ -308,6 +308,7 @@ void *Load_plugin(const char *lib)  //InTc
   plugin *p;
   fnptr func_nb;
   int slot ;
+  void *ptr ;
 
   for (slot=0 ; slot < MAX_PLUGINS ; slot++){
     if(plugin_table[slot].name == NULL) break;  // free slot
@@ -326,9 +327,9 @@ void *Load_plugin(const char *lib)  //InTc
   p->symbol  = NULL;
   p->nentries= 0;
   p->addr    = NULL;
-  p->handle = dlopen(lib,RTLD_LAZY);
-
-  if( p->handle == NULL ) {
+  ptr        = dlopen(lib,RTLD_LAZY);
+  p->handle  = ptr;
+  if( ptr == NULL ) {
     fprintf(stderr,"ERROR: load failed for %s\n",lib);
     return(NULL);
   }

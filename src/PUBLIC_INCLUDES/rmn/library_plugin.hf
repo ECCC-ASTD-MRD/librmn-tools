@@ -28,13 +28,9 @@ module LIBRARY_PLUGIN_MOD
     end subroutine
     subroutine destructor() bind(C,name='FortranDestructor')              ! from libbuildplugin.a
     end subroutine
-    subroutine user_constructor() bind(C,name='fortran_constructor')      ! from user plugin
-    end subroutine
-    subroutine user_destructor() bind(C,name='fortran_destructor')        ! from user plugin
-    end subroutine
   end interface
 contains
-  ! called by user plugin code subroutine user_constructor
+  ! called by user plugin code subroutine fortran_constructor
   subroutine insert_in_name_table(name)  ! add name to name table and name pointers
     use ISO_C_BINDING
     implicit none
@@ -45,8 +41,6 @@ contains
     names(1:l,nargs)    = transfer(trim(name)//achar(0) , names, l)
     name_table(nargs)   = C_LOC(names(1,nargs))
     name_table(nargs+1) = C_NULL_PTR   ! make sure list is null terminated
-!    if(nargs == 999999) call constructor  ! never happens, but forces FortranConstructor to be loaded
-!    if(nargs == 999999) call destructor   ! never happens, but forces FortranDestructor to be loaded
     return
   end subroutine insert_in_name_table
   ! called as part of the plugin API
@@ -54,9 +48,9 @@ contains
     use ISO_C_BINDING
     implicit none
     integer(C_INT) :: number
-    if(nargs == 0) then   ! should not happen, user_constructor should have been called by the constructor
-      print *,"calling user_constructor from symbols"
-      call user_constructor()
+    if(nargs == 0) then   ! should not happen, fortran_constructor should have been called by the constructor
+      print *,"calling fortran_constructor from symbols"
+      call fortran_constructor()
     endif
     number = nargs   ! return number of arguments
     return

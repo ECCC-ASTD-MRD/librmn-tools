@@ -1,6 +1,7 @@
 #include <stdio.h>
 
-int FortranConstructor2(int) __attribute__((weak)) ;
+void FortranConstructor() __attribute__((weak)) ;
+void FortranDestructor() __attribute__((weak)) ;
 
 char *EntryList_[4] = { "name1","name2","name3",NULL} ;   // fully static method
 
@@ -29,16 +30,22 @@ return(arg);
 }
 
 void __attribute__ ((constructor)) Constructor2(void) {
-   printf("plugin constructor for plugin_2\n");
-   if( FortranConstructor2 ){
-     printf("FortranConstructor2 is Available [%p]\n", &FortranConstructor2) ;
-     FortranConstructor2(123456) ;
+   printf("plugin constructor for plugin_2 : ");
+   if( FortranConstructor ){
+     printf("FortranConstructor is Available [%p]\n", &FortranConstructor) ;
+     FortranConstructor() ;
    }else{
-     printf("FortranConstructor2 is NOT FOUND\n") ;
+     printf("FortranConstructor is NOT FOUND\n") ;
    }
 }
 
 void __attribute__ ((destructor)) Destructor2(void) {
-   printf("plugin destructor for plugin_2\n");
+   printf("plugin destructor for plugin_2 : ");
+   if( FortranDestructor ){
+     printf("FortranDestructor is Available [%p]\n", &FortranDestructor) ;
+     FortranDestructor() ;
+   }else{
+     printf("FortranDestructor is NOT FOUND\n") ;
+   }
 }
 

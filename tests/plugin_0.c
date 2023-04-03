@@ -1,6 +1,7 @@
 #include <stdio.h>
 
-int FortranConstructor0(int) __attribute__((weak)) ;
+void FortranConstructor() __attribute__((weak)) ;
+void FortranDestructor() __attribute__((weak)) ;
 
 char *EntryList_[1] = {NULL} ;  // empty entry list
 
@@ -29,14 +30,21 @@ return(arg);
 }
 
 void __attribute__ ((constructor)) Constructor0(void) {
-   printf("plugin constructor for plugin_0\n");
-   if( FortranConstructor0 ){
-     printf("FortranConstructor0 is Available [%p], result = %d\n", &FortranConstructor0, FortranConstructor0(123456)) ;
+   printf("plugin constructor for plugin_0 : ");
+   if( FortranConstructor ){
+     printf("FortranConstructor is Available [%p]\n", &FortranConstructor) ;
+     FortranConstructor() ;
    }else{
-     printf("FortranConstructor0 is NOT FOUND\n") ;
+     printf("FortranConstructor is NOT FOUND\n") ;
    }
 }
 
 void __attribute__ ((destructor)) Destructor0(void) {
-   printf("plugin destructor for plugin_0\n");
+   printf("plugin destructor for plugin_0 : ");
+   if( FortranDestructor ){
+     printf("FortranDestructor is Available [%p]\n", &FortranDestructor) ;
+     FortranDestructor() ;
+   }else{
+     printf("FortranDestructor is NOT FOUND\n") ;
+   }
 }

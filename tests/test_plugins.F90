@@ -56,6 +56,7 @@ program test_plugin   ! test of fortran plugin module
 ! call sharedf1 % diag(SILENT)                                          ! set non verbose diagnostics
   status = sharedf1 % load('libsharedf1.so')                            ! load sharedf1    (slot 0)
   status = sharedf1 % unload()                                          ! unload sharedf1  (slot 0)
+#if 1
 
   status = sharedf3 % load('libsharedf3.so')                            ! load sharedf2    (slot 0)
   print *,'load libsharedf3, status =',status
@@ -65,20 +66,20 @@ program test_plugin   ! test of fortran plugin module
   print *,'load libsharedf1, status =',status
   status = sharedf3 % unload()                                          ! unload sharedf3
   print *,'unload libsharedf3, status =',status
-#if 0
 
   print *,"========================================"
   print *,'looking up name4f in libsharedf1.so'
-  fptr1 = sharedf1 % fnptr('name4f')                                    ! known valid name in this plugin library
+  fptr1 = sharedf1 % function_pointer('name4f')                                    ! known valid name in this plugin library
   if(.not. c_associated(fptr1)) then                                    ! OOPS !
     print *,'name4f not found (NOT EXPECTED)'
   else
-    nsym = sharedf1 % symbols()                                         ! get number of advertized symbols
+    nsym = sharedf1 % number_of_symbols()                                         ! get number of advertized symbols
     print *,'number of advertized entries in plugin libsharedf1.so =', nsym
     do i = 1, nsym                                                      ! loop over number of symbols
-      longstr = ""
-      status = sharedf1 % fname(i, longstr)                             ! name of symbol at position i in list
-      fptr2 = sharedf1 % fnptr(trim(longstr))
+!       longstr = ""
+      longstr = sharedf1 % function_name(i)
+!       status = sharedf1 % function_name(i, longstr)                             ! name of symbol at position i in list
+      fptr2 = sharedf1 % function_pointer(trim(longstr))
       ifptr = transfer(fptr2, ifptr)
      print 100,'entry ',i," = '",trim(longstr)//"'",ifptr
 100   format(A,I3,A,A,2X,Z16.16)
@@ -92,7 +93,7 @@ program test_plugin   ! test of fortran plugin module
   else
     print *, "ERROR: failed to find entry 'name4f'"
   endif
-  fptr1 = sharedf1 % fnptr('unadvertised')  ! unadvertised name
+  fptr1 = sharedf1 % function_pointer('unadvertised')  ! unadvertised name
   if( c_associated(fptr1) ) then
     call c_f_procpointer(fptr1,fpl2)      ! make Fortran function pointer from C function pointer
     answer = fpl2(789)                    ! call by value type
@@ -104,16 +105,17 @@ program test_plugin   ! test of fortran plugin module
   print *,"========================================"
 
   print *,'looking up name4f in libsharedf2.so'
-  fptr1 = sharedf2 % fnptr('name4f')                                    ! known valid name in this plugin library
+  fptr1 = sharedf2 % function_pointer('name4f')                                    ! known valid name in this plugin library
   if(.not. c_associated(fptr1)) then                                    ! OOPS !
     print *,'name4f not found (NOT EXPECTED)'
   else
-    nsym = sharedf2 % symbols()                                         ! get number of advertized symbols
+    nsym = sharedf2 % number_of_symbols()                                         ! get number of advertized symbols
     print *,'number of advertized entries in plugin libsharedf2.so =', nsym
     do i = 1, nsym                                                      ! loop over number of symbols
-      longstr = ""
-      status = sharedf2 % fname(i, longstr)                             ! name of symbol at position i in list
-      fptr2 = sharedf2 % fnptr(trim(longstr))
+!       longstr = ""
+      longstr = sharedf2 % function_name(i)
+!       status = sharedf2 % function_name(i, longstr)                             ! name of symbol at position i in list
+      fptr2 = sharedf2 % function_pointer(trim(longstr))
       ifptr = transfer(fptr2, ifptr)
      print 100,'entry ',i," = '",trim(longstr)//"'",ifptr
     enddo
@@ -126,7 +128,7 @@ program test_plugin   ! test of fortran plugin module
   else
     print *, "ERROR: failed to find entry 'name4f'"
   endif
-  fptr1 = sharedf2 % fnptr('unadvertised')  ! unadvertised name
+  fptr1 = sharedf2 % function_pointer('unadvertised')  ! unadvertised name
   if( c_associated(fptr1) ) then
     call c_f_procpointer(fptr1,fpl2)      ! make Fortran function pointer from C function pointer
     answer = fpl2(678)                    ! call by value type
@@ -137,17 +139,17 @@ program test_plugin   ! test of fortran plugin module
   endif
   print *,"========================================"
 
-  print *,'looking up Name_2 in libsharedf1.so'
-  fptr2 = sharedf1 % fnptr('Name_2')      ! bad name because wrong plugin library
+  print *,'looking up name2 in libsharedf1.so'
+  fptr2 = sharedf1 % function_pointer('name2')      ! bad name because wrong plugin library
   if(.not. c_associated(fptr2)) then
-    print *,'Name_2 not found (AS EXPECTED)'
+    print *,'name2 not found (AS EXPECTED)'
   else
     print *, 'ERROR: This should not print'
   endif
-  print *,'looking up Name_2 in libsharedf2.so'
-  fptr2 = sharedf1 % fnptr('Name_2')      ! bad name because wrong plugin library
+  print *,'looking up name2 in libsharedf2.so'
+  fptr2 = sharedf1 % function_pointer('name2')      ! bad name because wrong plugin library
   if(.not. c_associated(fptr2)) then
-    print *,'Name_2 not found (AS EXPECTED)'
+    print *,'name2 not found (AS EXPECTED)'
   else
     print *, 'ERROR: This should not print'
   endif
@@ -155,33 +157,33 @@ program test_plugin   ! test of fortran plugin module
 
   status = shared2 % load('libshared2.so')           ! load shared2    (slot 0)
   
-  print *,'looking up Name_2 in libshared2.so'
-  fptr2 = shared2 % fnptr('Name_2')
+  print *,'looking up name2 in libshared2.so'
+  fptr2 = shared2 % function_pointer('name2')
   if(.not. c_associated(fptr2)) then
-    print *,'Name_2 not found (NOT EXPECTED)'
+    print *,'name2 not found (NOT EXPECTED)'
   else
-    nsym = shared2 % symbols()
+    nsym = shared2 % number_of_symbols()
     print *,'number of advertized entries in plugin libshared2.so =', nsym
     call c_f_procpointer(fptr2,fpl2)      ! make Fortran function pointer from C function pointer
     answer = fpl2(456)                    ! call by value type
     print *, 'fpl2(456) =',answer
-    if(answer .ne. 456) print *,"ERROR: expecting 456, got",answer
+    if(answer .ne. 756) print *,"ERROR: expecting 756, got",answer
   endif
   print *,"========================================"
 
-  print *,'looking up Name_3 in ANY plugin'
-  fptr2 = anonymous % fnptr('Name_3')     ! blind call, anonymous is not initialized
+  print *,'looking up name3 in ANY plugin'
+  fptr2 = anonymous % function_pointer('name3')     ! blind call, anonymous is not initialized
   if(.not. c_associated(fptr2)) then
-    print *,'Name_3 not found (NOT EXPECTED)'
+    print *,'name3 not found (NOT EXPECTED)'
   else
     call c_f_procpointer(fptr2,fpl2)
     answer = fpl2(789)                    ! call by value type
     print *, 'fpl2(789) =',answer
-    if(answer .ne. 789) print *,"ERROR: expecting 789, got",answer
+    if(answer .ne. 1089) print *,"ERROR: expecting 1089, got",answer
   endif
 
   print *,'looking up unadvertised in ANY plugin'
-  fptr2 = anonymous % fnptr('unadvertised')     ! blind call, anonymous is not initialized
+  fptr2 = anonymous % function_pointer('unadvertised')     ! blind call, anonymous is not initialized
   if(.not. c_associated(fptr2)) then
     print *,'unadvertised not found (NOT EXPECTED)'
   else
