@@ -26,6 +26,7 @@ program test_plugin   ! test of fortran plugin module
   character(C_CHAR), dimension(:), pointer :: symbol_name
   character(len=128) :: longstr
   integer(C_INT64_T) :: ifptr
+  character(len=128) :: version_librmn
 
   interface
     subroutine c_exit(code) bind(C,name='exit')
@@ -47,7 +48,10 @@ program test_plugin   ! test of fortran plugin module
       integer, intent(IN) :: arg                  ! absence of BIND(C) seems not to induce runtime errors
     end function procadr
   end interface
-#if 0
+
+  call start_of_test("Fortran plugins"//achar(0))
+  call rmnlib_version(version_librmn, .true.)
+
   call sharedf1 % diag(VERBOSE)                                         ! set verbose diagnostics
 ! call sharedf1 % diag(SILENT)                                          ! set non verbose diagnostics
   status = sharedf1 % load('libsharedf1.so')                            ! load sharedf1    (slot 0)
@@ -61,6 +65,7 @@ program test_plugin   ! test of fortran plugin module
   print *,'load libsharedf1, status =',status
   status = sharedf3 % unload()                                          ! unload sharedf3
   print *,'unload libsharedf3, status =',status
+#if 0
 
   print *,"========================================"
   print *,'looking up name4f in libsharedf1.so'

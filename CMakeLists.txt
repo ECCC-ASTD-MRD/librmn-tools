@@ -288,7 +288,7 @@ if(BUILD_SHARED_LIBS)
 
   # include C objects in Fortran library
   if(BUILD_STATIC_LIBS)
-    add_library(rmntoolsf-shared SHARED $<TARGET_OBJECTS:rmntoolsf>)
+    add_library(rmntoolsf-shared SHARED $<TARGET_OBJECTS:rmntoolsf> $<TARGET_OBJECTS:rmntools>)
   else()
     add_library(rmntoolsf-shared SHARED ${PROJECT_F_FILES} $<TARGET_OBJECTS:rmntools-shared>)
   endif()
@@ -297,7 +297,7 @@ if(BUILD_SHARED_LIBS)
       PUBLIC_HEADER ${CMAKE_CURRENT_SOURCE_DIR}/src/PUBLIC_INCLUDES/rmntools.h
       POSITION_INDEPENDENT_CODE ON
       SOVERSION ${SOVERSION}
-      OUTPUT_NAME rmntoolsf)
+      OUTPUT_NAME rmntoolsf-shared)
   # (Fortran library no longer makes calls to C library, it includes it)
   # target_link_libraries(rmntoolsf-shared PUBLIC rmntools-shared)
   if(WITH_OPENMP)

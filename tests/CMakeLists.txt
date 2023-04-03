@@ -33,6 +33,15 @@ function(add_project_test name source link_libs)
     endif()
 endfunction()
 
+if(BUILD_STATIC_LIBS)
+  set(RMNTOOLSF rmntoolsf)
+  set(RMNTOOLS rmntools)
+endif()
+if(BUILD_SHARED_LIBS)
+  set(RMNTOOLSF rmntoolsf-shared)
+  set(RMNTOOLS rmntools-shared)
+endif()
+
 add_library(shared0 SHARED plugin_0.c plugin_0.F90)
 add_project_test(test_shared_0 test_shared.c shared0)
 add_library(shared1 SHARED plugin_1.c)
@@ -41,12 +50,19 @@ add_library(shared2 SHARED plugin_2.c)
 add_project_test(test_shared_2 test_shared.c shared2)
 add_project_test(test_shared_012 test_shared_012.c "shared2;shared1;shared0")
 
+add_library(sharedf1 SHARED sharedf1.F90 ../src/plugins/plugin_constructor.c)
+SET_SOURCE_FILES_PROPERTIES( sharedf1.F90 PROPERTIES COMPILE_FLAGS -I${CMAKE_SOURCE_DIR}/src/PUBLIC_INCLUDES )
+
+add_library(sharedf2 SHARED sharedf2.F90 ../src/plugins/plugin_constructor.c)
+SET_SOURCE_FILES_PROPERTIES( sharedf2.F90 PROPERTIES COMPILE_FLAGS -I${CMAKE_SOURCE_DIR}/src/PUBLIC_INCLUDES )
+
 add_library(plugin0 MODULE plugin_0.c plugin_0.F90)
 add_library(plugin1 MODULE plugin_1.c)
 add_library(plugin2 MODULE plugin_2.c)
+
 add_project_test(test_plugins_c test_plugins.c "dl")
 
-add_project_test(test_plugins_f test_plugins.F90 "dl")
+add_project_test(test_plugins_f test_plugins.F90 "${RMNTOOLSF};${RMNTOOLS};rmn::rmn;dl")
 SET_SOURCE_FILES_PROPERTIES( test_plugins.F90 PROPERTIES COMPILE_FLAGS -I${CMAKE_CURRENT_BINARY_DIR}/../modules )
 
 set(XTRA_SHARED shared0 shared1 shared2 plugin0 plugin1 plugin2)
@@ -62,14 +78,6 @@ endforeach()
 # target_compile_definitions(test_c PRIVATE TESTC)
 # add_project_test(test_f test_f.F90 RMNTOOLSF)   # link with static libraries
 # target_compile_definitions(test_f PRIVATE TESTF)
-if(BUILD_SHARED_LIBS)
-  set(RMNTOOLSF rmntoolsf-shared)
-  set(RMNTOOLS rmntools-shared)
-endif()
-if(BUILD_STATIC_LIBS)
-  set(RMNTOOLSF rmntoolsf)
-  set(RMNTOOLS rmntools)
-endif()
 
 add_project_test(test_identify_mpi_child test_identify_mpi_child.c ${RMNTOOLS} "mpirun -n 2")
 add_dependencies(mpicheck test_identify_mpi_child)
