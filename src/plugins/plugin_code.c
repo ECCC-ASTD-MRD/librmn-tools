@@ -341,7 +341,7 @@ void *Load_plugin(const char *lib)  //InTc
 //     then look for EntryList_ and use it (if present) to count advertized entries
 // ===============================================================================================
   nsym = 0;
-  func_nb = dlsym(p->handle,"get_symbol_number");     // get_symbol_number found ?
+  func_nb = (fnptr) dlsym(p->handle,"get_symbol_number");     // get_symbol_number found ?
   if(func_nb == NULL){                                // optional function (mainly for Fortran plugin usage)
     if(verbose) fprintf(stderr,"INFO: get_symbol_number not found\n");
   }else{
@@ -365,7 +365,7 @@ void *Load_plugin(const char *lib)  //InTc
   if(slot >= last_plugin) last_plugin = slot + 1;
 
   for(i=0 ; i<nsym ; i++){                                // fill address table if advertised symbol list is present
-    p->addr[i] =  dlsym(p->handle,p->symbol[i]);
+    p->addr[i] =  (fnptr) dlsym(p->handle,p->symbol[i]);
     if(verbose) fprintf(stderr,"INFO:   %p %s\n",p->addr[i],p->symbol[i]);
   }
   return(p);  // pointer to "plugin" structure
