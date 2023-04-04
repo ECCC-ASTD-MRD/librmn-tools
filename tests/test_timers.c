@@ -1,5 +1,5 @@
 #include <rmn/timers.h>
-#include <test_helpers.h>
+#include <rmn/test_helpers.h>
 
 #define NT 10000
 int main(int argc, char **argv){

@@ -8,7 +8,8 @@ void end_of_test(void){
 }
 
 void start_of_test(char *name){
-  fprintf(stderr,"==================== test : %s ====================\n", name) ;
+  fprintf(stderr,"==================== test : %s ==================== ", name) ;
+  system("date '+%Y-%m-%d_%H.%M.%S' 1>&2") ;
   atexit(end_of_test) ;
 }
 void start_of_test_(char *name){ start_of_test(name) ; };

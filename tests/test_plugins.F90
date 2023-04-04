@@ -49,7 +49,7 @@ program test_plugin   ! test of fortran plugin module
     end function procadr
   end interface
 
-!   call start_of_test("Fortran plugins"//achar(0))
+  call start_of_test("Fortran plugins"//achar(0))
   call rmnlib_version(version_librmn, .true.)     ! test link to librmn
 
   call sharedf1 % diag(VERBOSE)                                         ! set verbose diagnostics

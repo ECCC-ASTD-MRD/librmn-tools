@@ -3,12 +3,19 @@ add_custom_target(check COMMAND CTEST_OUTPUT_ON_FAILURE=true ${CMAKE_CTEST_COMMA
 add_custom_target(mpicheck COMMAND CTEST_OUTPUT_ON_FAILURE=true ${CMAKE_CTEST_COMMAND})
 message(STATUS "(EC) Generating librmntools tests")
 
+if(BUILD_STATIC_LIBS)
+  set(PROJECT_TEST_LIBRARIES rmntoolsf rmntools)
+endif()
+if(BUILD_SHARED_LIBS)
+  set(PROJECT_TEST_LIBRARIES rmntoolsf-shared rmntools-shared)
+endif()
+
 function(add_project_test name source link_libs)
     # Use same name for target and executable file
-    add_executable(${name} ${source} test_helpers.c)
-    target_link_libraries(${name} PRIVATE ${link_libs})
-    extra_target_link_options(${name} PRIVATE)
-    extra_target_compile_options(${name} PRIVATE)
+    add_executable(${name} ${source})
+    target_link_libraries(${name} PRIVATE ${PROJECT_TEST_LIBRARIES} ${link_libs})
+    extra_target_link_options(${name} PRIVATE)      # compiler specific flags
+    extra_target_compile_options(${name} PRIVATE)   # compiler specific flags
     set(extra_args ${ARGN})
     list(LENGTH extra_args extra_count)
     if(${extra_count} GREATER 0)      # extra arguments ?
@@ -20,9 +27,8 @@ function(add_project_test name source link_libs)
     else()
       message(STATUS "(EC) log for test ${name} : tee ${TEE_LOG_MODE}  ${name}.log")
       add_test(NAME ${name}
-#           COMMAND bash -c "${RUN_WITH_MPI} $<TARGET_FILE:${name}> 2>&1 | tee ${name}_$(date +%Y-%m-%d_%H.%M.%S).log"
-#           COMMAND bash -c "${RUN_WITH_MPI}$<TARGET_FILE:${name}> 2>&1 | tee ${TEE_LOG_MODE} ${name}.log"
-          COMMAND bash -c "${RUN_WITH_MPI}$<TARGET_FILE:${name}> 1>t.log 2>&1 ; a=$? ; cat t.log | tee ${TEE_LOG_MODE} ${name}.log ; rm -f t.log ; exit $a"
+#           COMMAND bash -o pipefail -c "${RUN_WITH_MPI}$<TARGET_FILE:${name}> 2>&1 | tee ${name}_$(date +%Y-%m-%d_%H.%M.%S).log"
+          COMMAND bash -o pipefail -c "${RUN_WITH_MPI}$<TARGET_FILE:${name}> 2>&1 | tee ${TEE_LOG_MODE} ${name}.log"
 #           COMMAND "${RUN_WITH_MPI}$<TARGET_FILE:${name}>"
           WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
     endif()
@@ -35,15 +41,6 @@ function(add_project_test name source link_libs)
         set_target_properties(${name} PROPERTIES EXCLUDE_FROM_ALL TRUE)
     endif()
 endfunction()
-
-if(BUILD_STATIC_LIBS)
-  set(RMNTOOLSF rmntoolsf)
-  set(RMNTOOLS rmntools)
-endif()
-if(BUILD_SHARED_LIBS)
-  set(RMNTOOLSF rmntoolsf-shared)
-  set(RMNTOOLS rmntools-shared)
-endif()
 
 add_library(shared0 SHARED plugin_0.c plugin_0.F90)
 add_project_test(test_shared_0 test_shared.c shared0)
@@ -64,16 +61,17 @@ add_library(plugin0 MODULE plugin_0.c plugin_0.F90)
 add_library(plugin1 MODULE plugin_1.c)
 add_library(plugin2 MODULE plugin_2.c)
 
-add_project_test(test_plugins_c test_plugins.c "dl")
+add_project_test(test_plugins_c test_plugins.c "rmn::rmn;dl")
+# SET_SOURCE_FILES_PROPERTIES( test_plugins.c PROPERTIES COMPILE_FLAGS -I${CMAKE_SOURCE_DIR}/include )
 
-add_project_test(test_plugins_f test_plugins.F90 "${RMNTOOLSF};${RMNTOOLS};rmn::rmn;dl")
-SET_SOURCE_FILES_PROPERTIES( test_plugins.F90 PROPERTIES COMPILE_FLAGS -I${CMAKE_CURRENT_BINARY_DIR}/../modules )
+add_project_test(test_plugins_f test_plugins.F90 "rmn::rmn;dl")
+# SET_SOURCE_FILES_PROPERTIES( test_plugins.F90 PROPERTIES COMPILE_FLAGS -I${CMAKE_CURRENT_BINARY_DIR}/../modules )
 
 # set compile/link special options for targets not created with add_project_test
-set(XTRA_SHARED shared0 shared1 shared2 plugin0 plugin1 plugin2 sharedf1 sharedf2)
+set(XTRA_SHARED shared0 shared1 shared2 sharedf1 sharedf2 plugin0 plugin1 plugin2)
 foreach(ITEM IN ITEMS ${XTRA_SHARED})
-  extra_target_link_options(${ITEM} PRIVATE)
-  extra_target_compile_options(${ITEM} PRIVATE)
+  extra_target_link_options(${ITEM} PRIVATE)      # compiler specific flags
+  extra_target_compile_options(${ITEM} PRIVATE)   # compiler specific flags
 endforeach()
 
 # target_link_libraries(test_shared_012 PRIVATE dl)
@@ -84,24 +82,24 @@ endforeach()
 # add_project_test(test_f test_f.F90 RMNTOOLSF)   # link with static libraries
 # target_compile_definitions(test_f PRIVATE TESTF)
 
-add_project_test(test_identify_mpi_child test_identify_mpi_child.c ${RMNTOOLS} "mpirun -n 2 ")
+add_project_test(test_identify_mpi_child test_identify_mpi_child.c "dl" "mpirun -n 2 ")
 add_dependencies(mpicheck test_identify_mpi_child)
 
-add_project_test(test_identify_compiler_c test_identify_compiler_c.c ${RMNTOOLS})
-add_project_test(test_identify_compiler_f test_identify_compiler_f.F90 ${RMNTOOLSF})
-add_project_test(test_timers test_timers.c ${RMNTOOLS})
+add_project_test(test_identify_compiler_c test_identify_compiler_c.c "dl")
+add_project_test(test_identify_compiler_f test_identify_compiler_f.F90 "dl")
+add_project_test(test_timers test_timers.c "dl")
 
-add_project_test(test_tee_file test_tee_file.c ${RMNTOOLS})
-add_project_test(test_tee_file_local test_tee_file.c ${RMNTOOLS})
+add_project_test(test_tee_file test_tee_file.c "dl")
+add_project_test(test_tee_file_local test_tee_file.c "dl")
 TARGET_COMPILE_DEFINITIONS(test_tee_file_local PRIVATE -DOVERRIDE_WITH_LOCAL)
 
-add_project_test(test_bi_endian_pack test_bi_endian_pack.c ${RMNTOOLS})
+add_project_test(test_bi_endian_pack test_bi_endian_pack.c "dl")
 SET_SOURCE_FILES_PROPERTIES( test_bi_endian_pack PROPERTIES COMPILE_FLAGS -O3 )
 
-add_project_test(test_pack_macros test_pack_macros.c ${RMNTOOLS})
+add_project_test(test_pack_macros test_pack_macros.c "dl")
 SET_SOURCE_FILES_PROPERTIES( test_pack_macros PROPERTIES COMPILE_FLAGS -O3 )
 
-add_project_test(test_lorenzo_c test_lorenzo_c.c ${RMNTOOLS})
-add_project_test(test_lorenzo_f test_lorenzo.F90 "rmn::rmn;${RMNTOOLSF}")
+add_project_test(test_lorenzo_c test_lorenzo_c.c "dl")
+add_project_test(test_lorenzo_f test_lorenzo.F90 "rmn::rmn")
 SET_SOURCE_FILES_PROPERTIES( test_lorenzo.F90 PROPERTIES COMPILE_FLAGS -DNO_FORTRAN_CODE )
 

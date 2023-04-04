@@ -166,6 +166,7 @@ set(PROJECT_C_FILES
   src/pred/lorenzo_c.c
   src/pack/bi_endian_pack.c
   src/diag/tee_print.c
+  src/diag/test_helpers.c
   src/plugins/plugin_code.c
 )
 set(PROJECT_PLUGIN_FILES 
@@ -194,6 +195,7 @@ set(PROJECT_H_FILES
   src/PUBLIC_INCLUDES/rmn/bi_endian_pack.h
   src/PUBLIC_INCLUDES/rmn/bits.h
   src/PUBLIC_INCLUDES/rmn/tee_print.h
+  src/PUBLIC_INCLUDES/rmn/test_helpers.h
   src/PUBLIC_INCLUDES/rmn/identify_compiler_c.h
   src/PUBLIC_INCLUDES/rmn/identify_mpi_child.h
   src/PUBLIC_INCLUDES/rmn/is_fortran_compiler.h

@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <dlfcn.h>
 #include <errno.h>
+#include <rmn/test_helpers.h>
 
 typedef int (*fptr)(int) ;
 
@@ -11,6 +12,7 @@ int main(int argc, char **argv){
   fptr name1_1, name2_1, name3_1 ;
   fptr name1_2, name2_2, name3_2 ;
 
+  start_of_test("test_plugins C");
   plugin0 = dlopen("libplugin0.so", RTLD_LAZY) ;
   if(plugin0 == NULL) printf("ERROR : plugin0 open failed '%s'\n", dlerror()) ;
   plugin1 = dlopen("libplugin1.so", RTLD_LAZY) ;
@@ -28,6 +30,5 @@ int main(int argc, char **argv){
   name1_2 = (fptr) dlsym(plugin2, "name1") ; printf("%d\n", (*name1_2)(1) ) ;
   name2_2 = (fptr) dlsym(plugin2, "name2") ; printf("%d\n", (*name2_2)(2) ) ;
   name3_2 = (fptr) dlsym(plugin2, "name3") ; printf("%d\n", (*name3_2)(3) ) ;
-printf("exiting with non zero value\n");
-  exit(127) ;
+
 }
