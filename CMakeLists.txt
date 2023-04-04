@@ -1,5 +1,6 @@
 # The minimum version can not be 3.16 because of the LINK_LANGUAGE generator expression in Config.cmake.in
 cmake_minimum_required(VERSION 3.20)
+#========================= options, errors, help =========================
 if(PROJECT_SOURCE_DIR STREQUAL PROJECT_BINARY_DIR)
   message(FATAL_ERROR "In-source builds are disabled for this project")
 else()
@@ -51,9 +52,9 @@ if(HELP OR DEFINED ENV{HELP})
 #   message(FATAL_ERROR "HELP mode fake error to stop processing")
 endif()
 
-if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/CMakeExtras.txt)
-  include(CMakeExtras.txt)
-endif()
+# Append project specific modules directory
+list(APPEND CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/modules)
+include(ec_tools_extras)
 
 if(DEFINED COMPILER_SUITE)
   string(TOLOWER "${COMPILER_SUITE}" COMPILER_SUITE)
@@ -63,7 +64,7 @@ else()
     message(STATUS "(rmntools) EC environment not found, COMPILER_SUITE not defined, set to gnu" )
   endif()
 endif()
-
+#===================================== EC setup=========================
 include(CMakePrintHelpers)
 # Append EC specific module path
 list(APPEND CMAKE_MODULE_PATH $ENV{EC_CMAKE_MODULE_PATH} ${CMAKE_SOURCE_DIR}/cmake_rpn/modules)
