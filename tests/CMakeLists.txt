@@ -21,7 +21,8 @@ function(add_project_test name source link_libs)
       message(STATUS "(EC) log for test ${name} : tee ${TEE_LOG_MODE}  ${name}.log")
       add_test(NAME ${name}
 #           COMMAND bash -c "${RUN_WITH_MPI} $<TARGET_FILE:${name}> 2>&1 | tee ${name}_$(date +%Y-%m-%d_%H.%M.%S).log"
-          COMMAND bash -c "${RUN_WITH_MPI}$<TARGET_FILE:${name}> 2>&1 | tee ${TEE_LOG_MODE} ${name}.log"
+#           COMMAND bash -c "${RUN_WITH_MPI}$<TARGET_FILE:${name}> 2>&1 | tee ${TEE_LOG_MODE} ${name}.log"
+          COMMAND bash -c "${RUN_WITH_MPI}$<TARGET_FILE:${name}> 1>t.log 2>&1 ; a=$? ; cat t.log | tee ${TEE_LOG_MODE} ${name}.log ; rm -f t.log ; exit $a"
 #           COMMAND "${RUN_WITH_MPI}$<TARGET_FILE:${name}>"
           WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
     endif()
