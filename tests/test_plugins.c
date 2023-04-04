@@ -28,4 +28,6 @@ int main(int argc, char **argv){
   name1_2 = (fptr) dlsym(plugin2, "name1") ; printf("%d\n", (*name1_2)(1) ) ;
   name2_2 = (fptr) dlsym(plugin2, "name2") ; printf("%d\n", (*name2_2)(2) ) ;
   name3_2 = (fptr) dlsym(plugin2, "name3") ; printf("%d\n", (*name3_2)(3) ) ;
+printf("exiting with non zero value\n");
+  exit(127) ;
 }

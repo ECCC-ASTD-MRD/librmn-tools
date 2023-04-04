@@ -21,9 +21,11 @@ function(add_project_test name source link_libs)
       message(STATUS "(EC) log for test ${name} : tee ${TEE_LOG_MODE}  ${name}.log")
       add_test(NAME ${name}
 #           COMMAND bash -c "${RUN_WITH_MPI} $<TARGET_FILE:${name}> 2>&1 | tee ${name}_$(date +%Y-%m-%d_%H.%M.%S).log"
-          COMMAND bash -c "${RUN_WITH_MPI} $<TARGET_FILE:${name}> 2>&1 | tee ${TEE_LOG_MODE} ${name}.log"
+          COMMAND bash -c "${RUN_WITH_MPI}$<TARGET_FILE:${name}> 2>&1 | tee ${TEE_LOG_MODE} ${name}.log"
+#           COMMAND "${RUN_WITH_MPI}$<TARGET_FILE:${name}>"
           WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
     endif()
+    set_property(TEST ${name} PROPERTY FAIL_REGULAR_EXPRESSION "Test STATUS : ERROR[(]S[)]")
     add_dependencies(check ${name})                         # target check depends on this test
     add_dependencies(${name} ${PROJECT_TEST_DEPENDENCIES})  # some Fortran modules are needed for the tests
     if(INSTALL_TESTS)
@@ -51,6 +53,7 @@ add_project_test(test_shared_2 test_shared.c shared2)
 add_project_test(test_shared_012 test_shared_012.c "shared2;shared1;shared0")
 
 add_library(sharedf1 SHARED sharedf1.F90 ../src/plugins/plugin_constructor.c)
+
 SET_SOURCE_FILES_PROPERTIES( sharedf1.F90 PROPERTIES COMPILE_FLAGS -I${CMAKE_SOURCE_DIR}/src/PUBLIC_INCLUDES )
 
 add_library(sharedf2 SHARED sharedf2.F90 ../src/plugins/plugin_constructor.c)
@@ -65,7 +68,8 @@ add_project_test(test_plugins_c test_plugins.c "dl")
 add_project_test(test_plugins_f test_plugins.F90 "${RMNTOOLSF};${RMNTOOLS};rmn::rmn;dl")
 SET_SOURCE_FILES_PROPERTIES( test_plugins.F90 PROPERTIES COMPILE_FLAGS -I${CMAKE_CURRENT_BINARY_DIR}/../modules )
 
-set(XTRA_SHARED shared0 shared1 shared2 plugin0 plugin1 plugin2)
+# set compile/link special options for targets not created with add_project_test
+set(XTRA_SHARED shared0 shared1 shared2 plugin0 plugin1 plugin2 sharedf1 sharedf2)
 foreach(ITEM IN ITEMS ${XTRA_SHARED})
   extra_target_link_options(${ITEM} PRIVATE)
   extra_target_compile_options(${ITEM} PRIVATE)
@@ -79,7 +83,7 @@ endforeach()
 # add_project_test(test_f test_f.F90 RMNTOOLSF)   # link with static libraries
 # target_compile_definitions(test_f PRIVATE TESTF)
 
-add_project_test(test_identify_mpi_child test_identify_mpi_child.c ${RMNTOOLS} "mpirun -n 2")
+add_project_test(test_identify_mpi_child test_identify_mpi_child.c ${RMNTOOLS} "mpirun -n 2 ")
 add_dependencies(mpicheck test_identify_mpi_child)
 
 add_project_test(test_identify_compiler_c test_identify_compiler_c.c ${RMNTOOLS})

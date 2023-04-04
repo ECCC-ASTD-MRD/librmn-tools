@@ -49,14 +49,14 @@ program test_plugin   ! test of fortran plugin module
     end function procadr
   end interface
 
-  call start_of_test("Fortran plugins"//achar(0))
-  call rmnlib_version(version_librmn, .true.)
+!   call start_of_test("Fortran plugins"//achar(0))
+  call rmnlib_version(version_librmn, .true.)     ! test link to librmn
 
   call sharedf1 % diag(VERBOSE)                                         ! set verbose diagnostics
 ! call sharedf1 % diag(SILENT)                                          ! set non verbose diagnostics
   status = sharedf1 % load('libsharedf1.so')                            ! load sharedf1    (slot 0)
+  if(status) goto 1
   status = sharedf1 % unload()                                          ! unload sharedf1  (slot 0)
-#if 1
 
   status = sharedf3 % load('libsharedf3.so')                            ! load sharedf2    (slot 0)
   print *,'load libsharedf3, status =',status
@@ -208,5 +208,12 @@ program test_plugin   ! test of fortran plugin module
   print *,"closing plugin library '"//trim(longstr)//"'"
   status = shared2 % unload()                 ! unload shared2  (slot 0)
   print *,'unload '//trim(longstr)//', status =',status
-#endif
+
+  print *, "Test STATUS : Success"
+  stop
+
+1 continue
+  print *, "Test STATUS : ERROR(S)"
+  call c_exit(1)
+
 end program

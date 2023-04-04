@@ -178,7 +178,8 @@
 // ! fortran_destructor will be called by the plugin library destructor
 // #define MAX_NAMES 2
 // #define MAX_NAME_LENGTH 8
-// #include <library_plugin_mod.hf>
+// #define LIBRARY_PLUGIN_MOD sharedf1_mod
+// #include <rmn/library_plugin.hf>
 // subroutine fortran_constructor() bind(C,name='fortran_constructor')
 //   use library_plugin_mod
 //   implicit none
