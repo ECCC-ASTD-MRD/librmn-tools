@@ -22,7 +22,7 @@
 // step 0: declarations
 //         Fortran :
 //           use ISO_C_BINDING
-//           include 'plugins.inc'
+//           #include <rmn/plugins.hf>
 //         Fortran with module :
 //           use ISO_C_BINDING
 //           use fortran_plugins
@@ -47,7 +47,7 @@
 //           nsym = plugin_n_functions(handle)  ! zero if not successful
 //         Fortran with module :
 //           type(plugin) :: sharedf
-//           nsym = sharedf % symbols()         ! zero if not successful
+//           nsym = sharedf % number_of_symbols()         ! zero if not successful
 //         C:
 //           int nsym = plugin_n_functions(handle);   ! zero if not successful
 // 
@@ -60,7 +60,7 @@
 //           type(plugin) :: sharedf
 //           logical :: status               ! .true. if successful
 //           character(len=128) :: longstr   ! "" if not successful
-//           status = sharedf % fname(n, longstr)
+//           longstr = sharedf % plugin_function_symbol_name(n)  ! "Unknown" if not successful
 //         C:
 //           int n;
 //           char *string = plugin_function_name(handle,n);  ! NULL pointer if not successful
@@ -76,7 +76,7 @@
 //         Fortran with module :
 //           type(plugin) :: sharedf
 //           character(len=128) :: longstr
-//           faddress = sharedf % fnptr(trim(longstr))  ! NULL pointer if not successful
+//           faddress = sharedf % function_pointer(trim(longstr))  ! NULL pointer if not successful
 //           call c_f_procpointer(faddress,fptr)
 //           call fptr(...arguments...)
 //         C:
