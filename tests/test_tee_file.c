@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <rmn/tee_print.h>
+#include <rmn/test_helpers.h>
 
 static FILE *tee_file = NULL ;
 
@@ -16,6 +17,7 @@ void print_diag(FILE *f, char *what, int level){
 #endif
 
 int main(int argc, char **argv){
+  start_of_test(argv[0]);
   TEE_FPRINTF(stderr, -1, "MUST NOT SEE : %d %d %d\n", 10, 20, 30) ;
   TEE_FPRINTF(stderr, 1, "MUST SEE : %d %d %d\n", 10, 20, 30) ;
   FILE *f1 = open_tee_file("test_tee_file.log") ;

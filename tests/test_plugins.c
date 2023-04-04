@@ -12,7 +12,7 @@ int main(int argc, char **argv){
   fptr name1_1, name2_1, name3_1 ;
   fptr name1_2, name2_2, name3_2 ;
 
-  start_of_test("test_plugins C");
+  start_of_test(" plugins C");
   plugin0 = dlopen("libplugin0.so", RTLD_LAZY) ;
   if(plugin0 == NULL) {
     fprintf(stderr, "ERROR : plugin0 open failed '%s'\n", dlerror()) ;

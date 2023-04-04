@@ -6,6 +6,7 @@
 #include <rmn/pack_macros.h>
 // need MASK operators
 #include <rmn/bits.h>
+#include <rmn/test_helpers.h>
 
 #define TIMING_PACK 67108864
 #define MAX_PACK 4096
@@ -48,6 +49,7 @@ int main(int argc, char **argv){
   uint32_t tok[TIMING_PACK] ;
   uint32_t lenpak ;
 
+  start_of_test("lorenzo (C)");
   nbits = 28 ;
   mask   = RMASK32(nbits) ;
   lmask  = LMASK32(nbits) ;
