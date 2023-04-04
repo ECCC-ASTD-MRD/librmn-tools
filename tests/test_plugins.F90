@@ -55,23 +55,29 @@ program test_plugin   ! test of fortran plugin module
   call sharedf1 % diag(VERBOSE)                                         ! set verbose diagnostics
 ! call sharedf1 % diag(SILENT)                                          ! set non verbose diagnostics
   status = sharedf1 % load('libsharedf1.so')                            ! load sharedf1    (slot 0)
-  if(status) goto 1
+  if(.not. status) goto 1
   status = sharedf1 % unload()                                          ! unload sharedf1  (slot 0)
+  if(.not. status) goto 1
 
   status = sharedf3 % load('libsharedf3.so')                            ! load sharedf2    (slot 0)
-  print *,'load libsharedf3, status =',status
+  print *,'load libsharedf3, status =',status,' (F expected)'
+  if(status) goto 1
   status = sharedf2 % load('libsharedf2.so')                            ! load sharedf2    (slot 0)
-  print *,'load libsharedf2, status =',status
+  print *,'load libsharedf2, status =',status,' (T expected)'
+  if(.not. status) goto 1
   status = sharedf1 % load('libsharedf1.so')                            ! load sharedf1    (slot 1)
-  print *,'load libsharedf1, status =',status
+  print *,'load libsharedf1, status =',status,' (T expected)'
+  if(.not. status) goto 1
   status = sharedf3 % unload()                                          ! unload sharedf3
-  print *,'unload libsharedf3, status =',status
+  print *,'unload libsharedf3, status =',status,' (F expected)'
+  if(status) goto 1
 
   print *,"========================================"
   print *,'looking up name4f in libsharedf1.so'
   fptr1 = sharedf1 % function_pointer('name4f')                                    ! known valid name in this plugin library
   if(.not. c_associated(fptr1)) then                                    ! OOPS !
     print *,'name4f not found (NOT EXPECTED)'
+    goto 1
   else
     nsym = sharedf1 % number_of_symbols()                                         ! get number of advertized symbols
     print *,'number of advertized entries in plugin libsharedf1.so =', nsym
@@ -89,18 +95,26 @@ program test_plugin   ! test of fortran plugin module
     call c_f_procpointer(fptr1,fpl1)      ! make Fortran function pointer from C function pointer
     answer = fpl1(123)                    ! call by address (reference) type
     print *, 'fpl1(123) =', answer
-    if(answer .ne. 123) print *,"ERROR: expecting 123, got",answer
+    if(answer .ne. 123) then
+      print *,"ERROR: expecting 123, got",answer
+      goto 1
+    endif
   else
     print *, "ERROR: failed to find entry 'name4f'"
+    goto 1
   endif
   fptr1 = sharedf1 % function_pointer('unadvertised')  ! unadvertised name
   if( c_associated(fptr1) ) then
     call c_f_procpointer(fptr1,fpl2)      ! make Fortran function pointer from C function pointer
     answer = fpl2(789)                    ! call by value type
     print *, 'fpl2(789) =', answer
-    if(answer .ne. 789) print *,"ERROR: expecting 789, got",answer
+    if(answer .ne. 789) then
+      print *,"ERROR: expecting 789, got",answer
+      goto 1
+    endif
   else
     print *, "ERROR: failed to find entry 'unadvertised'"
+    goto 1
   endif
   print *,"========================================"
 
@@ -108,6 +122,7 @@ program test_plugin   ! test of fortran plugin module
   fptr1 = sharedf2 % function_pointer('name4f')                                    ! known valid name in this plugin library
   if(.not. c_associated(fptr1)) then                                    ! OOPS !
     print *,'name4f not found (NOT EXPECTED)'
+    goto 1
   else
     nsym = sharedf2 % number_of_symbols()                                         ! get number of advertized symbols
     print *,'number of advertized entries in plugin libsharedf2.so =', nsym
@@ -124,18 +139,26 @@ program test_plugin   ! test of fortran plugin module
     call c_f_procpointer(fptr1,fpl1)      ! make Fortran function pointer from C function pointer
     answer = fpl1(345)                    ! call by address (reference) type
     print *, 'fpl1(345) =', answer
-    if(answer .ne. 345) print *,"ERROR: expecting 345, got",answer
+    if(answer .ne. 345) then
+      print *,"ERROR: expecting 345, got",answer
+      goto 1
+    endif
   else
     print *, "ERROR: failed to find entry 'name4f'"
+    goto 1
   endif
   fptr1 = sharedf2 % function_pointer('unadvertised')  ! unadvertised name
   if( c_associated(fptr1) ) then
     call c_f_procpointer(fptr1,fpl2)      ! make Fortran function pointer from C function pointer
     answer = fpl2(678)                    ! call by value type
     print *, 'fpl2(678) =', answer
-    if(answer .ne. 678) print *,"ERROR: expecting 678, got",answer
+    if(answer .ne. 678) then
+    print *,"ERROR: expecting 678, got",answer
+    endif
   else
-    print *, "ERROR: failed to find entry 'unadvertised'"
+      print *, "ERROR: failed to find entry 'unadvertised'"
+      goto 1
+    goto 1
   endif
   print *,"========================================"
 
@@ -144,14 +167,16 @@ program test_plugin   ! test of fortran plugin module
   if(.not. c_associated(fptr2)) then
     print *,'name2 not found (AS EXPECTED)'
   else
-    print *, 'ERROR: This should not print'
+    print *, "ERROR: name2 found (NOT EXPECTED)"
+    goto 1
   endif
   print *,'looking up name2 in libsharedf2.so'
   fptr2 = sharedf1 % function_pointer('name2')      ! bad name because wrong plugin library
   if(.not. c_associated(fptr2)) then
     print *,'name2 not found (AS EXPECTED)'
   else
-    print *, 'ERROR: This should not print'
+    print *, "ERROR: name2 found (NOT EXPECTED)"
+    goto 1
   endif
   print *,"========================================"
 
@@ -161,13 +186,17 @@ program test_plugin   ! test of fortran plugin module
   fptr2 = shared2 % function_pointer('name2')
   if(.not. c_associated(fptr2)) then
     print *,'name2 not found (NOT EXPECTED)'
+    goto 1
   else
     nsym = shared2 % number_of_symbols()
     print *,'number of advertized entries in plugin libshared2.so =', nsym
     call c_f_procpointer(fptr2,fpl2)      ! make Fortran function pointer from C function pointer
     answer = fpl2(456)                    ! call by value type
     print *, 'fpl2(456) =',answer
-    if(answer .ne. 756) print *,"ERROR: expecting 756, got",answer
+    if(answer .ne. 756) then
+      print *,"ERROR: expecting 756, got",answer
+      goto 1
+    endif
   endif
   print *,"========================================"
 
@@ -175,39 +204,53 @@ program test_plugin   ! test of fortran plugin module
   fptr2 = anonymous % function_pointer('name3')     ! blind call, anonymous is not initialized
   if(.not. c_associated(fptr2)) then
     print *,'name3 not found (NOT EXPECTED)'
+    goto 1
   else
     call c_f_procpointer(fptr2,fpl2)
     answer = fpl2(789)                    ! call by value type
     print *, 'fpl2(789) =',answer
-    if(answer .ne. 1089) print *,"ERROR: expecting 1089, got",answer
+    if(answer .ne. 1089) then
+      print *,"ERROR: expecting 1089, got",answer
+      goto 1
+    endif
   endif
 
   print *,'looking up unadvertised in ANY plugin'
   fptr2 = anonymous % function_pointer('unadvertised')     ! blind call, anonymous is not initialized
   if(.not. c_associated(fptr2)) then
     print *,'unadvertised not found (NOT EXPECTED)'
+    goto 1
   else
     call c_f_procpointer(fptr2,fpl2)
     answer = fpl2(567)                    ! call by value type
     print *, 'fpl2(567) =',answer
-    if(answer .ne. 567) print *,"ERROR: expecting 567, got",answer
+    if(answer .ne. 567) then
+      print *,"ERROR: expecting 567, got",answer
+      goto 1
+    endif
   endif
   print *,"========================================"
 
   status = sharedf1 % library(longstr)
   print *,"closing plugin library '"//trim(longstr)//"'"
+  if(.not. status) goto 1
   status = sharedf1 % unload()                ! unload sharedf1  (slot 1)
   print *,'unload '//trim(longstr)//', status =',status
+  if(.not. status) goto 1
 
   status = sharedf2 % library(longstr)
   print *,"closing plugin library '"//trim(longstr)//"'"
+  if(.not. status) goto 1
   status = sharedf2 % unload()                ! unload sharedf1  (slot 1)
   print *,'unload '//trim(longstr)//', status =',status
+  if(.not. status) goto 1
 
   status = shared2 % library(longstr)
   print *,"closing plugin library '"//trim(longstr)//"'"
+  if(.not. status) goto 1
   status = shared2 % unload()                 ! unload shared2  (slot 0)
   print *,'unload '//trim(longstr)//', status =',status
+  if(.not. status) goto 1
 
   print *, "Test STATUS : Success"
   stop
