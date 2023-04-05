@@ -80,6 +80,8 @@ message(STATUS "NOT rmn_FOUND, looking for package rmn")
    find_package(rmn ${rmn_REQ_VERSION} COMPONENTS REQUIRED)
 endif()
 
+cmake_print_properties(TARGETS rmn::rmn PROPERTIES INTERFACE_INCLUDE_DIRECTORIES INTERFACE_LINK_LIBRARIES)
+
 set(PROJECT_VERSION ${VERSION}${STATE})
 set(rmntools_VERSION ${PROJECT_VERSION} CACHE INTERNAL "rmntools version" FORCE) # Needed for cascaded version identification
 message(STATUS "(EC) ${PROJECT_NAME} version = ${PROJECT_VERSION} GENERATOR = ${CMAKE_GENERATOR}")
@@ -164,6 +166,7 @@ set(PROJECT_C_FILES
   src/id/identify_mpi_child.c
   src/timers/rmn_timers.c
   src/pred/lorenzo_c.c
+  src/pred/smooth124.c
   src/pack/bi_endian_pack.c
   src/diag/tee_print.c
   src/diag/test_helpers.c
@@ -180,6 +183,7 @@ SET_SOURCE_FILES_PROPERTIES( src/pred/bi_endian_pack.c PROPERTIES COMPILE_FLAGS 
 set(PROJECT_F_FILES
   src/timers/rmn_timers_mod.F90
   src/pred/lorenzo_mod.F90
+  src/pred/analyze_data.F90
   src/plugins/fortran_plugins.F90
 )
 
@@ -187,6 +191,7 @@ SET_SOURCE_FILES_PROPERTIES( src/pred/lorenzo_mod.F90 PROPERTIES COMPILE_FLAGS -
 set(PROJECT_H_FILES
   src/PUBLIC_INCLUDES/rmntools.h
   src/PUBLIC_INCLUDES/rmn/lorenzo.h
+  src/PUBLIC_INCLUDES/rmn/smooth124.h
   src/PUBLIC_INCLUDES/rmn/rmn_tools.h
   src/PUBLIC_INCLUDES/rmn/identify_compiler_f.hf
   src/PUBLIC_INCLUDES/rmn/timers.h
@@ -201,6 +206,8 @@ set(PROJECT_H_FILES
   src/PUBLIC_INCLUDES/rmn/is_fortran_compiler.h
   src/PUBLIC_INCLUDES/rmn/plugins.h
   src/PUBLIC_INCLUDES/rmn/plugins.hf
+  src/PUBLIC_INCLUDES/rmn/misc_pack.h
+  src/PUBLIC_INCLUDES/rmn/misc_pack.hf
 )
 
 set(PROJECT_INCLUDES

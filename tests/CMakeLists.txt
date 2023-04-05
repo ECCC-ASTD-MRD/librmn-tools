@@ -103,3 +103,5 @@ add_project_test(test_lorenzo_c test_lorenzo_c.c "dl")
 add_project_test(test_lorenzo_f test_lorenzo.F90 "rmn::rmn")
 SET_SOURCE_FILES_PROPERTIES( test_lorenzo.F90 PROPERTIES COMPILE_FLAGS -DNO_FORTRAN_CODE )
 
+add_project_test(test_fstd_compress  test_fstd_compress.F90 "rmn::rmn")
+
