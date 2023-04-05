@@ -65,13 +65,13 @@ contains
     integer :: Ssize
     integer, dimension(34) :: bitpop32
 
-    print *,'Calling ZfpCompressReal'
-    i = ZfpCompress_set_debug(1)
-    pzfp = ZfpCompressReal(zi, ni, nj, 1, quantum, 0, Ssize)
-    print *,'Ssize =',Ssize
-    i = ZfpExpandReal(zzi, ni, nj, 1, pzfp, Ssize)
-    pzzi(1:ni,i:nj) => zi(1:ni*nj)
-    print *,'maxerr = ',maxval(abs(pzzi-zzi))
+!     print *,'Calling ZfpCompressReal'
+!     i = ZfpCompress_set_debug(1)
+!     pzfp = ZfpCompressReal(zi, ni, nj, 1, quantum, 0, Ssize)
+!     print *,'Ssize =',Ssize
+!     i = ZfpExpandReal(zzi, ni, nj, 1, pzfp, Ssize)
+!     pzzi(1:ni,i:nj) => zi(1:ni*nj)
+!     print *,'maxerr = ',maxval(abs(pzzi-zzi))
 
     ni0 = (ni+63)/64
     nj0 = (nj+63)/64

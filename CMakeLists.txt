@@ -80,7 +80,7 @@ message(STATUS "NOT rmn_FOUND, looking for package rmn")
    find_package(rmn ${rmn_REQ_VERSION} COMPONENTS REQUIRED)
 endif()
 
-cmake_print_properties(TARGETS rmn::rmn PROPERTIES INTERFACE_INCLUDE_DIRECTORIES INTERFACE_LINK_LIBRARIES)
+# cmake_print_properties(TARGETS rmn::rmn PROPERTIES INTERFACE_INCLUDE_DIRECTORIES INTERFACE_LINK_LIBRARIES)
 
 set(PROJECT_VERSION ${VERSION}${STATE})
 set(rmntools_VERSION ${PROJECT_VERSION} CACHE INTERNAL "rmntools version" FORCE) # Needed for cascaded version identification
@@ -167,9 +167,14 @@ set(PROJECT_C_FILES
   src/timers/rmn_timers.c
   src/pred/lorenzo_c.c
   src/pred/smooth124.c
+  src/pred/average_2x2.c
   src/pack/bi_endian_pack.c
+  src/pack/misc_pack.c
+  src/pack/misc_operators.c
   src/diag/tee_print.c
   src/diag/test_helpers.c
+  src/diag/misc_analyze.c
+  src/diag/float_info.c
   src/plugins/plugin_code.c
 )
 set(PROJECT_PLUGIN_FILES 
@@ -185,6 +190,7 @@ set(PROJECT_F_FILES
   src/pred/lorenzo_mod.F90
   src/pred/analyze_data.F90
   src/plugins/fortran_plugins.F90
+  src/pred/misc_operators_mod.F90
 )
 
 SET_SOURCE_FILES_PROPERTIES( src/pred/lorenzo_mod.F90 PROPERTIES COMPILE_FLAGS -DNO_EXTRA_FORTRAN )
@@ -208,6 +214,7 @@ set(PROJECT_H_FILES
   src/PUBLIC_INCLUDES/rmn/plugins.hf
   src/PUBLIC_INCLUDES/rmn/misc_pack.h
   src/PUBLIC_INCLUDES/rmn/misc_pack.hf
+  src/PUBLIC_INCLUDES/rmn/misc_analyze.h
 )
 
 set(PROJECT_INCLUDES
@@ -333,6 +340,7 @@ foreach(TARGET IN ITEMS ${TARGETS})
     else()
       set_target_properties(${TARGET} PROPERTIES Fortran_MODULE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/modules)
     endif()
+    target_link_libraries(${TARGET} PRIVATE rmn::rmn)
     target_include_directories(${TARGET}
         PUBLIC
             $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>

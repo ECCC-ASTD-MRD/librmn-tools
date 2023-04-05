@@ -18,6 +18,7 @@ program lorenzo_test
   use rmn_timers
   use ISO_C_BINDING
   implicit none
+#include <rmn/gossip_constants.h>
 
 #if ! defined(NI)
 #define NI 128

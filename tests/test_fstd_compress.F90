@@ -214,6 +214,7 @@ subroutine population(p, n, msg)
 1 format(A15,21I8,2X,F6.2)
 end subroutine population
 
+#if 0
 subroutine wavelet(p, q, ni, nj)
   use ISO_C_BINDING
   implicit none
@@ -251,6 +252,7 @@ subroutine wavelet(p, q, ni, nj)
 !   call population(iq, ni*nj, 'wavelet q0')
 !   q = iq
 end subroutine wavelet
+#endif
 
 subroutine bilorentz(p, q, ni, nj) ! 2 level Lorenzo predictor
   implicit none
@@ -660,9 +662,9 @@ bits0 => array_stats_1(p, ni, ni, nj, quantum)
         q(1) = 0.0
         call fstecr(q, q, -32, iunout, date,deet,npas,ni,nj,nk,ip1,ip2,ip3,  &
                     typvar,nomvar,'BILORENTZ',grtyp,ig1,ig2,ig3,ig4, 5, .false. )
-        call wavelet(p, q, ni, nj)
-        call fstecr(q, q, -32, iunout, date,deet,npas,ni,nj,nk,ip1,ip2,ip3,  &
-                    typvar,nomvar,'WAVELET',grtyp,ig1,ig2,ig3,ig4, 5, .false. )
+!         call wavelet(p, q, ni, nj)
+!         call fstecr(q, q, -32, iunout, date,deet,npas,ni,nj,nk,ip1,ip2,ip3,  &
+!                     typvar,nomvar,'WAVELET',grtyp,ig1,ig2,ig3,ig4, 5, .false. )
         call quant12(p, q, ni, nj)
         call fstecr(q, q, -32, iunout, date,deet,npas,ni,nj,nk,ip1,ip2,ip3,  &
                     typvar,nomvar,'QUANT12',grtyp,ig1,ig2,ig3,ig4, 5, .false. )
