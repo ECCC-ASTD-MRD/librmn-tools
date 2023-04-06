@@ -9,7 +9,7 @@ int main(int argc, char **argv){
   TIME_LOOP_DATA ;
 
   start_of_test("fine grained timers") ;
-//   printf("test of fine grained timers\n") ;
+//   fprintf(stderr, "test of fine grained timers\n") ;
   tf = cycles_counter_freq() ;    // counter frequency in Hz
   t = 1.0 ;
   t  /= tf ;                      // one time counter cycle in seconds
@@ -17,23 +17,23 @@ int main(int argc, char **argv){
   tu = elapsed_us() ;             // medium grain timer (microsecond)
   tu = elapsed_us() -tu ;
   t1 = elapsed_cycles() ;
-  printf("call to elapsed_us = %ld cycles, %8.2g seconds\n", (t1-t0)/2, (t1-t0)/2*t) ;
+  fprintf(stderr, "call to elapsed_us = %ld cycles, %8.2g seconds\n", (t1-t0)/2, (t1-t0)/2*t) ;
 
   TIME_LOOP_EZ(NT, 1, tu = elapsed_us()) ;
-  printf("elapsed_us     : %s\n",timer_msg) ;
+  fprintf(stderr, "elapsed_us     : %s\n",timer_msg) ;
 
   TIME_LOOP_EZ(NT, 1, t0 = elapsed_cycles()) ;
-  printf("elapsed_cycles : %s\n",timer_msg) ;
+  fprintf(stderr, "elapsed_cycles : %s\n",timer_msg) ;
 
   t0 = elapsed_cycles() ;
   for(i=0 ; i<NT ; i++) tu = elapsed_cycles() ;
   t1 = elapsed_cycles() ;
-  printf("avg call to %d elapsed_cycles = %ld cycles, %8.2f ns\n", NT, (t1-t0)/NT, (t1-t0)/NT*t*1.0E+9) ;
+  fprintf(stderr, "avg call to %d elapsed_cycles = %ld cycles, %8.2f ns\n", NT, (t1-t0)/NT, (t1-t0)/NT*t*1.0E+9) ;
 
   t0 = elapsed_cycles() ;
   for(i=0 ; i<NT ; i++) tu = elapsed_us() ;
   t1 = elapsed_cycles() ;
-  printf("avg call to %d elapsed_us     = %ld cycles, %8.2f ns\n", NT, (t1-t0)/NT, (t1-t0)/NT*t*1.0E+9) ;
+  fprintf(stderr, "avg call to %d elapsed_us     = %ld cycles, %8.2f ns\n", NT, (t1-t0)/NT, (t1-t0)/NT*t*1.0E+9) ;
 
-  if(timer_max == 0) printf("timer_max ==0, should not happen\n");
+  if(timer_max == 0) fprintf(stderr, "timer_max ==0, should not happen\n");
 }
