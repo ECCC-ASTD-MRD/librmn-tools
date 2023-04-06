@@ -120,14 +120,14 @@ set(Intel_FFLAGS -convert big_endian -align array32byte -assume byterecl -march=
 set(IntelLLVM_FFLAGS -convert big_endian -align array32byte -assume byterecl -march=skylake ${Q_OPENMP})
 set(GNU_FFLAGS -fconvert=big-endian -fcray-pointer -frecord-marker=4 -fno-second-underscore ${F_OPENMP} -ldl -pthread)
 set(Flang_FFLAGS -Mbyteswapio ${F_OPENMP})
-set(PGI_FFLAGS -byteswapio ${M_OPENMP})
+set(PGI_FFLAGS -tp znver3 -byteswapio ${M_OPENMP})
 set(LLVM_FFLAGS -fconvert=big-endian ${F_OPENMP})
 
 set(Intel_CFLAGS -march=skylake -diag-disable=10441,10121 ${Q_OPENMP})
 set(IntelLLVM_CFLAGS -Wno-static-in-inline -march=skylake ${Q_OPENMP})
 set(GNU_CFLAGS -march=native ${F_OPENMP})
 set(Clang_CFLAGS -Wno-static-in-inline -march=native ${F_OPENMP})
-set(PGI_CFLAGS  ${M_OPENMP})
+set(PGI_CFLAGS  -tp znver3 ${M_OPENMP})
 set(LLVM_CFLAGS  ${F_OPENMP})
 
 set(Intel_L_FFLAGS -diag-disable=5268,10121 ${Q_OPENMP})

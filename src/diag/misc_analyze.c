@@ -22,13 +22,16 @@ void AnalyzeCompressionErrors(float *fa, float *fb, int np, float small, char *s
   float maxval, minval, relerr, rdiff, snr;
   double err, errmax, errsum, errsuma, sum2, acc2, acc0;
   double suma, sumb, suma2, sumb2, sumab;
-  double vara, varb, varab, avga, avgb, rab;
-  double ssim;  // structural similarity
+//   double avga;
+//   double vara, varb, varab, avgb;
+//   double rab;
+//   double ssim;  // structural similarity
   uint32_t *ia = (uint32_t *)fa;
   uint32_t *ib = (uint32_t *)fb;
   uint32_t ierr = 0;
   int32_t idiff;
-  int indx, iacc, iabs;
+//   int indx ;
+//   int iabs, iacc;
   int accuracy, n;
   uint64_t idif64;
 
@@ -40,9 +43,9 @@ void AnalyzeCompressionErrors(float *fa, float *fb, int np, float small, char *s
   suma   = 0.0;      // sum of terms, array fa
   sumb   = 0.0;      // sum of terms, array fb
   sumab  = 0.0;      // sum of fa*fb products (for covariance)
-  indx   = 0;        // position of largest relative error
-  iacc   = 0;        // position of largest bit inaccuracy
-  iabs   = 0;        // position of largest absolute error
+//   indx   = 0;        // position of largest relative error
+//   iacc   = 0;        // position of largest bit inaccuracy
+//   iabs   = 0;        // position of largest absolute error
   ierr   = 0;        // largest bit inaccuracy
   idif64 = 0;        // sum of bit inaccuracies
   relerr = 0.0f;     // largest relative error
@@ -65,7 +68,10 @@ void AnalyzeCompressionErrors(float *fa, float *fb, int np, float small, char *s
     errsum += err ;                     // sum of signed errors (to compute BIAS)
     err = fabs(err) ;                   // absolute error
     errsuma += err ;                    // sum of absolute errors
-    if(err > errmax) {errmax = err ; iabs = i; } ;
+    if(err > errmax) {
+      errmax = err ;
+//       iabs = i;
+    } ;
     if(fabsf(fa[i]) <= small) continue ;  // ignore absolute values smaller than threshold
     if( (fa[i] > 0.0f && fb[i] < 0.0f ) || (fa[i] < 0.0f && fb[i] > 0.0f) ){
       continue ;  // opposite signs, ignore
@@ -73,19 +79,25 @@ void AnalyzeCompressionErrors(float *fa, float *fb, int np, float small, char *s
     n++;
     rdiff = fabsf(fa[i] - fb[i]) ;
     rdiff = rdiff / fa[i] ;              // fa[i] should never be zero at this point
-    if(rdiff > relerr) { relerr = rdiff; indx = i ; }   // largest relative error
+    if(rdiff > relerr) {
+      relerr = rdiff;
+//       indx = i ;
+    }   // largest relative error
     idiff = (ia[i] > ib[i]) ? (ia[i] - ib[i]) : (ib[i] - ia[i]) ;
     idif64 += idiff;
-    if(idiff > ierr) { ierr = idiff ; iacc = i ; }
+    if(idiff > ierr) {
+      ierr = idiff ;
+//       iacc = i ;
+    }
   }
 //   printf("np, n = %d %d\n",np,n);
-  avga  = suma/np;
-  vara  = suma2/np - avga*avga ; // variance of a
-  avgb  = sumb / np;
-  varb  = sumb2/np - avgb*avgb ; // variance of b
-  varab = sumab/np - avga*avgb ; // covariance of a and b
-  ssim  = (2.0 * avga * avgb + .01) * (2.0 * varab + .03) / ((avga*avga + avgb*avgb + .01)*(vara + varb + .03)) ; // structural similarity
-  rab   = (np*sumab - suma*sumb) / (sqrt(np*suma2 - suma*suma) * sqrt(np*sumb2 - sumb*sumb)) ;  // Pearson coefficient
+//   avga  = suma/np;
+//   vara  = suma2/np - avga*avga ; // variance of a
+//   avgb  = sumb / np;
+//   varb  = sumb2/np - avgb*avgb ; // variance of b
+//   varab = sumab/np - avga*avgb ; // covariance of a and b
+//   ssim  = (2.0 * avga * avgb + .01) * (2.0 * varab + .03) / ((avga*avga + avgb*avgb + .01)*(vara + varb + .03)) ; // structural similarity
+//   rab   = (np*sumab - suma*sumb) / (sqrt(np*suma2 - suma*suma) * sqrt(np*sumb2 - sumb*sumb)) ;  // Pearson coefficient
   idif64 = idif64/n;                                  // average ULP difference
   acc2 = log2(1.0+idif64);                     // accuracy (in agreed upon bits)
   if(acc2 < 0) acc2 = 0;

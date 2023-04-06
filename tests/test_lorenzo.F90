@@ -56,6 +56,7 @@ program lorenzo_test
   enddo
   enddo
   f = fr
+
   if(ni < 18 .and. nj < 10) then
     print 2,"=== original ==="
     do j = nj, 1, -1
@@ -64,13 +65,14 @@ program lorenzo_test
   endif
 
   print 2,"=== predicted in place ==="
-
+#if 1
   do k = 1, NTIMES
     f = fr
     t(k) = timer_cycles()
     call lorenzopredictinplace(f, ni, lnio, nj)
     t(k) = timer_cycles() - t(k)
   enddo
+
   avg = SUM(t*ns)/NTIMES
   print 2,"=== generic ==="," time =",avg/np,' ns/pt (min =',MINVAL(t*ns)/np,')'
   if(ni < 18 .and. nj < 10) then
@@ -108,7 +110,8 @@ program lorenzo_test
       print 1, j, f(1:lnio,j)
     enddo
   endif
-
+#endif
+#if 1
   print 2,"=== predicted not in place ==="
   f = fr
   do k = 1, NTIMES
@@ -153,7 +156,8 @@ program lorenzo_test
       print 1, j, pred(1:lnid,j)
     enddo
   endif
-
+#endif
+#if 1
   print 2,"=== restored in place ==="
 
   do k = 1, NTIMES
@@ -177,7 +181,8 @@ program lorenzo_test
   enddo
   enddo
   print *,'errors =',errors
-
+#endif
+#if 1
 #if defined(EXTRA_FORTRAN)
   do k = 1, NTIMES
     fp = fr
@@ -223,7 +228,8 @@ program lorenzo_test
   enddo
   enddo
   print *,'errors =',errors
-
+#endif
+#if 1
   print 2,"=== restored not in place ==="
 
   call lorenzopredict(fr, pred, ni, lnio, lnid, nj)
@@ -247,7 +253,8 @@ program lorenzo_test
   enddo
   enddo
   print *,'errors =',errors
-
+#endif
+#if 1
 #if defined(EXTRA_FORTRAN)
   call lorenzopredict(fr, pred, ni, lnio, lnid, nj)
   f = 999
@@ -293,6 +300,7 @@ program lorenzo_test
   enddo
   enddo
   print *,'errors =',errors
+#endif
 1 format(I6,' |',20I6)
 2 format(A,A,F6.2,A,F6.2,A)
 end program

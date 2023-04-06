@@ -75,7 +75,9 @@ static inline void LorenzoPredictRow0_inplace_07(int32_t * restrict row, int n){
 }
 
 // bottom row, in place transform
-#if defined(__x86_64__) && defined(__AVX2__) && defined(WITH_SIMD)
+// PROBLEMS NOT SOLVED YET with PGI/Nvidia C compiler
+// _mm256_blend_epi32 seems to create problems (illegal instruction)
+#if defined(__x86_64__) && defined(__AVX2__) && defined(WITH_SIMD) && (! defined(__PGI))
 
 STATIC inline void LorenzoPredictRow0_inplace(int32_t * restrict row, int n){
   int i0, j0, n7 = (n & 7) ;
@@ -187,7 +189,7 @@ static void LorenzoPredictRowJ_inplace_07(int32_t * restrict top, int32_t * rest
 }
 
 // all rows but bottom row, in place transform
-#if defined(__x86_64__) && defined(__AVX2__) && defined(WITH_SIMD)
+#if defined(__x86_64__) && defined(__AVX2__) && defined(WITH_SIMD) && (! defined(__PGI))
 
 STATIC inline void LorenzoPredictRowJ_inplace(int32_t * restrict top, int32_t * restrict bot, int n){
   int i0, j0, n7 = (n & 7) ;

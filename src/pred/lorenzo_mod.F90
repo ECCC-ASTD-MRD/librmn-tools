@@ -79,7 +79,7 @@ interface
   end subroutine lorenzounpredictinplace_c
 end interface
 
-#if defined(EXTRA_FORTRAN)
+#if defined(EXTRA_FORTRAN___)
 contains
 ! 3 point Lorenzo predictor (forward derivative)
 ! upon exit, diff contains original value - predicted value

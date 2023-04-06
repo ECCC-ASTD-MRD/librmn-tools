@@ -13,7 +13,9 @@
 //
 
 #if ! defined(__INTEL_COMPILER_UPDATE)
+#if ! defined(__PGI)
 #pragma GCC optimize "tree-vectorize"
+#endif
 #endif
 
 #define STATIC extern
@@ -128,9 +130,9 @@ static inline ieee_prop make_ieee_prop(uint32_t allp, uint32_t allm, uint32_t em
 //        pr.p.emax, pr.p.emin, pr.p.mima, pr.p.allp, pr.p.allm, pr.p.zero) ;
 // if(ncbits > 0) printf("ncbits = %d, (%4.4x)\n", ncbits, cbits) ;
   return pr ;
-error:
-  pr.p.errf = 1 ;
-  return pr ;
+// error:
+//   pr.p.errf = 1 ;
+//   return pr ;
 }
 // get the IEEE exponent of the largest float (absolute value)
 // and the smallest non zero float (absolute value)  in float array f
@@ -181,7 +183,6 @@ ieee_prop ieee_properties(float *f, int n){
 ieee_prop ieee_encode_block_16(float xf[64], int ni, int nj, uint16_t *restrict stream, ieee_prop pr){
   int i, n = ni*nj ;
   uint32_t *xi = (uint32_t *) xf ;
-  uint16_t header  ;
   FloatInt factor ;
   int16_t *t = (int16_t *) stream ;
   int32_t tmp ;
@@ -250,7 +251,8 @@ ieee_prop ieee_encode_block_16(float xf[64], int ni, int nj, uint16_t *restrict 
 // ieee_prop get_ieee32_block(void *restrict f, void *restrict blk, int ni, int lni, int nj);
 void ieee_encode_array_16(float *restrict xf, int ni, int lni, int nj, uint16_t *restrict stream){
   int i, j, indx, nil, njl ;
-  ieee_prop prop0, prop1 ;
+  ieee_prop prop0 ;
+//   ieee_prop prop1 ;
   float x64[64] ;
   for(j=0 ; j<nj ; j+= 8){
     njl = (nj-j < 8) ? (nj - j) : 8 ;
@@ -258,7 +260,8 @@ void ieee_encode_array_16(float *restrict xf, int ni, int lni, int nj, uint16_t 
       indx = i + j * lni ;                                  // index of lower left corner of block to encode
       nil = (ni-i < 8) ? (ni - i) : 8 ;
       prop0 = get_ieee32_block(&xf[indx], x64, nil, lni, njl) ;  // get nil x njl block and properties
-      prop1 = ieee_encode_block_16(x64, nil, njl, stream, prop0) ;      // encode block
+//       prop1 = 
+      ieee_encode_block_16(x64, nil, njl, stream, prop0) ;      // encode block
       stream += 1 + nil * njl ;                                  // bump stream pointer
     }
   }
@@ -324,7 +327,7 @@ ieee_prop ieee_decode_block_16(float xf[64], int ni, int nj, uint16_t *restrict 
 void put_w32_block(void *restrict f, void *restrict blk, int ni, int lni, int nj){
   uint32_t *restrict d = (uint32_t *) f ;
   uint32_t *restrict s = (uint32_t *) blk ;
-  int i, j ;
+  int j ;
 
 #if defined(__x86_64__) && defined(__AVX2__) && defined(WITH_SIMD)
   __m256i vm = _mm256_memmask_si256(ni) ;  // mask for load and store operations
@@ -357,6 +360,8 @@ void put_w32_block(void *restrict f, void *restrict blk, int ni, int lni, int nj
   }
 #else
 
+  int i ;
+
   if(nj == 8){
     if(ni == 8){
       for(j=0 ; j<8  ; j++){ for(i=0 ; i<8 ; i++) d[i] = s[i] ; d += lni ; s += 8 ; }
@@ -381,8 +386,9 @@ void put_w32_block(void *restrict f, void *restrict blk, int ni, int lni, int nj
 ieee_prop get_ieee32_block(void *restrict f, void *restrict blk, int ni, int lni, int nj){
   uint32_t *restrict s = (uint32_t *) f ;
   uint32_t *restrict d = (uint32_t *) blk ;
-  int i, j ;
-  uint32_t emax, emin, allm, allp, cbits, ncbits ;
+  int j ;
+  uint32_t emax, emin, allm, allp ;
+//   uint32_t cbits, ncbits ;
   ieee_prop pr ;
 #if defined(__x86_64__) && defined(__AVX2__) && defined(WITH_SIMD)
   __m256i vo0, vma, vmi, va0, vor, vand, v111, v000, vm ;
@@ -445,6 +451,7 @@ ieee_prop get_ieee32_block(void *restrict f, void *restrict blk, int ni, int lni
   _mm_storeu_si32(&allp, t3) ;
   _mm_storeu_si32(&allm, t4) ;
 #else
+  int i ;
   uint32_t t ;
   emax = emin = (s[0] << 1) ;
   allm = allp = s[0] ;
@@ -515,7 +522,7 @@ ieee_prop get_ieee32_block(void *restrict f, void *restrict blk, int ni, int lni
 void get_w32_block(void *restrict f, void *restrict blk, int ni, int lni, int nj){
   uint32_t *restrict s = (uint32_t *) f ;
   uint32_t *restrict d = (uint32_t *) blk ;
-  int i, j ;
+  int j ;
 
 #if defined(__x86_64__) && defined(__AVX2__) && defined(WITH_SIMD)
   __m256i vm = _mm256_memmask_si256(ni) ;  // mask for load and store operations
@@ -548,6 +555,8 @@ void get_w32_block(void *restrict f, void *restrict blk, int ni, int lni, int nj
   return ;
 #else
 
+  int i ;
+
   if(ni > 4){            // possible "overread" by up to 3 elements
     if(nj & 8) {
       for(j=0 ; j<8 ; j++){ for(i=0 ; i<8; i++) d[i] = s[i] ; d += ni ; s += lni ; }
@@ -575,7 +584,6 @@ void get_w32_block(void *restrict f, void *restrict blk, int ni, int lni, int nj
 // return ieee properties for block 
 // N.B.  : Fortran storage order is assumed
 ieee_prop ieee_get_block(float *restrict f, float blk[64], int ni, int lni, int nj){
-  int i, j ;
   float *blk0 = blk ;
   ieee_prop pr ;
 

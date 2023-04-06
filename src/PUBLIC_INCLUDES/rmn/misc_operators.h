@@ -331,10 +331,10 @@ STATIC inline int32_t isign_32(int32_t what){
 
 // convert to/from sign and magnitude form, sign is Least Significant Bit
 #if defined(__x86_64__) && defined(__AVX2__) && defined(WITH_SIMD)
-inline __m256i _mm256_tozigzag_epi32(__m256i v0){
+STATIC inline __m256i _mm256_tozigzag_epi32(__m256i v0){
   return _mm256_xor_si256( _mm256_add_epi32(v0, v0) , _mm256_srai_epi32(v0, 31) ) ;
 }
-inline __m256i _mm256_fromzigzag_epi32(__m256i v0){
+STATIC inline __m256i _mm256_fromzigzag_epi32(__m256i v0){
   __m256i t = _mm256_slli_epi32(v0, 31) ;
   return _mm256_xor_si256( _mm256_srli_epi32(v0, 1) , _mm256_srai_epi32(t, 31) ) ;
 }

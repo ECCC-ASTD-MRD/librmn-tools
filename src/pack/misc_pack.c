@@ -22,7 +22,9 @@
 #include <rmn/misc_pack.h>
 
 #if ! defined(__INTEL_COMPILER_UPDATE)
+#if ! defined(__PGI)
 #pragma GCC optimize "tree-vectorize"
+#endif
 #endif
 
 // adjust quantum to first power of 2 <= quantum

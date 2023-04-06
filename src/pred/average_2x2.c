@@ -14,7 +14,9 @@
 // specific optimization option for gcc, try to avoid unrecognized pragma warning
 #if defined(__GNUC__)
 #if ! defined(__INTEL_COMPILER_UPDATE)
+#if ! defined(__PGI)
 #pragma GCC optimize "tree-vectorize"
+#endif
 #endif
 #endif
 
@@ -138,15 +140,11 @@ STATIC inline void average_2x2_F32(float * restrict src1, float * restrict src2,
 // n            : number of points (may be odd) (MUST BE >= 8)
 // NOTE : average_2x2_I32 is used, simulating 2 identical rows
 STATIC inline void average_2x1_I32(int32_t * restrict src, int32_t * restrict avg, uint32_t n){
-  int i, ii ;
-  int n2 = n>>1 ;
   average_2x2_I32(src, src, avg, n) ;  // two rows average using identical source rows
 }
 
 // float version of integer version above
 STATIC inline void average_2x1_F32(float * restrict src, float * restrict avg, uint32_t n){
-  int i, ii ;
-  int n2 = n>>1 ;
   average_2x2_F32(src, src, avg, n) ;
 }
 
@@ -157,7 +155,7 @@ STATIC inline void average_2x1_F32(float * restrict src, float * restrict avg, u
 // ni   : number of points to be averaged in rows (may be odd) (MUST BE >= 8)
 // nj   : number of rows to be averaged (may be odd) (MUST BE >= 4)
 void average_2x2_2D_I32(int32_t * restrict src, int32_t * restrict avg, uint32_t ni, uint32_t lni, uint32_t nj){
-  int i, j ;
+  int j ;
   int ni2 = (ni+1)/2 ;
   int lni2 = lni+lni ;
   for(j=0 ; j<nj/2 ; j++){
@@ -170,7 +168,7 @@ void average_2x2_2D_I32(int32_t * restrict src, int32_t * restrict avg, uint32_t
 
 // float version of integer version above
 void average_2x2_2D_F32(float * restrict src, float * restrict avg, uint32_t ni, uint32_t lni, uint32_t nj){
-  int i, j ;
+  int j ;
   int ni2 = (ni+1)/2 ;
   int lni2 = lni+lni ;
   for(j=0 ; j<nj/2 ; j++){
@@ -468,7 +466,7 @@ STATIC void expand_2x2_row_n_F32(float * restrict row0, float * restrict row1, f
 // ni   : number of averaged points in rows (may be odd)
 // nj   : number of averaged rows (may be odd)
 void expand_2x2_2D_I32(int32_t * restrict dst, int32_t * restrict avg, uint32_t ni, uint32_t lni, uint32_t nj){
-  int i, j ;
+  int j ;
   int ni2 = (ni+1)/2 ;
   int lni2 = lni+lni ;
 //   int32_t t[ni] ;
@@ -488,7 +486,7 @@ void expand_2x2_2D_I32(int32_t * restrict dst, int32_t * restrict avg, uint32_t 
 
 // float version of integer version above
 void expand_2x2_2D_F32(float * restrict dst, float * restrict avg, uint32_t ni, uint32_t lni, uint32_t nj){
-  int i, j ;
+  int j ;
   int ni2 = (ni+1)/2 ;
   int lni2 = lni+lni ;
 //   int32_t t[ni] ;
