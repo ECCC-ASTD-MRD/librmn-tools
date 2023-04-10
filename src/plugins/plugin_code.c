@@ -22,12 +22,12 @@
 // step 0: declarations
 //         Fortran :
 //           use ISO_C_BINDING
-//           #include <rmn/plugins.hf>
+//           #include <rmn/tools_plugins.hf>
 //         Fortran with module :
 //           use ISO_C_BINDING
 //           use fortran_plugins
 //         C:
-//           #include <plugins.h>
+//           #include <tools_plugins.h>
 // 
 // step 1: Load a dynamic library (shared object)
 //         Fortran :
@@ -204,7 +204,7 @@
 #include <string.h>
 #include <dlfcn.h>
 
-#include <rmn/plugins.h>
+#include <rmn/tools_plugins.h>
 
 typedef int (*fnptr)();             // pointer to function
 

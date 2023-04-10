@@ -1,4 +1,4 @@
 
 #define IN_FORTRAN_CODE
 #include <rmn/is_fortran_compiler.h>
-#include <rmn/plugins.h>
+#include <rmn/tools_plugins.h>

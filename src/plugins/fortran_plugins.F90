@@ -18,7 +18,7 @@
 module fortran_plugins
   use ISO_C_BINDING
   implicit none
-#include <rmn/plugins.hf>
+#include <rmn/tools_plugins.hf>
 
   !> \private
   interface
