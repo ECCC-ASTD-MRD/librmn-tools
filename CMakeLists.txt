@@ -1,31 +1,13 @@
 # The minimum version can not be 3.16 because of the LINK_LANGUAGE generator expression in Config.cmake.in
 cmake_minimum_required(VERSION 3.20)
-#========================= options, errors, help =========================
-if(PROJECT_SOURCE_DIR STREQUAL PROJECT_BINARY_DIR)
-  message(FATAL_ERROR "In-source builds are disabled for this project")
-else()
-  # Git auto-ignore out-of-source build directory
-  file(GENERATE OUTPUT .gitignore CONTENT "*")
-endif()
 
-option(BUILD_SHARED_LIBS "build shared libs"               ON)
-option(BUILD_STATIC_LIBS "build static libs"               ON)
-option(WITH_OPENMP       "use OpenMP options"              ON)
-option(INSTALL_TESTS     "install test programs"           OFF)
-option(WITH_TEST_LOG     "activate test log file"          ON)
-option(APPEND_LOG        "append to log file across tests" OFF)
-
-if(NOT BUILD_STATIC_LIBS AND NOT BUILD_SHARED_LIBS)
-  message(SEND_ERROR " (EC) at least ONE of BUILD_STATIC_LIBS and BUILD_SHARED_LIBS MUST BE ON")
-  set(HELP BOOL ON)
-endif()
-
+#========================= help text =========================
 # what follows gets written in terminal window if 
 # - the HELP environment variable is defined
 # - or -DHELP=any_value is used in cmake call
 #[[StartHelp
-cmake recognized variables :
-  -DHELP=ON
+project variables :
+  -DHELP=ON                   ( print this help text)
   -DCMAKE_INSTALL_PREFIX=/some/path
   -DWITH_OPENMP=ON|OFF        (compile and link with OpenMP)
   -DCOMPILER_SUITE=gnu|intel|aocc|llvm|nvhpc
@@ -40,21 +22,52 @@ cmake recognized variables :
      EXTRA_FORTRAN            ( keep optional Fortran code in some source files )
      WITHOUT_SIMD             ( do not use SIMD code, use pure C code )
   -G Ninja
+environment variables :
+  HELP                        ( if set, print this help text)
+  COMPILER_SUITE=xxx          (if set, act as if -DCOMPILERSUITE=xxx had been used) (IGNORED if EC environment is detected)
+  rmn_ROOT=/path/to/librmn    (where to find librmn)
 EndHelp]]
-if(HELP OR DEFINED ENV{HELP})
-  unset(HELP CACHE)
-  execute_process( 
-    COMMAND bash -c "sed -n '/^#[[]*StartHelp/,/^EndHelp]]/{//!p;}' CMakeLists.txt"
-    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-  )
-  return()  # irrelevant error messages will appear about Ninja version when using Ninja
-  # this is inelegant, but suppresses irrelevant error messages about Ninja version
-#   message(FATAL_ERROR "HELP mode fake error to stop processing")
+
+#========================= options, errors =========================
+if(PROJECT_SOURCE_DIR STREQUAL PROJECT_BINARY_DIR)
+  message(FATAL_ERROR "In-source builds are disabled for this project")
+else()
+  # Git auto-ignore out-of-source build directory
+  file(GENERATE OUTPUT .gitignore CONTENT "*")
 endif()
+
+option(BUILD_SHARED_LIBS "build shared libs"               ON)
+option(BUILD_STATIC_LIBS "build static libs"               ON)
+option(WITH_OPENMP       "use OpenMP options"              ON)
+option(INSTALL_TESTS     "install test programs"           OFF)
+option(WITH_TEST_LOG     "activate test log file"          ON)
+option(APPEND_LOG        "append to log file across tests" OFF)
 
 # Append project specific modules directory
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/modules)
 include(ec_tools_extras)
+assert( "BUILD_STATIC_LIBS OR BUILD_SHARED_LIBS" "SEND_ERROR" "at least ONE of BUILD_STATIC_LIBS and BUILD_SHARED_LIBS MUST BE ON" )
+set_from_environment(rmn_ROOT)
+set_compiler_suite()
+set_log_mode()
+set_extra_defines()
+set_extra_options()
+display_help()
+
+# if(NOT (BUILD_STATIC_LIBS OR BUILD_SHARED_LIBS) )
+#   message(SEND_ERROR " (EC) at least ONE of BUILD_STATIC_LIBS and BUILD_SHARED_LIBS MUST BE ON")
+#   set(HELP BOOL ON)
+# endif()
+# if(HELP OR DEFINED ENV{HELP})
+#   unset(HELP CACHE)
+#   execute_process( 
+#     COMMAND bash -c "sed -n '/^#[[]*StartHelp/,/^EndHelp]]/{//!p;}' CMakeLists.txt"
+#     WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+#   )
+#   return()  # irrelevant error messages will appear about Ninja version when using Ninja
+#   # this is inelegant, but suppresses irrelevant error messages about Ninja version
+# #   message(FATAL_ERROR "HELP mode fake error to stop processing")
+# endif()
 
 if(DEFINED COMPILER_SUITE)
   string(TOLOWER "${COMPILER_SUITE}" COMPILER_SUITE)
@@ -64,6 +77,7 @@ else()
     message(STATUS "(rmntools) EC environment not found, COMPILER_SUITE not defined, set to gnu" )
   endif()
 endif()
+
 #===================================== EC setup=========================
 include(CMakePrintHelpers)
 # Append EC specific module path
