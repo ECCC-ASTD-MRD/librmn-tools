@@ -17,11 +17,6 @@ function(add_project_test name source)
   target_link_libraries(${name} PRIVATE ${PROJECT_TEST_LIBRARIES} ${TN_LINK_LIBS})
   extra_target_link_options(${name} PRIVATE)      # compiler specific flags
   extra_target_compile_options(${name} PRIVATE)   # compiler specific flags
-  set(extra_args ${ARGN})
-  list(LENGTH extra_args extra_count)
-  if(${extra_count} GREATER 0)      # extra arguments ?
-    list(GET ARGN 0 RUN_WITH_MPI)   # first optional argument
-  endif()
   if(TN_NOCTEST)
     message(STATUS "(EC) test ${name} not included in target check(ctest)")
   else()
@@ -66,10 +61,10 @@ add_library(plugin0 MODULE plugin_0.c plugin_0.F90)
 add_library(plugin1 MODULE plugin_1.c)
 add_library(plugin2 MODULE plugin_2.c)
 
-add_project_test(test_plugins_c test_plugins.c LINK_LIBS "rmn::rmn;dl;m")
+add_project_test(test_plugins_c test_plugins.c LINK_LIBS "rmn::rmn")
 # SET_SOURCE_FILES_PROPERTIES( test_plugins.c PROPERTIES COMPILE_FLAGS -I${CMAKE_SOURCE_DIR}/include )
 
-add_project_test(test_plugins_f test_plugins.F90 LINK_LIBS "rmn::rmn;dl")
+add_project_test(test_plugins_f test_plugins.F90 LINK_LIBS "rmn::rmn")
 # SET_SOURCE_FILES_PROPERTIES( test_plugins.F90 PROPERTIES COMPILE_FLAGS -I${CMAKE_CURRENT_BINARY_DIR}/../modules )
 
 # set compile/link special options for targets not created with add__project__test

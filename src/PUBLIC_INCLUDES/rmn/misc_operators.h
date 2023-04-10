@@ -824,17 +824,17 @@ uint32_t ieee_min_exponent(float *f, int n) ;      // IEEE exponent of the small
     subroutine BitPop(what, pop, n) bind(C, name='BitPop')
       import :: C_INT32_T
       implicit none
+      integer(C_INT32_t), intent(IN), value :: n
       integer(C_INT32_t), dimension(n), intent(IN) :: what
       integer(C_INT32_t), dimension(32), intent(INOUT) :: pop
-      integer(C_INT32_t), intent(IN), value :: n
     end subroutine BitPop
 
     subroutine BitPopU(what, pop, n) bind(C, name='BitPopU')
       import :: C_INT32_T
       implicit none
+      integer(C_INT32_t), intent(IN), value :: n
       integer(C_INT32_t), dimension(n), intent(IN) :: what
       integer(C_INT32_t), dimension(32), intent(INOUT) :: pop
-      integer(C_INT32_t), intent(IN), value :: n
     end subroutine BitPopU
 
     function BitEntropy(bitstream, npts, nbits, rshift) result(entropy) bind(C,name='BitEntropy')

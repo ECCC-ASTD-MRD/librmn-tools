@@ -181,8 +181,8 @@ end subroutine quant16i
 subroutine tile(q, ni, nj, step)
   use ISO_C_BINDING
   implicit none
-  integer, dimension(ni,nj), intent(INOUT) :: q
   integer(C_INT32_t), intent(IN) :: ni, nj, step
+  integer, dimension(ni,nj), intent(INOUT) :: q
   integer :: i0, j0, mini, maxi
   do j0 = 1, nj-step, step
   do i0 = 1, ni-step, step
@@ -199,8 +199,8 @@ subroutine population(p, n, msg)
   use ISO_C_BINDING
   implicit none
 #include <rmn/misc_operators.h>
-  integer(C_INT32_t), intent(IN), dimension(n) :: p
   integer(C_INT32_t), intent(IN) :: n
+  integer(C_INT32_t), intent(IN), dimension(n) :: p
   character(len=*) :: msg
   integer(C_INT32_t), dimension(34) :: pop
   integer :: i
@@ -721,9 +721,9 @@ subroutine scores(s,fa,fb,ni,nj,toler,diag,msg,mode)
   logical, intent(IN) :: diag
   character(len=*), intent(IN) :: msg
 
-  real *8 :: suma, sumb, sumab, suma2, sumb2, bias, rms, abserr, errrel, one
+  real(kind=8) :: suma, sumb, sumab, suma2, sumb2, bias, rms, abserr, errrel, one
   real :: errmax
-  real *8 :: errrelmax, errrelavg, avga, avgb, stda, stdb, corr, slope, intercept
+  real(kind=8) :: errrelmax, errrelavg, avga, avgb, stda, stdb, corr, slope, intercept
   integer :: i, j, n, isd
   real :: nonzero, fmina, fmaxa, span, sdl, sd, fminb, fmaxb
   integer, dimension(6) :: dig
@@ -825,7 +825,7 @@ subroutine scores(s,fa,fb,ni,nj,toler,diag,msg,mode)
              ' Ae=',s(5),s(4),' Re=',s(7),s(6),' NZ=',nint(nonzero/(ni*nj)*100.0), &
              ' dSTD=',stda-stdb,' SD=',sd,' dC1=',1.0-corr,' Sp=',nint(span*.5), &
              ' A,B=',1.0-slope,intercept,dig
-100 format(A,A,E8.2,A,E9.2,A,E8.2,A,I2,1H%,A,E8.2,E9.2,A,E8.2,E9.2,A,I3,1H%,A,E9.2,A,F3.1,A,E8.2,A,I5,A,E9.2,E10.2,6I4)
+100 format(A,A,E8.2,A,E9.2,A,E8.2,A,I2,'%',A,E8.2,E9.2,A,E8.2,E9.2,A,I3,'%',A,E9.2,A,F3.1,A,E8.2,A,I5,A,E9.2,E10.2,6I4)
   endif
 
   nbiases(mode) = nbiases(mode) + 1

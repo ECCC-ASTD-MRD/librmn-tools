@@ -21,6 +21,7 @@ project variables :
      QUIET_SIMD               ( suppress message telling that SIMD code is used )
      EXTRA_FORTRAN            ( keep optional Fortran code in some source files )
      WITHOUT_SIMD             ( do not use SIMD code, use pure C code )
+  -DEXTRA_FLAGS=flag_1[ ,flag_2 ] ... [flag_n ]
   -G Ninja
 environment variables :
   HELP                        ( if set, print this help text)
@@ -28,7 +29,7 @@ environment variables :
   rmn_ROOT=/path/to/librmn    (where to find librmn)
 EndHelp]]
 
-#========================= options, errors =========================
+#========================= options, flags, errors =========================
 if(PROJECT_SOURCE_DIR STREQUAL PROJECT_BINARY_DIR)
   message(FATAL_ERROR "In-source builds are disabled for this project")
 else()
@@ -46,12 +47,13 @@ option(APPEND_LOG        "append to log file across tests" OFF)
 # Append project specific modules directory
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/modules)
 include(ec_tools_extras)
-assert( "BUILD_STATIC_LIBS OR BUILD_SHARED_LIBS" "SEND_ERROR" "at least ONE of BUILD_STATIC_LIBS and BUILD_SHARED_LIBS MUST BE ON" )
-set_from_environment(rmn_ROOT)
+#
+assert( "BUILD_STATIC_LIBS OR BUILD_SHARED_LIBS" SEND_ERROR "at least ONE of BUILD_STATIC_LIBS and BUILD_SHARED_LIBS MUST BE ON" )
+set_from_environment(rmn_ROOT)      # get rmn_ROOT from environment if not already set
 set_compiler_suite()
 set_log_mode()
-set_extra_defines()
-set_extra_options()
+set_extra_defines()                 # process -DEXTRA_DEFINES (e.g. XXX=vxxx )
+set_extra_flags()                   # process -DEXTRA_FLAGS (e.g. -O3 ...)
 display_help()
 
 # if(NOT (BUILD_STATIC_LIBS OR BUILD_SHARED_LIBS) )
@@ -90,7 +92,6 @@ project(${NAME} DESCRIPTION "${DESCRIPTION}" LANGUAGES C Fortran)
 
 # enable_language(C Fortran)
 if (NOT rmn_FOUND)
-message(STATUS "NOT rmn_FOUND, looking for package rmn")
    find_package(rmn ${rmn_REQ_VERSION} COMPONENTS REQUIRED)
 endif()
 
@@ -130,7 +131,7 @@ if(WITH_OPENMP)
   set(M_OPENMP -mp)
 endif()
 
-set(Intel_FFLAGS -convert big_endian -align array32byte -assume byterecl -march=skylake -diag-disable=5268,10121 ${Q_OPENMP})
+set(Intel_FFLAGS -convert big_endian -align array32byte -assume byterecl -march=skylake -diag-disable=5268,10121,7025,7028,7416,6477,8291 ${Q_OPENMP})
 set(IntelLLVM_FFLAGS -convert big_endian -align array32byte -assume byterecl -march=skylake ${Q_OPENMP})
 set(GNU_FFLAGS -fconvert=big-endian -fcray-pointer -frecord-marker=4 -fno-second-underscore ${F_OPENMP} -ldl -pthread)
 set(Flang_FFLAGS -Mbyteswapio ${F_OPENMP})
@@ -166,11 +167,9 @@ function(extra_target_compile_options name type)
               $<$<COMPILE_LANG_AND_ID:C,IntelLLVM>:${IntelLLVM_CFLAGS}>
               $<$<COMPILE_LANG_AND_ID:Fortran,Flang>:${Flang_FFLAGS}>
               $<$<COMPILE_LANG_AND_ID:C,Clang>:${Clang_CFLAGS}>
-              $<$<COMPILE_LANG_AND_ID:Fortran,PGI>:${PGI_FFLAGS}>
-              $<$<COMPILE_LANG_AND_ID:C,PGI>:${PGI_CFLAGS}>
+              $<$<COMPILE_LANG_AND_ID:Fortran,PGI,NVHPC>:${PGI_FFLAGS}>
+              $<$<COMPILE_LANG_AND_ID:C,PGI,NVHPC>:${PGI_CFLAGS}>
               $<$<COMPILE_LANG_AND_ID:Fortran,LLVMFlang>:${LLVM_FFLAGS}>
-              $<$<COMPILE_LANG_AND_ID:Fortran,NVHPC>:${PGI_FFLAGS}>
-              $<$<COMPILE_LANG_AND_ID:C,NVHPC>:${PGI_CFLAGS}>
   )
 endfunction()
 
@@ -224,8 +223,8 @@ set(PROJECT_H_FILES
   src/PUBLIC_INCLUDES/rmn/identify_compiler_c.h
   src/PUBLIC_INCLUDES/rmn/identify_mpi_child.h
   src/PUBLIC_INCLUDES/rmn/is_fortran_compiler.h
-  src/PUBLIC_INCLUDES/rmn/plugins.h
-  src/PUBLIC_INCLUDES/rmn/plugins.hf
+  src/PUBLIC_INCLUDES/rmn/tools_plugins.h
+  src/PUBLIC_INCLUDES/rmn/tools_plugins.hf
   src/PUBLIC_INCLUDES/rmn/misc_pack.h
   src/PUBLIC_INCLUDES/rmn/misc_pack.hf
   src/PUBLIC_INCLUDES/rmn/misc_analyze.h
@@ -345,6 +344,7 @@ endif(BUILD_SHARED_LIBS)
 # (make -j) with GNU compilers
 # add_dependencies(rmntoolsf-shared rmntools-shared)
 
+get_target_property(rmn_INCLUDES rmn::rmn INTERFACE_INCLUDE_DIRECTORIES)            # includes from librmn (rmn::rmn)
 foreach(TARGET IN ITEMS ${TARGETS})
     # avoid ninja problem with multiple rules generating the same target
     # only install from modules, but build into/from modules or modules/${TARGET}
@@ -354,11 +354,13 @@ foreach(TARGET IN ITEMS ${TARGETS})
     else()
       set_target_properties(${TARGET} PROPERTIES Fortran_MODULE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/modules)
     endif()
-    target_link_libraries(${TARGET} PRIVATE rmn::rmn)
+#     target_link_libraries(${TARGET} PRIVATE rmn::rmn)  # rmn libraries not needed nor desired, includes from rmn are needed
+    target_link_libraries(${TARGET} PRIVATE dl m)        # libdl and libm are useful with some compilers
     target_include_directories(${TARGET}
         PUBLIC
-            $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-            $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/PUBLIC_INCLUDES>
+            ${rmn_INCLUDES}/                                                        # public includes from librmn
+            $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>                  # project private includes
+            $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/PUBLIC_INCLUDES>      # project public includes
         INTERFACE
             $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/modules>
             $<INSTALL_INTERFACE:modules>

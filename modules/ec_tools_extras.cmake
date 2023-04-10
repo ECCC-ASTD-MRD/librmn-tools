@@ -13,17 +13,17 @@ macro(display_help)
   endif()
 endmacro()
 #
-# evaluate a logical expression and set variable named ${result} in parent scope accordingly
+# evaluate a logical expression and set variable named ${result} in caller scope accordingly
 # condition : string, result : variable name
-function(evaluate_condition condition result)
+macro(evaluate_condition condition result)
   cmake_language(EVAL CODE "
     if(${condition})
-      set(${result} TRUE PARENT_SCOPE)
+      set(${result} TRUE)
     else()
-      set(${result} FALSE PARENT_SCOPE)
+      set(${result} FALSE)
     endif()" 
   )
-endfunction()
+endmacro()
 #
 # assert function
 function(assert condition type text)
@@ -36,7 +36,7 @@ function(assert condition type text)
   endif()
 endfunction()
 #
-# process environment variable and set variable with same name in parent scope if not already set
+# process environment variable and set variable with same name in caller scope if not already set
 function(set_from_environment name)
   if(${name})
     message(STATUS "(EC) set_from_environment : variable ${name} already set to '${${name}}'")
@@ -57,10 +57,10 @@ function(set_compiler_suite)
     if(NOT DEFINED ENV{BASE_ARCH} AND NOT DEFINED ENV{EC_ARCH} AND NOT DEFINED ENV{COMP_ARCH})   # NOT EC environment
       set_from_environment(COMPILER_SUITE)        # get environment variable if present
       if(NOT DEFINED COMPILER_SUITE)              # nothing found
-        set(COMPILER_SUITE "gnu" CACHE STRING "compiler to use")
+        set(COMPILER_SUITE "gnu" CACHE STRING "compiler suite to use")
         message(STATUS "(rmntools) EC environment not found, COMPILER_SUITE not defined, set to 'gnu'" )
       else()
-        set(COMPILER_SUITE "${COMPILER_SUITE}" CACHE STRING "compiler to use")
+        set(COMPILER_SUITE "${COMPILER_SUITE}" CACHE STRING "compiler suite to use")
         message(STATUS "(rmntools) EC environment not found, COMPILER_SUITE set to '${COMPILER_SUITE}'" )
       endif()
     endif()
@@ -96,16 +96,16 @@ function(set_extra_defines)
   endif()
 endfunction()
 #
-# get extra compilation options for this configuration run
+# get extra compilation flags for this configuration run
 # these extra definitions should not be cached
-function(set_extra_options)
-  if(EXTRA_OPTIONS)
-    string(REGEX REPLACE "[, ]" ";" LOCAL ${EXTRA_OPTIONS})
-    unset(EXTRA_OPTIONS CACHE)
+function(set_extra_flags)
+  if(EXTRA_FLAGS)
+    string(REGEX REPLACE "[, ]" ";" LOCAL ${EXTRA_FLAGS})
+    unset(EXTRA_FLAGS CACHE)
     foreach(ITEM IN ITEMS ${LOCAL})
-      set(EXTRA_OPTIONS "${EXTRA_OPTIONS} ${ITEM}" PARENT_SCOPE)
+      set(EXTRA_FLAGS "${EXTRA_FLAGS} ${ITEM}" PARENT_SCOPE)
       add_compile_options(${ITEM})
     endforeach()
-    message(STATUS "(EC) extra compilation options : ${EXTRA_OPTIONS}")
+    message(STATUS "(EC) extra compilation flags : ${EXTRA_FLAGS}")
   endif()
 endfunction()
