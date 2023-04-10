@@ -92,9 +92,10 @@ project(${NAME} DESCRIPTION "${DESCRIPTION}" LANGUAGES C Fortran)
 
 # enable_language(C Fortran)
 if (NOT rmn_FOUND)
-   find_package(rmn ${rmn_REQ_VERSION} COMPONENTS REQUIRED)
+#    find_package(rmn ${rmn_REQ_VERSION} COMPONENTS REQUIRED)
+   find_package(rmn ${rmn_REQ_VERSION} REQUIRED)
 endif()
-
+# echo_targets(rmn::rmn)
 # cmake_print_properties(TARGETS rmn::rmn PROPERTIES INTERFACE_INCLUDE_DIRECTORIES INTERFACE_LINK_LIBRARIES)
 
 set(PROJECT_VERSION ${VERSION}${STATE})
@@ -238,7 +239,7 @@ set(PROJECT_INCLUDES
 
 string(REGEX MATCH "([0-9]+)" SOVERSION ${PROJECT_VERSION})
 
-if(BUILD_SHARED_LIBS)
+if(BUILD_SHARED_LIBS OR BUILD_STATIC_LIBS)
   set(CMAKE_BUILD_RPATH_USE_ORIGIN true)
   set(CMAKE_INSTALL_RPATH "$ORIGIN:$ORIGIN/../lib")
 endif()
@@ -345,14 +346,17 @@ endif(BUILD_SHARED_LIBS)
 # add_dependencies(rmntoolsf-shared rmntools-shared)
 
 get_target_property(rmn_INCLUDES rmn::rmn INTERFACE_INCLUDE_DIRECTORIES)            # includes from librmn (rmn::rmn)
+# get_target_property(rmn_LIBRARIES rmn::rmn INTERFACE_LINK_DIRECTORIES)            # includes from librmn (rmn::rmn)
 foreach(TARGET IN ITEMS ${TARGETS})
     # avoid ninja problem with multiple rules generating the same target
     # only install from modules, but build into/from modules or modules/${TARGET}
     # after install one can ignore extra  modules/${TARGET}
-    if(${TARGET} MATCHES ".*sharedf" )
+    if(${TARGET} MATCHES ".*shared" AND BUILD_STATIC_LIBS)
       set_target_properties(${TARGET} PROPERTIES Fortran_MODULE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/modules_${TARGET})
+message(STATUS "${TARGET} : Fortran_MODULE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/modules_${TARGET}")
     else()
       set_target_properties(${TARGET} PROPERTIES Fortran_MODULE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/modules)
+message(STATUS "${TARGET} : Fortran_MODULE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/modules")
     endif()
 #     target_link_libraries(${TARGET} PRIVATE rmn::rmn)  # rmn libraries not needed nor desired, includes from rmn are needed
     target_link_libraries(${TARGET} PRIVATE dl m)        # libdl and libm are useful with some compilers

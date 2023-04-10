@@ -4,17 +4,21 @@ add_custom_target(mpicheck COMMAND CTEST_OUTPUT_ON_FAILURE=true ${CMAKE_CTEST_CO
 message(STATUS "(EC) Generating librmntools tests")
 
 if(BUILD_STATIC_LIBS)
-  set(PROJECT_TEST_LIBRARIES rmntoolsf rmntools)
+  set(PROJECT_STATIC_TEST_LIBRARIES rmntoolsf rmntools)
 endif()
 if(BUILD_SHARED_LIBS)
-  set(PROJECT_TEST_LIBRARIES rmntoolsf-shared rmntools-shared)
+  set(PROJECT_SHARED_TEST_LIBRARIES rmntoolsf-shared rmntools-shared)
 endif()
 
 function(add_project_test name source)
-  cmake_parse_arguments(PARSE_ARGV 0 "TN" "NOCTEST" "" "MPI;LINK_LIBS")
+  cmake_parse_arguments(PARSE_ARGV 0 "TN" "NOCTEST;STATIC" "" "MPI;LINK_LIBS")
   # Use same name for target and executable file
   add_executable(${name} ${source})
-  target_link_libraries(${name} PRIVATE ${PROJECT_TEST_LIBRARIES} ${TN_LINK_LIBS})
+  if( (TN_STATIC AND BUILD_STATIC_LIBS) OR (NOT BUILD_SHARED_LIBS) )
+    target_link_libraries(${name} PRIVATE ${PROJECT_STATIC_TEST_LIBRARIES} ${TN_LINK_LIBS})
+  else()
+    target_link_libraries(${name} PRIVATE ${PROJECT_SHARED_TEST_LIBRARIES} ${TN_LINK_LIBS})
+  endif()
   extra_target_link_options(${name} PRIVATE)      # compiler specific flags
   extra_target_compile_options(${name} PRIVATE)   # compiler specific flags
   if(TN_NOCTEST)
@@ -61,6 +65,11 @@ add_library(plugin0 MODULE plugin_0.c plugin_0.F90)
 add_library(plugin1 MODULE plugin_1.c)
 add_library(plugin2 MODULE plugin_2.c)
 
+set(test_plugins plugin0 plugin1 plugin2 shared0 shared1 shared2 sharedf1 sharedf2)
+foreach(ITEM IN ITEMS ${test_plugins})
+  install(TARGETS ${ITEM} DESTINATION bin)
+endforeach()
+
 add_project_test(test_plugins_c test_plugins.c LINK_LIBS "rmn::rmn")
 # SET_SOURCE_FILES_PROPERTIES( test_plugins.c PROPERTIES COMPILE_FLAGS -I${CMAKE_SOURCE_DIR}/include )
 
@@ -95,7 +104,8 @@ add_project_test(test_pack_macros test_pack_macros.c)
 SET_SOURCE_FILES_PROPERTIES( test_pack_macros PROPERTIES COMPILE_FLAGS -O3 )
 
 add_project_test(test_lorenzo_c test_lorenzo_c.c)
-add_project_test(test_lorenzo_f test_lorenzo.F90 LINK_LIBS "rmn::rmn")
+# add_project_test(test_lorenzo_f test_lorenzo.F90 LINK_LIBS "rmn::rmn")
+add_project_test(test_lorenzo_f test_lorenzo.F90 STATIC LINK_LIBS ${rmn_INCLUDES}/../lib//librmn.a)
 SET_SOURCE_FILES_PROPERTIES( test_lorenzo.F90 PROPERTIES COMPILE_FLAGS -DNO_FORTRAN_CODE )
 
 add_project_test(test_fstd_compress  test_fstd_compress.F90 LINK_LIBS "rmn::rmn" NOCTEST)

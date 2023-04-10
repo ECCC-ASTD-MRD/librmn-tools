@@ -109,3 +109,4 @@ function(set_extra_flags)
     message(STATUS "(EC) extra compilation flags : ${EXTRA_FLAGS}")
   endif()
 endfunction()
+ 
