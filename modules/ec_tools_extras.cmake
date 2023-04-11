@@ -15,7 +15,7 @@ endmacro()
 #
 # evaluate a logical expression and set variable named ${result} in caller scope accordingly
 # condition : string, result : variable name
-macro(evaluate_condition condition result)
+macro(evaluate_condition result condition)
   cmake_language(EVAL CODE "
     if(${condition})
       set(${result} TRUE)
@@ -27,12 +27,12 @@ endmacro()
 #
 # assert function
 function(assert condition type text)
-  evaluate_condition("${condition}" local_condition)
+  evaluate_condition(local_condition "${condition}" )
   if(NOT local_condition )
     unset(local_condition)
     set(HELP BOOL ON PARENT_SCOPE)  # set HELP variable if assert fails
-    message(STATUS "assert failed : '${condition}'")
-    message( ${type} "(EC) ${text}" )
+#     message(STATUS "assert failed : '${condition}'")
+    message( ${type} "(EC) assert failed : '${condition}'\n${text}" )
   endif()
 endfunction()
 #

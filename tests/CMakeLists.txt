@@ -6,15 +6,18 @@ set(PROJECT_STATIC_TEST_LIBRARIES rmntoolsf rmntools)
 set(PROJECT_SHARED_TEST_LIBRARIES rmntoolsf-shared rmntools-shared)
 
 function(add_project_test name source)
-  cmake_parse_arguments(PARSE_ARGV 0 "TN" "NOCTEST;STATIC;NO_TOOLS" "" "MPI;LINK_LIBS")
+  cmake_parse_arguments(PARSE_ARGV 0 "TN" "NOCTEST;STATIC;NO_TOOLS;DL" "" "MPI;LINK_LIBS")
   # Use same name for target and executable file
   add_executable(${name} ${source})
+  if(TN_DL)
+    set(libdl "-ldl")
+  endif()
   if( (TN_STATIC AND BUILD_STATIC_LIBS) OR (NOT BUILD_SHARED_LIBS) )
     if(TN_NO_TOOLS)
       target_link_libraries(${name} PRIVATE ${TN_LINK_LIBS})
 # message(STATUS "target_link_libraries(${name} PRIVATE ${TN_LINK_LIBS})")
     else()
-      target_link_libraries(${name} PRIVATE -Bstatic ${PROJECT_STATIC_TEST_LIBRARIES} ${TN_LINK_LIBS} -Bdynamic)
+      target_link_libraries(${name} PRIVATE -Bstatic ${PROJECT_STATIC_TEST_LIBRARIES} ${TN_LINK_LIBS} -Bdynamic ${libdl})
 # message(STATUS "target_link_libraries(${name} PRIVATE -Bstatic ${PROJECT_STATIC_TEST_LIBRARIES} ${TN_LINK_LIBS} -Bdynamic)")
     endif()
   else()
@@ -82,10 +85,10 @@ foreach(ITEM IN ITEMS ${test_plugins})
   install(TARGETS ${ITEM} DESTINATION bin)
 endforeach()
 
-add_project_test(test_plugins_c test_plugins.c LINK_LIBS "rmn::rmn")
+add_project_test(test_plugins_c test_plugins.c LINK_LIBS "rmn::rmn;dl")
 # SET_SOURCE_FILES_PROPERTIES( test_plugins.c PROPERTIES COMPILE_FLAGS -I${CMAKE_SOURCE_DIR}/include )
 
-add_project_test(test_plugins_f test_plugins.F90 LINK_LIBS "rmn::rmn")
+add_project_test(test_plugins_f test_plugins.F90 LINK_LIBS "rmn::rmn;dl")
 # SET_SOURCE_FILES_PROPERTIES( test_plugins.F90 PROPERTIES COMPILE_FLAGS -I${CMAKE_CURRENT_BINARY_DIR}/../modules )
 
 # set compile/link special options for targets not created with add__project__test
@@ -101,7 +104,7 @@ endforeach()
 add_project_test(test_identify_mpi_child test_identify_mpi_child.c MPI "mpirun -n 2 ")
 
 add_project_test(test_identify_compiler_c test_identify_compiler_c.c)
-add_project_test(test_identify_compiler_f test_identify_compiler_f.F90)
+add_project_test(test_identify_compiler_f test_identify_compiler_f.F90 LINK_LIBS dl)
 add_project_test(test_timers test_timers.c )
 
 add_project_test(test_tee_file test_tee_file.c)
@@ -115,10 +118,13 @@ add_project_test(test_pack_macros test_pack_macros.c)
 SET_SOURCE_FILES_PROPERTIES( test_pack_macros PROPERTIES COMPILE_FLAGS -O3 )
 
 add_project_test(test_lorenzo_c test_lorenzo_c.c)
-add_project_test(test_lorenzo_f_shared test_lorenzo.F90 LINK_LIBS "rmn::rmn")                               # build with shared libraries
-add_project_test(test_lorenzo_f_static test_lorenzo.F90 STATIC LINK_LIBS ${rmn_INCLUDES}/../lib/librmn.a)   # build with static libraries
-# add_project_test(test_lorenzo_f_static test_lorenzo.F90 STATIC LINK_LIBS rmn::rmn)                          # build with static libraries
-SET_SOURCE_FILES_PROPERTIES( test_lorenzo.F90 PROPERTIES COMPILE_FLAGS -DNO_FORTRAN_CODE )
+add_project_test(test_lorenzo_f_shared test_lorenzo.F90 LINK_LIBS "rmn::rmn-shared;dl")                        # build with shared libraries
+if(NOT ( ${COMPILER_SUITE} MATCHES  "nvhpc__") )
+# problem building test_lorenzo_f_static with Nvidia compiler (dl library symbol missing)
+add_project_test(test_lorenzo_f_static test_lorenzo.F90 STATIC DL LINK_LIBS ${rmn_PREFIX}/lib/librmn.a)        # build with static libraries
+endif()
+# add_project_test(test_lorenzo_f_static test_lorenzo.F90 STATIC LINK_LIBS rmn::rmn-static)                          # build with static libraries
+# SET_SOURCE_FILES_PROPERTIES( test_lorenzo.F90 PROPERTIES COMPILE_FLAGS -DNO_FORTRAN_CODE )
 
-add_project_test(test_fstd_compress  test_fstd_compress.F90 LINK_LIBS "rmn::rmn" NOCTEST)   # not included in ctest for now
+add_project_test(test_fstd_compress  test_fstd_compress.F90 LINK_LIBS "rmn::rmn;dl" NOCTEST)   # not included in ctest for now
 

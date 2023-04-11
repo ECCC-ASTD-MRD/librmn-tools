@@ -48,7 +48,10 @@ option(APPEND_LOG        "append to log file across tests" OFF)
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/modules)
 include(ec_tools_extras)
 #
-assert( "BUILD_STATIC_LIBS OR BUILD_SHARED_LIBS" SEND_ERROR "at least ONE of BUILD_STATIC_LIBS and BUILD_SHARED_LIBS MUST BE ON" )
+assert( 
+      "BUILD_STATIC_LIBS OR BUILD_SHARED_LIBS" 
+      SEND_ERROR "at least ONE of BUILD_STATIC_LIBS and BUILD_SHARED_LIBS MUST BE ON" 
+      )
 set_from_environment(rmn_ROOT)      # get rmn_ROOT from environment if not already set
 set_compiler_suite()
 set_log_mode()
@@ -71,14 +74,14 @@ display_help()
 # #   message(FATAL_ERROR "HELP mode fake error to stop processing")
 # endif()
 
-if(DEFINED COMPILER_SUITE)
-  string(TOLOWER "${COMPILER_SUITE}" COMPILER_SUITE)
-else()
-  if(NOT DEFINED ENV{BASE_ARCH} AND NOT DEFINED ENV{EC_ARCH} AND NOT DEFINED ENV{COMP_ARCH})
-    set(COMPILER_SUITE "gnu" CACHE STRING "compiler to use")
-    message(STATUS "(rmntools) EC environment not found, COMPILER_SUITE not defined, set to gnu" )
-  endif()
-endif()
+# if(DEFINED COMPILER_SUITE)
+#   string(TOLOWER "${COMPILER_SUITE}" COMPILER_SUITE)
+# else()
+#   if(NOT DEFINED ENV{BASE_ARCH} AND NOT DEFINED ENV{EC_ARCH} AND NOT DEFINED ENV{COMP_ARCH})
+#     set(COMPILER_SUITE "gnu" CACHE STRING "compiler to use")
+#     message(STATUS "(rmntools) EC environment not found, COMPILER_SUITE not defined, set to gnu" )
+#   endif()
+# endif()
 
 #===================================== EC setup=========================
 include(CMakePrintHelpers)
@@ -95,7 +98,16 @@ if (NOT rmn_FOUND)
 #    find_package(rmn ${rmn_REQ_VERSION} COMPONENTS REQUIRED)
    find_package(rmn ${rmn_REQ_VERSION} REQUIRED)
 endif()
+# message(STATUS "rmn_DIR = ${rmn_DIR}")
 # cmake_print_properties(TARGETS rmn::rmn PROPERTIES INTERFACE_INCLUDE_DIRECTORIES INTERFACE_LINK_LIBRARIES INTERFACE_COMPILE_DEFINITIONS)
+# cmake_print_properties(TARGETS rmn::rmn 
+#     PROPERTIES
+#         IMPORTED_LOCATION
+#         IMPORTED_LOCATION_DEBUG
+#         IMPORTED_LOCATION_RELEASE
+#         IMPORTED_LOCATION_RELWITHDEBINFO
+#         IMPORTED_LOCATION_MINRELSIZE
+# )
 
 set(PROJECT_VERSION ${VERSION}${STATE})
 set(rmntools_VERSION ${PROJECT_VERSION} CACHE INTERNAL "rmntools version" FORCE) # Needed for cascaded version identification
@@ -256,7 +268,7 @@ if(BUILD_STATIC_LIBS)
       OUTPUT_NAME rmntools)
   if(WITH_OPENMP)
       target_compile_definitions(rmntools PUBLIC WITH_OPENMP)
-      target_link_libraries(rmntools PUBLIC OpenMP::OpenMP_C dl)
+      target_link_libraries(rmntools PUBLIC OpenMP::OpenMP_C)
   endif()
 
   # Fortran static library
@@ -272,7 +284,7 @@ if(BUILD_STATIC_LIBS)
   # target_link_libraries(rmntoolsf PUBLIC rmntools)
   if(WITH_OPENMP)
       target_compile_definitions(rmntoolsf PUBLIC WITH_OPENMP)
-      target_link_libraries(rmntoolsf PUBLIC OpenMP::OpenMP_Fortran dl)
+      target_link_libraries(rmntoolsf PUBLIC OpenMP::OpenMP_Fortran)
   endif()
 
   add_library(${PROJECT_NAME}::${PROJECT_NAME} ALIAS ${PROJECT_NAME})
@@ -299,7 +311,7 @@ if(BUILD_SHARED_LIBS)
       OUTPUT_NAME rmntools-shared)
   if(WITH_OPENMP)
       target_compile_definitions(rmntools-shared PUBLIC WITH_OPENMP)
-      target_link_libraries(rmntools-shared PUBLIC OpenMP::OpenMP_C dl)
+      target_link_libraries(rmntools-shared PUBLIC OpenMP::OpenMP_C)
   endif()
 
   # C shared plugins library
@@ -313,7 +325,7 @@ if(BUILD_SHARED_LIBS)
       OUTPUT_NAME rmntools-plugins)
   if(WITH_OPENMP)
       target_compile_definitions(rmntools-plugins PUBLIC WITH_OPENMP)
-      target_link_libraries(rmntools-plugins PUBLIC OpenMP::OpenMP_C dl)
+      target_link_libraries(rmntools-plugins PUBLIC OpenMP::OpenMP_C)
   endif()
 
   # include C objects in Fortran library
@@ -332,7 +344,7 @@ if(BUILD_SHARED_LIBS)
   # target_link_libraries(rmntoolsf-shared PUBLIC rmntools-shared)
   if(WITH_OPENMP)
       target_compile_definitions(rmntoolsf-shared PUBLIC WITH_OPENMP)
-      target_link_libraries(rmntoolsf-shared PUBLIC OpenMP::OpenMP_Fortran dl)
+      target_link_libraries(rmntoolsf-shared PUBLIC OpenMP::OpenMP_Fortran)
   endif()
 
   add_library(${PROJECT_NAME}::${PROJECT_NAME}-shared ALIAS ${PROJECT_NAME}-shared)
@@ -345,6 +357,8 @@ endif(BUILD_SHARED_LIBS)
 # add_dependencies(rmntoolsf-shared rmntools-shared)
 
 get_target_property(rmn_INCLUDES rmn::rmn INTERFACE_INCLUDE_DIRECTORIES)            # includes from librmn (rmn::rmn)
+cmake_path(GET rmn_INCLUDES PARENT_PATH rmn_PREFIX)
+# message(STATUS "rmn_PREFIX = ${rmn_PREFIX}")
 # get_target_property(rmn_LIBRARIES rmn::rmn INTERFACE_LINK_DIRECTORIES)            # includes from librmn (rmn::rmn)
 foreach(TARGET IN ITEMS ${TARGETS})
     # avoid ninja problem with multiple rules generating the same target
@@ -358,7 +372,8 @@ message(STATUS "${TARGET} : Fortran_MODULE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
 message(STATUS "${TARGET} : Fortran_MODULE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/modules")
     endif()
 #     target_link_libraries(${TARGET} PRIVATE rmn::rmn)  # rmn libraries not needed nor desired, includes from rmn are needed
-    target_link_libraries(${TARGET} PRIVATE dl m)        # libdl and libm are useful with some compilers
+#     target_link_libraries(${TARGET} PRIVATE dl m)        # libdl and libm are useful with some compilers
+    target_link_libraries(${TARGET} PRIVATE m)           # libm is useful with some compilers
     target_include_directories(${TARGET}
         PUBLIC
             ${rmn_INCLUDES}/                                                        # public includes from librmn
