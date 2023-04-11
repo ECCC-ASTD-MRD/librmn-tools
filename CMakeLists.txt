@@ -95,8 +95,7 @@ if (NOT rmn_FOUND)
 #    find_package(rmn ${rmn_REQ_VERSION} COMPONENTS REQUIRED)
    find_package(rmn ${rmn_REQ_VERSION} REQUIRED)
 endif()
-# echo_targets(rmn::rmn)
-# cmake_print_properties(TARGETS rmn::rmn PROPERTIES INTERFACE_INCLUDE_DIRECTORIES INTERFACE_LINK_LIBRARIES)
+# cmake_print_properties(TARGETS rmn::rmn PROPERTIES INTERFACE_INCLUDE_DIRECTORIES INTERFACE_LINK_LIBRARIES INTERFACE_COMPILE_DEFINITIONS)
 
 set(PROJECT_VERSION ${VERSION}${STATE})
 set(rmntools_VERSION ${PROJECT_VERSION} CACHE INTERNAL "rmntools version" FORCE) # Needed for cascaded version identification
