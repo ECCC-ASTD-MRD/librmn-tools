@@ -1,23 +1,30 @@
 # target check to run all tests
 add_custom_target(check COMMAND CTEST_OUTPUT_ON_FAILURE=true ${CMAKE_CTEST_COMMAND})
-add_custom_target(mpicheck COMMAND CTEST_OUTPUT_ON_FAILURE=true ${CMAKE_CTEST_COMMAND})
 message(STATUS "(EC) Generating librmntools tests")
 
-if(BUILD_STATIC_LIBS)
-  set(PROJECT_STATIC_TEST_LIBRARIES rmntoolsf rmntools)
-endif()
-if(BUILD_SHARED_LIBS)
-  set(PROJECT_SHARED_TEST_LIBRARIES rmntoolsf-shared rmntools-shared)
-endif()
+set(PROJECT_STATIC_TEST_LIBRARIES rmntoolsf rmntools)
+set(PROJECT_SHARED_TEST_LIBRARIES rmntoolsf-shared rmntools-shared)
 
 function(add_project_test name source)
-  cmake_parse_arguments(PARSE_ARGV 0 "TN" "NOCTEST;STATIC" "" "MPI;LINK_LIBS")
+  cmake_parse_arguments(PARSE_ARGV 0 "TN" "NOCTEST;STATIC;NO_TOOLS" "" "MPI;LINK_LIBS")
   # Use same name for target and executable file
   add_executable(${name} ${source})
   if( (TN_STATIC AND BUILD_STATIC_LIBS) OR (NOT BUILD_SHARED_LIBS) )
-    target_link_libraries(${name} PRIVATE ${PROJECT_STATIC_TEST_LIBRARIES} ${TN_LINK_LIBS})
+    if(TN_NO_TOOLS)
+      target_link_libraries(${name} PRIVATE ${TN_LINK_LIBS})
+# message(STATUS "target_link_libraries(${name} PRIVATE ${TN_LINK_LIBS})")
+    else()
+      target_link_libraries(${name} PRIVATE -Bstatic ${PROJECT_STATIC_TEST_LIBRARIES} ${TN_LINK_LIBS} -Bdynamic)
+# message(STATUS "target_link_libraries(${name} PRIVATE -Bstatic ${PROJECT_STATIC_TEST_LIBRARIES} ${TN_LINK_LIBS} -Bdynamic)")
+    endif()
   else()
-    target_link_libraries(${name} PRIVATE ${PROJECT_SHARED_TEST_LIBRARIES} ${TN_LINK_LIBS})
+    if(TN_NO_TOOLS)
+      target_link_libraries(${name} PRIVATE ${TN_LINK_LIBS})
+# message(STATUS "target_link_libraries(${name} PRIVATE ${TN_LINK_LIBS})")
+    else()
+      target_link_libraries(${name} PRIVATE ${PROJECT_SHARED_TEST_LIBRARIES} ${TN_LINK_LIBS})
+# message(STATUS "target_link_libraries(${name} PRIVATE ${PROJECT_SHARED_TEST_LIBRARIES} ${TN_LINK_LIBS})")
+    endif()
   endif()
   extra_target_link_options(${name} PRIVATE)      # compiler specific flags
   extra_target_compile_options(${name} PRIVATE)   # compiler specific flags
@@ -25,14 +32,17 @@ function(add_project_test name source)
     message(STATUS "(EC) test ${name} not included in target check(ctest)")
   else()
     if(NOT WITH_TEST_LOG)
-      add_test(NAME ${name} COMMAND $<TARGET_FILE:${name}> ${name})
-      message(STATUS "(EC) no log for test ${name}")
+      if(TN_MPI)
+        add_test(NAME ${name} COMMAND bash -c "${TN_MPI}$<TARGET_FILE:${name}>")
+      else()
+        add_test(NAME ${name} COMMAND $<TARGET_FILE:${name}> ${name})
+      endif()
+      message(STATUS "(EC) no log for test ${TN_MPI}${name}")
     else()
-      message(STATUS "(EC) log for test ${name} : tee ${TEE_LOG_MODE}  ${name}.log")
+      message(STATUS "(EC) log for test ${TN_MPI}${name} : tee ${TEE_LOG_MODE}  ${name}.log")
       add_test(NAME ${name}
 #           COMMAND bash -o pipefail -c "${TN_MPI}$<TARGET_FILE:${name}> 2>&1 | tee ${name}_$(date +%Y-%m-%d_%H.%M.%S).log"
           COMMAND bash -o pipefail -c "${TN_MPI}$<TARGET_FILE:${name}> 2>&1 | tee ${TEE_LOG_MODE} ${name}.log"
-#           COMMAND "${TN_MPI}$<TARGET_FILE:${name}>"
           WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
     endif()
     set_property(TEST ${name} PROPERTY FAIL_REGULAR_EXPRESSION "Test STATUS : ERROR[(]S[)]")
@@ -46,20 +56,22 @@ function(add_project_test name source)
   endif()
 endfunction()
 
-add_library(shared0 SHARED plugin_0.c plugin_0.F90)
-add_project_test(test_shared_0 test_shared.c LINK_LIBS shared0)
-add_library(shared1 SHARED plugin_1.c)
-add_project_test(test_shared_1 test_shared.c LINK_LIBS shared1)
-add_library(shared2 SHARED plugin_2.c)
-add_project_test(test_shared_2 test_shared.c LINK_LIBS shared2)
-add_project_test(test_shared_012 test_shared_012.c LINK_LIBS "shared2;shared1;shared0")
+SET_SOURCE_FILES_PROPERTIES( test_shared.c PROPERTIES COMPILE_FLAGS -I${CMAKE_SOURCE_DIR}/src/PUBLIC_INCLUDES )
+add_library(shared0 SHARED plugin_0.c ../src/diag/test_helpers.c plugin_0.F90)
+add_project_test(test_shared_0 test_shared.c LINK_LIBS shared0 NO_TOOLS)
+add_library(shared1 SHARED plugin_1.c ../src/diag/test_helpers.c)
+add_project_test(test_shared_1 test_shared.c LINK_LIBS shared1 NO_TOOLS)
+add_library(shared2 SHARED plugin_2.c ../src/diag/test_helpers.c)
+add_project_test(test_shared_2 test_shared.c LINK_LIBS shared2 NO_TOOLS)
 
-add_library(sharedf1 SHARED sharedf1.F90 ../src/plugins/plugin_constructor.c)
+SET_SOURCE_FILES_PROPERTIES( test_shared_012.c PROPERTIES COMPILE_FLAGS -I${CMAKE_SOURCE_DIR}/src/PUBLIC_INCLUDES )
+add_project_test(test_shared_012 test_shared_012.c LINK_LIBS "shared2;shared1;shared0" NO_TOOLS)
 
 SET_SOURCE_FILES_PROPERTIES( sharedf1.F90 PROPERTIES COMPILE_FLAGS -I${CMAKE_SOURCE_DIR}/src/PUBLIC_INCLUDES )
+add_library(sharedf1 SHARED sharedf1.F90 ../src/plugins/plugin_constructor.c)
 
-add_library(sharedf2 SHARED sharedf2.F90 ../src/plugins/plugin_constructor.c)
 SET_SOURCE_FILES_PROPERTIES( sharedf2.F90 PROPERTIES COMPILE_FLAGS -I${CMAKE_SOURCE_DIR}/src/PUBLIC_INCLUDES )
+add_library(sharedf2 SHARED sharedf2.F90 ../src/plugins/plugin_constructor.c)
 
 add_library(plugin0 MODULE plugin_0.c plugin_0.F90)
 add_library(plugin1 MODULE plugin_1.c)
@@ -87,7 +99,6 @@ endforeach()
 # 
 
 add_project_test(test_identify_mpi_child test_identify_mpi_child.c MPI "mpirun -n 2 ")
-add_dependencies(mpicheck test_identify_mpi_child)
 
 add_project_test(test_identify_compiler_c test_identify_compiler_c.c)
 add_project_test(test_identify_compiler_f test_identify_compiler_f.F90)
@@ -104,9 +115,10 @@ add_project_test(test_pack_macros test_pack_macros.c)
 SET_SOURCE_FILES_PROPERTIES( test_pack_macros PROPERTIES COMPILE_FLAGS -O3 )
 
 add_project_test(test_lorenzo_c test_lorenzo_c.c)
-# add_project_test(test_lorenzo_f test_lorenzo.F90 LINK_LIBS "rmn::rmn")
-add_project_test(test_lorenzo_f test_lorenzo.F90 STATIC LINK_LIBS ${rmn_INCLUDES}/../lib//librmn.a)
+add_project_test(test_lorenzo_f_shared test_lorenzo.F90 LINK_LIBS "rmn::rmn")                               # build with shared libraries
+add_project_test(test_lorenzo_f_static test_lorenzo.F90 STATIC LINK_LIBS ${rmn_INCLUDES}/../lib/librmn.a)   # build with static libraries
+# add_project_test(test_lorenzo_f_static test_lorenzo.F90 STATIC LINK_LIBS rmn::rmn)                          # build with static libraries
 SET_SOURCE_FILES_PROPERTIES( test_lorenzo.F90 PROPERTIES COMPILE_FLAGS -DNO_FORTRAN_CODE )
 
-add_project_test(test_fstd_compress  test_fstd_compress.F90 LINK_LIBS "rmn::rmn" NOCTEST)
+add_project_test(test_fstd_compress  test_fstd_compress.F90 LINK_LIBS "rmn::rmn" NOCTEST)   # not included in ctest for now
 
