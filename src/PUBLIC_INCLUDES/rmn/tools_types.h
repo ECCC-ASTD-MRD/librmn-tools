@@ -37,6 +37,21 @@ typedef struct{    // pair of floats
   float t[2] ;
 } FloatPair ;
 
+// some properties of an IEEE float array, 64 bits total
+typedef struct{
+  uint64_t shft:8 ,  // right shift count
+           nbts:8 ,  // numner of bits
+           npts:16,  // number of points, 0 means unknown
+           allp:1,
+           allm:1,
+           bias:30 ; // offset
+} ieee32_properties_p;
+
+typedef union{    // the union allows to transfer the whole contents in one shot
+  ieee32_properties_p p ;
+  uint32_t u ;
+} ieee32_properties ;
+
 // some properties of a float array, 32 bits total
 typedef struct{
   uint32_t emax:8 ,  // largest float (absolute value) exponent

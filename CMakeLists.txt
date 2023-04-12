@@ -196,6 +196,7 @@ set(PROJECT_C_FILES
   src/pack/bi_endian_pack.c
   src/pack/misc_pack.c
   src/pack/misc_operators.c
+  src/pack/ieee_quantize.c
   src/diag/tee_print.c
   src/diag/test_helpers.c
   src/diag/misc_analyze.c
@@ -240,6 +241,7 @@ set(PROJECT_H_FILES
   src/PUBLIC_INCLUDES/rmn/misc_pack.h
   src/PUBLIC_INCLUDES/rmn/misc_pack.hf
   src/PUBLIC_INCLUDES/rmn/misc_analyze.h
+  src/PUBLIC_INCLUDES/rmn/ieee_quantize.h
 )
 
 set(PROJECT_INCLUDES

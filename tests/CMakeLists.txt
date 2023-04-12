@@ -119,7 +119,7 @@ SET_SOURCE_FILES_PROPERTIES( test_pack_macros PROPERTIES COMPILE_FLAGS -O3 )
 
 add_project_test(test_lorenzo_c test_lorenzo_c.c)
 add_project_test(test_lorenzo_f_shared test_lorenzo.F90 LINK_LIBS "rmn::rmn-shared;dl")                        # build with shared libraries
-if(NOT ( ${COMPILER_SUITE} MATCHES  "nvhpc__") )
+if(NOT ( ${COMPILER_SUITE} MATCHES  "nvhpc") )
 # problem building test_lorenzo_f_static with Nvidia compiler (dl library symbol missing)
 add_project_test(test_lorenzo_f_static test_lorenzo.F90 STATIC DL LINK_LIBS ${rmn_PREFIX}/lib/librmn.a)        # build with static libraries
 endif()
@@ -128,3 +128,4 @@ endif()
 
 add_project_test(test_fstd_compress  test_fstd_compress.F90 LINK_LIBS "rmn::rmn;dl" NOCTEST)   # not included in ctest for now
 
+add_project_test(test_ieeequantize test_ieeequantize.c)
