@@ -89,13 +89,12 @@ uint64_t linear_quantize_ieee32(void * restrict f, int ni, int nbits, float quan
   int i0, i, ni7 ;
   uint32_t maxu[8], minu[8], t[8], ands[8], ors[8], rangeu, lz, offset, round, maskn, masksign ;
   int32_t scount ;
-//   FloatInt fimax, fimin ;
   ieee32_props h64 ;
   uint32_t have_neg, allm, allp ;
 
   for(i=0 ; i<8 ; i++){
-    maxu[i] = minu[i] = (fu[i] << 1) ;
-    ors[i] = ands[i] = fu[i] ;
+    maxu[i] = ors[i]  = 0u ;     // 0
+    minu[i] = ands[i] = ~0u ;    // FFFFFFFF
   }
   ni7 = (ni & 7) ? (ni & 7) : 8 ;
   for(i0=0 ; i0<ni-7 ; i0+=ni7, ni7=8){
@@ -113,9 +112,9 @@ uint64_t linear_quantize_ieee32(void * restrict f, int ni, int nbits, float quan
     ands[0] &= ands[i] ;       // will be 1 if all numbers are < 0, will be 0 if any number is >= 0
     ors[0]  |= ors[i] ;        // will be 0 if all numbers >= 0, will be 1 if any number is <0
   }
-  maxu[0] >>= 1 ; // fimax.u = maxu[0] ;
-  minu[0] >>= 1 ; // fimin.u = minu[0] ;
-  minu[0] &= 0x7FFFFF80 ;
+  maxu[0] >>= 1 ;
+  minu[0] >>= 1 ;
+  minu[0] &= 0x7FFFFF80 ;      // will fit in 24 bits
   allm = ands[0] >> 31 ;
   have_neg = ors[0] >> 31 ;
   allp = ! have_neg ;
@@ -125,18 +124,9 @@ uint64_t linear_quantize_ieee32(void * restrict f, int ni, int nbits, float quan
   scount = 32 - lz - nbits ;
   round = 1 << (scount-1) ;
   offset = minu[0] >> scount ;
-// fprintf(stderr, "allp = %u, allm = %u, have_neg = %u, ors[0] = %8.8x\n", allp, allm, have_neg, ors[0]) ;
-// fprintf(stderr, "quantum = %f, adjusted quantum = %f, nbits = %d\n", quantum, q, nbits) ;
-// fprintf(stderr, "maxu = %8.8x, minu = %8.8x, round = %8.8x\n", maxu[0], minu[0], round) ;
-// fprintf(stderr, "maxf = %f, minf = %f\n", fimax.f, fimin.f) ;
-// fprintf(stderr, "lz = %u, scount = %d, offset = %u, max = %u\n", lz, scount, offset, (maxu[0]>>scount) - offset) ;
-//   for(i=0 ; i<ni ; i++) { fprintf(stderr, "%2d", (fu[i] >> scount) - offset) ; }
-//   fprintf(stderr, "\n") ;
-//   for(i=0 ; i<ni ; i++) { fprintf(stderr, "%2d", ((fu[i]+round) >> scount) - offset) ; }
-//   fprintf(stderr, "\n") ;
   maskn = RMASK31(nbits) ;
   masksign = RMASK31(31) ;  // sign bit is 0, all others are 1
-  ni7 = (ni & 7) ;
+  ni7 = (ni & 7) ? (ni & 7) : 8 ;
   if(have_neg){
     for(i0=0 ; i0<ni-7 ; i0+=ni7, ni7=8){
       for(i=0 ; i<8 ; i++){
@@ -153,11 +143,6 @@ uint64_t linear_quantize_ieee32(void * restrict f, int ni, int nbits, float quan
       }
     }
   }
-//   for(i=0 ; i<ni ; i++) {
-//     qo[i] = ((fu[i]+round) >> scount) - offset ;  // quantize
-//     fprintf(stderr, "%2d", qo[i]) ;
-//   }
-//   fprintf(stderr, "\n") ;
   h64.p.shft = scount ;
   h64.p.nbts = nbits ;
   h64.p.npts = ni ;
