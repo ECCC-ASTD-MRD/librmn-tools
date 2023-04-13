@@ -19,7 +19,7 @@
 #if ! defined(IEEE_QUANTIZE_INCLUDES)
 #define IEEE_QUANTIZE_INCLUDES
 
-#include <rmn/tools_types.h>
+// #include <rmn/tools_types.h>
 
 typedef struct{
   int32_t e0 ;       // reference exponent (used at unquantize time) (ieee quantization)
@@ -42,8 +42,8 @@ typedef struct{
 } qhead ;            // quantization information header
 
 float quantum_adjust(float quantum);
-void linear_unquantize_ieee32(uint32_t * restrict qi, ieee32_properties_p h64, int ni, int nbits, float * restrict f);
-ieee32_properties_p linear_quantize_ieee32(void * restrict f, int ni, int nbits, float quantum, uint32_t * restrict qo);
+void linear_unquantize_ieee32(void * restrict q, uint64_t h64, int ni, int nbits, void * restrict f);
+uint64_t linear_quantize_ieee32(void * restrict f, int ni, int nbits, float quantum, void * restrict q);
 
 void quantize_setup(float *z,            // array to be quantized (IEEE 754 32 bit float) (INPUT)
                         int n,           // number of data elements

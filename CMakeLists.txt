@@ -218,8 +218,8 @@ set(PROJECT_F_FILES
   src/plugins/fortran_plugins.F90
   src/pred/misc_operators_mod.F90
 )
-
 SET_SOURCE_FILES_PROPERTIES( src/pred/lorenzo_mod.F90 PROPERTIES COMPILE_FLAGS -DNO_EXTRA_FORTRAN )
+
 set(PROJECT_H_FILES
   src/PUBLIC_INCLUDES/rmntools.h
   src/PUBLIC_INCLUDES/rmn/lorenzo.h

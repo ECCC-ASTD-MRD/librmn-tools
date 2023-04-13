@@ -30,16 +30,39 @@
 #define STATIC static
 #endif
 
-void linear_unquantize_ieee32(uint32_t * restrict qi, ieee32_properties_p h64, int ni, int nbits, float * restrict f){
+// some properties of an IEEE float array, 64 bits total
+typedef struct{
+  uint64_t shft:8 ,  // right shift count
+           nbts:8 ,  // numner of bits
+           npts:16,  // number of points, 0 means unknown
+           allp:1,
+           allm:1,
+           resv:6,
+           bias:24 ; // minimum abs value >> 7
+} ieee32_p;
+
+typedef union{    // the union allows to transfer the whole contents in one shot
+  ieee32_p p ;
+  uint64_t u ;
+} ieee32_props ;
+
+// types ieee32_props and ieee32_p are kept internal, uint64_t is exposed in the interface
+void linear_unquantize_ieee32(void * restrict q, uint64_t u64, int ni, int nbits, void * restrict f){
   int i0, i, ni7 ;
-  int scount = h64.shft ;
-  int32_t offset = h64.bias ;
+  int scount ;
+  int32_t offset ;
+  uint32_t *qi = (uint32_t *) q ;
   int32_t *fo = (int32_t *) f ;
-  int have_neg = (! h64.allp) ;  // not all >=0
+  int have_neg ;  // not all >=0
   int sign ;
   uint32_t temp ;
+  ieee32_props h64 ;
 
-  ni7 = (ni & 7) ;
+  h64.u = u64 ;
+  scount = h64.p.shft ;
+  offset = (h64.p.bias << 7) >> scount ;
+  have_neg = (! h64.p.allp) ;  // not all >=0
+  ni7 = (ni & 7) ? (ni & 7) : 8 ;
   if(have_neg){
     for(i0=0 ; i0<ni-7 ; i0+=ni7, ni7=8){
       for(i=0 ; i<8 ; i++){
@@ -59,21 +82,22 @@ void linear_unquantize_ieee32(uint32_t * restrict qi, ieee32_properties_p h64, i
   }
 }
 
-ieee32_properties_p linear_quantize_ieee32(void * restrict f, int ni, int nbits, float quantum, uint32_t * restrict qo){
+uint64_t linear_quantize_ieee32(void * restrict f, int ni, int nbits, float quantum, void * restrict qs){
   float q = quantum_adjust(quantum) ;
   uint32_t *fu = (uint32_t *) f ;
+  uint32_t *qo = (uint32_t *) qs ;
   int i0, i, ni7 ;
   uint32_t maxu[8], minu[8], t[8], ands[8], ors[8], rangeu, lz, offset, round, maskn, masksign ;
   int32_t scount ;
-  FloatInt fimax, fimin ;
-  ieee32_properties_p h64 ;
+//   FloatInt fimax, fimin ;
+  ieee32_props h64 ;
   uint32_t have_neg, allm, allp ;
 
   for(i=0 ; i<8 ; i++){
     maxu[i] = minu[i] = (fu[i] << 1) ;
     ors[i] = ands[i] = fu[i] ;
   }
-  ni7 = (ni & 7) ;
+  ni7 = (ni & 7) ? (ni & 7) : 8 ;
   for(i0=0 ; i0<ni-7 ; i0+=ni7, ni7=8){
     for(i=0 ; i<8 ; i++){
       t[i] = fu[i0+i] << 1 ;
@@ -89,13 +113,15 @@ ieee32_properties_p linear_quantize_ieee32(void * restrict f, int ni, int nbits,
     ands[0] &= ands[i] ;       // will be 1 if all numbers are < 0, will be 0 if any number is >= 0
     ors[0]  |= ors[i] ;        // will be 0 if all numbers >= 0, will be 1 if any number is <0
   }
-  maxu[0] >>= 1 ; fimax.u = maxu[0] ;
-  minu[0] >>= 1 ; fimin.u = minu[0] ;
+  maxu[0] >>= 1 ; // fimax.u = maxu[0] ;
+  minu[0] >>= 1 ; // fimin.u = minu[0] ;
+  minu[0] &= 0x7FFFFF80 ;
   allm = ands[0] >> 31 ;
   have_neg = ors[0] >> 31 ;
   allp = ! have_neg ;
   rangeu = maxu[0] - minu[0] ;
   lz = lzcnt_32(rangeu) ;
+  if(have_neg) nbits-- ;       // sign bit needs one bit, reduce allowed bit count by 1
   scount = 32 - lz - nbits ;
   round = 1 << (scount-1) ;
   offset = minu[0] >> scount ;
@@ -132,13 +158,14 @@ ieee32_properties_p linear_quantize_ieee32(void * restrict f, int ni, int nbits,
 //     fprintf(stderr, "%2d", qo[i]) ;
 //   }
 //   fprintf(stderr, "\n") ;
-  h64.shft = scount ;
-  h64.nbts = nbits ;
-  h64.npts = ni ;
-  h64.allp = allp ;
-  h64.allm = allm ;
-  h64.bias = offset ;
-  return h64 ;
+  h64.p.shft = scount ;
+  h64.p.nbts = nbits ;
+  h64.p.npts = ni ;
+  h64.p.allp = allp ;
+  h64.p.allm = allm ;
+//   h64.p.bias = offset ;
+  h64.p.bias = (minu[0] >> 7) ;
+  return h64.u ;
 }
 
 // largest exponent as a function of exponent bit field width

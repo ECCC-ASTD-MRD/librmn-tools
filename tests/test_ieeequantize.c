@@ -50,8 +50,9 @@ int main(int argc, char **argv){
 //   float zmax = 8190.99 ;
 //   float zmax = 7.0E+4 ;
   float fi[NPTS], fo[NPTS] ;
+  uint32_t *ui = (uint32_t *) fi ;
   uint32_t qu[NPTS] ;
-  ieee32_properties_p h64 ;
+  uint64_t h64 ;
   int32_t q[NPTS] ;
   qhead h ;
   float fz0[NPT] ;
@@ -62,10 +63,12 @@ int main(int argc, char **argv){
   uint32_t limit16 = ((127+14) << 23) | 0x7FFFFF ; // largest representable FP16
 
   start_of_test(argv[0]);
-  for(i=0 ; i<NPTS ; i++) fi[i] = 1.0f + (i * 1.0f) / NPTS ;
+  for(i=0 ; i<NPTS ; i++) fi[i] = 1.00001f + (i * 1.00001f) / NPTS ;
   for(i=1 ; i<NPTS ; i+=2) fi[i] = -fi[i] ;
-  h64 = linear_quantize_ieee32(fi, NPTS, 3, .001f, qu) ;
-  linear_unquantize_ieee32(qu, h64, NPTS, 3, fo) ;
+//   for(i=0 ; i<NPTS ; i++) fprintf(stderr, "%8.8x ", ui[i]) ; fprintf(stderr, "\n");
+  for(i=0 ; i<NPTS ; i++) fo[i] = fi[i] ;
+  h64 = linear_quantize_ieee32(fi, NPTS, 4, .001f, qu) ;
+  linear_unquantize_ieee32(qu, h64, NPTS, 4, fo) ;
   for(i=0 ; i<NPTS ; i++) fprintf(stderr, "%5.2f", fi[i]) ; fprintf(stderr, "\n") ;
   for(i=0 ; i<NPTS ; i++) fprintf(stderr, "%5d", qu[i]) ; fprintf(stderr, "\n") ;
   for(i=0 ; i<NPTS ; i++) fprintf(stderr, "%5.2f", fo[i]) ; fprintf(stderr, "\n") ;
