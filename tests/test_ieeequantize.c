@@ -52,6 +52,7 @@ int main(int argc, char **argv){
   float fi[NPTS], fo[NPTS] ;
   uint32_t *ui = (uint32_t *) fi ;
   uint32_t qu[NPTS] ;
+  float *fu = (float *) qu ;
   uint64_t h64 ;
   int32_t q[NPTS] ;
   qhead h ;
@@ -61,18 +62,35 @@ int main(int argc, char **argv){
 //   uint16_t fp16 ;
   uint16_t vfp16[NPTS] ;
   uint32_t limit16 = ((127+14) << 23) | 0x7FFFFF ; // largest representable FP16
+//   float baseval = 8388607.0f ;
+//   float baseval = 4194303.0f ;
+//   float baseval = 2097151.0f ;
+//   float baseval = 524287.0f ;
+//   float baseval = 262143.0f ;
+//   float baseval = 131071.0f ;
+//   float baseval = 65535.0f ;
+  float baseval = 1.0f ;
+  int nbits_test = 5 ;
 
   start_of_test(argv[0]);
-  for(i=0 ; i<NPTS ; i++) fi[i] = 1.00001f + (i * 1.00001f) / NPTS ;
+  for(i=0 ; i<NPTS ; i++) fi[i] = baseval + (0.00001f + (i * 1.0f) / NPTS) ;
   for(i=1 ; i<NPTS ; i+=2) fi[i] = -fi[i] ;
+
 //   for(i=0 ; i<NPTS ; i++) fprintf(stderr, "%8.8x ", ui[i]) ; fprintf(stderr, "\n");
   for(i=0 ; i<NPTS ; i++) fo[i] = fi[i] ;
-  h64 = linear_quantize_ieee32(fi, NPTS, 4, .001f, qu) ;
-  linear_unquantize_ieee32(qu, h64, NPTS, 4, fo) ;
-  for(i=0 ; i<NPTS ; i++) fprintf(stderr, "%5.2f", fi[i]) ; fprintf(stderr, "\n") ;
-  for(i=0 ; i<NPTS ; i++) fprintf(stderr, "%5d", qu[i]) ; fprintf(stderr, "\n") ;
-  for(i=0 ; i<NPTS ; i++) fprintf(stderr, "%5.2f", fo[i]) ; fprintf(stderr, "\n") ;
-  for(i=0 ; i<NPTS ; i++) fprintf(stderr, "%5.2f", ABS(fo[i]-fi[i])) ; fprintf(stderr, "\n") ;
+  h64 = linear_quantize_ieee32(fi, NPTS, nbits_test, .001f, qu) ;
+  linear_unquantize_ieee32(qu, h64, NPTS, nbits_test, fo) ;
+//   for(i=0 ; i<NPTS ; i++) fprintf(stderr, "%5.2f", fi[i]) ; fprintf(stderr, "\n") ;
+  for(i=0 ; i<NPTS ; i++) fprintf(stderr, " %4.2f", (fi[i] < 0.0f) ? fi[i] + baseval : fi[i] - baseval) ; fprintf(stderr, "\n") ;
+  for(i=0 ; i<NPTS ; i++) fprintf(stderr, " %4d", qu[i]) ; fprintf(stderr, "\n") ;
+//   for(i=0 ; i<NPTS ; i++) fprintf(stderr, "%5.2f", fo[i]) ; fprintf(stderr, "\n") ;
+  for(i=0 ; i<NPTS ; i++) fprintf(stderr, " %4.2f", (fo[i] < 0) ? fo[i] + baseval : fo[i] - baseval) ; fprintf(stderr, "\n") ;
+  for(i=0 ; i<NPTS ; i++) fprintf(stderr, " %4.2f", ABS(fo[i]-fi[i])) ; fprintf(stderr, "\n\n") ;
+
+  IEEE32LinearUnquantize(qu, h64) ;  // in-place restore
+//   linear_unquantize_ieee32(qu, h64, NPTS, nbits_test, qu) ;
+  for(i=0 ; i<NPTS ; i++) fprintf(stderr, " %4.2f", (fu[i] < 0) ? fu[i] + baseval : fu[i] - baseval) ; fprintf(stderr, "\n") ;
+  for(i=0 ; i<NPTS ; i++) fprintf(stderr, " %4.2f", ABS(fu[i]-fi[i])) ; fprintf(stderr, "\n\n") ;
 
 return 0 ;
 
