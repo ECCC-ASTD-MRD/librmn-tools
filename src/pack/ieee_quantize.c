@@ -46,46 +46,6 @@ typedef union{    // the union allows to transfer the whole 64 bit contents in o
   uint64_t u ;
 } ieee32_props ;
 
-// restore floating point numbers quantized with linear_quantize_ieee32
-// q     [IN]  32 bit integer array containing the quantized data
-// f    [OUT]  32 bit IEEE float array that will receive restored floats
-// ni    [IN]  number of data items (used for checking purposes only)
-// nbits [IN]  number of bits in quantized data items (used for checking purposes only)
-// u64   [IN]  metadata information describing quantization (from linear_quantize_ieee32)
-void linear_unquantize_ieee32(void * restrict q, uint64_t u64, int ni, int nbits, void * restrict f){
-  int i0, i, ni7 ;
-  int scount ;
-  int32_t offset ;
-  uint32_t *qi = (uint32_t *) q ;
-  int32_t *fo = (int32_t *) f ;
-  int have_neg ;  // not all >=0
-  int sign ;
-  uint32_t temp ;
-  ieee32_props h64 ;
-
-  h64.u = u64 ;
-  scount = h64.p.shft ;
-  offset = h64.p.bias >> scount ;
-  have_neg = (! h64.p.allp) ;  // not all >=0
-  ni7 = (ni & 7) ? (ni & 7) : 8 ;
-  if(have_neg){
-    for(i0=0 ; i0<ni-7 ; i0+=ni7, ni7=8){
-      for(i=0 ; i<8 ; i++){
-        temp = qi[i0+i] ;
-        sign = (temp & 1) << 31 ;                      // get sign
-        temp >>= 1 ;                                   // remove sign
-        fo[i0+i] = (temp + offset) << scount ;         // unquantize
-        fo[i0+i] |= sign ;                             // propagate sign
-      }
-    }
-  }else{
-    for(i0=0 ; i0<ni-7 ; i0+=ni7, ni7=8){
-      for(i=0 ; i<8 ; i++){
-        fo[i0+i] = (qi[i0+i] + offset) << scount ;         // unquantize
-      }
-    }
-  }
-}
 // restore quantized floats in-place
 // q  [INOUT]  32 bit integer array containing the quantized data [IN}
 //             restored 32 bit IEEE floats [OUT]
@@ -130,6 +90,50 @@ void IEEE32LinearUnquantize(void * restrict q, uint64_t u64){
     for(i0=ni7 ; i0<ni-7 ; i0+=8){                     // 8 items chnumks
       for(i=0 ; i<8 ; i++){
         qi[i0+i] = (qi[i0+i] + offset) << scount ;     // unquantize
+      }
+    }
+  }
+}
+// restore floating point numbers quantized with linear_quantize_ieee32
+// q     [IN]  32 bit integer array containing the quantized data
+// f    [OUT]  32 bit IEEE float array that will receive restored floats
+// ni    [IN]  number of data items (used for checking purposes only)
+// nbits [IN]  number of bits in quantized data items (used for checking purposes only)
+// u64   [IN]  metadata information describing quantization (from linear_quantize_ieee32)
+void linear_unquantize_ieee32(void * restrict q, uint64_t u64, int ni, int nbits, void * restrict f){
+  int i0, i, ni7 ;
+  int scount ;
+  int32_t offset ;
+  uint32_t *qi = (uint32_t *) q ;
+  int32_t *fo = (int32_t *) f ;
+  int have_neg ;  // not all >=0
+  int sign ;
+  uint32_t temp ;
+  ieee32_props h64 ;
+
+  if(q == f) {
+    IEEE32LinearUnquantize(q, u64) ;
+    return ;
+  }
+  h64.u = u64 ;
+  scount = h64.p.shft ;
+  offset = h64.p.bias >> scount ;
+  have_neg = (! h64.p.allp) ;  // not all >=0
+  ni7 = (ni & 7) ? (ni & 7) : 8 ;
+  if(have_neg){
+    for(i0=0 ; i0<ni-7 ; i0+=ni7, ni7=8){
+      for(i=0 ; i<8 ; i++){
+        temp = qi[i0+i] ;
+        sign = (temp & 1) << 31 ;                      // get sign
+        temp >>= 1 ;                                   // remove sign
+        fo[i0+i] = (temp + offset) << scount ;         // unquantize
+        fo[i0+i] |= sign ;                             // propagate sign
+      }
+    }
+  }else{
+    for(i0=0 ; i0<ni-7 ; i0+=ni7, ni7=8){
+      for(i=0 ; i<8 ; i++){
+        fo[i0+i] = (qi[i0+i] + offset) << scount ;         // unquantize
       }
     }
   }

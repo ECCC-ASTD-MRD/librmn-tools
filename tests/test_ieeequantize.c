@@ -92,7 +92,8 @@ int main(int argc, char **argv){
   for(i=0 ; i<NPTS ; i++) fprintf(stderr, " %5.2f", (fo[i] < 0) ? fo[i] + baseval : fo[i] - baseval) ; fprintf(stderr, "\n") ;
   h64 = linear_quantize_ieee32(fo, NPTS, nbits_test, .001f, fo) ;
   for(i=0 ; i<NPTS ; i++) fprintf(stderr, " %5d", uo[i]) ; fprintf(stderr, "\n") ;
-  IEEE32LinearUnquantize(fo, h64) ;  // in-place restore
+//   IEEE32LinearUnquantize(fo, h64) ;  // in-place restore
+  linear_unquantize_ieee32(fo, h64, NPTS, nbits_test, fo) ;
 //   linear_unquantize_ieee32(qu, h64, NPTS, nbits_test, qu) ;
   for(i=0 ; i<NPTS ; i++) fprintf(stderr, " %5.2f", (fo[i] < 0) ? fo[i] + baseval : fo[i] - baseval) ; fprintf(stderr, "\n") ;
   for(i=0 ; i<NPTS ; i++) fprintf(stderr, " %5.2f", ABS(fo[i]-fi[i])) ; fprintf(stderr, "\n\n") ;
