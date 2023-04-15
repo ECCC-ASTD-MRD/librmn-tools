@@ -46,54 +46,6 @@ typedef union{    // the union allows to transfer the whole 64 bit contents in o
   uint64_t u ;
 } ieee32_props ;
 
-// restore quantized floats in-place
-// q  [INOUT]  32 bit integer array containing the quantized data [IN}
-//             restored 32 bit IEEE floats [OUT]
-// u64   [IN]  metadata information describing quantization (from linear_quantize_ieee32)
-void IEEE32LinearUnquantize(void * restrict q, uint64_t u64){
-  int i0, i, ni7, ni ;
-  int scount ;
-  int32_t offset ;
-  uint32_t *qi = (uint32_t *) q ;
-  int have_neg ;  // not all >=0
-  int sign ;
-  uint32_t temp ;
-  ieee32_props h64 ;
-
-  h64.u = u64 ;
-  scount = h64.p.shft ;
-  offset = h64.p.bias >> scount ;
-  ni     = h64.p.npts ;
-  have_neg = (! h64.p.allp) ;  // not all >=0
-  ni7 = (ni & 7) ;
-  if(have_neg){       // mix of positive and negative values
-    for(i=0 ; i<ni7 ; i++){                            // first chunk (0 - > 7 items)
-      temp = qi[i] ;
-      sign = (temp & 1) << 31 ;                        // get sign
-      temp >>= 1 ;                                     // remove sign
-      qi[i] = (temp + offset) << scount ;              // unquantize
-      qi[i] |= sign ;                                  // propagate sign
-    }
-    for(i0=ni7 ; i0<ni-7 ; i0+=8){                     // 8 items chnumks
-      for(i=0 ; i<8 ; i++){
-        temp = qi[i0+i] ;
-        sign = (temp & 1) << 31 ;                      // get sign
-        temp >>= 1 ;                                   // remove sign
-        qi[i0+i] = (temp + offset) << scount ;         // unquantize
-        qi[i0+i] |= sign ;                             // propagate sign
-      }
-    }
-  }else{              // positive values only
-    for(i=0 ; i<ni7 ; i++){                            // first chunk (0 - > 7 items)
-      qi[i] = (qi[i] + offset) << scount ;             // unquantize
-    }
-    for(i0=ni7 ; i0<ni-7 ; i0+=8){                     // 8 items chnumks
-      for(i=0 ; i<8 ; i++){
-        qi[i0+i] = (qi[i0+i] + offset) << scount ;     // unquantize
-      }
-    }
-  }
-}
 // restore floating point numbers quantized with linear_quantize_ieee32
 // q     [IN]  32 bit integer array containing the quantized data
 // f    [OUT]  32 bit IEEE float array that will receive restored floats
@@ -111,29 +63,56 @@ void linear_unquantize_ieee32(void * restrict q, uint64_t u64, int ni, int nbits
   uint32_t temp ;
   ieee32_props h64 ;
 
-  if(q == f) {
-    IEEE32LinearUnquantize(q, u64) ;
-    return ;
-  }
   h64.u = u64 ;
   scount = h64.p.shft ;
   offset = h64.p.bias >> scount ;
   have_neg = (! h64.p.allp) ;  // not all >=0
-  ni7 = (ni & 7) ? (ni & 7) : 8 ;
-  if(have_neg){
-    for(i0=0 ; i0<ni-7 ; i0+=ni7, ni7=8){
-      for(i=0 ; i<8 ; i++){
-        temp = qi[i0+i] ;
-        sign = (temp & 1) << 31 ;                      // get sign
-        temp >>= 1 ;                                   // remove sign
-        fo[i0+i] = (temp + offset) << scount ;         // unquantize
-        fo[i0+i] |= sign ;                             // propagate sign
+  if(q == f) {        // restore IN PLACE
+    ni7 = (ni & 7) ;
+    if(have_neg){       // mix of positive and negative values
+      for(i=0 ; i<ni7 ; i++){                            // first chunk (0 - > 7 items)
+        temp = qi[i] ;
+        sign = (temp & 1) << 31 ;                        // get sign
+        temp >>= 1 ;                                     // remove sign
+        qi[i] = (temp + offset) << scount ;              // unquantize
+        qi[i] |= sign ;                                  // propagate sign
+      }
+      for(i0=ni7 ; i0<ni-7 ; i0+=8){                     // 8 items chnumks
+        for(i=0 ; i<8 ; i++){
+          temp = qi[i0+i] ;
+          sign = (temp & 1) << 31 ;                      // get sign
+          temp >>= 1 ;                                   // remove sign
+          qi[i0+i] = (temp + offset) << scount ;         // unquantize
+          qi[i0+i] |= sign ;                             // propagate sign
+        }
+      }
+    }else{              // positive values only
+      for(i=0 ; i<ni7 ; i++){                            // first chunk (0 - > 7 items)
+        qi[i] = (qi[i] + offset) << scount ;             // unquantize
+      }
+      for(i0=ni7 ; i0<ni-7 ; i0+=8){                     // 8 items chnumks
+        for(i=0 ; i<8 ; i++){
+          qi[i0+i] = (qi[i0+i] + offset) << scount ;     // unquantize
+        }
       }
     }
-  }else{
-    for(i0=0 ; i0<ni-7 ; i0+=ni7, ni7=8){
-      for(i=0 ; i<8 ; i++){
-        fo[i0+i] = (qi[i0+i] + offset) << scount ;         // unquantize
+  }else{        // restore NOT IN PLACE
+    ni7 = (ni & 7) ? (ni & 7) : 8 ;
+    if(have_neg){
+      for(i0=0 ; i0<ni-7 ; i0+=ni7, ni7=8){
+        for(i=0 ; i<8 ; i++){
+          temp = qi[i0+i] ;
+          sign = (temp & 1) << 31 ;                      // get sign
+          temp >>= 1 ;                                   // remove sign
+          fo[i0+i] = (temp + offset) << scount ;         // unquantize
+          fo[i0+i] |= sign ;                             // propagate sign
+        }
+      }
+    }else{
+      for(i0=0 ; i0<ni-7 ; i0+=ni7, ni7=8){
+        for(i=0 ; i<8 ; i++){
+          fo[i0+i] = (qi[i0+i] + offset) << scount ;         // unquantize
+        }
       }
     }
   }
@@ -204,7 +183,7 @@ fprintf(stderr,"nbits = %d, nbitsmax = %d, range = %d, scount = %d, round = %d, 
   h64.p.allm = allm ;
   h64.p.bias = minu[0] ;
 
-  if(f == qs){      // IN PLACE
+  if(f == qs){      // quantize IN PLACE
     ni7 = (ni & 7) ;
     if(have_neg){
       for(i=0 ; i<ni7 ; i++){
@@ -233,7 +212,7 @@ fprintf(stderr,"nbits = %d, nbitsmax = %d, range = %d, scount = %d, round = %d, 
         }
       }
     }
-  }else{      // NOT IN PLACE
+  }else{      // quantize NOT IN PLACE
     ni7 = (ni & 7) ? (ni & 7) : 8 ;
     if(have_neg){
       for(i0=0 ; i0<ni-7 ; i0+=ni7, ni7=8){
@@ -253,9 +232,6 @@ fprintf(stderr,"nbits = %d, nbitsmax = %d, range = %d, scount = %d, round = %d, 
     }
   }
   return h64.u ;
-}
-// quantize in-place
-uint64_t IEEE32LinearQuantize(void * restrict f, int ni, int nbits, float quant){
 }
 
 // largest exponent as a function of exponent bit field width
