@@ -82,14 +82,14 @@ STATIC double inline cycles_to_ns(uint64_t t){
   timer_min = mint ; timer_max = maxt ; timer_avg = avgt/iter ; \
   if(npts > 0 && timer_msg != NULL) \
     snprintf(timer_msg, (size_t)timer_msg_size, " npts = %d, niter = %d, ns = %6.0f (%6.0f), %6.2f ns/pt", \
-             npts, iter, timer_min*NaNoSeC, timer_avg*NaNoSeC, timer_avg*NaNoSeC/npts) ; \
+             npts, iter, timer_min*NaNoSeC, timer_avg*NaNoSeC, timer_avg*NaNoSeC/(npts)) ; \
 }
 #define TIME_LOOP_BOT_EZ(npts) TIME_LOOP_BOT(timer_min, timer_max, timer_avg, npts, timer_msg, timer_msg_size)
 #define TIME_ONCE_BOT(npts, timer_msg, timer_msg_size) \
     t = elapsed_cycles() -t -to ; \
     if(npts > 0 && timer_msg != NULL) \
     snprintf(timer_msg, (size_t)timer_msg_size, " npts = %d, ns = %6.0f, %6.2f ns/pt", \
-             npts, t*NaNoSeC, t*NaNoSeC/npts) ; \
+             npts, t*NaNoSeC, t*NaNoSeC/(npts)) ; \
 }
 #define TIME_ONCE_BOT_EZ(npts) TIME_ONCE_BOT(npts, timer_msg, timer_msg_size)
 
