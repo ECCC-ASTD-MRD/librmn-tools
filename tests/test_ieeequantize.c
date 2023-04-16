@@ -117,12 +117,16 @@ int main(int argc, char **argv){
   TIME_LOOP_EZ(1000, NPTST/32, h64 = linear_quantize_ieee32(fi, NPTST/4, 16, .1f, qu)) ;
   fprintf(stderr, "linear_quantize_ieee32    : %s\n",timer_msg);
 
+  h64 = linear_quantize_ieee32(fi, NPTST, 16, .1f, qu) ;
   TIME_LOOP_EZ(1000, NPTST, linear_unquantize_ieee32(qu, h64, NPTST, 16, fo) ;) ;
   fprintf(stderr, "linear_unquantize_ieee32  : %s\n",timer_msg);
+  h64 = linear_quantize_ieee32(fi, NPTST/2, 16, .1f, qu) ;
   TIME_LOOP_EZ(1000, NPTST/2, linear_unquantize_ieee32(qu, h64, NPTST/2, 16, fo) ;) ;
   fprintf(stderr, "linear_unquantize_ieee32  : %s\n",timer_msg);
+  h64 = linear_quantize_ieee32(fi, NPTST/4, 16, .1f, qu) ;
   TIME_LOOP_EZ(1000, NPTST/4, linear_unquantize_ieee32(qu, h64, NPTST/4, 16, fo) ;) ;
   fprintf(stderr, "linear_unquantize_ieee32  : %s\n",timer_msg);
+  h64 = linear_quantize_ieee32(fi, NPTST/8, 16, .1f, qu) ;
   TIME_LOOP_EZ(1000, NPTST/8, linear_unquantize_ieee32(qu, h64, NPTST/8, 16, fo) ;) ;
   fprintf(stderr, "linear_unquantize_ieee32  : %s\n",timer_msg);
 return 0 ;

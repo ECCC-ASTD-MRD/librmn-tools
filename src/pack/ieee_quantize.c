@@ -30,13 +30,13 @@
 #define STATIC static
 #endif
 
-// some properties of an IEEE float array, 64 bits total
+// some (useful for quantization) properties of an IEEE float array, 64 bits total
 // types ieee32_props and ieee32_p are kept internal, uint64_t is exposed in the interface
 typedef struct{
-  uint64_t bias:32,  // minimum absolute value
+  uint64_t bias:32,  // minimum absolute value (not more thatn 31 bits)
            npts:16,  // number of points, 0 means unknown
-           shft:8 ,  // right shift count (0 -> 31)
-           nbts:6 ,  // number of bits
+           shft:8 ,  // shift count (0 -> 31) for quanze/unquantize
+           nbts:6 ,  // number of bits (0 -> 31) per value
            allp:1,   // all numbers are >= 0
            allm:1;   // all numbers are < 0
 } ieee32_p;
@@ -52,7 +52,7 @@ typedef union{    // the union allows to transfer the whole 64 bit contents in o
 // ni    [IN]  number of data items (used for checking purposes only)
 // nbits [IN]  number of bits in quantized data items (used for checking purposes only)
 // u64   [IN]  metadata information describing quantization (from linear_quantize_ieee32)
-void linear_unquantize_ieee32(void * restrict q, uint64_t u64, int ni, int nbits, void * restrict f){
+int linear_unquantize_ieee32(void * restrict q, uint64_t u64, int ni, int nbits, void * restrict f){
   int i0, i, ni7 ;
   int scount ;
   int32_t offset ;
@@ -64,8 +64,14 @@ void linear_unquantize_ieee32(void * restrict q, uint64_t u64, int ni, int nbits
   ieee32_props h64 ;
 
   h64.u = u64 ;
-  scount = h64.p.shft ;
-  offset = h64.p.bias >> scount ;
+  if(h64.p.npts == 0) h64.p.npts = ni ;
+  if(h64.p.npts != ni) {
+    fprintf(stderr, "ERROR : inconsistent number of points, expecting %d, got %d\n", ni, h64.p.npts) ;
+    exit(1) ;
+    return 2 ;      // inconsistent number of values
+  }
+  scount = h64.p.shft ;                // shift count
+  offset = h64.p.bias >> scount ;      // bias before shifting
   pos_neg = (! h64.p.allp) ;  // not all >=0
 // fprintf(stderr, "offset = %d, ni = %d\n", offset, ni) ;
 
@@ -74,7 +80,7 @@ void linear_unquantize_ieee32(void * restrict q, uint64_t u64, int ni, int nbits
     if(h64.p.nbts == 0){
       sign = h64.p.allm ? (1u << 31) : 0 ;
       for(i=0 ; i<ni ; i++) qi[i] = h64.p.bias | sign ;
-      return ;
+      goto end ;
     }
     if(pos_neg){       // mix of positive and negative values
       for(i=0 ; i<(ni & 7) ; i++){                       // first chunk (0 - > 7 items)
@@ -107,7 +113,7 @@ void linear_unquantize_ieee32(void * restrict q, uint64_t u64, int ni, int nbits
     if(h64.p.nbts == 0){
       sign = h64.p.allm ? (1u << 31) : 0 ;
       for(i=0 ; i<ni ; i++) fo[i] = h64.p.bias | sign ;
-      return ;
+      goto end ;
     }
     if(pos_neg){
       for(i=0 ; i<(ni & 7) ; i++){                       // first chunk (0 - > 7 items)
@@ -137,6 +143,8 @@ void linear_unquantize_ieee32(void * restrict q, uint64_t u64, int ni, int nbits
       }
     }
   }
+end:
+  return 0 ;
 }
 
 // quantize IEEE floats
@@ -160,6 +168,7 @@ uint64_t linear_quantize_ieee32(void * restrict f, int ni, int nbits, float quan
 // ==================================== analyze ====================================
 
   masksign = RMASK31(31) ;  // sign bit is 0, all others are 1
+  h64.u = 0 ;
   for(i=0 ; i<8 ; i++){
     maxu[i] = ors[i]  = 0u ;     // 0
     minu[i] = ands[i] = ~0u ;    // FFFFFFFF
@@ -219,7 +228,6 @@ uint64_t linear_quantize_ieee32(void * restrict f, int ni, int nbits, float quan
   
 // ==================================== quantize ====================================
 
-uint64_t m64 = RMASK63(nbits) ;
   maskn = RMASK31(nbits) ;
   ni7 = (ni & 7) ;
   if(f == qs){      // quantize IN PLACE
@@ -278,14 +286,14 @@ uint64_t m64 = RMASK63(nbits) ;
       }
     }
   }
-end:
+end:                         // update returned struct
   h64.p.shft = scount ;
   h64.p.nbts = nbits ;
   h64.p.npts = ni ;
   h64.p.allp = allp ;
   h64.p.allm = allm ;
   h64.p.bias = minu[0] ;
-  return h64.u ;
+  return h64.u ;             // return 64 bit aggregate
 }
 
 // largest exponent as a function of exponent bit field width
