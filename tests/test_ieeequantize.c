@@ -69,33 +69,38 @@ int main(int argc, char **argv){
 //   float baseval = 524287.0f ;
 //   float baseval = 262143.0f ;
 //   float baseval = 131071.0f ;
-//   float baseval = 65535.0f ;
-  float baseval = 1.0f ;
+  float baseval = 65535.0f ;
+//   float baseval = 1.0f ;
   int nbits_test = 5 ;
 
   start_of_test(argv[0]);
   for(i=0 ; i<NPTS ; i++) fi[i] = baseval + (0.00001f + (i * 1.0f) / NPTS) ;
-  for(i=1 ; i<NPTS ; i+=2) fi[i] = -fi[i] ;
+//   for(i=0 ; i<NPTS ; i++) fi[i] = baseval ;   // this MUST work too (constant array)
+  for(i=1 ; i<NPTS ; i+=2) fi[i] = -fi[i] ;   // alternate signs, positive even, negative odd
 
 //   for(i=0 ; i<NPTS ; i++) fprintf(stderr, "%8.8x ", ui[i]) ; fprintf(stderr, "\n");
   for(i=0 ; i<NPTS ; i++) fo[i] = fi[i] ;
-  h64 = linear_quantize_ieee32(fi, NPTS, nbits_test, .001f, qu) ;
+  h64 = linear_quantize_ieee32(fi, NPTS, nbits_test, .01f, qu) ;
   linear_unquantize_ieee32(qu, h64, NPTS, nbits_test, fo) ;
 //   for(i=0 ; i<NPTS ; i++) fprintf(stderr, "%5.2f", fi[i]) ; fprintf(stderr, "\n") ;
   for(i=0 ; i<NPTS ; i++) fprintf(stderr, " %5.2f", (fi[i] < 0.0f) ? fi[i] + baseval : fi[i] - baseval) ; fprintf(stderr, "\n") ;
+  fprintf(stderr, " in[0] = %g\n", fi[0]) ;
   for(i=0 ; i<NPTS ; i++) fprintf(stderr, " %5d", qu[i]) ; fprintf(stderr, "\n") ;
 //   for(i=0 ; i<NPTS ; i++) fprintf(stderr, "%5.2f", fo[i]) ; fprintf(stderr, "\n") ;
   for(i=0 ; i<NPTS ; i++) fprintf(stderr, " %5.2f", (fo[i] < 0) ? fo[i] + baseval : fo[i] - baseval) ; fprintf(stderr, "\n") ;
+  fprintf(stderr, " out[0] = %g\n", fo[0]) ;
   for(i=0 ; i<NPTS ; i++) fprintf(stderr, " %5.2f", ABS(fo[i]-fi[i])) ; fprintf(stderr, "\n\n") ;
 
   for(i=0 ; i<NPTS ; i++) fo[i] = fi[i] ;
   for(i=0 ; i<NPTS ; i++) fprintf(stderr, " %5.2f", (fo[i] < 0) ? fo[i] + baseval : fo[i] - baseval) ; fprintf(stderr, "\n") ;
-  h64 = linear_quantize_ieee32(fo, NPTS, nbits_test, .001f, fo) ;
+  fprintf(stderr, " in[0] = %g\n", fo[0]) ;
+  h64 = linear_quantize_ieee32(fo, NPTS, nbits_test, .01f, fo) ;
   for(i=0 ; i<NPTS ; i++) fprintf(stderr, " %5d", uo[i]) ; fprintf(stderr, "\n") ;
 //   IEEE32LinearUnquantize(fo, h64) ;  // in-place restore
   linear_unquantize_ieee32(fo, h64, NPTS, nbits_test, fo) ;
 //   linear_unquantize_ieee32(qu, h64, NPTS, nbits_test, qu) ;
   for(i=0 ; i<NPTS ; i++) fprintf(stderr, " %5.2f", (fo[i] < 0) ? fo[i] + baseval : fo[i] - baseval) ; fprintf(stderr, "\n") ;
+  fprintf(stderr, " out[0] = %g\n", fo[0]) ;
   for(i=0 ; i<NPTS ; i++) fprintf(stderr, " %5.2f", ABS(fo[i]-fi[i])) ; fprintf(stderr, "\n\n") ;
 
 return 0 ;

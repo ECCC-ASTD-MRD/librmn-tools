@@ -33,12 +33,12 @@
 // some properties of an IEEE float array, 64 bits total
 // types ieee32_props and ieee32_p are kept internal, uint64_t is exposed in the interface
 typedef struct{
-  uint64_t shft:8 ,  // right shift count
-           nbts:8 ,  // number of bits
-           npts:14,  // number of points, 0 means unknown
+  uint64_t bias:32,  // minimum absolute value
+           npts:16,  // number of points, 0 means unknown
+           shft:8 ,  // right shift count (0 -> 31)
+           nbts:6 ,  // number of bits
            allp:1,   // all numbers are >= 0
-           allm:1,   // all numbers are < 0
-           bias:32 ; // minimum abs value >> 7
+           allm:1;   // all numbers are < 0
 } ieee32_p;
 
 typedef union{    // the union allows to transfer the whole 64 bit contents in one shot
@@ -58,7 +58,7 @@ void linear_unquantize_ieee32(void * restrict q, uint64_t u64, int ni, int nbits
   int32_t offset ;
   uint32_t *qi = (uint32_t *) q ;
   int32_t *fo = (int32_t *) f ;
-  int have_neg ;  // not all >=0
+  int pos_neg ;  // not all >=0
   int sign ;
   uint32_t temp ;
   ieee32_props h64 ;
@@ -66,11 +66,18 @@ void linear_unquantize_ieee32(void * restrict q, uint64_t u64, int ni, int nbits
   h64.u = u64 ;
   scount = h64.p.shft ;
   offset = h64.p.bias >> scount ;
-  have_neg = (! h64.p.allp) ;  // not all >=0
+  pos_neg = (! h64.p.allp) ;  // not all >=0
+fprintf(stderr, "offset = %d, ni = %d\n", offset, ni) ;
+
+  ni7 = (ni & 7) ;
   if(q == f) {        // restore IN PLACE
-    ni7 = (ni & 7) ;
-    if(have_neg){       // mix of positive and negative values
-      for(i=0 ; i<ni7 ; i++){                            // first chunk (0 - > 7 items)
+    if(h64.p.nbts == 0){
+      sign = h64.p.allm ? (1u << 31) : 0 ;
+      for(i=0 ; i<ni ; i++) qi[i] = h64.p.bias | sign ;
+      return ;
+    }
+    if(pos_neg){       // mix of positive and negative values
+      for(i=0 ; i<(ni & 7) ; i++){                       // first chunk (0 - > 7 items)
         temp = qi[i] ;
         sign = (temp & 1) << 31 ;                        // get sign
         temp >>= 1 ;                                     // remove sign
@@ -87,7 +94,7 @@ void linear_unquantize_ieee32(void * restrict q, uint64_t u64, int ni, int nbits
         }
       }
     }else{              // positive values only
-      for(i=0 ; i<ni7 ; i++){                            // first chunk (0 - > 7 items)
+      for(i=0 ; i<(ni & 7) ; i++){                       // first chunk (0 - > 7 items)
         qi[i] = (qi[i] + offset) << scount ;             // unquantize
       }
       for(i0=ni7 ; i0<ni-7 ; i0+=8){                     // 8 items chnumks
@@ -97,9 +104,20 @@ void linear_unquantize_ieee32(void * restrict q, uint64_t u64, int ni, int nbits
       }
     }
   }else{        // restore NOT IN PLACE
-    ni7 = (ni & 7) ? (ni & 7) : 8 ;
-    if(have_neg){
-      for(i0=0 ; i0<ni-7 ; i0+=ni7, ni7=8){
+    if(h64.p.nbts == 0){
+      sign = h64.p.allm ? (1u << 31) : 0 ;
+      for(i=0 ; i<ni ; i++) fo[i] = h64.p.bias | sign ;
+      return ;
+    }
+    if(pos_neg){
+      for(i=0 ; i<(ni & 7) ; i++){                       // first chunk (0 - > 7 items)
+          temp = qi[i] ;
+          sign = (temp & 1) << 31 ;                      // get sign
+          temp >>= 1 ;                                   // remove sign
+          fo[i] = (temp + offset) << scount ;            // unquantize
+          fo[i] |= sign ;                                // propagate sign
+      }
+      for(i0=ni7 ; i0<ni-7 ; i0+=ni7, ni7=8){
         for(i=0 ; i<8 ; i++){
           temp = qi[i0+i] ;
           sign = (temp & 1) << 31 ;                      // get sign
@@ -109,7 +127,10 @@ void linear_unquantize_ieee32(void * restrict q, uint64_t u64, int ni, int nbits
         }
       }
     }else{
-      for(i0=0 ; i0<ni-7 ; i0+=ni7, ni7=8){
+      for(i=0 ; i<(ni & 7) ; i++){                       // first chunk (0 - > 7 items)
+        fo[i] = (qi[i] + offset) << scount ;             // unquantize
+      }
+      for(i0=ni7 ; i0<ni-7 ; i0+=ni7, ni7=8){
         for(i=0 ; i<8 ; i++){
           fo[i0+i] = (qi[i0+i] + offset) << scount ;         // unquantize
         }
@@ -124,17 +145,19 @@ void linear_unquantize_ieee32(void * restrict q, uint64_t u64, int ni, int nbits
 // ni    [IN]  number of data items toquantize
 // nbits [IN]  number of bits to use for quantized data
 // quant [IN]  quantization interval (if non zero, it is used instead of nbits)
-uint64_t linear_quantize_ieee32(void * restrict f, int ni, int nbits, float quant, void * restrict qs){
-  float q = quantum_adjust(quant) ;
+uint64_t linear_quantize_ieee32(void * restrict f, int ni, int nbits, float quantum, void * restrict qs){
+//   float q = quantum_adjust(quantum) ;
   uint32_t *fu = (uint32_t *) f ;
   uint32_t *qo = (uint32_t *) qs ;
   int i0, i, ni7 ;
   uint32_t maxu[8], minu[8], t[8], ands[8], ors[8], rangeu, lz, offset, round, maskn, masksign ;
   int32_t scount, nbitsmax ;
   ieee32_props h64 ;
-  uint32_t have_neg, allm, allp, sign ;
+  uint32_t pos_neg, allm, allp, sign ;
   float delta ;
   FloatInt fi1, fi2 ;
+
+// ==================================== analyze ====================================
 
   masksign = RMASK31(31) ;  // sign bit is 0, all others are 1
   for(i=0 ; i<8 ; i++){
@@ -158,35 +181,40 @@ uint64_t linear_quantize_ieee32(void * restrict f, int ni, int nbits, float quan
     ors[0]  |= ors[i] ;        // will be 0 if all numbers >= 0, will be 1 if any number is <0
   }
   allm = ands[0] >> 31 ;
-  have_neg = ors[0] >> 31 ;
-  allp = ! have_neg ;
+  pos_neg = ors[0] >> 31 ;
+  allp = ! pos_neg ;
   rangeu = maxu[0] - minu[0] ;
   lz = lzcnt_32(rangeu) ;
-  nbitsmax = 32 -lz ;        // 32 - number of most significant 0 bits = max number of effective bits
-  if(nbits > nbitsmax) nbits = nbitsmax ;
-  if(have_neg) {       // sign bit needs one bit, reduce allowed bit count by 1
+  nbitsmax = 32 -lz ;        // 32 - number of most significant 0 bits in rangeu = max number of effective bits
+  if(pos_neg) {       // sign bit needs one bit, reduce allowed bit count by 1
+    nbitsmax++ ;
     nbits-- ;
-    nbitsmax-- ;
   }
+  if(nbits > nbitsmax) nbits = nbitsmax ;
+  if(nbits == 0) goto end ;
+
   scount = 32 - lz - nbits ;
   scount = (scount < 0) ? 0 : scount ;
   round = scount ? 1 << (scount-1) : 0 ;
   offset = minu[0] >> scount ;
   fi1.u = (offset << scount) ; fi2.u = ((offset+1) << scount) ; delta = fi2.f - fi1.f ;
-fprintf(stderr,"nbits = %d, nbitsmax = %d, range = %d, scount = %d, round = %d, quantum = %8.2g, ni7 = %d, have_neg = %d\n", 
-        nbits, nbitsmax, rangeu, scount, round, delta, ni&7, have_neg) ;
+fprintf(stderr,"nbits = %d, nbitsmax = %d, range = %d, scount = %d, round = %d, quantum = %8.2g, ni7 = %d, pos_neg = %d, minu[0] = %d, allp/m = %d/%d\n", 
+        nbits, nbitsmax, rangeu, scount, round, delta, ni&7, pos_neg, minu[0], allp, allm) ;
   maskn = RMASK31(nbits) ;
-  h64.p.shft = scount ;
-  h64.p.nbts = nbits ;
-  h64.p.npts = ni ;
-  h64.p.allp = allp ;
-  h64.p.allm = allm ;
-  h64.p.bias = minu[0] ;
+//   TO DO : addd code to adjust nbits if a non zero value was given for quantum
+//           nbits must be such that delta <= quantum
+  if(quantum < delta) {
+    fprintf(stderr,"quantum (%g) < delta (%g), nbits may need to be adjusted\n", quantum, delta) ;
+  }else{
+    fprintf(stderr,"quantum (%g) >= delta (%g), no adjustment needed\n", quantum, delta);
+  }
+  
+// ==================================== quantize ====================================
 
+  ni7 = (ni & 7) ;
   if(f == qs){      // quantize IN PLACE
-    ni7 = (ni & 7) ;
-    if(have_neg){
-      for(i=0 ; i<ni7 ; i++){
+    if(pos_neg){
+      for(i=0 ; i<(ni & 7) ; i++){
         sign = fu[i] >> 31 ;                                          // save sign
         fu[i] = (( (masksign & fu[i]) + round) >> scount) - offset ;  // quantize
         fu[i] = MIN(fu[i],maskn) ;
@@ -201,7 +229,7 @@ fprintf(stderr,"nbits = %d, nbitsmax = %d, range = %d, scount = %d, round = %d, 
         }
       }
     }else{
-      for(i=0 ; i<ni7 ; i++){
+      for(i=0 ; i<(ni & 7) ; i++){
         fu[i] = (( (masksign & fu[i]) + round) >> scount) - offset ;  // quantize
         fu[i] = MIN(fu[i],maskn) ;
       }
@@ -213,9 +241,14 @@ fprintf(stderr,"nbits = %d, nbitsmax = %d, range = %d, scount = %d, round = %d, 
       }
     }
   }else{      // quantize NOT IN PLACE
-    ni7 = (ni & 7) ? (ni & 7) : 8 ;
-    if(have_neg){
-      for(i0=0 ; i0<ni-7 ; i0+=ni7, ni7=8){
+    if(pos_neg){
+      for(i=0 ; i<(ni & 7) ; i++){
+        sign = fu[i] >> 31 ;                                          // save sign
+        qo[i] = (( (masksign & fu[i]) + round) >> scount) - offset ;  // quantize
+        qo[i] = MIN(qo[i],maskn) ;
+        qo[i] = (qo[i] << 1) | sign ;                                 // store sign
+      }
+      for(i0=ni7 ; i0<ni-7 ; i0+=8){
         for(i=0 ; i<8 ; i++){
           qo[i0+i] = (( (masksign & fu[i0+i]) + round) >> scount) - offset ;  // quantize
           qo[i0+i] = MIN(qo[i0+i],maskn) ;
@@ -223,7 +256,11 @@ fprintf(stderr,"nbits = %d, nbitsmax = %d, range = %d, scount = %d, round = %d, 
         }
       }
     }else{
-      for(i0=0 ; i0<ni-7 ; i0+=ni7, ni7=8){
+      for(i=0 ; i<(ni & 7) ; i++){
+        qo[i] = (( (masksign & fu[i]) + round) >> scount) - offset ;          // quantize
+        qo[i] = MIN(qo[i],maskn) ;
+      }
+      for(i0=ni7 ; i0<ni-7 ; i0+=8){
         for(i=0 ; i<8 ; i++){
           qo[i0+i] = (( (masksign & fu[i0+i]) + round) >> scount) - offset ;  // quantize
           qo[i0+i] = MIN(qo[i0+i],maskn) ;
@@ -231,6 +268,13 @@ fprintf(stderr,"nbits = %d, nbitsmax = %d, range = %d, scount = %d, round = %d, 
       }
     }
   }
+end:
+  h64.p.shft = scount ;
+  h64.p.nbts = nbits ;
+  h64.p.npts = ni ;
+  h64.p.allp = allp ;
+  h64.p.allm = allm ;
+  h64.p.bias = minu[0] ;
   return h64.u ;
 }
 
