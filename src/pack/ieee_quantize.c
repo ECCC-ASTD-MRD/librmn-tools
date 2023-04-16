@@ -67,7 +67,7 @@ void linear_unquantize_ieee32(void * restrict q, uint64_t u64, int ni, int nbits
   scount = h64.p.shft ;
   offset = h64.p.bias >> scount ;
   pos_neg = (! h64.p.allp) ;  // not all >=0
-fprintf(stderr, "offset = %d, ni = %d\n", offset, ni) ;
+// fprintf(stderr, "offset = %d, ni = %d\n", offset, ni) ;
 
   ni7 = (ni & 7) ;
   if(q == f) {        // restore IN PLACE
@@ -199,11 +199,11 @@ uint64_t linear_quantize_ieee32(void * restrict f, int ni, int nbits, float quan
   offset = minu[0] >> scount ;
   fi1.u = (offset << scount) ; fi2.u = ((offset+1) << scount) ;
   delta = fi2.f - fi1.f ;  // difference between values whose quntization differs by 1 unit
-fprintf(stderr,"nbits = %d, nbitsmax = %d, range = %d, scount = %d, round = %d, delta = %8.4g, ni7 = %d, pos_neg = %d, minu[0] = %d, allp/m = %d/%d\n", 
-        nbits, nbitsmax, rangeu, scount, round, delta, ni&7, pos_neg, minu[0], allp, allm) ;
+// fprintf(stderr,"nbits = %d, nbitsmax = %d, range = %d, scount = %d, round = %d, delta = %8.4g, ni7 = %d, pos_neg = %d, minu[0] = %d, allp/m = %d/%d\n", 
+//         nbits, nbitsmax, rangeu, scount, round, delta, ni&7, pos_neg, minu[0], allp, allm) ;
 // adjust nbits if a non zero value was given for quantum nbits must be such that delta <= quantum if possible
   if( (quantum < delta) && (quantum > 0.0f) ) {
-    fprintf(stderr,"quantum (%g) < delta (%g), nbits may need to be adjusted\n", quantum, delta) ;
+//     fprintf(stderr,"quantum (%g) < delta (%g), nbits may need to be adjusted\n", quantum, delta) ;
     while( (quantum<delta) && (nbits<nbitsmax) ){
       nbits++ ;
       scount = 32 - lz - nbits ; scount = (scount < 0) ? 0 : scount ;
@@ -212,13 +212,14 @@ fprintf(stderr,"nbits = %d, nbitsmax = %d, range = %d, scount = %d, round = %d, 
       fi1.u = (offset << scount) ; fi2.u = ((offset+1) << scount) ;
       delta = fi2.f - fi1.f ;  // difference between values whose quntization differs by 1 unit
     }
-    fprintf(stderr,"adjusted nbits = %d, scount = %d, round = %d, delta = %8.2g\n", nbits, scount, round, delta) ;
+//     fprintf(stderr,"adjusted nbits = %d, scount = %d, round = %d, delta = %8.2g\n", nbits, scount, round, delta) ;
   }else{
-    fprintf(stderr,"quantum (%g) >= delta (%g) or 0.0, no adjustment needed\n", quantum, delta);
+//     fprintf(stderr,"quantum (%g) >= delta (%g) or 0.0, no adjustment needed\n", quantum, delta);
   }
   
 // ==================================== quantize ====================================
 
+uint64_t m64 = RMASK63(nbits) ;
   maskn = RMASK31(nbits) ;
   ni7 = (ni & 7) ;
   if(f == qs){      // quantize IN PLACE

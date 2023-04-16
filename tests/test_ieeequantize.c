@@ -25,6 +25,7 @@
 #include <rmn/misc_operators.h>
 // #include <rmn/tools_types.h>
 #include <rmn/test_helpers.h>
+#include <rmn/timers.h>
 
 // the double include is deliberate
 #include <rmn/ieee_quantize.h>
@@ -32,6 +33,7 @@
 
 #define NPT  8
 #define NPTS 37
+#define NPTST 4096
 #define N    35
 #define NEXP 4
 
@@ -49,13 +51,13 @@ int main(int argc, char **argv){
   float scale = 1.0f ;
 //   float zmax = 8190.99 ;
 //   float zmax = 7.0E+4 ;
-  float fi[NPTS], fo[NPTS] ;
+  float fi[NPTST], fo[NPTST] ;
   uint32_t *uo = (uint32_t *) fo ;
   uint32_t *ui = (uint32_t *) fi ;
-  uint32_t qu[NPTS] ;
+  uint32_t qu[NPTST] ;
   float *fu = (float *) qu ;
   uint64_t h64 ;
-  int32_t q[NPTS] ;
+  int32_t q[NPTST] ;
   qhead h ;
   float fz0[NPT] ;
 //   float fp32 ;
@@ -64,15 +66,16 @@ int main(int argc, char **argv){
   uint16_t vfp16[NPTS] ;
   uint32_t limit16 = ((127+14) << 23) | 0x7FFFFF ; // largest representable FP16
 //   float baseval = 8388607.0f ;
-  float baseval = 4194303.0f ;
+//   float baseval = 4194303.0f ;
 //   float baseval = 2097151.0f ;
 //   float baseval = 524287.0f ;
 //   float baseval = 262143.0f ;
 //   float baseval = 131071.0f ;
-//   float baseval = 65535.0f ;
+  float baseval = 65535.0f ;
 //   float baseval = 1.0f ;
   int nbits_test = -1 ;
-  float quantum = 0.1f ;
+  float quantum = 0.0f ;
+  TIME_LOOP_DATA ;
 
   start_of_test(argv[0]);
   for(i=0 ; i<NPTS ; i++) fi[i] = baseval + (0.00001f + (i * 1.0f) / NPTS) ;
@@ -104,6 +107,24 @@ int main(int argc, char **argv){
   fprintf(stderr, " out[0] = %g\n", fo[0]) ;
   for(i=0 ; i<NPTS ; i++) fprintf(stderr, " %5.2f", ABS(fo[i]-fi[i])) ; fprintf(stderr, "\n=============================\n") ;
 
+  for(i=0 ; i<NPTST ; i++) fi[i] = i + .0001f ;
+  TIME_LOOP_EZ(1000, NPTST, h64 = linear_quantize_ieee32(fi, NPTST, 16, .1f, qu)) ;
+  fprintf(stderr, "linear_quantize_ieee32    : %s\n",timer_msg);
+  TIME_LOOP_EZ(1000, NPTST/2, h64 = linear_quantize_ieee32(fi, NPTST/2, 16, .1f, qu)) ;
+  fprintf(stderr, "linear_quantize_ieee32    : %s\n",timer_msg);
+  TIME_LOOP_EZ(1000, NPTST/4, h64 = linear_quantize_ieee32(fi, NPTST/4, 16, .1f, qu)) ;
+  fprintf(stderr, "linear_quantize_ieee32    : %s\n",timer_msg);
+  TIME_LOOP_EZ(1000, NPTST/32, h64 = linear_quantize_ieee32(fi, NPTST/4, 16, .1f, qu)) ;
+  fprintf(stderr, "linear_quantize_ieee32    : %s\n",timer_msg);
+
+  TIME_LOOP_EZ(1000, NPTST, linear_unquantize_ieee32(qu, h64, NPTST, 16, fo) ;) ;
+  fprintf(stderr, "linear_unquantize_ieee32  : %s\n",timer_msg);
+  TIME_LOOP_EZ(1000, NPTST/2, linear_unquantize_ieee32(qu, h64, NPTST/2, 16, fo) ;) ;
+  fprintf(stderr, "linear_unquantize_ieee32  : %s\n",timer_msg);
+  TIME_LOOP_EZ(1000, NPTST/4, linear_unquantize_ieee32(qu, h64, NPTST/4, 16, fo) ;) ;
+  fprintf(stderr, "linear_unquantize_ieee32  : %s\n",timer_msg);
+  TIME_LOOP_EZ(1000, NPTST/8, linear_unquantize_ieee32(qu, h64, NPTST/8, 16, fo) ;) ;
+  fprintf(stderr, "linear_unquantize_ieee32  : %s\n",timer_msg);
 return 0 ;
 
   fprintf(stderr, "limit16 = %8.8x, %8d, %8.8x\n", limit16, limit16 >> 23, limit16 & 0x7FFFFF);
