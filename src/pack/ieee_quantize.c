@@ -50,9 +50,8 @@ typedef union{    // the union allows to transfer the whole 64 bit contents in o
 // q     [IN]  32 bit integer array containing the quantized data
 // f    [OUT]  32 bit IEEE float array that will receive restored floats
 // ni    [IN]  number of data items (used for checking purposes only)
-// nbits [IN]  number of bits in quantized data items (used for checking purposes only)
 // u64   [IN]  metadata information describing quantization (from linear_quantize_ieee32)
-int linear_unquantize_ieee32(void * restrict q, uint64_t u64, int ni, int nbits, void * restrict f){
+int linear_unquantize_ieee32(void * restrict q, uint64_t u64, int ni, void * restrict f){
   int i0, i, ni7 ;
   int scount ;
   int32_t offset ;
