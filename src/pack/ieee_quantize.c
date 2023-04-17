@@ -67,13 +67,11 @@ int linear_unquantize_ieee32(void * restrict q, uint64_t u64, int ni, int nbits,
   if(h64.p.npts == 0) h64.p.npts = ni ;
   if(h64.p.npts != ni) {
     fprintf(stderr, "ERROR : inconsistent number of points, expecting %d, got %d\n", ni, h64.p.npts) ;
-    exit(1) ;
     return 2 ;      // inconsistent number of values
   }
   scount = h64.p.shft ;                // shift count
   offset = h64.p.bias >> scount ;      // bias before shifting
   pos_neg = (! h64.p.allp) ;  // not all >=0
-// fprintf(stderr, "offset = %d, ni = %d\n", offset, ni) ;
 
   ni7 = (ni & 7) ;
   if(q == f) {        // restore IN PLACE
@@ -186,8 +184,8 @@ uint64_t linear_quantize_ieee32(void * restrict f, int ni, int nbits, float quan
   for(i=0 ; i<8 ; i++){        // fold 8 long vector into single value
     maxu[0]  = MAX( maxu[0], maxu[i]) ;
     minu[0]  = MIN( minu[0], minu[i]) ;
-    ands[0] &= ands[i] ;       // will be 1 if all numbers are < 0, will be 0 if any number is >= 0
-    ors[0]  |= ors[i] ;        // will be 0 if all numbers >= 0, will be 1 if any number is <0
+    ands[0] &= ands[i] ;       // will be 1 if all values are < 0, will be 0 if any value is >= 0
+    ors[0]  |= ors[i] ;        // will be 0 if all values >= 0, will be 1 if any value is <0
   }
   allm = ands[0] >> 31 ;
   pos_neg = ors[0] >> 31 ;
@@ -195,24 +193,52 @@ uint64_t linear_quantize_ieee32(void * restrict f, int ni, int nbits, float quan
   rangeu = maxu[0] - minu[0] ;
   lz = lzcnt_32(rangeu) ;
   nbitsmax = 32 -lz ;        // 32 - number of most significant 0 bits in rangeu = max number of effective bits
-  if(nbits <= 0) nbits = pos_neg + 1 ;  // make sure nbits does not become zero
-  if(pos_neg) {       // sign bit needs one bit, reduce allowed bit count by 1
+
+  if(rangeu == 0) {          // special case : constant absolute values
+    scount = 0 ;
+    nbits = pos_neg ;
+    if(pos_neg){
+      if(f == qs){
+        for(i=0 ; i<ni ; i++) fu[i] = (fu[i] >> 31) ;
+      }else{
+        for(i=0 ; i<ni ; i++) qo[i] = (fu[i] >> 31) ;
+      }
+    }
+    goto end ;
+  }else{
+    if( (nbits <= 0) ) {    // automatic determination of nbits
+      int32_t temp ;
+      fi1.u = maxu[0] ; fi2.u = minu[0] ; fi1.f = fi1.f - fi2.f ;
+      fi2.f = quantum ;
+      if(fi2.u <= 0){          // quantum <= 0
+        nbits = pos_neg + 1 ;  // make sure nbits does not become zero if positive and negative values are present
+      }else{
+        temp = (fi1.u >> 23) - (fi2.u >> 23) ;  // IEEE exponent difference between range and quantum
+        nbits = temp + 1 + pos_neg ;
+        fprintf(stderr,"provisional nbits = %d\n", nbits) ;
+      }
+    }
+  }
+  if(pos_neg) {       // sign bit needs one bit, reduce allowed bit count by 1, increase nbitsmax
     nbitsmax++ ;
     nbits-- ;
   }
   if(nbits > nbitsmax) nbits = nbitsmax ;
-  if(nbits == 0) goto end ;
 
   scount = 32 - lz - nbits ; scount = (scount < 0) ? 0 : scount ;
   round = scount ? 1 << (scount-1) : 0 ;
   offset = minu[0] >> scount ;
-  fi1.u = (offset << scount) ; fi2.u = ((offset+1) << scount) ;
-  delta = fi2.f - fi1.f ;  // difference between values whose quntization differs by 1 unit
+  if(rangeu ==0){          // constant absolute values
+    delta = 0.0f ;
+  }else{
+    fi1.u = (offset << scount) ; fi2.u = ((offset+1) << scount) ;
+    delta = fi2.f - fi1.f ;  // difference between values whose quntization differs by 1 unit
+  }
 // fprintf(stderr,"nbits = %d, nbitsmax = %d, range = %d, scount = %d, round = %d, delta = %8.4g, ni7 = %d, pos_neg = %d, minu[0] = %d, allp/m = %d/%d\n", 
 //         nbits, nbitsmax, rangeu, scount, round, delta, ni&7, pos_neg, minu[0], allp, allm) ;
 // adjust nbits if a non zero value was given for quantum nbits must be such that delta <= quantum if possible
   if( (quantum < delta) && (quantum > 0.0f) ) {
-//     fprintf(stderr,"quantum (%g) < delta (%g), nbits may need to be adjusted\n", quantum, delta) ;
+    fprintf(stderr,"quantum (%g) < delta (%g), nbits may need to be adjusted\n", quantum, delta) ;
     while( (quantum<delta) && (nbits<nbitsmax) ){
       nbits++ ;
       scount = 32 - lz - nbits ; scount = (scount < 0) ? 0 : scount ;
@@ -221,9 +247,9 @@ uint64_t linear_quantize_ieee32(void * restrict f, int ni, int nbits, float quan
       fi1.u = (offset << scount) ; fi2.u = ((offset+1) << scount) ;
       delta = fi2.f - fi1.f ;  // difference between values whose quntization differs by 1 unit
     }
-//     fprintf(stderr,"adjusted nbits = %d, scount = %d, round = %d, delta = %8.2g\n", nbits, scount, round, delta) ;
+    fprintf(stderr,"adjusted nbits = %d, scount = %d, round = %d, delta = %8.2g\n", nbits, scount, round, delta) ;
   }else{
-//     fprintf(stderr,"quantum (%g) >= delta (%g) or 0.0, no adjustment needed\n", quantum, delta);
+//     fprintf(stderr,"quantum (%g) >= delta (%g) or quantum == 0.0, no adjustment needed\n", quantum, delta);
   }
   
 // ==================================== quantize ====================================

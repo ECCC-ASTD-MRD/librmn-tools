@@ -207,9 +207,10 @@ set(PROJECT_PLUGIN_FILES
   src/pred/lorenzo_c.c
   src/pack/bi_endian_pack.c
 )
-SET_SOURCE_FILES_PROPERTIES( src/pred/lorenzo_c.c PROPERTIES COMPILE_FLAGS "-O3 -DQUIET_SIMD -march=skylake")
+SET_SOURCE_FILES_PROPERTIES( src/pred/lorenzo_c.c PROPERTIES COMPILE_FLAGS "-O3 -DQUIET_SIMD")
+SET_SOURCE_FILES_PROPERTIES( src/pack/ieee_quantize.c PROPERTIES COMPILE_FLAGS "-O3 -DQUIET_SIMD")
 # SET_SOURCE_FILES_PROPERTIES( src/pred/lorenzo_c.c PROPERTIES COMPILE_FLAGS -I${CMAKE_CURRENT_SOURCE_DIR}/include)
-SET_SOURCE_FILES_PROPERTIES( src/pred/bi_endian_pack.c PROPERTIES COMPILE_FLAGS "-O3 -march=skylake")
+SET_SOURCE_FILES_PROPERTIES( src/pred/bi_endian_pack.c PROPERTIES COMPILE_FLAGS "-O3")
 
 set(PROJECT_F_FILES
   src/timers/rmn_timers_mod.F90
