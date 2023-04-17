@@ -86,9 +86,9 @@ int main(int argc, char **argv){
 // ============================ IN PLACE TESTS ============================
 //   for(i=0 ; i<NPTS ; i++) fprintf(stderr, "%8.8x ", ui[i]) ; fprintf(stderr, "\n");
   for(i=0 ; i<NPTS ; i++) fo[i] = fi[i] ;
-  h64 = linear_quantize_ieee32(fi, NPTS, nbits_test, quantum, qu) ;
+  h64 = IEEE32_linear_quantize(fi, NPTS, nbits_test, quantum, qu) ;
   for(i=0 ; i<NPTS ; i++) fo[i] = 999999.0f ;
-  linear_unquantize_ieee32(qu, h64, NPTS, fo) ;
+  IEEE32_linear_unquantize(qu, h64, NPTS, fo) ;
 //   for(i=0 ; i<NPTS ; i++) fprintf(stderr, "%5.2f", fi[i]) ; fprintf(stderr, "\n") ;
   for(i=0 ; i<NPTS ; i++) fprintf(stderr, " %5.2f", (fi[i] < 0.0f) ? fi[i] + baseval : fi[i] - baseval) ; fprintf(stderr, "\n") ;
   fprintf(stderr, " in[0:1] = %g, %g\n", fi[0], fi[1]) ;
@@ -102,36 +102,36 @@ int main(int argc, char **argv){
   for(i=0 ; i<NPTS ; i++) fo[i] = fi[i] ;
   for(i=0 ; i<NPTS ; i++) fprintf(stderr, " %5.2f", (fo[i] < 0) ? fo[i] + baseval : fo[i] - baseval) ; fprintf(stderr, "\n") ;
   fprintf(stderr, " in[0:1] = %g, %g\n", fo[0], fo[1]) ;
-  h64 = linear_quantize_ieee32(fo, NPTS, nbits_test, quantum, fo) ;;                   // quantize in-place
+  h64 = IEEE32_linear_quantize(fo, NPTS, nbits_test, quantum, fo) ;;                   // quantize in-place
   for(i=0 ; i<NPTS ; i++) fprintf(stderr, " %5d", uo[i]) ; fprintf(stderr, "\n") ;
-  linear_unquantize_ieee32(fo, h64, NPTS, fo) ;                            // restore in-place
-//   linear_unquantize_ieee32(qu, h64, NPTS, nbits_test, qu) ;
+  IEEE32_linear_unquantize(fo, h64, NPTS, fo) ;                            // restore in-place
+//   IEEE32_linear_unquantize(qu, h64, NPTS, nbits_test, qu) ;
   for(i=0 ; i<NPTS ; i++) fprintf(stderr, " %5.2f", (fo[i] < 0) ? fo[i] + baseval : fo[i] - baseval) ; fprintf(stderr, "\n") ;
   fprintf(stderr, " out[0:1] = %g, %g\n", fo[0], fo[1]) ;
   for(i=0 ; i<NPTS ; i++) fprintf(stderr, " %5.2f", ABS(fo[i]-fi[i])) ; fprintf(stderr, "\n=============================\n") ;
 
   for(i=0 ; i<NPTST ; i++) fi[i] = i + .0001f ;
-  TIME_LOOP_EZ(1000, NPTST, h64 = linear_quantize_ieee32(fi, NPTST, 16, .1f, qu)) ;
-  fprintf(stderr, "linear_quantize_ieee32    : %s\n",timer_msg);
-  TIME_LOOP_EZ(1000, NPTST/2, h64 = linear_quantize_ieee32(fi, NPTST/2, 16, .1f, qu)) ;
-  fprintf(stderr, "linear_quantize_ieee32    : %s\n",timer_msg);
-  TIME_LOOP_EZ(1000, NPTST/4, h64 = linear_quantize_ieee32(fi, NPTST/4, 16, .1f, qu)) ;
-  fprintf(stderr, "linear_quantize_ieee32    : %s\n",timer_msg);
-  TIME_LOOP_EZ(1000, NPTST/32, h64 = linear_quantize_ieee32(fi, NPTST/4, 16, .1f, qu)) ;
-  fprintf(stderr, "linear_quantize_ieee32    : %s\n",timer_msg);
+  TIME_LOOP_EZ(1000, NPTST, h64 = IEEE32_linear_quantize(fi, NPTST, 16, .1f, qu)) ;
+  fprintf(stderr, "IEEE32_linear_quantize    : %s\n",timer_msg);
+  TIME_LOOP_EZ(1000, NPTST/2, h64 = IEEE32_linear_quantize(fi, NPTST/2, 16, .1f, qu)) ;
+  fprintf(stderr, "IEEE32_linear_quantize    : %s\n",timer_msg);
+  TIME_LOOP_EZ(1000, NPTST/4, h64 = IEEE32_linear_quantize(fi, NPTST/4, 16, .1f, qu)) ;
+  fprintf(stderr, "IEEE32_linear_quantize    : %s\n",timer_msg);
+  TIME_LOOP_EZ(1000, NPTST/32, h64 = IEEE32_linear_quantize(fi, NPTST/4, 16, .1f, qu)) ;
+  fprintf(stderr, "IEEE32_linear_quantize    : %s\n",timer_msg);
 
-  h64 = linear_quantize_ieee32(fi, NPTST, 16, .1f, qu) ;
-  TIME_LOOP_EZ(1000, NPTST, linear_unquantize_ieee32(qu, h64, NPTST, fo) ;) ;
-  fprintf(stderr, "linear_unquantize_ieee32  : %s\n",timer_msg);
-  h64 = linear_quantize_ieee32(fi, NPTST/2, 16, .1f, qu) ;
-  TIME_LOOP_EZ(1000, NPTST/2, linear_unquantize_ieee32(qu, h64, NPTST/2, fo) ;) ;
-  fprintf(stderr, "linear_unquantize_ieee32  : %s\n",timer_msg);
-  h64 = linear_quantize_ieee32(fi, NPTST/4, 16, .1f, qu) ;
-  TIME_LOOP_EZ(1000, NPTST/4, linear_unquantize_ieee32(qu, h64, NPTST/4, fo) ;) ;
-  fprintf(stderr, "linear_unquantize_ieee32  : %s\n",timer_msg);
-  h64 = linear_quantize_ieee32(fi, NPTST/8, 16, .1f, qu) ;
-  TIME_LOOP_EZ(1000, NPTST/8, linear_unquantize_ieee32(qu, h64, NPTST/8, fo) ;) ;
-  fprintf(stderr, "linear_unquantize_ieee32  : %s\n",timer_msg);
+  h64 = IEEE32_linear_quantize(fi, NPTST, 16, .1f, qu) ;
+  TIME_LOOP_EZ(1000, NPTST, IEEE32_linear_unquantize(qu, h64, NPTST, fo) ;) ;
+  fprintf(stderr, "IEEE32_linear_unquantize  : %s\n",timer_msg);
+  h64 = IEEE32_linear_quantize(fi, NPTST/2, 16, .1f, qu) ;
+  TIME_LOOP_EZ(1000, NPTST/2, IEEE32_linear_unquantize(qu, h64, NPTST/2, fo) ;) ;
+  fprintf(stderr, "IEEE32_linear_unquantize  : %s\n",timer_msg);
+  h64 = IEEE32_linear_quantize(fi, NPTST/4, 16, .1f, qu) ;
+  TIME_LOOP_EZ(1000, NPTST/4, IEEE32_linear_unquantize(qu, h64, NPTST/4, fo) ;) ;
+  fprintf(stderr, "IEEE32_linear_unquantize  : %s\n",timer_msg);
+  h64 = IEEE32_linear_quantize(fi, NPTST/8, 16, .1f, qu) ;
+  TIME_LOOP_EZ(1000, NPTST/8, IEEE32_linear_unquantize(qu, h64, NPTST/8, fo) ;) ;
+  fprintf(stderr, "IEEE32_linear_unquantize  : %s\n",timer_msg);
 return 0 ;
 
   fprintf(stderr, "limit16 = %8.8x, %8d, %8.8x\n", limit16, limit16 >> 23, limit16 & 0x7FFFFF);

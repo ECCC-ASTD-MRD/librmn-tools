@@ -42,8 +42,8 @@ typedef struct{
 } qhead ;            // quantization information header
 
 float quantum_adjust(float quantum);
-int linear_unquantize_ieee32(void * restrict q, uint64_t h64, int ni, void * restrict f);
-uint64_t linear_quantize_ieee32(void * restrict f, int ni, int nbits, float quantum, void * restrict q);
+int IEEE32_linear_unquantize(void * restrict q, uint64_t h64, int ni, void * restrict f);
+uint64_t IEEE32_linear_quantize(void * restrict f, int ni, int nbits, float quantum, void * restrict q);
 
 void quantize_setup(float *z,            // array to be quantized (IEEE 754 32 bit float) (INPUT)
                         int n,           // number of data elements
