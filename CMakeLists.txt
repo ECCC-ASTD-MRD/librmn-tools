@@ -201,7 +201,7 @@ set(PROJECT_C_FILES
   src/diag/test_helpers.c
   src/diag/misc_analyze.c
   src/diag/float_info.c
-  src/diag/raw_test_io.c
+  src/diag/c_record_io.c
   src/plugins/plugin_code.c
 )
 set(PROJECT_PLUGIN_FILES 
