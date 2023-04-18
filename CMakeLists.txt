@@ -186,6 +186,19 @@ function(extra_target_compile_options name type)
 endfunction()
 
 # ======================== PROJECT FILES ======================
+# generate c_binding_extras.hf using program tools/c_binding_extras.c
+add_custom_command(
+    OUTPUT ${CMAKE_CURRENT_SOURCE_DIR}/src/PUBLIC_INCLUDES/c_binding_extras.hf
+    PRE_BUILD
+    COMMAND ${CMAKE_C_COMPILER} ${CMAKE_CURRENT_SOURCE_DIR}/tools/c_binding_extras.c -o ${CMAKE_CURRENT_BINARY_DIR}/c_binding_extras.exe
+    COMMAND ${CMAKE_CURRENT_BINARY_DIR}/c_binding_extras.exe >${CMAKE_CURRENT_SOURCE_DIR}/src/PUBLIC_INCLUDES/rmn/c_binding_extras.hf
+    COMMAND rm -f ${CMAKE_CURRENT_BINARY_DIR}/c_binding_extras.exe
+    COMMENT "c_binding_extras.hf"
+#     MAIN_DEPENDENCY ${CMAKE_CURRENT_SOURCE_DIR}/src/PUBLIC_INCLUDES/c_binding_extras.hf
+)
+# Add a custom target to regenerate WhiteBoard.hf
+add_custom_target(CBindingExtras DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/src/PUBLIC_INCLUDES/c_binding_extras.hf)
+
 set(PROJECT_C_FILES 
   src/id/identify_compiler.c
   src/id/identify_mpi_child.c
@@ -245,6 +258,7 @@ set(PROJECT_H_FILES
   src/PUBLIC_INCLUDES/rmn/misc_analyze.h
   src/PUBLIC_INCLUDES/rmn/ieee_quantize.h
   src/PUBLIC_INCLUDES/rmn/c_record_ioe.h
+  src/PUBLIC_INCLUDES/c_binding_extras.hf
 )
 
 set(PROJECT_INCLUDES
@@ -390,6 +404,7 @@ message(STATUS "${TARGET} : Fortran_MODULE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
     )
     extra_target_link_options(${TARGET} PRIVATE)
     extra_target_compile_options(${TARGET} PRIVATE)
+    add_dependencies(${TARGET} CBindingExtras)
 #    add_dependencies(${TARGET} ${PROJECT_NAME}_build_info)
 endforeach()
 
