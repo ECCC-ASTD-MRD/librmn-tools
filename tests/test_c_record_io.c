@@ -5,8 +5,7 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 
-int write_32bit_data_record(char *filename, int *fdi, int *dims, int ndim, void *buf);
-void *read_32bit_data_record(char *filename, int *fdi, int *dims, int *ndim, int *ndata);
+#include <rmn/c_record_io.h>
 
 int main(int argc, char **argv){
   int dims[10] ;
@@ -28,7 +27,7 @@ int main(int argc, char **argv){
       for(j=0 ; j<ndim ; j++) fprintf(stderr, "%d ", dims[j]) ; fprintf(stderr, ") [%d]\n", ndata);
       free(buf) ;
       fprintf(stderr, "reading next record, fd = %d\n", fd);
-      buf = read_32bit_data_record(NULL, &fd, dims, &ndim, &ndata) ;
+      buf = read_32bit_data_record("", &fd, dims, &ndim, &ndata) ;
     }
     if(ndata == 0) {
       fprintf(stderr, "end of file = '%s', close status = %d\n", argv[i], close(fd)) ;
@@ -38,6 +37,6 @@ int main(int argc, char **argv){
   }
   fd = open("./temporary_file", O_WRONLY | O_CREAT, 0777) ;
   if(fd <0) exit(1) ;
-  ndata = write_32bit_data_record(NULL, &fd, dim3, 3, buf3) ;
+  ndata = write_32bit_data_record("", &fd, dim3, 3, buf3) ;
   close(fd) ;
 }

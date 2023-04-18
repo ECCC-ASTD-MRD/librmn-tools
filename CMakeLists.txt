@@ -244,6 +244,7 @@ set(PROJECT_H_FILES
   src/PUBLIC_INCLUDES/rmn/misc_pack.hf
   src/PUBLIC_INCLUDES/rmn/misc_analyze.h
   src/PUBLIC_INCLUDES/rmn/ieee_quantize.h
+  src/PUBLIC_INCLUDES/rmn/c_record_ioe.h
 )
 
 set(PROJECT_INCLUDES

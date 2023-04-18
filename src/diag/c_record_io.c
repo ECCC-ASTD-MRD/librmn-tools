@@ -39,9 +39,9 @@ void *read_32bit_data_record(char *filename, int *fdi, int *dims, int *ndim, int
 
   *ndata = -1 ;                                                // precondition for error
   fd = (fd < 0) ? -fd : fd ;                                   // ABS(fd), negative fdi means close after reading record
-  if(fd == 0 && filename == NULL) return NULL ;                // filename should be valid
-  if(fd != 0 && filename != NULL) return NULL ;                // invalid fd / filename combination
-  fd = (filename != NULL) ? open(filename, O_RDONLY) : fd ;    // open file if filename supplied
+  if(fd == 0 && filename[0] == '\0') return NULL ;             // filename should be valid if fd == 0
+  if(fd != 0 && filename[0] != '\0') return NULL ;             // invalid fd / filename combination
+  fd = (filename[0] != '\0') ? open(filename, O_RDONLY) : fd ; // open file if filename supplied
   if(fd < 0) return NULL ;                                     // open failed
   if(*fdi == 0) *fdi = fd ;                                    // new fd stored in fdi
 
@@ -125,11 +125,16 @@ int write_32bit_data_record(char *filename, int *fdi, int *dims, int ndim, void 
   int ndims = ndim, ntot, i ;
 
   fd = (fd < 0) ? -fd : fd ;                                   // ABS(fd), negative fdi means close after reading record
-  if(fd == 0 && filename == NULL) return -1 ;                  // filename should be valid
-  if(fd != 0 && filename != NULL) return -1 ;                  // invalid fd / filename combination
-  fd = (filename != NULL) ? open(filename, O_WRONLY | O_CREAT, 0777) : fd ;    // open file if filename supplied
+  if(fd == 0 && filename[0] == '\0') return -1 ;               // filename should be valid
+  if(fd != 0 && filename[0] != '\0') return -1 ;               // invalid fd / filename combination
+  fd = (filename[0] != '\0') ? open(filename, O_WRONLY | O_CREAT, 0777) : fd ;    // open file if filename supplied
   if(fd < 0) return -1 ;                                       // open failed
   if(*fdi == 0) *fdi = fd ;                                    // new fd stored in fdi
+  if(buf == NULL){                                             // just open or close the file if buf is NULL
+    ntot = 0 ;
+fprintf(stderr,"INFO: just closing fd = %d\n", fd);
+    goto end ;
+  }
 
   if( (nr = write(fd, &ndims, nc)) != nc) goto error ;         // number of dimensions
   if( (nr = write(fd, dims, ndim*nc)) != ndim*nc) goto error ; // dimensions
@@ -139,7 +144,7 @@ int write_32bit_data_record(char *filename, int *fdi, int *dims, int ndim, void 
   if( (nr = write(fd, &ntot, nc)) != nc) goto error  ;         // number of data
 end:
   if(*fdi < 0) close(fd) ;
-  return nc*ntot ;
+  return ntot ;
 error:
   goto end ;
 }
