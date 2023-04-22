@@ -69,10 +69,10 @@ int main(int argc, char **argv){
 //   float baseval = 4194303.0f ;
 //   float baseval = 2097151.0f ;
 //   float baseval = 524287.0f ;
-//   float baseval = 262143.0f ;
+  float baseval = 262143.0f ;
 //   float baseval = 131071.0f ;
 //   float baseval = 65535.0f ;
-  float baseval = 64.0f ;
+//   float baseval = 64.0f ;
 //   float baseval = 1.0f ;
   int nbits_test = -1 ;
   float quantum = 0.01f ;
@@ -83,33 +83,36 @@ int main(int argc, char **argv){
 //   for(i=0 ; i<NPTS ; i++) fi[i] = baseval ;   // this MUST work too (constant array)
   for(i=0 ; i<NPTS ; i+=2) fi[i] = -fi[i] ;   // alternate signs, positive even, negative odd
 
-// ============================ IN PLACE TESTS ============================
+// ============================ NOT IN PLACE TESTS ============================
+  fprintf(stderr, "\n=============== NOT IN PLACE ==============\n") ;
 //   for(i=0 ; i<NPTS ; i++) fprintf(stderr, "%8.8x ", ui[i]) ; fprintf(stderr, "\n");
-  for(i=0 ; i<NPTS ; i++) fo[i] = fi[i] ;
+//   for(i=0 ; i<NPTS ; i++) fo[i] = fi[i] ;
+  fprintf(stderr, " in[0:1] = %g, %g\n", fi[0], fi[1]) ;
+  for(i=0 ; i<NPTS ; i++) fprintf(stderr, " %5.2f", (fi[i] < 0.0f) ? fi[i] + baseval : fi[i] - baseval) ; fprintf(stderr, "\n") ;
   h64 = IEEE32_linear_quantize(fi, NPTS, nbits_test, quantum, qu) ;
+  for(i=0 ; i<NPTS ; i++) fprintf(stderr, " %5d", qu[i]) ; fprintf(stderr, "\n") ;
   for(i=0 ; i<NPTS ; i++) fo[i] = 999999.0f ;
   IEEE32_linear_unquantize(qu, h64, NPTS, fo) ;
 //   for(i=0 ; i<NPTS ; i++) fprintf(stderr, "%5.2f", fi[i]) ; fprintf(stderr, "\n") ;
-  for(i=0 ; i<NPTS ; i++) fprintf(stderr, " %5.2f", (fi[i] < 0.0f) ? fi[i] + baseval : fi[i] - baseval) ; fprintf(stderr, "\n") ;
-  fprintf(stderr, " in[0:1] = %g, %g\n", fi[0], fi[1]) ;
-  for(i=0 ; i<NPTS ; i++) fprintf(stderr, " %5d", qu[i]) ; fprintf(stderr, "\n") ;
 //   for(i=0 ; i<NPTS ; i++) fprintf(stderr, "%5.2f", fo[i]) ; fprintf(stderr, "\n") ;
   for(i=0 ; i<NPTS ; i++) fprintf(stderr, " %5.2f", (fo[i] < 0) ? fo[i] + baseval : fo[i] - baseval) ; fprintf(stderr, "\n") ;
   fprintf(stderr, " out[0:1] = %g, %g\n", fo[0], fo[1]) ;
-  for(i=0 ; i<NPTS ; i++) fprintf(stderr, " %5.2f", ABS(fo[i]-fi[i])) ; fprintf(stderr, "\n=============================\n") ;
+  for(i=0 ; i<NPTS ; i++) fprintf(stderr, " %5.2f", ABS(fo[i]-fi[i])) ; fprintf(stderr, "\n") ;
 
 // ============================ IN PLACE TESTS ============================
+  fprintf(stderr, "\n=============== IN PLACE ==============\n") ;
   for(i=0 ; i<NPTS ; i++) fo[i] = fi[i] ;
-  for(i=0 ; i<NPTS ; i++) fprintf(stderr, " %5.2f", (fo[i] < 0) ? fo[i] + baseval : fo[i] - baseval) ; fprintf(stderr, "\n") ;
   fprintf(stderr, " in[0:1] = %g, %g\n", fo[0], fo[1]) ;
+  for(i=0 ; i<NPTS ; i++) fprintf(stderr, " %5.2f", (fo[i] < 0) ? fo[i] + baseval : fo[i] - baseval) ; fprintf(stderr, "\n") ;
   h64 = IEEE32_linear_quantize(fo, NPTS, nbits_test, quantum, fo) ;;                   // quantize in-place
   for(i=0 ; i<NPTS ; i++) fprintf(stderr, " %5d", uo[i]) ; fprintf(stderr, "\n") ;
   IEEE32_linear_unquantize(fo, h64, NPTS, fo) ;                            // restore in-place
 //   IEEE32_linear_unquantize(qu, h64, NPTS, nbits_test, qu) ;
   for(i=0 ; i<NPTS ; i++) fprintf(stderr, " %5.2f", (fo[i] < 0) ? fo[i] + baseval : fo[i] - baseval) ; fprintf(stderr, "\n") ;
   fprintf(stderr, " out[0:1] = %g, %g\n", fo[0], fo[1]) ;
-  for(i=0 ; i<NPTS ; i++) fprintf(stderr, " %5.2f", ABS(fo[i]-fi[i])) ; fprintf(stderr, "\n=============================\n") ;
-
+  for(i=0 ; i<NPTS ; i++) fprintf(stderr, " %5.2f", ABS(fo[i]-fi[i])) ; fprintf(stderr, "\n") ;
+return 0 ;
+  fprintf(stderr, "\n=============== TIMINGS ==============\n") ;
   for(i=0 ; i<NPTST ; i++) fi[i] = i + .0001f ;
   TIME_LOOP_EZ(1000, NPTST, h64 = IEEE32_linear_quantize(fi, NPTST, 16, .1f, qu)) ;
   fprintf(stderr, "IEEE32_linear_quantize    : %s\n",timer_msg);
