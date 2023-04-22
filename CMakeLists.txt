@@ -215,6 +215,7 @@ set(PROJECT_C_FILES
   src/diag/misc_analyze.c
   src/diag/float_info.c
   src/diag/c_record_io.c
+  src/diag/eval_diff.c
   src/plugins/plugin_code.c
 )
 set(PROJECT_PLUGIN_FILES 
