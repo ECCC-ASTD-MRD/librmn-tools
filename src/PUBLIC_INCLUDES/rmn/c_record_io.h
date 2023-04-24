@@ -39,7 +39,12 @@ end interface
 
 #else
 
+#if ! defined(C_RECORD_IO)
+#define C_RECORD_IO
+
 int write_32bit_data_record(char *filename, int *fdi, int *dims, int ndim, void *buf);
 void *read_32bit_data_record(char *filename, int *fdi, int *dims, int *ndim, int *ndata);
+
+#endif
 
 #endif
