@@ -19,6 +19,7 @@ typedef struct{
   float bias ;        // running sum of differences between float arrays
   float abs_error ;   // running sum of absolute differences between float arrays
   float max_error ;   // largest absolute difference
+  double sum ;
 } error_stats ;
 
 // update error statistics structure
@@ -30,19 +31,22 @@ int update_error_stats(float *fref, float *fnew, int nd, error_stats *e){
   float bias = 0.0f ;
   float abs_error = 0.0f ;
   float max_error = 0.0f ;
-  float temp ;
+  float temp, tempa ;
   int i ;
+  double sum = 0.0 ;
 
   if(nd <= 0){
     e->ndata = 0 ;
-    e->bias = 0 ;
-    e->abs_error = 0 ;
-    e->max_error = 0 ;
+    e->bias = 0.0f ;
+    e->abs_error = 0.0f ;
+    e->max_error = 0.0f ;
+    e->sum = 0.0f ;
   }
   nd = (nd < 0) ? -nd : nd ;
   for(i=0 ; i<nd ; i++){
-    temp = (fref - fnew) ;
+    temp = (fref[i] - fnew[i]) ;
     bias += temp ;
+    sum += fref[i] ;
     temp = ABS(temp) ;
     abs_error += temp ;
     max_error = MAX(max_error, temp) ;
@@ -51,21 +55,23 @@ int update_error_stats(float *fref, float *fnew, int nd, error_stats *e){
   e->bias  += bias ;
   e->abs_error += abs_error ;
   e->max_error =  MAX(e->max_error, max_error) ;
+  e->sum  += sum ;
   return nd ;
 }
 
 // produce difference statistics between 2 full arrays
 // fref   : reference float array
 // fnew   : array for which difference analysis is performed
-// ni     ; number of useful elements in a row
-// lni    : storage length of rows
+// nr     ; number of useful elements in a row
+// lref   : storage length of rows (array fref)
+// lnew   : storage length of rows (array fnew)
 // nj     : number of rows
-int float_array_differences(float *fref, float *fnew, int ni, int lni, int nj, error_stats *e){
+int float_array_differences(float *fref, float *fnew, int nr, int lref, int lnew, int nj, error_stats *e){
   int j ;
   update_error_stats(fref, fnew, 0, e) ;
   for(j=0 ; j<nj ; j++){
-    update_error_stats(fref, fnew, ni, e) ;    // update stats for this row
-    fref += lni ;                              // next row
-    fnew += lni ;                              // next row
+    update_error_stats(fref, fnew, nr, e) ;    // update stats for this row
+    fref += lref ;                              // next row
+    fnew += lnew ;                              // next row
   }
 }

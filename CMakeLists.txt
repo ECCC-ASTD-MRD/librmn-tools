@@ -210,6 +210,7 @@ set(PROJECT_C_FILES
   src/pack/misc_pack.c
   src/pack/misc_operators.c
   src/pack/ieee_quantize.c
+  src/pack/move_blocks.c
   src/diag/tee_print.c
   src/diag/test_helpers.c
   src/diag/misc_analyze.c

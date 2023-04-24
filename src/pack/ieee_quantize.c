@@ -1,4 +1,4 @@
-/* Hopefully useful routines for C and FORTRAN
+/* Hopefully useful functions for C and FORTRAN
  * Copyright (C) 2021  Recherche en Prevision Numerique
  *
  * This library is free software; you can redistribute it and/or
@@ -73,7 +73,7 @@ int IEEE32_linear_unquantize(void * restrict q, uint64_t u64, int ni, void * res
   scount = h64.p.shft ;                // shift count
   offset = h64.p.bias >> scount ;      // bias before shifting
   pos_neg = (! h64.p.allp) ;           // not all >=0
-if(h64.p.cnst) fprintf(stderr, "DEBUG, constant field, pos_neg = %d\n", pos_neg) ;
+// if(h64.p.cnst) fprintf(stderr, "DEBUG, constant field, pos_neg = %d\n", pos_neg) ;
   ni7 = (ni & 7) ;
   if(q == f) {        // restore IN PLACE
     if(h64.p.nbts == 0){
@@ -215,7 +215,7 @@ uint64_t IEEE32_linear_properties(void * restrict f, int np, int nbits, float qu
     }else{                                // a quantization quantum was specified
       temp = (fi1.u >> 23) - (fi2.u >> 23) ;  // IEEE exponent difference between range and quantum
       nbits = temp + 1 + pos_neg ;
-      fprintf(stderr,"DEBUG : provisional nbits = %d, nbitsmax = %d\n", nbits, nbitsmax) ;
+//       fprintf(stderr,"DEBUG : provisional nbits = %d, nbitsmax = %d\n", nbits, nbitsmax) ;
     }
   }
   if(pos_neg) {                           // sign bit needs one bit, reduce allowed bit count by 1, increase nbitsmax
@@ -235,7 +235,7 @@ uint64_t IEEE32_linear_properties(void * restrict f, int np, int nbits, float qu
   }
   // if quantum < delta, nbits may need to be adjusted (except if quantum == 0, when nbits must be used)
   if( (quantum < delta) && (quantum > 0.0f) ) {
-    fprintf(stderr,"quantum (%g) < delta (%g), nbits may need to be adjusted\n", quantum, delta) ;
+//     fprintf(stderr,"quantum (%g) < delta (%g), nbits may need to be adjusted\n", quantum, delta) ;
     while( (quantum<delta) && (nbits<nbitsmax) ){
       nbits++ ;
       scount = 32 - lz - nbits ; scount = (scount < 0) ? 0 : scount ;
@@ -245,7 +245,7 @@ uint64_t IEEE32_linear_properties(void * restrict f, int np, int nbits, float qu
       fi1.u = (maxu[0] >> scount) << scount ; fi2.u = fi1.u - (1 << scount) ;
       delta = fi2.f - fi1.f ;  // difference between values whose quntization differs by 1 unit
     }
-    fprintf(stderr,"adjusted nbits = %d, scount = %d, round = %d, delta = %8.2g\n", nbits, scount, round, delta) ;
+//     fprintf(stderr,"adjusted nbits = %d, scount = %d, round = %d, delta = %8.2g\n", nbits, scount, round, delta) ;
   }
 
 end:                         // update returned struct
@@ -281,6 +281,12 @@ uint64_t IEEE32_quantize_linear(void * restrict f, uint64_t u64, void * restrict
   maskn = RMASK31(nbits) ;                  // largest allowed value for quantized results
   masksign = RMASK31(31) ;                  // sign bit is 0, all others are 1
 
+  if(h64.p.cnst){
+    if(pos_neg){
+      for(i=0 ; i<ni ; i++) qo[i] = fu[i] >> 31 ;
+    }
+    goto end ;
+  }
   ni7 = (ni & 7) ;
   if(f == qs){      // quantize IN PLACE
     if(pos_neg){    // both negative and non negative floats will be quantized
@@ -338,6 +344,7 @@ uint64_t IEEE32_quantize_linear(void * restrict f, uint64_t u64, void * restrict
       }
     }
   }
+end:
   return u64 ;
 }
 

@@ -54,7 +54,7 @@ int main(int argc, char **argv){
   float fi[NPTST], fo[NPTST] ;
   uint32_t *uo = (uint32_t *) fo ;
   uint32_t *ui = (uint32_t *) fi ;
-  uint32_t qu[NPTST] ;
+  int32_t qu[NPTST] ;
   float *fu = (float *) qu ;
   uint64_t h64 ;
   int32_t q[NPTST] ;
@@ -89,6 +89,7 @@ int main(int argc, char **argv){
 //   for(i=0 ; i<NPTS ; i++) fo[i] = fi[i] ;
   fprintf(stderr, " in[0:1] = %g, %g\n", fi[0], fi[1]) ;
   for(i=0 ; i<NPTS ; i++) fprintf(stderr, " %5.2f", (fi[i] < 0.0f) ? fi[i] + baseval : fi[i] - baseval) ; fprintf(stderr, "\n") ;
+  for(i=0 ; i<NPTS ; i++) qu[i] = -1 ;
   h64 = IEEE32_linear_quantize(fi, NPTS, nbits_test, quantum, qu) ;
   for(i=0 ; i<NPTS ; i++) fprintf(stderr, " %5d", qu[i]) ; fprintf(stderr, "\n") ;
   for(i=0 ; i<NPTS ; i++) fo[i] = 999999.0f ;
@@ -107,11 +108,10 @@ int main(int argc, char **argv){
   h64 = IEEE32_linear_quantize(fo, NPTS, nbits_test, quantum, fo) ;;                   // quantize in-place
   for(i=0 ; i<NPTS ; i++) fprintf(stderr, " %5d", uo[i]) ; fprintf(stderr, "\n") ;
   IEEE32_linear_unquantize(fo, h64, NPTS, fo) ;                            // restore in-place
-//   IEEE32_linear_unquantize(qu, h64, NPTS, nbits_test, qu) ;
   for(i=0 ; i<NPTS ; i++) fprintf(stderr, " %5.2f", (fo[i] < 0) ? fo[i] + baseval : fo[i] - baseval) ; fprintf(stderr, "\n") ;
   fprintf(stderr, " out[0:1] = %g, %g\n", fo[0], fo[1]) ;
   for(i=0 ; i<NPTS ; i++) fprintf(stderr, " %5.2f", ABS(fo[i]-fi[i])) ; fprintf(stderr, "\n") ;
-return 0 ;
+
   fprintf(stderr, "\n=============== TIMINGS ==============\n") ;
   for(i=0 ; i<NPTST ; i++) fi[i] = i + .0001f ;
   TIME_LOOP_EZ(1000, NPTST, h64 = IEEE32_linear_quantize(fi, NPTST, 16, .1f, qu)) ;
