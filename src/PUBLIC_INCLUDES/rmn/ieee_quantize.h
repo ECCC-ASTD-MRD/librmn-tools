@@ -19,6 +19,7 @@
 #if ! defined(IEEE_QUANTIZE_INCLUDES)
 #define IEEE_QUANTIZE_INCLUDES
 
+#include <stdint.h>
 // #include <rmn/tools_types.h>
 
 typedef struct{
