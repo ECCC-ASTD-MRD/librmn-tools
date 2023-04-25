@@ -211,6 +211,7 @@ set(PROJECT_C_FILES
   src/pack/misc_operators.c
   src/pack/ieee_quantize.c
   src/pack/move_blocks.c
+  src/pack/tools_function_call.c
   src/diag/tee_print.c
   src/diag/test_helpers.c
   src/diag/misc_analyze.c
@@ -260,7 +261,8 @@ set(PROJECT_H_FILES
   src/PUBLIC_INCLUDES/rmn/misc_analyze.h
   src/PUBLIC_INCLUDES/rmn/ieee_quantize.h
   src/PUBLIC_INCLUDES/rmn/c_record_ioe.h
-  src/PUBLIC_INCLUDES/c_binding_extras.hf
+  src/PUBLIC_INCLUDES/rmn/tools_function_call.h
+  src/PUBLIC_INCLUDES/rmn/c_binding_extras.hf
 )
 
 set(PROJECT_INCLUDES

@@ -17,17 +17,64 @@
 #include <stdint.h>
 #include <stddef.h>
 
+enum ArgType{
+  Arg_u8  ,   // 8/16/32/64 unsigned integer
+  Arg_u16 ,
+  Arg_u32 ,
+  Arg_u64 ,
+  Arg_i8  ,   // 8/16/32/64 signed integer
+  Arg_i16 ,
+  Arg_i32 ,
+  Arg_i64 ,
+  Arg_f   ,   // 32 bit float
+  Arg_d   ,   // 64 bit float
+  Arg_p       // memory pointer
+} ;
+
+typedef union{     // 8/16/32/64 signed/unsigned integer, float/double, pointer
+  uint8_t  u8  ;   // 8/16/32/64 unsigned integer
+  uint16_t u16 ;
+  uint32_t u32 ;
+  uint64_t u64 ;
+  int8_t   i8  ;   // 8/16/32/64 signed integer
+  int16_t  i16 ;
+  int32_t  i32 ;
+  int64_t  i64 ;
+  float    f   ;   // 32 bit float
+  double   d   ;   // 64 bit float
+  void    *p   ;   // memory pointer
+} AnyType ;
+
+typedef struct{     // argument
+  uint64_t name:56, // 8 x 7bit ASCII name
+           kind:8 ; // type code (from ArgType)
+  AnyType value ;   // argument value
+} Argument ;
+
+typedef struct{
+  int maxargs ;     // max number of arguments permitted
+  int numargs ;     // actual number of arguments
+  Argument arg[] ;
+} Arg_stack ;
+
+typedef AnyType (*Arg_fn)(Arg_stack *) ;
+
+typedef struct{
+  Arg_fn    fn ;   // function to be called, returns AnyType, takes pointer to argstack as only argument ;
+  Arg_stack s  ;   // argument stack
+} Arg_callback ;
+
 typedef union{     // float | (un)signed 32 bit integer
   uint32_t u ;
   int32_t  i ;
   float    f ;
-} FloatInt;
+} FloatInt ;
 
 typedef union{     // float | (un)signed 64 bit integer
   uint64_t ul ;
   int64_t  l ;
   double   d ;
-} DoubleLong;
+} DoubleLong ;
 
 typedef struct{    // pair of signed 32 bit integers
   int32_t t[2] ;
