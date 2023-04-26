@@ -55,13 +55,13 @@ typedef struct{
   int maxargs ;     // max number of arguments permitted
   int numargs ;     // actual number of arguments
   Argument arg[] ;
-} Arg_stack ;
+} Arg_list ;
 
-typedef AnyType (*Arg_fn)(Arg_stack *) ;
+typedef AnyType (*Arg_fn)(Arg_list *) ;
 
 typedef struct{
   Arg_fn    fn ;   // function to be called, returns AnyType, takes pointer to argstack as only argument ;
-  Arg_stack s  ;   // argument stack
+  Arg_list s  ;   // argument stack
 } Arg_callback ;
 
 typedef union{     // float | (un)signed 32 bit integer
