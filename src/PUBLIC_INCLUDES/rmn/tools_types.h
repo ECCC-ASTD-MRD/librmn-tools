@@ -17,51 +17,73 @@
 #include <stdint.h>
 #include <stddef.h>
 
+// start enum at value 1, 0 is used as invalid/uninitialized
 enum ArgType{
-  Arg_u8  ,   // 8/16/32/64 unsigned integer
-  Arg_u16 ,
-  Arg_u32 ,
-  Arg_u64 ,
-  Arg_i8  ,   // 8/16/32/64 signed integer
-  Arg_i16 ,
-  Arg_i32 ,
-  Arg_i64 ,
-  Arg_f   ,   // 32 bit float
-  Arg_d   ,   // 64 bit float
-  Arg_p       // memory pointer
+  Arg_u8 = 1 , // 8/16/32/64 unsigned integer
+  Arg_u16  ,
+  Arg_u32  ,
+  Arg_u64  ,
+  Arg_i8   ,   // 8/16/32/64 signed integer
+  Arg_i16  ,
+  Arg_i32  ,
+  Arg_i64  ,
+  Arg_f    ,   // 32 bit float
+  Arg_d    ,   // 64 bit float
+  Arg_p    ,   // generic memory pointer
+  Arg_u8p ,    // pointer to 8 bit unsigned integer
+  Arg_i8p ,    // pointer to 8 bit signed integer
+  Arg_u16p ,   // pointer to 16 bit unsigned integer
+  Arg_i16p ,   // pointer to 16 bit signed integer
+  Arg_u32p ,   // pointer to 32 bit unsigned integer
+  Arg_i32p ,   // pointer to 32 bit signed integer
+  Arg_u64p ,   // pointer to 64 bit unsigned integer
+  Arg_i64p ,   // pointer to 64 bit signed integer
+  Arg_fp   ,   // pointer to 32 bit float
+  Arg_dp       // pointer to 64 bit double
 } ;
 
-typedef union{     // 8/16/32/64 signed/unsigned integer, float/double, pointer
-  uint8_t  u8  ;   // 8/16/32/64 unsigned integer
-  uint16_t u16 ;
-  uint32_t u32 ;
-  uint64_t u64 ;
-  int8_t   i8  ;   // 8/16/32/64 signed integer
-  int16_t  i16 ;
-  int32_t  i32 ;
-  int64_t  i64 ;
-  float    f   ;   // 32 bit float
-  double   d   ;   // 64 bit float
-  void    *p   ;   // memory pointer
+typedef union{      // 8/16/32/64 signed/unsigned integer, float, double, pointer to previous
+  uint8_t  u8   ;   // 8/16/32/64 unsigned integer
+  uint16_t u16  ;
+  uint32_t u32  ;
+  uint64_t u64  ;
+  int8_t   i8   ;   // 8/16/32/64 signed integer
+  int16_t  i16  ;
+  int32_t  i32  ;
+  int64_t  i64  ;
+  float    f    ;   // 32 bit float
+  double   d    ;   // 64 bit float
+  void    *p    ;   // generic memory pointer
+  void    *u8p  ;   // pointer to 8 bit unsigned integer
+  void    *i8p  ;   // pointer to 8 bit signed integer
+  void    *u16p ;   // pointer to 16 bit unsigned integer
+  void    *i16p ;   // pointer to 16 bit signed integer
+  void    *u32p ;   // pointer to 32 bit unsigned integer
+  void    *i32p ;   // pointer to 32 bit signed integer
+  void    *u64p ;   // pointer to 64 bit unsigned integer
+  void    *i64p ;   // pointer to 64 bit signed integer
+  void    *fp   ;   // pointer to 32 bit float
+  void    *dp   ;   // pointer to 32 bit double
 } AnyType ;
 
-typedef struct{     // argument
+typedef struct{     // argument list element
   uint64_t name:56, // 8 x 7bit ASCII name
            kind:8 ; // type code (from ArgType)
   AnyType value ;   // argument value
 } Argument ;
 
-typedef struct{
+typedef struct{     // serialized argument list structure
   int maxargs ;     // max number of arguments permitted
-  int numargs ;     // actual number of arguments
+  int numargs:24 ,  // actual number of arguments
+      result:8 ;    // return value type
   Argument arg[] ;
 } Arg_list ;
 
-typedef AnyType (*Arg_fn)(Arg_list *) ;
+typedef AnyType (*Arg_fn)(Arg_list *) ;  // pointer to function with serialized argument list
 
-typedef struct{
-  Arg_fn    fn ;   // function to be called, returns AnyType, takes pointer to argstack as only argument ;
-  Arg_list s  ;   // argument stack
+typedef struct{    // serialized argument list control structure
+  Arg_fn    fn ;   // function to be called, returns AnyType, takes pointer to Arg_list as only argument ;
+  Arg_list s  ;    // argument list
 } Arg_callback ;
 
 typedef union{     // float | (un)signed 32 bit integer

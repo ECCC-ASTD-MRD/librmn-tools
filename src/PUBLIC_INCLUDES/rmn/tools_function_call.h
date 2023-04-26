@@ -19,5 +19,13 @@ int Arg_int64(int64_t v, Arg_callback *c, char *name);     // add signed 64 bit 
 int Arg_float(float v, Arg_callback *c, char *name);       // add 32 bit float argument
 int Arg_double(double v, Arg_callback *c, char *name);     // add 64 bit double argument
 int Arg_ptr(void *v, Arg_callback *c, char *name);         // add pointer argument
+int Arg_uint8p(uint8_t *v, Arg_callback *c, char *name);   // add pointer to unsigned 8 bit integer argument
+int Arg_int8p(int8_t *v, Arg_callback *c, char *name);     // add pointer to signed 8 bit integer argument
+int Arg_uint16p(uint16_t *v, Arg_callback *c, char *name); // add pointer to unsigned 32 bit integer argument
+int Arg_int16p(int16_t *v, Arg_callback *c, char *name);   // add pointer to signed 32 bit integer argument
+int Arg_uint32p(uint32_t *v, Arg_callback *c, char *name); // add pointer to unsigned 32 bit integer argument
+int Arg_int32p(int32_t *v, Arg_callback *c, char *name);   // add pointer to signed 32 bit integer argument
+int Arg_floatp(float *v, Arg_callback *c, char *name);     // add pointer to 32 bit float argument
+int Arg_doublep(double *v, Arg_callback *c, char *name);   // add pointer to 64 bit double argument
 
 #endif

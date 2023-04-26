@@ -24,12 +24,12 @@ void *demo_fn(int8_t i8, float  f, double d, int8_t *i8p, float *fp, double *dp)
 // builds the argument list
 Arg_callback *wrap_demo_fn(int8_t i8, float  f, double d, int8_t *i8p, float *fp, double *dp){
   Arg_callback *c = Arg_init(call_demo_fn, 6) ;   // target function
-  Arg_int8(i8,   c, "i8") ;                       // the arguments
-  Arg_float(f,   c, "f") ;
-  Arg_double(d,  c, "d") ;
-  Arg_ptr(i8p,   c, "i8p") ;
-  Arg_ptr(fp,    c, "fp") ;
-  Arg_ptr(dp,    c, "dp") ;
+  Arg_int8(i8,    c, "i8") ;                      // 8 bit signed integer argument
+  Arg_float(f,    c, "f") ;                       // 32 bit float argument
+  Arg_double(d,   c, "d") ;                       // 64 bit double argument
+  Arg_int8p(i8p,  c, "i8p") ;                     // pointer to 8 bit signed integer argument
+  Arg_floatp(fp,  c, "fp") ;                      // pointer to 32 bit float argument
+  Arg_doublep(dp, c, "dp") ;                      // pointer to 64 bit double argument
   return c ;
 }
 
@@ -41,9 +41,9 @@ AnyType call_demo_fn(Arg_list *list){
     t.p = demo_fn(list->arg[0].value.i8, 
                   list->arg[1].value.f, 
                   list->arg[2].value.d, 
-                  list->arg[3].value.p, 
-                  list->arg[4].value.p, 
-                  list->arg[5].value.p ) ;
+                  list->arg[3].value.i8p, 
+                  list->arg[4].value.fp, 
+                  list->arg[5].value.dp ) ;
   }else{
     fprintf(stderr,"ERROR: wrong number of arguments, expecting 6, got %d\n", list->numargs) ;
     t.p = NULL ;
