@@ -32,6 +32,32 @@ typedef enum{
   Arg_void     // no return value
 } ArgType ;
 
+static char *Arg_kind[] = {
+  "INVALID" ,
+  "u8"   ,
+  "u16"  ,
+  "u32"  ,
+  "u64"  ,
+  "i8"   ,
+  "i16"  ,
+  "i32"  ,
+  "i64"  ,
+  "f"    ,
+  "d"    ,
+  "p"    ,
+  "u8p"  ,
+  "i8p"  ,
+  "u16p" ,
+  "i16p" ,
+  "u32p" ,
+  "i32p" ,
+  "u64p" ,
+  "i64p" ,
+  "fp"   ,
+  "dp"   ,
+  "void"
+} ;
+
 typedef struct{     // argument list element
   uint64_t name:56, // 8 x 7bit ASCII name
            kind:8 ; // type code (from ArgType)
@@ -53,6 +79,8 @@ typedef struct{    // serialized argument list control structure
 } Arg_fn_list ;
 
 Arg_fn_list *Arg_init(Arg_fn fn, int maxargs);            // initialize Arg_fn_list structure
+void Arg_name(int64_t hash, unsigned char *name);         // get name string from hash
+void Arg_list_dump(Arg_list *s);                          // dump argument names and types
 static inline Arg_list *Arg_list_address(Arg_fn_list *c)  // get address of argument list
   { return &(c->s) ; }
 static inline void Arg_result(ArgType kind, Arg_list *s)   // set result type in argument list

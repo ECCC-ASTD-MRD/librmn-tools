@@ -17,35 +17,79 @@
 #include <stdlib.h>
 #include <rmn/serialized_functions.h>
 
+// create new  Arg_list structure
+// maxargs : maximum allowable number of arguments
+// return  : address of allocated structure
 Arg_list *Arg_list_init(int maxargs){
   size_t the_size = sizeof(Arg_list) + maxargs * sizeof(Argument) ;
   Arg_list *temp = (Arg_list *) malloc(the_size) ;
-  temp->maxargs = maxargs ;
-  temp->numargs = 0 ;        // no actual arguments yet
-  temp->result = 0 ;         // invalid kind
+
+  if(temp != NULL){
+    temp->maxargs = maxargs ;
+    temp->numargs = 0 ;        // no actual arguments yet
+    temp->result = 0 ;         // invalid kind
+  }
   return temp ;
 }
 
+// create new  Arg_fn_list structure
+// fn      : address of function to be called eventually
+// maxargs : maximum allowable number of arguments
+// return  : address of allocated structure
 Arg_fn_list *Arg_init(Arg_fn fn, int maxargs){
   size_t the_size = sizeof(Arg_fn_list) + maxargs * sizeof(Argument) ;
   Arg_fn_list *temp = (Arg_fn_list *) malloc(the_size) ;
 
-  temp->fn = fn ;
-  temp->s.maxargs = maxargs ;
-  temp->s.numargs = 0 ;        // no actual arguments yet
-  temp->s.result = 0 ;         // invalid kind
+  if(temp != NULL){
+    temp->fn = fn ;
+    temp->s.maxargs = maxargs ;
+    temp->s.numargs = 0 ;        // no actual arguments yet
+    temp->s.result = 0 ;         // invalid kind
+  }
   return temp ;
 }
 
-static int hash_name(char *name){
+// hash argument name
+// up to 8 characters are kept, 7 bits per character
+// name   : name of argument
+// return : 56 bit hash
+static int64_t hash_name(char *name){
   int i ;
-  int hash = 0 ;
+  int64_t hash = 0 ;
   for(i=0 ; i<8 && name[i] != '\0' ; i++){
     hash = (hash <<7) + name[i] ;
   }
+  for( ; i<8 ; i++) hash <<= 7 ;    // left align the 56 bit hash
   return hash ;
 }
 
+// translate name hash to character string
+// hash   : from hash_name()
+// name   : character array that can receive at least 9 characters
+void Arg_name(int64_t hash, unsigned char *name){
+  int i ;
+  for(i=0 ; i<8 ; i++){
+    name[i] = (hash >> 49) & 0x7F ;
+    hash <<= 7 ;
+  }
+  name[9] = '\0' ;   // make sure there is a null at then end of the name string
+}
+
+// dump names and types of arguments and result from Arg_list
+void Arg_list_dump(Arg_list *s){
+  unsigned char name[9] ;
+  int i ;
+  for(i=0 ; i<s->numargs ; i++){
+    Arg_name(s->arg[i].name, name) ;
+    fprintf(stderr, "argument %2d : name = %9s, kind = %4s\n", i+1, name, Arg_kind[s->arg[i].kind]) ;
+  }
+  fprintf(stderr, "function result kind = %s\n", Arg_kind[s->result]) ;
+}
+
+// add argument to Arg_list
+// v           [IN] : uint8_t value
+// Arg_list [INOUT] : pointer to argument list struct
+// name        [IN] : argument name, up to 8 characters
 int Arg_uint8(uint8_t v, Arg_list *s, char *name){
   int numargs = s->numargs ;
 
@@ -57,6 +101,10 @@ int Arg_uint8(uint8_t v, Arg_list *s, char *name){
   return s->numargs ;
 }
 
+// add argument to Arg_list
+// v           [IN] : int8_t value
+// Arg_list [INOUT] : pointer to argument list struct
+// name        [IN] : argument name, up to 8 characters
 int Arg_int8(int8_t v, Arg_list *s, char *name){
   int numargs = s->numargs ;
 
@@ -68,6 +116,10 @@ int Arg_int8(int8_t v, Arg_list *s, char *name){
   return s->numargs ;
 }
 
+// add argument to Arg_list
+// v           [IN] : uint16_t value
+// Arg_list [INOUT] : pointer to argument list struct
+// name        [IN] : argument name, up to 8 characters
 int Arg_uint16(uint16_t v, Arg_list *s, char *name){
   int numargs = s->numargs ;
 
@@ -79,6 +131,10 @@ int Arg_uint16(uint16_t v, Arg_list *s, char *name){
   return s->numargs ;
 }
 
+// add argument to Arg_list
+// v           [IN] : int16_t value
+// Arg_list [INOUT] : pointer to argument list struct
+// name        [IN] : argument name, up to 8 characters
 int Arg_int16(int16_t v, Arg_list *s, char *name){
   int numargs = s->numargs ;
 
@@ -90,6 +146,10 @@ int Arg_int16(int16_t v, Arg_list *s, char *name){
   return s->numargs ;
 }
 
+// add argument to Arg_list
+// v           [IN] : uint32_t value
+// Arg_list [INOUT] : pointer to argument list struct
+// name        [IN] : argument name, up to 8 characters
 int Arg_uint32(uint32_t v, Arg_list *s, char *name){
   int numargs = s->numargs ;
 
@@ -101,6 +161,10 @@ int Arg_uint32(uint32_t v, Arg_list *s, char *name){
   return s->numargs ;
 }
 
+// add argument to Arg_list
+// v           [IN] : int32_t value
+// Arg_list [INOUT] : pointer to argument list struct
+// name        [IN] : argument name, up to 8 characters
 int Arg_int32(int32_t v, Arg_list *s, char *name){
   int numargs = s->numargs ;
 
@@ -112,6 +176,10 @@ int Arg_int32(int32_t v, Arg_list *s, char *name){
   return s->numargs ;
 }
 
+// add argument to Arg_list
+// v           [IN] : uint64_t value
+// Arg_list [INOUT] : pointer to argument list struct
+// name        [IN] : argument name, up to 8 characters
 int Arg_uint64(uint64_t v, Arg_list *s, char *name){
   int numargs = s->numargs ;
 
@@ -123,6 +191,10 @@ int Arg_uint64(uint64_t v, Arg_list *s, char *name){
   return s->numargs ;
 }
 
+// add argument to Arg_list
+// v           [IN] : int64_t value
+// Arg_list [INOUT] : pointer to argument list struct
+// name        [IN] : argument name, up to 8 characters
 int Arg_int64(int64_t v, Arg_list *s, char *name){
   int numargs = s->numargs ;
 
@@ -134,6 +206,10 @@ int Arg_int64(int64_t v, Arg_list *s, char *name){
   return s->numargs ;
 }
 
+// add argument to Arg_list
+// v           [IN] : float value
+// Arg_list [INOUT] : pointer to argument list struct
+// name        [IN] : argument name, up to 8 characters
 int Arg_float(float v, Arg_list *s, char *name){
   int numargs = s->numargs ;
 
@@ -145,6 +221,10 @@ int Arg_float(float v, Arg_list *s, char *name){
   return s->numargs ;
 }
 
+// add argument to Arg_list
+// v           [IN] : double value
+// Arg_list [INOUT] : pointer to argument list struct
+// name        [IN] : argument name, up to 8 characters
 int Arg_double(double v, Arg_list *s, char *name){
   int numargs = s->numargs ;
 
@@ -156,6 +236,10 @@ int Arg_double(double v, Arg_list *s, char *name){
   return s->numargs ;
 }
 
+// add argument to Arg_list
+// v           [IN] : pointer
+// Arg_list [INOUT] : pointer to argument list struct
+// name        [IN] : argument name, up to 8 characters
 int Arg_ptr(void *v, Arg_list *s, char *name){
   int numargs = s->numargs ;
 
@@ -167,6 +251,10 @@ int Arg_ptr(void *v, Arg_list *s, char *name){
   return s->numargs ;
 }
 
+// add argument to Arg_list
+// v           [IN] : pointer to uint8_t
+// Arg_list [INOUT] : pointer to argument list struct
+// name        [IN] : argument name, up to 8 characters
 int Arg_uint8p(uint8_t *v, Arg_list *s, char *name){
   int numargs = s->numargs ;
 
@@ -178,6 +266,10 @@ int Arg_uint8p(uint8_t *v, Arg_list *s, char *name){
   return s->numargs ;
 }
 
+// add argument to Arg_list
+// v           [IN] : pointer to int8_t
+// Arg_list [INOUT] : pointer to argument list struct
+// name        [IN] : argument name, up to 8 characters
 int Arg_int8p(int8_t *v, Arg_list *s, char *name){
   int numargs = s->numargs ;
 
@@ -189,6 +281,10 @@ int Arg_int8p(int8_t *v, Arg_list *s, char *name){
   return s->numargs ;
 }
 
+// add argument to Arg_list
+// v           [IN] : pointer to uint16_t
+// Arg_list [INOUT] : pointer to argument list struct
+// name        [IN] : argument name, up to 8 characters
 int Arg_uint16p(uint16_t *v, Arg_list *s, char *name){
   int numargs = s->numargs ;
 
@@ -200,6 +296,10 @@ int Arg_uint16p(uint16_t *v, Arg_list *s, char *name){
   return s->numargs ;
 }
 
+// add argument to Arg_list
+// v           [IN] : pointer to int16_t
+// Arg_list [INOUT] : pointer to argument list struct
+// name        [IN] : argument name, up to 8 characters
 int Arg_int16p(int16_t *v, Arg_list *s, char *name){
   int numargs = s->numargs ;
 
@@ -211,6 +311,10 @@ int Arg_int16p(int16_t *v, Arg_list *s, char *name){
   return s->numargs ;
 }
 
+// add argument to Arg_list
+// v           [IN] : pointer to uint32_t
+// Arg_list [INOUT] : pointer to argument list struct
+// name        [IN] : argument name, up to 8 characters
 int Arg_uint32p(uint32_t *v, Arg_list *s, char *name){
   int numargs = s->numargs ;
 
@@ -222,6 +326,10 @@ int Arg_uint32p(uint32_t *v, Arg_list *s, char *name){
   return s->numargs ;
 }
 
+// add argument to Arg_list
+// v           [IN] : pointer to int32_t
+// Arg_list [INOUT] : pointer to argument list struct
+// name        [IN] : argument name, up to 8 characters
 int Arg_int32p(int32_t *v, Arg_list *s, char *name){
   int numargs = s->numargs ;
 
@@ -233,6 +341,10 @@ int Arg_int32p(int32_t *v, Arg_list *s, char *name){
   return s->numargs ;
 }
 
+// add argument to Arg_list
+// v           [IN] : pointer to uint64_t
+// Arg_list [INOUT] : pointer to argument list struct
+// name        [IN] : argument name, up to 8 characters
 int Arg_uint64p(uint64_t *v, Arg_list *s, char *name){
   int numargs = s->numargs ;
 
@@ -244,6 +356,10 @@ int Arg_uint64p(uint64_t *v, Arg_list *s, char *name){
   return s->numargs ;
 }
 
+// add argument to Arg_list
+// v           [IN] : pointer to int64_t
+// Arg_list [INOUT] : pointer to argument list struct
+// name        [IN] : argument name, up to 8 characters
 int Arg_int64p(int64_t *v, Arg_list *s, char *name){
   int numargs = s->numargs ;
 
@@ -255,6 +371,10 @@ int Arg_int64p(int64_t *v, Arg_list *s, char *name){
   return s->numargs ;
 }
 
+// add argument to Arg_list
+// v           [IN] : pointer to float
+// Arg_list [INOUT] : pointer to argument list struct
+// name        [IN] : argument name, up to 8 characters
 int Arg_floatp(float *v, Arg_list *s, char *name){
   int numargs = s->numargs ;
 
@@ -266,6 +386,10 @@ int Arg_floatp(float *v, Arg_list *s, char *name){
   return s->numargs ;
 }
 
+// add argument to Arg_list
+// v           [IN] : pointer to double
+// Arg_list [INOUT] : pointer to argument list struct
+// name        [IN] : argument name, up to 8 characters
 int Arg_doublep(double *v, Arg_list *s, char *name){
   int numargs = s->numargs ;
 
