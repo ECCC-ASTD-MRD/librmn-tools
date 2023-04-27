@@ -49,7 +49,7 @@ float quantum_adjust(float quantum){
 //           quantum will be adjusted to the first power of 2 <= quantum
 void float_quantize_prep(int nbits, QuantizeHeader *p, float maxval, float minval, float quantum) {
   FloatInt   m1, m2, m3;  // access as float or 32 bit int
-  DoubleLong m0 ;         // access as double or 64 bit long
+  AnyType m0 ;         // access as double or 64 bit long
   int exp1, exp2, exp3 ;
   float fac32, range;
   double fac64 ;
@@ -160,7 +160,7 @@ void float_quantize(void *iz, float *z, int ni, int lni, int lniz, int nj, Quant
       izw += lniz ;
     }
   }else{                                   // need to use a double to perform the quantification correctly
-    DoubleLong m1;
+    AnyType m1;
     double fac64 ;
     m1.l = (1023 + (23 - expmax)) ;        // factor to bring largest exponent to 23
     m1.l = m1.l << 52 ;
@@ -327,7 +327,7 @@ void float_unquantize(void *iz, float *z, int ni, int lni, int lniz, int nj, Qua
       izw += lniz ;
     }
   }else{                                 // "uncivilized" exponent for largest value
-    DoubleLong m1;                       // must use a double for conversion
+    AnyType m1;                       // must use a double for conversion
     double fac64;
     exp = (exp > 127) ? 127 : exp ;
     m1.l = (exp + 1023 - 23) ;  // inverse of factor to bring largest exponent to 23

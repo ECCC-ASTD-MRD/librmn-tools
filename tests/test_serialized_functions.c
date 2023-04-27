@@ -73,7 +73,7 @@ int main(int argc, char **argv){
 
   start_of_test(argv[0]);
   c = wrap_demo_fn(i8, f, d, &i8, &f, &d) ;
-  r = CALL_SERIALIZED(c) ;
+  r = SERIALIZED_FUNCTION(c) ;
   fp = (float *) r.p ;
   if(fp == NULL){
     fprintf(stderr,"ERROR: called function returned NULL\n") ;
