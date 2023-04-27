@@ -15,11 +15,20 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <stdlib.h>
-#include <rmn/tools_function_call.h>
+#include <rmn/serialized_functions.h>
 
-Arg_callback *Arg_init(Arg_fn fn, int maxargs){
-  size_t the_size = sizeof(Arg_callback) + maxargs * sizeof(Argument) ;
-  Arg_callback *temp = (Arg_callback *) malloc(the_size) ;
+Arg_list *Arg_list_init(int maxargs){
+  size_t the_size = sizeof(Arg_list) + maxargs * sizeof(Argument) ;
+  Arg_list *temp = (Arg_list *) malloc(the_size) ;
+  temp->maxargs = maxargs ;
+  temp->numargs = 0 ;        // no actual arguments yet
+  temp->result = 0 ;         // invalid kind
+  return temp ;
+}
+
+Arg_fn_list *Arg_init(Arg_fn fn, int maxargs){
+  size_t the_size = sizeof(Arg_fn_list) + maxargs * sizeof(Argument) ;
+  Arg_fn_list *temp = (Arg_fn_list *) malloc(the_size) ;
 
   temp->fn = fn ;
   temp->s.maxargs = maxargs ;
@@ -37,8 +46,7 @@ static int hash_name(char *name){
   return hash ;
 }
 
-int Arg_uint8(uint8_t v, Arg_callback *c, char *name){
-  Arg_list *s = &(c->s) ;
+int Arg_uint8(uint8_t v, Arg_list *s, char *name){
   int numargs = s->numargs ;
 
   if(numargs >= s->maxargs) return -1 ;
@@ -49,8 +57,7 @@ int Arg_uint8(uint8_t v, Arg_callback *c, char *name){
   return s->numargs ;
 }
 
-int Arg_int8(int8_t v, Arg_callback *c, char *name){
-  Arg_list *s = &(c->s) ;
+int Arg_int8(int8_t v, Arg_list *s, char *name){
   int numargs = s->numargs ;
 
   if(numargs >= s->maxargs) return -1 ;
@@ -61,8 +68,7 @@ int Arg_int8(int8_t v, Arg_callback *c, char *name){
   return s->numargs ;
 }
 
-int Arg_uint16(uint16_t v, Arg_callback *c, char *name){
-  Arg_list *s = &(c->s) ;
+int Arg_uint16(uint16_t v, Arg_list *s, char *name){
   int numargs = s->numargs ;
 
   if(numargs >= s->maxargs) return -1 ;
@@ -73,8 +79,7 @@ int Arg_uint16(uint16_t v, Arg_callback *c, char *name){
   return s->numargs ;
 }
 
-int Arg_int16(int16_t v, Arg_callback *c, char *name){
-  Arg_list *s = &(c->s) ;
+int Arg_int16(int16_t v, Arg_list *s, char *name){
   int numargs = s->numargs ;
 
   if(numargs >= s->maxargs) return -1 ;
@@ -85,8 +90,7 @@ int Arg_int16(int16_t v, Arg_callback *c, char *name){
   return s->numargs ;
 }
 
-int Arg_uint32(uint32_t v, Arg_callback *c, char *name){
-  Arg_list *s = &(c->s) ;
+int Arg_uint32(uint32_t v, Arg_list *s, char *name){
   int numargs = s->numargs ;
 
   if(numargs >= s->maxargs) return -1 ;
@@ -97,8 +101,7 @@ int Arg_uint32(uint32_t v, Arg_callback *c, char *name){
   return s->numargs ;
 }
 
-int Arg_int32(int32_t v, Arg_callback *c, char *name){
-  Arg_list *s = &(c->s) ;
+int Arg_int32(int32_t v, Arg_list *s, char *name){
   int numargs = s->numargs ;
 
   if(numargs >= s->maxargs) return -1 ;
@@ -109,8 +112,7 @@ int Arg_int32(int32_t v, Arg_callback *c, char *name){
   return s->numargs ;
 }
 
-int Arg_uint64(uint64_t v, Arg_callback *c, char *name){
-  Arg_list *s = &(c->s) ;
+int Arg_uint64(uint64_t v, Arg_list *s, char *name){
   int numargs = s->numargs ;
 
   if(numargs >= s->maxargs) return -1 ;
@@ -121,8 +123,7 @@ int Arg_uint64(uint64_t v, Arg_callback *c, char *name){
   return s->numargs ;
 }
 
-int Arg_int64(int64_t v, Arg_callback *c, char *name){
-  Arg_list *s = &(c->s) ;
+int Arg_int64(int64_t v, Arg_list *s, char *name){
   int numargs = s->numargs ;
 
   if(numargs >= s->maxargs) return -1 ;
@@ -133,8 +134,7 @@ int Arg_int64(int64_t v, Arg_callback *c, char *name){
   return s->numargs ;
 }
 
-int Arg_float(float v, Arg_callback *c, char *name){
-  Arg_list *s = &(c->s) ;
+int Arg_float(float v, Arg_list *s, char *name){
   int numargs = s->numargs ;
 
   if(numargs >= s->maxargs) return -1 ;
@@ -145,8 +145,7 @@ int Arg_float(float v, Arg_callback *c, char *name){
   return s->numargs ;
 }
 
-int Arg_double(double v, Arg_callback *c, char *name){
-  Arg_list *s = &(c->s) ;
+int Arg_double(double v, Arg_list *s, char *name){
   int numargs = s->numargs ;
 
   if(numargs >= s->maxargs) return -1 ;
@@ -157,8 +156,7 @@ int Arg_double(double v, Arg_callback *c, char *name){
   return s->numargs ;
 }
 
-int Arg_ptr(void *v, Arg_callback *c, char *name){
-  Arg_list *s = &(c->s) ;
+int Arg_ptr(void *v, Arg_list *s, char *name){
   int numargs = s->numargs ;
 
   if(numargs >= s->maxargs) return -1 ;
@@ -169,8 +167,7 @@ int Arg_ptr(void *v, Arg_callback *c, char *name){
   return s->numargs ;
 }
 
-int Arg_uint8p(uint8_t *v, Arg_callback *c, char *name){
-  Arg_list *s = &(c->s) ;
+int Arg_uint8p(uint8_t *v, Arg_list *s, char *name){
   int numargs = s->numargs ;
 
   if(numargs >= s->maxargs) return -1 ;
@@ -181,8 +178,7 @@ int Arg_uint8p(uint8_t *v, Arg_callback *c, char *name){
   return s->numargs ;
 }
 
-int Arg_int8p(int8_t *v, Arg_callback *c, char *name){
-  Arg_list *s = &(c->s) ;
+int Arg_int8p(int8_t *v, Arg_list *s, char *name){
   int numargs = s->numargs ;
 
   if(numargs >= s->maxargs) return -1 ;
@@ -193,8 +189,7 @@ int Arg_int8p(int8_t *v, Arg_callback *c, char *name){
   return s->numargs ;
 }
 
-int Arg_uint16p(uint16_t *v, Arg_callback *c, char *name){
-  Arg_list *s = &(c->s) ;
+int Arg_uint16p(uint16_t *v, Arg_list *s, char *name){
   int numargs = s->numargs ;
 
   if(numargs >= s->maxargs) return -1 ;
@@ -205,8 +200,7 @@ int Arg_uint16p(uint16_t *v, Arg_callback *c, char *name){
   return s->numargs ;
 }
 
-int Arg_int16p(int16_t *v, Arg_callback *c, char *name){
-  Arg_list *s = &(c->s) ;
+int Arg_int16p(int16_t *v, Arg_list *s, char *name){
   int numargs = s->numargs ;
 
   if(numargs >= s->maxargs) return -1 ;
@@ -217,8 +211,7 @@ int Arg_int16p(int16_t *v, Arg_callback *c, char *name){
   return s->numargs ;
 }
 
-int Arg_uint32p(uint32_t *v, Arg_callback *c, char *name){
-  Arg_list *s = &(c->s) ;
+int Arg_uint32p(uint32_t *v, Arg_list *s, char *name){
   int numargs = s->numargs ;
 
   if(numargs >= s->maxargs) return -1 ;
@@ -229,8 +222,7 @@ int Arg_uint32p(uint32_t *v, Arg_callback *c, char *name){
   return s->numargs ;
 }
 
-int Arg_int32p(int32_t *v, Arg_callback *c, char *name){
-  Arg_list *s = &(c->s) ;
+int Arg_int32p(int32_t *v, Arg_list *s, char *name){
   int numargs = s->numargs ;
 
   if(numargs >= s->maxargs) return -1 ;
@@ -241,8 +233,7 @@ int Arg_int32p(int32_t *v, Arg_callback *c, char *name){
   return s->numargs ;
 }
 
-int Arg_floatp(float *v, Arg_callback *c, char *name){
-  Arg_list *s = &(c->s) ;
+int Arg_floatp(float *v, Arg_list *s, char *name){
   int numargs = s->numargs ;
 
   if(numargs >= s->maxargs) return -1 ;
@@ -253,8 +244,7 @@ int Arg_floatp(float *v, Arg_callback *c, char *name){
   return s->numargs ;
 }
 
-int Arg_doublep(double *v, Arg_callback *c, char *name){
-  Arg_list *s = &(c->s) ;
+int Arg_doublep(double *v, Arg_list *s, char *name){
   int numargs = s->numargs ;
 
   if(numargs >= s->maxargs) return -1 ;

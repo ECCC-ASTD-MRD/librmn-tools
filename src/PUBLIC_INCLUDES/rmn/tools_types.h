@@ -18,7 +18,7 @@
 #include <stddef.h>
 
 // start enum at value 1, 0 is used as invalid/uninitialized
-enum ArgType{
+typedef enum{
   Arg_u8 = 1 , // 8/16/32/64 unsigned integer
   Arg_u16  ,
   Arg_u32  ,
@@ -39,8 +39,9 @@ enum ArgType{
   Arg_u64p ,   // pointer to 64 bit unsigned integer
   Arg_i64p ,   // pointer to 64 bit signed integer
   Arg_fp   ,   // pointer to 32 bit float
-  Arg_dp       // pointer to 64 bit double
-} ;
+  Arg_dp   ,   // pointer to 64 bit double
+  Arg_void     // no return value
+} ArgType ;
 
 typedef union{      // 8/16/32/64 signed/unsigned integer, float, double, pointer to previous
   uint8_t  u8   ;   // 8/16/32/64 unsigned integer
@@ -84,7 +85,7 @@ typedef AnyType (*Arg_fn)(Arg_list *) ;  // pointer to function with serialized 
 typedef struct{    // serialized argument list control structure
   Arg_fn    fn ;   // function to be called, returns AnyType, takes pointer to Arg_list as only argument ;
   Arg_list s  ;    // argument list
-} Arg_callback ;
+} Arg_fn_list ;
 
 typedef union{     // float | (un)signed 32 bit integer
   uint32_t u ;
