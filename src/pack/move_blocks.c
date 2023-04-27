@@ -20,7 +20,7 @@
 // SIMD does not seem to be useful any more for these funtions
 #undef WITH_SIMD
 
-#if ! defined(__INTEL_COMPILER_UPDATE)
+#if ! defined(__INTEL_COMPILER_UPDATE) &&  ! defined(__PGI)
 #pragma GCC optimize "tree-vectorize"
 #endif
 

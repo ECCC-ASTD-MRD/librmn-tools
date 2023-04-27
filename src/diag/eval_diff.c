@@ -31,7 +31,7 @@ int update_error_stats(float *fref, float *fnew, int nd, error_stats *e){
   float bias = 0.0f ;
   float abs_error = 0.0f ;
   float max_error = 0.0f ;
-  float temp, tempa ;
+  float temp ;
   int i ;
   double sum = 0.0 ;
 
@@ -74,4 +74,5 @@ int float_array_differences(float *fref, float *fnew, int nr, int lref, int lnew
     fref += lref ;                              // next row
     fnew += lnew ;                              // next row
   }
+  return 0 ;
 }

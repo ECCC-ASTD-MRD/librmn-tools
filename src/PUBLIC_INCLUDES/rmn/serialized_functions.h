@@ -30,6 +30,8 @@ int Arg_uint16p(uint16_t *v, Arg_list *s, char *name); // add pointer to unsigne
 int Arg_int16p(int16_t *v, Arg_list *s, char *name);   // add pointer to signed 32 bit integer argument
 int Arg_uint32p(uint32_t *v, Arg_list *s, char *name); // add pointer to unsigned 32 bit integer argument
 int Arg_int32p(int32_t *v, Arg_list *s, char *name);   // add pointer to signed 32 bit integer argument
+int Arg_uint64p(uint64_t *v, Arg_list *s, char *name); // add pointer to unsigned 64 bit integer argument
+int Arg_int64p(int64_t *v, Arg_list *s, char *name);   // add pointer to signed 64 bit integer argument
 int Arg_floatp(float *v, Arg_list *s, char *name);     // add pointer to 32 bit float argument
 int Arg_doublep(double *v, Arg_list *s, char *name);   // add pointer to 64 bit double argument
 

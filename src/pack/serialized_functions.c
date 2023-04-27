@@ -233,6 +233,28 @@ int Arg_int32p(int32_t *v, Arg_list *s, char *name){
   return s->numargs ;
 }
 
+int Arg_uint64p(uint64_t *v, Arg_list *s, char *name){
+  int numargs = s->numargs ;
+
+  if(numargs >= s->maxargs) return -1 ;
+  s->arg[numargs].name      = hash_name(name) ;
+  s->arg[numargs].kind      = Arg_u64p ;
+  s->arg[numargs].value.u64p = v ;
+  s->numargs++ ;
+  return s->numargs ;
+}
+
+int Arg_int64p(int64_t *v, Arg_list *s, char *name){
+  int numargs = s->numargs ;
+
+  if(numargs >= s->maxargs) return -1 ;
+  s->arg[numargs].name      = hash_name(name) ;
+  s->arg[numargs].kind      = Arg_i64p ;
+  s->arg[numargs].value.i64p = v ;
+  s->numargs++ ;
+  return s->numargs ;
+}
+
 int Arg_floatp(float *v, Arg_list *s, char *name){
   int numargs = s->numargs ;
 

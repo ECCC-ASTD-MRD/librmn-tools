@@ -120,7 +120,7 @@ fprintf(stderr,"ERROR in read_32bit_data_record\n");
 // return : number of data items written (-1 in case of error)
 int write_32bit_data_record(char *filename, int *fdi, int *dims, int ndim, void *buf){
   int fd = *fdi ;
-  size_t nc = 4, nd ;
+  size_t nc = 4 ;
   ssize_t nr ;
   int ndims = ndim, ntot, i ;
 
@@ -141,7 +141,8 @@ fprintf(stderr,"INFO: just closing fd = %d\n", fd);
   ntot = 1 ;
   for(i=0 ; i<ndim ; i++) ntot *= dims[i] ;
   if( (nr = write(fd, buf, nc*ntot)) != nc*ntot) goto error ;  // data
-  if( (nr = write(fd, &ntot, nc)) != nc) goto error  ;         // number of data
+  nr = write(fd, &ntot, nc) ;                                  // number of data
+  if(nr != nc) goto error ;                                    // done this way to suppress warnings
 end:
   if(*fdi < 0) close(fd) ;
   return ntot ;
