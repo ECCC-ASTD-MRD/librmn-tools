@@ -62,6 +62,35 @@ static int64_t hash_name(char *name){
   for( ; i<8 ; i++) hash <<= 7 ;    // left align the 56 bit hash
   return hash ;
 }
+int64_t Arg_name_hash(char *name){
+  return hash_name(name) ;
+}
+
+int Arg_name_hash_index(Arg_list *s, int64_t hash, uint32_t kind){
+  int i ;
+  for(i=0 ; i<s->numargs ; i++){
+    if(hash == s->arg[i].name && kind == s->arg[i].kind) return i ;
+  }
+  return -1 ; // not found
+}
+
+int Arg_name_pos(Arg_list *s, char *name){
+  int64_t hash = hash_name(name) ;
+  int i ;
+  for(i=0 ; i<s->numargs ; i++){
+    if(hash == s->arg[i].name) return i ;
+  }
+  return -1 ; // not found
+}
+
+int Arg_name_index(Arg_list *s, char *name, uint32_t kind){
+  int64_t hash = hash_name(name) ;
+  int i ;
+  for(i=0 ; i<s->numargs ; i++){
+    if(hash == s->arg[i].name && kind == s->arg[i].kind) return i ;
+  }
+  return -1 ; // not found
+}
 
 // translate name hash to character string
 // hash   : from hash_name()
@@ -73,6 +102,42 @@ void Arg_name(int64_t hash, unsigned char *name){
     hash <<= 7 ;
   }
   name[9] = '\0' ;   // make sure there is a null at then end of the name string
+}
+
+// check that argument names in s are consistent with expected name in names
+// Arg_list [IN] : pointer to argument list struct
+// names    [IN] : list of expected argument names
+// ncheck   [IN] : number of positions to check (0 means s->numargs)
+// return        : 0 if no error, 1 otherwise
+int Arg_names_check(Arg_list *s, char **names, int ncheck){
+  int i, errors = 0 ;
+  unsigned char name[9] ;
+  ncheck = (ncheck == 0) ? s->numargs : ncheck ;
+  for(i=0 ; i<ncheck ; i++){
+    if(hash_name(names[i]) != s->arg[i].name) {
+      Arg_name(s->arg[i].name, name) ;
+      fprintf(stderr,"argument %8s found at position %d instead of %s\n", name, i, names[i]) ;
+      errors++ ;
+    }
+  }
+  return (errors > 0) ? 1 : 0 ;
+}
+
+// check that argument kinds in s are consistent with expected kinds
+// Arg_list [IN] : pointer to argument list struct
+// names    [IN] : list of expected argument types
+// ncheck   [IN] : number of positions to check (0 means s->numargs)
+// return        : 0 if no error, 1 otherwise
+int Arg_types_check(Arg_list *s, int *kind, int ncheck){
+  int i, errors = 0 ;
+  ncheck = (ncheck == 0) ? s->numargs : ncheck ;
+  for(i=0 ; i<ncheck ; i++){
+    if(kind[i] != s->arg[i].kind){
+      fprintf(stderr,"argument %2d, expecting %s, got %s\n", i+1, Arg_kind[kind[i]], Arg_kind[s->arg[i].kind]) ;
+      errors++ ;
+    }
+  }
+  return (errors > 0) ? 1 : 0 ;
 }
 
 // dump names and types of arguments and result from Arg_list

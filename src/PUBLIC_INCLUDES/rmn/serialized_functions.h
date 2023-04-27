@@ -78,33 +78,39 @@ typedef struct{    // serialized argument list control structure
   Arg_list s  ;    // argument list
 } Arg_fn_list ;
 
-Arg_fn_list *Arg_init(Arg_fn fn, int maxargs);            // initialize Arg_fn_list structure
-void Arg_name(int64_t hash, unsigned char *name);         // get name string from hash
-void Arg_list_dump(Arg_list *s);                          // dump argument names and types
-static inline Arg_list *Arg_list_address(Arg_fn_list *c)  // get address of argument list
+Arg_fn_list *Arg_init(Arg_fn fn, int maxargs);               // initialize Arg_fn_list structure
+int64_t Arg_name_hash(char *name);                           // get hash associated with name string
+int Arg_name_hash_index(Arg_list *s, int64_t hash, uint32_t kind);   // get argument position in argument list using name hash
+int Arg_name_index(Arg_list *s, char *name, uint32_t kind);          // get argument position in argument list using name
+int Arg_name_pos(Arg_list *s, char *name);                   // get position of name in argument list
+void Arg_name(int64_t hash, unsigned char *name);            // get name string from hash
+int Arg_names_check(Arg_list *s, char **names, int ncheck);  // check argument names against expected names
+int Arg_types_check(Arg_list *s, int *kind, int ncheck);     // check argument types against expected types
+void Arg_list_dump(Arg_list *s);                             // dump argument names and types
+static inline Arg_list *Arg_list_address(Arg_fn_list *c)     // get address of argument list
   { return &(c->s) ; }
-static inline void Arg_result(ArgType kind, Arg_list *s)   // set result type in argument list
+static inline void Arg_result(ArgType kind, Arg_list *s)     // set result type in argument list
   { s->result = kind ; }
-int Arg_uint8(uint8_t v, Arg_list *s, char *name);     // add unsigned 8 bit integer argument
-int Arg_int8(int8_t v, Arg_list *s, char *name);       // add signed 8 bit integer argument
-int Arg_uint16(uint16_t v, Arg_list *s, char *name);   // add unsigned 16 bit integer argument
-int Arg_int16(int16_t v, Arg_list *s, char *name);     // add signed 16 bit integer argument
-int Arg_uint32(uint32_t v, Arg_list *s, char *name);   // add unsigned 32 bit integer argument
-int Arg_int32(int32_t v, Arg_list *s, char *name);     // add signed 32 bit integer argument
-int Arg_uint64(uint64_t v, Arg_list *s, char *name);   // add unsigned 64 bit integer argument
-int Arg_int64(int64_t v, Arg_list *s, char *name);     // add signed 64 bit integer argument
-int Arg_float(float v, Arg_list *s, char *name);       // add 32 bit float argument
-int Arg_double(double v, Arg_list *s, char *name);     // add 64 bit double argument
-int Arg_ptr(void *v, Arg_list *s, char *name);         // add pointer argument
-int Arg_uint8p(uint8_t *v, Arg_list *s, char *name);   // add pointer to unsigned 8 bit integer argument
-int Arg_int8p(int8_t *v, Arg_list *s, char *name);     // add pointer to signed 8 bit integer argument
-int Arg_uint16p(uint16_t *v, Arg_list *s, char *name); // add pointer to unsigned 32 bit integer argument
-int Arg_int16p(int16_t *v, Arg_list *s, char *name);   // add pointer to signed 32 bit integer argument
-int Arg_uint32p(uint32_t *v, Arg_list *s, char *name); // add pointer to unsigned 32 bit integer argument
-int Arg_int32p(int32_t *v, Arg_list *s, char *name);   // add pointer to signed 32 bit integer argument
-int Arg_uint64p(uint64_t *v, Arg_list *s, char *name); // add pointer to unsigned 64 bit integer argument
-int Arg_int64p(int64_t *v, Arg_list *s, char *name);   // add pointer to signed 64 bit integer argument
-int Arg_floatp(float *v, Arg_list *s, char *name);     // add pointer to 32 bit float argument
-int Arg_doublep(double *v, Arg_list *s, char *name);   // add pointer to 64 bit double argument
+int Arg_uint8(uint8_t v, Arg_list *s, char *name);           // add unsigned 8 bit integer argument
+int Arg_int8(int8_t v, Arg_list *s, char *name);             // add signed 8 bit integer argument
+int Arg_uint16(uint16_t v, Arg_list *s, char *name);         // add unsigned 16 bit integer argument
+int Arg_int16(int16_t v, Arg_list *s, char *name);           // add signed 16 bit integer argument
+int Arg_uint32(uint32_t v, Arg_list *s, char *name);         // add unsigned 32 bit integer argument
+int Arg_int32(int32_t v, Arg_list *s, char *name);           // add signed 32 bit integer argument
+int Arg_uint64(uint64_t v, Arg_list *s, char *name);         // add unsigned 64 bit integer argument
+int Arg_int64(int64_t v, Arg_list *s, char *name);           // add signed 64 bit integer argument
+int Arg_float(float v, Arg_list *s, char *name);             // add 32 bit float argument
+int Arg_double(double v, Arg_list *s, char *name);           // add 64 bit double argument
+int Arg_ptr(void *v, Arg_list *s, char *name);               // add pointer argument
+int Arg_uint8p(uint8_t *v, Arg_list *s, char *name);         // add pointer to unsigned 8 bit integer argument
+int Arg_int8p(int8_t *v, Arg_list *s, char *name);           // add pointer to signed 8 bit integer argument
+int Arg_uint16p(uint16_t *v, Arg_list *s, char *name);       // add pointer to unsigned 32 bit integer argument
+int Arg_int16p(int16_t *v, Arg_list *s, char *name);         // add pointer to signed 32 bit integer argument
+int Arg_uint32p(uint32_t *v, Arg_list *s, char *name);       // add pointer to unsigned 32 bit integer argument
+int Arg_int32p(int32_t *v, Arg_list *s, char *name);         // add pointer to signed 32 bit integer argument
+int Arg_uint64p(uint64_t *v, Arg_list *s, char *name);       // add pointer to unsigned 64 bit integer argument
+int Arg_int64p(int64_t *v, Arg_list *s, char *name);         // add pointer to signed 64 bit integer argument
+int Arg_floatp(float *v, Arg_list *s, char *name);           // add pointer to 32 bit float argument
+int Arg_doublep(double *v, Arg_list *s, char *name);         // add pointer to 64 bit double argument
 
 #endif

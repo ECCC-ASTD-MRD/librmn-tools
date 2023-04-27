@@ -8,9 +8,20 @@
 Arg_fn_list *serialize_demo_fn(int8_t i8, float  f, double d, int8_t *i8p, float *fp, double *dp);
 AnyType call_demo_fn(Arg_list *list);
 float *demo_fn(int8_t i8, float  f, double d, int8_t *i8p, float *fp, double *dp);
+float *demo_fn2(int8_t i8, int8_t *i8p, float  f, float *fp, double d, double *dp);
 
 // the useful function
 float *demo_fn(int8_t i8, float  f, double d, int8_t *i8p, float *fp, double *dp){
+  void *r = fp ;
+  fprintf(stderr,"\ni8 = %d, f = %f, d = %f, i8p = %p, fp = %p, dp = %p\n", i8, f, d, i8p, fp, dp) ;
+  if(*i8p != i8) { fprintf(stderr,"ERROR: *i8p != i8\n") ; r = NULL ; }
+  if(*fp  != f ) { fprintf(stderr,"ERROR: *fp != f\n")   ; r = NULL ; }
+  if(*dp  != d ) { fprintf(stderr,"ERROR: *dp != d\n")   ; r = NULL ; }
+  return r ;
+}
+
+// another function
+float *demo_fn2(int8_t i8, int8_t *i8p, float  f, float *fp, double d, double *dp){
   void *r = fp ;
   fprintf(stderr,"\ni8 = %d, f = %f, d = %f, i8p = %p, fp = %p, dp = %p\n", i8, f, d, i8p, fp, dp) ;
   if(*i8p != i8) { fprintf(stderr,"ERROR: *i8p != i8\n") ; r = NULL ; }
@@ -36,6 +47,40 @@ Arg_fn_list *serialize_demo_fn(int8_t i8, float  f, double d, int8_t *i8p, float
   return c ;
 }
 
+AnyType call_demo_fn2(Arg_list *list){
+  AnyType t ;
+  int i ;
+  // expected argument types
+  static uint32_t expected_kinds[]     = {Arg_i8, Arg_i8p, Arg_f, Arg_fp, Arg_d, Arg_dp} ;
+  static uint32_t expected_kinds_bad[] = {Arg_i8, Arg_i8p, Arg_f, Arg_p,  Arg_d, Arg_p} ;
+  static char *expected_names[] =     {"arg_i8", "arg_i8p", "arg_f", "arg_fp", "arg_d", "arg_dp"} ;
+  static char *expected_names_bad[] = {"ARG_I8", "arg_i8p", "arg_f", "arg_fp", "arg_d", "arg_dp"} ;
+  int ix[6] ;
+
+  // arguments 1, 4 and 6 expected to have bad name/type combinations
+  for(i=0 ; i<6 ; i++){
+    ix[i] = Arg_name_index(list, expected_names_bad[i], expected_kinds_bad[i]) ;
+    if(ix[i] < 0) {
+      int ixn, kind = 0 ;
+      ixn = Arg_name_pos(list, expected_names_bad[i]) ;  // find name in argument list
+      if(ixn > 0) kind = list->arg[ixn].kind ;       // if valid, get assocoated type
+      fprintf(stderr, "ERROR: argument %d, name = %s, expecting kind = %s, got %s\n",
+              i+1, expected_names_bad[i], Arg_kind[expected_kinds_bad[i]], Arg_kind[kind]) ;
+    }
+  }
+  fprintf(stderr, "ix =");
+  for(i=0 ; i<6 ; i++){    // reorder argument list
+    ix[i] = Arg_name_index(list, expected_names[i], expected_kinds[i]) ;
+    fprintf(stderr, " %d", ix[i]);
+  }
+  fprintf(stderr, "\n");
+  t.fp = demo_fn2(list->arg[ix[0]].value.i8, 
+                  list->arg[ix[1]].value.i8p, 
+                  list->arg[ix[2]].value.f, 
+                  list->arg[ix[3]].value.fp, 
+                  list->arg[ix[4]].value.d, 
+                  list->arg[ix[5]].value.dp ) ;
+}
 // the wrapper function target
 // - gets the argument list
 // - checks for proper number of arguments
@@ -44,7 +89,8 @@ AnyType call_demo_fn(Arg_list *list){
   AnyType t ;
   int i ;
   // expected argument types
-  static uint32_t expected_args[] = {Arg_i8, Arg_f, Arg_d, Arg_i8p, Arg_fp, Arg_dp} ;
+  static uint32_t expected_kinds[] = {Arg_i8, Arg_f, Arg_d, Arg_i8p, Arg_fp, Arg_dp} ;
+  static char *expected_names[] = {"arg_i8", "arg_f", "arg_d", "arg_i8p", "arg_fp", "arg_dp"} ;
 
   if(list->result == 0) {
     fprintf(stderr,"INFO: result type not specified, assuming generic pointer") ;
@@ -56,10 +102,9 @@ AnyType call_demo_fn(Arg_list *list){
     }
   }
   if(list->numargs == 6){
+    if(0 == Arg_names_check(list, expected_names, 0)) fprintf(stderr,"Arg_names_check O.K.\n") ;
+    if(0 == Arg_types_check(list, expected_kinds, 0)) fprintf(stderr,"Arg_types_check O.K.\n") ;
     for(i=0 ; i<list->numargs ; i++){
-      if(expected_args[i] != list->arg[i].kind){
-        fprintf(stderr,"argument %2d, expecting %s, got %s\n", i+1, Arg_kind[expected_args[i]], Arg_kind[list->arg[i].kind]) ;
-      }
     }
     t.fp = demo_fn(list->arg[0].value.i8, 
                    list->arg[1].value.f, 
@@ -94,10 +139,14 @@ int main(int argc, char **argv){
   }
   fprintf(stderr,"function result = %p, float value = %f\n", r.fp, *fp) ;
   fprintf(stderr,"==================================================================\n");
-  l = &(c->s) ;
+  l = Arg_list_address(c) ;
   r = call_demo_fn(l) ;
   fp = (float *) r.p ;
   fprintf(stderr,"function result = %p, float value = %f\n", r.fp, *fp) ;
+  fprintf(stderr,"==================================================================\n");
+  r = call_demo_fn2(l) ;
+  fp = (float *) r.p ;
+  fprintf(stderr,"function2 result = %p, float value = %f\n", r.fp, *fp) ;
   fprintf(stderr,"==================================================================\n");
   for(i=0 ; i<=Arg_void ; i++){
     fprintf(stderr, "kind = %2d, name = %4s\n", i, Arg_kind[i]) ;
