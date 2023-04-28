@@ -133,9 +133,10 @@ add_project_test(test_c_record_io_f test_c_record_io.F90 NOCTEST LINK_LIBS "dl")
 add_project_test(test_quantizer_errors test_quantizer_errors.c NOCTEST)    # not included in ctest for now
 
 add_project_test(test_serialized_functions test_serialized_functions.c)
-if(COMPILER_SUITE STREQUAL aocc)
-message(STATUS "(TESTS) using -O0 for test_serialized_functions with ${COMPILER_SUITE}")
-SET_SOURCE_FILES_PROPERTIES( test_serialized_functions PROPERTIES COMPILE_FLAGS -O0 )
-endif()
+# maybe needed depending upon print statement distribution in test code
+# if(COMPILER_SUITE STREQUAL aocc)
+# message(STATUS "(TESTS) using -O0 for test_serialized_functions with ${COMPILER_SUITE}")
+# SET_SOURCE_FILES_PROPERTIES( test_serialized_functions PROPERTIES COMPILE_FLAGS -O0 )
+# endif()
 
 add_project_test(test_ieeequantize test_ieeequantize.c)
