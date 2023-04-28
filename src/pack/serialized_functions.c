@@ -27,10 +27,16 @@ Arg_list *Arg_list_init(int maxargs){
   if(temp != NULL){
     temp->maxargs = maxargs ;
     temp->numargs = 0 ;        // no actual arguments yet
-    temp->result = 0 ;         // invalid kind
+    temp->result.name = 0 ;    // invalid name
+    temp->result.resv = 0 ;
+    temp->result.stat = 0 ;    // no error
+    temp->result.kind = 0 ;    // invalid kind
   }
   return temp ;
 }
+
+// Arg_list *Arg_list_address(Arg_fn_list *c)     // get address of argument list
+//   { return &(c->s) ; }
 
 // create new  Arg_fn_list structure
 // fn      : address of function to be called eventually
@@ -44,7 +50,10 @@ Arg_fn_list *Arg_init(Arg_fn fn, int maxargs){
     temp->fn = fn ;
     temp->s.maxargs = maxargs ;
     temp->s.numargs = 0 ;        // no actual arguments yet
-    temp->s.result = 0 ;         // invalid kind
+    temp->s.result.name = 0 ;    // invalid name
+    temp->s.result.resv = 0 ;
+    temp->s.result.stat = 0 ;    // no error
+    temp->s.result.kind = 0 ;    // invalid kind
   }
   return temp ;
 }
@@ -74,6 +83,7 @@ int Arg_name_hash_index(Arg_list *s, int64_t hash, uint32_t kind){
   return -1 ; // not found
 }
 
+// get position in argument list using name only
 int Arg_name_pos(Arg_list *s, char *name){
   int64_t hash = hash_name(name) ;
   int i ;
@@ -83,6 +93,7 @@ int Arg_name_pos(Arg_list *s, char *name){
   return -1 ; // not found
 }
 
+// get position in argument list using name and kind
 int Arg_name_index(Arg_list *s, char *name, uint32_t kind){
   int64_t hash = hash_name(name) ;
   int i ;
@@ -90,6 +101,21 @@ int Arg_name_index(Arg_list *s, char *name, uint32_t kind){
     if(hash == s->arg[i].name && kind == s->arg[i].kind) return i ;
   }
   return -1 ; // not found
+}
+
+static AnyType Arg_null = { .u64 = 0ul } ;
+// get value in argument list using name and kind
+AnyType Arg_value(Arg_list *s, char *name, uint32_t kind){
+  int64_t hash = hash_name(name) ;
+  int i ;
+  for(i=0 ; i<s->numargs ; i++){
+    if(hash == s->arg[i].name && kind == s->arg[i].kind){
+      s->arg[i].stat = 0 ;
+      return s->arg[i].value ;
+    }
+  }
+  s->arg[i].stat = 1 ;   // set error flag
+  return Arg_null ;      // not found
 }
 
 // translate name hash to character string
@@ -128,7 +154,7 @@ int Arg_names_check(Arg_list *s, char **names, int ncheck){
 // names    [IN] : list of expected argument types
 // ncheck   [IN] : number of positions to check (0 means s->numargs)
 // return        : 0 if no error, 1 otherwise
-int Arg_types_check(Arg_list *s, int *kind, int ncheck){
+int Arg_types_check(Arg_list *s, uint32_t *kind, int ncheck){
   int i, errors = 0 ;
   ncheck = (ncheck == 0) ? s->numargs : ncheck ;
   for(i=0 ; i<ncheck ; i++){
@@ -144,11 +170,12 @@ int Arg_types_check(Arg_list *s, int *kind, int ncheck){
 void Arg_list_dump(Arg_list *s){
   unsigned char name[9] ;
   int i ;
+  fprintf(stderr, "maxargs = %d, numargs = %d\n", s->maxargs, s->numargs) ;
   for(i=0 ; i<s->numargs ; i++){
     Arg_name(s->arg[i].name, name) ;
     fprintf(stderr, "argument %2d : name = %9s, kind = %4s\n", i+1, name, Arg_kind[s->arg[i].kind]) ;
   }
-  fprintf(stderr, "function result kind = %s\n", Arg_kind[s->result]) ;
+  fprintf(stderr, "function result kind = %s\n", Arg_kind[s->result.kind]) ;
 }
 
 // add argument to Arg_list

@@ -60,16 +60,24 @@ static char *Arg_kind[] = {
 
 typedef struct{     // argument list element
   uint64_t name:56, // 8 x 7bit ASCII name
-           kind:8 ; // type code (from ArgType)
+           resv:1 , // reserved for future use
+           stat:1 , // status (0 = O.K., 1 = FAIL)
+           kind:6 ; // type code (from ArgType)
   AnyType value ;   // argument value
 } Argument ;
 
 typedef struct{     // serialized argument list structure
-  int maxargs ;     // max number of arguments permitted
-  int numargs:24 ,  // actual number of arguments
-      result:8 ;    // return value type
+  uint64_t unused ;
+  int32_t maxargs ;     // max number of arguments permitted
+  int32_t numargs ;     // actual number of arguments
+//   int numargs:24 ,  // actual number of arguments
+//       resv:8 ;      // return value type
+  Argument result ; // function result (also addressed as arg[-1])
   Argument arg[] ;
 } Arg_list ;
+
+// TO DO :
+// add an inline function to copy an argument list into another one (maybe allocating the copy)
 
 typedef AnyType (*Arg_fn)(Arg_list *) ;  // pointer to function with serialized argument list
 
@@ -85,12 +93,12 @@ int Arg_name_index(Arg_list *s, char *name, uint32_t kind);          // get argu
 int Arg_name_pos(Arg_list *s, char *name);                   // get position of name in argument list
 void Arg_name(int64_t hash, unsigned char *name);            // get name string from hash
 int Arg_names_check(Arg_list *s, char **names, int ncheck);  // check argument names against expected names
-int Arg_types_check(Arg_list *s, int *kind, int ncheck);     // check argument types against expected types
+int Arg_types_check(Arg_list *s, uint32_t *kind, int ncheck);     // check argument types against expected types
 void Arg_list_dump(Arg_list *s);                             // dump argument names and types
 static inline Arg_list *Arg_list_address(Arg_fn_list *c)     // get address of argument list
   { return &(c->s) ; }
 static inline void Arg_result(ArgType kind, Arg_list *s)     // set result type in argument list
-  { s->result = kind ; }
+  { s->result.kind = kind ; }
 int Arg_uint8(uint8_t v, Arg_list *s, char *name);           // add unsigned 8 bit integer argument
 int Arg_int8(int8_t v, Arg_list *s, char *name);             // add signed 8 bit integer argument
 int Arg_uint16(uint16_t v, Arg_list *s, char *name);         // add unsigned 16 bit integer argument

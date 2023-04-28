@@ -7,9 +7,11 @@
 
 Arg_fn_list *serialize_demo_fn(int8_t i8, float  f, double d, int8_t *i8p, float *fp, double *dp);
 AnyType call_demo_fn(Arg_list *list);
+AnyType call_demo_fn2(Arg_list *list);
 float *demo_fn(int8_t i8, float  f, double d, int8_t *i8p, float *fp, double *dp);
 float *demo_fn2(int8_t i8, int8_t *i8p, float  f, float *fp, double d, double *dp);
 
+#if 1
 // the useful function
 float *demo_fn(int8_t i8, float  f, double d, int8_t *i8p, float *fp, double *dp){
   void *r = fp ;
@@ -36,13 +38,15 @@ float *demo_fn2(int8_t i8, int8_t *i8p, float  f, float *fp, double d, double *d
 Arg_fn_list *serialize_demo_fn(int8_t i8, float  f, double d, int8_t *i8p, float *fp, double *dp){
   Arg_fn_list *c = Arg_init(call_demo_fn, 6) ;    // set target function and initialize structure
   Arg_list *s = Arg_list_address(c) ;             // address of argument list
+
+  fprintf(stderr, "IN serialize_demo_fn, building argument list\n") ;
   Arg_int8(i8,    s, "arg_i8") ;                  // 8 bit signed integer argument
   Arg_float(f,    s, "arg_f") ;                   // 32 bit float argument
   Arg_double(d,   s, "arg_d") ;                   // 64 bit double argument
   Arg_int8p(i8p,  s, "arg_i8p") ;                 // pointer to 8 bit signed integer argument
   Arg_floatp(fp,  s, "arg_fp") ;                  // pointer to 32 bit float argument
   Arg_doublep(dp, s, "arg_dp") ;                  // pointer to 64 bit double argument
-  Arg_result(Arg_fp, Arg_list_address(c)) ;
+  Arg_result(Arg_fp, Arg_list_address(c)) ;       // deliberately using Arg_list_address() as parameter
   Arg_list_dump(s) ;
   return c ;
 }
@@ -58,6 +62,7 @@ AnyType call_demo_fn2(Arg_list *list){
   int ix[6] ;
 
   // arguments 1, 4 and 6 expected to have bad name/type combinations
+  fprintf(stderr, "IN call_demo_fn2, expecting arguments 1, 4, 6 to be bad\n");
   for(i=0 ; i<6 ; i++){
     ix[i] = Arg_name_index(list, expected_names_bad[i], expected_kinds_bad[i]) ;
     if(ix[i] < 0) {
@@ -68,18 +73,20 @@ AnyType call_demo_fn2(Arg_list *list){
               i+1, expected_names_bad[i], Arg_kind[expected_kinds_bad[i]], Arg_kind[kind]) ;
     }
   }
-  fprintf(stderr, "ix =");
+  fprintf(stderr, "\nIN call_demo_fn2, reorder index =");
   for(i=0 ; i<6 ; i++){    // reorder argument list
     ix[i] = Arg_name_index(list, expected_names[i], expected_kinds[i]) ;
     fprintf(stderr, " %d", ix[i]);
   }
   fprintf(stderr, "\n");
+  fprintf(stderr, "\nIN call_demo_fn2, calling demo_fn2\n") ;
   t.fp = demo_fn2(list->arg[ix[0]].value.i8, 
                   list->arg[ix[1]].value.i8p, 
                   list->arg[ix[2]].value.f, 
                   list->arg[ix[3]].value.fp, 
                   list->arg[ix[4]].value.d, 
                   list->arg[ix[5]].value.dp ) ;
+  return t ;
 }
 // the wrapper function target
 // - gets the argument list
@@ -91,12 +98,14 @@ AnyType call_demo_fn(Arg_list *list){
   // expected argument types
   static uint32_t expected_kinds[] = {Arg_i8, Arg_f, Arg_d, Arg_i8p, Arg_fp, Arg_dp} ;
   static char *expected_names[] = {"arg_i8", "arg_f", "arg_d", "arg_i8p", "arg_fp", "arg_dp"} ;
-
-  if(list->result == 0) {
-    fprintf(stderr,"INFO: result type not specified, assuming generic pointer") ;
+// fprintf(stderr,"DEBUG : callee list = %16p, maxargs = %d, numargs = %d\n", list, list->maxargs, list->numargs);
+  fprintf(stderr, "IN call_demo_fn\n");
+  if(list->result.kind == 0) {
+    fprintf(stderr,"INFO: result type not specified, assuming generic pointer\n") ;
+    list->result.kind = Arg_p ;
   }else{
-    if(list->result  != Arg_fp){
-      fprintf(stderr,"WARNING: expecting result type = %d, got %d\n", Arg_p, list->result) ;
+    if(list->result.kind  != Arg_fp){
+      fprintf(stderr,"WARNING: expecting result type = %d, got %d\n", Arg_p, list->result.kind) ;
       t.fp = NULL ;
       return t ;
     }
@@ -118,7 +127,7 @@ AnyType call_demo_fn(Arg_list *list){
   }
   return t ;
 }
-
+#endif
 int main(int argc, char **argv){
   Arg_fn_list *c ;
   Arg_list *l ;
@@ -131,6 +140,15 @@ int main(int argc, char **argv){
 
   start_of_test(argv[0]);
   c = serialize_demo_fn(i8, f, d, &i8, &f, &d) ;
+  l = Arg_list_address(c) ;
+//   fprintf(stderr,"DEBUG: dumping argument list\n") ;
+//   Arg_list_dump(l) ;
+// fprintf(stderr,"DEBUG : c->s = %16p, maxargs = %d(%p), numargs = %d(%p), result (%p), arg (%p)\n", 
+//         &(c->s), c->s.maxargs, &(c->s.maxargs), c->s.numargs, &(c->s.numargs), &(c->s.result), &(c->s.arg[0])) ;
+// fprintf(stderr,"DEBUG : list = %16p, maxargs = %d, numargs = %d\n", l, l->maxargs, l->numargs) ;
+// fprintf(stderr,"DEBUG: caller list address = %p\n", l);
+  fprintf(stderr,"==================================================================\n");
+  fprintf(stderr,"using SERIALIZED_FUNCTION() to call call_demo_fn\n") ;
   r = SERIALIZED_FUNCTION(c) ;
   fp = (float *) r.p ;
   if(fp == NULL){
@@ -139,6 +157,7 @@ int main(int argc, char **argv){
   }
   fprintf(stderr,"function result = %p, float value = %f\n", r.fp, *fp) ;
   fprintf(stderr,"==================================================================\n");
+  fprintf(stderr,"direct call to call_demo_fn reusing previous argument list\n") ;
   l = Arg_list_address(c) ;
   r = call_demo_fn(l) ;
   fp = (float *) r.p ;
@@ -148,6 +167,7 @@ int main(int argc, char **argv){
   fp = (float *) r.p ;
   fprintf(stderr,"function2 result = %p, float value = %f\n", r.fp, *fp) ;
   fprintf(stderr,"==================================================================\n");
+  fprintf(stderr,"kind and name table\n") ;
   for(i=0 ; i<=Arg_void ; i++){
     fprintf(stderr, "kind = %2d, name = %4s\n", i, Arg_kind[i]) ;
   }
