@@ -60,20 +60,17 @@ static char *Arg_kind[] = {
 
 typedef struct{     // argument list element
   uint64_t name:56, // 8 x 7bit ASCII name
-           resv:1 , // reserved for future use
-           stat:1 , // status (0 = O.K., 1 = FAIL)
+           undf:1 , // 1 undefined, 0 defined
+           stat:1 , // status (0 = O.K., 1 = FAIL) (only used for result)
            kind:6 ; // type code (from ArgType)
   AnyType value ;   // argument value
 } Argument ;
 
 typedef struct{     // serialized argument list structure
-  uint64_t unused ;
-  int32_t maxargs ;     // max number of arguments permitted
-  int32_t numargs ;     // actual number of arguments
-//   int numargs:24 ,  // actual number of arguments
-//       resv:8 ;      // return value type
+  int32_t maxargs ; // max number of arguments permitted
+  int32_t numargs ; // actual number of arguments
   Argument result ; // function result (also addressed as arg[-1])
-  Argument arg[] ;
+  Argument arg[] ;  // the arguments (the first numargs entries are defined)
 } Arg_list ;
 
 // TO DO :

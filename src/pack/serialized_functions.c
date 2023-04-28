@@ -28,7 +28,7 @@ Arg_list *Arg_list_init(int maxargs){
     temp->maxargs = maxargs ;
     temp->numargs = 0 ;        // no actual arguments yet
     temp->result.name = 0 ;    // invalid name
-    temp->result.resv = 0 ;
+    temp->result.undf = 1 ;    // not defined
     temp->result.stat = 0 ;    // no error
     temp->result.kind = 0 ;    // invalid kind
   }
@@ -45,15 +45,17 @@ Arg_list *Arg_list_init(int maxargs){
 Arg_fn_list *Arg_init(Arg_fn fn, int maxargs){
   size_t the_size = sizeof(Arg_fn_list) + maxargs * sizeof(Argument) ;
   Arg_fn_list *temp = (Arg_fn_list *) malloc(the_size) ;
+  int i ;
 
   if(temp != NULL){
     temp->fn = fn ;
     temp->s.maxargs = maxargs ;
     temp->s.numargs = 0 ;        // no actual arguments yet
     temp->s.result.name = 0 ;    // invalid name
-    temp->s.result.resv = 0 ;
     temp->s.result.stat = 0 ;    // no error
+    temp->s.result.undf = 1 ;    // not defined
     temp->s.result.kind = 0 ;    // invalid kind
+    for(i=0 ; i<maxargs ; i++) temp->s.arg[i].undf = 1 ;  // set all arguments to undefined
   }
   return temp ;
 }
@@ -109,14 +111,17 @@ static AnyType Arg_null = { .u64 = 0ul } ;
 AnyType Arg_value(Arg_list *s, char *name, uint32_t kind){
   int64_t hash = hash_name(name) ;
   int i ;
+  if(name == NULL){
+    s->result.stat = s->result.undf ;      // status = O.K. if defined
+    return s->result.value ;               // function result (if defined)
+  }
   for(i=0 ; i<s->numargs ; i++){
     if(hash == s->arg[i].name && kind == s->arg[i].kind){
-      s->arg[i].stat = 0 ;
-      s->result.stat = 0 ;
+      s->result.stat = s->arg[i].undf ;     // status = O.K. if defined
       return s->arg[i].value ;
     }
   }
-  s->result.stat = 1 ;   // set error flags
+  s->result.stat = 1 ;   // set error flag
   return Arg_null ;      // not found, "nullest" return value
 }
 
@@ -188,6 +193,7 @@ int Arg_uint8(uint8_t v, Arg_list *s, char *name){
   int numargs = s->numargs ;
 
   if(numargs >= s->maxargs) return -1 ;
+  s->arg[numargs].undf      = 0 ;
   s->arg[numargs].name      = hash_name(name) ;
   s->arg[numargs].kind      = Arg_u8 ;
   s->arg[numargs].value.u8  = v ;
@@ -203,6 +209,7 @@ int Arg_int8(int8_t v, Arg_list *s, char *name){
   int numargs = s->numargs ;
 
   if(numargs >= s->maxargs) return -1 ;
+  s->arg[numargs].undf      = 0 ;
   s->arg[numargs].name      = hash_name(name) ;
   s->arg[numargs].kind      = Arg_i8 ;
   s->arg[numargs].value.i8  = v ;
@@ -218,6 +225,7 @@ int Arg_uint16(uint16_t v, Arg_list *s, char *name){
   int numargs = s->numargs ;
 
   if(numargs >= s->maxargs) return -1 ;
+  s->arg[numargs].undf      = 0 ;
   s->arg[numargs].name      = hash_name(name) ;
   s->arg[numargs].kind      = Arg_u16 ;
   s->arg[numargs].value.u16 = v ;
@@ -233,6 +241,7 @@ int Arg_int16(int16_t v, Arg_list *s, char *name){
   int numargs = s->numargs ;
 
   if(numargs >= s->maxargs) return -1 ;
+  s->arg[numargs].undf      = 0 ;
   s->arg[numargs].name      = hash_name(name) ;
   s->arg[numargs].kind      = Arg_i16 ;
   s->arg[numargs].value.i16 = v ;
@@ -248,6 +257,7 @@ int Arg_uint32(uint32_t v, Arg_list *s, char *name){
   int numargs = s->numargs ;
 
   if(numargs >= s->maxargs) return -1 ;
+  s->arg[numargs].undf      = 0 ;
   s->arg[numargs].name      = hash_name(name) ;
   s->arg[numargs].kind      = Arg_u32 ;
   s->arg[numargs].value.u32 = v ;
@@ -263,6 +273,7 @@ int Arg_int32(int32_t v, Arg_list *s, char *name){
   int numargs = s->numargs ;
 
   if(numargs >= s->maxargs) return -1 ;
+  s->arg[numargs].undf      = 0 ;
   s->arg[numargs].name      = hash_name(name) ;
   s->arg[numargs].kind      = Arg_i32 ;
   s->arg[numargs].value.i32 = v ;
@@ -278,6 +289,7 @@ int Arg_uint64(uint64_t v, Arg_list *s, char *name){
   int numargs = s->numargs ;
 
   if(numargs >= s->maxargs) return -1 ;
+  s->arg[numargs].undf      = 0 ;
   s->arg[numargs].name      = hash_name(name) ;
   s->arg[numargs].kind      = Arg_u64 ;
   s->arg[numargs].value.u64 = v ;
@@ -293,6 +305,7 @@ int Arg_int64(int64_t v, Arg_list *s, char *name){
   int numargs = s->numargs ;
 
   if(numargs >= s->maxargs) return -1 ;
+  s->arg[numargs].undf      = 0 ;
   s->arg[numargs].name      = hash_name(name) ;
   s->arg[numargs].kind      = Arg_i64 ;
   s->arg[numargs].value.i64 = v ;
@@ -308,6 +321,7 @@ int Arg_float(float v, Arg_list *s, char *name){
   int numargs = s->numargs ;
 
   if(numargs >= s->maxargs) return -1 ;
+  s->arg[numargs].undf      = 0 ;
   s->arg[numargs].name      = hash_name(name) ;
   s->arg[numargs].kind      = Arg_f ;
   s->arg[numargs].value.f = v ;
@@ -323,6 +337,7 @@ int Arg_double(double v, Arg_list *s, char *name){
   int numargs = s->numargs ;
 
   if(numargs >= s->maxargs) return -1 ;
+  s->arg[numargs].undf      = 0 ;
   s->arg[numargs].name      = hash_name(name) ;
   s->arg[numargs].kind      = Arg_d ;
   s->arg[numargs].value.d = v ;
@@ -338,6 +353,7 @@ int Arg_ptr(void *v, Arg_list *s, char *name){
   int numargs = s->numargs ;
 
   if(numargs >= s->maxargs) return -1 ;
+  s->arg[numargs].undf      = 0 ;
   s->arg[numargs].name      = hash_name(name) ;
   s->arg[numargs].kind      = Arg_p ;
   s->arg[numargs].value.p = v ;
@@ -353,6 +369,7 @@ int Arg_uint8p(uint8_t *v, Arg_list *s, char *name){
   int numargs = s->numargs ;
 
   if(numargs >= s->maxargs) return -1 ;
+  s->arg[numargs].undf      = 0 ;
   s->arg[numargs].name      = hash_name(name) ;
   s->arg[numargs].kind      = Arg_u8p ;
   s->arg[numargs].value.u8p = v ;
@@ -368,6 +385,7 @@ int Arg_int8p(int8_t *v, Arg_list *s, char *name){
   int numargs = s->numargs ;
 
   if(numargs >= s->maxargs) return -1 ;
+  s->arg[numargs].undf      = 0 ;
   s->arg[numargs].name      = hash_name(name) ;
   s->arg[numargs].kind      = Arg_i8p ;
   s->arg[numargs].value.i8p = v ;
@@ -383,6 +401,7 @@ int Arg_uint16p(uint16_t *v, Arg_list *s, char *name){
   int numargs = s->numargs ;
 
   if(numargs >= s->maxargs) return -1 ;
+  s->arg[numargs].undf      = 0 ;
   s->arg[numargs].name      = hash_name(name) ;
   s->arg[numargs].kind      = Arg_u16p ;
   s->arg[numargs].value.u16p = v ;
@@ -398,6 +417,7 @@ int Arg_int16p(int16_t *v, Arg_list *s, char *name){
   int numargs = s->numargs ;
 
   if(numargs >= s->maxargs) return -1 ;
+  s->arg[numargs].undf      = 0 ;
   s->arg[numargs].name      = hash_name(name) ;
   s->arg[numargs].kind      = Arg_i16p ;
   s->arg[numargs].value.i16p = v ;
@@ -413,6 +433,7 @@ int Arg_uint32p(uint32_t *v, Arg_list *s, char *name){
   int numargs = s->numargs ;
 
   if(numargs >= s->maxargs) return -1 ;
+  s->arg[numargs].undf      = 0 ;
   s->arg[numargs].name      = hash_name(name) ;
   s->arg[numargs].kind      = Arg_u32p ;
   s->arg[numargs].value.u32p = v ;
@@ -428,6 +449,7 @@ int Arg_int32p(int32_t *v, Arg_list *s, char *name){
   int numargs = s->numargs ;
 
   if(numargs >= s->maxargs) return -1 ;
+  s->arg[numargs].undf      = 0 ;
   s->arg[numargs].name      = hash_name(name) ;
   s->arg[numargs].kind      = Arg_i32p ;
   s->arg[numargs].value.i32p = v ;
@@ -443,6 +465,7 @@ int Arg_uint64p(uint64_t *v, Arg_list *s, char *name){
   int numargs = s->numargs ;
 
   if(numargs >= s->maxargs) return -1 ;
+  s->arg[numargs].undf      = 0 ;
   s->arg[numargs].name      = hash_name(name) ;
   s->arg[numargs].kind      = Arg_u64p ;
   s->arg[numargs].value.u64p = v ;
@@ -458,6 +481,7 @@ int Arg_int64p(int64_t *v, Arg_list *s, char *name){
   int numargs = s->numargs ;
 
   if(numargs >= s->maxargs) return -1 ;
+  s->arg[numargs].undf      = 0 ;
   s->arg[numargs].name      = hash_name(name) ;
   s->arg[numargs].kind      = Arg_i64p ;
   s->arg[numargs].value.i64p = v ;
@@ -473,6 +497,7 @@ int Arg_floatp(float *v, Arg_list *s, char *name){
   int numargs = s->numargs ;
 
   if(numargs >= s->maxargs) return -1 ;
+  s->arg[numargs].undf      = 0 ;
   s->arg[numargs].name      = hash_name(name) ;
   s->arg[numargs].kind      = Arg_fp ;
   s->arg[numargs].value.fp = v ;
@@ -488,6 +513,7 @@ int Arg_doublep(double *v, Arg_list *s, char *name){
   int numargs = s->numargs ;
 
   if(numargs >= s->maxargs) return -1 ;
+  s->arg[numargs].undf      = 0 ;
   s->arg[numargs].name      = hash_name(name) ;
   s->arg[numargs].kind      = Arg_dp ;
   s->arg[numargs].value.dp = v ;
