@@ -104,18 +104,20 @@ int Arg_name_index(Arg_list *s, char *name, uint32_t kind){
 }
 
 static AnyType Arg_null = { .u64 = 0ul } ;
-// get value in argument list using name and kind
+
+// get value from argument list using name and kind
 AnyType Arg_value(Arg_list *s, char *name, uint32_t kind){
   int64_t hash = hash_name(name) ;
   int i ;
   for(i=0 ; i<s->numargs ; i++){
     if(hash == s->arg[i].name && kind == s->arg[i].kind){
       s->arg[i].stat = 0 ;
+      s->result.stat = 0 ;
       return s->arg[i].value ;
     }
   }
-  s->arg[i].stat = 1 ;   // set error flag
-  return Arg_null ;      // not found
+  s->result.stat = 1 ;   // set error flags
+  return Arg_null ;      // not found, "nullest" return value
 }
 
 // translate name hash to character string

@@ -73,6 +73,17 @@ AnyType call_demo_fn2(Arg_list *list){
               i+1, expected_names_bad[i], Arg_kind[expected_kinds_bad[i]], Arg_kind[kind]) ;
     }
   }
+  fprintf(stderr, "\nIN call_demo_fn2, get some argument values (with intentional errors)\n");
+  int8_t i8 = Arg_value(list, "arg_i8", Arg_i8).i8 ;
+  fprintf(stderr, "arg_i8(%s) = %d, error = %d\n", Arg_kind[Arg_i8], i8, list->result.stat) ;
+  int8_t *i8p = Arg_value(list, "arg_i8p", Arg_i8p).i8p ;
+  fprintf(stderr, "arg_i8p(%s) = %d, error = %d\n", Arg_kind[Arg_i8p], *i8p, list->result.stat) ;
+  float *fp = Arg_value(list, "arg_fp", Arg_fp).fp ;
+  fprintf(stderr, "arg_fp(%s) = %.2f, error = %d\n", Arg_kind[Arg_fp], *fp, list->result.stat) ;
+  double *dp = Arg_value(list, "arg_dp", Arg_dp).dp ;
+  fprintf(stderr, "arg_dp(%s) = %.2f, error = %d\n", Arg_kind[Arg_dp], *dp, list->result.stat) ;
+  i8 = Arg_value(list, "arg_i8", Arg_i16).i8 ;
+  fprintf(stderr, "arg_i8(%s) = %d, error = %d (expected error)\n", Arg_kind[Arg_i16], i8, list->result.stat) ;
   fprintf(stderr, "\nIN call_demo_fn2, reorder index =");
   for(i=0 ; i<6 ; i++){    // reorder argument list
     ix[i] = Arg_name_index(list, expected_names[i], expected_kinds[i]) ;

@@ -87,6 +87,7 @@ typedef struct{    // serialized argument list control structure
 } Arg_fn_list ;
 
 Arg_fn_list *Arg_init(Arg_fn fn, int maxargs);               // initialize Arg_fn_list structure
+AnyType Arg_value(Arg_list *s, char *name, uint32_t kind);   // get value from argument list using name and kind
 int64_t Arg_name_hash(char *name);                           // get hash associated with name string
 int Arg_name_hash_index(Arg_list *s, int64_t hash, uint32_t kind);   // get argument position in argument list using name hash
 int Arg_name_index(Arg_list *s, char *name, uint32_t kind);          // get argument position in argument list using name
