@@ -219,7 +219,6 @@ set(PROJECT_C_FILES
   src/diag/c_record_io.c
   src/diag/eval_diff.c
   src/plugins/plugin_code.c
-#   tests/demo_serialized_functions.c
 )
 set(PROJECT_PLUGIN_FILES 
   src/pred/lorenzo_c.c
