@@ -58,6 +58,18 @@ typedef union{     // float | (un)signed 32 bit integer, length in memory is 32 
   float    f    ;   // 32 bit float
 } FloatInt ;
 
+typedef union{     // float | (un)signed 32 bit integer, length in memory is 32 bits
+  uint8_t  u8   ;   // 8/16/32 unsigned integer
+  uint16_t u16  ;
+  uint32_t u32  ;
+  uint32_t u    ;
+  int8_t   i8   ;   // 8/16/32 signed integer
+  int16_t  i16  ;
+  int32_t  i32  ;
+  int32_t  i    ;
+  float    f    ;   // 32 bit float
+} AnyType32 ;
+
 typedef struct{    // pair of signed 32 bit integers
   int32_t t[2] ;
 } IntPair ;

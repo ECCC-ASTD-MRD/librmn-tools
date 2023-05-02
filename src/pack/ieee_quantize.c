@@ -41,10 +41,18 @@ typedef struct{
            resv:3 ,
            allp:1 ,  // all numbers are >= 0
            allm:1 ;  // all numbers are < 0
-} ieee32_p;
+} ieee32_p ;
+
+typedef struct{
+  uint64_t allp:1 ,  // all numbers are >= 0
+           maxa:31,  // maximum absolute value (never more than 31 bits)
+           allm:1 ,  // all numbers are < 0
+           mina:31;  // minimum absolute value (never more than 31 bits)
+} ieee32_l ;
 
 typedef union{    // the union allows to transfer the whole 64 bit contents in one shot
   ieee32_p p ;
+  ieee32_l l ;
   uint64_t u ;
 } ieee32_props ;
 
@@ -147,19 +155,15 @@ end:
 }
 
 // prepare for linear quantization of IEEE floats
+// get minimum and maximum absolute values, set all < 0 and none < 0 flags
 // f     [IN]  32 bit IEEE float array, data to be quantized
 // np    [IN]  number of data items to quantize
-// nbits [IN]  number of bits to use for quantized data (0 means use quantum)
-// quant [IN]  quantization interval (if non zero, it is used instead of nbits)
-uint64_t IEEE32_linear_properties(void * restrict f, int np, int nbits, float quantum){
+uint64_t IEEE32_linear_limits(void * restrict f, int np){
   uint32_t *fu = (uint32_t *) f ;
   ieee32_props h64 ;
-  uint32_t maxu[8], minu[8], t[8], ands[8], ors[8], rangeu, lz, offset, masksign, round ;
+  uint32_t maxu[8], minu[8], ands[8], ors[8], t[8], masksign ;
   int i0, i, ni7 ;
-  uint32_t pos_neg, allm, allp, cnst ;
-  int32_t scount, nbitsmax ;
-  float delta ;
-  FloatInt fi1, fi2 ;
+  uint32_t allm, allp ;
 
   masksign = RMASK31(31) ;       // sign bit is 0, all others are 1
   h64.u = 0 ;
@@ -191,9 +195,149 @@ uint64_t IEEE32_linear_properties(void * restrict f, int np, int nbits, float qu
     ands[0] &= ands[i] ;       // will be 1 if all values are < 0, will be 0 if any value is >= 0
     ors[0]  |= ors[i] ;        // will be 0 if all values >= 0, will be 1 if any value is <0
   }
-  allm = ands[0] >> 31 ;                  // all values are negative
-  pos_neg = ors[0] >> 31 ;                // we have both positive and negative values
-  allp = ! pos_neg ;                      // we have NO negative values
+  allm = (ands[0] >> 31) == 1 ;           // all values are negative
+  allp = (ors[0] >> 31) == 0 ;            // we have NO negative values
+  h64.l.allp = allp ;
+  h64.l.allm = allm ;
+  h64.l.maxa = maxu[0] ;
+  h64.l.mina = minu[0] ;
+  return h64.u ;             // return 64 bit aggregate
+}
+
+// prepare for linear quantization of IEEE floats
+// u64   [IN]  analysis from IEEE32_linear_limits
+// np    [IN]  number of data items to quantize
+// nbits [IN]  number of bits to use for quantized data (0 means use quantum)
+// quant [IN]  quantization interval (if non zero, it is used instead of nbits)
+uint64_t IEEE32_linear_prep_0(uint64_t u64, int np, int nbits, float quant){
+  ieee32_props h64 ;
+  uint32_t maxu[1], minu[1], rangeu, lz ;
+  uint32_t pos_neg, allm, allp, cnst ;
+  int32_t scount, nbitsmax ;
+  AnyType32 fi1, fi2 ;
+  float delta ;
+
+  h64.u = u64 ;
+  allm = h64.l.allm ;            // extract all useful values from u64
+  allp = h64.l.allp ;
+  maxu[0] = h64.l.maxa ;
+  minu[0] = h64.l.mina ;
+
+  h64.u = 0 ;
+  pos_neg = (allm == 0) && (allp == 0) ;  // we have both positive and negative values
+  rangeu = maxu[0] - minu[0] ;            // value range (considering ABS(float) as an unsigned integer)
+  lz = lzcnt_32(rangeu) ;                 // number of leading zeroes in range
+  // 32 - number of most significant 0 bits in rangeu = max number of useful bits
+  nbitsmax = 32 -lz ;
+  cnst = 0 ;                              // a priori not a constant field
+  if(rangeu == 0) {                       // special case : constant absolute values
+    scount = 0 ;
+    nbits = pos_neg ;                     // no bits needed if all values have the same sign
+    cnst = 1 ;                            // constant field flag
+    goto end ;
+  }
+  if( (nbits <= 0) ) {                    // automatic determination of nbits
+    int32_t temp ;
+    fi1.u = maxu[0] ; fi2.u = minu[0] ; fi1.f = fi1.f - fi2.f ;  // i1.f = range of data values
+    fi2.f = quant ;
+    if(fi2.u <= 0){                       // quantum <= 0 (automatic quantum)
+      nbits = pos_neg + 1 ;  // make sure nbits does not become zero if positive and negative values are present
+    }else{                                // a quantization quantum was specified
+      temp = (fi1.u >> 23) - (fi2.u >> 23) ;  // IEEE exponent difference between range and quantum
+      nbits = temp + 1 + pos_neg ;
+//       fprintf(stderr,"DEBUG : provisional nbits = %d, nbitsmax = %d\n", nbits, nbitsmax) ;
+    }
+  }
+  if(pos_neg) {                           // sign bit needs one bit, reduce allowed bit count by 1, increase nbitsmax
+    nbitsmax++ ;
+    nbits-- ;
+  }
+  if(nbits > nbitsmax) nbits = nbitsmax ; // no point in exceeding nbitsmax
+  scount = 32 - lz - nbits ; scount = (scount < 0) ? 0 : scount ;  // scount CANNOT be < 0
+  fi1.u = (maxu[0] >> scount) << scount ; fi2.u = fi1.u - (1 << scount) ;
+  delta = fi1.f - fi2.f ;  // difference between values whose quantization differs by 1 unit
+  // if quantum < delta, nbits may need to be adjusted (except if quantum == 0, when nbits must be used)
+  if( (quant < delta) && (quant > 0.0f) ) {
+    while( (quant < delta) && (nbits < nbitsmax) ){
+      nbits++ ;
+      scount = 32 - lz - nbits ; scount = (scount < 0) ? 0 : scount ;
+      fi1.u = (maxu[0] >> scount) << scount ; fi2.u = fi1.u - (1 << scount) ;
+      delta = fi2.f - fi1.f ;  // difference between values whose quntization differs by 1 unit
+    }
+  }
+
+end:                         // update returned struct
+  h64.p.shft = scount ;
+  h64.p.nbts = nbits ;
+  h64.p.npts = np ;
+  h64.p.allp = allp ;
+  h64.p.allm = allm ;
+  h64.p.cnst = cnst ;
+  h64.p.bias = minu[0] ;
+  return h64.u ;             // return 64 bit aggregate
+}
+
+// prepare for linear quantization of IEEE floats
+// f     [IN]  32 bit IEEE float array, data to be quantized
+// np    [IN]  number of data items to quantize
+// nbits [IN]  number of bits to use for quantized data (0 means use quantum)
+// quant [IN]  quantization interval (if non zero, it is used instead of nbits)
+uint64_t IEEE32_linear_properties(void * restrict f, int np, int nbits, float quantum){
+  uint32_t *fu = (uint32_t *) f ;
+  ieee32_props h64 ;
+#if defined(USE_OLD_CODE)
+  uint32_t maxu[8], minu[8], t[8], ands[8], ors[8] ;
+  int i0, i, ni7 ;
+#else
+  uint32_t maxu[1], minu[1] ;
+#endif
+  uint32_t rangeu, lz, offset, masksign, round ;
+  uint32_t pos_neg, allm, allp, cnst ;
+  int32_t scount, nbitsmax ;
+  float delta ;
+  FloatInt fi1, fi2 ;
+
+  masksign = RMASK31(31) ;       // sign bit is 0, all others are 1
+#if defined(USE_OLD_CODE)
+  for(i=0 ; i<8 ; i++){          // prepare minu, maxu, ors, ands for accumulation
+    maxu[i] = ors[i]  = 0u ;     // 0
+    minu[i] = ands[i] = ~0u ;    // FFFFFFFF
+  }
+  ni7 = (np & 7) ;
+  for(i=0 ; i<8 ; i++){
+    if(i >= ni7) break ;
+    t[i] = fu[i] & masksign ;             // get rid of sign
+    maxu[i]  = MAX( maxu[i], t[i]) ;      // largest absolute value
+    minu[i]  = MIN( minu[i], t[i]) ;      // smallest absolute value
+    ands[i] &= fu[i] ;                    // all < 0 detection
+    ors[i]  |= fu[i] ;                    // all >= 0 detection
+  }
+  for(i0=ni7 ; i0<np-7 ; i0+=8){
+    for(i=0 ; i<8 ; i++){
+      t[i] = fu[i0+i] & masksign ;        // get rid of sign
+      maxu[i]  = MAX( maxu[i], t[i]) ;    // largest absolute value
+      minu[i]  = MIN( minu[i], t[i]) ;    // smallest absolute value
+      ands[i] &= fu[i0+i] ;               // all < 0 detection
+      ors[i]  |= fu[i0+i] ;               // all >= 0 detection
+    }
+  }
+  for(i=0 ; i<8 ; i++){        // fold 8 long vector into single value
+    maxu[0]  = MAX( maxu[0], maxu[i]) ;
+    minu[0]  = MIN( minu[0], minu[i]) ;
+    ands[0] &= ands[i] ;       // will be 1 if all values are < 0, will be 0 if any value is >= 0
+    ors[0]  |= ors[i] ;        // will be 0 if all values >= 0, will be 1 if any value is <0
+  }
+  allm = (ands[0] >> 31) == 1;            // all values are negative
+  allp = (ors[0] >> 31) == 0 ;            // we have NO negative values
+#else
+  h64.u = IEEE32_linear_limits(f, np) ;   // get min and max absolute values
+  allm = h64.l.allm ;
+  allp = h64.l.allp ;
+  maxu[0] = h64.l.maxa ;
+  minu[0] = h64.l.mina ;
+#endif
+  h64.u = 0 ;
+  pos_neg = (allm == 0) && (allp == 0) ;  // we have both positive and negative values
   rangeu = maxu[0] - minu[0] ;            // value range (considering ABS(float) as an unsigned integer)
   lz = lzcnt_32(rangeu) ;                 // number of leading zeroes in range
   // 32 - number of most significant 0 bits in rangeu = max number of useful bits
@@ -462,7 +606,14 @@ fprintf(stderr,"DEBUG: maxu = %8.8x, minu = %8.8x, rangeu = %d\n", maxu[0], minu
   h64.p.allm = allm ;
   h64.p.bias = minu[0] ;
 #else
+
+#if 0
   h64.u = IEEE32_linear_properties(f, ni, nbits, quantum) ;
+#else
+  h64.u = IEEE32_linear_limits(f, ni) ;                     // get min and max absolute values
+  h64.u = IEEE32_linear_prep_0(h64.u, ni, nbits, quantum) ; // get quantization parameters (style 0)
+#endif
+
 #endif
   IEEE32_quantize_linear(f, h64.u, qs) ;
   return h64.u ;
