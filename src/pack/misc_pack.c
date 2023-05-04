@@ -279,8 +279,8 @@ uint32_t float_quantize_simple(float * restrict z, int32_t * restrict q, int ni,
   }
 #endif
 
-  t->t[0] = min ;
-  t->t[1] = max ;
+  t->v[0] = min ;
+  t->v[1] = max ;
   if(min >= 0) return BitsNeeded_u32(max) ;   // all values >= 0
   if(max < 0) return BitsNeeded_u32(-min) ;   // all values negative
   needed1 = BitsNeeded_32(min) ;
@@ -412,7 +412,7 @@ less_than_8 :
     q += lniq ;
   }
 end:
-  t->t[0] = min ;      // build return value
-  t->t[1] = max ;
+  t->v[0] = min ;      // build return value
+  t->v[1] = max ;
 }
 

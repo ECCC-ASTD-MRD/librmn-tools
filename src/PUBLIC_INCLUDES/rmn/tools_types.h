@@ -17,7 +17,16 @@
 #include <stdint.h>
 #include <stddef.h>
 
-// union covering most popular data types, length in memory is 64 bits
+typedef struct{    // pair of signed 32 bit integers
+  int32_t v[2] ;
+} IntPair ;
+
+typedef struct{    // pair of floats
+  float v[2] ;
+} FloatPair ;
+
+// union covering popular data types, length in memory is 64 bits
+// u64 is a convenient way to move as one piece
 typedef union{      // 8/16/32/64 signed/unsigned integer, float, double, pointer to previous
   uint8_t  u8   ;   // 8/16/32/64 unsigned integer
   uint16_t u16  ;
@@ -44,6 +53,8 @@ typedef union{      // 8/16/32/64 signed/unsigned integer, float, double, pointe
   void    *i64p ;   // pointer to 64 bit signed integer
   void    *fp   ;   // pointer to 32 bit float
   void    *dp   ;   // pointer to 32 bit double
+  IntPair   i2  ;   // pair of integers
+  FloatPair f2  ;   // pair of floats
 } AnyType ;
 
 typedef union{     // float | (un)signed 32 bit integer, length in memory is 32 bits
@@ -69,14 +80,6 @@ typedef union{     // float | (un)signed 32 bit integer, length in memory is 32 
   int32_t  i    ;
   float    f    ;   // 32 bit float
 } AnyType32 ;
-
-typedef struct{    // pair of signed 32 bit integers
-  int32_t t[2] ;
-} IntPair ;
-
-typedef struct{    // pair of floats
-  float t[2] ;
-} FloatPair ;
 
 // some properties of a float array, 32 bits total
 typedef struct{
