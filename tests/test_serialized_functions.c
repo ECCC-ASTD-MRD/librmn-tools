@@ -36,14 +36,19 @@ float *demo_fn2(int8_t i8, int8_t *i8p, float  f, float *fp, double d, double *d
 // targets call_demo_fn
 // builds the argument list
 Arg_fn_list *serialize_demo_fn(int8_t i8, float  f, double d, int8_t *i8p, float *fp, double *dp){
+  int8_t i8_new = -63 ;
+  int8_t *i8p_ = &i8_new ;
   Arg_fn_list *c = Arg_init(call_demo_fn, 6) ;    // set target function and initialize structure
   Arg_list *s = Arg_list_address(c) ;             // address of argument list
 
   fprintf(stderr, "IN serialize_demo_fn, building argument list\n") ;
-  Arg_int8(i8,    s, "arg_i8") ;                  // 8 bit signed integer argument
+  Arg_int8(i8_new,s, "arg_i8") ;                  // 8 bit signed integer argument
+  Arg_int8(i8,    s, "arg_i8") ;                  // 8 bit signed integer argument (second call)
+  Arg_int8(i8_new,s, "arg_i8") ;                  // 8 bit signed integer argument (third call)
   Arg_float(f,    s, "arg_f") ;                   // 32 bit float argument
   Arg_double(d,   s, "arg_d") ;                   // 64 bit double argument
   Arg_int8p(i8p,  s, "arg_i8p") ;                 // pointer to 8 bit signed integer argument
+  Arg_int8p(i8p_, s, "arg_i8p") ;                 // pointer to 8 bit signed integer argument (second call)
   Arg_floatp(fp,  s, "arg_fp") ;                  // pointer to 32 bit float argument
   Arg_doublep(dp, s, "arg_dp") ;                  // pointer to 64 bit double argument
   Arg_result(Arg_fp, Arg_list_address(c)) ;       // deliberately using Arg_list_address() as parameter
@@ -177,10 +182,10 @@ int main(int argc, char **argv){
   r = call_demo_fn2(l) ;
   fp = (float *) r.p ;
   fprintf(stderr,"function2 result = %p, float value = %f\n", r.fp, *fp) ;
-  fprintf(stderr,"==================================================================\n");
-  fprintf(stderr,"kind and name table\n") ;
-  for(i=0 ; i<=Arg_void ; i++){
-    fprintf(stderr, "kind = %2d, name = %4s\n", i, Arg_kind[i]) ;
-  }
+//   fprintf(stderr,"==================================================================\n");
+//   fprintf(stderr,"kind and name table\n") ;
+//   for(i=0 ; i<=Arg_void ; i++){
+//     fprintf(stderr, "kind = %2d, name = %4s\n", i, Arg_kind[i]) ;
+//   }
   return 0 ;
 }

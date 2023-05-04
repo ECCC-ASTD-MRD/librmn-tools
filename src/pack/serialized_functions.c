@@ -158,7 +158,7 @@ int Arg_names_check(Arg_list *s, char **names, int ncheck){
 
 // check that argument kinds in s are consistent with expected kinds
 // Arg_list [IN] : pointer to argument list struct
-// names    [IN] : list of expected argument types
+// kind     [IN] : list of expected argument types
 // ncheck   [IN] : number of positions to check (0 means s->numargs)
 // return        : 0 if no error, 1 otherwise
 int Arg_types_check(Arg_list *s, uint32_t *kind, int ncheck){
@@ -185,338 +185,263 @@ void Arg_list_dump(Arg_list *s){
   fprintf(stderr, "function result kind = %s\n", Arg_kind[s->result.kind]) ;
 }
 
-// add argument to Arg_list
+// find name/kind in argument table, add entry if not found
+// s     [INOUT] : pointer to argument list struct
+// name     [IN] : expected argument name, up to 8 characters
+// kind     [IN] : expected argument type
+// return (insertion) position (-1 in case of error)
+// if it is a new argument, add name/kind/flags to the argument list
+// the actual value will be set by the calling function
+int Arg_find_pos( Arg_list *s, char *name, uint32_t kind){
+  int i ;
+  int64_t hash = hash_name(name) ;
+  int numargs = s->numargs ;
+  for(i=0 ; i<numargs ; i++){
+    if(s->arg[i].name == hash){         // name found
+      if(s->arg[i].kind == kind){       // expected type
+// fprintf(stderr, "DEBUG: found argument %s(%s) as argument %d\n", name, Arg_kind[kind], i+1) ;
+        return i ;
+      }else{                            // wrong type, error
+        return -1 ;
+      }
+    }
+  }
+  if(numargs >= s->maxargs) return -1 ; // argument table is full
+// fprintf(stderr, "DEBUG: adding argument %s(%s) as argument %d\n", name, Arg_kind[kind], numargs+1) ;
+  s->arg[numargs].undf      = 0 ;
+  s->arg[numargs].name      = hash_name(name) ;
+  s->arg[numargs].kind      = kind ;
+  s->numargs++ ;                        // bump number of arguments
+  return numargs ;                      // position for insertion
+}
+
+// add uint8_t argument to Arg_list, return number of arguments
 // v           [IN] : uint8_t value
-// Arg_list [INOUT] : pointer to argument list struct
+// s        [INOUT] : pointer to argument list struct
 // name        [IN] : argument name, up to 8 characters
 int Arg_uint8(uint8_t v, Arg_list *s, char *name){
-  int numargs = s->numargs ;
-
-  if(numargs >= s->maxargs) return -1 ;
-  s->arg[numargs].undf      = 0 ;
-  s->arg[numargs].name      = hash_name(name) ;
-  s->arg[numargs].kind      = Arg_u8 ;
+  int numargs = Arg_find_pos(s, name, Arg_u8) ;
+  if(numargs == -1) return -1 ;
   s->arg[numargs].value.u8  = v ;
-  s->numargs++ ;
   return s->numargs ;
 }
 
-// add argument to Arg_list
+// add int8_t argument to Arg_list, return number of arguments
 // v           [IN] : int8_t value
-// Arg_list [INOUT] : pointer to argument list struct
+// s        [INOUT] : pointer to argument list struct
 // name        [IN] : argument name, up to 8 characters
 int Arg_int8(int8_t v, Arg_list *s, char *name){
-  int numargs = s->numargs ;
-
-  if(numargs >= s->maxargs) return -1 ;
-  s->arg[numargs].undf      = 0 ;
-  s->arg[numargs].name      = hash_name(name) ;
-  s->arg[numargs].kind      = Arg_i8 ;
+  int numargs = Arg_find_pos(s, name, Arg_i8) ;
+  if(numargs == -1) return -1 ;
   s->arg[numargs].value.i8  = v ;
-  s->numargs++ ;
   return s->numargs ;
 }
 
-// add argument to Arg_list
+// add uint16_t argument to Arg_list, return number of arguments
 // v           [IN] : uint16_t value
-// Arg_list [INOUT] : pointer to argument list struct
+// s        [INOUT] : pointer to argument list struct
 // name        [IN] : argument name, up to 8 characters
 int Arg_uint16(uint16_t v, Arg_list *s, char *name){
-  int numargs = s->numargs ;
-
-  if(numargs >= s->maxargs) return -1 ;
-  s->arg[numargs].undf      = 0 ;
-  s->arg[numargs].name      = hash_name(name) ;
-  s->arg[numargs].kind      = Arg_u16 ;
-  s->arg[numargs].value.u16 = v ;
-  s->numargs++ ;
+  int numargs = Arg_find_pos(s, name, Arg_u16) ;
+  if(numargs == -1) return -1 ;
+  s->arg[numargs].value.u16  = v ;
   return s->numargs ;
 }
 
-// add argument to Arg_list
+// add int16_t argument to Arg_list, return number of arguments
 // v           [IN] : int16_t value
-// Arg_list [INOUT] : pointer to argument list struct
+// s        [INOUT] : pointer to argument list struct
 // name        [IN] : argument name, up to 8 characters
 int Arg_int16(int16_t v, Arg_list *s, char *name){
-  int numargs = s->numargs ;
-
-  if(numargs >= s->maxargs) return -1 ;
-  s->arg[numargs].undf      = 0 ;
-  s->arg[numargs].name      = hash_name(name) ;
-  s->arg[numargs].kind      = Arg_i16 ;
-  s->arg[numargs].value.i16 = v ;
-  s->numargs++ ;
+  int numargs = Arg_find_pos(s, name, Arg_i16) ;
+  if(numargs == -1) return -1 ;
+  s->arg[numargs].value.i16  = v ;
   return s->numargs ;
 }
 
-// add argument to Arg_list
+// add uint32_t argument to Arg_list, return number of arguments
 // v           [IN] : uint32_t value
-// Arg_list [INOUT] : pointer to argument list struct
+// s        [INOUT] : pointer to argument list struct
 // name        [IN] : argument name, up to 8 characters
 int Arg_uint32(uint32_t v, Arg_list *s, char *name){
-  int numargs = s->numargs ;
-
-  if(numargs >= s->maxargs) return -1 ;
-  s->arg[numargs].undf      = 0 ;
-  s->arg[numargs].name      = hash_name(name) ;
-  s->arg[numargs].kind      = Arg_u32 ;
-  s->arg[numargs].value.u32 = v ;
-  s->numargs++ ;
+  int numargs = Arg_find_pos(s, name, Arg_u32) ;
+  if(numargs == -1) return -1 ;
+  s->arg[numargs].value.u32  = v ;
   return s->numargs ;
 }
 
-// add argument to Arg_list
+// add int32_t argument to Arg_list, return number of arguments
 // v           [IN] : int32_t value
-// Arg_list [INOUT] : pointer to argument list struct
+// s        [INOUT] : pointer to argument list struct
 // name        [IN] : argument name, up to 8 characters
 int Arg_int32(int32_t v, Arg_list *s, char *name){
-  int numargs = s->numargs ;
-
-  if(numargs >= s->maxargs) return -1 ;
-  s->arg[numargs].undf      = 0 ;
-  s->arg[numargs].name      = hash_name(name) ;
-  s->arg[numargs].kind      = Arg_i32 ;
-  s->arg[numargs].value.i32 = v ;
-  s->numargs++ ;
+  int numargs = Arg_find_pos(s, name, Arg_i32) ;
+  if(numargs == -1) return -1 ;
+  s->arg[numargs].value.i32  = v ;
   return s->numargs ;
 }
 
-// add argument to Arg_list
+// add uint64_t argument to Arg_list, return number of arguments
 // v           [IN] : uint64_t value
-// Arg_list [INOUT] : pointer to argument list struct
+// s        [INOUT] : pointer to argument list struct
 // name        [IN] : argument name, up to 8 characters
 int Arg_uint64(uint64_t v, Arg_list *s, char *name){
-  int numargs = s->numargs ;
-
-  if(numargs >= s->maxargs) return -1 ;
-  s->arg[numargs].undf      = 0 ;
-  s->arg[numargs].name      = hash_name(name) ;
-  s->arg[numargs].kind      = Arg_u64 ;
-  s->arg[numargs].value.u64 = v ;
-  s->numargs++ ;
+  int numargs = Arg_find_pos(s, name, Arg_u64) ;
+  if(numargs == -1) return -1 ;
+  s->arg[numargs].value.u64  = v ;
   return s->numargs ;
 }
 
-// add argument to Arg_list
+// add int64_t argument to Arg_list, return number of arguments
 // v           [IN] : int64_t value
-// Arg_list [INOUT] : pointer to argument list struct
+// s        [INOUT] : pointer to argument list struct
 // name        [IN] : argument name, up to 8 characters
 int Arg_int64(int64_t v, Arg_list *s, char *name){
-  int numargs = s->numargs ;
-
-  if(numargs >= s->maxargs) return -1 ;
-  s->arg[numargs].undf      = 0 ;
-  s->arg[numargs].name      = hash_name(name) ;
-  s->arg[numargs].kind      = Arg_i64 ;
-  s->arg[numargs].value.i64 = v ;
-  s->numargs++ ;
+  int numargs = Arg_find_pos(s, name, Arg_i64) ;
+  if(numargs == -1) return -1 ;
+  s->arg[numargs].value.i64  = v ;
   return s->numargs ;
 }
 
-// add argument to Arg_list
+// add float argument to Arg_list, return number of arguments
 // v           [IN] : float value
-// Arg_list [INOUT] : pointer to argument list struct
+// s        [INOUT] : pointer to argument list struct
 // name        [IN] : argument name, up to 8 characters
 int Arg_float(float v, Arg_list *s, char *name){
-  int numargs = s->numargs ;
-
-  if(numargs >= s->maxargs) return -1 ;
-  s->arg[numargs].undf      = 0 ;
-  s->arg[numargs].name      = hash_name(name) ;
-  s->arg[numargs].kind      = Arg_f ;
-  s->arg[numargs].value.f = v ;
-  s->numargs++ ;
+  int numargs = Arg_find_pos(s, name, Arg_f) ;
+  if(numargs == -1) return -1 ;
+  s->arg[numargs].value.f  = v ;
   return s->numargs ;
 }
 
-// add argument to Arg_list
+// add double argument to Arg_list, return number of arguments
 // v           [IN] : double value
-// Arg_list [INOUT] : pointer to argument list struct
+// s        [INOUT] : pointer to argument list struct
 // name        [IN] : argument name, up to 8 characters
 int Arg_double(double v, Arg_list *s, char *name){
-  int numargs = s->numargs ;
-
-  if(numargs >= s->maxargs) return -1 ;
-  s->arg[numargs].undf      = 0 ;
-  s->arg[numargs].name      = hash_name(name) ;
-  s->arg[numargs].kind      = Arg_d ;
-  s->arg[numargs].value.d = v ;
-  s->numargs++ ;
+  int numargs = Arg_find_pos(s, name, Arg_d) ;
+  if(numargs == -1) return -1 ;
+  s->arg[numargs].value.d  = v ;
   return s->numargs ;
 }
 
-// add argument to Arg_list
+// add void * argument to Arg_list, return number of arguments
 // v           [IN] : pointer
-// Arg_list [INOUT] : pointer to argument list struct
+// s        [INOUT] : pointer to argument list struct
 // name        [IN] : argument name, up to 8 characters
 int Arg_ptr(void *v, Arg_list *s, char *name){
-  int numargs = s->numargs ;
-
-  if(numargs >= s->maxargs) return -1 ;
-  s->arg[numargs].undf      = 0 ;
-  s->arg[numargs].name      = hash_name(name) ;
-  s->arg[numargs].kind      = Arg_p ;
-  s->arg[numargs].value.p = v ;
-  s->numargs++ ;
+  int numargs = Arg_find_pos(s, name, Arg_p) ;
+  if(numargs == -1) return -1 ;
+  s->arg[numargs].value.p  = v ;
   return s->numargs ;
 }
 
-// add argument to Arg_list
+// add uint8_t * argument to Arg_list, return number of arguments
 // v           [IN] : pointer to uint8_t
-// Arg_list [INOUT] : pointer to argument list struct
+// s        [INOUT] : pointer to argument list struct
 // name        [IN] : argument name, up to 8 characters
 int Arg_uint8p(uint8_t *v, Arg_list *s, char *name){
-  int numargs = s->numargs ;
-
-  if(numargs >= s->maxargs) return -1 ;
-  s->arg[numargs].undf      = 0 ;
-  s->arg[numargs].name      = hash_name(name) ;
-  s->arg[numargs].kind      = Arg_u8p ;
-  s->arg[numargs].value.u8p = v ;
-  s->numargs++ ;
+  int numargs = Arg_find_pos(s, name, Arg_u8p) ;
+  if(numargs == -1) return -1 ;
+  s->arg[numargs].value.u8p  = v ;
   return s->numargs ;
 }
 
-// add argument to Arg_list
+// add int8_t * argument to Arg_list, return number of arguments
 // v           [IN] : pointer to int8_t
-// Arg_list [INOUT] : pointer to argument list struct
+// s        [INOUT] : pointer to argument list struct
 // name        [IN] : argument name, up to 8 characters
 int Arg_int8p(int8_t *v, Arg_list *s, char *name){
-  int numargs = s->numargs ;
-
-  if(numargs >= s->maxargs) return -1 ;
-  s->arg[numargs].undf      = 0 ;
-  s->arg[numargs].name      = hash_name(name) ;
-  s->arg[numargs].kind      = Arg_i8p ;
-  s->arg[numargs].value.i8p = v ;
-  s->numargs++ ;
+  int numargs = Arg_find_pos(s, name, Arg_i8p) ;
+  if(numargs == -1) return -1 ;
+  s->arg[numargs].value.i8p  = v ;
   return s->numargs ;
 }
 
-// add argument to Arg_list
+// add uint16_t * argument to Arg_list, return number of arguments
 // v           [IN] : pointer to uint16_t
-// Arg_list [INOUT] : pointer to argument list struct
+// s        [INOUT] : pointer to argument list struct
 // name        [IN] : argument name, up to 8 characters
 int Arg_uint16p(uint16_t *v, Arg_list *s, char *name){
-  int numargs = s->numargs ;
-
-  if(numargs >= s->maxargs) return -1 ;
-  s->arg[numargs].undf      = 0 ;
-  s->arg[numargs].name      = hash_name(name) ;
-  s->arg[numargs].kind      = Arg_u16p ;
-  s->arg[numargs].value.u16p = v ;
-  s->numargs++ ;
+  int numargs = Arg_find_pos(s, name, Arg_u16p) ;
+  if(numargs == -1) return -1 ;
+  s->arg[numargs].value.u16p  = v ;
   return s->numargs ;
 }
 
-// add argument to Arg_list
+// add int16_t * argument to Arg_list, return number of arguments
 // v           [IN] : pointer to int16_t
-// Arg_list [INOUT] : pointer to argument list struct
+// s        [INOUT] : pointer to argument list struct
 // name        [IN] : argument name, up to 8 characters
 int Arg_int16p(int16_t *v, Arg_list *s, char *name){
-  int numargs = s->numargs ;
-
-  if(numargs >= s->maxargs) return -1 ;
-  s->arg[numargs].undf      = 0 ;
-  s->arg[numargs].name      = hash_name(name) ;
-  s->arg[numargs].kind      = Arg_i16p ;
-  s->arg[numargs].value.i16p = v ;
-  s->numargs++ ;
+  int numargs = Arg_find_pos(s, name, Arg_i16p) ;
+  if(numargs == -1) return -1 ;
+  s->arg[numargs].value.i16p  = v ;
   return s->numargs ;
 }
 
-// add argument to Arg_list
+// add uint32_t * argument to Arg_list, return number of arguments
 // v           [IN] : pointer to uint32_t
-// Arg_list [INOUT] : pointer to argument list struct
+// s        [INOUT] : pointer to argument list struct
 // name        [IN] : argument name, up to 8 characters
 int Arg_uint32p(uint32_t *v, Arg_list *s, char *name){
-  int numargs = s->numargs ;
-
-  if(numargs >= s->maxargs) return -1 ;
-  s->arg[numargs].undf      = 0 ;
-  s->arg[numargs].name      = hash_name(name) ;
-  s->arg[numargs].kind      = Arg_u32p ;
-  s->arg[numargs].value.u32p = v ;
-  s->numargs++ ;
+  int numargs = Arg_find_pos(s, name, Arg_u32p) ;
+  if(numargs == -1) return -1 ;
+  s->arg[numargs].value.u32p  = v ;
   return s->numargs ;
 }
 
-// add argument to Arg_list
+// add int32_t * argument to Arg_list, return number of arguments
 // v           [IN] : pointer to int32_t
-// Arg_list [INOUT] : pointer to argument list struct
+// s        [INOUT] : pointer to argument list struct
 // name        [IN] : argument name, up to 8 characters
 int Arg_int32p(int32_t *v, Arg_list *s, char *name){
-  int numargs = s->numargs ;
-
-  if(numargs >= s->maxargs) return -1 ;
-  s->arg[numargs].undf      = 0 ;
-  s->arg[numargs].name      = hash_name(name) ;
-  s->arg[numargs].kind      = Arg_i32p ;
-  s->arg[numargs].value.i32p = v ;
-  s->numargs++ ;
+  int numargs = Arg_find_pos(s, name, Arg_i32p) ;
+  if(numargs == -1) return -1 ;
+  s->arg[numargs].value.i32p  = v ;
   return s->numargs ;
 }
 
-// add argument to Arg_list
+// add uint64_t * argument to Arg_list, return number of arguments
 // v           [IN] : pointer to uint64_t
-// Arg_list [INOUT] : pointer to argument list struct
+// s        [INOUT] : pointer to argument list struct
 // name        [IN] : argument name, up to 8 characters
 int Arg_uint64p(uint64_t *v, Arg_list *s, char *name){
-  int numargs = s->numargs ;
-
-  if(numargs >= s->maxargs) return -1 ;
-  s->arg[numargs].undf      = 0 ;
-  s->arg[numargs].name      = hash_name(name) ;
-  s->arg[numargs].kind      = Arg_u64p ;
-  s->arg[numargs].value.u64p = v ;
-  s->numargs++ ;
+  int numargs = Arg_find_pos(s, name, Arg_u64p) ;
+  if(numargs == -1) return -1 ;
+  s->arg[numargs].value.u64p  = v ;
   return s->numargs ;
 }
 
-// add argument to Arg_list
+// add int64_t * argument to Arg_list, return number of arguments
 // v           [IN] : pointer to int64_t
-// Arg_list [INOUT] : pointer to argument list struct
+// s        [INOUT] : pointer to argument list struct
 // name        [IN] : argument name, up to 8 characters
 int Arg_int64p(int64_t *v, Arg_list *s, char *name){
-  int numargs = s->numargs ;
-
-  if(numargs >= s->maxargs) return -1 ;
-  s->arg[numargs].undf      = 0 ;
-  s->arg[numargs].name      = hash_name(name) ;
-  s->arg[numargs].kind      = Arg_i64p ;
-  s->arg[numargs].value.i64p = v ;
-  s->numargs++ ;
+  int numargs = Arg_find_pos(s, name, Arg_i64p) ;
+  if(numargs == -1) return -1 ;
+  s->arg[numargs].value.i64p  = v ;
   return s->numargs ;
 }
 
-// add argument to Arg_list
+// add float * argument to Arg_list, return number of arguments
 // v           [IN] : pointer to float
-// Arg_list [INOUT] : pointer to argument list struct
+// s        [INOUT] : pointer to argument list struct
 // name        [IN] : argument name, up to 8 characters
 int Arg_floatp(float *v, Arg_list *s, char *name){
-  int numargs = s->numargs ;
-
-  if(numargs >= s->maxargs) return -1 ;
-  s->arg[numargs].undf      = 0 ;
-  s->arg[numargs].name      = hash_name(name) ;
-  s->arg[numargs].kind      = Arg_fp ;
-  s->arg[numargs].value.fp = v ;
-  s->numargs++ ;
+  int numargs = Arg_find_pos(s, name, Arg_fp) ;
+  if(numargs == -1) return -1 ;
+  s->arg[numargs].value.fp  = v ;
   return s->numargs ;
 }
 
-// add argument to Arg_list
+// add double * argument to Arg_list, return number of arguments
 // v           [IN] : pointer to double
-// Arg_list [INOUT] : pointer to argument list struct
+// s        [INOUT] : pointer to argument list struct
 // name        [IN] : argument name, up to 8 characters
 int Arg_doublep(double *v, Arg_list *s, char *name){
-  int numargs = s->numargs ;
-
-  if(numargs >= s->maxargs) return -1 ;
-  s->arg[numargs].undf      = 0 ;
-  s->arg[numargs].name      = hash_name(name) ;
-  s->arg[numargs].kind      = Arg_dp ;
-  s->arg[numargs].value.dp = v ;
-  s->numargs++ ;
+  int numargs = Arg_find_pos(s, name, Arg_dp) ;
+  if(numargs == -1) return -1 ;
+  s->arg[numargs].value.dp  = v ;
   return s->numargs ;
 }
