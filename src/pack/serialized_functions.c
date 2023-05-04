@@ -17,7 +17,7 @@
 #include <stdlib.h>
 #include <rmn/serialized_functions.h>
 
-// create new  Arg_list structure
+// create new  Arg_list structure (argument list only)
 // maxargs : maximum allowable number of arguments
 // return  : address of allocated structure
 Arg_list *Arg_list_init(int maxargs){
@@ -35,10 +35,7 @@ Arg_list *Arg_list_init(int maxargs){
   return temp ;
 }
 
-// Arg_list *Arg_list_address(Arg_fn_list *c)     // get address of argument list
-//   { return &(c->s) ; }
-
-// create new  Arg_fn_list structure
+// create new  Arg_fn_list structure (function address + argument list)
 // fn      : address of function to be called eventually
 // maxargs : maximum allowable number of arguments
 // return  : address of allocated structure
@@ -60,9 +57,9 @@ Arg_fn_list *Arg_init(Arg_fn fn, int maxargs){
   return temp ;
 }
 
-// hash argument name
+// hash argument name (8 characters -> 56 bit integer)
 // up to 8 characters are kept, 7 bits per character
-// name   : name of argument
+// name   : character array up to 8 characters (name of argument)
 // return : 56 bit hash
 static int64_t hash_name(char *name){
   int i ;
@@ -73,10 +70,15 @@ static int64_t hash_name(char *name){
   for( ; i<8 ; i++) hash <<= 7 ;    // left align the 56 bit hash
   return hash ;
 }
+// public version of hash_name
 int64_t Arg_name_hash(char *name){
   return hash_name(name) ;
 }
 
+// find argument index in argument list using argument name hash and kind
+// s    [IN] : pointer to argument list struct
+// hash [IN] : from hash_name()
+// kind [IN] : expected argument type
 int Arg_name_hash_index(Arg_list *s, int64_t hash, uint32_t kind){
   int i ;
   for(i=0 ; i<s->numargs ; i++){
@@ -85,7 +87,9 @@ int Arg_name_hash_index(Arg_list *s, int64_t hash, uint32_t kind){
   return -1 ; // not found
 }
 
-// get position in argument list using name only
+// find argument index in argument list using argument name only
+// s    [IN] : pointer to argument list struct
+// name [IN] : character array up to 8 characters (name of argument)
 int Arg_name_pos(Arg_list *s, char *name){
   int64_t hash = hash_name(name) ;
   int i ;
@@ -95,7 +99,10 @@ int Arg_name_pos(Arg_list *s, char *name){
   return -1 ; // not found
 }
 
-// get position in argument list using name and kind
+// find argument index in argument list using argument name and kind
+// s    [IN] : pointer to argument list struct
+// name [IN] : character array up to 8 characters (name of argument)
+// kind [IN] : expected argument type
 int Arg_name_index(Arg_list *s, char *name, uint32_t kind){
   int64_t hash = hash_name(name) ;
   int i ;
@@ -107,7 +114,10 @@ int Arg_name_index(Arg_list *s, char *name, uint32_t kind){
 
 static AnyType Arg_null = { .u64 = 0ul } ;
 
-// get value from argument list using name and kind
+// get value from argument list using name and kind (union is returned)
+// s    [IN] : pointer to argument list struct
+// name [IN] : character array up to 8 characters (name of argument)
+// N.B. it is up to the caller to get the desired field from the returned union
 AnyType Arg_value(Arg_list *s, char *name, uint32_t kind){
   int64_t hash = hash_name(name) ;
   int i ;
@@ -125,9 +135,9 @@ AnyType Arg_value(Arg_list *s, char *name, uint32_t kind){
   return Arg_null ;      // not found, "nullest" return value
 }
 
-// translate name hash to character string
-// hash   : from hash_name()
-// name   : character array that can receive at least 9 characters
+// translate name hash into character string (9 characters, null terminated)
+// hash  [IN] : from hash_name()
+// name [OUT] : character array that can receive at least 9 characters
 void Arg_name(int64_t hash, unsigned char *name){
   int i ;
   for(i=0 ; i<8 ; i++){
@@ -137,8 +147,8 @@ void Arg_name(int64_t hash, unsigned char *name){
   name[9] = '\0' ;   // make sure there is a null at then end of the name string
 }
 
-// check that argument names in s are consistent with expected name in names
-// Arg_list [IN] : pointer to argument list struct
+// check that argument names in struct s are consistent with expected name in names[]
+// s        [IN] : pointer to argument list struct
 // names    [IN] : list of expected argument names
 // ncheck   [IN] : number of positions to check (0 means s->numargs)
 // return        : 0 if no error, 1 otherwise
@@ -149,24 +159,24 @@ int Arg_names_check(Arg_list *s, char **names, int ncheck){
   for(i=0 ; i<ncheck ; i++){
     if(hash_name(names[i]) != s->arg[i].name) {
       Arg_name(s->arg[i].name, name) ;
-      fprintf(stderr,"argument %8s found at position %d instead of %s\n", name, i, names[i]) ;
+      fprintf(stderr,"ERROR: argument %8s found at position %d instead of %s\n", name, i, names[i]) ;
       errors++ ;
     }
   }
   return (errors > 0) ? 1 : 0 ;
 }
 
-// check that argument kinds in s are consistent with expected kinds
-// Arg_list [IN] : pointer to argument list struct
-// kind     [IN] : list of expected argument types
+// check that argument kinds in struct s are consistent with expected kind in kinds[]
+// s        [IN] : pointer to argument list struct
+// kinds    [IN] : list of expected argument types
 // ncheck   [IN] : number of positions to check (0 means s->numargs)
 // return        : 0 if no error, 1 otherwise
-int Arg_types_check(Arg_list *s, uint32_t *kind, int ncheck){
+int Arg_types_check(Arg_list *s, uint32_t *kinds, int ncheck){
   int i, errors = 0 ;
   ncheck = (ncheck == 0) ? s->numargs : ncheck ;
   for(i=0 ; i<ncheck ; i++){
-    if(kind[i] != s->arg[i].kind){
-      fprintf(stderr,"argument %2d, expecting %s, got %s\n", i+1, Arg_kind[kind[i]], Arg_kind[s->arg[i].kind]) ;
+    if(kinds[i] != s->arg[i].kind){
+      fprintf(stderr,"ERROR: argument %2d, expecting %s, got %s\n", i+1, Arg_kind[kinds[i]], Arg_kind[s->arg[i].kind]) ;
       errors++ ;
     }
   }
@@ -174,10 +184,11 @@ int Arg_types_check(Arg_list *s, uint32_t *kind, int ncheck){
 }
 
 // dump names and types of arguments and result from Arg_list
+// s        [IN] : pointer to argument list struct
 void Arg_list_dump(Arg_list *s){
   unsigned char name[9] ;
   int i ;
-  fprintf(stderr, "maxargs = %d, numargs = %d\n", s->maxargs, s->numargs) ;
+  fprintf(stderr, "max number of arguments = %d, actual number of arguments = %d\n", s->maxargs, s->numargs) ;
   for(i=0 ; i<s->numargs ; i++){
     Arg_name(s->arg[i].name, name) ;
     fprintf(stderr, "argument %2d : name = %9s, kind = %4s\n", i+1, name, Arg_kind[s->arg[i].kind]) ;
@@ -192,23 +203,27 @@ void Arg_list_dump(Arg_list *s){
 // return (insertion) position (-1 in case of error)
 // if it is a new argument, add name/kind/flags to the argument list
 // the actual value will be set by the calling function
+// this function is used by all the Arg_xxx add argument functions
 int Arg_find_pos( Arg_list *s, char *name, uint32_t kind){
   int i ;
   int64_t hash = hash_name(name) ;
   int numargs = s->numargs ;
   for(i=0 ; i<numargs ; i++){
     if(s->arg[i].name == hash){         // name found
-      if(s->arg[i].kind == kind){       // expected type
+      if(s->arg[i].kind == kind){
 // fprintf(stderr, "DEBUG: found argument %s(%s) as argument %d\n", name, Arg_kind[kind], i+1) ;
-        return i ;
-      }else{                            // wrong type, error
-        return -1 ;
+        s->arg[i].undf = 0 ;            // flags as if it were a new argument
+        s->arg[numargs].stat = 0 ;
+        return i ;                      // expected type
+      }else{
+        return -1 ;                     // wrong type, error
       }
     }
   }
   if(numargs >= s->maxargs) return -1 ; // argument table is full
 // fprintf(stderr, "DEBUG: adding argument %s(%s) as argument %d\n", name, Arg_kind[kind], numargs+1) ;
   s->arg[numargs].undf      = 0 ;
+  s->arg[numargs].stat      = 0 ;
   s->arg[numargs].name      = hash_name(name) ;
   s->arg[numargs].kind      = kind ;
   s->numargs++ ;                        // bump number of arguments

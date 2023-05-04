@@ -16,9 +16,9 @@ float *demo_fn2(int8_t i8, int8_t *i8p, float  f, float *fp, double d, double *d
 float *demo_fn(int8_t i8, float  f, double d, int8_t *i8p, float *fp, double *dp){
   void *r = fp ;
   fprintf(stderr,"\ni8 = %d, f = %f, d = %f, i8p = %p, fp = %p, dp = %p\n", i8, f, d, i8p, fp, dp) ;
-  if(*i8p != i8) { fprintf(stderr,"ERROR: *i8p != i8\n") ; r = NULL ; }
-  if(*fp  != f ) { fprintf(stderr,"ERROR: *fp != f\n")   ; r = NULL ; }
-  if(*dp  != d ) { fprintf(stderr,"ERROR: *dp != d\n")   ; r = NULL ; }
+  if(*i8p != i8) { fprintf(stderr,"ERROR: *i8p != i8\n") ; r = NULL ; } else { fprintf(stderr,"SUCCESS: *i8p == i8\n") ; }
+  if(*fp  != f ) { fprintf(stderr,"ERROR: *fp != f\n")   ; r = NULL ; } else { fprintf(stderr,"SUCCESS: *fp == f\n") ; }
+  if(*dp  != d ) { fprintf(stderr,"ERROR: *dp != d\n")   ; r = NULL ; } else { fprintf(stderr,"SUCCESS: *dp == d\n") ; }
   return r ;
 }
 
@@ -26,9 +26,9 @@ float *demo_fn(int8_t i8, float  f, double d, int8_t *i8p, float *fp, double *dp
 float *demo_fn2(int8_t i8, int8_t *i8p, float  f, float *fp, double d, double *dp){
   void *r = fp ;
   fprintf(stderr,"\ni8 = %d, f = %f, d = %f, i8p = %p, fp = %p, dp = %p\n", i8, f, d, i8p, fp, dp) ;
-  if(*i8p != i8) { fprintf(stderr,"ERROR: *i8p != i8\n") ; r = NULL ; }
-  if(*fp  != f ) { fprintf(stderr,"ERROR: *fp != f\n")   ; r = NULL ; }
-  if(*dp  != d ) { fprintf(stderr,"ERROR: *dp != d\n")   ; r = NULL ; }
+  if(*i8p != i8) { fprintf(stderr,"ERROR: *i8p != i8\n") ; r = NULL ; } else { fprintf(stderr,"SUCCESS: *i8p == i8\n") ; }
+  if(*fp  != f ) { fprintf(stderr,"ERROR: *fp != f\n")   ; r = NULL ; } else { fprintf(stderr,"SUCCESS: *fp == f\n") ; }
+  if(*dp  != d ) { fprintf(stderr,"ERROR: *dp != d\n")   ; r = NULL ; } else { fprintf(stderr,"SUCCESS: *dp == d\n") ; }
   return r ;
 }
 
@@ -42,11 +42,13 @@ Arg_fn_list *serialize_demo_fn(int8_t i8, float  f, double d, int8_t *i8p, float
   Arg_list *s = Arg_list_address(c) ;             // address of argument list
 
   fprintf(stderr, "IN serialize_demo_fn, building argument list\n") ;
+  // argument arg_i8 switched on the fly, i8_new -> i8 -> i8_new
   Arg_int8(i8_new,s, "arg_i8") ;                  // 8 bit signed integer argument
   Arg_int8(i8,    s, "arg_i8") ;                  // 8 bit signed integer argument (second call)
   Arg_int8(i8_new,s, "arg_i8") ;                  // 8 bit signed integer argument (third call)
   Arg_float(f,    s, "arg_f") ;                   // 32 bit float argument
   Arg_double(d,   s, "arg_d") ;                   // 64 bit double argument
+  // argument arg_i8p switched on the fly, i8p -> i8p_ to stay consistent in test
   Arg_int8p(i8p,  s, "arg_i8p") ;                 // pointer to 8 bit signed integer argument
   Arg_int8p(i8p_, s, "arg_i8p") ;                 // pointer to 8 bit signed integer argument (second call)
   Arg_floatp(fp,  s, "arg_fp") ;                  // pointer to 32 bit float argument
@@ -56,6 +58,7 @@ Arg_fn_list *serialize_demo_fn(int8_t i8, float  f, double d, int8_t *i8p, float
   return c ;
 }
 
+// alternative version of call_demo_fn, called directly with argument list from main()
 AnyType call_demo_fn2(Arg_list *list){
   AnyType t ;
   int i ;
@@ -173,12 +176,13 @@ int main(int argc, char **argv){
   }
   fprintf(stderr,"function result = %p, float value = %f\n", r.fp, *fp) ;
   fprintf(stderr,"==================================================================\n");
-  fprintf(stderr,"direct call to call_demo_fn reusing previous argument list\n") ;
+  fprintf(stderr,"direct call to call_demo_fn using previous argument list\n") ;
   l = Arg_list_address(c) ;
   r = call_demo_fn(l) ;
   fp = (float *) r.p ;
   fprintf(stderr,"function result = %p, float value = %f\n", r.fp, *fp) ;
   fprintf(stderr,"==================================================================\n");
+  fprintf(stderr,"direct call to call_demo_fn2 using previous argument list\n") ;
   r = call_demo_fn2(l) ;
   fp = (float *) r.p ;
   fprintf(stderr,"function2 result = %p, float value = %f\n", r.fp, *fp) ;

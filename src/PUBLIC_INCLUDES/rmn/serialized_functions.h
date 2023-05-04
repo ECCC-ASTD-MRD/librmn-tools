@@ -58,6 +58,7 @@ static char *Arg_kind[] = {
   "void"
 } ;
 
+// the stat field may be used as a Read-Only lock for the arguments (status  for the result)
 typedef struct{     // argument list element
   uint64_t name:56, // 8 x 7bit ASCII name
            undf:1 , // 1 undefined, 0 defined
@@ -83,7 +84,9 @@ typedef struct{    // serialized argument list control structure
   Arg_list s  ;    // argument list
 } Arg_fn_list ;
 
-Arg_fn_list *Arg_init(Arg_fn fn, int maxargs);               // initialize Arg_fn_list structure
+Arg_fn_list *Arg_init(Arg_fn fn, int maxargs);               // create and initialize Arg_fn_list structure
+
+// helper functions
 AnyType Arg_value(Arg_list *s, char *name, uint32_t kind);   // get value from argument list using name and kind
 int64_t Arg_name_hash(char *name);                           // get hash associated with name string
 int Arg_name_hash_index(Arg_list *s, int64_t hash, uint32_t kind);   // get argument position in argument list using name hash
@@ -93,10 +96,13 @@ void Arg_name(int64_t hash, unsigned char *name);            // get name string 
 int Arg_names_check(Arg_list *s, char **names, int ncheck);  // check argument names against expected names
 int Arg_types_check(Arg_list *s, uint32_t *kind, int ncheck);     // check argument types against expected types
 void Arg_list_dump(Arg_list *s);                             // dump argument names and types
-static inline Arg_list *Arg_list_address(Arg_fn_list *c)     // get address of argument list
+static inline Arg_list *Arg_list_address(Arg_fn_list *c)     // get address of argument list from Arg_fn_list
   { return &(c->s) ; }
 static inline void Arg_result(ArgType kind, Arg_list *s)     // set result type in argument list
   { s->result.kind = kind ; }
+int Arg_find_pos( Arg_list *s, char *name, uint32_t kind);   // find name/kind in argument list, add to list if not found
+
+// add arguments to argument list
 int Arg_uint8(uint8_t v, Arg_list *s, char *name);           // add unsigned 8 bit integer argument
 int Arg_int8(int8_t v, Arg_list *s, char *name);             // add signed 8 bit integer argument
 int Arg_uint16(uint16_t v, Arg_list *s, char *name);         // add unsigned 16 bit integer argument
