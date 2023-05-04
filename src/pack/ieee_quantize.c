@@ -26,6 +26,14 @@
 #include <rmn/tools_types.h>
 #include <rmn/ieee_quantize.h>
 
+#if defined(__GNUC__)
+#if ! defined(__INTEL_COMPILER_UPDATE)
+#if ! defined(__PGI)
+#pragma GCC optimize "tree-vectorize"
+#endif
+#endif
+#endif
+
 #if ! defined(STATIC)
 #define STATIC static
 #endif
@@ -88,8 +96,8 @@ uint64_t IEEE32_linear_limits(void * restrict f, int np){
     mina[i] = ands[i] = ~0u ;    // FFFFFFFF
   }
   ni7 = (np & 7) ;
-  for(i=0 ; i<8 ; i++){
-    if(i >= ni7) break ;                  // safety for case where we have less than 8 values
+  for(i=0 ; i<8 && i<ni7 ; i++){
+//     if(i >= ni7) break ;                  // safety for case where we have less than 8 values
     t[i] = fu[i] & masksign ;             // get rid of sign
     maxa[i]  = MAX( maxa[i], t[i]) ;      // largest absolute value
     mina[i]  = MIN( mina[i], t[i]) ;      // smallest absolute value
@@ -219,6 +227,23 @@ int IEEE32_linear_unquantize_0(void * restrict q, uint64_t u64, int ni, void * r
   }
 end:
   return 0 ;
+}
+
+// evaluate the discretization quantum as a function of nbits (style 0)
+FloatPair IEEE32_linear_quantum_0(uint64_t u64, int nbits){
+  ieee32_props h64 ;
+  uint64_t allp, allm, pos_neg ;
+  AnyType32 maxa, mina ;
+  FloatPair result = {0.0f, 0.0f } ;
+
+  h64.u = u64 ;
+  allm = h64.l.allm ;            // extract all useful values from u64
+  allp = h64.l.allp ;
+  maxa.u = h64.l.maxa ;
+  mina.u = h64.l.mina ;
+  pos_neg = (allp || allm) ? 0 : 1 ;      // we have both positive and negative values
+
+  return result ;
 }
 
 // prepare for linear quantization of IEEE floats (style 0)
@@ -410,44 +435,97 @@ uint64_t IEEE32_linear_quantize_0(void * restrict f, int ni, int nbits, float qu
 // u64   [IN]  metadata information describing quantization (from IEEE32_linear_quantize_1)
 // N.B. if values have mixed signs, the sign is stored as the LSB in the quantized integer
 int IEEE32_linear_unquantize_1(void * restrict q, uint64_t u64, int ni, void * restrict f){
-  uint32_t *qi = (uint32_t *) q ;
+  int32_t *qi = (int32_t *) q ;
   float *fo = (float *) f ;
   ieee32_props h64 ;
-  int ni7, i0, i, offset, t ;
+  int ni7, i0, i, t ;
   int exp, nbits ;
   AnyType32 m1, bias ;
-  float fac32 ;
+  float fac32, tf, offset ;
+  uint32_t allp, allm, pos_neg, sg ;
 
   h64.u  = u64 ;
+  allp  = h64.q.allp ;               // no neggative values
+  allm  = h64.q.allm ;               // all negative values
+  pos_neg = (allp || allm) ? 0 : 1 ;
   nbits  = h64.q.nbts ;
   bias.u = h64.q.bias ;
-  offset = bias.i ;
+  offset = bias.f ;
   exp = h64.q.efac ; exp -= 127 ;        // remove exponent bias
+// fprintf(stderr, "ni = %d, nbits = %d, exp = %d(%d), bias = %f\n", ni, nbits, exp, h64.q.efac, bias.f);
   if(exp > -127 && exp < 127){           // "civilized" exponent for largest value
-    m1.i = (127 + exp - 23) ;            // inverse of factor to bring largest exponent to 23
+    m1.i = (127 - exp) ;                 // inverse of factor to bring largest exponent to 23
     m1.i <<= 23 ;
     fac32 = m1.f;
-  }else{
+  }else{                                 // not a "civilized" exponent
     return 1 ;
   }
-
+// fprintf(stderr, "fac32 = %f, offset = %f\n", fac32, offset);
   ni7 = (ni & 7) ;
-  if(h64.p.nbts == 0){   // constant value
-    for(i=0 ; i<ni ; i++) fo[i] = bias.f ;
-    goto end ;
-  }
-  for(i=0 ; i<(ni & 7) ; i++){                       // first chunk (0 - > 7 items)
-    t = qi[i] << (24-nbits) ;
-    fo[i] = (t + offset) * fac32 ;
-  }
-  for(i0=ni7 ; i0<ni-7 ; i0+=8){                     // 8 items chnumks
-    for(i=0 ; i<8 ; i++){
-      t = qi[i0+i] << (24-nbits) ;
-      fo[i0+i] = (t + offset) * fac32 ;
+  if(pos_neg){
+    for(i=0 ; i<(ni & 7) ; i++){
+      tf = (qi[i] >> 1) ;
+      sg = (qi[i] & 1) ;
+      tf = tf * fac32 + offset ;
+      fo[i] = sg ? -tf : tf ;
+    }
+    for(i0=ni7 ; i0<ni-7 ; i0+=8){
+      for(i=0 ; i<8 ; i++){
+        tf = (qi[i0+i] >> 1) ;
+        sg = (qi[i0+i] & 1) ;
+        tf = tf * fac32 + offset ;
+        fo[i0+i] = sg ? -tf : tf ;
+      }
+    }
+  }else{
+    for(i=0 ; i<(ni & 7) ; i++){
+      tf = qi[i] ;
+      tf = tf * fac32 + offset ;
+      fo[i] = allm ? -tf : tf ;
+    }
+    for(i0=ni7 ; i0<ni-7 ; i0+=8){
+      for(i=0 ; i<8 ; i++){
+        tf = qi[i0+i] ;
+        tf = tf * fac32 + offset ;
+        fo[i0+i] = allm ? -tf : tf ;
+      }
     }
   }
+//   if(h64.q.nbts == 0){   // constant value
+//     for(i=0 ; i<ni ; i++) fo[i] = offset ;
+//     goto end ;
+//   }
+//   for(i=0 ; i<(ni & 7) ; i++){                       // first chunk (0 - > 7 items)
+//     tf = (qi[i] < 0) ? -qi[i] : qi[i] ; ;
+//     fo[i] = (tf * fac32 + offset) ;
+//     fo[i] = (qi[i] < 0) ? -fo[i] : fo[i] ;
+//   }
+//   for(i0=ni7 ; i0<ni-7 ; i0+=8){                     // 8 items chnumks
+//     for(i=0 ; i<8 ; i++){
+//       tf = (qi[i0+i] < 0) ? -qi[i0+i] : qi[i0+i] ;
+//       fo[i0+i] = (tf * fac32 + offset) ;
+//       fo[i0+i] = (qi[i0+i] < 0) ? -fo[i0+i] : fo[i0+i] ;
+//     }
+//   }
 end:
   return 0 ;
+}
+
+// evaluate the discretization quantum as a function of nbits (style 0)
+FloatPair IEEE32_linear_quantum_1(uint64_t u64, int nbits){
+  ieee32_props h64 ;
+  uint64_t allp, allm, pos_neg ;
+  AnyType32 maxa, mina ;
+  FloatPair result = {0.0f, 0.0f } ;
+
+  h64.u = u64 ;
+  allm = h64.l.allm ;            // extract all useful values from u64
+  allp = h64.l.allp ;
+  maxa.u = h64.l.maxa ;
+  mina.u = h64.l.mina ;
+  pos_neg = (allp || allm) ? 0 : 1 ;      // we have both positive and negative values
+
+  return result ;
 }
 
 // prepare for linear quantization of IEEE floats (style 1)
@@ -459,57 +537,124 @@ end:
 // quant [IN]  quantization interval (if non zero, it is used instead of nbits)
 uint64_t IEEE32_linear_prep_1(uint64_t u64, int np, int nbits, float quant){
   ieee32_props h64 ;
-  uint32_t range, efac, erange, allp, allm ;
-  AnyType32 q, m1, m2, m3, r, f ;
-
+  uint32_t range, efac, erange, allp, allm, pos_neg, emax, emin ;
+  AnyType32 q, m1, m2, m3, r, f, t ;
+  int32_t qm1 ;
+// fprintf(stderr, "requested nbits = %d, quantum = %f\n", nbits, quant) ;
   h64.u = u64 ;                      // get inbound metadata
-  m1.u  = h64.l.maxa ;
-  m2.u  = h64.l.mina ;
+  allp  = h64.l.allp ;               // no neggative values
+  allm  = h64.l.allm ;               // all negative values
+  pos_neg = (allp || allm) ? 0 : 1 ;
+  m1.u  = h64.l.maxa ;               // largest absolute value
+  emax  = (m1.u >> 23) ;
+  m2.u  = h64.l.mina ;               // smallest absolute value
+  emin  = (m2.u >> 23) ;
+  if(emax - emin > nbits) {
+fprintf(stderr, "DEBUG: setting offset to 0, max = %f, min = %f, max/min = %f, emax-emin = %d, nbits = %d\n", m1.f, m2.f, m1.f/m2.f, emax-emin, nbits);
+    m2.u = 0 ;     // max / min > 2**nbits
+  }
+adjust_offset:                       // m2.f should be a multiple of quantum
   range = m1.u - m2.u ;              // range as an integer
   m3.f  = m1.f - m2.f ;              // range of values (float)
-  m3.u |= 0x7FFFFF ;                 // force mantissa to all 1s
-  allp  = h64.l.allp ;
-  allm  = h64.l.allm ;
-  q.f   = quant ;
-  q.u  &= 0x7F800000 ;               // get rid of quantum mantissa
+  m3.u |= 0x7FFFFF ;                 // force range mantissa to all 1s
+  if(quant == 0){
+    int nbits2 = nbits ;
+    if(pos_neg) nbits2-- ;
+    nbits2 = (nbits2<1) ? 1 : nbits2 ;  // minimum = 1 bit
+    q.u = (m3.u >> 23) - nbits2 + 1 ;   // adjust quantum to reflect nbits
+    q.u = (q.u << 23) ;
+fprintf(stderr, "adjusted quantum = %f, m1 = %f, m2 = %f, m3 = %f\n", q.f, m1.f, m2.f, m3.f) ;
+  }else{
+    q.f   = quant ;
+    q.u  &= 0x7F800000 ;             // get rid of quantum mantissa
+  }
+  uint32_t ratio = m2.f / q.f ;
+  t.f = ratio * q.f ;
+  if(t.f != m2.f){
+fprintf(stderr, "DEBUG: adjusting offset, %f to %f, quantum = %f\n", m2.f, t.f, q.f) ;
+    m2.f = t.f ;
+    goto adjust_offset ;
+  }else{
+fprintf(stderr, "DEBUG: offset(%f) is a multiple of quantum\n", m2.f);
+  }
+
   r.f   = m3.f / q.f ;               // range / quantum
   erange = (r.u >> 23) - 127 ;       // unbiased exponent for range / quantum
-  if(nbits == 0){
-    nbits = erange ;                 // adjust nbits to reflect quantum
+// fprintf(stderr, "np = %d, nbits = %d, quant = %f(%f)\n", np, nbits, quant, q.f) ;
+
+  if(nbits <= 0){
+    nbits = erange + 1 ;             // adjust nbits to reflect quantum
     nbits = (nbits<1) ? 1 : nbits ;  // minimum = 1 bit
-  }
-  if(quant = 0){
-    q.u = (m3.u >> 23) - nbits ;     // adjust quantum to reflect nbits
-    q.u = (q.u << 23) ;
+    if(pos_neg) nbits++ ;
+// fprintf(stderr, "adjusted nbits = %d\n", nbits) ;
   }
   f.f   = 1.0f/q.f ;                 // factor to bring largest number to 2**nbits -1 ;
-
   efac  = (f.u >> 23) ;              // exponent of quantization factor (for restore)
+// qm1 = (m1.f - m2.f)*f.f + 0.5f ;
+// fprintf(stderr, "quantization factor = %f, qm1 = %d, efac = %d\n", f.f, qm1, efac) ;
+
   h64.u = 0 ;                        // set outbound metadata
-  h64.q.bias = h64.l.mina ;
+  h64.q.bias = m2.u ;
   h64.q.npts = np ;
   h64.q.efac = efac ;
-  h64.q.nbts = nbits ;
+  h64.q.nbts = nbits + pos_neg ;
   h64.q.cnst = (range == 0) ? 1 : 0 ; ;
   h64.q.allm = allm ;
   h64.q.allp = allp ;
+  return h64.u ;
 }
 
 // quantize IEEE floats using information from IEEE32_linear_prep_1
 // qs   [OUT]  32 bit integer array that will receive the quantized result
 // f     [IN]  32 bit IEEE float array, data to be quantized
 // u64   [IN]  metadata information describing quantization (from IEEE32_linear_prep_1)
+// quantized output is a set of unsigned integers, needing at most nbts or nbts+1 bits
+// if all values to be quantized have the same sign, allp/allm flags are used (nbts bits)
+// if mixed signs, sign/magnitude storage is used, the sign is stored as the LSB (nbts+1 bits)
 uint64_t IEEE32_quantize_linear_1(void * restrict f, uint64_t u64, void * restrict qs){
   float *fu = (float *) f ;
   uint32_t *qo = (uint32_t *) qs ;
   ieee32_props h64 ;
-  uint32_t efac ;
+  uint32_t efac, maxq, allm, allp, pos_neg, sg ;
   AnyType32 s, b ;
+  int i0, i, npts, n7, nbts ;
+  float fa ;
+  int ia ;
 
   h64.u = u64 ;
-  s.u   = h64.q.efac << 23 ;    // scaling factor
-  b.u   = h64.q.bias ;          // bias
+  s.u   = h64.q.efac << 23 ;         // scaling factor
+  b.u   = h64.q.bias ;               // bias
+  npts  = h64.q.npts ;
+  allp  = h64.q.allp ;               // no negative values
+  allm  = h64.q.allm ;               // only negative values
+  pos_neg = (allp || allm) ? 0 : 1 ;
+  nbts  = h64.q.nbts - pos_neg ;
+  maxq  = RMASK31(nbts) ;
+// fprintf(stderr, "npts = %d, nbts = %d(%d)\n", npts, nbts, h64.q.nbts) ;
   // store ( ABS(value) - bias) * scale + .5f ) and sign (LSB = sign)
+  if(pos_neg){
+    for(i=0 ; i<npts ; i++){
+      fa = fu[i] ;
+      sg = (fa < 0) ? 1 : 0 ;
+      fa = sg ? -fa : fa ;             // ABS(fa)
+      ia = (fa - b.f) * s.f + 0.5f ;   // quantize ( (value - bias) * factor )
+      ia = (ia > maxq) ? maxq : ia ;   // clip to nbts bits
+      ia = (ia << 1) | sg ;            // apply sign (store in LSB)
+      qo[i] = ia ;
+// fprintf(stderr, " %3d", ia) ;
+    }
+  }else{
+    for(i=0 ; i<npts ; i++){
+      fa = fu[i] ;
+      fa = (fa < 0) ? -fa : fa ;       // ABS(fa)
+      ia = (fa - b.f) * s.f + 0.5f ;   // quantize ( (value - bias) * factor )
+      ia = (ia > maxq) ? maxq : ia ;   // clip to nbts bits
+      qo[i] = ia ;
+// fprintf(stderr, " %3d", ia) ;
+    }
+  }
+// fprintf(stderr, "\n");
+  return 0 ;
 }
 
 // quantize IEEE floats
@@ -526,6 +671,7 @@ uint64_t IEEE32_linear_quantize_1(void * restrict f, int ni, int nbits, float qu
   h64.u = IEEE32_linear_limits(f, ni) ;                     // get min and max absolute values
   h64.u = IEEE32_linear_prep_1(h64.u, ni, nbits, quantum) ; // get quantization parameters (style 0)
   IEEE32_quantize_linear_1(f, h64.u, qs) ;                  // actual quantization (style 0)
+  return h64.u ;
 }
 
 // ========================================== quantizer #2 ==========================================

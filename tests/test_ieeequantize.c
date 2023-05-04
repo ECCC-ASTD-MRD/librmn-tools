@@ -69,22 +69,66 @@ int main(int argc, char **argv){
 //   float baseval = 4194303.0f ;
 //   float baseval = 2097151.0f ;
 //   float baseval = 524287.0f ;
-  float baseval = 262143.0f ;
-//   float baseval = 131071.0f ;
-//   float baseval = 65535.0f ;
-//   float baseval = 64.0f ;
-//   float baseval = 1.0f ;
-  int nbits_test = -1 ;
-  float quantum = 0.01f ;
+//   float baseval = 262143.0f ;
+//   float baseval = 131070.10f ;
+//   float baseval = 65534.1f ;
+//   float baseval = 64.1f ;
+//   float baseval = 1.001f ;
+  float baseval = 1.0f / 32768.0 ;
+//   int nbits_test = -1 ;
+  int nbits_test = 13 ;
+//   float quantum = 0.01f ;
+  float quantum = 0.0f ;
   TIME_LOOP_DATA ;
 
   start_of_test(argv[0]);
+
   for(i=0 ; i<NPTS ; i++) fi[i] = baseval + (0.00001f + (i * 1.0f) / NPTS) ;
 //   for(i=0 ; i<NPTS ; i++) fi[i] = baseval ;   // this MUST work too (constant array)
   for(i=0 ; i<NPTS ; i+=2) fi[i] = -fi[i] ;   // alternate signs, positive even, negative odd
 
-// ============================ NOT IN PLACE TESTS ============================
-  fprintf(stderr, "\n=============== NOT IN PLACE ==============\n") ;
+// ============================ NOT IN PLACE TESTS (type 1) ============================
+  fprintf(stderr, "\n=============== NOT IN PLACE (type 1) ==============\n") ;
+  fprintf(stderr, " in[0:1] = %g, %g\n", fi[0], fi[1]) ;
+  for(i=0 ; i<NPTS ; i++) fprintf(stderr, " %5.2f", (fi[i] < 0.0f) ? fi[i] + baseval : fi[i] - baseval) ; fprintf(stderr, "\n") ;
+  for(i=0 ; i<NPTS ; i++) qu[i] = -999999 ;
+//   fi[NPTS/2] = 0.0f ;
+  h64 = IEEE32_linear_quantize_1(fi, NPTS, nbits_test, quantum, qu) ;
+  for(i=0 ; i<NPTS ; i++) fprintf(stderr, " %5d", qu[i]) ; fprintf(stderr, "\n") ;
+  IEEE32_linear_unquantize_1(qu, h64, NPTS, fo) ;
+  for(i=0 ; i<NPTS ; i++) fprintf(stderr, " %5.2f", (fo[i] < 0) ? fo[i] + baseval : fo[i] - baseval) ; fprintf(stderr, "\n") ;
+  fprintf(stderr, " out[0:1] = %g, %g\n", fo[0], fo[1]) ;
+  for(i=0 ; i<NPTS ; i++) fprintf(stderr, " %5.2f", ABS(fo[i]-fi[i])) ; fprintf(stderr, "\n") ;
+
+// ============================ TIMINGS (type 1) ============================
+#if 0
+  fprintf(stderr, "\n=============== TIMINGS (type 1) ==============\n") ;
+  for(i=0 ; i<NPTST ; i++) fi[i] = i + .0001f ;
+  TIME_LOOP_EZ(1000, NPTST, h64 = IEEE32_linear_quantize_1(fi, NPTST, 16, .1f, qu)) ;
+  fprintf(stderr, "IEEE32_linear_quantize_1    : %s\n",timer_msg);
+  TIME_LOOP_EZ(1000, NPTST/2, h64 = IEEE32_linear_quantize_1(fi, NPTST/2, 16, .1f, qu)) ;
+  fprintf(stderr, "IEEE32_linear_quantize_1    : %s\n",timer_msg);
+  TIME_LOOP_EZ(1000, NPTST/4, h64 = IEEE32_linear_quantize_1(fi, NPTST/4, 16, .1f, qu)) ;
+  fprintf(stderr, "IEEE32_linear_quantize_1    : %s\n",timer_msg);
+  TIME_LOOP_EZ(1000, NPTST/32, h64 = IEEE32_linear_quantize_1(fi, NPTST/32, 16, .1f, qu)) ;
+  fprintf(stderr, "IEEE32_linear_quantize_1    : %s\n",timer_msg);
+
+  h64 = IEEE32_linear_quantize_1(fi, NPTST, 16, .1f, qu) ;
+  TIME_LOOP_EZ(1000, NPTST, IEEE32_linear_unquantize_1(qu, h64, NPTST, fo) ;) ;
+  fprintf(stderr, "IEEE32_linear_unquantize_1  : %s\n",timer_msg);
+  h64 = IEEE32_linear_quantize_1(fi, NPTST/2, 16, .1f, qu) ;
+  TIME_LOOP_EZ(1000, NPTST/2, IEEE32_linear_unquantize_1(qu, h64, NPTST/2, fo) ;) ;
+  fprintf(stderr, "IEEE32_linear_unquantize_1  : %s\n",timer_msg);
+  h64 = IEEE32_linear_quantize_1(fi, NPTST/4, 16, .1f, qu) ;
+  TIME_LOOP_EZ(1000, NPTST/4, IEEE32_linear_unquantize_1(qu, h64, NPTST/4, fo) ;) ;
+  fprintf(stderr, "IEEE32_linear_unquantize_1  : %s\n",timer_msg);
+  h64 = IEEE32_linear_quantize_1(fi, NPTST/8, 16, .1f, qu) ;
+  TIME_LOOP_EZ(1000, NPTST/8, IEEE32_linear_unquantize_1(qu, h64, NPTST/8, fo) ;) ;
+  fprintf(stderr, "IEEE32_linear_unquantize_1  : %s\n",timer_msg);
+return 0 ;
+#endif
+// ============================ NOT IN PLACE TESTS (type 0) ============================
+  fprintf(stderr, "\n=============== NOT IN PLACE (type 0) ==============\n") ;
 //   for(i=0 ; i<NPTS ; i++) fprintf(stderr, "%8.8x ", ui[i]) ; fprintf(stderr, "\n");
 //   for(i=0 ; i<NPTS ; i++) fo[i] = fi[i] ;
   fprintf(stderr, " in[0:1] = %g, %g\n", fi[0], fi[1]) ;
@@ -100,8 +144,8 @@ int main(int argc, char **argv){
   fprintf(stderr, " out[0:1] = %g, %g\n", fo[0], fo[1]) ;
   for(i=0 ; i<NPTS ; i++) fprintf(stderr, " %5.2f", ABS(fo[i]-fi[i])) ; fprintf(stderr, "\n") ;
 
-// ============================ IN PLACE TESTS ============================
-  fprintf(stderr, "\n=============== IN PLACE ==============\n") ;
+// ============================ IN PLACE TESTS (type 0) ============================
+  fprintf(stderr, "\n=============== IN PLACE (type 0) ==============\n") ;
   for(i=0 ; i<NPTS ; i++) fo[i] = fi[i] ;
   fprintf(stderr, " in[0:1] = %g, %g\n", fo[0], fo[1]) ;
   for(i=0 ; i<NPTS ; i++) fprintf(stderr, " %5.2f", (fo[i] < 0) ? fo[i] + baseval : fo[i] - baseval) ; fprintf(stderr, "\n") ;
@@ -112,7 +156,9 @@ int main(int argc, char **argv){
   fprintf(stderr, " out[0:1] = %g, %g\n", fo[0], fo[1]) ;
   for(i=0 ; i<NPTS ; i++) fprintf(stderr, " %5.2f", ABS(fo[i]-fi[i])) ; fprintf(stderr, "\n") ;
 
-  fprintf(stderr, "\n=============== TIMINGS ==============\n") ;
+// ============================ TIMINGS (type 0) ============================
+#if 0
+  fprintf(stderr, "\n=============== TIMINGS (type 0) ==============\n") ;
   for(i=0 ; i<NPTST ; i++) fi[i] = i + .0001f ;
   TIME_LOOP_EZ(1000, NPTST, h64 = IEEE32_linear_quantize_0(fi, NPTST, 16, .1f, qu)) ;
   fprintf(stderr, "IEEE32_linear_quantize_0    : %s\n",timer_msg);
@@ -120,7 +166,7 @@ int main(int argc, char **argv){
   fprintf(stderr, "IEEE32_linear_quantize_0    : %s\n",timer_msg);
   TIME_LOOP_EZ(1000, NPTST/4, h64 = IEEE32_linear_quantize_0(fi, NPTST/4, 16, .1f, qu)) ;
   fprintf(stderr, "IEEE32_linear_quantize_0    : %s\n",timer_msg);
-  TIME_LOOP_EZ(1000, NPTST/32, h64 = IEEE32_linear_quantize_0(fi, NPTST/4, 16, .1f, qu)) ;
+  TIME_LOOP_EZ(1000, NPTST/32, h64 = IEEE32_linear_quantize_0(fi, NPTST/32, 16, .1f, qu)) ;
   fprintf(stderr, "IEEE32_linear_quantize_0    : %s\n",timer_msg);
 
   h64 = IEEE32_linear_quantize_0(fi, NPTST, 16, .1f, qu) ;
@@ -135,6 +181,7 @@ int main(int argc, char **argv){
   h64 = IEEE32_linear_quantize_0(fi, NPTST/8, 16, .1f, qu) ;
   TIME_LOOP_EZ(1000, NPTST/8, IEEE32_linear_unquantize_0(qu, h64, NPTST/8, fo) ;) ;
   fprintf(stderr, "IEEE32_linear_unquantize_0  : %s\n",timer_msg);
+#endif
 return 0 ;
 
   fprintf(stderr, "limit16 = %8.8x, %8d, %8.8x\n", limit16, limit16 >> 23, limit16 & 0x7FFFFF);
