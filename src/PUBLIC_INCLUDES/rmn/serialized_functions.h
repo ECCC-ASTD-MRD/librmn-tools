@@ -96,13 +96,16 @@ void Arg_name(int64_t hash, unsigned char *name);            // get name string 
 int Arg_names_check(Arg_list *s, char **names, int ncheck);  // check argument names against expected names
 int Arg_types_check(Arg_list *s, uint32_t *kind, int ncheck);     // check argument types against expected types
 void Arg_list_dump(Arg_list *s);                             // dump argument names and types
+
+// inline helpers
 static inline Arg_list *Arg_list_address(Arg_fn_list *c)     // get address of argument list from Arg_fn_list
   { return &(c->s) ; }
 static inline void Arg_result(ArgType kind, Arg_list *s)     // set result type in argument list
   { s->result.kind = kind ; }
-int Arg_find_pos( Arg_list *s, char *name, uint32_t kind);   // find name/kind in argument list, add to list if not found
 
 // add arguments to argument list
+int Arg_find_pos( Arg_list *s, char *name, uint32_t kind);   // find name/kind in argument list, add to list if not found
+
 int Arg_uint8(uint8_t v, Arg_list *s, char *name);           // add unsigned 8 bit integer argument
 int Arg_int8(int8_t v, Arg_list *s, char *name);             // add signed 8 bit integer argument
 int Arg_uint16(uint16_t v, Arg_list *s, char *name);         // add unsigned 16 bit integer argument
