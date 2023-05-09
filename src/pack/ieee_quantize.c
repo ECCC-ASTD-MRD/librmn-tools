@@ -64,25 +64,39 @@ typedef struct{
 typedef struct {
   uint64_t bias:32,  // integer offset reflecting minimum value of packed field
            npts:16,  // number of points, 0 means unknown
-           efac:8,   // exponent for quantization mutliplier
+           efac:8 ,  // exponent for quantization mutliplier
            nbts:5 ,  // number of bits (0 -> 31) per value (nbts == 0 : same value, same sign)
            cnst:1 ,  // range is 0, constant absolute values
            allp:1 ,  // all numbers are >= 0
            allm:1 ;  // all numbers are < 0
 } ieee32_q ;
 
+// pseudo log quantization header
+typedef struct {
+  uint64_t qmin:32,
+           emax:8 ,  // exponent of largest absolute value
+           emin:8 ,  // exponent of smallest absolute value
+           elow:8 ,  // exponent of smallest useful absolute value
+           nbts:5 ,  // number of bits (0 -> 31) per value (nbts == 0 : same value, same sign)
+           cnst:1 ,  // range is 0, constant absolute values
+           allp:1 ,  // all numbers are >= 0
+           allm:1 ;  // all numbers are < 0
+} ieee32_e ;
+
 typedef union{    // the union allows to transfer the whole 64 bit contents in one shot
-  ieee32_p p ;
-  ieee32_q q ;
-  ieee32_l l ;
-  uint64_t u ;
+  ieee32_p  p  ;
+  ieee32_q  q  ;
+  ieee32_l  l  ;
+  ieee32_e  e  ;
+  uint64_t  u  ;
 } ieee32_props ;
 
+// ========================================== common functions ==========================================
 // prepare for quantization of IEEE floats
 // get minimum and maximum absolute values, set all < 0 and none < 0 flags
 // f     [IN]  32 bit IEEE float array, data to be quantized
 // np    [IN]  number of data items to quantize
-uint64_t IEEE32_linear_limits(void * restrict f, int np){
+uint64_t IEEE32_limits(void * restrict f, int np){
   uint32_t *fu = (uint32_t *) f ;
   ieee32_props h64 ;
   uint32_t maxa[8], mina[8], ands[8], ors[8], t[8], masksign ;
@@ -126,6 +140,166 @@ uint64_t IEEE32_linear_limits(void * restrict f, int np){
   h64.l.maxa = maxa[0] ;
   h64.l.mina = mina[0] ;
   return h64.u ;             // return 64 bit aggregate
+}
+
+// ========================================== pseudo log quantizer 0 ==========================================
+
+// restore floating point numbers quantized with IEEE32_fakelog_quantize_0
+// q     [IN]  32 bit integer array containing the quantized data
+// f    [OUT]  32 bit IEEE float array that will receive restored floats
+// ni    [IN]  number of data items (used for checking purposes only)
+// u64   [IN]  metadata information describing quantization (from IEEE32_fakelog_quantize_0)
+// N.B. if values have mixed signs, the sign is stored as the LSB in the quantized integer
+int IEEE32_fakelog_unquantize_0(void * restrict f, uint64_t u64, int ni, void * restrict q){
+  uint32_t *qi = (uint32_t *) q ;
+  float *fo = (float *) f ;
+  ieee32_props h64 ;
+  int i, nbits ;
+  int32_t emax, emin, elow, exp ;
+  uint32_t allp, allm, pos_neg, ti, sign ;
+  AnyType32 t, x ;
+  float fac, qrange, q0 ;
+
+  h64.u = u64 ;
+  emax = h64.e.emax - 127 ;
+  emin = h64.e.emin - 127 ;
+  elow = h64.e.elow ;
+  nbits = h64.e.nbts ;
+  allp = h64.e.allp ;
+  allm = h64.e.allm ;
+  pos_neg = (allp || allm) ? 0 : 1 ;      // we have both positive and negative values
+  sign = (allm << 31) ;                   // move sign of all values to MSB position
+fprintf(stderr, "allm = %d, allp = %d, pos_neg = %d\n", allm, allp, pos_neg) ;
+
+  x.u = ((emin + 127) << 23) ;
+  x.u |= sign ;                           // restore sign (if all numbers are negative)
+  q0 = (elow == 0) ? 0.0f : x.f ;
+
+  qrange = (1 << nbits) ;         // range of quantized values (2**nbits)
+  t.f = (emax - emin + 1) ;       // maximum possible value of "fake log"
+  fac = t.f / qrange ;      // factor to quantize "fake log"
+fprintf(stderr,"nbits = %d, emax-emin+1 = %d, fac = %f, emin = %d, emax = %d, elow = %d, q0 = %f\n", nbits, emax-emin+1, fac, emin, emax, elow, q0) ;
+  if(pos_neg){                 // mix of positive and negative numbers
+    for(i=0 ; i<ni ; i++){
+      ti  = qi[i] ;
+      sign = ti << 31 ;        // sign from LSB -> MSB
+      ti >>= 1 ;               // remove sign
+      t.f = fac * ti ;
+      t.f += 1.0f ;
+      exp = t.f ;              // exponent
+      t.f = t.f - exp + 1.0f ;
+      exp += 126 ;
+      exp += emin ;
+      exp <<= 23 ;
+      x.u = t.u & 0x7FFFFF ;   // restore mantissa
+      x.u |= exp ;             // restore exponent
+      x.u |= sign ;            // restore sign
+      fo[i] = (ti == 0) ? q0 : x.f ;
+    }
+  }else{                       // all numbers have the ame sign
+    for(i=0 ; i<ni ; i++){
+      t.f = fac * qi[i] ;
+      t.f += 1.0f ;
+      exp = t.f ;              // exponent
+      t.f = t.f - exp + 1.0f ;
+      exp += 126 ;
+      exp += emin ;
+      exp <<= 23 ;
+      x.u = t.u & 0x7FFFFF ;   // restore mantissa
+      x.u |= exp ;             // restore exponent
+      x.u |= sign ;            // restore sign
+      fo[i] = (qi[i] == 0) ? q0 : x.f ;
+    }
+  }
+}
+
+// quantize IEEE floats
+// qs   [OUT]  32 bit integer array that will receive the quantized result
+// f     [IN]  32 bit IEEE float array, data to be quantized
+// ni    [IN]  number of data items to quantize
+// nbits [IN]  number of bits to use for quantized data
+// qzero [IN]  smallest value considered significant (if qzero < 0, it will be restored as 0.0)
+// N.B. qzero will be reduced to a power of 2 <= qzero
+//      if there are mixed signs, the sign is stored in the LSB position
+uint64_t IEEE32_fakelog_quantize_0(void * restrict f, int ni, int nbits, float qzero, void * restrict qs){
+  float *fu = (float *) f ;
+  uint32_t *qo = (uint32_t *) qs ;
+  ieee32_props h64 ;
+  uint32_t allp, allm, pos_neg ;
+  uint32_t maxa, mina, sign, maskbits ;
+  int32_t emax, emin, elow ;
+  AnyType32 t ;
+  float fac, qrange ;   // quantization factor
+  int i, it ;
+
+  h64.u = IEEE32_limits(fu, ni) ;         // get min and max absolute values
+  allm = h64.l.allm ;                     // extract all useful values from u64
+  allp = h64.l.allp ;
+  maxa = h64.l.maxa ;
+  mina = h64.l.mina ;
+  pos_neg = (allp || allm) ? 0 : 1 ;      // we have both positive and negative values
+  nbits -= pos_neg ;                      // one bit is needed for sign ==> one less available for quantized value
+fprintf(stderr, "allm = %d, allp = %d, pos_neg = %d\n", allm, allp, pos_neg) ;
+  h64.u = 0 ;                             // initialize metadata
+  h64.e.nbts = nbits ;
+  h64.e.allp = allp ;
+  h64.e.allm = allm ;
+  h64.e.cnst = 0 ;
+  h64.e.qmin = 0 ;
+
+  t.f  = qzero ;                          // lowest significant value
+  elow = (t.u >> 23) & 0xFF ;             // will be 0 when qzero == 0.0
+  h64.e.elow = elow ; elow -= 127 ;
+  emax = (maxa >> 23) & 0xFF ;
+  h64.e.emax = emax ; emax -= 127 ;
+  emin = (mina >> 23) & 0xFF ;
+  emin -= 127 ;                           // original emin may be < elow
+  if((qzero < 0) && (emin < elow)) h64.e.elow = 0 ;  // will force a restore to zero where quantized value == 0
+  emin = (emin < elow) ? elow : emin ;    // emin < elow, set emin to elow for quantization
+//   emin = (emin < elow) ? elow - 1 : emin ;     // emin < elow, set emin to elow - 1 for quantization
+  h64.e.emin = emin + 127 ;                    // store adjusted value into h64.e.emin
+
+  qrange = (1 << nbits) ;         // range of quantized values (2**nbits)
+  t.f = (emax - emin + 1) ;       // maximum possible value of "fake log"
+  fac = t.f = qrange / t.f ;      // factor to quantize "fake log"
+  maskbits = RMASK31(nbits) ;     // 2**nbits -1, largest allowable quantized value
+
+  if(pos_neg){
+    for(i=0 ; i<ni ; i++){
+      int exp ;
+      AnyType32 x ;
+      x.f = fu[i] ;                 // float to quantize
+      sign = x.ie32.s ;             // save sign
+      exp = (x.u >> 23) & 0xFF ;    // exponent from value (with +127 bias)
+      exp = exp - emin ;            // this will have a value of 127 for the lowest "useful" exponent
+      x.u &= 0x7FFFFF ;             // get rid of exponent and sign, only keep mantissa
+      x.u |= (0x7F << 23) ;         // force 127 as exponent (1.0 <= x.f < 2.0)
+      x.f += (exp - 127 - 1) ;      // add value of exponent from original float (0.0 <= x.f < max "fake log")
+      // if(i == 0 || i == ni-1) fprintf(stderr,"%14.8f\n", x.f) ;
+      qo[i] = x.f * fac + .5f ;     // quantize the fake log
+      qo[i] = (x.f <  0.0f) ? 0 : qo[i] ;               // < qzero
+      qo[i] = (x.f == 0.0f) ? 1 : qo[i] ;               // == lowest significant value (emin or elow)
+      qo[i] = (qo[i] > maskbits) ? maskbits : qo[i] ;   // clamp at 2**nbits -1
+      qo[i] = (qo[i] << 1) | sign ; // sign as LSB
+    }
+  }else{
+    for(i=0 ; i<ni ; i++){
+      int exp ;
+      AnyType32 x ;
+      x.f = fu[i] ;                 // float to quantize
+      exp = (x.u >> 23) & 0xFF ;    // exponent from value (with +127 bias)
+      exp = exp - emin ;            // this will have a value of 127 for the lowest "useful" exponent
+      x.u &= 0x7FFFFF ;             // get rid of exponent and sign, only keep mantissa
+      x.u |= (0x7F << 23) ;         // force 127 as exponent (1.0 <= x.f < 2.0)
+      x.f += (exp - 127 - 1) ;      // add value of exponent from original float (0.0 <= x.f < max "fake log")
+      // if(i == 0 || i == ni-1) fprintf(stderr,"%14.8f\n", x.f) ;
+      qo[i] = x.f * fac + .5f ;     // quantize the fake log
+      qo[i] = (x.f <  0.0f) ? 0 : qo[i] ;               // < qzero
+      qo[i] = (x.f == 0.0f) ? 1 : qo[i] ;               // == lowest significant value (emin or elow)
+      qo[i] = (qo[i] > maskbits) ? maskbits : qo[i] ;   // clamp at 2**nbits -1
+    }
+  }
+  return h64.u ;
 }
 
 // ========================================== linear quantizer 0 ==========================================
@@ -249,7 +423,7 @@ FloatPair IEEE32_linear_quantum_0(uint64_t u64, int nbits){
 // prepare for linear quantization of IEEE floats (style 0)
 // normally for cases where all values have the same sign
 // and largest/smallest absolute value ratio is relatively small
-// u64   [IN]  analysis from IEEE32_linear_limits
+// u64   [IN]  analysis from IEEE32_limits
 // np    [IN]  number of data items to quantize
 // nbits [IN]  number of bits to use for quantized data (0 means use quantum)
 // quant [IN]  quantization interval (if non zero, it is used instead of nbits)
@@ -420,7 +594,7 @@ end:
 uint64_t IEEE32_linear_quantize_0(void * restrict f, int ni, int nbits, float quantum, void * restrict qs){
   ieee32_props h64 ;
 
-  h64.u = IEEE32_linear_limits(f, ni) ;                     // get min and max absolute values
+  h64.u = IEEE32_limits(f, ni) ;                     // get min and max absolute values
   h64.u = IEEE32_linear_prep_0(h64.u, ni, nbits, quantum) ; // get quantization parameters (style 0)
   IEEE32_quantize_linear_0(f, h64.u, qs) ;                  // actual quantization (style 0)
   return h64.u ;
@@ -531,7 +705,7 @@ FloatPair IEEE32_linear_quantum_1(uint64_t u64, int nbits){
 // prepare for linear quantization of IEEE floats (style 1)
 // normally for cases where all values have the same sign
 // and largest/smallest absolute value ratio is relatively small
-// u64   [IN]  analysis from IEEE32_linear_limits
+// u64   [IN]  analysis from IEEE32_limits
 // np    [IN]  number of data items to quantize
 // nbits [IN]  number of bits to use for quantized data (0 means use quantum)
 // quant [IN]  quantization interval (if non zero, it is used instead of nbits)
@@ -549,6 +723,12 @@ uint64_t IEEE32_linear_prep_1(uint64_t u64, int np, int nbits, float quant){
   emax  = (m1.u >> 23) ;
   m2.u  = h64.l.mina ;               // smallest absolute value
   emin  = (m2.u >> 23) ;
+  if(nbits == 0){                    // adjust nbits to quantum
+    m3.f  = m1.f - m2.f ;              // range of values (float)
+    r.f   = m3.f / q.f ;               // range / quantum
+    erange = (r.u >> 23) - 127 ;
+    if(pos_neg) nbits++ ;
+  }
   if(emax - emin > nbits) {
 fprintf(stderr, "DEBUG: setting offset to 0, max = %f, min = %f, max/min = %f, emax-emin = %d, nbits = %d\n", m1.f, m2.f, m1.f/m2.f, emax-emin, nbits);
     m2.u = 0 ;     // max / min > 2**nbits
@@ -668,7 +848,7 @@ uint64_t IEEE32_linear_quantize_1(void * restrict f, int ni, int nbits, float qu
   uint32_t *qo = (uint32_t *) qs ;
   ieee32_props h64 ;
 
-  h64.u = IEEE32_linear_limits(f, ni) ;                     // get min and max absolute values
+  h64.u = IEEE32_limits(f, ni) ;                     // get min and max absolute values
   h64.u = IEEE32_linear_prep_1(h64.u, ni, nbits, quantum) ; // get quantization parameters (style 0)
   IEEE32_quantize_linear_1(f, h64.u, qs) ;                  // actual quantization (style 0)
   return h64.u ;

@@ -140,3 +140,4 @@ add_project_test(test_serialized_functions test_serialized_functions.c)
 # endif()
 
 add_project_test(test_ieeequantize test_ieeequantize.c)
+add_project_test(test_logquantize test_logquantize.c)

@@ -17,6 +17,31 @@
 #include <stdint.h>
 #include <stddef.h>
 
+#if defined(__BYTE_ORDER__) && (__BYTE_ORDER__  == __ORDER_LITTLE_ENDIAN__)
+typedef   struct {
+    uint32_t m:23;    // mantissa
+    uint32_t e:8;     // exponent (bias 127)
+    uint32_t s:1;     // sign
+  }IEEE_float_internals;
+typedef   struct {
+    uint64_t m:52;    // mantissa
+    uint64_t e:11;    // exponent (bias 1024)
+    uint64_t s:1;     // sign
+  }IEEE_double_internals;
+#endif
+#if defined(__BYTE_ORDER__) && (__BYTE_ORDER__  == __ORDER_BIG_ENDIAN__)
+typedef   struct {
+    uint32_t s:1; 
+    uint32_t e:8;
+    uint32_t m:23;
+  }IEEE_float_internals;
+typedef   struct {
+    uint32_t s:1; 
+    uint32_t e:11;
+    uint32_t m:52;
+  }IEEE_double_internals;
+#endif
+
 typedef struct{    // pair of signed 32 bit integers
   int32_t v[2] ;
 } IntPair ;
@@ -55,6 +80,8 @@ typedef union{      // 8/16/32/64 signed/unsigned integer, float, double, pointe
   void    *dp   ;   // pointer to 32 bit double
   IntPair   i2  ;   // pair of integers
   FloatPair f2  ;   // pair of floats
+  IEEE_float_internals  ie32 ;
+  IEEE_double_internals ie64 ;
 } AnyType ;
 
 typedef union{     // float | (un)signed 32 bit integer, length in memory is 32 bits
@@ -67,6 +94,7 @@ typedef union{     // float | (un)signed 32 bit integer, length in memory is 32 
   int32_t  i32  ;
   int32_t  i    ;
   float    f    ;   // 32 bit float
+  IEEE_float_internals ie32 ;
 } FloatInt ;
 
 typedef union{     // float | (un)signed 32 bit integer, length in memory is 32 bits
@@ -79,6 +107,7 @@ typedef union{     // float | (un)signed 32 bit integer, length in memory is 32 
   int32_t  i32  ;
   int32_t  i    ;
   float    f    ;   // 32 bit float
+  IEEE_float_internals ie32 ;
 } AnyType32 ;
 
 // some properties of a float array, 32 bits total
