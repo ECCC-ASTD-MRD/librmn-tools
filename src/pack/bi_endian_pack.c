@@ -51,7 +51,11 @@ int  LeStreamInsert(bitstream *p, uint32_t *w32, int nbits, int nw){
   for(    ; i<n ; i++){
     LE64_PUT_NBITS(accum, insert, w32[i], nbits, stream) ;
   }
-  if(nw <= 0) LE64_INSERT_FINAL(accum, insert, stream) ;
+  if(nw <= 0) {
+    LE64_INSERT_FINAL(accum, insert, stream) ;
+  }else{
+    LE64_PUSH(accum, insert, stream) ;
+  }
 //   p->accum = accum ;
   p->acc_i = accum ;
   p->insert = insert ;
@@ -86,7 +90,11 @@ int  BeStreamInsert(bitstream *p, uint32_t *w32, int nbits, int nw){
   for(    ; i<n ; i++){
     BE64_PUT_NBITS(accum, insert, w32[i], nbits, stream) ;
   }
-  if(nw <= 0) BE64_INSERT_FINAL(accum, insert, stream) ;
+  if(nw <= 0) {
+    BE64_INSERT_FINAL(accum, insert, stream) ; 
+  }else{ 
+    BE64_PUSH(accum, insert, stream) ;
+  }
 //   p->accum = accum ;
   p->acc_i = accum ;
   p->insert = insert ;

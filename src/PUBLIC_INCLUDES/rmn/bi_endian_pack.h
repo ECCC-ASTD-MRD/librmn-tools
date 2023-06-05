@@ -128,16 +128,18 @@ static void StreamDup(bitstream *sdst, bitstream *ssrc){
 // for this macro to produce meaningful results, w64 MUST BE int64_t (64 bit signed int)
 #define MAKE_SIGNED_64(w64, nbits) { w64 <<= (64 - (nbits)) ; w64 >>= (64 - (nbits)) ; }
 
-// stream insert/extract mode (0 would mean unknown)
+// stream insert/extract mode (0 would mean insert or extract)
+// extract only mode
 #define BIT_XTRACT_MODE  1
+// insert only mode
 #define BIT_INSERT_MODE  2
 
 //
 // macro arguments description
-// accum  [INOUT] : 64 bit accumulator
+// accum  [INOUT] : 64 bit accumulator (normally acc_i or acc_x)
 // insert [INOUT] : # of bits used in accumulator (0 <= insert <= 64)
 // xtract [INOUT] : # of bits extractable from accumulator (0 <= xtract <= 64)
-// stream [INOUT] : pointer to next position in packed stream
+// stream [INOUT] : pointer to next position in bit stream (in or out component of bitstream struct)
 // w32    [IN]    : 32 bit integer containing data to be inserted (expression allowed)
 //        [OUT]   : 32 bit integer receiving extracted data (MUST be a variable)
 // nbits  [IN]    : number of bits to insert / extract in w32 (<= 32 bits)
@@ -150,8 +152,7 @@ static void StreamDup(bitstream *sdst, bitstream *ssrc){
 // the useful bits are at the bottom (least significant part) of accum
 //
 // initialize stream for insertion
-#define LE64_INSERT_BEGIN(accum, insert) \
-        { accum = 0 ; insert = 0 ; }
+#define LE64_INSERT_BEGIN(accum, insert) { accum = 0 ; insert = 0 ; }
 #define LE64_STREAM_INSERT_BEGIN(s) { LE64_INSERT_BEGIN(s.acc_i, s.insert) }
 // insert the lower nbits bits from w32 into accum, update insert, accum
 #define LE64_INSERT_NBITS(accum, insert, w32, nbits) \
@@ -162,6 +163,9 @@ static void StreamDup(bitstream *sdst, bitstream *ssrc){
 #define LE64_INSERT_CHECK(accum, insert, stream) \
         { if(insert > 32) { *stream = accum ; stream++ ; insert -= 32 ; accum >>= 32 ; } ; }
 #define LE64_STREAM_INSERT_CHECK(s) LE64_INSERT_CHECK(s.acc_i, s.insert, s.stream)
+// push data to stream without updating control info
+#define LE64_PUSH(accum, insert, stream) \
+        { LE64_INSERT_CHECK(accum, insert, stream) ; { if(insert > 0) { *stream = accum ;} ; } }
 // store any residual data from accum into stream, update accum, insert, stream
 #define LE64_INSERT_FINAL(accum, insert, stream) \
         { LE64_INSERT_CHECK(accum, insert, stream) ; { if(insert > 0) { *stream = accum ; stream++ ;} ; } }
@@ -174,12 +178,10 @@ static void StreamDup(bitstream *sdst, bitstream *ssrc){
 // N.B. : if w32 and accum are signed variables, the extract will produce a "signed" result
 //        if w32 and accum are unsigned variables, the extract will produce an "unsigned" result
 // initialize stream for extraction
-#define LE64_XTRACT_BEGIN(accum, xtract, stream) \
-        { accum = *(stream) ; (stream)++ ; xtract = 32 ; }
+#define LE64_XTRACT_BEGIN(accum, xtract, stream) { accum = *(stream) ; (stream)++ ; xtract = 32 ; }
 #define LE64_STREAM_XTRACT_BEGIN(s) { LE64_XTRACT_BEGIN(s.acc_x, s.xtract, s.stream) ; }
 // take a peek at nbits bits from accum into w32
-#define LE64_PEEK_NBITS(accum, xtract, w32, nbits) \
-        { w32 = (accum << (64-nbits)) >> (64-nbits) ; }
+#define LE64_PEEK_NBITS(accum, xtract, w32, nbits) { w32 = (accum << (64-nbits)) >> (64-nbits) ; }
 #define LE64_STREAM_PEEK_NBITS(s, w32, nbits) LE64_PEEK_NBITS(s.acc_x, s.xtract, w32, nbits)
 #define LE64_STREAM_PEEK_NBITS_S(s, w32, nbits) LE64_PEEK_NBITS((int64_t) s.acc_x, s.xtract, w32, nbits)
 // extract nbits bits into w32 from accum, update xtract, accum
@@ -204,8 +206,7 @@ static void StreamDup(bitstream *sdst, bitstream *ssrc){
 // insertion at bottom, least significant part
 //
 // initialize stream for insertion
-#define BE64_INSERT_BEGIN(accum, insert) \
-        { accum = 0 ; insert = 0 ; }
+#define BE64_INSERT_BEGIN(accum, insert) { accum = 0 ; insert = 0 ; }
 #define BE64_STREAM_INSERT_BEGIN(s) { BE64_INSERT_BEGIN(s.acc_i, s.insert) ; }
 // insert the lower nbits bits from w32 into accum, update insert, accum
 #define BE64_INSERT_NBITS(accum, insert, w32, nbits) \
@@ -216,6 +217,9 @@ static void StreamDup(bitstream *sdst, bitstream *ssrc){
 #define BE64_INSERT_CHECK(accum, insert, stream) \
         { if(insert > 32) { insert -= 32 ; *(stream) = accum >> insert ; (stream)++ ; } ; }
 #define BE64_STREAM_INSERT_CHECK(s) BE64_INSERT_CHECK(s.acc_i, s.insert, s.stream)
+// push data to stream without updating control info
+#define BE64_PUSH(accum, insert, stream) \
+        { BE64_INSERT_CHECK(accum, insert, stream) ; if(insert > 0) { *stream = accum << (32 - insert) ; } }
 // store any residual data from accum into stream, update accum, insert, stream
 #define BE64_INSERT_FINAL(accum, insert, stream) \
         { BE64_INSERT_CHECK(accum, insert, stream) ; if(insert > 0) { *stream = accum << (32 - insert) ; stream++ ; } }
@@ -228,12 +232,10 @@ static void StreamDup(bitstream *sdst, bitstream *ssrc){
 // N.B. : if w32 and accum are signed variables, the extract will produce a "signed" result
 //        if w32 and accum are unsigned variables, the extract will produce an "unsigned" result
 // initialize stream for extraction
-#define BE64_XTRACT_BEGIN(accum, xtract, stream) \
-        { accum = *(stream) ; accum <<= 32 ; (stream)++ ; xtract = 32 ; }
+#define BE64_XTRACT_BEGIN(accum, xtract, stream) { accum = *(stream) ; accum <<= 32 ; (stream)++ ; xtract = 32 ; }
 #define BE64_STREAM_XTRACT_BEGIN(s) { BE64_XTRACT_BEGIN(s.acc_x, s.xtract, s.stream) ; }
 // take a peek at nbits bits from accum into w32
-#define BE64_PEEK_NBITS(accum, xtract, w32, nbits) \
-        { w32 = accum >> (64 - (nbits)) ; }
+#define BE64_PEEK_NBITS(accum, xtract, w32, nbits) { w32 = accum >> (64 - (nbits)) ; }
 #define BE64_STREAM_PEEK_NBITS(s, w32, nbits) BE64_PEEK_NBITS(s.acc_x, s.xtract, w32, nbits)
 #define BE64_STREAM_PEEK_NBITS_S(s, w32, nbits) BE64_PEEK_NBITS((int64_t) s.acc_x, s.xtract, w32, nbits)
 // extract nbits bits into w32 from accum, update xtract, accum
@@ -246,8 +248,7 @@ static void StreamDup(bitstream *sdst, bitstream *ssrc){
         { if(xtract < 32) { accum >>= (32-xtract) ; accum |= *(stream) ; accum <<= (32-xtract) ; xtract += 32 ; (stream)++ ; } ; }
 #define BE64_STREAM_XTRACT_CHECK(s) BE64_XTRACT_CHECK(s.acc_x, s.xtract, s.stream)
 // finalize extraction, update accum, xtract
-#define BE64_XTRACT_FINAL(accum, xtract) \
-        { accum = 0 ; xtract = 0 ; }
+#define BE64_XTRACT_FINAL(accum, xtract) { accum = 0 ; xtract = 0 ; }
 #define BE64_STREAM_XTRACT_FINAL(s) BE64_XTRACT_FINAL(s.acc_x, s.xtract)
 // combined XTRACT_CHECK and XTRACT_NBITS, update accum, xtract, stream
 #define BE64_GET_NBITS(accum, xtract, w32, nbits, stream) \
@@ -260,25 +261,32 @@ static void StreamDup(bitstream *sdst, bitstream *ssrc){
 // true if stream is in write (insert) mode
 // possibly false for a NEWLY INITIALIZED (empty) stream
 #define STREAM_WRITE_MODE(s) (s.insert >= 0)
-// stream mode as a string
+
+// get stream mode as a string
 STATIC inline char *StreamMode(bitstream p){
   if( p.insert >= 0 && p.xtract >= 0) return("ReadWrite") ;
   if( STREAM_READ_MODE(p) ) return "Read" ;
   if( STREAM_WRITE_MODE(p) ) return "Write" ;
   return("Unknown") ;
 }
+STATIC inline int StreamModeCode(bitstream p){
+  if( p.insert >= 0 && p.xtract >= 0) return 0 ;
+  if( STREAM_READ_MODE(p) ) return BIT_XTRACT_MODE ;
+  if( STREAM_WRITE_MODE(p) ) return BIT_INSERT_MODE ;
+  return -1 ;
+}
 
 // bits used in accumulator (stream being filled)
 #define ACCUM_BITS_FILLED(s) (s.insert)
 // bits used in stream (stream being filled)
-#define STREAM_BITS_FILLED(s) (s.insert + (s.stream - s.first) * 8l * sizeof(uint32_t))
+#define STREAM_BITS_FILLED(s) (s.insert + (s.in - s.out) * 8l * sizeof(uint32_t))
 // bits left to fill in stream (stream being filled)
-#define STREAM_BITS_EMPTY(s) ( (s.limit - s.stream) * 8l * sizeof(uint32_t) - s.insert)
+#define STREAM_BITS_EMPTY(s) ( (s.limit - s.in) * 8l * sizeof(uint32_t) - s.insert)
 
 // bits available in accumulator (stream in extract mode)
 #define ACCUM_BITS_AVAIL(s) (s.xtract)
 // bits available in stream (stream in extract mode)
-#define STREAM_BITS_AVAIL(s) (s.xtract + (s.limit - s.stream) * 8l * sizeof(uint32_t) )
+#define STREAM_BITS_AVAIL(s) (s.xtract + (s.in - s.out) * 8l * sizeof(uint32_t) )
 
 // size of stream buffer (in bits)
 #define STREAM_BUFFER_SIZE(s) ( (s.limit - s.first) * 8l * sizeof(uint32_t) )
@@ -289,16 +297,14 @@ STATIC inline char *StreamMode(bitstream p){
 // N.B. even if mode is not one of the above, 
 //      it is still possible to insert/extract into/from bit stream
 STATIC inline void  LeStreamInit(bitstream *p, uint32_t *buffer, size_t size, int mode){
-//   p->accum  = 0 ;         // accumulator is empty
   p->acc_i  = 0 ;         // insertion accumulator is empty
   p->acc_x  = 0 ;         // extraction accumulator is empty
   p->insert = 0 ;         // insertion point at Least Significant Bit
   p->xtract = 0 ;         // extraction point at Least Significant Bit
-  if(mode == BIT_INSERT_MODE) p->xtract = -1 ;  // deactivate extract mode
-  if(mode == BIT_XTRACT_MODE) p->insert = -1 ;  // deactivate insert mode
+  if(mode == BIT_INSERT_MODE) p->xtract = -1 ;  // deactivate extract mode (insert only mode)
+  if(mode == BIT_XTRACT_MODE) p->insert = -1 ;  // deactivate insert mode (extract only mode)
   p->first  = buffer ;    // stream storage
   p->limit  = buffer + size / sizeof(uint32_t) ;
-//   p->stream = buffer ;    // stream is empty and starts at beginning of buffer
   p->in     = buffer ;    // stream is empty and starts at beginning of buffer
   p->out    = buffer ;    // stream is full and starts at beginning of buffer
 }
@@ -307,7 +313,6 @@ STATIC inline void  LeStreamInit(bitstream *p, uint32_t *buffer, size_t size, in
 // mode should be BIT_INSERT_MODE or BIT_XTRACT_MODE or 0(both insert and extract)
 // size is in bytes
 STATIC inline void  BeStreamInit(bitstream *p, uint32_t *buffer, size_t size, int mode){
-//   p->accum  = 0 ;         // accumulator is empty
   p->acc_i  = 0 ;         // insertion accumulator is empty
   p->acc_x  = 0 ;         // extraction accumulator is empty
   p->insert = 0 ;         // insertion point at Most Significant Bit
@@ -316,34 +321,9 @@ STATIC inline void  BeStreamInit(bitstream *p, uint32_t *buffer, size_t size, in
   if(mode == BIT_XTRACT_MODE) p->insert = -1 ;  // deactivate insert mode
   p->first  = buffer ;    // stream storage
   p->limit   = buffer + size / sizeof(uint32_t) ;
-//   p->stream = buffer ;    // stream is empty and starts at beginning of buffer
   p->in     = buffer ;    // stream is empty and starts at beginning of buffer
   p->out    = buffer ;    // stream is full and starts at beginning of buffer
 }
-
-// insert multiple values (unsigned)
-int  LeStreamInsert(bitstream *p, uint32_t *w32, int nbits, int nw);
-// insert multiple values from list (unsigned)
-int  LeStreamInsertM(bitstream *p, uint32_t *w32, int *nbits, int *n);
-
-// insert multiple values (unsigned)
-int  BeStreamInsert(bitstream *p, uint32_t *w32, int nbits, int nw);
-// insert multiple values from list (unsigned)
-int  BeStreamInsertM(bitstream *p, uint32_t *w32, int *nbits, int *n);
-
-// extract multiple values (unsigned)
-int  LeStreamXtract(bitstream *p, uint32_t *w32, int nbits, int n);
-// extract multiple values (signed)
-int  LeStreamXtractSigned(bitstream *p, int32_t *w32, int nbits, int n);
-// extract multiple values from list (unsigned)
-int  LeStreamXtractM(bitstream *p, uint32_t *w32, int *nbits, int *n);
-
-// extract multiple values (unsigned)
-int  BeStreamXtract(bitstream *p, uint32_t *w32, int nbits, int n);
-// extract multiple values (signed)
-int  BeStreamXtractSigned(bitstream *p, int32_t *w32, int nbits, int n);
-// extract multiple values from list (unsigned)
-int  BeStreamXtractM(bitstream *p, uint32_t *w32, int *nbits, int *n);
 
 STATIC inline uint32_t RMask(uint32_t nbits){
   uint32_t mask = ~0 ;
@@ -357,8 +337,12 @@ STATIC inline uint32_t LMask(uint32_t nbits){
 
 // number of bits available for extraction
 STATIC inline int32_t StreamAvailableBits(bitstream *p){
-  if(p->xtract < 0) return -1 ;   // extraction not allowd
-  return (p->in - p->out)*32 + p->xtract ;
+  if(p->xtract < 0) return -1 ;             // extraction not allowd
+  return (p->in - p->out)*32 + p->insert + p->xtract ;  // stream + accumulators contents
+}
+STATIC inline int32_t StreamStrictAvailableBits(bitstream *p){
+  if(p->xtract < 0) return -1 ;             // extraction not allowd
+  return (p->in - p->out)*32 + p->xtract ;              // stream + extract accumulator contents
 }
 
 // number of bits available for insertion
@@ -371,37 +355,41 @@ STATIC inline int32_t StreamAvailableSpace(bitstream *p){
 STATIC inline void  LeStreamFlush(bitstream *p){
   if(p->insert > 0) LE64_INSERT_FINAL(p->acc_i, p->insert, p->in) ;
   p->acc_i = 0 ;
-//   p->insert = -1 ;   // cancel insert mode
-//   p->xtract = -1 ;   // not in extract mode either
+}
+
+// push any data left in insertion accumulator into stream witout updating control info
+STATIC inline void  LeStreamPush(bitstream *p){
+  if(p->insert > 0) LE64_PUSH(p->acc_i, p->insert, p->in) ;
 }
 
 // flush stream being written into if any data left in insertion accumulator
 STATIC inline void  BeStreamFlush(bitstream *p){
   if(p->insert > 0) BE64_INSERT_FINAL(p->acc_i, p->insert, p->in) ;
   p->acc_i = 0 ;
-//   p->insert = -1 ;   // cancel insert mode
-//   p->xtract = -1 ;   // not in extract mode either
+}
+
+// push any data left in insertion accumulator into stream witout updating control info
+STATIC inline void  BeStreamPush(bitstream *p){
+  if(p->insert > 0)  BE64_PUSH(p->acc_i, p->insert, p->in) ;
 }
 
 // rewind Little Endian stream to read it from the beginning (make sure at least 32 bits are extractable)
 STATIC inline void  LeStreamRewind(bitstream *p){
-  if(p->insert > 0) LeStreamFlush(p) ;   // something left to insert ?
+//   if(p->insert > 0) LeStreamFlush(p) ;   // something left in insert accumulator ?
+  if(p->insert > 0) LeStreamPush(p) ;   // something left in insert accumulator ?
   p->acc_x = *(p->first) ;       // fill extraction accumulator from stream, extraction position at LSB
-//   p->insert = -1 ;               // invalidate insertion
-//   p->insert = 0 ;
-  p->xtract = 32 ;               // 32 bits are available
+  p->xtract = 32 ;               // 32 bits are available, do not touch insert control info
   p->out = p->first + 1 ;        // point to next stream item
 }
 
 // rewind Big Endian stream to read it from the beginning (make sure at least 32 bits are extractable)
 STATIC inline void  BeStreamRewind(bitstream *p){
-  if(p->insert > 0) BeStreamFlush(p) ;   // something left to insert ?
+//   if(p->insert > 0) BeStreamFlush(p) ;   // something left in insert accumulator ?
+  if(p->insert > 0) BeStreamPush(p) ;   // something left in insert accumulator ?
   p->acc_x = *(p->first) ;       // fill extraction accumulator from stream
   p->acc_x <<= 32 ;              // extraction position at MSB
-//   p->insert = -1 ;               // invalidate insertion
-//   p->insert = 0 ;
-  p->xtract = 32 ;               // 32 bits are available
-  p->out = p->first + 1 ;  // point to next stream item
+  p->xtract = 32 ;               // 32 bits are available, do not touch insert control info
+  p->out = p->first + 1 ;        // point to next stream item
 }
 
 // take a peek at future extraction
@@ -431,6 +419,30 @@ STATIC inline int32_t BeStreamPeekSigned(bitstream *p, int nbits){
   BE64_PEEK_NBITS((int64_t) p->acc_x, p->xtract, w32, nbits) ;
   return w32 ;
 }
+
+// insert multiple values (unsigned)
+int  LeStreamInsert(bitstream *p, uint32_t *w32, int nbits, int nw);
+// insert multiple values from list (unsigned)
+int  LeStreamInsertM(bitstream *p, uint32_t *w32, int *nbits, int *n);
+
+// insert multiple values (unsigned)
+int  BeStreamInsert(bitstream *p, uint32_t *w32, int nbits, int nw);
+// insert multiple values from list (unsigned)
+int  BeStreamInsertM(bitstream *p, uint32_t *w32, int *nbits, int *n);
+
+// extract multiple values (unsigned)
+int  LeStreamXtract(bitstream *p, uint32_t *w32, int nbits, int n);
+// extract multiple values (signed)
+int  LeStreamXtractSigned(bitstream *p, int32_t *w32, int nbits, int n);
+// extract multiple values from list (unsigned)
+int  LeStreamXtractM(bitstream *p, uint32_t *w32, int *nbits, int *n);
+
+// extract multiple values (unsigned)
+int  BeStreamXtract(bitstream *p, uint32_t *w32, int nbits, int n);
+// extract multiple values (signed)
+int  BeStreamXtractSigned(bitstream *p, int32_t *w32, int nbits, int n);
+// extract multiple values from list (unsigned)
+int  BeStreamXtractM(bitstream *p, uint32_t *w32, int *nbits, int *n);
 
 // STATIC inline void  LeStreamReset(bitstream *p, uint32_t *buffer){
 //   p->accum = 0 ;
