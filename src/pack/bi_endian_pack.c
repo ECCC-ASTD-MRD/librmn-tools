@@ -19,6 +19,7 @@
 // both Big and Little endian style insertion/extraction support is provided
 //
 #include <stdint.h>
+#include <stdio.h>
 
 #define STATIC extern
 #include <rmn/bi_endian_pack.h>
@@ -30,9 +31,11 @@
 // nw    : number of values from w32             [IN}
 int  LeStreamInsert(bitstream *p, uint32_t *w32, int nbits, int nw){
   int i = 0, n = (nw < 0) ? -nw : nw ;
-  uint64_t  accum = p->accum ;
+//   uint64_t  accum = p->accum ;
+  uint64_t  accum = p->acc_i ;
   int32_t  insert = p->insert ;
-  uint32_t *stream = p->stream ;
+//   uint32_t *stream = p->stream ;
+  uint32_t *stream = p->in ;
   uint32_t mask = RMask(nbits) ;
 
   if(insert < 0) return 0;      // ERROR: not in insert mode
@@ -49,9 +52,11 @@ int  LeStreamInsert(bitstream *p, uint32_t *w32, int nbits, int nw){
     LE64_PUT_NBITS(accum, insert, w32[i], nbits, stream) ;
   }
   if(nw <= 0) LE64_INSERT_FINAL(accum, insert, stream) ;
-  p->accum = accum ;
+//   p->accum = accum ;
+  p->acc_i = accum ;
   p->insert = insert ;
-  p->stream = stream ;
+//   p->stream = stream ;
+  p->in = stream ;
   return n ;
 }
 
@@ -62,9 +67,11 @@ int  LeStreamInsert(bitstream *p, uint32_t *w32, int nbits, int nw){
 // nw    : number of values from w32             [IN}
 int  BeStreamInsert(bitstream *p, uint32_t *w32, int nbits, int nw){
   int i = 0, n = (nw < 0) ? -nw : nw ;
-  uint64_t  accum = p->accum ;
+//   uint64_t  accum = p->accum ;
+  uint64_t  accum = p->acc_i ;
   int32_t  insert = p->insert ;
-  uint32_t *stream = p->stream ;
+//   uint32_t *stream = p->stream ;
+  uint32_t *stream = p->in ;
 
   if(insert < 0) return 0;      // ERROR: not in insert mode
 
@@ -80,9 +87,11 @@ int  BeStreamInsert(bitstream *p, uint32_t *w32, int nbits, int nw){
     BE64_PUT_NBITS(accum, insert, w32[i], nbits, stream) ;
   }
   if(nw <= 0) BE64_INSERT_FINAL(accum, insert, stream) ;
-  p->accum = accum ;
+//   p->accum = accum ;
+  p->acc_i = accum ;
   p->insert = insert ;
-  p->stream = stream ;
+//   p->stream = stream ;
+  p->in = stream ;
   return n ;
 }
 
@@ -93,16 +102,22 @@ int  BeStreamInsert(bitstream *p, uint32_t *w32, int nbits, int nw){
 // n     : number of values from w32             [IN}
 int  LeStreamXtract(bitstream *p, uint32_t *w32, int nbits, int n){
   int i = 0 ;
-  uint64_t  accum = p->accum ;
+//   uint64_t  accum = p->accum ;
+  uint64_t  accum = p->acc_x ;
   int32_t  xtract = p->xtract ;
-  uint32_t *stream = p->stream ;
+//   uint32_t *stream = p->stream ;
+  uint32_t *stream = p->out ;
 
   if(xtract < 0) return 0;      // ERROR: not in extract mode
 
   if(nbits <= 16) {       // process values two at a time
     uint32_t t, mask = RMask(nbits), nb = nbits + nbits ;
+// fprintf(stderr, ">accum = %16.16lx, xtract = %2d, stream = %p, *stream = %8.8x\n", accum, xtract, stream, *stream);
     for(    ; i<n-1 ; i+=2){
+      LE64_XTRACT_CHECK(accum, xtract, stream) ;
+// fprintf(stderr, "-accum = %16.16lx, xtract = %2d, stream = %p, *stream = %8.8x\n", accum, xtract, stream, *stream);
       LE64_GET_NBITS(accum, xtract, t, nb, stream) ;   // get a pair of values
+// fprintf(stderr, "+accum = %16.16lx, xtract = %2d, stream = %p, *stream = %8.8x, pair = %8.8x\n", accum, xtract, stream, *stream, t);
       w32[i  ] = t & mask ;                    // little endian means lower part first
       w32[i+1] = t >> nbits ;                  // then upper part
     }
@@ -110,9 +125,11 @@ int  LeStreamXtract(bitstream *p, uint32_t *w32, int nbits, int n){
   for(    ; i<n ; i++){
     LE64_GET_NBITS(accum, xtract, w32[i], nbits, stream) ;
   }
-  p->accum = accum ;
+//   p->accum = accum ;
+  p->acc_x = accum ;
   p->xtract = xtract ;
-  p->stream = stream ;
+//   p->stream = stream ;
+  p->out = stream ;
   return n ;
 }
 
@@ -123,9 +140,11 @@ int  LeStreamXtract(bitstream *p, uint32_t *w32, int nbits, int n){
 // n     : number of values from w32             [IN}
 int  LeStreamXtractSigned(bitstream *p, int32_t *w32, int nbits, int n){
   int i = 0 ;
-  int64_t  accum = (int64_t)p->accum ;
+//   int64_t  accum = (int64_t)p->accum ;
+  int64_t  accum = (int64_t)p->acc_x ;
   int32_t  xtract = p->xtract ;
-  uint32_t *stream = p->stream ;
+//   uint32_t *stream = p->stream ;
+  uint32_t *stream = p->out ;
 
   if(xtract < 0) return 0;      // ERROR: not in extract mode
 
@@ -141,9 +160,11 @@ int  LeStreamXtractSigned(bitstream *p, int32_t *w32, int nbits, int n){
   for(    ; i<n ; i++){
     LE64_GET_NBITS(accum, xtract, w32[i], nbits, stream) ;
   }
-  p->accum = accum ;
+//   p->accum = accum ;
+  p->acc_x = accum ;
   p->xtract = xtract ;
-  p->stream = stream ;
+//   p->stream = stream ;
+  p->out = stream ;
   return n ;
 }
 
@@ -154,16 +175,22 @@ int  LeStreamXtractSigned(bitstream *p, int32_t *w32, int nbits, int n){
 // n     : number of values from w32             [IN}
 int  BeStreamXtract(bitstream *p, uint32_t *w32, int nbits, int n){
   int i = 0 ;
-  uint64_t  accum = p->accum ;
+//   uint64_t  accum = p->accum ;
+  uint64_t  accum = p->acc_x ;
   int32_t  xtract = p->xtract ;
-  uint32_t *stream = p->stream ;
+//   uint32_t *stream = p->stream ;
+  uint32_t *stream = p->out ;
 
   if(xtract < 0) return 0;      // ERROR: not in extract mode
 
   if(nbits <= 16) {       // process values two at a time
     uint32_t t, mask = RMask(nbits), nb = nbits + nbits ;
+// fprintf(stderr, ">accum = %16.16lx, xtract = %2d, stream = %p, *stream = %8.8x\n", accum, xtract, stream, *stream);
     for(    ; i<n-1 ; i+=2){
+      BE64_XTRACT_CHECK(accum, xtract, stream) ;
+// fprintf(stderr, "-accum = %16.16lx, xtract = %2d, stream = %p, *stream = %8.8x\n", accum, xtract, stream, *stream);
       BE64_GET_NBITS(accum, xtract, t, nb, stream) ;      // get a pair of values
+// fprintf(stderr, "+accum = %16.16lx, xtract = %2d, stream = %p, *stream = %8.8x, pair = %8.8x\n", accum, xtract, stream, *stream, t);
       w32[i  ] = t >> nbits ;                     // big endian means upper part first
       w32[i+1] = t & mask ;                       // then lower part
     }
@@ -171,9 +198,11 @@ int  BeStreamXtract(bitstream *p, uint32_t *w32, int nbits, int n){
   for(    ; i<n ; i++){
     BE64_GET_NBITS(accum, xtract, w32[i], nbits, stream) ;
   }
-  p->accum = accum ;
+//   p->accum = accum ;
+  p->acc_x = accum ;
   p->xtract = xtract ;
-  p->stream = stream ;
+//   p->stream = stream ;
+  p->out = stream ;
   return n ;
 }
 
@@ -184,9 +213,11 @@ int  BeStreamXtract(bitstream *p, uint32_t *w32, int nbits, int n){
 // n     : number of values from w32             [IN}
 int  BeStreamXtractSigned(bitstream *p, int32_t *w32, int nbits, int n){
   int i = 0 ;
-  int64_t  accum = (int64_t)p->accum ;
+//   int64_t  accum = (int64_t)p->accum ;
+  int64_t  accum = (int64_t)p->acc_x ;
   int32_t  xtract = p->xtract ;
-  uint32_t *stream = p->stream ;
+//   uint32_t *stream = p->stream ;
+  uint32_t *stream = p->out ;
 
   if(xtract < 0) return 0;      // ERROR: not in extract mode
 
@@ -202,9 +233,11 @@ int  BeStreamXtractSigned(bitstream *p, int32_t *w32, int nbits, int n){
   for(    ; i<n ; i++){
     BE64_GET_NBITS(accum, xtract, w32[i], nbits, stream) ;
   }
-  p->accum = (uint64_t)accum ;
+//   p->accum = (uint64_t)accum ;
+  p->acc_x = (uint64_t)accum ;
   p->xtract = xtract ;
-  p->stream = stream ;
+//   p->stream = stream ;
+  p->out = stream ;
   return n ;
 }
 
@@ -217,9 +250,11 @@ int  BeStreamXtractSigned(bitstream *p, int32_t *w32, int nbits, int n){
 // n[i] <= 0 marks the end of the pair list
 int  LeStreamInsertM(bitstream *p, uint32_t *w32, int *nbits, int *n){
   int i, nw = 0 ;
-  uint64_t  accum = p->accum ;
+//   uint64_t  accum = p->accum ;
+  uint64_t  accum = p->acc_i ;
   int32_t  insert = p->insert ;
-  uint32_t *stream = p->stream ;
+//   uint32_t *stream = p->stream ;
+  uint32_t *stream = p->in ;
 
   if(insert < 0) return 0;      // ERROR: not in insert mode
 
@@ -232,9 +267,11 @@ int  LeStreamInsertM(bitstream *p, uint32_t *w32, int *nbits, int *n){
     n++ ;       // next pair
   }
   if(n[0] == -1) LE64_INSERT_FINAL(accum, insert, stream) ;
-  p->accum = accum ;
+//   p->accum = accum ;
+  p->acc_i = accum ;
   p->insert = insert ;
-  p->stream = stream ;
+//   p->stream = stream ;
+  p->in = stream ;
   return nw ;
 }
 
@@ -247,9 +284,11 @@ int  LeStreamInsertM(bitstream *p, uint32_t *w32, int *nbits, int *n){
 // n[i] <= 0 marks the end of the pair list
 int  BeStreamInsertM(bitstream *p, uint32_t *w32, int *nbits, int *n){
   int i, nw = 0 ;
-  uint64_t  accum = p->accum ;
+//   uint64_t  accum = p->accum ;
+  uint64_t  accum = p->acc_i ;
   int32_t  insert = p->insert ;
-  uint32_t *stream = p->stream ;
+//   uint32_t *stream = p->stream ;
+  uint32_t *stream = p->in ;
 
   if(insert < 0) return 0;      // ERROR: not in insert mode
 
@@ -262,9 +301,11 @@ int  BeStreamInsertM(bitstream *p, uint32_t *w32, int *nbits, int *n){
     n++ ;       // next pair
   }
   if(n[0] == -1) BE64_INSERT_FINAL(accum, insert, stream) ;
-  p->accum = accum ;
+//   p->accum = accum ;
+  p->acc_i = accum ;
   p->insert = insert ;
-  p->stream = stream ;
+//   p->stream = stream ;
+  p->in = stream ;
   return nw ;
 }
 
@@ -277,9 +318,11 @@ int  BeStreamInsertM(bitstream *p, uint32_t *w32, int *nbits, int *n){
 // n[i] <= 0 marks the end of the pair list
 int  LeStreamXtractM(bitstream *p, uint32_t *w32, int *nbits, int *n){
   int i, nw = 0 ;
-  uint64_t  accum = p->accum ;
+//   uint64_t  accum = p->accum ;
+  uint64_t  accum = p->acc_x ;
   int32_t  xtract = p->xtract ;
-  uint32_t *stream = p->stream ;
+//   uint32_t *stream = p->stream ;
+  uint32_t *stream = p->out ;
 
   if(xtract < 0) return 0;      // ERROR: not in extract mode
 
@@ -291,9 +334,11 @@ int  LeStreamXtractM(bitstream *p, uint32_t *w32, int *nbits, int *n){
     nbits++ ;
     n++ ;       // next pair
   }
-  p->accum = accum ;
+//   p->accum = accum ;
+  p->acc_x = accum ;
   p->xtract = xtract ;
-  p->stream = stream ;
+//   p->stream = stream ;
+  p->out = stream ;
   return nw ;
 }
 
@@ -306,9 +351,11 @@ int  LeStreamXtractM(bitstream *p, uint32_t *w32, int *nbits, int *n){
 // n[i] <= 0 marks the end of the pair list
 int  BeStreamXtractM(bitstream *p, uint32_t *w32, int *nbits, int *n){
   int i, nw = 0 ;
-  uint64_t  accum = p->accum ;
+//   uint64_t  accum = p->accum ;
+  uint64_t  accum = p->acc_x ;
   int32_t  xtract = p->xtract ;
-  uint32_t *stream = p->stream ;
+//   uint32_t *stream = p->stream ;
+  uint32_t *stream = p->out ;
 
   if(xtract < 0) return 0;      // ERROR: not in extract mode
 
@@ -320,9 +367,11 @@ int  BeStreamXtractM(bitstream *p, uint32_t *w32, int *nbits, int *n){
     nbits++ ;
     n++ ;       // next pair
   }
-  p->accum = accum ;
+//   p->accum = accum ;
+  p->acc_x = accum ;
   p->xtract = xtract ;
-  p->stream = stream ;
+//   p->stream = stream ;
+  p->out = stream ;
   return nw ;
 }
 
