@@ -127,6 +127,8 @@ endif()
 # SET_SOURCE_FILES_PROPERTIES( test_lorenzo.F90 PROPERTIES COMPILE_FLAGS -DNO_FORTRAN_CODE )
 
 add_project_test(test_fstd_compress  test_fstd_compress.F90 LINK_LIBS "rmn::rmn;dl" NOCTEST)   # not included in ctest for now
+add_project_test(fstd_to_raw  fstd_to_raw.F90 LINK_LIBS "rmn::rmn;dl" NOCTEST)   # not included in ctest for now
+
 add_project_test(test_c_record_io test_c_record_io.c NOCTEST)    # not included in ctest for now
 add_project_test(test_c_record_io_f test_c_record_io.F90 NOCTEST LINK_LIBS "dl")    # not included in ctest for now
 
