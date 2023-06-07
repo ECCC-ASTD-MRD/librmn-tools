@@ -47,7 +47,7 @@ static int32_t verify_restore(void *f1, void *f2, int n, uint32_t mask){
 }
 
 static void print_stream_params(bitstream s, char *msg, char *expected_mode){
-  TEE_FPRINTF(stderr,2, "%s: filled = %d(%d), free= %d, first/in/out = %p/%p/%p [%d], insert/xtract = %d/%d \n",
+  TEE_FPRINTF(stderr,2, "%s: filled = %d(%d), free= %d, first/in/out = %p/%p/%p [%ld], insert/xtract = %d/%d \n",
     msg, StreamAvailableBits(&s), StreamStrictAvailableBits(&s), StreamAvailableSpace(&s), 
     s.first, s.out, s.in, s.in-s.out, s.insert, s.xtract ) ;
   if(expected_mode){
