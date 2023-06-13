@@ -157,7 +157,7 @@ return 0 ;
   for(i=0 ; i<NPTS ; i++) fprintf(stderr, " %5.2f", ABS(fo[i]-fi[i])) ; fprintf(stderr, "\n") ;
 
 // ============================ TIMINGS (type 0) ============================
-#if 0
+#if 1
   fprintf(stderr, "\n=============== TIMINGS (type 0) ==============\n") ;
   for(i=0 ; i<NPTST ; i++) fi[i] = i + .0001f ;
   TIME_LOOP_EZ(1000, NPTST, h64 = IEEE32_linear_quantize_0(fi, NPTST, 16, .1f, qu)) ;

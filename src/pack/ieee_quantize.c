@@ -1,20 +1,15 @@
 /* Hopefully useful functions for C and FORTRAN
  * Copyright (C) 2021  Recherche en Prevision Numerique
  *
- * This library is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Lesser General Public
- * License as published by the Free Software Foundation,
- * version 2.1 of the License.
- *
- * This library is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * Library General Public License for more details.
- *
- * You should have received a copy of the GNU Library General Public
- * License along with this library; if not, write to the
- * Free Software Foundation, Inc., 59 Temple Place - Suite 330,
- * Boston, MA 02111-1307, USA.
+// This code is free software; you can redistribute it and/or
+// modify it under the terms of the GNU Lesser General Public
+// License as published by the Free Software Foundation,
+// version 2.1 of the License.
+//
+// This code is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+// Library General Public License for more details.
  */
 
 #include <stdio.h>
@@ -76,9 +71,9 @@ typedef struct {
   uint64_t qmin:32,
            emax:8 ,  // exponent of largest absolute value
            emin:8 ,  // exponent of smallest absolute value
-           elow:8 ,  // exponent of smallest useful absolute value
+           elow:8 ,  // exponent of smallest significant absolute value
            nbts:5 ,  // number of bits (0 -> 31) per value (nbts == 0 : same value, same sign)
-           cnst:1 ,  // range is 0, constant absolute values
+           clip:1 ,  // original emin < elow, clipping may occur
            allp:1 ,  // all numbers are >= 0
            allm:1 ;  // all numbers are < 0
 } ieee32_e ;
@@ -89,6 +84,7 @@ typedef union{    // the union allows to transfer the whole 64 bit contents in o
   ieee32_l  l  ;
   ieee32_e  e  ;
   uint64_t  u  ;
+  uint32_t  w[2]  ;  // access via 2 32 bit unsigned ints for packing headers
 } ieee32_props ;
 
 // ========================================== common functions ==========================================
@@ -144,6 +140,13 @@ uint64_t IEEE32_limits(void * restrict f, int np){
 
 // ========================================== pseudo log quantizer 0 ==========================================
 
+void IEEE32_exp_limits(uint64_t u64, int *emin, int *emax){
+  ieee32_props h64 ;
+  h64.u = u64 ;
+  *emin = (h64.l.mina >> 23) - 127 ;
+  *emax = (h64.l.maxa >> 23) - 127 ;
+}
+
 // restore floating point numbers quantized with IEEE32_fakelog_quantize_0
 // q     [IN]  32 bit integer array containing the quantized data
 // f    [OUT]  32 bit IEEE float array that will receive restored floats
@@ -169,7 +172,7 @@ int IEEE32_fakelog_unquantize_0(void * restrict f, uint64_t u64, int ni, void * 
   allm = h64.e.allm ;
   pos_neg = (allp || allm) ? 0 : 1 ;      // we have both positive and negative values
   sign = (allm << 31) ;                   // move sign of all values to MSB position
-fprintf(stderr, "allm = %d, allp = %d, pos_neg = %d\n", allm, allp, pos_neg) ;
+// fprintf(stderr, "allm = %d, allp = %d, pos_neg = %d\n", allm, allp, pos_neg) ;
 
   x.u = ((emin + 127) << 23) ;
   x.u |= sign ;                           // restore sign (if all numbers are negative)
@@ -178,7 +181,7 @@ fprintf(stderr, "allm = %d, allp = %d, pos_neg = %d\n", allm, allp, pos_neg) ;
   qrange = (1 << nbits) ;         // range of quantized values (2**nbits)
   t.f = (emax - emin + 1) ;       // maximum possible value of "fake log"
   fac = t.f / qrange ;      // factor to quantize "fake log"
-fprintf(stderr,"nbits = %d, emax-emin+1 = %d, fac = %f, emin = %d, emax = %d, elow = %d, q0 = %f\n", nbits, emax-emin+1, fac, emin, emax, elow, q0) ;
+// fprintf(stderr,"nbits = %d, emax-emin+1 = %d, fac = %f, emin = %d, emax = %d, elow = %d, q0 = %f\n", nbits, emax-emin+1, fac, emin, emax, elow, q0) ;
   if(pos_neg){                 // mix of positive and negative numbers
     for(i=0 ; i<ni ; i++){
       ti  = qi[i] ;
@@ -211,6 +214,7 @@ fprintf(stderr,"nbits = %d, emax-emin+1 = %d, fac = %f, emin = %d, emax = %d, el
       fo[i] = (qi[i] == 0) ? q0 : x.f ;
     }
   }
+  return 0 ;
 }
 
 // quantize IEEE floats
@@ -225,7 +229,7 @@ uint64_t IEEE32_fakelog_quantize_0(void * restrict f, int ni, int nbits, float q
   float *fu = (float *) f ;
   uint32_t *qo = (uint32_t *) qs ;
   ieee32_props h64 ;
-  uint32_t allp, allm, pos_neg ;
+  uint32_t allp, allm, pos_neg, clip ;
   uint32_t maxa, mina, sign, maskbits ;
   int32_t emax, emin, elow ;
   AnyType32 t ;
@@ -239,12 +243,12 @@ uint64_t IEEE32_fakelog_quantize_0(void * restrict f, int ni, int nbits, float q
   mina = h64.l.mina ;
   pos_neg = (allp || allm) ? 0 : 1 ;      // we have both positive and negative values
   nbits -= pos_neg ;                      // one bit is needed for sign ==> one less available for quantized value
-fprintf(stderr, "allm = %d, allp = %d, pos_neg = %d\n", allm, allp, pos_neg) ;
+// fprintf(stderr, "allm = %d, allp = %d, pos_neg = %d\n", allm, allp, pos_neg) ;
   h64.u = 0 ;                             // initialize metadata
   h64.e.nbts = nbits ;
   h64.e.allp = allp ;
   h64.e.allm = allm ;
-  h64.e.cnst = 0 ;
+  h64.e.clip = 0 ;
   h64.e.qmin = 0 ;
 
   t.f  = qzero ;                          // lowest significant value
@@ -254,6 +258,7 @@ fprintf(stderr, "allm = %d, allp = %d, pos_neg = %d\n", allm, allp, pos_neg) ;
   h64.e.emax = emax ; emax -= 127 ;
   emin = (mina >> 23) & 0xFF ;
   emin -= 127 ;                           // original emin may be < elow
+  clip = (emin < elow) ? 1 : 0 ;          // original emin < elow
   if((qzero < 0) && (emin < elow)) h64.e.elow = 0 ;  // will force a restore to zero where quantized value == 0
   emin = (emin < elow) ? elow : emin ;    // emin < elow, set emin to elow for quantization
 //   emin = (emin < elow) ? elow - 1 : emin ;     // emin < elow, set emin to elow - 1 for quantization
@@ -271,30 +276,30 @@ fprintf(stderr, "allm = %d, allp = %d, pos_neg = %d\n", allm, allp, pos_neg) ;
       x.f = fu[i] ;                 // float to quantize
       sign = x.ie32.s ;             // save sign
       exp = (x.u >> 23) & 0xFF ;    // exponent from value (with +127 bias)
-      exp = exp - emin ;            // this will have a value of 127 for the lowest "useful" exponent
+      exp = exp - emin ;            // this will have a value of 127 for the lowest "significant" exponent
       x.u &= 0x7FFFFF ;             // get rid of exponent and sign, only keep mantissa
       x.u |= (0x7F << 23) ;         // force 127 as exponent (1.0 <= x.f < 2.0)
       x.f += (exp - 127 - 1) ;      // add value of exponent from original float (0.0 <= x.f < max "fake log")
       // if(i == 0 || i == ni-1) fprintf(stderr,"%14.8f\n", x.f) ;
       qo[i] = x.f * fac + .5f ;     // quantize the fake log
-      qo[i] = (x.f <  0.0f) ? 0 : qo[i] ;               // < qzero
+      qo[i] = (x.f <  0.0f) ? 0 : qo[i] ;               // < qzero (exp < emin)
       qo[i] = (x.f == 0.0f) ? 1 : qo[i] ;               // == lowest significant value (emin or elow)
       qo[i] = (qo[i] > maskbits) ? maskbits : qo[i] ;   // clamp at 2**nbits -1
       qo[i] = (qo[i] << 1) | sign ; // sign as LSB
     }
-  }else{
+  }else{                            // all values have the same sign
     for(i=0 ; i<ni ; i++){
       int exp ;
       AnyType32 x ;
       x.f = fu[i] ;                 // float to quantize
       exp = (x.u >> 23) & 0xFF ;    // exponent from value (with +127 bias)
-      exp = exp - emin ;            // this will have a value of 127 for the lowest "useful" exponent
+      exp = exp - emin ;            // this will have a value of 127 for the lowest "significant" exponent
       x.u &= 0x7FFFFF ;             // get rid of exponent and sign, only keep mantissa
       x.u |= (0x7F << 23) ;         // force 127 as exponent (1.0 <= x.f < 2.0)
       x.f += (exp - 127 - 1) ;      // add value of exponent from original float (0.0 <= x.f < max "fake log")
       // if(i == 0 || i == ni-1) fprintf(stderr,"%14.8f\n", x.f) ;
       qo[i] = x.f * fac + .5f ;     // quantize the fake log
-      qo[i] = (x.f <  0.0f) ? 0 : qo[i] ;               // < qzero
+      qo[i] = (x.f <  0.0f) ? 0 : qo[i] ;               // < qzero (exp < emin)
       qo[i] = (x.f == 0.0f) ? 1 : qo[i] ;               // == lowest significant value (emin or elow)
       qo[i] = (qo[i] > maskbits) ? maskbits : qo[i] ;   // clamp at 2**nbits -1
     }

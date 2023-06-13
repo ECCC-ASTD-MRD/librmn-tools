@@ -28,18 +28,21 @@
 #define STATIC_DEFINED_HERE
 #endif
 
+typedef struct{
+  uint32_t *buf ;     // pointer to start of data
+  int32_t size ;      // data size in 32 bit units (max 16G - 4 bytes)
+} bitbucket ;
+
 // bit stream descriptor. ONLY ONE of insert / extract should be positive
 // in insertion mode, xtract should be -1
 // in extraction mode, insert should be -1
 // for now, a bit stream is unidirectional (either insert or extract mode)
 typedef struct{
-//   uint64_t  accum ;   // 64 bit unsigned bit accumulator
   uint64_t  acc_i ;   // 64 bit unsigned bit accumulator for insertion
   uint64_t  acc_x ;   // 64 bit unsigned bit accumulator for extraction
   int32_t   insert ;  // # of bits used in accumulator (0 <= insert <= 64)
   int32_t   xtract ;  // # of bits extractable from accumulator (0 <= xtract <= 64)
   uint32_t *first ;   // pointer to start of stream data storage
-//   uint32_t *stream ;  // pointer into packed stream (both insert and extract mode)
   uint32_t *in ;      // pointer into packed stream (insert mode)
   uint32_t *out ;     // pointer into packed stream (extract mode)
   uint32_t *limit ;   // pointer to end of stream data storage (1 byte beyond stream buffer end)

@@ -45,6 +45,7 @@ typedef struct{
 float quantum_adjust(float quantum);
 
 uint64_t IEEE32_limits(void * restrict f, int np);
+void IEEE32_exp_limits(uint64_t u64, int *emin, int *emax);
 
 uint64_t IEEE32_linear_prep_0(uint64_t u64, int np, int nbits, float quant);
 uint64_t IEEE32_linear_prep_1(uint64_t u64, int np, int nbits, float quant);

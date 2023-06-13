@@ -9,6 +9,8 @@
 #include <rmn/misc_operators.h>
 #include <rmn/c_record_io.h>
 #include <rmn/ieee_quantize.h>
+#include <rmn/compress_data.h>
+#include <rmn/compress_data.h>
 
 typedef struct{
   int ndata ;         // numbre of data points involved
@@ -27,6 +29,7 @@ void process_data_2d(void *buf, int ni, int nj, error_stats *e, char *name){
   float *t0 = t ;
   float *f0 = f ;
   float block[64*64] ;
+return ;
 
   fprintf(stderr, "allocated and initialized t[%d,%d]\n", ni, nj) ;
   for(i=0 ; i<ni*nj ; i++) t[i] = 0.0f ;
@@ -88,6 +91,9 @@ int main(int argc, char **argv){
   int ndata ;
   float ref[NPTSI*NPTSJ], new[NPTSI*NPTSJ] ;
   error_stats e ;
+  bitstream **streams ;
+  compressed_field field ;
+  compress_rules rules ;
 
   start_of_test(argv[0]);
   for(j=0 ; j<NPTSJ ; j++){
@@ -112,7 +118,10 @@ int main(int argc, char **argv){
     while(buf != NULL){
       fprintf(stderr, "number of dimensions = %d : (", ndim) ;
       for(j=0 ; j<ndim ; j++) fprintf(stderr, "%d ", dims[j]) ; fprintf(stderr, ") [%d]\n", ndata);
-      if(ndim == 2) process_data_2d(buf, dims[0], dims[1], &e, argv[i]) ;
+      if(ndim == 2){
+        process_data_2d(buf, dims[0], dims[1], &e, argv[i]) ;
+        field = compress_2d_data(buf, dims[0], dims[0], dims[1], rules) ;
+      }
       free(buf) ;
 // break ;   // only one record for now
       fprintf(stderr, "reading next record, fd = %d\n", fd);

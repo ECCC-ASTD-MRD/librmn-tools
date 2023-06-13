@@ -54,17 +54,20 @@ program test_compress
   real :: ipvalue
   integer(C_SIZE_T) :: nc
   character(len=128) :: c_fname, ipstring
+  integer c1, c2
 
-  write(0,*)'======= compression algorithm test ======='
+  write(0,*)'======= converting RPN standard file to raw file ======='
   iun=0
   iunout = 0
   call get_command_argument(1,filename,ilen,status)
   if(status .ne. 0) stop
+  c2 = len(trim(filename))
+  c1 = c2-11
   call get_command_argument(2,varname,ilen,status)
   if(status .ne. 0) stop
 
   status = fnom(iun,trim(filename),'RND+STD+R/O+OLD',0)
-  call fstopi("MSGLVL",8,0)
+  call fstopi("MSGLVL",6,0)
   if(status < 0) goto 999
   status = fstouv(iun,'RND')
   if(status < 0) goto 999
@@ -72,7 +75,7 @@ program test_compress
   irec = 0
   ilev = 0
   oldnam='    '
-  write(0,*)nrec,' records found, unit=',iun
+  write(0,*)nrec,' records found, unit =',iun
   sizep = 0;
 
   key = fstinf(iun,ni,nj,nk,-1,'            ',-1,-1,-1,'  ','    ')
@@ -106,8 +109,8 @@ program test_compress
             exit
           endif
         enddo
-        write(c_fname,1111)'RAW/',trim(nomvar),'_'//trim(ipstring)   ! create file name
-1111 format(A,A,A,F10.10)
+        write(c_fname,1111)'RAW/',trim(nomvar),'_'//trim(ipstring)//filename(c1:c2)   ! create file name
+1111 format(A,A,A,I3.3)
         fdmode = INT(O'777')
         fd = c_creat(trim(c_fname)//achar(0), fdmode) ! create raw file
         if(fd > 0) then

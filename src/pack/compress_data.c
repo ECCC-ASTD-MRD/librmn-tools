@@ -1,7 +1,21 @@
+// Hopefully useful code for C
+// Copyright (C) 2022  Recherche en Prevision Numerique
+//
+// This code is free software; you can redistribute it and/or
+// modify it under the terms of the GNU Lesser General Public
+// License as published by the Free Software Foundation,
+// version 2.1 of the License.
+//
+// This code is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+// Library General Public License for more details.
+//
+
 #include <stdio.h>
 #include <rmn/compress_data.h>
 
-#define INDEX2D(array, col, lrow, row) ((array) + ((col)-1) + ((row)-1)*(lrow))
+#define INDEX2D_C(array, col, lrow, row) ((array) + (col) + (row)*(lrow))
 
 /*
                          a field is subdivided into chunks
@@ -10,7 +24,7 @@
        <------ 256 ----->                                  <--- <= 256 ----->
      ^ +----------------+----------------------------------+----------------+ ^
      | |                |                                  |                | |
- <= 64 | chunk(nci,0)   |                                  | chunk(nci,ncj) |<= 64
+ <= 64 | chunk(0,ncj)   |                                  | chunk(nci,ncj) |<= 64
      | |                |                                  |                | |
      v +----------------+----------------------------------+----------------+ v
        |                |                                  |                |
@@ -33,7 +47,7 @@
        <------ 64 ------>                                  <--- <= 64 ------>
      ^ +----------------+----------------------------------+----------------+ ^
      | |                |                                  |                | |
- <= 64 | block(nbi,0)   |                                  | block(nbi,nbj) |<= 64
+ <= 64 | block(0,nbj)   |                                  | block(nbi,nbj) |<= 64
      | |                |                                  |                | |
      v +----------------+----------------------------------+----------------+ v
        |                |                                  |                |
@@ -56,7 +70,7 @@
        <------- 8 ------>                                  <---- <= 8 ------>
      ^ +----------------+----------------------------------+----------------+ ^
      | |                |                                  |                | |
-  <= 8 |  tile(nti,0)   |                                  |  tile(nti,ntj) |<= 8
+  <= 8 |  tile(0,ntj)   |                                  |  tile(nti,ntj) |<= 8
      | |                |                                  |                | |
      v +----------------+----------------------------------+----------------+ v
        |                |                                  |                |
@@ -68,7 +82,7 @@
        |                |                                  |                |
      ^ +----------------+----------------------------------+----------------+ ^
      | |                |                                  |                | |
-     8 |  tile(0,0)     |                                  |  tile(nbi,0)   | 8
+     8 |  tile(0,0)     |                                  |  tile(nti,0)   | 8
      | |                |                                  |                | |
      v +----------------+----------------------------------+----------------+ v
        <------- 8 ------>                                  <---- <= 8 ------>
@@ -99,8 +113,46 @@
     close bit stream
   field restoration is now complete
 */
+/*
+
+  data map (map of chunk positions in data stream) (sizes and offsets in 32 bit units)
+  data map size = (NCI * NCJ) * 2 + 2 (in 32 bit units)
+  +-------+-------+--------------+----------------+     +--------------+----------------+
+  |  NCI  |  NCJ  | Chunk size 1 | Chunk offset 1 | ... | Chunk size n | Chunk offset n |
+  +-------+-------+--------------+----------------+     +--------------+----------------+
+  <--32b--x--32b--x-----32b------x------32b------->     <-----32b------x------32b------->
+
+  field layout (chunks are 32 bit aligned in data stream)
+                 <-------- Chunk size 1 --------->     <-------- Chunk size n --------->
+  +--------------+----------------+--------------+     +----------------+--------------+
+  | Field Header | Chunk Header 1 | Chunk Data 1 | ... | Chunk Header n | Chunk Data n |
+  +--------------+----------------+--------------+     +----------------+--------------+
+                 ^                                     ^
+                 | Chunk offset 1                      | Chunk offset n
+
+  chunk layout (PAD : 0 -> 31 bits)
+  +--------------+----------------+--------------+     +----------------+--------------+-----+
+  | Chunk Header | Block Header 1 | Block Data 1 | ... | Block Header n | Block Data n | PAD |
+  +--------------+----------------+--------------+     +----------------+--------------+-----+
+  <--- 32 bits --x------------------------------- Chunk data -------------------------------->
+
+  quantization block layout
+  +--------------+---------------+-------------+     +---------------+-------------+
+  | Block Header | Tile Header 1 | Tile Data 1 | ... | Tile Header n | Tile Data n |
+  +--------------+---------------+-------------+     +---------------+-------------+
+  <--- 96 bits --x-------------------------- Block data --------------------------->
+
+  encoding tile layout
+  +-------------+-----------+
+  | Tile Header | Tile Data |
+  +-------------+-----------+
+  <-- 16 bits -->
+*/
 
 bitstream *compress_2d_chunk(void *data, int lni, int ni, int nj, compress_rules r){
+  bitstream *t ;
+  // allocate stream at worst case length
+  // bit stream must be flushed at end of chunk
   return NULL ;
 }
 
@@ -109,17 +161,18 @@ bitstream *compress_2d_chunk(void *data, int lni, int ni, int nj, compress_rules
 // lni : data row storage dimension (>= ni)
 // ni  : useful data row length
 // nj  : number of data rows
-// return an array of bit streams (NULL terminated)
-bitstream **compress_2d_data(void *data, int lni, int ni, int nj, compress_rules r){
+// return a data map / data 
+compressed_field compress_2d_data(void *data, int lni, int ni, int nj, compress_rules r){
   uint32_t *f = (uint32_t *) data ;
   int i0, j0, cni, cnj, nci, ncj, i ;
-  bitstream **streams = NULL ;
+  compressed_field field = {NULL, NULL} ;
   bitstream **t ;
+  uint64_t chunks_size = 0l ;
 
   nci = (ni+CHUNK_I-1) / CHUNK_I ;
   ncj = (nj+CHUNK_J-1) / CHUNK_J ;
-  streams = (bitstream **) malloc( (nci*ncj+1) * sizeof(bitstream *) ) ;
-  t = streams ;
+  t = (bitstream **) malloc( (nci*ncj) * sizeof(bitstream *) ) ;
+
   for(i=0 ; i <= nci*ncj ; i++) t[i] = NULL ;
 
   i = 0 ;
@@ -129,10 +182,11 @@ fprintf(stderr, "j0 = %4d, i0 =", j0);
     for(i0 = 0 ; i0 < ni ; i0 += CHUNK_I){
 fprintf(stderr, "%5d", i0);
       cni = (i0+CHUNK_I > ni) ? ni-i0 : CHUNK_I ;
-      t[i] = compress_2d_chunk(INDEX2D(f,i0,lni,j0), lni, cni, cnj, r) ;
+      t[i] = compress_2d_chunk(INDEX2D_C(f,i0,lni,j0), lni, cni, cnj, r) ;
+      chunks_size += ( (t[i]->out - t[i]->in) * sizeof(uint32_t) ) ;
       i++ ;
     }
 fprintf(stderr, "%5d\n", i0);
   }
-  return streams ;
+  return field ;
 }

@@ -212,6 +212,7 @@ set(PROJECT_C_FILES
   src/pack/ieee_quantize.c
   src/pack/move_blocks.c
   src/pack/compress_data.c
+  src/pack/tile_encoders.c
   src/pack/serialized_functions.c
   src/diag/tee_print.c
   src/diag/test_helpers.c
@@ -259,6 +260,7 @@ set(PROJECT_H_FILES
   src/PUBLIC_INCLUDES/rmn/tools_plugins.hf
   src/PUBLIC_INCLUDES/rmn/misc_pack.h
   src/PUBLIC_INCLUDES/rmn/compress_data.h
+  src/PUBLIC_INCLUDES/rmn/tile_encoders.h
   src/PUBLIC_INCLUDES/rmn/misc_pack.hf
   src/PUBLIC_INCLUDES/rmn/misc_analyze.h
   src/PUBLIC_INCLUDES/rmn/ieee_quantize.h

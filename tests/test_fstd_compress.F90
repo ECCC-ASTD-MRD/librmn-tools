@@ -469,7 +469,7 @@ program test_compress
   character (len=128) :: filename, varname, str_ip
   character (len=128) :: outfile
   integer :: iunout
-  integer :: i, j, the_kind
+  integer :: i, j, the_kind, ii
   real, dimension(NSCORES) :: s
   real :: p1
   real :: maxvalue, minvalue, minabsvalue, quantum
@@ -518,7 +518,7 @@ program test_compress
   integer :: fd, fdstatus, fdmode, ipkind
   real :: ipvalue
   integer(C_SIZE_T) :: nc
-  character(len=128) :: c_fname, ipstring
+  character(len=128) :: c_fname, ipstring, tmpstring
 
   write(0,*)'======= compression algorithm test ======='
   iun=0
@@ -528,7 +528,7 @@ program test_compress
   call get_command_argument(2,varname,ilen,status)
   if(status .ne. 0) stop
   call get_command_argument(3,outfile,ilen,status)
-  if(status == 0) then
+  if(status == 0 .and. outfile(1:1) .ne. '.') then
     print *,"OUT = '",trim(outfile),"'"
     status = fnom(iunout,trim(outfile),'RND+STD',0)
     status = fstouv(iunout,'RND')
@@ -568,14 +568,23 @@ program test_compress
                   typvar,nomvar,etiket,grtyp,ig1,ig2,ig3,ig4, &
                   swa,lng,dltf,ubc,extra1,extra2,extra3)
 !       varname(1:2) = nomvar(1:2)
-      if(nomvar(1:2) == varname(1:2)) then
+!       if(nomvar(1:2) == varname(1:2)) then
+      if(.true.) then
         irec = irec + 1
         call fstluk(p,key,ni,nj,nk)
 ! ==========================================================================
         call CONVIP_plus( ip1, ipvalue, ipkind, -1, ipstring, .true. )  ! convert ip1
+        ii = 1
         do i = 1, 20
           if(ipstring(i:i) == ' ') then
             ipstring(i:i) = '_'
+!             exit
+          endif
+        enddo
+        do i = 20, 1, -1
+          if(ipstring(i:i) == '_') then
+            ipstring(i:i) = ' '
+          else
             exit
           endif
         enddo
@@ -601,6 +610,7 @@ program test_compress
         else
           print *,'ERROR creating '//trim(c_fname)
         endif
+#if 0
 ! ==========================================================================
         q(1:ni*nj) = p(1:ni*nj)  !    aucun filtre
         nmiss = float_info(q, ni, ni, nj, maxvalue, minvalue, minabsvalue)
@@ -617,7 +627,7 @@ program test_compress
 !         quantum = 0.0
 
 bits0 => array_stats_1(p, ni, ni, nj, quantum)
-
+#endif
 #if 0
         call float_quantize_prep(12, phead, maxvalue, minvalue, quantum)
         print *,'NBITS from header =',phead%nbits,' quantum =',phead%quantum
@@ -692,7 +702,7 @@ bits0 => array_stats_1(p, ni, ni, nj, quantum)
         call CONVIP_plus( ip1, p1, the_kind, -1, str_ip, .false. )
         write(6,*) nomvar, s(12), s(13), s(16), s(8), p1
 #endif
-        if(irec == 10) exit
+!         if(irec == 10) exit
 !         if(irec == 25) exit
       endif
     endif
