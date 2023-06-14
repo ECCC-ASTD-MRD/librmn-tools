@@ -38,12 +38,27 @@ static void print_stream_params(bitstream s, char *msg, char *expected_mode){
   }
 }
 
+static void print_tile(int32_t *tile, int ni, int lni, int nj, char *msg){
+  int i, j, ij ;
+  TEE_FPRINTF(stderr,2, "%s  : \n", msg) ;
+  for(j=nj-1 ; j>=0 ; j--){
+    TEE_FPRINTF(stderr,2, "%d :", j) ;
+    for(i=0 ; i<ni ; i++){
+      ij = INDEX(i, lni, j) ;
+      TEE_FPRINTF(stderr,2, " (%2d)%8.8x", ij,tile[ij]) ;
+    }
+    TEE_FPRINTF(stderr,2, "\n") ;
+  }
+}
+
 int main(int argc, char **argv){
   uint64_t freq ;
   double nano ;
-  int32_t tile[64] ;
-  uint32_t packed[64] ;
-  int i, j, ij ;
+  int32_t tile0[64] ;
+  int32_t tile1[64] ;
+  int32_t tile2[64] ;
+  uint32_t packed[65] ;
+  int i, j, ij, ni, nj ;
   bitstream stream ;
   int32_t nbtot ;
 
@@ -51,31 +66,35 @@ int main(int argc, char **argv){
   nano = 1000000000 ;
   nano /= freq ;
 
-  start_of_test("tile encoder test C");
+  start_of_test("tile1 encoder test C");
 
   for(i=0 ; i<64 ; i++){
     packed[i] = 0xFFFFFFFFu ;
+    tile2[i]  = 0x0F0F0F0F ;
   }
-  TEE_FPRINTF(stderr,2, "original tile  : \n") ;
   for(j=7 ; j>=0 ; j--){
-    TEE_FPRINTF(stderr,2, "%d :", j) ;
     for(i=0 ; i<8 ; i++){
       ij = INDEX(i, 8, j) ;
-      tile[ij] = (i << 4) + j ;
-      tile[ij] |= ((j & 1) << 11) ;
-      TEE_FPRINTF(stderr,2, " (%2d)%8.8x", ij,tile[ij]) ;
+      tile1[ij] = (i << 4) + j ;
+      tile1[ij] |= ((j & 1) << 11) ;
     }
-    TEE_FPRINTF(stderr,2, "\n") ;
   }
+  for(i=0 ; i<64 ; i++) tile1[i] = -tile1[i] ;
+  print_tile(tile1, 8, 8, 8, "original tile") ;
+
   BeStreamInit(&stream, packed, sizeof(packed), 0) ;  // force read-write stream mode
   print_stream_params(stream, "Init Stream", "ReadWrite") ;
   print_stream_data(stream, "stream contents") ;
 
-  nbtot = encode_ints(&tile[0], 8, 2, &stream) ;
+  nbtot = encode_ints(tile1, 8, 8, &stream) ;
 
   TEE_FPRINTF(stderr,2, "nbtot = %d\n", nbtot) ;
   print_stream_params(stream, "encoded Stream", "ReadWrite") ;
   print_stream_data(stream, "stream contents") ;
+
+  nbtot = decode_ints(tile2, &ni, &nj, &stream) ;
+  TEE_FPRINTF(stderr,2, "ni = %d, nj = %d\n", ni, nj) ;
+  print_tile(tile2, ni, ni, nj, "restored tile") ;
 
   return 0 ;
 }

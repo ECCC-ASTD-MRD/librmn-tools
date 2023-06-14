@@ -19,10 +19,10 @@ int32_t encode_ints(void *f, int ni, int nj, bitstream *s){
   int32_t *fi = (int32_t *) f ;
   uint32_t *fu = (uint32_t *) f ;
   uint32_t fe[64] ;
-  int i, nbtot, nbits, nbits0, nshort, nzero, nbits_short, nbits_zero, nbits_full ;
+  int i, nbtot, nbits, nbits0, nbitsi, nshort, nzero, nbits_short, nbits_zero, nbits_full ;
   int nij = ni * nj ;
   tile_header th ;
-  uint32_t vneg, vpos, vmax, vmin, w32, mask0 ;
+  uint32_t vneg, vpos, vmax, vmin, w32, mask0, mask1 ;
   uint64_t accum   = s->acc_i ;
   int32_t  insert  = s->insert ;
   uint32_t *stream = s->in ;
@@ -62,6 +62,7 @@ int32_t encode_ints(void *f, int ni, int nj, bitstream *s){
   nbits0 = (nbits + 1) >> 1 ;    // number of bits for "short" values
   mask0 = RMASK31(nbits0) ;      // value & mask0 will be 0 if nbits0 or less bits are needed
   mask0 = ~mask0 ;               // keep only the upper bits
+  mask1 = 1 << nbits ;           // full token flag
 fprintf(stderr, "vmax = %8.8x(%8.8x), vneg = %d, vpos = %d, nbits = %d, nbits0 = %d\n", vmax, vmax>>1, vneg, vpos, nbits, nbits0) ;
   th.h.nbts = nbits ;            // number of bits neeeded for encoding
   th.h.encd = 0 ;                // a priori no special encoding
@@ -78,6 +79,8 @@ fprintf(stderr, "vmax = %8.8x(%8.8x), vneg = %d, vpos = %d, nbits = %d, nbits0 =
   if( (nbits_zero  <= nbits_short) && (nbits_zero  < nbits_full) ) th.h.encd = 2 ;  // 0 / 1 full encoding
   //
 th.h.encd = 0 ; // force no encoding
+th.h.encd = 2 ; // force 0 , 1//full encoding
+th.h.encd = 1 ; // force 0//short , 1//full encoding
   // ==================== encoding phase ====================
   // totally scalar
   w32 = th.s ;
@@ -86,29 +89,31 @@ fprintf(stderr, "nbits_full = %4d, nbits_zero = %4d, nbits_short = %4d, mask0 = 
   BE64_PUT_NBITS(accum, insert, w32, 16, stream) ; // insert header into packed stream
   nbtot = 16 ;
   // 3 mutually exclusive alternatives
-  if(th.h.encd == 1){             // 0 short / 1 full encoding
+  if(th.h.encd == 1){             // 0//short , 1//full encoding
     for(i=0 ; i<nij ; i++){
-      if((fe[i] & mask0) == 0){                                   // value uses nbits0 bits or less
-        BE64_PUT_NBITS(accum, insert, fe[i], nbits0+1, stream) ;  // insert nbits0+1 bits into stream
-        nbtot += (nbits0+1) ;
+      w32 = fe[i] ;
+      if((w32 & mask0) == 0){                                   // value uses nbits0 bits or less
+        nbitsi = nbits0+1 ;                                     // nbits0+1 bits
       }else{
-        fe[i] |= (1 << nbits) ;
-        BE64_PUT_NBITS(accum, insert, fe[i],  nbits+1, stream) ;  // insert nbits+1 bits into stream
-        nbtot += (nbits+1) ;
+        nbitsi = nbits+1 ;                                      // nbits+1 bits
+        w32 |= mask1 ;                                          // add 1 bit to identify "full" value
       }
+      nbtot += nbitsi ;
+      BE64_PUT_NBITS(accum, insert, w32,  nbitsi, stream) ;     // insert nbitsi bits into stream
     }
     goto end ;
   }
-  if(th.h.encd == 2){             // 0 / 1 full encoding
+  if(th.h.encd == 2){             // 0 , 1//full encoding
     for(i=0 ; i<nij ; i++){
-      if(fe[i] == 0){                                             // value is zero
-        BE64_PUT_NBITS(accum, insert,     0,       1, stream) ;   // insert 1 bit (0) into stream
-        nbtot += 1 ;
+      w32 = fe[i] ;
+      if(w32 == 0){                                             // value is zero
+        nbitsi = 1 ;                                            // 1 bit
       }else{
-        fe[i] |= (1 << nbits) ;                                   // add 1 bit to identify "full" value
-        BE64_PUT_NBITS(accum, insert, fe[i], nbits+1, stream) ;   // insert nbits+1 bits into stream
-        nbtot += (nbits+1) ;
+        nbitsi = nbits+1 ;                                      // nbits+1 bits
+        w32 |= mask1 ;                                          // add 1 bit to identify "full" value
       }
+      nbtot += nbitsi ;
+      BE64_PUT_NBITS(accum, insert, w32,  nbitsi, stream) ;     // insert nbitsi bits into stream
     }
     goto end ;
   }
@@ -121,6 +126,7 @@ fprintf(stderr, "nbits_full = %4d, nbits_zero = %4d, nbits_short = %4d, mask0 = 
   }
 
 end:
+  BE64_PUSH(accum, insert, stream) ;
   s->acc_i  = accum ;
   s->insert = insert ;
   s->in     = stream ;
@@ -128,7 +134,7 @@ end:
 
 error:
   nbtot = -1 ;
-  goto end ;
+  return nbtot ;
 
 zero:
   th.h.nbts = 0 ;   // 1 bit
@@ -155,11 +161,11 @@ int32_t decode_64_ints(void *f, bitstream *stream, uint16_t h16){
 
 int32_t decode_ints(void *f, int *ni, int *nj, bitstream *s){
   int32_t *fi = (int32_t *) f ;
-  uint32_t *fu = (uint32_t *) f ;
+//   uint32_t *fu = (uint32_t *) f ;
   uint32_t fe[64] ;
   tile_header th ;
   uint32_t w32 ;
-  int i, nbits, nij ;
+  int i, nbits, nij, nbits0 ;
   uint64_t accum   = s->acc_x ;
   int32_t  xtract  = s->xtract ;
   uint32_t *stream = s->out ;
@@ -171,16 +177,31 @@ int32_t decode_ints(void *f, int *ni, int *nj, bitstream *s){
   *nj = th.h.nptj+1 ;
   nij = (*ni) * (*nj) ;
   nbits = th.h.nbts ;
+  nbits0 = (nbits + 1) >> 1 ;    // number of bits for "short" values
+fprintf(stderr, "ni = %d, nj = %d, nbits = %d, encoding = %d, sign = %d\n", *ni, *nj, nbits, th.h.encd, th.h.sign) ;
+
   if(th.h.encd == 3) goto constant ;
 
 //   BeStreamXtract(stream, fe, nbits, nij) ;   // extract nij tokens
-  if(th.h.encd == 1){             // 0 short / 1 full encoding
+  if(th.h.encd == 1){             // 0//short , 1//full encoding
     for(i=0 ; i<nij ; i++){
+      BE64_GET_NBITS(accum, xtract, w32, 1, stream) ;        // get 1 bit
+      if(w32 != 0){
+        BE64_GET_NBITS(accum, xtract, w32, nbits, stream) ;  // get nbits bits
+      }else{
+        BE64_GET_NBITS(accum, xtract, w32, nbits0, stream) ; // get nbits0 bits
+      }
+      fe[i] = w32 ;
     }
     goto transfer ;
   }
-  if(th.h.encd == 2){             // 0 / 1 full encoding
+  if(th.h.encd == 2){             // 0 , 1//full encoding
     for(i=0 ; i<nij ; i++){
+      BE64_GET_NBITS(accum, xtract, w32, 1, stream) ;        // get 1 bit
+      if(w32 != 0){
+        BE64_GET_NBITS(accum, xtract, w32, nbits, stream) ;  // get nbits bits
+      }
+      fe[i] = w32 ;
     }
     goto transfer ;
   }
@@ -195,7 +216,7 @@ transfer:
     for(i=0 ; i<nij ; i++){ fi[i] = fe[i] ; }
   }
   if(th.h.sign == 2){    // all values < 0
-    for(i=0 ; i<nij ; i++){ fi[i] = ~fe[i] ; }  // undo shifted ZigZag
+    for(i=0 ; i<nij ; i++){ fi[i] = ~fe[i] ; }  // undo right shifted ZigZag
   }
   if(th.h.sign == 3){    // ZigZag
     for(i=0 ; i<nij ; i++){ fi[i] = from_zigzag_32(fe[i]) ; }

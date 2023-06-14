@@ -166,7 +166,7 @@ static void StreamDup(bitstream *sdst, bitstream *ssrc){
 #define LE64_INSERT_CHECK(accum, insert, stream) \
         { if(insert > 32) { *stream = accum ; stream++ ; insert -= 32 ; accum >>= 32 ; } ; }
 #define LE64_STREAM_INSERT_CHECK(s) LE64_INSERT_CHECK(s.acc_i, s.insert, s.stream)
-// push data to stream without updating control info
+// push data to stream without fully updating control info
 #define LE64_PUSH(accum, insert, stream) \
         { LE64_INSERT_CHECK(accum, insert, stream) ; { if(insert > 0) { *stream = accum ;} ; } }
 // store any residual data from accum into stream, update accum, insert, stream
@@ -220,7 +220,7 @@ static void StreamDup(bitstream *sdst, bitstream *ssrc){
 #define BE64_INSERT_CHECK(accum, insert, stream) \
         { if(insert > 32) { insert -= 32 ; *(stream) = accum >> insert ; (stream)++ ; } ; }
 #define BE64_STREAM_INSERT_CHECK(s) BE64_INSERT_CHECK(s.acc_i, s.insert, s.stream)
-// push data to stream without updating control info
+// push data to stream without fully updating control info
 #define BE64_PUSH(accum, insert, stream) \
         { BE64_INSERT_CHECK(accum, insert, stream) ; if(insert > 0) { *stream = accum << (32 - insert) ; } }
 // store any residual data from accum into stream, update accum, insert, stream
