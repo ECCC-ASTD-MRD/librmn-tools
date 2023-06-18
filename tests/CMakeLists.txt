@@ -121,7 +121,8 @@ add_project_test(test_lorenzo_c test_lorenzo_c.c)
 add_project_test(test_lorenzo_f_shared test_lorenzo.F90 LINK_LIBS "rmn::rmn-shared;dl")                        # build with shared libraries
 if(NOT ( ${COMPILER_SUITE} MATCHES  "nvhpc") )
 # problem building test_lorenzo_f_static with Nvidia compiler (dl library symbol missing)
-add_project_test(test_lorenzo_f_static test_lorenzo.F90 STATIC DL LINK_LIBS ${rmn_PREFIX}/lib/librmn.a)        # build with static libraries
+# add_project_test(test_lorenzo_f_static test_lorenzo.F90 STATIC DL LINK_LIBS ${rmn_PREFIX}/lib/librmn.a)        # build with static libraries
+add_project_test(test_lorenzo_f_static test_lorenzo.F90 STATIC DL LINK_LIBS "rmn::rmn-static;dl")        # build with static libraries
 endif()
 # add_project_test(test_lorenzo_f_static test_lorenzo.F90 STATIC LINK_LIBS rmn::rmn-static)                          # build with static libraries
 # SET_SOURCE_FILES_PROPERTIES( test_lorenzo.F90 PROPERTIES COMPILE_FLAGS -DNO_FORTRAN_CODE )
@@ -129,7 +130,10 @@ endif()
 add_project_test(test_fstd_compress  test_fstd_compress.F90 LINK_LIBS "rmn::rmn;dl" NOCTEST)   # not included in ctest for now
 # add_project_test(fstd_to_raw  fstd_to_raw.F90 LINK_LIBS "rmn::rmn;dl" NOCTEST)   # not included in ctest for now
 add_project_test(fstd_to_raw  fstd_to_raw.F90 LINK_LIBS "rmn::rmn-shared;dl" NOCTEST)   # not included in ctest for now
-# add_project_test(fstd_to_raw_s  fstd_to_raw.F90 LINK_LIBS "rmn::rmn-static;dl" NOCTEST)   # not included in ctest for now
+if(NOT ( ${COMPILER_SUITE} MATCHES  "nvhpc") )
+# problem building fstd_to_raw_s with Nvidia compiler (dl library symbol missing)
+add_project_test(fstd_to_raw_s  fstd_to_raw.F90 STATIC LINK_LIBS "rmn::rmn-static;dl" NOCTEST)   # not included in ctest for now
+endif()
 
 add_project_test(test_c_record_io test_c_record_io.c NOCTEST)    # not included in ctest for now
 add_project_test(test_c_record_io_f test_c_record_io.F90 NOCTEST LINK_LIBS "dl")    # not included in ctest for now
