@@ -15,6 +15,131 @@
 #include <stdio.h>
 #include <rmn/tile_encoders.h>
 
+#include <immintrin.h>
+
+typedef union{
+    uint64_t u64 ;
+    struct{
+      uint32_t sign:2, nbits:5, encd:2, nzero : 8, nshort:8 ;
+      uint32_t min ;
+    } ;
+} tile_props ;
+
+uint64_t encode_ints_prep(void *f, int ni, int lni, int nj, uint32_t *tile){
+  uint32_t *block = (uint32_t *)f ;
+  __m256i v0, v1, v2, v3, v4, v5, v6, v7 ;
+  __m256i vp, vn, vz, vs, vm0, vmax, vmin, vz0 ;
+  __m128i v128 ;
+  int32_t pos, neg, nshort, nzero ;
+  uint32_t max, min, nbits, nbits0, mask0 ;
+  tile_props p ;
+
+  v0 = _mm256_loadu_si256((__m256i *)(block)) ; block += lni ;  // load 8 x 8 values
+  v1 = _mm256_loadu_si256((__m256i *)(block)) ; block += lni ;
+  v2 = _mm256_loadu_si256((__m256i *)(block)) ; block += lni ;
+  v3 = _mm256_loadu_si256((__m256i *)(block)) ; block += lni ;
+  v4 = _mm256_loadu_si256((__m256i *)(block)) ; block += lni ;
+  v5 = _mm256_loadu_si256((__m256i *)(block)) ; block += lni ;
+  v6 = _mm256_loadu_si256((__m256i *)(block)) ; block += lni ;
+  v7 = _mm256_loadu_si256((__m256i *)(block)) ;
+
+  vn = _mm256_and_si256(v0, v1) ; vp = _mm256_andnot_si256(v0, v1) ;  // and for negative, and not for non negative
+  vn = _mm256_and_si256(vn, v2) ; vp = _mm256_andnot_si256(vn, v2) ;
+  vn = _mm256_and_si256(vn, v3) ; vp = _mm256_andnot_si256(vn, v3) ;
+  vn = _mm256_and_si256(vn, v4) ; vp = _mm256_andnot_si256(vn, v4) ;
+  vn = _mm256_and_si256(vn, v5) ; vp = _mm256_andnot_si256(vn, v5) ;
+  vn = _mm256_and_si256(vn, v6) ; vp = _mm256_andnot_si256(vn, v6) ;
+  vn = _mm256_and_si256(vn, v7) ; vp = _mm256_andnot_si256(vn, v7) ;
+  pos = (_mm256_movemask_ps((__m256) vp) == 0xFF) ? 1 : 0 ;           // check that all MSB bits are on 
+  neg = (_mm256_movemask_ps((__m256) vn) == 0xFF) ? 1 : 0 ;
+  p.sign = (neg << 1) | pos ;
+
+  v0 = _mm256_xor_si256( _mm256_add_epi32(v0, v0) , _mm256_srai_epi32(v0, 31) ) ;  // convert to ZigZag
+  v1 = _mm256_xor_si256( _mm256_add_epi32(v1, v1) , _mm256_srai_epi32(v1, 31) ) ;
+  v2 = _mm256_xor_si256( _mm256_add_epi32(v2, v2) , _mm256_srai_epi32(v2, 31) ) ;
+  v3 = _mm256_xor_si256( _mm256_add_epi32(v3, v3) , _mm256_srai_epi32(v3, 31) ) ;
+  v4 = _mm256_xor_si256( _mm256_add_epi32(v4, v4) , _mm256_srai_epi32(v4, 31) ) ;
+  v5 = _mm256_xor_si256( _mm256_add_epi32(v5, v5) , _mm256_srai_epi32(v5, 31) ) ;
+  v6 = _mm256_xor_si256( _mm256_add_epi32(v6, v6) , _mm256_srai_epi32(v6, 31) ) ;
+  v7 = _mm256_xor_si256( _mm256_add_epi32(v7, v7) , _mm256_srai_epi32(v7, 31) ) ;
+
+  vmax = _mm256_max_epu32(v0  , v1) ; vmin = _mm256_min_epu32(v0  , v1) ;  // max and min of ZigZag
+  vmax = _mm256_max_epu32(vmax, v2) ; vmin = _mm256_min_epu32(vmin, v2) ;
+  vmax = _mm256_max_epu32(vmax, v3) ; vmin = _mm256_min_epu32(vmin, v3) ;
+  vmax = _mm256_max_epu32(vmax, v4) ; vmin = _mm256_min_epu32(vmin, v4) ;
+  vmax = _mm256_max_epu32(vmax, v5) ; vmin = _mm256_min_epu32(vmin, v5) ;
+  vmax = _mm256_max_epu32(vmax, v6) ; vmin = _mm256_min_epu32(vmin, v6) ;
+  vmax = _mm256_max_epu32(vmax, v7) ; vmin = _mm256_min_epu32(vmin, v7) ;
+
+  v128 = _mm_max_epu32( _mm256_extractf128_si256 (vmax, 0) ,  _mm256_extractf128_si256 (vmax, 1) ) ;  // reduce to 1 value for max
+  v128 = _mm_max_epu32(v128, _mm_shuffle_epi32(v128, 0b11101110) ) ; // [0,1,2,3] [2,2,2,3]
+  v128 = _mm_max_epu32(v128, _mm_shuffle_epi32(v128, 0b01010101) ) ; // [0,1,2,3] [1,1,1,1]
+  _mm_storeu_si32(&max, v128) ;
+  nbits = _lzcnt_u32(max) ;
+  v128 = _mm_min_epu32( _mm256_extractf128_si256 (vmax, 0) ,  _mm256_extractf128_si256 (vmax, 1) ) ;  // reduce to 1 value for min
+  v128 = _mm_min_epu32(v128, _mm_shuffle_epi32(v128, 0b11101110) ) ; // [0,1,2,3] [2,2,2,3]
+  v128 = _mm_min_epu32(v128, _mm_shuffle_epi32(v128, 0b01010101) ) ; // [0,1,2,3] [1,1,1,1]
+  _mm_storeu_si32(&min, v128) ;
+
+  if(pos || neg){
+    nbits-- ;
+    min >>= 1 ;
+    v0 =  _mm256_srli_epi32(v0, 1) ;  // suppress ZigZag sign
+    v1 =  _mm256_srli_epi32(v1, 1) ;
+    v2 =  _mm256_srli_epi32(v2, 1) ;
+    v3 =  _mm256_srli_epi32(v3, 1) ;
+    v4 =  _mm256_srli_epi32(v4, 1) ;
+    v5 =  _mm256_srli_epi32(v5, 1) ;
+    v6 =  _mm256_srli_epi32(v6, 1) ;
+    v7 =  _mm256_srli_epi32(v7, 1) ;
+  }
+  p.min = min ;
+  p.nbits = nbits ;
+  p.encd = 0 ;
+  nbits0 = (nbits + 1) >> 1 ;       // number of bits for "short" values
+  mask0 = RMASK31(nbits0) ;         // value & ~mask0 will be 0 if nbits0 or less bits are needed
+  mask0 = ~mask0 ;                  // keep only the upper bits
+  vm0 = _mm256_set1_epi32(mask0) ;  // vector of mask0
+  vz0 = _mm256_xor_si256(v0, v0) ;  // vector of zeros
+
+  vz = _mm256_cmpeq_epi32(v0, vz0) ;                         // count zero values
+  vz = _mm256_add_epi32(vz, _mm256_cmpeq_epi32(v1, vz0)) ;
+  vz = _mm256_add_epi32(vz, _mm256_cmpeq_epi32(v2, vz0)) ;
+  vz = _mm256_add_epi32(vz, _mm256_cmpeq_epi32(v3, vz0)) ;
+  vz = _mm256_add_epi32(vz, _mm256_cmpeq_epi32(v4, vz0)) ;
+  vz = _mm256_add_epi32(vz, _mm256_cmpeq_epi32(v5, vz0)) ;
+  vz = _mm256_add_epi32(vz, _mm256_cmpeq_epi32(v6, vz0)) ;
+  vz = _mm256_add_epi32(vz, _mm256_cmpeq_epi32(v7, vz0)) ;
+  v128 = _mm_add_epi32(_mm256_extractf128_si256 (vz, 0) ,  _mm256_extractf128_si256 (vz, 1)) ;
+  v128 = _mm_add_epi32(v128,  _mm_shuffle_epi32(v128, 0b11101110) ) ; // [0,1,2,3] [2,2,2,3]
+  v128 = _mm_add_epi32(v128,  _mm_shuffle_epi32(v128, 0b01010101) ) ; // [0,1,2,3] [1,1,1,1]
+  _mm_storeu_si32(&nzero, v128) ; p.nzero = -nzero ;
+
+  vs = _mm256_cmpeq_epi32(_mm256_and_si256(v0, vm0), vz0) ;  // count values <= mask0
+  vs = _mm256_add_epi32(vs, _mm256_cmpeq_epi32(_mm256_and_si256(v1, vm0), vz0)) ;
+  vs = _mm256_add_epi32(vs, _mm256_cmpeq_epi32(_mm256_and_si256(v2, vm0), vz0)) ;
+  vs = _mm256_add_epi32(vs, _mm256_cmpeq_epi32(_mm256_and_si256(v3, vm0), vz0)) ;
+  vs = _mm256_add_epi32(vs, _mm256_cmpeq_epi32(_mm256_and_si256(v4, vm0), vz0)) ;
+  vs = _mm256_add_epi32(vs, _mm256_cmpeq_epi32(_mm256_and_si256(v5, vm0), vz0)) ;
+  vs = _mm256_add_epi32(vs, _mm256_cmpeq_epi32(_mm256_and_si256(v6, vm0), vz0)) ;
+  vs = _mm256_add_epi32(vs, _mm256_cmpeq_epi32(_mm256_and_si256(v7, vm0), vz0)) ;
+  v128 = _mm_add_epi32(_mm256_extractf128_si256 (vs, 0) ,  _mm256_extractf128_si256 (vs, 1)) ;
+  v128 = _mm_add_epi32(v128,  _mm_shuffle_epi32(v128, 0b11101110) ) ; // [0,1,2,3] [2,2,2,3]
+  v128 = _mm_add_epi32(v128,  _mm_shuffle_epi32(v128, 0b01010101) ) ; // [0,1,2,3] [1,1,1,1]
+  _mm_storeu_si32(&nshort, v128) ; p.nshort = -nshort ;
+
+  _mm256_storeu_si256((__m256i *)(tile   ), v0) ;  // store ZigZag values
+  _mm256_storeu_si256((__m256i *)(tile+ 8), v1) ;
+  _mm256_storeu_si256((__m256i *)(tile+16), v2) ;
+  _mm256_storeu_si256((__m256i *)(tile+24), v3) ;
+  _mm256_storeu_si256((__m256i *)(tile+32), v4) ;
+  _mm256_storeu_si256((__m256i *)(tile+40), v5) ;
+  _mm256_storeu_si256((__m256i *)(tile+48), v6) ;
+  _mm256_storeu_si256((__m256i *)(tile+56), v7) ;
+
+  return p.u64 ;
+}
+
 int32_t encode_ints(void *f, int ni, int nj, bitstream *s){
   int32_t *fi = (int32_t *) f ;
   uint32_t *fu = (uint32_t *) f ;
