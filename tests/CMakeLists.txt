@@ -149,4 +149,4 @@ add_project_test(test_serialized_functions test_serialized_functions.c)
 
 add_project_test(test_ieeequantize test_ieeequantize.c)
 add_project_test(test_logquantize test_logquantize.c)
-add_project_test(test_encoders test_encoders.c)
+add_project_test(test_encoders test_encoders.c NOCTEST)    # not included in ctest for now

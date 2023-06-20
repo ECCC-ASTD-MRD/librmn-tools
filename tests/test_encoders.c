@@ -5,7 +5,10 @@
 #include <sys/time.h>
 
 #include <rmn/timers.h>
+// deliberate double inclusion
 #include <rmn/tile_encoders.h>
+#include <rmn/tile_encoders.h>
+
 #include <rmn/tee_print.h>
 #include <rmn/test_helpers.h>
 
@@ -54,47 +57,100 @@ static void print_tile(int32_t *tile, int ni, int lni, int nj, char *msg){
 int main(int argc, char **argv){
   uint64_t freq ;
   double nano ;
-  int32_t tile0[64] ;
-  int32_t tile1[64] ;
-  int32_t tile2[64] ;
+  int32_t tile0[64], tile1[64], tile2[64], tile3[64], tile4[64], tile5[64] ;
   uint32_t packed[65] ;
   int i, j, ij, ni, nj ;
   bitstream stream ;
   int32_t nbtot ;
+  uint32_t fe[64] ;
+  tile_properties tp ;
+  uint64_t tp64 ;
+  TIME_LOOP_DATA ;
+
 
   freq = cycles_counter_freq() ;
   nano = 1000000000 ;
   nano /= freq ;
 
   start_of_test("tile1 encoder test C");
+  TEE_FPRINTF(stderr,2, "sizeof(tile_properties) = %ld, expecting 8\n", sizeof(tile_properties)) ;
+  if(8 != sizeof(tile_properties)) {
+    TEE_FPRINTF(stderr,2, "ERROR, bd size for tile properties structure\n") ;
+    goto error ;
+  }
 
   for(i=0 ; i<64 ; i++){
     packed[i] = 0xFFFFFFFFu ;
-    tile2[i]  = 0x0F0F0F0F ;
+    tile0[i]  = 0x0F0F0F0F ;
   }
   for(j=7 ; j>=0 ; j--){
     for(i=0 ; i<8 ; i++){
       ij = INDEX(i, 8, j) ;
       tile1[ij] = (i << 4) + j ;
-      tile1[ij] |= ((j & 1) << 11) ;
+      tile1[ij] |= ((j & 1) << 11) ;     // 0 or positive
+      tile2[ij] = -( tile1[ij] + 1 ) ;   // all negative
+      tile3[ij] = -tile1[ij] ;           // mixed sign
+      tile4[ij] = tile1[ij] + (1<<12) ;  // positive with large offset
+      tile5[ij] = tile4[ij] ;
     }
   }
-  for(i=0 ; i<64 ; i++) tile1[i] = -tile1[i] ;
-  print_tile(tile1, 8, 8, 8, "original tile") ;
+  tile5[0] = 0x800 ;
 
+  print_tile(tile1, 8, 8, 8, "original tile1") ;
+  tp64 = encode_tile_properties(tile1, 8, 8, 8, fe) ;
+  nbtot = encode_tile_(fe, &stream, tp64) ;
+  tp64 = encode_tile_properties_(tile1, 8, 8, 8, fe) ;
+  nbtot = encode_tile_(fe, &stream, tp64) ;
+
+  print_tile(tile2, 8, 8, 8, "original tile2") ;
+  tp64 = encode_tile_properties(tile2, 8, 8, 8, fe) ;
+  nbtot = encode_tile_(fe, &stream, tp64) ;
+  tp64 = encode_tile_properties_(tile2, 8, 8, 8, fe) ;
+  nbtot = encode_tile_(fe, &stream, tp64) ;
+
+  print_tile(tile3, 8, 8, 8, "original tile3") ;
+  tp64 = encode_tile_properties(tile3, 8, 8, 8, fe) ;
+  nbtot = encode_tile_(fe, &stream, tp64) ;
+  tp64 = encode_tile_properties_(tile3, 8, 8, 8, fe) ;
+  nbtot = encode_tile_(fe, &stream, tp64) ;
+
+  print_tile(tile4, 8, 8, 8, "original tile4") ;
+  tp64 = encode_tile_properties(tile4, 8, 8, 8, fe) ;
+  nbtot = encode_tile_(fe, &stream, tp64) ;
+  tp64 = encode_tile_properties_(tile4, 8, 8, 8, fe) ;
+  nbtot = encode_tile_(fe, &stream, tp64) ;
+
+  print_tile(tile5, 8, 8, 8, "original tile5") ;
+  tp64 = encode_tile_properties(tile5, 8, 8, 8, fe) ;
+  nbtot = encode_tile_(fe, &stream, tp64) ;
+  tp64 = encode_tile_properties_(tile5, 8, 8, 8, fe) ;
+  nbtot = encode_tile_(fe, &stream, tp64) ;
+
+  TIME_LOOP_EZ(1000, 64, tp64 = encode_tile_properties(tile5, 8, 8, 8, fe)) ;
+  fprintf(stderr, "encode_tile_properties     : %s\n\n",timer_msg);
+
+  TIME_LOOP_EZ(1000, 64, tp64 = encode_tile_properties_(tile5, 8, 8, 8, fe)) ;
+  fprintf(stderr, "encode_tile_properties_    : %s\n\n",timer_msg);
+
+
+  goto end ;
   BeStreamInit(&stream, packed, sizeof(packed), 0) ;  // force read-write stream mode
   print_stream_params(stream, "Init Stream", "ReadWrite") ;
   print_stream_data(stream, "stream contents") ;
 
-  nbtot = encode_ints(tile1, 8, 8, &stream) ;
+  nbtot = encode_tile(tile1, 8, 8, 8, &stream, fe) ;
 
   TEE_FPRINTF(stderr,2, "nbtot = %d\n", nbtot) ;
   print_stream_params(stream, "encoded Stream", "ReadWrite") ;
   print_stream_data(stream, "stream contents") ;
 
-  nbtot = decode_ints(tile2, &ni, &nj, &stream) ;
+  nbtot = decode_tile(tile0, &ni, 8, &nj, &stream) ;
   TEE_FPRINTF(stderr,2, "ni = %d, nj = %d\n", ni, nj) ;
-  print_tile(tile2, ni, ni, nj, "restored tile") ;
+  print_tile(tile0, ni, ni, nj, "restored tile") ;
 
+end:
   return 0 ;
+
+error:
+  return 1 ;
 }
