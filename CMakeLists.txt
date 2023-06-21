@@ -242,6 +242,7 @@ SET_SOURCE_FILES_PROPERTIES( src/pred/lorenzo_mod.F90 PROPERTIES COMPILE_FLAGS -
 
 set(PROJECT_H_FILES
   src/PUBLIC_INCLUDES/rmntools.h
+  src/PUBLIC_INCLUDES/rmn/ct_assert.h
   src/PUBLIC_INCLUDES/rmn/lorenzo.h
   src/PUBLIC_INCLUDES/rmn/smooth124.h
   src/PUBLIC_INCLUDES/rmn/rmn_tools.h
