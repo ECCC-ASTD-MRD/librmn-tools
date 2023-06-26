@@ -19,6 +19,7 @@
 
 #define NB0 (2)
 
+// print tile properties as set by encode_tile_properties
 void print_tile_properties(uint64_t p64){
   tile_properties p ;
   int bits, nij, nbits, nbts0, nbitss, nb0, nbi ;
@@ -34,19 +35,52 @@ void print_tile_properties(uint64_t p64){
           p.t.h.nbts, p.t.h.sign, p.t.h.encd, p.t.h.npti+1, p.t.h.nptj+1, p.t.h.min0, p.t.min, p.t.nzero, p.t.nshort, nbits, nbts0, nbitss) ;
 }
 
+// set encoding scheme deemed appropriate given tile properties
+// p64 [IN] : tile parameter structure as an "opaque" 64 bit value
+// the function returns a tile parameter structure as an "opaque" 64 bit value
+// this value will eventually be passed to the encoder itself
+uint64_t encode_tile_scheme(uint64_t p64){
+  tile_properties p ;
+  int nbits_temp, nbits_full, nbits_zero, nbits_short, nij, nbits, nbits0, nzero, nshort ;
+
+  p.u64 = p64 ;
+  nij    = (p.t.h.npti + 1) * (p.t.h.nptj + 1) ;                         // number of points
+  nbits0 = (nbits + NB0) >> 1 ;  // number of bits for "short" values
+  nbits = p.t.h.nbts ;
+  nzero  = p.t.nzero ;
+  nshort = p.t.nshort ;
+
+  nbits_full  = nij * nbits ;                                            // all tokens at full length
+  nbits_zero  = nzero + (nij - nzero) * (nbits + 1) ;                    // nzero tokens at length 1, others nbits + 1
+  nbits_short = nshort * (nbits0 + 1) + (nij - nshort) * (nbits + 1) ;   // short tokens tokens nbits0 + 1, others nbits + 1
+
+  nbits_temp = nbits_full ;
+  p.t.h.encd = 0 ; // force no encoding
+  if(nbits_zero < nbits_temp){
+    nbits_temp = nbits_zero ;
+    p.t.h.encd = 2 ; // force 0 , 1//full encoding
+  }
+  if(nbits_short < nbits_temp){
+    nbits_temp = nbits_short ;
+    p.t.h.encd = 1 ; // force 0//short , 1//full encoding
+  }
+
+  return p.u64 ;
+}
+
 // gather tile to be encoded, determine useful data properties
-// f       : array from which block will be extracted
-// ni      : first dimension of tile to be encoded (1 <= ni <= 8)
-// lni     : row storage length in array f
-// nj      : second dimension of tile to be encoded (1 <= nj <= 8)
-// tile    : extracted tile (in sign/magnitude form and with minimum value possibly subtracted)
+// f     [IN] : array from which block will be extracted
+// ni    [IN] : first dimension of tile to be encoded (1 <= ni <= 8)
+// lni   [IN] : row storage length in array f
+// nj    [IN] : second dimension of tile to be encoded (1 <= nj <= 8)
+// tile [OUT] : extracted tile (in sign/magnitude form and with minimum value possibly subtracted)
 // the function returns a tile parameter structure as an "opaque" 64 bit value
 // this value will then be passed to the encoder itself
 // generic, NON SIMD version
-uint64_t encode_tile_properties_(void *f, int ni, int lni, int nj, uint32_t tile[64]){
+static uint64_t encode_tile_properties_small(void *f, int ni, int lni, int nj, uint32_t tile[64]){
   uint32_t *block = (uint32_t *)f ;
   uint32_t pos, neg, nshort, nzero ;
-  uint32_t max, min, nbits, nbits0, mask0, mask1 ;
+  uint32_t max, min, nbits, nbits0, mask0 ;
   tile_properties p ;
   int32_t i, j, i0, nij ;
 
@@ -72,7 +106,7 @@ uint64_t encode_tile_properties_(void *f, int ni, int lni, int nj, uint32_t tile
     min = (tile[i] < min) ? tile[i] : min ;  // smallest ZigZag value
   }
   nbits = 32 - lzcnt_32(max) ;               // max controls nbits (if vmax is 0, nbits will be 0)
-  if( (32 - (_lzcnt_u32(max-min)) < nbits) || 1 ){   // we gain one bit if subtracting the minimum value
+  if( (32 - (lzcnt_32(max-min)) < nbits) || 1 ){   // we gain one bit if subtracting the minimum value
 // fprintf(stderr, "(%dx%d) nbits original = %d, max = %8.8x, min = %8.8x", ni, nj, nbits, max, min) ;
     max = max - min ;
 // fprintf(stderr, ", new max = %8.8x\n", max) ;
@@ -81,7 +115,7 @@ uint64_t encode_tile_properties_(void *f, int ni, int lni, int nj, uint32_t tile
   }else{
     p.t.h.min0 = 0 ;            // min will not be used
   }
-  nbits = 32 - _lzcnt_u32(max) ;
+  nbits = 32 - lzcnt_32(max) ;
 
   neg >>= 31 ;                               // 1 if all values < 0
   pos >>= 31 ;                               // 1 if all values >= 0
@@ -101,7 +135,6 @@ uint64_t encode_tile_properties_(void *f, int ni, int lni, int nj, uint32_t tile
   nbits0 = (nbits + NB0) >> 1 ;    // number of bits for "short" values
   mask0 = RMASK31(nbits0) ;      // value & mask0 will be 0 if nbits0 or less bits are needed
   mask0 = ~mask0 ;               // keep only the upper bits
-  mask1 = 1 << nbits ;           // full token flag
 
   nshort = nzero = 0 ;
   for(i=0 ; i<nij ; i++){
@@ -111,36 +144,30 @@ uint64_t encode_tile_properties_(void *f, int ni, int lni, int nj, uint32_t tile
   p.t.nzero  = nzero ;
   p.t.nshort = nshort ;
 
-  return p.u64 ;
+  return encode_tile_scheme(p.u64) ;
 }
 
 // gather tile to be encoded, determine useful data properties
-// f       : array from which block will be extracted
-// ni      : first dimension of tile to be encoded
-// lni     : row storage length in array f
-// nj      : second dimension of tile to be encoded
-// tile    : extracted tile (in sign/magnitude form and with minimum value possibly subtracted)
+// f     [IN] : array from which block will be extracted
+// ni    [IN] : first dimension of tile to be encoded (1 <= ni <= 8)
+// lni   [IN] : row storage length in array f
+// nj    [IN] : second dimension of tile to be encoded (1 <= nj <= 8)
+// tile [OUT] : extracted tile (in sign/magnitude form and with minimum value possibly subtracted)
 // the function returns a tile parameter structure as an "opaque" 64 bit value
 // this value will then be passed to the encoder itself
 // X86_64 AVX2 version, 8 x 8 tiles only (ni ==8, nj == 8)
-uint64_t encode_tile_properties_10(void *f, int ni, int lni, int nj, uint32_t tile[64]){
-  int i ;
-  uint64_t r ;
-  for(i=0 ; i<10 ; i++) r = encode_tile_properties(f, ni, lni, nj, tile) ;
-  return r ;
-}
 uint64_t encode_tile_properties(void *f, int ni, int lni, int nj, uint32_t tile[64]){
   uint32_t *block = (uint32_t *)f ;
   int32_t pos, neg, nshort, nzero ;
   uint32_t max, min, nbits, nbits0, mask0 ;
   tile_properties p ;
 
-  if(ni != 8 || nj != 8) return encode_tile_properties_(f, ni, lni, nj, tile) ; // not a full 8x8 tile
-
 #if defined(__x86_64__) && defined(__AVX2__) && defined(WITH_SIMD)
   __m256i v0, v1, v2, v3, v4, v5, v6, v7 ;
   __m256i vp, vn, vz, vs, vm0, vmax, vmin, vz0 ;
   __m128i v128 ;
+
+  if(ni != 8 || nj != 8) return encode_tile_properties_small(f, ni, lni, nj, tile) ; // not a full 8x8 tile
 
   p.u64 = 0 ;
   p.t.h.npti = ni - 1 ;
@@ -194,8 +221,8 @@ uint64_t encode_tile_properties(void *f, int ni, int lni, int nj, uint32_t tile[
   _mm_storeu_si32(&max, v128) ;
   // subtract min from max and vo -> v7
   // set .min0 to 1
-  nbits = 32 - _lzcnt_u32(max) ;
-  if( (32 - (_lzcnt_u32(max-min)) < nbits) || 1 ){   // we gain one bit if subtracting the minimum value
+  nbits = 32 - lzcnt_32(max) ;
+  if( (32 - (lzcnt_32(max-min)) < nbits) || 1 ){   // we gain one bit if subtracting the minimum value
 // fprintf(stderr, "[8x8] nbits original = %d, max = %8.8x, min = %8.8x", nbits, max, min) ;
     max = max - min ;
 // fprintf(stderr, ", new max = %8.8x\n", max) ;
@@ -211,7 +238,7 @@ uint64_t encode_tile_properties(void *f, int ni, int lni, int nj, uint32_t tile[
   }else{
     p.t.h.min0 = 0 ;                  // min will not be used
   }
-  nbits = 32 - _lzcnt_u32(max) ;
+  nbits = 32 - lzcnt_32(max) ;
 
   if(pos || neg){                     // all values have same sign
     nbits-- ;
@@ -276,29 +303,31 @@ uint64_t encode_tile_properties(void *f, int ni, int lni, int nj, uint32_t tile[
   v128 = _mm_add_epi32(v128,  _mm_shuffle_epi32(v128, 0b01010101) ) ; // [0,1,2,3] [1,1,1,1]
   _mm_storeu_si32(&nshort, v128) ; p.t.nshort = -nshort ;
 
-  return p.u64 ;
+  return encode_tile_scheme(p.u64) ;
+
 #else
-  return encode_tile_properties_(f, ni, lni, nj, tile) ; // NON SIMD (AVX2) version
+
+  return encode_tile_properties_small(f, ni, lni, nj, tile) ; // NON SIMD (AVX2) version
+
 #endif
+
 }
 
-// encode tile (1 -> 64 values) into bit stream s, using properties p64
-int32_t encode_tile__(uint32_t tile[64], bitstream *s, uint64_t tp64){
-  return 0 ;
-}
-
-int32_t encode_tile_(void *f, int ni, int lni, int nj, bitstream *s, uint32_t tile[64]){
+// encode contiguous tile (1 -> 64 values) into bit stream s, using properties tp64
+// tp64 [IN] : properties from encode_tile_properties
+// s   [OUT] : bit stream
+// tile [IN] : pre extracted tile (1->64 values)
+// return total number of bits added to bit stream
+int32_t encode_contiguous_64(uint64_t tp64, bitstream *s, uint32_t tile[64]){
   uint64_t accum   = s->acc_i ;
   int32_t  insert  = s->insert ;
   uint32_t *stream = s->in ;
   tile_properties p ;
   int nij, nbits, nbits0, nbitsi, nbtot, i ;
   uint32_t min, w32, mask0, mask1, nzero, nshort, nbits_short, nbits_zero, nbits_full, nbits_temp ;
-  uint64_t tp64 ;
 
-  tp64 = encode_tile_properties_(f, ni, lni, nj, tile) ;
   p.u64 = tp64 ;
-  print_tile_properties(tp64) ;
+print_tile_properties(tp64) ;
   nij    = (p.t.h.npti + 1) * (p.t.h.nptj + 1) ;             // number of points
   min    = p.t.min ;
   nzero  = p.t.nzero ;
@@ -381,150 +410,66 @@ error:
   return nbtot ;
 }
 
-int32_t encode_tile(void *f, int ni, int lni, int nj, bitstream *s, uint32_t fe[64]){
-  int32_t *fi = (int32_t *) f ;
-  uint32_t *fu = (uint32_t *) f ;
-//   uint32_t fe[64] ;
-  int i, nbtot, nbits, nbits0, nbitsi, nshort, nzero, nbits_short, nbits_zero, nbits_full ;
-  int nij = ni * nj ;
-  tile_header th ;
-  uint32_t vneg, vpos, vmax, vmin, w32, mask0, mask1 ;
-  uint64_t accum   = s->acc_i ;
+// gather tile to be encoded, determine useful data properties
+// f     [IN] : array from which tile will be extracted
+// ni    [IN] : first dimension of tile to be encoded (1 <= ni <= 8)
+// lni   [IN] : row storage length in array f
+// nj    [IN] : second dimension of tile to be encoded (1 <= nj <= 8)
+// s    [OUT] : bit stream
+// tile [OUT] : extracted tile (in sign/magnitude form and with minimum value possibly subtracted)
+// return total number of bits added to bit stream
+// f is expected to contain a stream of 32 bit values
+int32_t encode_tile(void *f, int ni, int lni, int nj, bitstream *s, uint32_t tile[64]){
+  uint64_t tp64 ;
+
+  tp64 = encode_tile_properties(f, ni, lni, nj, tile) ;   // extract tile, compute data properties
+  return encode_contiguous_64(tp64, s, tile) ;            // encode extracted tile into bit stream
+}
+
+// f     [IN] : array from which tiles will be extracted
+// ni    [IN] : first dimension of array f
+// lni   [IN] : row storage length in array f
+// nj    [IN] : second dimension of array f
+// s    [OUT] : bit stream
+// return total number of bits added to bit stream (-1 in case of error)
+// f is expected to contain a stream of 32 bit values
+int32_t encode_as_tiles(void *f, int ni, int lni, int nj, bitstream *s){
+  int i0, j0, indexi, indexj, ni0, nj0 ;
+  uint32_t *fi = (uint32_t *) f ;
+  uint32_t tile[64] ;
+  int32_t nbtot = 0 ;
+  int32_t nworse = 64 * sizeof(uint32_t) + sizeof(tile_head) + 1 + sizeof(uint32_t) ;  // worst case size for encoding
+  uint64_t accum   = s->acc_i ;     // save stream state at entry
   int32_t  insert  = s->insert ;
   uint32_t *stream = s->in ;
 
-  nbtot = 0 ;
-  if( (ni < 1) || (nj < 1) || (ni > 8) || (nj > 8) ) goto error ;
-  if( (f == NULL) || (s == NULL) ) goto error ;
-
-  th.s = 0 ;                     // set all header fields to 0
-  th.h.npti = ni-1 ;             // block dimensions (1->8)
-  th.h.nptj = nj-1 ;
-  // ==================== analysis phase ====================
-  // can be accelerated using SIMD instructions
-  vneg = 0xFFFFFFFFu ;
-  vpos = 0xFFFFFFFFu ;
-  vmin = 0xFFFFFFFFu ;
-  vmax = 0 ;
-  for(i=0 ; i<nij ; i++){
-    vneg &= fu[i] ;              // MSB will be 1 only if all values < 0
-    vpos &= (~fu[i]) ;           // MSB will be 1 only if all values >= 0
-    fe[i] = to_zigzag_32(fi[i]) ;
-    vmax = (fe[i] > vmax) ? fe[i] : vmax ;  // largest ZigZag value
-    vmin = (fe[i] < vmin) ? fe[i] : vmin ;  // smallest ZigZag value
-  }
-  nbits = 32 - lzcnt_32(vmax) ;  // vmax controls nbits (if vmax is 0, nbits will be 0)
-  if(vmax == 0) goto zero ;      // special case (block only contains 0s)
-  vneg >>= 31 ;                  // 1 if all values < 0
-  vpos >>= 31 ;                  // 1 if all values >= 0
-  if(vneg || vpos) {             // no need to encode sign, it is the same for all values
-    nbits-- ;                    // and will be found in the tile header
-    for(i=0 ; i<nij ; i++)
-      fe[i] >>= 1 ;              // get rid of sign bit from ZigZag
-    th.h.sign = (vneg << 1) | vpos ;
-  }else{
-    th.h.sign = 3 ;              // both positive and negative values, ZigZag encoding with sign bit
-  }
-  nbits0 = (nbits + NB0) >> 1 ;    // number of bits for "short" values
-  mask0 = RMASK31(nbits0) ;      // value & mask0 will be 0 if nbits0 or less bits are needed
-  mask0 = ~mask0 ;               // keep only the upper bits
-  mask1 = 1 << nbits ;           // full token flag
-fprintf(stderr, "vmax = %8.8x(%8.8x), vneg = %d, vpos = %d, nbits = %d, nbits0 = %d\n", vmax, vmax>>1, vneg, vpos, nbits, nbits0) ;
-  th.h.nbts = nbits ;            // number of bits neeeded for encoding
-  th.h.encd = 0 ;                // a priori no special encoding
-  // check if we should use short/full or 0/full encoding
-  nshort = nzero = 0 ;
-  for(i=0 ; i<nij ; i++){
-    if(fe[i] == 0)           nzero++ ;        // zero value
-    if((fe[i] & mask0) == 0) nshort++ ;       // value using nbits0 bits or less
-  }
-  // ==================== encoding phase ====================
-  nbits_full  = nij * nbits ;                                            // all tokens at full length
-  nbits_zero  = nzero + (nij - nzero) * (nbits + 1) ;                    // nzero tokens at length 1, others nbits + 1
-  nbits_short = nshort * (nbits0 + 1) + (nij - nshort) * (nbits + 1) ;   // short tokens tokens nbits0 + 1, others nbits + 1
-  if( (nbits_short <= nbits_zero)  && (nbits_short < nbits_full) ) th.h.encd = 1 ;  // 0 short / 1 full encoding
-  if( (nbits_zero  <= nbits_short) && (nbits_zero  < nbits_full) ) th.h.encd = 2 ;  // 0 / 1 full encoding
-  //
-th.h.encd = 0 ; // force no encoding
-// th.h.encd = 2 ; // force 0 , 1//full encoding
-// th.h.encd = 1 ; // force 0//short , 1//full encoding
-  // totally scalar
-  w32 = th.s ;
-fprintf(stderr, "sign = %d, encoding = %d, nshort = %2d, nzero = %2d\n", th.h.sign, th.h.encd, nshort, nzero) ;
-fprintf(stderr, "nbits_full = %4d, nbits_zero = %4d, nbits_short = %4d, mask0 = %8.8x\n", nbits_full, nbits_zero, nbits_short, mask0) ;
-  BE64_PUT_NBITS(accum, insert, w32, 16, stream) ; // insert header into packed stream
-  nbtot = 16 ;
-  // 3 mutually exclusive alternatives
-  if(th.h.encd == 1){             // 0//short , 1//full encoding
-    for(i=0 ; i<nij ; i++){
-      w32 = fe[i] ;
-      if((w32 & mask0) == 0){                                   // value uses nbits0 bits or less
-        nbitsi = nbits0+1 ;                                     // nbits0+1 bits
-      }else{
-        nbitsi = nbits+1 ;                                      // nbits+1 bits
-        w32 |= mask1 ;                                          // add 1 bit to identify "full" value
-      }
-      nbtot += nbitsi ;
-      BE64_PUT_NBITS(accum, insert, w32,  nbitsi, stream) ;     // insert nbitsi bits into stream
+  nworse *= 8 ;     // worst case size for encoding in bits
+  indexj = 0 ;
+  for(j0 = 0 ; j0 < nj ; j0 += 8){
+    nj0 = ((nj - j0) > 8) ? 8 : (nj - j0) ;
+    for(i0 = 0 ; i0 < ni ; i0 += 8){
+      indexi = i0 * 8 ;
+      ni0 = ((ni - i0) > 8) ? 8 : (ni - i0) ;
+      // check that we have enough room left in stream for worst case length
+//       if(StreamAvailableSpace(s) < nworse) goto error ;
+      nbtot += encode_tile(fi+indexj+indexi, ni0, lni, nj0, s, tile) ;
     }
-    goto end ;
+    indexj += lni ;
   }
-  if(th.h.encd == 2){             // 0 , 1//full encoding
-    for(i=0 ; i<nij ; i++){
-      w32 = fe[i] ;
-      if(w32 == 0){                                             // value is zero
-        nbitsi = 1 ;                                            // 1 bit
-      }else{
-        nbitsi = nbits+1 ;                                      // nbits+1 bits
-        w32 |= mask1 ;                                          // add 1 bit to identify "full" value
-      }
-      nbtot += nbitsi ;
-      BE64_PUT_NBITS(accum, insert, w32,  nbitsi, stream) ;     // insert nbitsi bits into stream
-    }
-    goto end ;
-  }
-  if(th.h.encd == 0){             // no encoding
-    for(i=0 ; i<nij ; i++){
-      BE64_PUT_NBITS(accum, insert, fe[i], nbits, stream) ;       // insert nbits bits into stream
-      nbtot += nbits ;
-    }
-    goto end ;
-  }
-
-end:
-  BE64_PUSH(accum, insert, stream) ;
-  s->acc_i  = accum ;
-  s->insert = insert ;
-  s->in     = stream ;
   return nbtot ;
 
 error:
-  nbtot = -1 ;
-  return nbtot ;
-
-zero:
-  th.h.nbts = 0 ;   // 1 bit
-  th.h.encd = 3 ;   // constant block
-  th.h.sign = 1 ;   // all values >= 0
-  w32 = th.s ;
-  w32 <<= 1 ;       // header + 1 bit with value 0
-  BE64_PUT_NBITS(accum, insert, w32, 17, stream) ; // insert header and 0 into packed stream
-  nbtot = 17 ;      // total of 17 bits inserted
-  goto end ;
+  s->acc_i  = accum ;     // restore stream state at entry
+  s->insert = insert ;
+  s->in     = stream ;
+  return -1 ;             // error, not enough space in stream
 }
 
-// encode 64 values (eventually SIMD version)
-int32_t encode_tile_8x8(void *f, int lni, bitstream *stream, uint32_t fe[64]){
-  return encode_tile(f, 8, lni, 8, stream, fe) ;
-}
-
-// decode 64 values (SIMD version)
-int32_t decode_tile_8x8(void *f, int lni, bitstream *stream, uint16_t h16){
-  tile_header th ;
-  th.s = h16 ;
-  return 0 ;
-}
-
+// f    [OUT] : array into which the tile will be restored
+// ni    [IN] : first dimension of array f
+// lni   [IN] : row storage length in array f
+// nj    [IN] : second dimension of array f
+// s  [INOUT] : bit stream
 int32_t decode_tile(void *f, int *ni, int lni, int *nj, bitstream *s){
   int32_t *fi = (int32_t *) f ;
 //   uint32_t *fu = (uint32_t *) f ;
@@ -532,10 +477,10 @@ int32_t decode_tile(void *f, int *ni, int lni, int *nj, bitstream *s){
   tile_header th ;
   uint32_t w32 ;
   int i, nbits, nij, nbits0 ;
-  uint64_t accum   = s->acc_x ;
+  uint32_t min = 0 ;
+  uint64_t accum   = s->acc_x ;    // get control values from stream struct
   int32_t  xtract  = s->xtract ;
   uint32_t *stream = s->out ;
-  uint32_t min ;
 
   if( (f == NULL) || (stream == NULL) ) goto error ;
   BE64_GET_NBITS(accum, xtract, w32, 16, stream) ;
@@ -545,7 +490,13 @@ int32_t decode_tile(void *f, int *ni, int lni, int *nj, bitstream *s){
   nij = (*ni) * (*nj) ;
   nbits = th.h.nbts ;
   nbits0 = (nbits + NB0) >> 1 ;    // number of bits for "short" values
-fprintf(stderr, "ni = %d, nj = %d, nbits = %d, encoding = %d, sign = %d\n", *ni, *nj, nbits, th.h.encd, th.h.sign) ;
+
+  if(th.h.min0){                   // get min value if there is one
+    BE64_GET_NBITS(accum, xtract, min, nbits, stream) ;
+  }
+
+fprintf(stderr, "ni = %d, nj = %d, nbits = %d, encoding = %d, sign = %d, min = %d\n", 
+        *ni, *nj, nbits, th.h.encd, th.h.sign, min) ;
 
   if(th.h.encd == 3) goto constant ;
 
@@ -579,18 +530,21 @@ fprintf(stderr, "ni = %d, nj = %d, nbits = %d, encoding = %d, sign = %d\n", *ni,
     goto transfer ;
   }
 transfer:
+//   if(min != 0){                   // add min if it is non zero
+//     for(i=0 ; i<nij ; i++){ fe[i] += min ; }
+//   }
   if(th.h.sign == 1){    // all values >= 0
-    for(i=0 ; i<nij ; i++){ fi[i] = fe[i] ; }
+    for(i=0 ; i<nij ; i++){ fi[i] = fe[i] + min ; }     // ZigZag O.K. if non negative
   }
   if(th.h.sign == 2){    // all values < 0
-    for(i=0 ; i<nij ; i++){ fi[i] = ~fe[i] ; }  // undo right shifted ZigZag
+    for(i=0 ; i<nij ; i++){ fi[i] = ~(fe[i] + min) ; }  // undo right shifted ZigZag
   }
   if(th.h.sign == 3){    // ZigZag
-    for(i=0 ; i<nij ; i++){ fi[i] = from_zigzag_32(fe[i]) ; }
+    for(i=0 ; i<nij ; i++){ fi[i] = from_zigzag_32((fe[i]+min)) ; }  // restore from ZigZag
   }
 
 end:
-  s->acc_x  = accum ;
+  s->acc_x  = accum ;    // store control values into stream struct
   s->xtract = xtract ;
   s->out    = stream ;
   return 0 ;
@@ -604,3 +558,13 @@ constant:
   goto end ;
 }
 
+// f    [OUT] : array into which the tile will be restored
+// ni    [IN] : first dimension of array f
+// lni   [IN] : row storage length of array f
+// nj    [IN] : second dimension of array f
+// s  [INOUT] : bit stream
+int32_t decode_as_tiles(void *f, int ni, int lni, int nj, bitstream *s){
+  int32_t *fi = (int32_t *) f ;
+  int nit, njt, i0, j0 ;
+  return 0 ;
+}

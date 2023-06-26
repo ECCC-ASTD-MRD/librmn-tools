@@ -154,7 +154,7 @@ CT_ASSERT(2 == sizeof(uint16_t))
   tp64 = encode_tile_properties_(tile5, 8, 8, 8, temp) ;
   nbtot = encode_tile_(temp, &stream, tp64) ;
 
-  TIME_LOOP_EZ(1000, 640, tp64 = encode_tile_properties_10(tile5, 8, 8, 8, temp)) ;
+  TIME_LOOP_EZ(1000, 640, tp64 = encode_tile_properties(tile5, 8, 8, 8, temp)) ;
   fprintf(stderr, "encode_tile_properties     : %s\n\n",timer_msg);
 
   TIME_LOOP_EZ(1000, 64, tp64 = encode_tile_properties_(tile5, 8, 8, 8, temp)) ;
@@ -169,12 +169,13 @@ CT_ASSERT(2 == sizeof(uint16_t))
   print_stream_data(stream, "stream contents") ;
 
 //   nbtot = encode_tile_(tile1, 8, 8, 7, &stream, temp) ;
-  nbtot = encode_tile_(tile3, 8, 8, 8, &stream, temp) ;
+  nbtot = encode_tile(tile3, 8, 8, 8, &stream, temp) ;
 
   TEE_FPRINTF(stderr,2, "nbtot = %d\n", nbtot) ;
   print_stream_params(stream, "encoded Stream", "ReadWrite") ;
   print_stream_data(stream, "stream contents") ;
 
+  // no need to rewind stream in this case
   nbtot = decode_tile(tile0, &ni, 8, &nj, &stream) ;
   TEE_FPRINTF(stderr,2, "ni = %d, nj = %d\n", ni, nj) ;
   print_tile(tile0, ni, ni, nj, "restored tile") ;

@@ -53,16 +53,11 @@ typedef union{
 } tile_properties ;
 CT_ASSERT(8 == sizeof(tile_properties))
 
-uint64_t encode_tile_properties_(void *f, int ni, int lni, int nj, uint32_t tile[64]);
-uint64_t encode_tile_properties_10(void *f, int ni, int lni, int nj, uint32_t tile[64]);
+uint64_t encode_tile_scheme(uint64_t p64);
 uint64_t encode_tile_properties(void *f, int ni, int lni, int nj, uint32_t tile[64]);
 void print_tile_properties(uint64_t p64);
 
-int32_t encode_tile_(void *f, int ni, int lni, int nj, bitstream *s, uint32_t tile[64]);
 int32_t encode_tile(void *f, int ni, int lni, int nj, bitstream *s, uint32_t tile[64]);
-int32_t encode_tile_8x8(void *f, int lni, bitstream *stream, uint32_t tile[64]);
-
 int32_t decode_tile(void *f, int *ni, int lni, int *nj, bitstream *stream);
-int32_t decode_tile_8x8(void *f, int lni, bitstream *stream, uint16_t h16);
 
 #endif
