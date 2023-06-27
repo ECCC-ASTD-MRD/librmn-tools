@@ -19,6 +19,8 @@ Library General Public License for more details.
 #if ! defined(RMNTOOLS_BITS)
 #define RMNTOOLS_BITS
 
+#include <stdint.h>
+
 // STATIC may be defined as extern, to generate real entry points
 #if ! defined(STATIC)
 #define STATIC static
