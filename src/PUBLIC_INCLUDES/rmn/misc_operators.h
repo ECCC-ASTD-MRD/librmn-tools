@@ -22,6 +22,7 @@ Library General Public License for more details.
 
 #include <with_simd.h>
 #include <rmn/tools_types.h>
+#include <rmn/bits.h>
 
 #if ! defined(STATIC)
 #define STATIC static
@@ -66,7 +67,7 @@ static inline __m128i _mm_memmask_si128(int n){
   uint32_t i32 = ~0u ;                           // all 1s
   i32 = n ? i32 >> ( 8 * (4 - (n&3)) ) : 0 ;     // shift right to eliminate unneeded elements
   vm = _mm_set1_epi32(i32) ;                     // load into 128 bit register
-  return _mm_cvtepi8_epi32(vm) ;                 // convert from 8 bit t0 32 bit mask (4 elements)
+  return _mm_cvtepi8_epi32(vm) ;                 // convert from 8 bit to 32 bit mask (4 elements)
 }
 // build a 256 bit mask (8 x 32 bits) to keep n (0-8) elements in masked operations
 // mask is built as a 64 bit mask (8x8bit), then expanded to 256 bits (8x32bit)
@@ -75,7 +76,7 @@ static inline __m256i _mm256_memmask_si256(int n){
   uint64_t i64 = ~0lu ;                           // all 1s
   i64 = n ? i64 >> ( 8 * (8 - (n&7)) ) : 0 ;      // shift right to eliminate unneeded elements
   vm = _mm_set1_epi64x(i64) ;                     // load into 128 bit register
-  return _mm256_cvtepi8_epi32(vm) ;               // convert from 8 bit t0 32 bit mask (8 elements)
+  return _mm256_cvtepi8_epi32(vm) ;               // convert from 8 bit to 32 bit mask (8 elements)
 }
 #endif
 
@@ -86,7 +87,7 @@ static inline __m256i _mm256_memmask_si256(int n){
 STATIC inline void mem_cpy_w32(void * restrict d0, void * restrict s0, int n){
   int32_t * restrict s = (int32_t *)s0, * restrict d = (int32_t *)d0 ;
   int i, ni7, i0 ;
-  if(n < 8) {   // less thatn SIMD vector length
+  if(n < 8) {   // less than SIMD vector length
     for(i = 0 ; i < (n & 7) ; i++) d[i] = s[i] ;
   }else{
     ni7 = (n & 7) ? (n & 7) : 8 ;
@@ -119,10 +120,11 @@ static inline float int1_to_float(uint32_t i){
 
 // divide a signed integer by 2 with rounding toward +-infinity (scalar and X86_64 SIMD versions)
 #define IDIV2R(x) (( (x) + 1 + ((x)>>31) ) >> 1 )
+
+#if defined(__x86_64__) && defined(__AVX2__) && defined(WITH_SIMD)
 #define IDIV2R_256(v) _mm256_srai_epi32(_mm256_add_epi32(_mm256_sub_epi32(v, _mm256_cmpeq_epi32(v, v)), _mm256_srai_epi32(v, 31)), 1)
 #define IDIV2R_128(v) _mm_srai_epi32(_mm_add_epi32(_mm_sub_epi32(v, _mm_cmpeq_epi32(v, v)), _mm_srai_epi32(v, 31)), 1)
 
-#if defined(__x86_64__) && defined(__AVX2__) && defined(WITH_SIMD)
 static __m256i _mm256_idiv2r_epi32(__m256i v){
   return IDIV2R_256(v) ;
 }
@@ -133,10 +135,11 @@ static __m128i _mm_idiv2r_epi32(__m128i v){
 
 // divide a signed integer by 4 with rounding toward +-infinity (scalar and X86_64 SIMD versions)
 #define IDIV4R(x) (( (x) + 2 + ((x)>>31) ) >> 2 )
+
+#if defined(__x86_64__) && defined(__AVX2__) && defined(WITH_SIMD)
 #define IDIV4R_256(v) _mm256_srai_epi32(_mm256_sub_epi32(_mm256_add_epi32(v, _mm256_srai_epi32(v, 31)), _mm256_slli_epi32(_mm256_cmpeq_epi32(v, v), 1)), 2)
 #define IDIV4R_128(v) _mm_srai_epi32(_mm_sub_epi32(_mm_add_epi32(v, _mm_srai_epi32(v, 31)), _mm_slli_epi32(_mm_cmpeq_epi32(v, v), 1)), 2)
 
-#if defined(__x86_64__) && defined(__AVX2__) && defined(WITH_SIMD)
 static inline __m256i _mm256_idiv4r_epi32(__m256i v){
   return IDIV4R_256(v) ;
 }
@@ -147,10 +150,11 @@ static __m128i _mm_idiv4r_epi32(__m128i v){
 
 // divide a signed integer by 8 with rounding toward +-infinity (scalar and X86_64 SIMD versions)
 #define IDIV8R(x) (( (x) + 4 + ((x)>>31) ) >> 3 )
+
+#if defined(__x86_64__) && defined(__AVX2__) && defined(WITH_SIMD)
 #define IDIV8R_256(v) _mm256_srai_epi32(_mm256_sub_epi32(_mm256_add_epi32(v, _mm256_srai_epi32(v, 31)), _mm256_slli_epi32(_mm256_cmpeq_epi32(v, v), 2)), 3)
 #define IDIV8R_128(v) _mm_srai_epi32(_mm_sub_epi32(_mm_add_epi32(v, _mm_srai_epi32(v, 31)), _mm_slli_epi32(_mm_cmpeq_epi32(v, v), 2)), 3)
 
-#if defined(__x86_64__) && defined(__AVX2__) && defined(WITH_SIMD)
 static __m256i _mm256_idiv8r_epi32(__m256i v){
   return IDIV8R_256(v) ;
 }
@@ -161,10 +165,11 @@ static __m128i _mm_idiv8r_epi32(__m128i v){
 
 // divide a signed integer by 2 truncating toward zero (scalar and X86_64 SIMD versions)
 #define IDIV2T(x) ((x) + (int32_t) ((uint32_t) (x) >> 31 ) ) >> 1
+
+#if defined(__x86_64__) && defined(__AVX2__) && defined(WITH_SIMD)
 #define IDIV2T_256(v) _mm256_srai_epi32(_mm256_add_epi32(v, _mm256_srli_epi32(v, 31)), 1)
 #define IDIV2T_128(v) _mm_srai_epi32(_mm_add_epi32(v, _mm_srli_epi32(v, 31)), 1)
 
-#if defined(__x86_64__) && defined(__AVX2__) && defined(WITH_SIMD)
 static __m256i _mm256_idiv2t_epi32(__m256i v){
   return IDIV2T_256(v) ;
 }
@@ -175,10 +180,11 @@ static __m128i _mm_idiv2t_epi32(__m128i v){
 
 // divide a signed integer by 4 truncating toward zero (scalar and X86_64 SIMD versions)
 #define IDIV4T(x) ((x) + (int32_t) ((uint32_t) ( (x) >> 1 ) >> 30 ) ) >> 2
+
+#if defined(__x86_64__) && defined(__AVX2__) && defined(WITH_SIMD)
 #define IDIV4T_256(v) _mm256_srai_epi32(_mm256_add_epi32(v, _mm256_srli_epi32(_mm256_srai_epi32(v, 1), 30)), 2)
 #define IDIV4T_128(v) _mm_srai_epi32(_mm_add_epi32(v, _mm_srli_epi32(_mm_srai_epi32(v, 1), 30)), 2)
 
-#if defined(__x86_64__) && defined(__AVX2__) && defined(WITH_SIMD)
 static __m256i _mm256_idiv4t_epi32(__m256i v){
   return IDIV4T_256(v) ;
 }
@@ -189,10 +195,11 @@ static __m128i _mm_idiv4t_epi32(__m128i v){
 
 // divide a signed integer by 8 truncating toward zero (scalar and X86_64 SIMD versions)
 #define IDIV8T(x) ((x) + (int32_t) ((uint32_t) ( (x) >> 1 ) >> 29 ) ) >> 3
+
+#if defined(__x86_64__) && defined(__AVX2__) && defined(WITH_SIMD)
 #define IDIV8T_256(v) _mm256_srai_epi32(_mm256_add_epi32(v, _mm256_srli_epi32(_mm256_srai_epi32(v, 1), 29)), 3)
 #define IDIV8T_128(v) _mm_srai_epi32(_mm_add_epi32(v, _mm_srli_epi32(_mm_srai_epi32(v, 1), 29)), 3)
 
-#if defined(__x86_64__) && defined(__AVX2__) && defined(WITH_SIMD)
 static __m256i _mm256_idiv8t_epi32(__m256i v){
   return IDIV8T_256(v) ;
 }
@@ -210,6 +217,8 @@ static __m128i _mm_idiv8t_epi32(__m128i v){
   while(i++ < n) { min = MIN(min,src[i]) ; max = MAX(max,src[i]); } \
 }
 
+// the following section should now come from rmn/bits.h
+#if 0
 // number of bits needed to represent range (positive number)
 #define NEEDBITS(range,needed) { uint64_t rng = (range) ; needed = 1; while (rng >>= 1) needed++ ; }
 
@@ -314,6 +323,7 @@ STATIC inline uint32_t lzcnt_64(uint64_t what){
 STATIC inline uint32_t lnzcnt_64(uint64_t what){
   return lzcnt_64(~what) ;
 }
+#endif
 
 // absolute value of signed 32 bit integer (no if)
 STATIC inline uint32_t iabs_32(int32_t what){
@@ -326,10 +336,14 @@ STATIC inline int32_t isign_32(int32_t what){
   return (what >> 31) ;
 }
 
+// convert to/from sign and magnitude form, sign is Least Significant Bit
+// the whole 32 bit range of signed values is supported
+// 0x80000000 (signed) <--> 0xFFFFFFFF (zigzag) ( -(2**31) )
+// 0xFFFFFFFF (signed) <--> 0x00000001 (zigzag) ( -1 )
+
 #define TO_ZIGZAG(x)   ( ((int32_t)(x) << 1) ^ ((int32_t)(x) >> 31) )
 #define FROM_ZIGZAG(x) ( ((uint32_t)(x) >> 1) ^ (-((uint32_t)(x) & 1)) )
 
-// convert to/from sign and magnitude form, sign is Least Significant Bit
 #if defined(__x86_64__) && defined(__AVX2__) && defined(WITH_SIMD)
 STATIC inline __m256i _mm256_tozigzag_epi32(__m256i v0){
   return _mm256_xor_si256( _mm256_add_epi32(v0, v0) , _mm256_srai_epi32(v0, 31) ) ;
@@ -462,6 +476,8 @@ STATIC inline int32_t v_from_zigzag_32(uint32_t * restrict src, int32_t * restri
   return max ;
 }
 
+// 2's complement to/from negabinary (base -2) conversion
+
 #define NBMASK 0xaaaaaaaau /* negabinary<-> 2's complement binary conversion mask */
 
 #define TO_NEGABINARY(x)   ( ((uint32_t)(x) + NBMASK) ^ NBMASK  )
@@ -570,7 +586,7 @@ STATIC inline void BitPopU(uint32_t *what, uint32_t *pop, int n){
 }
 
 // nearest integer, .5 goes toward +infinity, -.5 goes toward -infinity
-// should be equivalent to Fortran NINT intrinsic
+// should be equivalent to the Fortran NINT intrinsic
 STATIC inline int Nint(float what){
   union{
     float f;
@@ -596,7 +612,7 @@ uint32_t ieee_min_exponent(float *f, int n) ;      // IEEE exponent of the small
 
 #else
 
-!  Fortran interfaces and declarations
+!  some Fortran interfaces and declarations
 
   interface BitsNeeded_u  ! generic interface
     function BitsNeeded_u32(what) result(nbits) bind(C,name='BitsNeeded_u32')

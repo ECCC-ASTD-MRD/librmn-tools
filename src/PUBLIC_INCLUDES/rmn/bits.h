@@ -13,6 +13,9 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
 Library General Public License for more details.
 */
 
+// bit operators, left/right masks, set bit counts, leading zero/one bit counts
+// a mix of macros and statement functions
+
 #if ! defined(RMNTOOLS_BITS)
 #define RMNTOOLS_BITS
 
@@ -25,23 +28,25 @@ Library General Public License for more details.
 // number of bits needed to represent range (positive number)
 #define NEEDBITS(range,needed) { uint64_t rng = (range) ; needed = 1; while (rng >>= 1) needed++ ; }
 
-// 32 and 64 bit left aligned masks
+// 32 and 64 bit left aligned masks (nbits may be 0)
 #define LMASK32(nbits)  ((nbits) ? ((~0 )  << (32-nbits)) : 0 )
 #define LMASK64(nbits)  ((nbits) ? ((~0l)  << (64-nbits)) : 0 )
 
 // 32 and 64 bit left aligned masks (nbits == 0) NOT supported
+// (same as above but faster, assuming 0 bit case not needed)
 #define LMASK32Z(nbits)  ((~0 )  << (32-nbits))
 #define LMASK64Z(nbits)  ((~0l)  << (64-nbits))
 
-// 32 and 64 bit right aligned masks
+// 32 and 64 bit right aligned masks (nbits may be 32)
 #define RMASK32(nbits)  (((nbits) == 32) ? (~0 ) : (~((~0)  << nbits)))
 #define RMASK64(nbits)  (((nbits) == 64) ? (~0l) : (~((~0l) << nbits)))
 
-// 31 and 63 bit right aligned masks (same as above but faster, assuming 32/64 bit case not needed)
+// 31 and 63 bit right aligned masks  (nbits MUST be < 32)
+// (same as above but faster, assuming 32/64 bit case not needed)
 #define RMASK31(nbits)  (~((~0)  << nbits))
 #define RMASK63(nbits)  (~((~0l) << nbits))
 
-// population count (32 bit words)
+// population count (32 bit words) (count number of bits that are set to 1)
 STATIC inline uint32_t popcnt_32(uint32_t what){
   uint32_t cnt ;
 #if defined(__x86_64__)
@@ -57,7 +62,7 @@ STATIC inline uint32_t popcnt_32(uint32_t what){
   return cnt ;
 }
 
-// population count (64 bit words)
+// population count (64 bit words) (count number of bits that are set to 1)
 STATIC inline uint32_t popcnt_64(uint64_t what){
   uint64_t cnt ;
 #if defined(__x86_64__)
