@@ -53,7 +53,7 @@ typedef struct{
            part:1 ,   // buffer allocated with malloc (buf[] is NOT usable)
            user:1 ,   // buffer is user supplied (buf[] is NOT usable)
            resv:61 ;  // reserved
-  uint32_t buf[] ;    // flexible array (meaningful only if full == 1)
+//   uint32_t buf[] ;    // flexible array (meaningful only if full == 1)
 } bitstream ;
 CT_ASSERT(sizeof(bitstream) == 64) ;
 CT_ASSERT(sizeof(uint64_t) == 8) ;
@@ -280,9 +280,13 @@ STATIC inline void  BeStreamInit(bitstream *p, uint32_t *buffer, size_t size, in
 // mode [IN] : see StreamInit
 // return a pointer to the created struct
 static bitstream *StreamCreate(size_t size, int mode){
+  char *buf ;
   bitstream *p = (bitstream *) malloc(size + sizeof(bitstream)) ;  // allocate size + overhead
 fprintf(stderr, "StreamCreate : size = %ld, mode = %d\n", size*8, mode) ;
-  StreamInit(p, p->buf, size, mode) ;                              // initialize bit stream structure
+  buf = (char *) p ;
+  buf += sizeof(bitstream) ;
+  StreamInit(p, buf, size, mode) ;                                 // initialize bit stream structure
+//   StreamInit(p, p->buf, size, mode) ;                              // initialize bit stream structure
   p->full = 1 ;                                                    // whole struct allocated
   return p ;
 }
