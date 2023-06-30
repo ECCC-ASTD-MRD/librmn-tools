@@ -6,9 +6,13 @@ set(PROJECT_STATIC_TEST_LIBRARIES rmntoolsf rmntools)
 set(PROJECT_SHARED_TEST_LIBRARIES rmntoolsf-shared rmntools-shared)
 
 function(add_project_test name source)
-  cmake_parse_arguments(PARSE_ARGV 0 "TN" "NOCTEST;STATIC;NO_TOOLS;DL" "" "MPI;LINK_LIBS")
+  cmake_parse_arguments(PARSE_ARGV 0 "TN" "NOCTEST;NODIAG;STATIC;NO_TOOLS;DL" "" "MPI;LINK_LIBS")
   # Use same name for target and executable file
   add_executable(${name} ${source})
+  if( TN_NODIAG AND ${COMPILER_SUITE} MATCHES  "nvhpc" )
+  SET_SOURCE_FILES_PROPERTIES( ${name} PROPERTIES 
+    COMPILE_FLAGS "--diag_suppress declared_but_not_referenced --diag_suppress set_but_not_used --diag_suppress code_is_unreachable" )
+  endif()
   if(TN_DL)
     set(libdl "-ldl")
   endif()
@@ -138,15 +142,16 @@ endif()
 add_project_test(test_c_record_io test_c_record_io.c NOCTEST)    # not included in ctest for now
 add_project_test(test_c_record_io_f test_c_record_io.F90 NOCTEST LINK_LIBS "dl")    # not included in ctest for now
 
-add_project_test(test_quantizer_errors test_quantizer_errors.c NOCTEST)    # not included in ctest for now
+add_project_test(test_quantizer_errors test_quantizer_errors.c NOCTEST NODIAG)    # not included in ctest for now
 
-add_project_test(test_serialized_functions test_serialized_functions.c)
+add_project_test(test_serialized_functions test_serialized_functions.c NODIAG)
 # maybe needed depending upon print statement distribution in test code
 # if(COMPILER_SUITE STREQUAL aocc)
 # message(STATUS "(TESTS) using -O0 for test_serialized_functions with ${COMPILER_SUITE}")
 # SET_SOURCE_FILES_PROPERTIES( test_serialized_functions PROPERTIES COMPILE_FLAGS -O0 )
 # endif()
 
-add_project_test(test_ieeequantize test_ieeequantize.c)
-add_project_test(test_logquantize test_logquantize.c)
-add_project_test(test_encoders test_encoders.c NOCTEST)    # not included in ctest for now
+add_project_test(test_ieeequantize test_ieeequantize.c NODIAG)
+
+add_project_test(test_logquantize test_logquantize.c NODIAG)
+add_project_test(test_encoders test_encoders.c NOCTEST NODIAG)    # not included in ctest for now

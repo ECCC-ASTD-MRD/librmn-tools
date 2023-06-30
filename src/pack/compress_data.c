@@ -150,7 +150,7 @@
 */
 
 bitstream *compress_2d_chunk(void *data, int lni, int ni, int nj, compress_rules r){
-  bitstream *t ;
+//   bitstream *t ;
   // allocate stream at worst case length
   // bit stream must be flushed at end of chunk
   return NULL ;

@@ -10,7 +10,7 @@
 float max_rel_err(float *ref, float *new, int n){
   int i, i0, np ;
   float maxerr, t, avgerr, avgerr2 ;
-  maxerr = 0.0f ; avgerr = t ; avgerr2 = 0 ; np = 0 ;
+  maxerr = 0.0f ; avgerr = 0.0f ; avgerr2 = 0.0f ; np = 0 ;
   for(i=0 ; i<n ; i++){
     if(ref[i] != 0){
       np ++ ;

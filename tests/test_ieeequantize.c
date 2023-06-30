@@ -61,7 +61,7 @@ int main(int argc, char **argv){
   qhead h ;
   float fz0[NPT] ;
 //   float fp32 ;
-  qhead he ;
+//   qhead he ;
 //   uint16_t fp16 ;
   uint16_t vfp16[NPTS] ;
   uint32_t limit16 = ((127+14) << 23) | 0x7FFFFF ; // largest representable FP16

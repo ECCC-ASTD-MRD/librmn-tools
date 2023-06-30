@@ -59,6 +59,28 @@ CT_ASSERT(sizeof(bitstream) == 64) ;
 CT_ASSERT(sizeof(uint64_t) == 8) ;
 CT_ASSERT(sizeof(uint32_t *) == 8) ;
 
+// typedef struct{
+//   uint64_t  accum ;   // 64 bit unsigned bit accumulator
+//   uint32_t *first ;   // pointer to start of stream data storage (used for consistency check)
+//   uint32_t offset ;   // offset into buffer (insertion or extraction)
+//   uint32_t inp:1  ,   // insert mode if 1
+//            out:1 ,    // extract mode if 1
+//            nbi:8 ,    // insert value if inp == 1, xtract value if out == 1
+//            resv:20 ;  // reserved, should be 0
+// } bitstream_state1 ;
+
+// bit stream state for possible save/restore operations
+typedef struct{
+  uint64_t  acc_i ;   // 64 bit unsigned bit accumulator for insertion
+  uint64_t  acc_x ;   // 64 bit unsigned bit accumulator for extraction
+  uint32_t *first ;   // pointer to start of stream data storage (used for consistency check)
+  int32_t   in ;      // insertion offset (-1 if invalid) (bitstream.in - first)
+  int32_t   out ;     // extraction offset (-1 if invalid) (bitstream.out - first)
+  int32_t   insert ;  // # of bits used in accumulator (-1 <= insert <= 64) (-1 if invalid)
+  int32_t   xtract ;  // # of bits extractable from accumulator (-1 <= xtract <= 64) (-1 if invalid)
+} bitstream_state ;
+CT_ASSERT(sizeof(bitstream_state) == 40) ;
+
 // convert the nbits rightmost bits to a 2s complement signed number
 // for this macro to produce meaningful results, w32 MUST BE int32_t (32 bit signed int)
 #define MAKE_SIGNED_32(w32, nbits) { w32 <<= (32 - (nbits)) ; w32 >>= (32 - (nbits)) ; }

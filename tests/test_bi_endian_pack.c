@@ -289,7 +289,6 @@ int main(int argc, char **argv){
 
   if(tmax == 0) TEE_FPRINTF(stderr,2, "tmax == 0, should not happen\n") ;
 
-free:
   TEE_FPRINTF(stderr,2, "\n") ;
   TEE_FPRINTF(stderr,2, "StreamFree(&ple)  : ") ; if(StreamFree(&ple))  TEE_FPRINTF(stderr,2, "Success\n") else { exit(1) ; }
   TEE_FPRINTF(stderr,2, "StreamFree(&pbe)  : ") ; if(StreamFree(&pbe))  TEE_FPRINTF(stderr,2, "Success\n") else { exit(1) ; }

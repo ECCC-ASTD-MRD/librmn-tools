@@ -22,7 +22,7 @@ static void print_stream_data(bitstream s, char *msg){
   uint32_t *first = s.first ;
   uint32_t *cur = first ;
 
-  TEE_FPRINTF(stderr,2, "%s\n", msg) ;
+  TEE_FPRINTF(stderr,2, "%s", msg) ;
   while(cur < in){
     TEE_FPRINTF(stderr,2, " %8.8x", *cur) ;
     cur++ ;
@@ -32,9 +32,9 @@ static void print_stream_data(bitstream s, char *msg){
 }
 
 static void print_stream_params(bitstream s, char *msg, char *expected_mode){
-  TEE_FPRINTF(stderr,2, "%s: filled = %d(%d), free= %d, first/in/out = %p/%p/%p [%ld], insert/xtract = %d/%d \n",
+  TEE_FPRINTF(stderr,2, "%s: filled = %d(%d), free= %d, first/in/out = %p/%p/%p [%ld], insert/xtract = %d/%d, in = %ld, out = %ld \n",
     msg, StreamAvailableBits(&s), StreamStrictAvailableBits(&s), StreamAvailableSpace(&s), 
-    s.first, s.out, s.in, s.in-s.out, s.insert, s.xtract ) ;
+    s.first, s.out, s.in, s.in-s.out, s.insert, s.xtract, s.in-s.first, s.out-s.first ) ;
   if(expected_mode){
     TEE_FPRINTF(stderr,2, "Stream mode = %s(%d) (%s expected)\n", StreamMode(s), StreamModeCode(s), expected_mode) ;
     if(strcmp(StreamMode(s), expected_mode) != 0) { 
@@ -74,11 +74,17 @@ CT_ASSERT(8 == sizeof(tile_properties))
 CT_ASSERT(8 == sizeof(tile_parms))
 CT_ASSERT(2 == sizeof(tile_header))
 
+#define NPTSI 16
+#define NPTSLNI 17
+#define NPTSJ 16
+
 int main(int argc, char **argv){
   uint64_t freq ;
   double nano ;
   int32_t tile0[64], tile1[64], tile2[64], tile3[64], tile4[64], tile5[64] ;
-  uint32_t packed[65] ;
+  int32_t chunk_i[NPTSJ*NPTSLNI] ;
+  int32_t chunk_o[NPTSJ*NPTSLNI] ;
+  uint32_t packed[NPTSJ*NPTSLNI+64] ;
   int i, j, ij, ni, nj ;
   bitstream stream ;
   int32_t nbtot ;
@@ -181,6 +187,50 @@ CT_ASSERT(2 == sizeof(uint16_t))
   print_tile(tile0, ni, ni, nj, "restored tile") ;
 //   compare_tile(tile0, tile1, ni, ni, nj) ;
   compare_tile(tile0, tile3, ni, ni, nj) ;
+  TEE_FPRINTF(stderr,2,"\n");
+
+  for(j=0 ; j<NPTSJ ; j++){
+    for(i=0 ; i<NPTSLNI ; i++){
+      ij = INDEX(i, NPTSLNI, j) ;
+      chunk_i[ij] = (i << 8) + j ;   // 16 bits max
+      chunk_o[ij] = -1 ;
+      if(i<8 && j<8) chunk_i[ij] = 0 ;
+      if(i>7 && j>7) chunk_i[ij] = 0x00001234 ;
+    }
+  }
+
+  for(j=NPTSJ-1 ; j>=0 ; j--){
+    for(i=0 ; i<NPTSLNI ; i++){
+      ij = INDEX(i, NPTSLNI, j) ;
+      if(i==8 || i==16)TEE_FPRINTF(stderr,2,"  ");
+      TEE_FPRINTF(stderr,2," %8.8x", chunk_i[ij]) ;
+    }
+    TEE_FPRINTF(stderr,2,"\n");
+    if(j == 8) TEE_FPRINTF(stderr,2,"\n");
+  }
+  TEE_FPRINTF(stderr,2,"\n");
+
+  BeStreamInit(&stream, packed, sizeof(packed), 0) ;  // force read-write stream mode
+  print_stream_params(stream, "Init Stream", "ReadWrite") ;
+  print_stream_data(stream, "stream contents") ;
+  TEE_FPRINTF(stderr,2, "\n");
+
+  nbtot = encode_as_tiles(chunk_i, NPTSI, NPTSLNI, NPTSJ, &stream) ;
+  TEE_FPRINTF(stderr,2, "needed %d bits (%4.1f/value)\n\n", nbtot, nbtot*1.0/(NPTSI*NPTSJ)) ;
+  print_stream_params(stream, "encoded_tiles Stream", "ReadWrite") ;
+
+  nbtot = decode_as_tiles(chunk_o, NPTSI, NPTSLNI, NPTSJ, &stream);
+
+  for(j=NPTSJ-1 ; j>=0 ; j--){
+    for(i=0 ; i<NPTSLNI ; i++){
+      ij = INDEX(i, NPTSLNI, j) ;
+      if(i==8 || i==16)TEE_FPRINTF(stderr,2,"  ");
+      TEE_FPRINTF(stderr,2," %8.8x", chunk_o[ij]) ;
+    }
+    TEE_FPRINTF(stderr,2,"\n");
+    if(j == 8) TEE_FPRINTF(stderr,2,"\n");
+  }
+  TEE_FPRINTF(stderr,2,"\n");
 
 end:
   return 0 ;

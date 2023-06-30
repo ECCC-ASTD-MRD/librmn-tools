@@ -31,22 +31,22 @@ Library General Public License for more details.
 #define NEEDBITS(range,needed) { uint64_t rng = (range) ; needed = 1; while (rng >>= 1) needed++ ; }
 
 // 32 and 64 bit left aligned masks (nbits may be 0)
-#define LMASK32(nbits)  ((nbits) ? ((~0 )  << (32-nbits)) : 0 )
-#define LMASK64(nbits)  ((nbits) ? ((~0l)  << (64-nbits)) : 0 )
+#define LMASK32(nbits)  ((nbits) ? ((~0u )  << (32-nbits)) : 0 )
+#define LMASK64(nbits)  ((nbits) ? ((~0lu)  << (64-nbits)) : 0 )
 
 // 32 and 64 bit left aligned masks (nbits == 0) NOT supported
 // (same as above but faster, assuming 0 bit case not needed)
-#define LMASK32Z(nbits)  ((~0 )  << (32-nbits))
-#define LMASK64Z(nbits)  ((~0l)  << (64-nbits))
+#define LMASK32Z(nbits)  ((~0u )  << (32-nbits))
+#define LMASK64Z(nbits)  ((~0lu)  << (64-nbits))
 
 // 32 and 64 bit right aligned masks (nbits may be 32)
-#define RMASK32(nbits)  (((nbits) == 32) ? (~0 ) : (~((~0)  << nbits)))
-#define RMASK64(nbits)  (((nbits) == 64) ? (~0l) : (~((~0l) << nbits)))
+#define RMASK32(nbits)  (((nbits) == 32) ? (~0u ) : (~((~0u)  << nbits)))
+#define RMASK64(nbits)  (((nbits) == 64) ? (~0lu) : (~((~0lu) << nbits)))
 
 // 31 and 63 bit right aligned masks  (nbits MUST be < 32)
 // (same as above but faster, assuming 32/64 bit case not needed)
-#define RMASK31(nbits)  (~((~0)  << nbits))
-#define RMASK63(nbits)  (~((~0l) << nbits))
+#define RMASK31(nbits)  (~((~0u)  << nbits))
+#define RMASK63(nbits)  (~((~0lu) << nbits))
 
 // population count (32 bit words) (count number of bits that are set to 1)
 STATIC inline uint32_t popcnt_32(uint32_t what){
