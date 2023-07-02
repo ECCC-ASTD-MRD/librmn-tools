@@ -158,7 +158,7 @@ int  LeStreamXtractSigned(bitstream *p, int32_t *w32, int nbits, int n){
   if(xtract < 0) return 0;      // ERROR: not in extract mode
 
   if(nbits <= 16) {       // process values two at a time
-    int32_t t, mask = RMASK32(nbits), nb = nbits + nbits ;
+    int32_t t, nb = nbits + nbits ; // mask = RMASK32(nbits) ;
     for(    ; i<n-1 ; i+=2){
       LE64_GET_NBITS(accum, xtract, t, nb, stream) ;   // get a pair of values
       // use shift to propagate sign
@@ -231,7 +231,7 @@ int  BeStreamXtractSigned(bitstream *p, int32_t *w32, int nbits, int n){
   if(xtract < 0) return 0;      // ERROR: not in extract mode
 
   if(nbits <= 16) {       // process values two at a time
-    int32_t t, mask = RMASK32(nbits), nb = nbits + nbits ;
+    int32_t t, nb = nbits + nbits ; //  mask = RMASK32(nbits) ;
     for(    ; i<n-1 ; i+=2){
       BE64_GET_NBITS(accum, xtract, t, nb, stream) ;         // get a pair of values
       // use shift to propagate sign

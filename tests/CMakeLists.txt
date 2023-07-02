@@ -11,7 +11,7 @@ function(add_project_test name source)
   add_executable(${name} ${source})
   if( TN_NODIAG AND ${COMPILER_SUITE} MATCHES  "nvhpc" )
     SET_SOURCE_FILES_PROPERTIES( ${name} PROPERTIES 
-      COMPILE_OPTIONS "--diag_suppress declared_but_not_referenced --diag_suppress set_but_not_used --diag_suppress code_is_unreachable" )
+      COMPILE_OPTIONS "--diag_suppress;declared_but_not_referenced;--diag_suppress;set_but_not_used;--diag_suppress;code_is_unreachable" )
   endif()
   if(TN_DL)
     set(libdl "-ldl")
@@ -155,3 +155,5 @@ add_project_test(test_ieeequantize test_ieeequantize.c NODIAG)
 
 add_project_test(test_logquantize test_logquantize.c NODIAG)
 add_project_test(test_encoders test_encoders.c NOCTEST NODIAG)    # not included in ctest for now
+
+add_project_test(test_bits test_bits.F90 LINK_LIBS "dl")

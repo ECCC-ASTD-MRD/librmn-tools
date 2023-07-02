@@ -11,11 +11,11 @@ This code is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
 Library General Public License for more details.
+
+ bit operators, left/right masks, set bit counts, leading zero/one bit counts
+ a mix of macros and statement functions
+
 */
-
-// bit operators, left/right masks, set bit counts, leading zero/one bit counts
-// a mix of macros and statement functions
-
 #if ! defined(IN_FORTRAN_CODE) && ! defined(__GFORTRAN__)
 
 // C interfaces and declarations
@@ -149,6 +149,21 @@ STATIC inline uint32_t lnzcnt_64(uint64_t what){
 #else
 
 !  some Fortran interfaces and declarations
+
+  interface popcnt  ! generic interface
+    function popcnt_32(what) result(nbits) bind(C,name='popcnt_32')
+      import C_INT32_T
+      implicit none
+      integer(C_INT32_T), intent(IN), value :: what
+      integer(C_INT32_T) :: nbits
+    end function popcnt_32
+    function popcnt_64(what) result(nbits) bind(C,name='popcnt_64')
+      import C_INT32_T, C_INT64_T
+      implicit none
+      integer(C_INT64_T), intent(IN), value :: what
+      integer(C_INT32_T) :: nbits
+    end function popcnt_64
+  end interface
 
   interface lzcnt  ! generic interface
     function lzcnt_32(what) result(nbits) bind(C,name='lzcnt_32')
