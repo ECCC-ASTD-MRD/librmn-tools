@@ -36,9 +36,9 @@ typedef struct{
   int32_t size ;      // data size in 32 bit units (max 16G - 4 bytes)
 } bitbucket ;
 
-// bit stream descriptor. ONLY ONE of insert / extract should be positive
-// in insertion mode, xtract should be -1
-// in extraction mode, insert should be -1
+// bit stream descriptor. both insert / extract may be positive
+// in insertion only mode, xtract would be -1
+// in extraction only mode, insert would be -1
 // for now, a bit stream is unidirectional (either insert or extract mode)
 typedef struct{
   uint64_t  acc_i ;   // 64 bit unsigned bit accumulator for insertion
@@ -87,10 +87,10 @@ CT_ASSERT(sizeof(bitstream_state) == 40) ;
 // for this macro to produce meaningful results, w64 MUST BE int64_t (64 bit signed int)
 #define MAKE_SIGNED_64(w64, nbits) { w64 <<= (64 - (nbits)) ; w64 >>= (64 - (nbits)) ; }
 
-// stream insert/extract mode (0 would mean insert or extract)
-// extract only mode
+// stream insert/extract mode (0 or 3 would mean insert or extract)
+// extract mode
 #define BIT_XTRACT_MODE  1
-// insert only mode
+// insert mode
 #define BIT_INSERT_MODE  2
 
 //
@@ -105,11 +105,11 @@ CT_ASSERT(sizeof(bitstream_state) == 40) ;
 //
 // N.B. : if w32 and accum are "signed" variables, extraction will produce a "signed" result
 //        if w32 and accum are "unsigned" variables, extraction will produce an "unsigned" result
-//
-// little endian style (right to left) bit stream packing
+// ===============================================================================================
+// little endian (LE) style (right to left) bit stream packing
 // insertion at top (most significant part) of accum
 // extraction from the bottom (least significant part) of accum
-//
+// ===============================================================================================
 // initialize stream for insertion
 #define LE64_INSERT_BEGIN(accum, insert) { accum = 0 ; insert = 0 ; }
 #define LE64_STREAM_INSERT_BEGIN(s) { LE64_INSERT_BEGIN(s.acc_i, s.insert) }
@@ -133,7 +133,7 @@ CT_ASSERT(sizeof(bitstream_state) == 40) ;
 #define LE64_PUT_NBITS(accum, insert, w32, nbits, stream) \
         { LE64_INSERT_CHECK(accum, insert, stream) ; LE64_INSERT_NBITS(accum, insert, w32, nbits) ; }
 #define LE64_STREAM_PUT_NBITS(s, w32, nbits) LE64_PUT_NBITS(s.acc_i, s.insert, w32, nbits, s.stream)
-
+//
 // N.B. : if w32 and accum are signed variables, the extract will produce a "signed" result
 //        if w32 and accum are unsigned variables, the extract will produce an "unsigned" result
 // initialize stream for extraction
@@ -161,10 +161,11 @@ CT_ASSERT(sizeof(bitstream_state) == 40) ;
         { LE64_XTRACT_CHECK(accum, xtract, stream) ; LE64_XTRACT_NBITS(accum, xtract, w32, nbits) ; }
 #define LE64_STREAM_GET_NBITS(s, w32, nbits) LE64_GET_NBITS(s.acc_x, s.xtract, w32, nbits, s.stream)
 //
-// big endian style (left to right) bit stream packing
+// ===============================================================================================
+// big endian (BE) style (left to right) bit stream packing
 // insertion at bottom (least significant part) of accum
 // extraction from the top (most significant part) of accum
-//
+// ===============================================================================================
 // initialize stream for insertion
 #define BE64_INSERT_BEGIN(accum, insert) { accum = 0 ; insert = 0 ; }
 #define BE64_STREAM_INSERT_BEGIN(s) { BE64_INSERT_BEGIN(s.acc_i, s.insert) ; }
@@ -188,7 +189,7 @@ CT_ASSERT(sizeof(bitstream_state) == 40) ;
 #define BE64_PUT_NBITS(accum, insert, w32, nbits, stream) \
         { BE64_INSERT_CHECK(accum, insert, stream) ; BE64_INSERT_NBITS(accum, insert, w32, nbits) ; }
 #define BE64_STREAM_PUT_NBITS(s, w32, nbits) BE64_PUT_NBITS(s.acc_i, s.insert, w32, nbits, s.stream)
-
+//
 // N.B. : if w32 and accum are signed variables, the extract will produce a "signed" result
 //        if w32 and accum are unsigned variables, the extract will produce an "unsigned" result
 // initialize stream for extraction
@@ -214,14 +215,15 @@ CT_ASSERT(sizeof(bitstream_state) == 40) ;
 #define BE64_GET_NBITS(accum, xtract, w32, nbits, stream) \
         { BE64_XTRACT_CHECK(accum, xtract, stream) ; BE64_XTRACT_NBITS(accum, xtract, w32, nbits) ; }
 #define BE64_STREAM_GET_NBITS(s, w32, nbits) BE64_GET_NBITS(s.acc_x, s.xtract, w32, nbits, s.stream)
-
+//
+// ===============================================================================================
 // true if stream is in read (extract) mode
 // possibly false for a NEWLY INITIALIZED stream
 #define STREAM_READ_MODE(s) (s.xtract >= 0)
 // true if stream is in write (insert) mode
 // possibly false for a NEWLY INITIALIZED (empty) stream
 #define STREAM_WRITE_MODE(s) (s.insert >= 0)
-
+//
 // get stream mode as a string
 STATIC inline char *StreamMode(bitstream p){
   if( p.insert >= 0 && p.xtract >= 0) return("ReadWrite") ;
@@ -231,12 +233,13 @@ STATIC inline char *StreamMode(bitstream p){
 }
 // get stream mode as a code
 STATIC inline int StreamModeCode(bitstream p){
-  if( p.insert >= 0 && p.xtract >= 0) return 0 ;
+  if( p.insert >= 0 && p.xtract >= 0) return 0 ;       // both insert and extract operations allowed
   if( STREAM_READ_MODE(p) ) return BIT_XTRACT_MODE ;
   if( STREAM_WRITE_MODE(p) ) return BIT_INSERT_MODE ;
   return -1 ;
 }
-
+//
+// ===============================================================================================
 // bits used in accumulator (stream in insertion mode)
 #define ACCUM_BITS_FILLED(s) (s.insert)
 // bits used in stream (stream in insertion mode)
@@ -252,6 +255,7 @@ STATIC inline int StreamModeCode(bitstream p){
 // size of stream buffer (in bits)
 #define STREAM_BUFFER_SIZE(s) ( (s.limit - s.first) * 8l * sizeof(uint32_t) )
 
+// ===============================================================================================
 // generic bit stream initializer
 // p    [OUT] : pointer to a bitstream structure
 // mem   [IN] : pointer to memory (if NULL, allocate memory for bit stream)
@@ -325,14 +329,15 @@ static bitstream *BeStreamCreate(size_t size, int mode){
   return p ;
 }
 
+// ===============================================================================================
 // duplicate a bit stream structure
 // sdst [OUT] : pointer to a bit stream (destination)
 // ssrc  [IN] : pointer to a bit stream (source)
 static void StreamDup(bitstream *sdst, bitstream *ssrc){
   memcpy(sdst, ssrc, sizeof(bitstream)) ;    // image copy of the bitstream struct
-  sdst->full = 0 ;    // not allocated with malloc
-  sdst->part = 0 ;    // cannot allow a free, this is not the original copy
-  sdst->user = 1 ;    // treat as if it were user allocated memory
+  sdst->full = 0 ;                           // not fully allocated with malloc
+  sdst->part = 0 ;                           // cannot allow a free, this is not the original copy
+  sdst->user = 1 ;                           // treat as if it were user allocated memory
 }
 
 // free a bit stream structure allocated memory if possible
@@ -360,16 +365,16 @@ static int StreamFree(bitstream *s){
 }
 
 // set rightmost nbits bits to 1, others to 0
-STATIC inline uint32_t RMask(uint32_t nbits){
-  uint32_t mask = ~0 ;
-  return  ( (nbits == 0) ? 0 : ( mask >> (32 - nbits)) ) ;
-}
+// STATIC inline uint32_t RMask(uint32_t nbits){
+//   uint32_t mask = ~0 ;
+//   return  ( (nbits == 0) ? 0 : ( mask >> (32 - nbits)) ) ;
+// }
 
 // set leftmost nbits bits to 1, others to 0
-STATIC inline uint32_t LMask(uint32_t nbits){
-  uint32_t mask = ~0 ;
-  return  ( (nbits == 0) ? 0 : ( mask << (32 - nbits)) ) ;
-}
+// STATIC inline uint32_t LMask(uint32_t nbits){
+//   uint32_t mask = ~0 ;
+//   return  ( (nbits == 0) ? 0 : ( mask << (32 - nbits)) ) ;
+// }
 
 // number of bits available for extraction
 STATIC inline int32_t StreamAvailableBits(bitstream *p){

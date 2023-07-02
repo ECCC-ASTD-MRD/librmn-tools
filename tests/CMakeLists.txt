@@ -10,8 +10,8 @@ function(add_project_test name source)
   # Use same name for target and executable file
   add_executable(${name} ${source})
   if( TN_NODIAG AND ${COMPILER_SUITE} MATCHES  "nvhpc" )
-  SET_SOURCE_FILES_PROPERTIES( ${name} PROPERTIES 
-    COMPILE_FLAGS "--diag_suppress declared_but_not_referenced --diag_suppress set_but_not_used --diag_suppress code_is_unreachable" )
+    SET_SOURCE_FILES_PROPERTIES( ${name} PROPERTIES 
+      COMPILE_OPTIONS "--diag_suppress declared_but_not_referenced --diag_suppress set_but_not_used --diag_suppress code_is_unreachable" )
   endif()
   if(TN_DL)
     set(libdl "-ldl")
@@ -63,7 +63,7 @@ function(add_project_test name source)
   endif()
 endfunction()
 
-SET_SOURCE_FILES_PROPERTIES( test_shared.c PROPERTIES COMPILE_FLAGS -I${CMAKE_SOURCE_DIR}/src/PUBLIC_INCLUDES )
+SET_SOURCE_FILES_PROPERTIES( test_shared.c PROPERTIES COMPILE_OPTIONS -I${CMAKE_SOURCE_DIR}/src/PUBLIC_INCLUDES )
 add_library(shared0 SHARED plugin_0.c ../src/diag/test_helpers.c plugin_0.F90)
 add_project_test(test_shared_0 test_shared.c LINK_LIBS shared0 NO_TOOLS)
 add_library(shared1 SHARED plugin_1.c ../src/diag/test_helpers.c)
@@ -71,13 +71,13 @@ add_project_test(test_shared_1 test_shared.c LINK_LIBS shared1 NO_TOOLS)
 add_library(shared2 SHARED plugin_2.c ../src/diag/test_helpers.c)
 add_project_test(test_shared_2 test_shared.c LINK_LIBS shared2 NO_TOOLS)
 
-SET_SOURCE_FILES_PROPERTIES( test_shared_012.c PROPERTIES COMPILE_FLAGS -I${CMAKE_SOURCE_DIR}/src/PUBLIC_INCLUDES )
+SET_SOURCE_FILES_PROPERTIES( test_shared_012.c PROPERTIES COMPILE_OPTIONS -I${CMAKE_SOURCE_DIR}/src/PUBLIC_INCLUDES )
 add_project_test(test_shared_012 test_shared_012.c LINK_LIBS "shared2;shared1;shared0" NO_TOOLS)
 
-SET_SOURCE_FILES_PROPERTIES( sharedf1.F90 PROPERTIES COMPILE_FLAGS -I${CMAKE_SOURCE_DIR}/src/PUBLIC_INCLUDES )
+SET_SOURCE_FILES_PROPERTIES( sharedf1.F90 PROPERTIES COMPILE_OPTIONS -I${CMAKE_SOURCE_DIR}/src/PUBLIC_INCLUDES )
 add_library(sharedf1 SHARED sharedf1.F90 ../src/plugins/plugin_constructor.c)
 
-SET_SOURCE_FILES_PROPERTIES( sharedf2.F90 PROPERTIES COMPILE_FLAGS -I${CMAKE_SOURCE_DIR}/src/PUBLIC_INCLUDES )
+SET_SOURCE_FILES_PROPERTIES( sharedf2.F90 PROPERTIES COMPILE_OPTIONS -I${CMAKE_SOURCE_DIR}/src/PUBLIC_INCLUDES )
 add_library(sharedf2 SHARED sharedf2.F90 ../src/plugins/plugin_constructor.c)
 
 add_library(plugin0 MODULE plugin_0.c plugin_0.F90)
@@ -90,10 +90,10 @@ foreach(ITEM IN ITEMS ${test_plugins})
 endforeach()
 
 add_project_test(test_plugins_c test_plugins.c LINK_LIBS "rmn::rmn;dl")
-# SET_SOURCE_FILES_PROPERTIES( test_plugins.c PROPERTIES COMPILE_FLAGS -I${CMAKE_SOURCE_DIR}/include )
+# SET_SOURCE_FILES_PROPERTIES( test_plugins.c PROPERTIES COMPILE_OPTIONS -I${CMAKE_SOURCE_DIR}/include )
 
 add_project_test(test_plugins_f test_plugins.F90 LINK_LIBS "rmn::rmn;dl")
-# SET_SOURCE_FILES_PROPERTIES( test_plugins.F90 PROPERTIES COMPILE_FLAGS -I${CMAKE_CURRENT_BINARY_DIR}/../modules )
+# SET_SOURCE_FILES_PROPERTIES( test_plugins.F90 PROPERTIES COMPILE_OPTIONS -I${CMAKE_CURRENT_BINARY_DIR}/../modules )
 
 # set compile/link special options for targets not created with add__project__test
 set(XTRA_SHARED shared0 shared1 shared2 sharedf1 sharedf2 plugin0 plugin1 plugin2)
@@ -116,10 +116,10 @@ add_project_test(test_tee_file_local test_tee_file.c)
 TARGET_COMPILE_DEFINITIONS(test_tee_file_local PRIVATE -DOVERRIDE_WITH_LOCAL)
 
 add_project_test(test_bi_endian_pack test_bi_endian_pack.c)
-SET_SOURCE_FILES_PROPERTIES( test_bi_endian_pack PROPERTIES COMPILE_FLAGS -O3 )
+SET_SOURCE_FILES_PROPERTIES( test_bi_endian_pack PROPERTIES COMPILE_OPTIONS -O3 )
 
 add_project_test(test_pack_macros test_pack_macros.c)
-SET_SOURCE_FILES_PROPERTIES( test_pack_macros PROPERTIES COMPILE_FLAGS -O3 )
+SET_SOURCE_FILES_PROPERTIES( test_pack_macros PROPERTIES COMPILE_OPTIONS -O3 )
 
 add_project_test(test_lorenzo_c test_lorenzo_c.c)
 add_project_test(test_lorenzo_f_shared test_lorenzo.F90 LINK_LIBS "rmn::rmn-shared;dl")                        # build with shared libraries
@@ -129,7 +129,7 @@ if(NOT ( ${COMPILER_SUITE} MATCHES  "nvhpc") )
 add_project_test(test_lorenzo_f_static test_lorenzo.F90 STATIC DL LINK_LIBS "rmn::rmn-static;dl")        # build with static libraries
 endif()
 # add_project_test(test_lorenzo_f_static test_lorenzo.F90 STATIC LINK_LIBS rmn::rmn-static)                          # build with static libraries
-# SET_SOURCE_FILES_PROPERTIES( test_lorenzo.F90 PROPERTIES COMPILE_FLAGS -DNO_FORTRAN_CODE )
+# SET_SOURCE_FILES_PROPERTIES( test_lorenzo.F90 PROPERTIES COMPILE_OPTIONS -DNO_FORTRAN_CODE )
 
 add_project_test(test_fstd_compress  test_fstd_compress.F90 LINK_LIBS "rmn::rmn;dl" NOCTEST)   # not included in ctest for now
 # add_project_test(fstd_to_raw  fstd_to_raw.F90 LINK_LIBS "rmn::rmn;dl" NOCTEST)   # not included in ctest for now
@@ -148,7 +148,7 @@ add_project_test(test_serialized_functions test_serialized_functions.c NODIAG)
 # maybe needed depending upon print statement distribution in test code
 # if(COMPILER_SUITE STREQUAL aocc)
 # message(STATUS "(TESTS) using -O0 for test_serialized_functions with ${COMPILER_SUITE}")
-# SET_SOURCE_FILES_PROPERTIES( test_serialized_functions PROPERTIES COMPILE_FLAGS -O0 )
+# SET_SOURCE_FILES_PROPERTIES( test_serialized_functions PROPERTIES COMPILE_OPTIONS -O0 )
 # endif()
 
 add_project_test(test_ieeequantize test_ieeequantize.c NODIAG)

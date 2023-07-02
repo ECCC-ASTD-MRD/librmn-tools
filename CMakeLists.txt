@@ -206,6 +206,7 @@ set(PROJECT_C_FILES
   src/pred/lorenzo_c.c
   src/pred/smooth124.c
   src/pred/average_2x2.c
+  src/pack/bits.c
   src/pack/bi_endian_pack.c
   src/pack/misc_pack.c
   src/pack/misc_operators.c
@@ -226,10 +227,10 @@ set(PROJECT_PLUGIN_FILES
   src/pred/lorenzo_c.c
   src/pack/bi_endian_pack.c
 )
-SET_SOURCE_FILES_PROPERTIES( src/pred/lorenzo_c.c PROPERTIES COMPILE_FLAGS "-O3 -DQUIET_SIMD")
-SET_SOURCE_FILES_PROPERTIES( src/pack/ieee_quantize.c PROPERTIES COMPILE_FLAGS "-O3 -DQUIET_SIMD")
-# SET_SOURCE_FILES_PROPERTIES( src/pred/lorenzo_c.c PROPERTIES COMPILE_FLAGS -I${CMAKE_CURRENT_SOURCE_DIR}/include)
-SET_SOURCE_FILES_PROPERTIES( src/pred/bi_endian_pack.c PROPERTIES COMPILE_FLAGS "-O3")
+SET_SOURCE_FILES_PROPERTIES( src/pred/lorenzo_c.c PROPERTIES COMPILE_OPTIONS "-O3;-DQUIET_SIMD")
+SET_SOURCE_FILES_PROPERTIES( src/pack/ieee_quantize.c PROPERTIES COMPILE_OPTIONS "-O3;-DQUIET_SIMD")
+# SET_SOURCE_FILES_PROPERTIES( src/pred/lorenzo_c.c PROPERTIES COMPILE_OPTIONS -I${CMAKE_CURRENT_SOURCE_DIR}/include)
+SET_SOURCE_FILES_PROPERTIES( src/pred/bi_endian_pack.c PROPERTIES COMPILE_OPTIONS "-O3")
 
 set(PROJECT_F_FILES
   src/timers/rmn_timers_mod.F90
@@ -238,7 +239,7 @@ set(PROJECT_F_FILES
   src/plugins/fortran_plugins.F90
   src/pred/misc_operators_mod.F90
 )
-SET_SOURCE_FILES_PROPERTIES( src/pred/lorenzo_mod.F90 PROPERTIES COMPILE_FLAGS -DNO_EXTRA_FORTRAN )
+SET_SOURCE_FILES_PROPERTIES( src/pred/lorenzo_mod.F90 PROPERTIES COMPILE_OPTIONS -DNO_EXTRA_FORTRAN )
 
 set(PROJECT_H_FILES
   src/PUBLIC_INCLUDES/rmntools.h

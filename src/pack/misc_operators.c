@@ -18,13 +18,14 @@
 #endif
 #endif
 
-#define STATIC extern
-#include <rmn/tools_types.h>
-#include <rmn/misc_operators.h>
-
 #include <math.h>
 #include <stdlib.h>
 #include <stdio.h>
+
+#include <rmn/bits.h>
+#include <rmn/tools_types.h>
+#define STATIC extern
+#include <rmn/misc_operators.h>
 
 // ieee_prop struct to block header
 extern inline uint16_t encode_ieee_header(ieee_prop pr){

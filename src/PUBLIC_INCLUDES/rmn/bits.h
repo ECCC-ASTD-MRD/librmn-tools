@@ -16,6 +16,10 @@ Library General Public License for more details.
 // bit operators, left/right masks, set bit counts, leading zero/one bit counts
 // a mix of macros and statement functions
 
+#if ! defined(IN_FORTRAN_CODE) && ! defined(__GFORTRAN__)
+
+// C interfaces and declarations
+
 #if ! defined(RMNTOOLS_BITS)
 #define RMNTOOLS_BITS
 
@@ -139,5 +143,41 @@ STATIC inline uint32_t lnzcnt_64(uint64_t what){
 #undef STATIC
 #undef STATIC_DEFINED_HERE
 #endif
+
+#endif
+
+#else
+
+!  some Fortran interfaces and declarations
+
+  interface lzcnt  ! generic interface
+    function lzcnt_32(what) result(nbits) bind(C,name='lzcnt_32')
+      import C_INT32_T
+      implicit none
+      integer(C_INT32_T), intent(IN), value :: what
+      integer(C_INT32_T) :: nbits
+    end function lzcnt_32
+    function lzcnt_64(what) result(nbits) bind(C,name='lzcnt_64')
+      import C_INT32_T, C_INT64_T
+      implicit none
+      integer(C_INT64_T), intent(IN), value :: what
+      integer(C_INT32_T) :: nbits
+    end function lzcnt_64
+  end interface
+
+  interface lnzcnt  ! generic interface
+    function lnzcnt_32(what) result(nbits) bind(C,name='lnzcnt_32')
+      import C_INT32_T
+      implicit none
+      integer(C_INT32_T), intent(IN), value :: what
+      integer(C_INT32_T) :: nbits
+    end function lnzcnt_32
+    function lnzcnt_64(what) result(nbits) bind(C,name='lnzcnt_64')
+      import C_INT32_T, C_INT64_T
+      implicit none
+      integer(C_INT64_T), intent(IN), value :: what
+      integer(C_INT32_T) :: nbits
+    end function lnzcnt_64
+  end interface
 
 #endif

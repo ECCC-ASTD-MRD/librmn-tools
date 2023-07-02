@@ -21,6 +21,7 @@
 #include <sys/time.h>
 
 #include <rmn/timers.h>
+#include <rmn/bits.h>
 #include <rmn/bi_endian_pack.h>
 #include <rmn/tee_print.h>
 #include <rmn/test_helpers.h>
@@ -177,7 +178,7 @@ int main(int argc, char **argv){
   bitstream *pple, *ppbe ;
   bitstream ple1, ple2 ;
 
-  nbits = 8 ; mask = RMask(nbits) ;
+  nbits = 8 ; mask = RMASK32(nbits) ;
   for(i=0 ; i<NPTS ; i++)  unpacked[i] = (i + 15) & mask ;
 
   pple = StreamCreate(sizeof(packedle)+8, 0) ;                      print_stream_params(*pple, "Create Le Stream (*pple)", "ReadWrite") ;
@@ -209,7 +210,7 @@ int main(int argc, char **argv){
 // ==================================================== timing tests ====================================================
   TEE_FPRINTF(stderr,2, "\n%6d items,               insert                            extract (unsigned)                       extract (signed)\n", NPTS) ;
   for(nbits = 1 ; nbits <= 32 ; nbits += 1){
-    mask = RMask(nbits) ;
+    mask = RMASK32(nbits) ;
     for(i=0 ; i<NPTS ; i++)    unpacked[i] = (i + 15) ;
     for(i=0 ; i<NPTS   ; i+=2) unpacked_signed[i] = -(((unpacked[i]) & mask) >> 1) ;
     for(i=1 ; i<NPTS-1 ; i+=2) unpacked_signed[i] =  (((unpacked[i]) & mask) >> 1) ;
@@ -230,7 +231,7 @@ int main(int argc, char **argv){
 //     LeStreamInit(pple, packedle, sizeof(packedle), BIT_XTRACT_MODE) ;
     LeStreamRewind(pple) ;
     LeStreamXtract(pple, restored, nbits, NPTS) ;
-    mask = RMask(nbits) ;
+    mask = RMASK32(nbits) ;
     errorsle = verify_restore(restored, unpacked, NPTS, mask) ;
 //     TIME_LOOP(tmin, tmax, tavg, NTIMES, NPTS, buf, bufsiz, \
 //     LeStreamInit(pple, packedle, sizeof(packedle), BIT_XTRACT_MODE) ; LeStreamXtract(pple, restored, nbits, NPTS) ) ;
@@ -243,7 +244,7 @@ int main(int argc, char **argv){
 //     BeStreamInit(ppbe, packedbe, sizeof(packedbe), BIT_XTRACT_MODE) ;
     BeStreamRewind(ppbe) ;
     BeStreamXtract(ppbe, restored, nbits, NPTS) ;
-    mask = RMask(nbits) ;
+    mask = RMASK32(nbits) ;
     errorsbe = verify_restore(restored, unpacked, NPTS, mask) ;
 //     TIME_LOOP(tmin, tmax, tavg, NTIMES, NPTS, buf, bufsiz, \
 //     BeStreamInit(ppbe, packedbe, sizeof(packedbe), BIT_XTRACT_MODE) ; BeStreamXtract(ppbe, restored, nbits, NPTS) ) ;

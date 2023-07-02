@@ -21,6 +21,7 @@
 #include <stdint.h>
 #include <stdio.h>
 
+#include <rmn/bits.h>
 #define STATIC extern
 #include <rmn/bi_endian_pack.h>
 
@@ -36,7 +37,7 @@ int  LeStreamInsert(bitstream *p, uint32_t *w32, int nbits, int nw){
   int32_t  insert = p->insert ;
 //   uint32_t *stream = p->stream ;
   uint32_t *stream = p->in ;
-  uint32_t mask = RMask(nbits) ;
+  uint32_t mask = RMASK32(nbits) ;
 
   if(insert < 0) return 0;      // ERROR: not in insert mode
 
@@ -80,7 +81,7 @@ int  BeStreamInsert(bitstream *p, uint32_t *w32, int nbits, int nw){
   if(insert < 0) return 0;      // ERROR: not in insert mode
 
   if(nbits <= 16) {       // process values two at a time
-    uint32_t t, mask = RMask(nbits), nb = nbits + nbits ;
+    uint32_t t, mask = RMASK32(nbits), nb = nbits + nbits ;
     for(    ; i<n-1 ; i+=2){
       // big endian => upper part [i] | lower part [i+1]
       t  = (w32[i+1] & mask) | ((w32[i  ] & mask) << nbits) ;
@@ -119,7 +120,7 @@ int  LeStreamXtract(bitstream *p, uint32_t *w32, int nbits, int n){
   if(xtract < 0) return 0;      // ERROR: not in extract mode
 
   if(nbits <= 16) {       // process values two at a time
-    uint32_t t, mask = RMask(nbits), nb = nbits + nbits ;
+    uint32_t t, mask = RMASK32(nbits), nb = nbits + nbits ;
 // fprintf(stderr, ">accum = %16.16lx, xtract = %2d, stream = %p, *stream = %8.8x\n", accum, xtract, stream, *stream);
     for(    ; i<n-1 ; i+=2){
       LE64_XTRACT_CHECK(accum, xtract, stream) ;
@@ -157,7 +158,7 @@ int  LeStreamXtractSigned(bitstream *p, int32_t *w32, int nbits, int n){
   if(xtract < 0) return 0;      // ERROR: not in extract mode
 
   if(nbits <= 16) {       // process values two at a time
-    int32_t t, mask = RMask(nbits), nb = nbits + nbits ;
+    int32_t t, mask = RMASK32(nbits), nb = nbits + nbits ;
     for(    ; i<n-1 ; i+=2){
       LE64_GET_NBITS(accum, xtract, t, nb, stream) ;   // get a pair of values
       // use shift to propagate sign
@@ -192,7 +193,7 @@ int  BeStreamXtract(bitstream *p, uint32_t *w32, int nbits, int n){
   if(xtract < 0) return 0;      // ERROR: not in extract mode
 
   if(nbits <= 16) {       // process values two at a time
-    uint32_t t, mask = RMask(nbits), nb = nbits + nbits ;
+    uint32_t t, mask = RMASK32(nbits), nb = nbits + nbits ;
 // fprintf(stderr, ">accum = %16.16lx, xtract = %2d, stream = %p, *stream = %8.8x\n", accum, xtract, stream, *stream);
     for(    ; i<n-1 ; i+=2){
       BE64_XTRACT_CHECK(accum, xtract, stream) ;
@@ -230,7 +231,7 @@ int  BeStreamXtractSigned(bitstream *p, int32_t *w32, int nbits, int n){
   if(xtract < 0) return 0;      // ERROR: not in extract mode
 
   if(nbits <= 16) {       // process values two at a time
-    int32_t t, mask = RMask(nbits), nb = nbits + nbits ;
+    int32_t t, mask = RMASK32(nbits), nb = nbits + nbits ;
     for(    ; i<n-1 ; i+=2){
       BE64_GET_NBITS(accum, xtract, t, nb, stream) ;         // get a pair of values
       // use shift to propagate sign

@@ -147,6 +147,7 @@
   | Tile Header | Tile Data |
   +-------------+-----------+
   <-- 16 bits -->
+  (see tile_encoders.h for encoding tile layout)
 */
 
 bitstream *compress_2d_chunk(void *data, int lni, int ni, int nj, compress_rules r){
