@@ -16,6 +16,7 @@
 program test_bits
   use ISO_C_BINDING
   implicit none
+! next define not necessary for GNU/aocc/LLVM/PGI Fortran compilers, necessary for Intel
 #define IN_FORTRAN_CODE
 #include <rmn/bits.h>
   integer(C_INT32_T) :: i32
@@ -23,7 +24,7 @@ program test_bits
   real(C_FLOAT) :: r32
   real(C_DOUBLE) :: r64
 
-  call start_of_test("Fortran bit operators"//achar(0))
+  call start_of_test("Fortran extra bit operators"//achar(0))
   i32 = 31
   i64 = 63
   r32 = 1.5

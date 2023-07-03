@@ -16,6 +16,11 @@ Library General Public License for more details.
  a mix of macros and statement functions
 
 */
+
+#if ! defined(IN_FORTRAN_CODE)
+#include <rmn/is_fortran_compiler.h>
+#endif
+
 #if ! defined(IN_FORTRAN_CODE) && ! defined(__GFORTRAN__)
 
 // C interfaces and declarations
@@ -57,7 +62,9 @@ STATIC inline uint32_t popcnt_32(uint32_t what){
   uint32_t cnt ;
 #if defined(__x86_64__)
   // X86 family of processors
-  __asm__ __volatile__ ("popcnt{l %1, %0| %0, %1}" : "=r"(cnt) : "r"(what) : "cc" ) ;
+//   __asm__ __volatile__ ("popcnt{l %1, %0| %0, %1}" : "=r"(cnt) : "r"(what) : "cc" ) ;
+//   __asm__ __volatile__ ("popcntl %1, %0" : "=r"(cnt) : "r"(what) : "cc" );
+  __asm__ __volatile__ ("popcnt %1, %0" : "=r"(cnt) : "r"(what) : "cc" );
 #else
   cnt = 0 ;
   while(what & 1){
@@ -73,7 +80,9 @@ STATIC inline uint32_t popcnt_64(uint64_t what){
   uint64_t cnt ;
 #if defined(__x86_64__)
   // X86 family of processors
-  __asm__ __volatile__ ("popcnt{ %1, %0| %0, %1}" : "=r"(cnt) : "r"(what) : "cc" ) ;
+//   __asm__ __volatile__ ("popcnt{ %1, %0| %0, %1}" : "=r"(cnt) : "r"(what) : "cc" ) ;
+//   __asm__ __volatile__ ("popcntq %1, %0" : "=r"(cnt) : "r"(what) : "cc" );
+  __asm__ __volatile__ ("popcnt %1, %0" : "=r"(cnt) : "r"(what) : "cc" );
 #else
   cnt = 0 ;
   while(what & 1){
@@ -89,7 +98,9 @@ STATIC inline uint32_t lzcnt_32(uint32_t what){
   uint32_t cnt ;
 #if defined(__x86_64__)
   // X86 family of processors
-  __asm__ __volatile__ ("lzcnt{l %1, %0| %0, %1}" : "=r"(cnt) : "r"(what) : "cc" ) ;
+//   __asm__ __volatile__ ("lzcnt{l %1, %0| %0, %1}" : "=r"(cnt) : "r"(what) : "cc" ) ;
+//   __asm__ __volatile__ ("lzcntl %1, %0" : "=r"(cnt) : "r"(what) : "cc" ) ;
+  __asm__ __volatile__ ("lzcnt %1, %0" : "=r"(cnt) : "r"(what) : "cc" ) ;
 #elif defined(__aarch64__)
   // ARM family of processors
    __asm__ __volatile__ ("clz %w[out], %w[in]" : [out]"=r"(cnt) : [in]"r"(what) ) ;
@@ -116,7 +127,9 @@ STATIC inline uint32_t lzcnt_64(uint64_t what){
   uint64_t cnt ;
 #if defined(__x86_64__)
   // X86 family of processors
-  __asm__ __volatile__ ("lzcnt{ %1, %0| %0, %1}" : "=r"(cnt) : "r"(what) : "cc" ) ;
+//   __asm__ __volatile__ ("lzcnt{ %1, %0| %0, %1}" : "=r"(cnt) : "r"(what) : "cc" ) ;
+//   __asm__ __volatile__ ("lzcntq %1, %0" : "=r"(cnt) : "r"(what) : "cc" ) ;
+  __asm__ __volatile__ ("lzcnt %1, %0" : "=r"(cnt) : "r"(what) : "cc" ) ;
 #elif defined(__aarch64__)
   // ARM family of processors
    __asm__ __volatile__ ("clz %[out], %[in]" : [out]"=r"(cnt) : [in]"r"(what) ) ;
