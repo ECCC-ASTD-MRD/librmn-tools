@@ -52,22 +52,14 @@ typedef struct{
   uint64_t full:1 ,   // struct and buffer were allocated together with malloc (buf[] is usable)
            part:1 ,   // buffer allocated with malloc (buf[] is NOT usable)
            user:1 ,   // buffer is user supplied (buf[] is NOT usable)
-           resv:61 ;  // reserved
+           endian:2 , // 01 : Big Endian stream, 10 : Little Endian stream, 00/11 : invalid
+           spare:27 , // spare bits
+           resv:32 ;  // reserved for internal use
 //   uint32_t buf[] ;    // flexible array (meaningful only if full == 1)
 } bitstream ;
 CT_ASSERT(sizeof(bitstream) == 64) ;
 CT_ASSERT(sizeof(uint64_t) == 8) ;
 CT_ASSERT(sizeof(uint32_t *) == 8) ;
-
-// typedef struct{
-//   uint64_t  accum ;   // 64 bit unsigned bit accumulator
-//   uint32_t *first ;   // pointer to start of stream data storage (used for consistency check)
-//   uint32_t offset ;   // offset into buffer (insertion or extraction)
-//   uint32_t inp:1  ,   // insert mode if 1
-//            out:1 ,    // extract mode if 1
-//            nbi:8 ,    // insert value if inp == 1, xtract value if out == 1
-//            resv:20 ;  // reserved, should be 0
-// } bitstream_state1 ;
 
 // bit stream state for possible save/restore operations
 typedef struct{
@@ -93,7 +85,120 @@ CT_ASSERT(sizeof(bitstream_state) == 40) ;
 // insert mode
 #define BIT_INSERT_MODE  2
 
-//
+// endianness
+#define STREAM_BE 1
+#define STREAM_LE 2
+#define STREAM_ENDIAN(s) s.endian
+
+// ===============================================================================================
+// is stream valid ?
+// s [IN] : pointer to a bit stream struct
+static int StreamIsValid(bitstream *s){
+  if(s->resv != 0xCAFEFADEu)                   return 0 ;    // incorrect marker
+  if(s->first == NULL)                         return 0 ;    // no buffer
+  if(s->limit <= s->first)                     return 0 ;    // invalid limit
+  if(s->in < s->first  || s->in > s->limit)    return 0 ;    // in outside limits
+  if(s->out < s->first || s->out > s->limit)   return 0 ;    // out outside limits
+  if(s->endian == 0 || s->endian == 3 )        return 0 ;    // invalid endianness
+  return 1 ;    // valid stream
+}
+
+// get stream endianness, return 0 if invalid endianness
+// s [IN] : pointer to a bit stream struct
+static int StreamEndianness(bitstream *stream){
+  int endian = STREAM_ENDIAN( (*stream) ) ;
+  return (endian != STREAM_BE && endian != STREAM_LE) ? 0 : endian ;
+}
+
+// save bit stream state
+// stream  [IN] : pointer to a bit stream struct
+// state  [OUT] : pointer to a bit stream state struct
+static int StreamSaveState(bitstream *stream, bitstream_state *state){
+  if(! StreamIsValid(stream)) goto error ;
+  state->acc_i  = stream->acc_i ;
+  state->acc_x  = stream->acc_x ;
+  state->first  = stream->first ;
+  state->in     = stream->in - stream->first ;
+  state->out    = stream->out - stream->first ;
+  state->insert = stream->insert ;
+  state->xtract = stream->xtract ;
+  return 0 ;
+error:
+fprintf(stderr, "error in save state\n");
+  return 1 ;
+}
+
+// restore bit stream state
+// stream [OUT] : pointer to a bit stream struct
+// state   [IN] : pointer to a bit stream state struct
+// mode    [IN} : 0, BIT_XTRACT_MODE, BIT_INSERT_MODE (which mode state(s) to restore)
+//                0 restore BOTH insert and extract states
+static int StreamRestoreState(bitstream *stream, bitstream_state *state, int mode){
+// char *msg ;
+// msg = "invalid stream" ;
+  if(! StreamIsValid(stream)) goto error ;                            // invalid stream
+  if(mode == 0) mode = BIT_XTRACT_MODE + BIT_INSERT_MODE ;
+// msg = "first mismatch" ;
+  if(state->first != stream->first) goto error ;                      // state does not belong to this stream
+  if(mode & BIT_XTRACT_MODE){                                       // restore extract state (out)
+// msg = "out too large" ;
+    if(state->out > (stream->limit - stream->first) ) goto error ;    // potential buffer overrrun
+// msg = "stream not in extract mode" ;
+    if(stream->xtract < 0) goto error ;                              // stream not in extract mode
+// msg = "no extract state" ;
+    if(state->xtract < 0) goto error ;                               // extract state not valid
+    stream->out = stream->first + state->out ;                      // restore extraction pointer
+    stream->acc_x  = state->acc_x ;                                 // restore accumulator and bit count
+    stream->xtract = state->xtract ;
+// fprintf(stderr, "restored extract state\n");
+  }
+  if(mode & BIT_INSERT_MODE){                                       // restore insert state (in)
+// msg = "in too large" ;
+    if(state->in > (stream->limit - stream->first) ) goto error ;     // potential buffer overrrun
+// msg = "stream not in insert mode" ;
+    if(stream->insert < 0) goto error ;                              // stream not in insert mode
+// msg = "no insert state" ;
+    if(state->insert < 0) goto error ;                               // insert state not valid
+    stream->in = stream->first + state->in ;                        // restore insertion pointer
+    stream->acc_i  = state->acc_i ;                                 // restore accumulator and bit count
+    stream->insert = state->insert ;
+// fprintf(stderr, "restored insert state\n");
+  }
+  return 0 ;                                                        // no error
+error:
+// fprintf(stderr, "error (%s) in restore state\n", msg);
+  return 1 ;
+}
+
+// this function will be useful to make an already filled stream ready for extraction
+// stream  [IN] : pointer to a bit stream struct
+// pos     [IN] : number of valid bits for extraction
+static int StreamSetFilled(bitstream *stream, size_t pos){
+  if(! StreamIsValid(stream)) return 1 ;                    // invalid stream
+  pos = (pos+7) / 8 ;                                       // round up as bytes
+  pos = (pos + sizeof(uint32_t) - 1) / sizeof(uint32_t) ;   // round up as 32 bit words
+  if(pos > (stream->limit - stream->first) ) return 1 ;     // potential buffer overrrun
+  stream->in = stream->first + pos ;                        // mark stream as filled up to stream->in
+  return 0 ;
+}
+
+// copy contents of stream buffer to array mem from beginning up to in pointer
+static size_t StreamCopy(bitstream *stream, void *mem, size_t size){
+  size_t nbtot, nborig ;
+
+  if(! StreamIsValid(stream)) return -1 ;                       // invalid stream
+  if(stream->in - stream->first == 0) return 0 ;                // empty stream
+  nbtot = (stream->in - stream->first) * 8 * sizeof(uint32_t) ;
+  if(stream->insert > 0) nbtot += stream->insert ;
+  nborig = nbtot ;
+  nbtot = ((nbtot + 31) / 32) * 32 ;                                   // round to multiple of 32 bits
+  nbtot /= 8 ;                                                  // convert to bytes
+  if(nbtot > size) return -1 ;                                  // insufficient space
+  if(mem != memmove(mem, stream->first, nbtot)) return -1 ;     // error copying
+  return nborig ;
+}
+
+// ===============================================================================================
 // macro arguments description
 // accum  [INOUT] : 64 bit accumulator (normally acc_i or acc_x)
 // insert [INOUT] : # of bits used in accumulator (0 <= insert <= 64)
@@ -255,8 +360,12 @@ STATIC inline int StreamModeCode(bitstream p){
 // size of stream buffer (in bits)
 #define STREAM_BUFFER_SIZE(s) ( (s.limit - s.first) * 8l * sizeof(uint32_t) )
 
+// address of stream buffer
+#define STREAM_BUFFER_POINTER(s) s.first
+
+// stream 
 // ===============================================================================================
-// generic bit stream initializer
+// generic bit stream (re)initializer
 // p    [OUT] : pointer to a bitstream structure
 // mem   [IN] : pointer to memory (if NULL, allocate memory for bit stream)
 // size  [IN] : size of the memory area (user supplied or auto allocated)
@@ -277,27 +386,41 @@ STATIC inline void  StreamInit(bitstream *p, void *mem, size_t size, int mode){
     if(buffer == NULL){
       p->user   = 0 ;                             // not user supplied space
       p->part   = 1 ;                             // auto allocated space (can be freed if resizing)
-      buffer    = (uint32_t *) malloc(size) ;     // allocated space to accomodate up to size bytes
+      buffer    = (uint32_t *) malloc(size) ;     // allocate space to accomodate up to size bytes
     }else{
       p->user   = 1 ;                             // user supplied space
       p->part   = 0 ;                             // not auto allocated space
     }
     p->full   = 0 ;                               // malloc not for both struct and buffer
+    p->spare = 0 ;
     p->resv   = 0xCAFEFADEu ;
     p->first  = buffer ;    // stream storage
-    p->limit  = buffer + size / sizeof(uint32_t) ;
+    p->limit  = buffer + size/sizeof(uint32_t) ;  // potential truncation to 32 bit alignment
   }
   p->in     = buffer ;    // stream is empty and starts at beginning of buffer
   p->out    = buffer ;    // stream is full and starts at beginning of buffer
 }
 
+// mark stream as filled with size bytes
+// size [IN] : number of bytes available for extraction (should be a multiple of 4)
+STATIC inline int  StreamSetAsFilled(bitstream *p, size_t size){
+  if(p->first == NULL)              return 1 ;     // no valid buffer
+  if(size < sizeof(uint32_t))       return 1 ;     // less that 32 bits
+  size /= sizeof(uint32_t) ;                       // potential truncation to 32 bit alignment
+  if(size > (p->limit - p->first) ) return -1 ;    // buffer not large enough
+  p->in = p->first + size ;                        // mark buffer as filled up to p->in
+  return 0 ;
+}
+
 // initialize a LittleEndian stream
 STATIC inline void  LeStreamInit(bitstream *p, uint32_t *buffer, size_t size, int mode){
+  p->endian = STREAM_LE ;
   StreamInit(p, buffer, size, mode) ;   // call generic stream init
 }
 
 // initialize a BigEndian stream
 STATIC inline void  BeStreamInit(bitstream *p, uint32_t *buffer, size_t size, int mode){
+  p->endian = STREAM_BE ;
   StreamInit(p, buffer, size, mode) ;   // call generic stream init
 }
 

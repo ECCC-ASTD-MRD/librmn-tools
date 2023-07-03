@@ -158,6 +158,6 @@ add_project_test(test_serialized_functions test_serialized_functions.c NODIAG)
 add_project_test(test_ieeequantize test_ieeequantize.c NODIAG)
 
 add_project_test(test_logquantize test_logquantize.c NODIAG)
-add_project_test(test_encoders test_encoders.c NOCTEST NODIAG)    # not included in ctest for now
+add_project_test(test_encoders test_encoders.c NODIAG)
 
 add_project_test(test_bits test_bits.F90 DL)

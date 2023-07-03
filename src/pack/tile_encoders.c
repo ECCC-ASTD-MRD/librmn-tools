@@ -683,6 +683,7 @@ fprintf(stderr, " CONSTANT : ni = %d, nj = %d, nbits = %d, encoding = %d, sign =
 int32_t decode_as_tiles(void *f, int ni, int lni, int nj, bitstream *s){
   int32_t *fi = (int32_t *) f ;
   int ni0, nj0, nit, njt, i0, j0, indexi, indexj, nbtile, nbtot ;
+  bitstream_state state ;
 
   indexj = 0 ;
   for(j0 = 0 ; j0 < nj ; j0 += 8){
@@ -691,7 +692,13 @@ int32_t decode_as_tiles(void *f, int ni, int lni, int nj, bitstream *s){
       indexi = i0 ;
       ni0 = ((ni - i0) > 8) ? 8 : (ni - i0) ;
       print_stream_params(*s, "before tile decode", NULL) ;
-      fprintf(stderr,"tile (%3d,%3d) -> (%3d,%3d) [%d x %d] [%4d,%4d]", i0, j0, i0+ni0-1, j0+nj0-1, ni0, nj0, indexi, indexj) ;
+      fprintf(stderr,"tile (%3d,%3d) -> (%3d,%3d) [%d x %d] [%4d,%4d]\n", i0, j0, i0+ni0-1, j0+nj0-1, ni0, nj0, indexi, indexj) ;
+// StreamSaveState(s, &state) ;
+// print_stream_params(*s, "after save state", NULL) ;
+// nbtile = decode_tile(fi+indexi+indexj, &nit, lni, &njt, s) ;
+// print_stream_params(*s, "before restore state", NULL) ;
+// StreamRestoreState(s, &state, 0) ;
+// print_stream_params(*s, "after restore state", NULL) ;
       nbtile = decode_tile(fi+indexi+indexj, &nit, lni, &njt, s) ;
       if(ni0 != nit || nj0 != njt) return -1 ;        // decoding error
       nbtot += nbtile ;
