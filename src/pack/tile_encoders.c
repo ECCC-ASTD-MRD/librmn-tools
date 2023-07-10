@@ -374,9 +374,7 @@ constant:
 // return total number of bits added to bit stream
 // if not enough room in stream, return a negative error reflecting the number of extra bits needed
 int32_t encode_contiguous(uint64_t tp64, bitstream *s, uint32_t tile[64]){
-  uint64_t accum   = s->acc_i ;
-  int32_t  insert  = s->insert ;
-  uint32_t *stream = s->in ;
+  STREAM_GET_INSERT_STATE(*s, accum, insert, stream) ;
   uint32_t avail ;
   tile_properties p ;
   int nij, nbits, nbits0, nbitsi, nbtot, i ;
@@ -400,7 +398,7 @@ int32_t encode_contiguous(uint64_t tp64, bitstream *s, uint32_t tile[64]){
   if(p.t.h.encd == 3) nij = 1 ;
   needed = needed + nbits0 * nshort + nbits * (nij - nzero - nshort) ;
   if(p.t.h.encd) needed += nij ;                          // one extra bit per value for encoding if used
-  avail = PSTREAM_BITS_EMPTY(s) ;                         // free bits in stream
+  avail = STREAM_BITS_EMPTY(*s) ;                         // free bits in stream
 //   fprintf(stderr, "worst case %d bits, %d free\n", needed, avail) ;
   nbtot = (avail - needed - 1) ;
   if(avail < needed) goto error ; 
@@ -462,9 +460,7 @@ int32_t encode_contiguous(uint64_t tp64, bitstream *s, uint32_t tile[64]){
 
 end:
   BE64_PUSH(accum, insert, stream) ;
-  s->acc_i  = accum ;
-  s->insert = insert ;
-  s->in     = stream ;
+  STREAM_SET_INSERT_STATE(*s, accum, insert, stream) ;
   return nbtot ;
 
 error:
@@ -530,12 +526,6 @@ int32_t encode_as_tiles(void *f, int ni, int lni, int nj, bitstream *s){
     indexj += lni*8 ;
   }
   return nbtot ;
-
-// error:
-//   s->acc_i  = accum ;     // restore stream state at entry
-//   s->insert = insert ;
-//   s->in     = stream ;
-//   return -1 ;             // error, not enough space in stream
 }
 
 // decode a tile encoded with encode_tile
@@ -554,9 +544,7 @@ int32_t decode_tile(void *f, int *ni, int lni, int *nj, bitstream *s){
   int32_t iw32 ;
   int i, i0, j, nbits, nij, nbits0, nbtot, nbitsi, nbitsm ;
   uint32_t min ;
-  uint64_t accum   = s->acc_x ;    // get control values from stream struct
-  int32_t  xtract  = s->xtract ;
-  uint32_t *stream = s->out ;
+  STREAM_GET_XTRACT_STATE(*s, accum, xtract, stream) ;
 
   if( (f == NULL) || (stream == NULL) ) goto error ;
   BE64_GET_NBITS(accum, xtract, w32, 16, stream) ;
@@ -655,9 +643,7 @@ fprintf(stderr, " TILE : ni = %d, nj = %d, nbits = %d, encoding = %d, sign = %d,
   }
 
 end:
-  s->acc_x  = accum ;    // store control values into stream struct
-  s->xtract = xtract ;
-  s->out    = stream ;
+  STREAM_SET_XTRACT_STATE(*s, accum, xtract, stream) ;
   return nbtot ;
 
 error:

@@ -63,9 +63,9 @@ int main(int argc, char **argv){
   BeStreamInit(pstream, NULL, 1024, 0) ;   // 1024 byte stream
   print_stream_params(STREAM0, "1024 byte stream", NULL) ;
 
-  uint64_t accum   = pstream->acc_i ;    // get control values from stream struct
-  int32_t  insert  = pstream->insert ;
-  uint32_t *in = pstream->in ;
+  uint64_t accum   = (*pstream).acc_i ;    // get control values from stream struct
+  int32_t  insert  = (*pstream).insert ;
+  uint32_t *in = (*pstream).in ;
   ntot = 0 ;
   for(i0 = 0 ; i0 < 32 ; i0 += 8){
     for(i=0 ; i<8 ; i++){
