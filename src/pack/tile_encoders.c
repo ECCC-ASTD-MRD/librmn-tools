@@ -73,13 +73,16 @@ static uint64_t encode_tile_scheme(uint64_t p64){
 
   nbits_temp = nbits_full ;
   p.t.h.encd = 0 ;                        // default is no special encoding
-  if(nbits_zero < nbits_temp){
+  p.t.nshort = p.t.nzero = 0 ;            // no "short" or "0" token
+  if(nbits_zero < nbits_temp){            // encoding 2 better ?
     nbits_temp = nbits_zero ;
-    p.t.h.encd = 2 ;                      // use 0 , 1//full encoding
+    p.t.h.encd = 2 ;                      // use 0 , 1//nbits encoding
+    p.t.nzero = nzero ;                   // "0" tokens used
   }
-  if(nbits_short < nbits_temp){
-    nbits_temp = nbits_short ;
-    p.t.h.encd = 1 ;                      // use 0//short , 1//full encoding
+  if(nbits_short < nbits_temp){           // encoding 1 better ?
+    p.t.h.encd = 1 ;                      // use 0//nbits0 , 1//nbits encoding
+    p.t.nshort = nshort ;                 // "short" tokens used
+    p.t.nzero = 0 ;                       // no "0" token
   }
 fprintf(stderr, "normal tile, min = %8.8x (%d x %d)\n", p.t.min, p.t.h.npti+1, p.t.h.nptj+1) ;
   return p.u64 ;
@@ -100,12 +103,12 @@ fprintf(stderr, "constant tile, min = %8.8x (%d x %d)\n", p.t.min, p.t.h.npti+1,
   p.t.nzero  = 0 ;     // not needed
   p.t.nshort = 0 ;     // not needed
 
-  if(p.t.min == 0){
+  if(p.t.min == 0){    // is constant value (minimum) zero ?
     p.t.h.sign = 0 ;   // all values 0
-    p.t.h.nbts = 0 ;   // nbts can be 0 if zero tile
+    p.t.h.nbts = 0 ;   // nbts is 0 if zero tile (0 means 1 bit)
   }else{
-    p.t.h.sign = 3 ;   // full ZigZag
-    p.t.h.nbts = 32 - lzcnt_32(p.t.min) - 1 ;  // number of bits needed to encode minimum
+    p.t.h.sign = 3 ;   // full ZigZag coding
+    p.t.h.nbts = 32 - lzcnt_32(p.t.min) - 1 ;  // number of bits needed to encode constant value
   }
   return p.u64 ;
 }
@@ -190,7 +193,7 @@ static uint64_t encode_tile_properties_c(void *f, int ni, int lni, int nj, uint3
   return encode_tile_scheme(p.u64) ;          // determine appropriate encoding scheme
 
 constant:
-  p.t.min = min ;
+  p.t.min = min ;                             // constant value in min
   return constant_tile_scheme(p.u64) ;        // setup for constant values
 }
 
@@ -369,24 +372,39 @@ constant:
 // s   [OUT] : bit stream
 // tile [IN] : pre extracted tile (1->64 values)
 // return total number of bits added to bit stream
+// if not enough room in stream, return a negative error reflecting the number of extra bits needed
 int32_t encode_contiguous(uint64_t tp64, bitstream *s, uint32_t tile[64]){
   uint64_t accum   = s->acc_i ;
   int32_t  insert  = s->insert ;
   uint32_t *stream = s->in ;
+  uint32_t avail ;
   tile_properties p ;
   int nij, nbits, nbits0, nbitsi, nbtot, i ;
   uint32_t min, w32, mask0, mask1, nbitsm ;
-//   uint32_t nzero, nshort ;
+  uint32_t nzero, nshort, needed ;
 
   p.u64 = tp64 ;
-print_tile_properties(tp64) ;
-  nij    = (p.t.h.npti + 1) * (p.t.h.nptj + 1) ;             // number of points
+// print_tile_properties(tp64) ;
+  nij    = (p.t.h.npti + 1) * (p.t.h.nptj + 1) ;          // number of points
+  nbtot = -1 ;                                            // precondition for error
   if(nij < 1 || nij > 64) goto error ;
   min    = p.t.min ;
-//   nzero  = p.t.nzero ;
-//   nshort = p.t.nshort ;
+  nzero  = p.t.nzero ;
+  nshort = p.t.nshort ;
   nbits = p.t.h.nbts + 1 ;
   nbits0 = (nbits + NB0) >> 1 ;  // number of bits for "short" values
+
+  // evaluate how many bits we may need for encoding
+  needed = 16 ;                                           // header
+  if(p.t.h.min0) needed += (5 + 32 - lzcnt_32(min)) ;     // in case min is used
+  if(p.t.h.encd == 3) nij = 1 ;
+  needed = needed + nbits0 * nshort + nbits * (nij - nzero - nshort) ;
+  if(p.t.h.encd) needed += nij ;                          // one extra bit per value for encoding if used
+  avail = PSTREAM_BITS_EMPTY(s) ;                         // free bits in stream
+//   fprintf(stderr, "worst case %d bits, %d free\n", needed, avail) ;
+  nbtot = (avail - needed - 1) ;
+  if(avail < needed) goto error ; 
+
   mask0 = RMASK31(nbits0) ;      // value & mask0 will be 0 if nbits0 or less bits are needed
   mask0 = ~mask0 ;               // keep only the upper bits
   mask1 = 1 << nbits ;           // full token flag
@@ -405,10 +423,16 @@ print_tile_properties(tp64) ;
     BE64_PUT_NBITS(accum, insert, min, nbitsm, stream) ; // insert minimum value (nbitsm bits)
     nbtot += (nbitsm+5) ;
   }
-  // 3 mutually exclusive alternatives
+  // 3 mutually exclusive alternatives (case 3 handled before)
   switch(p.t.h.encd)
   {
-  case 1 :                                                    // 0//short , 1//full encoding
+  case 0 :                                                      // no special encoding
+    for(i=0 ; i<nij ; i++){
+      BE64_PUT_NBITS(accum, insert, tile[i], nbits, stream) ;   // insert nbits bits into stream
+      nbtot += nbits ;
+    }
+    break ;
+  case 1 :                                                      // 0//short , 1//full encoding
     for(i=0 ; i<nij ; i++){
       w32 = tile[i] ;
       if((w32 & mask0) == 0){                                   // value uses nbits0 bits or less
@@ -421,7 +445,7 @@ print_tile_properties(tp64) ;
       BE64_PUT_NBITS(accum, insert, w32,  nbitsi, stream) ;     // insert nbitsi bits into stream
     }
     break ;
-  case 2 :                                                    // 0 , 1//full encoding
+  case 2 :                                                      // 0 , 1//full encoding
     for(i=0 ; i<nij ; i++){
       w32 = tile[i] ;
       if(w32 == 0){                                             // value is zero
@@ -434,12 +458,6 @@ print_tile_properties(tp64) ;
       BE64_PUT_NBITS(accum, insert, w32,  nbitsi, stream) ;     // insert nbitsi bits into stream
     }
     break ;
-  case 0 :                                                    // no special encoding
-    for(i=0 ; i<nij ; i++){
-      BE64_PUT_NBITS(accum, insert, tile[i], nbits, stream) ;   // insert nbits bits into stream
-      nbtot += nbits ;
-    }
-    break ;
   }
 
 end:
@@ -450,7 +468,6 @@ end:
   return nbtot ;
 
 error:
-  nbtot = -1 ;
   return nbtot ;
 
 constant:
@@ -472,15 +489,15 @@ constant:
 // f is expected to contain 32 bit values (treated as signed integers)
 int32_t encode_tile(void *f, int ni, int lni, int nj, bitstream *s, uint32_t tile[64]){
   uint64_t tp64 ;
-  int32_t needed ;
+  int32_t used ;
 
   tp64 = encode_tile_properties(f, ni, lni, nj, tile) ;   // extract tile, compute data properties
 //   print_stream_params(*s, "before tile encode", NULL) ;
-  needed = encode_contiguous(tp64, s, tile) ;             // encode extracted tile into bit stream
-//   fprintf(stderr, "needed bits = %d\n", needed) ;
+  used = encode_contiguous(tp64, s, tile) ;               // encode extracted tile into bit stream
+  fprintf(stderr, "used bits = %d\n", used) ;
 //   print_stream_params(*s, "after  tile encode", NULL) ;
 //   fprintf(stderr, "\n");
-  return needed ;
+  return used ;                                           // will be negative if encode_contiguous failed
 }
 
 // f     [IN] : array from which tiles will be extracted
@@ -495,22 +512,14 @@ int32_t encode_as_tiles(void *f, int ni, int lni, int nj, bitstream *s){
   uint32_t *fi = (uint32_t *) f ;
   uint32_t tile[64] ;
   int32_t nbtot = 0 ;
-  int32_t nworse = 64 * sizeof(uint32_t) + sizeof(tile_head) + 1 + sizeof(uint32_t) ;  // worst case size for encoding
-//   uint64_t accum   = s->acc_i ;     // save stream state at entry
-//   int32_t  insert  = s->insert ;
-//   uint32_t *stream = s->in ;
 
-  nworse *= 8 ;     // worst case size for encoding in bits
   indexj = 0 ;
   for(j0 = 0 ; j0 < nj ; j0 += 8){
     nj0 = ((nj - j0) > 8) ? 8 : (nj - j0) ;
     for(i0 = 0 ; i0 < ni ; i0 += 8){
       indexi = i0 ;
       ni0 = ((ni - i0) > 8) ? 8 : (ni - i0) ;
-      // check that we have enough room left in stream for worst case length
-      nworse = ni0 * nj0 * sizeof(uint32_t) + sizeof(tile_head) + 1 + sizeof(uint32_t) ;  // worst case size for encoding
-      nworse *= 8 ; // convert size from bytes to to bits
-//       if(StreamAvailableSpace(s) < nworse) goto error ;
+      // check that we have enough room left in stream to encode data
       nbtile = encode_tile(fi+indexj+indexi, ni0, lni, nj0, s, tile) ;
 //       print_stream_params(*s, "after tile encode", NULL) ;
       nbtot += nbtile ;
@@ -548,13 +557,13 @@ int32_t decode_tile(void *f, int *ni, int lni, int *nj, bitstream *s){
   uint64_t accum   = s->acc_x ;    // get control values from stream struct
   int32_t  xtract  = s->xtract ;
   uint32_t *stream = s->out ;
-  
+
   if( (f == NULL) || (stream == NULL) ) goto error ;
   BE64_GET_NBITS(accum, xtract, w32, 16, stream) ;
   nbtot = 16 ;
   th.s = w32 ;
-  *ni = th.h.npti+1 ;
-  *nj = th.h.nptj+1 ;
+  *ni = th.h.npti+1 ;              // first dimension of tile
+  *nj = th.h.nptj+1 ;              // second dimension of tile
   nij = (*ni) * (*nj) ;
   nbits = th.h.nbts + 1 ;
   nbits0 = (nbits + NB0) >> 1 ;    // number of bits for "short" values
@@ -683,7 +692,9 @@ fprintf(stderr, " CONSTANT : ni = %d, nj = %d, nbits = %d, encoding = %d, sign =
 int32_t decode_as_tiles(void *f, int ni, int lni, int nj, bitstream *s){
   int32_t *fi = (int32_t *) f ;
   int ni0, nj0, nit, njt, i0, j0, indexi, indexj, nbtile, nbtot ;
+#if 0
   bitstream_state state ;
+#endif
 
   indexj = 0 ;
   for(j0 = 0 ; j0 < nj ; j0 += 8){
@@ -693,16 +704,18 @@ int32_t decode_as_tiles(void *f, int ni, int lni, int nj, bitstream *s){
       ni0 = ((ni - i0) > 8) ? 8 : (ni - i0) ;
       print_stream_params(*s, "before tile decode", NULL) ;
       fprintf(stderr,"tile (%3d,%3d) -> (%3d,%3d) [%d x %d] [%4d,%4d]\n", i0, j0, i0+ni0-1, j0+nj0-1, ni0, nj0, indexi, indexj) ;
-// StreamSaveState(s, &state) ;
-// print_stream_params(*s, "after save state", NULL) ;
-// nbtile = decode_tile(fi+indexi+indexj, &nit, lni, &njt, s) ;
-// print_stream_params(*s, "before restore state", NULL) ;
-// StreamRestoreState(s, &state, 0) ;
-// print_stream_params(*s, "after restore state", NULL) ;
+#if 0
+StreamSaveState(s, &state) ;
+print_stream_params(*s, "after save state", NULL) ;
+nbtile = decode_tile(fi+indexi+indexj, &nit, lni, &njt, s) ;
+print_stream_params(*s, "before restore state", NULL) ;
+StreamRestoreState(s, &state, 0) ;
+print_stream_params(*s, "after restore state", NULL) ;
+#endif
       nbtile = decode_tile(fi+indexi+indexj, &nit, lni, &njt, s) ;
+      fprintf(stderr,"nit = %d, njt = %d, nbtile = %d\n", nit, njt, nbtile) ;
       if(ni0 != nit || nj0 != njt) return -1 ;        // decoding error
       nbtot += nbtile ;
-      fprintf(stderr,"nit = %d, njt = %d, nbtile = %d\n", nit, njt, nbtile) ;
       print_stream_params(*s, "after tile decode", NULL) ;
       fprintf(stderr,"\n");
       if(nit != ni0 || njt != nj0) return 1 ;
