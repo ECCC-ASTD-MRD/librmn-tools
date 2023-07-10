@@ -102,7 +102,7 @@ int main(int argc, char **argv){
   // insert in Little Endian mode (unsigned)
   for(i=0 ; i<NPTS ; i++) packedle[i] = 0xFFFFFFFFu ; 
   LeStreamInit(&ple, packedle, sizeof(packedle), 0) ;  // force read-write stream mode
-  print_stream_params(ple, "Init Le Stream", "ReadWrite") ;
+  print_stream_params(ple, "Init Le Stream", "RW") ;
   if(STREAM_IS_LITTLE_ENDIAN(ple)) {
     TEE_FPRINTF(stderr,2, "stream ple is little endian as expected\n") ;
   } else {
@@ -110,15 +110,15 @@ int main(int argc, char **argv){
   }
 
   LE64_STREAM_INSERT_BEGIN(ple) ;                      // this should force insert (write) mode
-  print_stream_params(ple, "LE64_STREAM_INSERT_BEGIN", "ReadWrite") ;
+  print_stream_params(ple, "LE64_STREAM_INSERT_BEGIN", "RW") ;
 
   LeStreamInsert(&ple, unpacked, nbits, NPTS) ;
-  print_stream_params(ple, "Insert into Le Stream", "ReadWrite") ;
+  print_stream_params(ple, "Insert into Le Stream", "RW") ;
   TEE_FPRINTF(stderr,2, "packedle %2d bits : ", nbits) ; for(i=7 ; i>=0 ; i--) TEE_FPRINTF(stderr,2, "%8.8x ", packedle[i]); TEE_FPRINTF(stderr,2, "\n") ;
   // rewind and extract in Little Endian mode (unsigned)
   if(0) LeStreamInit(&ple, packedle, sizeof(packedle), BIT_XTRACT_MODE) ;  // syntax check, no code execution
   LeStreamRewind(&ple) ;                               // this should force extract (read) mode
-  print_stream_params(ple, "Rewind Le Stream", "ReadWrite") ;
+  print_stream_params(ple, "Rewind Le Stream", "RW") ;
 
   LE64_PEEK_NBITS(ple.acc_x, ple.xtract, peek_u, nbits) ;  // explicit peek macro (unsigned)
   LE64_STREAM_PEEK_NBITS(ple, peek_u2, nbits) ;            // stream peek macro (unsigned)
@@ -135,7 +135,7 @@ int main(int argc, char **argv){
   } else {
     exit(1) ;
   }
-  print_stream_params(pbe, "Be stream in write mode", "Write") ;
+  print_stream_params(pbe, "Be stream in write mode", "W") ;
 
   BE64_STREAM_INSERT_BEGIN(pbe) ;
   for(i=0 ; i<NPTS ; i++) packedbe[i] = 0xFFFFFFFFu ; 
@@ -145,7 +145,7 @@ int main(int argc, char **argv){
   TEE_FPRINTF(stderr,2, "Be stream in BIT_XTRACT_MODE\n") ;
   BeStreamInit(&pbe, packedbe, sizeof(packedbe), BIT_XTRACT_MODE) ;  // not necessary, syntax check
   BeStreamRewind(&pbe) ;                               // this should force extract (read) mode
-  print_stream_params(pbe, "Be stream in BIT_XTRACT_MODE", "Read") ;
+  print_stream_params(pbe, "Be stream in BIT_XTRACT_MODE", "R") ;
 
   BE64_PEEK_NBITS(pbe.acc_x, pbe.xtract, peek_u, nbits) ;  // explicit peek macro (unsigned)
   BE64_STREAM_PEEK_NBITS(pbe, peek_u2, nbits) ;            // stream peek macro (unsigned)
@@ -192,31 +192,31 @@ int main(int argc, char **argv){
   nbits = 8 ; mask = RMASK32(nbits) ;
   for(i=0 ; i<NPTS ; i++)  unpacked[i] = (i + 15) & mask ;
 
-  pple = StreamCreate(sizeof(packedle)+8, 0) ;                      print_stream_params(*pple, "Create Le Stream (*pple)", "ReadWrite") ;
-  LeStreamInit(pple, packedle, sizeof(packedle), BIT_INSERT_MODE) ; print_stream_params(*pple, "Init Le Stream (*pple)", "Write") ;
+  pple = StreamCreate(sizeof(packedle)+8, 0) ;                      print_stream_params(*pple, "Create Le Stream (*pple)", "RW") ;
+  LeStreamInit(pple, packedle, sizeof(packedle), BIT_INSERT_MODE) ; print_stream_params(*pple, "Init Le Stream (*pple)", "W") ;
   if(pple->first != packedle)                                       TEE_FPRINTF(stderr,2, "pple->first != packedle, Success\n") ;
-  LeStreamInsert(pple, unpacked, nbits, NPTS) ; /* with push */     print_stream_params(*pple, "after insert Le Stream (*pple)", "Write") ;
+  LeStreamInsert(pple, unpacked, nbits, NPTS) ; /* with push */     print_stream_params(*pple, "after insert Le Stream (*pple)", "W") ;
   if(StreamAvailableBits(pple) != NPTS * nbits) exit(1) ;           TEE_FPRINTF(stderr,2, "StreamAvailableBits = %d, Success.\n", NPTS * nbits) ;
-  LeStreamRewind(pple) ;                                            print_stream_params(*pple, "after rewind Le Stream (*pple)", "ReadWrite") ;
-  LeStreamXtract(pple, restored, nbits, NPTS) ;                     print_stream_params(*pple, "after xtract Le Stream (*pple)", "ReadWrite") ;
+  LeStreamRewind(pple) ;                                            print_stream_params(*pple, "after rewind Le Stream (*pple)", "RW") ;
+  LeStreamXtract(pple, restored, nbits, NPTS) ;                     print_stream_params(*pple, "after xtract Le Stream (*pple)", "RW") ;
   if(StreamAvailableBits(pple) != 0) exit(1) ;                      TEE_FPRINTF(stderr,2, "StreamAvailableBits = %d, Success.\n", 0) ;
 
-  ppbe = StreamCreate(sizeof(packedbe)+8, 0) ;                      print_stream_params(*ppbe, "\nInit Be Stream (*ppbe)", "ReadWrite") ;
-  LeStreamInit(ppbe, packedle, sizeof(packedle), BIT_INSERT_MODE) ; print_stream_params(*ppbe, "Init Le Stream (*ppbe)", "Write") ;
+  ppbe = StreamCreate(sizeof(packedbe)+8, 0) ;                      print_stream_params(*ppbe, "\nInit Be Stream (*ppbe)", "RW") ;
+  LeStreamInit(ppbe, packedle, sizeof(packedle), BIT_INSERT_MODE) ; print_stream_params(*ppbe, "Init Le Stream (*ppbe)", "W") ;
   if(ppbe->first != packedle)                                       TEE_FPRINTF(stderr,2, "ppbe->first != packedle, Success\n") ;
-  LeStreamInsert(ppbe, unpacked, nbits, -NPTS) ; /* with flush */   print_stream_params(*ppbe, "after insert Le Stream (*ppbe)", "Write") ;
+  LeStreamInsert(ppbe, unpacked, nbits, -NPTS) ; /* with flush */   print_stream_params(*ppbe, "after insert Le Stream (*ppbe)", "W") ;
   if(StreamAvailableBits(ppbe) != NPTS * nbits) exit(1) ;           TEE_FPRINTF(stderr,2, "StreamAvailableBits = %d, Success.\n", NPTS * nbits) ;
-  LeStreamRewind(ppbe) ;                                            print_stream_params(*ppbe, "after rewind Le Stream (*ppbe)", "ReadWrite") ;
-  LeStreamXtract(ppbe, restored, nbits, NPTS) ;                     print_stream_params(*ppbe, "after xtract Le Stream (*ppbe)", "ReadWrite") ;
+  LeStreamRewind(ppbe) ;                                            print_stream_params(*ppbe, "after rewind Le Stream (*ppbe)", "RW") ;
+  LeStreamXtract(ppbe, restored, nbits, NPTS) ;                     print_stream_params(*ppbe, "after xtract Le Stream (*ppbe)", "RW") ;
   if(StreamAvailableBits(ppbe) != 0) exit(1) ;                      TEE_FPRINTF(stderr,2, "StreamAvailableBits = %d, Success.\n", 0) ;
 
   StreamDup(&ple1, &ple) ;  TEE_FPRINTF(stderr,2, "\n") ;
-  print_stream_params(ple,  "Duplicate Le Stream (ple)", "ReadWrite") ;
-  print_stream_params(ple1, "Duplicate Le Stream (ple1)", "ReadWrite") ;
+  print_stream_params(ple,  "Duplicate Le Stream (ple)", "RW") ;
+  print_stream_params(ple1, "Duplicate Le Stream (ple1)", "RW") ;
   StreamDup(&ple1, pple) ;
-  print_stream_params(*pple,  "Duplicate Le Stream (*pple)", "ReadWrite") ;
-  print_stream_params(ple1,   "Duplicate Le Stream (ple1)", "ReadWrite") ;
-  LeStreamInit(&ple2, NULL, sizeof(packedle), BIT_INSERT_MODE) ;    print_stream_params(ple2, "Init Le Stream (ple2)", "Write") ;
+  print_stream_params(*pple,  "Duplicate Le Stream (*pple)", "RW") ;
+  print_stream_params(ple1,   "Duplicate Le Stream (ple1)", "RW") ;
+  LeStreamInit(&ple2, NULL, sizeof(packedle), BIT_INSERT_MODE) ;    print_stream_params(ple2, "Init Le Stream (ple2)", "W") ;
 
 // ==================================================== timing tests ====================================================
   TEE_FPRINTF(stderr,2, "\n%6d items,               insert                            extract (unsigned)                       extract (signed)\n", NPTS) ;
@@ -296,8 +296,8 @@ int main(int argc, char **argv){
 //
   }
   TEE_FPRINTF(stderr,2, "\n") ;
-  print_stream_params(*pple, "Le Stream (*pple)", "ReadWrite") ;
-  print_stream_params(*pple, "Be Stream (*ppbe)", "ReadWrite") ;
+  print_stream_params(*pple, "Le Stream (*pple)", "RW") ;
+  print_stream_params(*pple, "Be Stream (*ppbe)", "RW") ;
 
   if(tmax == 0) TEE_FPRINTF(stderr,2, "tmax == 0, should not happen\n") ;
 

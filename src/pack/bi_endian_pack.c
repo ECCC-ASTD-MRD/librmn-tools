@@ -32,6 +32,7 @@
 // nw    : number of values from w32             [IN}
 int  LeStreamInsert(bitstream *p, uint32_t *w32, int nbits, int nw){
   int i = 0, n = (nw < 0) ? -nw : nw ;
+  STREAM_DCL_STATE_VARS(accum, insert, stream) ;
   STREAM_GET_INSERT_STATE(*p, accum, insert, stream) ;
 
   if(insert < 0) return 0;      // ERROR: not in insert mode
@@ -64,6 +65,7 @@ int  LeStreamInsert(bitstream *p, uint32_t *w32, int nbits, int nw){
 // nw    : number of values from w32             [IN}
 int  BeStreamInsert(bitstream *p, uint32_t *w32, int nbits, int nw){
   int i = 0, n = (nw < 0) ? -nw : nw ;
+  STREAM_DCL_STATE_VARS(accum, insert, stream) ;
   STREAM_GET_INSERT_STATE(*p, accum, insert, stream) ;
 
   if(insert < 0) return 0;      // ERROR: not in insert mode
@@ -96,6 +98,7 @@ int  BeStreamInsert(bitstream *p, uint32_t *w32, int nbits, int nw){
 // n     : number of values from w32             [IN}
 int  LeStreamXtract(bitstream *p, uint32_t *w32, int nbits, int n){
   int i = 0 ;
+  STREAM_DCL_STATE_VARS(accum, xtract, stream) ;
   STREAM_GET_XTRACT_STATE(*p, accum, xtract, stream) ;
 
   if(xtract < 0) return 0;      // ERROR: not in extract mode
@@ -125,6 +128,7 @@ int  LeStreamXtract(bitstream *p, uint32_t *w32, int nbits, int n){
 // n     : number of values from w32             [IN}
 int  LeStreamXtractSigned(bitstream *p, int32_t *w32, int nbits, int n){
   int i = 0 ;
+  STREAM_DCL_STATE_VARS_S(accum, xtract, stream) ;
   STREAM_GET_XTRACT_STATE_S(*p, accum, xtract, stream) ;
 
   if(xtract < 0) return 0;      // ERROR: not in extract mode
@@ -153,6 +157,7 @@ int  LeStreamXtractSigned(bitstream *p, int32_t *w32, int nbits, int n){
 // n     : number of values from w32             [IN}
 int  BeStreamXtract(bitstream *p, uint32_t *w32, int nbits, int n){
   int i = 0 ;
+  STREAM_DCL_STATE_VARS(accum, xtract, stream) ;
   STREAM_GET_XTRACT_STATE(*p, accum, xtract, stream) ;
 
   if(xtract < 0) return 0;      // ERROR: not in extract mode
@@ -182,6 +187,7 @@ int  BeStreamXtract(bitstream *p, uint32_t *w32, int nbits, int n){
 // n     : number of values from w32             [IN}
 int  BeStreamXtractSigned(bitstream *p, int32_t *w32, int nbits, int n){
   int i = 0 ;
+  STREAM_DCL_STATE_VARS_S(accum, xtract, stream) ;
   STREAM_GET_XTRACT_STATE_S(*p, accum, xtract, stream) ;
 
   if(xtract < 0) return 0;      // ERROR: not in extract mode
@@ -212,6 +218,7 @@ int  BeStreamXtractSigned(bitstream *p, int32_t *w32, int nbits, int n){
 // n[i] <= 0 marks the end of the pair list
 int  LeStreamInsertM(bitstream *p, uint32_t *w32, int *nbits, int *n){
   int i, nw = 0 ;
+  STREAM_DCL_STATE_VARS(accum, insert, stream) ;
   STREAM_GET_INSERT_STATE(*p, accum, insert, stream) ;
 
   if(insert < 0) return 0;      // ERROR: not in insert mode
@@ -239,6 +246,7 @@ int  LeStreamInsertM(bitstream *p, uint32_t *w32, int *nbits, int *n){
 // n[i] <= 0 marks the end of the pair list
 int  BeStreamInsertM(bitstream *p, uint32_t *w32, int *nbits, int *n){
   int i, nw = 0 ;
+  STREAM_DCL_STATE_VARS(accum, insert, stream) ;
   STREAM_GET_INSERT_STATE(*p, accum, insert, stream) ;
 
   if(insert < 0) return 0;      // ERROR: not in insert mode
@@ -266,6 +274,7 @@ int  BeStreamInsertM(bitstream *p, uint32_t *w32, int *nbits, int *n){
 // n[i] <= 0 marks the end of the pair list
 int  LeStreamXtractM(bitstream *p, uint32_t *w32, int *nbits, int *n){
   int i, nw = 0 ;
+  STREAM_DCL_STATE_VARS(accum, xtract, stream) ;
   STREAM_GET_XTRACT_STATE(*p, accum, xtract, stream) ;
 
   if(xtract < 0) return 0;      // ERROR: not in extract mode
@@ -292,6 +301,7 @@ int  LeStreamXtractM(bitstream *p, uint32_t *w32, int *nbits, int *n){
 // n[i] <= 0 marks the end of the pair list
 int  BeStreamXtractM(bitstream *p, uint32_t *w32, int *nbits, int *n){
   int i, nw = 0 ;
+  STREAM_DCL_STATE_VARS(accum, xtract, stream) ;
   STREAM_GET_XTRACT_STATE(*p, accum, xtract, stream) ;
 
   if(xtract < 0) return 0;      // ERROR: not in extract mode

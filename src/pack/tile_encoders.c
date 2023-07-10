@@ -374,6 +374,7 @@ constant:
 // return total number of bits added to bit stream
 // if not enough room in stream, return a negative error reflecting the number of extra bits needed
 int32_t encode_contiguous(uint64_t tp64, bitstream *s, uint32_t tile[64]){
+  STREAM_DCL_STATE_VARS(accum, insert, stream) ;
   STREAM_GET_INSERT_STATE(*s, accum, insert, stream) ;
   uint32_t avail ;
   tile_properties p ;
@@ -544,6 +545,7 @@ int32_t decode_tile(void *f, int *ni, int lni, int *nj, bitstream *s){
   int32_t iw32 ;
   int i, i0, j, nbits, nij, nbits0, nbtot, nbitsi, nbitsm ;
   uint32_t min ;
+  STREAM_DCL_STATE_VARS(accum, xtract, stream) ;
   STREAM_GET_XTRACT_STATE(*s, accum, xtract, stream) ;
 
   if( (f == NULL) || (stream == NULL) ) goto error ;

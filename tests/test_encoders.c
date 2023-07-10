@@ -173,22 +173,22 @@ CT_ASSERT(2 == sizeof(uint16_t))
   print_tile(tile3, 8, 8, 8, "original tile3") ;
 
   BeStreamInit(&stream0, packed0, sizeof(packed0), 0) ;  // force read-write stream0 mode
-  print_stream_params(stream0, "Init stream0", "ReadWrite") ;
+  print_stream_params(stream0, "Init stream0", "RW") ;
   print_stream_data(stream0, "stream0 contents") ;
 
 //   nbtot = encode_tile_(tile1, 8, 8, 7, &stream0, temp) ;
   nbtot = encode_tile(tile3, 8, 8, 8, &stream0, temp) ;
 
   TEE_FPRINTF(stderr,2, "nbtot = %d\n", nbtot) ;
-  print_stream_params(stream0, "encoded stream0", "ReadWrite") ;
+  print_stream_params(stream0, "encoded stream0", "RW") ;
   print_stream_data(stream0, "stream0 contents") ;
 
   // no need to rewind stream0 in this case
   for(i=0 ; i< sizeof(packed1)/4 ; i++) packed1[i] = 0 ;
   ncopy = StreamCopy(&stream0, packed1, sizeof(packed1)) ;
   BeStreamInit(&stream1, packed1, sizeof(packed1), 0) ;  // force read-write stream1 mode
-  StreamSetFilled(&stream1, nbtot) ;
-  print_stream_params(stream1, "Init stream1", "ReadWrite") ;
+  StreamSetFilledBits(&stream1, nbtot) ;
+  print_stream_params(stream1, "Init stream1", "RW") ;
   nbtot = decode_tile(tile0, &ni, 8, &nj, &stream1) ;
   TEE_FPRINTF(stderr,2, "ni = %d, nj = %d\n", ni, nj) ;
   print_tile(tile0, ni, ni, nj, "restored tile") ;
@@ -218,21 +218,21 @@ CT_ASSERT(2 == sizeof(uint16_t))
   TEE_FPRINTF(stderr,2,"\n");
 
   BeStreamInit(&stream0, packed0, sizeof(packed0), 0) ;  // force read-write stream0 mode
-  print_stream_params(stream0, "Init stream0", "ReadWrite") ;
+  print_stream_params(stream0, "Init stream0", "RW") ;
   print_stream_data(stream0, "stream0 contents") ;
   TEE_FPRINTF(stderr,2, "\n");
 
   nbtot = encode_as_tiles(chunk_i, NPTSI, NPTSLNI, NPTSJ, &stream0) ;
   TEE_FPRINTF(stderr,2, "needed %d bits (%4.1f/value)\n\n", nbtot, nbtot*1.0/(NPTSI*NPTSJ)) ;
-  print_stream_params(stream0, "encoded_tiles stream0", "ReadWrite") ;
+  print_stream_params(stream0, "encoded_tiles stream0", "RW") ;
   TEE_FPRINTF(stderr,2, "\n") ;
 
   for(i=0 ; i< sizeof(packed1)/4 ; i++) packed1[i] = 0 ;
   ncopy = StreamCopy(&stream0, packed1, sizeof(packed1)) ;         // transfer stream0 buffer to packed1
   TEE_FPRINTF(stderr,2, "%ld(%ld) bits copied into stream1 buffer\n", ncopy, ((ncopy+31)/32)*32) ;
   BeStreamInit(&stream1, packed1, sizeof(packed1), 0) ;            // force read-write stream1 mode
-  StreamSetFilled(&stream1, nbtot) ;
-  print_stream_params(stream1, "Filled stream1", "ReadWrite") ;
+  StreamSetFilledBits(&stream1, nbtot) ;
+  print_stream_params(stream1, "Filled stream1", "RW") ;
   TEE_FPRINTF(stderr,2, "\n") ;
   nbtot = decode_as_tiles(chunk_o, NPTSI, NPTSLNI, NPTSJ, &stream1);
 
