@@ -183,7 +183,7 @@ static int StreamSetFilled(bitstream *stream, size_t pos){
 }
 
 // copy contents of stream buffer to array mem from beginning up to in pointer
-static size_t StreamCopy(bitstream *stream, void *mem, size_t size){
+static int64_t StreamCopy(bitstream *stream, void *mem, size_t size){
   size_t nbtot, nborig ;
 
   if(! StreamIsValid(stream)) return -1 ;                       // invalid stream
@@ -191,7 +191,7 @@ static size_t StreamCopy(bitstream *stream, void *mem, size_t size){
   nbtot = (stream->in - stream->first) * 8 * sizeof(uint32_t) ;
   if(stream->insert > 0) nbtot += stream->insert ;
   nborig = nbtot ;
-  nbtot = ((nbtot + 31) / 32) * 32 ;                                   // round to multiple of 32 bits
+  nbtot = ((nbtot + 31) / 32) * 32 ;                            // round to multiple of 32 bits
   nbtot /= 8 ;                                                  // convert to bytes
   if(nbtot > size) return -1 ;                                  // insufficient space
   if(mem != memmove(mem, stream->first, nbtot)) return -1 ;     // error copying
@@ -346,22 +346,29 @@ STATIC inline int StreamModeCode(bitstream p){
 //
 // ===============================================================================================
 // bits used in accumulator (stream in insertion mode)
-#define ACCUM_BITS_FILLED(s) (s.insert)
+#define STREAM_ACCUM_BITS_FILLED(s) (s.insert)
+#define PSTREAM_ACCUM_BITS_FILLED(s) (s->insert)
 // bits used in stream (stream in insertion mode)
 #define STREAM_BITS_FILLED(s) (s.insert + (s.in - s.out) * 8l * sizeof(uint32_t))
+#define PSTREAM_BITS_FILLED(s) (s->insert + (s->in - s->out) * 8l * sizeof(uint32_t))
 // bits left to fill in stream (stream in insertion mode)
 #define STREAM_BITS_EMPTY(s) ( (s.limit - s.in) * 8l * sizeof(uint32_t) - s.insert)
+#define PSTREAM_BITS_EMPTY(s) ( (s->limit - s->in) * 8l * sizeof(uint32_t) - s->insert)
 
 // bits available in accumulator (stream in extract mode)
-#define ACCUM_BITS_AVAIL(s) (s.xtract)
+#define STREAM_ACCUM_BITS_AVAIL(s) (s.xtract)
+#define PSTREAM_ACCUM_BITS_AVAIL(s) (s->xtract)
 // bits available in stream (stream in extract mode)
 #define STREAM_BITS_AVAIL(s) (s.xtract + (s.in - s.out) * 8l * sizeof(uint32_t) )
+#define PSTREAM_BITS_AVAIL(s) (s->xtract + (s->in - s->out) * 8l * sizeof(uint32_t) )
 
 // size of stream buffer (in bits)
 #define STREAM_BUFFER_SIZE(s) ( (s.limit - s.first) * 8l * sizeof(uint32_t) )
+#define PSTREAM_BUFFER_SIZE(s) ( (s->limit - s->first) * 8l * sizeof(uint32_t) )
 
 // address of stream buffer
 #define STREAM_BUFFER_POINTER(s) s.first
+#define PSTREAM_BUFFER_POINTER(s) s->first
 
 // stream 
 // ===============================================================================================
