@@ -16,6 +16,49 @@
 //
 // set of macros and functions to manage insertion/extraction into/from a bit stream
 //
+// N.B. accumulator MUST be a 64 bit variable
+// initialize stream for insertion
+//   [L|B]E64_INSERT_BEGIN(accumulator, counter)
+//   [L|B]E64_STREAM_INSERT_BEGIN(stream)
+// insert the lower nbits bits from uint32 into accumulator, update counter, accumulator
+//   [L|B]E64_INSERT_NBITS(accumulator, counter, uint32, nbits)
+//   [L|B]E64_STREAM_INSERT_NBITS(stream, uint32, nbits)
+// check that 32 bits can be safely inserted into accumulator
+// if not possible, store lower 32 bits of accumulator into stream, update accumulator, counter, stream
+//   [L|B]E64_INSERT_CHECK(accumulator, counter, stream)
+//   [L|B]E64_STREAM_INSERT_CHECK(stream)
+// push data to stream without fully updating (accumulator, stream, counter)
+//   [L|B]E64_PUSH(accumulator, counter, stream)
+// store any residual data from accumulator into stream, update accumulator, counter, stream
+//   [L|B]E64_INSERT_FINAL(accumulator, counter, stream)
+//   [L|B]E64_STREAM_INSERT_FINAL(stream)
+// combined INSERT_CHECK and INSERT_NBITS, update accumulator, counter, stream
+//   [L|B]E64_PUT_NBITS(accumulator, counter, uint32, nbits, stream)
+//   [L|B]E64_STREAM_PUT_NBITS(stream, uint32, nbits)
+//
+// N.B. : if uint32 and accumulator are signed variables, the extract will produce a "signed" result
+//        if uint32 and accumulator are unsigned variables, the extract will produce an "unsigned" result
+// initialize stream for extraction
+//   [L|B]E64_XTRACT_BEGIN(accumulator, xtract, stream)
+//   [L|B]E64_STREAM_XTRACT_BEGIN(stream)
+// take a peek at nbits bits from accumulator into uint32
+//   [L|B]E64_PEEK_NBITS(accumulator, xtract, uint32, nbits)
+//   [L|B]E64_STREAM_PEEK_NBITS(stream, uint32, nbits)
+//   [L|B]E64_STREAM_PEEK_NBITS_S(stream, uint32, nbits)
+// extract nbits bits into uint32 from accumulator, update xtract, accumulator
+//   [L|B]E64_XTRACT_NBITS(accumulator, xtract, uint32, nbits)
+//   [L|B]E64_STREAM_XTRACT_NBITS(stream, uint32, nbits)
+// check that 32 bits can be safely extracted from accumulator
+// if not possible, get extra 32 bits into accumulator from stream, update accumulator, xtract, stream
+//   [L|B]E64_XTRACT_CHECK(accumulator, xtract, stream)
+//   [L|B]E64_STREAM_XTRACT_CHECK(stream)
+// finalize extraction, update accumulator, xtract
+//   [L|B]E64_XTRACT_FINAL(accumulator, xtract)
+//   [L|B]E64_STREAM_XTRACT_FINAL(stream)
+// combined XTRACT_CHECK and XTRACT_NBITS, update accumulator, xtract, stream
+//   [L|B]E64_GET_NBITS(accumulator, xtract, uint32, nbits, stream)
+//   [L|B]E64_STREAM_GET_NBITS(stream, uint32, nbits)
+//
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
