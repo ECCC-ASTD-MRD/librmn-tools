@@ -88,7 +88,9 @@ CT_ASSERT(sizeof(bitstream_state) == 40) ;
 // endianness
 #define STREAM_BE 1
 #define STREAM_LE 2
-#define STREAM_ENDIAN(s) (s).endian
+#define STREAM_ENDIANNESS(s) (s).endian
+#define STREAM_IS_BIG_ENDIAN(s) ( (s).endian == STREAM_BE )
+#define STREAM_IS_LITTLE_ENDIAN(s) ( (s).endian == STREAM_LE )
 
 // ===============================================================================================
 // is stream valid ?
@@ -106,7 +108,7 @@ static int StreamIsValid(bitstream *s){
 // get stream endianness, return 0 if invalid endianness
 // s [IN] : pointer to a bit stream struct
 static int StreamEndianness(bitstream *stream){
-  int endian = STREAM_ENDIAN( (*stream) ) ;
+  int endian = STREAM_ENDIANNESS( (*stream) ) ;
   return (endian != STREAM_BE && endian != STREAM_LE) ? 0 : endian ;
 }
 
@@ -367,10 +369,11 @@ STATIC inline int StreamModeCode(bitstream p){
 #define STREAM_GET_INSERT_STATE(s, acc, ind, ptr) uint64_t acc = (s).acc_i ; int32_t ind = (s).insert ; uint32_t *ptr = (s).in
 #define STREAM_SET_INSERT_STATE(s, acc, ind, ptr) (s).acc_i= acc ; (s).insert = ind ; (s).in = ptr
 
-// get/set stream extraction state
+// get/set stream extraction state (unsigned)
 #define STREAM_GET_XTRACT_STATE(s, acc, ind, ptr) uint64_t acc = (s).acc_x ; int32_t ind = (s).xtract ; uint32_t *ptr = (s).out
-#define STREAM_GET_XTRACT_STATE_S(s, acc, ind, ptr) int64_t acc = (int64_t)(s).acc_x ; int32_t ind = (s).xtract ; uint32_t *ptr = (s).out
 #define STREAM_SET_XTRACT_STATE(s, acc, ind, ptr) (s).acc_x= acc ; (s).xtract = ind ; (s).out = ptr
+// get stream extraction state (signed)
+#define STREAM_GET_XTRACT_STATE_S(s, acc, ind, ptr) int64_t acc = (int64_t)(s).acc_x ; int32_t ind = (s).xtract ; uint32_t *ptr = (s).out
 
 // stream 
 // ===============================================================================================

@@ -35,6 +35,7 @@ int  LeStreamInsert(bitstream *p, uint32_t *w32, int nbits, int nw){
   STREAM_GET_INSERT_STATE(*p, accum, insert, stream) ;
 
   if(insert < 0) return 0;      // ERROR: not in insert mode
+  if( ! STREAM_IS_LITTLE_ENDIAN(*p) ) return 0 ; // wrong endianness
 
   if(nbits <= 16) {       // process values two at a time
     uint32_t t, mask = RMASK32(nbits), nb = nbits + nbits ;
@@ -66,6 +67,7 @@ int  BeStreamInsert(bitstream *p, uint32_t *w32, int nbits, int nw){
   STREAM_GET_INSERT_STATE(*p, accum, insert, stream) ;
 
   if(insert < 0) return 0;      // ERROR: not in insert mode
+  if( ! STREAM_IS_BIG_ENDIAN(*p) ) return 0 ; // wrong endianness
 
   if(nbits <= 16) {       // process values two at a time
     uint32_t t, mask = RMASK32(nbits), nb = nbits + nbits ;
@@ -97,6 +99,7 @@ int  LeStreamXtract(bitstream *p, uint32_t *w32, int nbits, int n){
   STREAM_GET_XTRACT_STATE(*p, accum, xtract, stream) ;
 
   if(xtract < 0) return 0;      // ERROR: not in extract mode
+  if( ! STREAM_IS_LITTLE_ENDIAN(*p) ) return 0 ; // wrong endianness
 
   if(nbits <= 16) {       // process values two at a time
     uint32_t t, mask = RMASK32(nbits), nb = nbits + nbits ;
@@ -125,6 +128,7 @@ int  LeStreamXtractSigned(bitstream *p, int32_t *w32, int nbits, int n){
   STREAM_GET_XTRACT_STATE_S(*p, accum, xtract, stream) ;
 
   if(xtract < 0) return 0;      // ERROR: not in extract mode
+  if( ! STREAM_IS_LITTLE_ENDIAN(*p) ) return 0 ; // wrong endianness
 
   if(nbits <= 16) {       // process values two at a time
     int32_t t, nb = nbits + nbits ; // mask = RMASK32(nbits) ;
@@ -152,6 +156,7 @@ int  BeStreamXtract(bitstream *p, uint32_t *w32, int nbits, int n){
   STREAM_GET_XTRACT_STATE(*p, accum, xtract, stream) ;
 
   if(xtract < 0) return 0;      // ERROR: not in extract mode
+  if( ! STREAM_IS_BIG_ENDIAN(*p) ) return 0 ; // wrong endianness
 
   if(nbits <= 16) {       // process values two at a time
     uint32_t t, mask = RMASK32(nbits), nb = nbits + nbits ;
@@ -180,6 +185,7 @@ int  BeStreamXtractSigned(bitstream *p, int32_t *w32, int nbits, int n){
   STREAM_GET_XTRACT_STATE_S(*p, accum, xtract, stream) ;
 
   if(xtract < 0) return 0;      // ERROR: not in extract mode
+  if( ! STREAM_IS_BIG_ENDIAN(*p) ) return 0 ; // wrong endianness
 
   if(nbits <= 16) {       // process values two at a time
     int32_t t, nb = nbits + nbits ; //  mask = RMASK32(nbits) ;
@@ -209,6 +215,7 @@ int  LeStreamInsertM(bitstream *p, uint32_t *w32, int *nbits, int *n){
   STREAM_GET_INSERT_STATE(*p, accum, insert, stream) ;
 
   if(insert < 0) return 0;      // ERROR: not in insert mode
+  if( ! STREAM_IS_LITTLE_ENDIAN(*p) ) return 0 ; // wrong endianness
 
   while(n[0] > 0 ){     // loop until end of list (non positive value)
     nw += n[0] ;
@@ -235,6 +242,7 @@ int  BeStreamInsertM(bitstream *p, uint32_t *w32, int *nbits, int *n){
   STREAM_GET_INSERT_STATE(*p, accum, insert, stream) ;
 
   if(insert < 0) return 0;      // ERROR: not in insert mode
+  if( ! STREAM_IS_BIG_ENDIAN(*p) ) return 0 ; // wrong endianness
 
   while(n[0] > 0 ){     // loop until end of list (non positive value)
     nw += n[0] ;
@@ -261,6 +269,7 @@ int  LeStreamXtractM(bitstream *p, uint32_t *w32, int *nbits, int *n){
   STREAM_GET_XTRACT_STATE(*p, accum, xtract, stream) ;
 
   if(xtract < 0) return 0;      // ERROR: not in extract mode
+  if( ! STREAM_IS_LITTLE_ENDIAN(*p) ) return 0 ; // wrong endianness
 
   while(n[0] > 0 ){     // loop until end of list (non positive value)
     nw += n[0] ;
@@ -286,6 +295,7 @@ int  BeStreamXtractM(bitstream *p, uint32_t *w32, int *nbits, int *n){
   STREAM_GET_XTRACT_STATE(*p, accum, xtract, stream) ;
 
   if(xtract < 0) return 0;      // ERROR: not in extract mode
+  if( ! STREAM_IS_BIG_ENDIAN(*p) ) return 0 ; // wrong endianness
 
   while(n[0] > 0 ){     // loop until end of list (non positive value)
     nw += n[0] ;

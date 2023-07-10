@@ -103,6 +103,11 @@ int main(int argc, char **argv){
   for(i=0 ; i<NPTS ; i++) packedle[i] = 0xFFFFFFFFu ; 
   LeStreamInit(&ple, packedle, sizeof(packedle), 0) ;  // force read-write stream mode
   print_stream_params(ple, "Init Le Stream", "ReadWrite") ;
+  if(STREAM_IS_LITTLE_ENDIAN(ple)) {
+    TEE_FPRINTF(stderr,2, "stream ple is little endian as expected\n") ;
+  } else {
+    exit(1) ;
+  }
 
   LE64_STREAM_INSERT_BEGIN(ple) ;                      // this should force insert (write) mode
   print_stream_params(ple, "LE64_STREAM_INSERT_BEGIN", "ReadWrite") ;
@@ -122,8 +127,14 @@ int main(int argc, char **argv){
   LeStreamXtract(&ple, restored, nbits, NPTS) ;
   TEE_FPRINTF(stderr,2, "restoredle %2d bits: ", nbits) ; for(i=0 ; i<NPTS2 ; i++) TEE_FPRINTF(stderr,2, "%8.8x ", restored[i]); TEE_FPRINTF(stderr,2, "\n") ;
 
+  TEE_FPRINTF(stderr,2, "\n") ;
   // insert in Big Endian mode (unsigned)
   BeStreamInit(&pbe, packedbe, sizeof(packedbe), BIT_INSERT_MODE) ;
+  if(STREAM_IS_BIG_ENDIAN(pbe)) {
+    TEE_FPRINTF(stderr,2, "stream pbe is big endian as expected\n") ;
+  } else {
+    exit(1) ;
+  }
   print_stream_params(pbe, "Be stream in write mode", "Write") ;
 
   BE64_STREAM_INSERT_BEGIN(pbe) ;
