@@ -21,14 +21,14 @@ module lorenzo_mod
     ! the C version using SIMD is faster that the Fortran version
     ! 3 point Lorenzo predictor (forward derivative)
     ! upon exit, diff contains original value - predicted value
-    subroutine lorenzopredict(orig, diff, ni, lnio, lnid, nj) bind(C,name='LorenzoPredict_c')
+    subroutine lorenzopredict(orig, diff, ni, lnio, lnid, nj) bind(C,name='LorenzoPredict')
       import :: C_INT32_T
       implicit none
       integer(C_INT32_T), intent(IN), value :: ni, lnio, lnid, nj
       integer(C_INT32_T), dimension(lnio,nj), intent(IN)  :: orig
       integer(C_INT32_T), dimension(lnid,nj), intent(OUT) :: diff
     end subroutine lorenzopredict
-    subroutine lorenzopredict_c(orig, diff, ni, lnio, lnid, nj) bind(C,name='LorenzoPredict_c')
+    subroutine lorenzopredict_c(orig, diff, ni, lnio, lnid, nj) bind(C,name='LorenzoPredict')
       import :: C_INT32_T
       implicit none
       integer(C_INT32_T), intent(IN), value :: ni, lnio, lnid, nj
@@ -37,27 +37,27 @@ module lorenzo_mod
     end subroutine lorenzopredict_c
 
     ! the C version using SIMD is faster that the Fortran version
-    subroutine lorenzopredictinplace(f, ni, lni, nj) bind(C,name='LorenzoPredictInplace_c')
+    subroutine lorenzopredictinplace(f, ni, lni, nj) bind(C,name='LorenzoPredictInplace')
       import :: C_INT32_T
       implicit none
       integer(C_INT32_T), intent(IN), value :: ni, lni, nj
       integer(C_INT32_T), dimension(lni,nj), intent(IN)  :: f
     end subroutine lorenzopredictinplace
-    subroutine lorenzopredictinplace_c(f, ni, lni, nj) bind(C,name='LorenzoPredictInplace_c')
+    subroutine lorenzopredictinplace_c(f, ni, lni, nj) bind(C,name='LorenzoPredictInplace')
       import :: C_INT32_T
       implicit none
       integer(C_INT32_T), intent(IN), value :: ni, lni, nj
       integer(C_INT32_T), dimension(lni,nj), intent(IN)  :: f
     end subroutine lorenzopredictinplace_c
 
-    subroutine lorenzounpredict(orig, diff, ni, lnio, lnid, nj) bind(C,name='LorenzoUnpredict_c')
+    subroutine lorenzounpredict(orig, diff, ni, lnio, lnid, nj) bind(C,name='LorenzoUnpredict')
       import :: C_INT32_T
       implicit none
       integer(C_INT32_T), intent(IN), value :: ni, lnio, lnid, nj
       integer(C_INT32_T), dimension(lnio,nj), intent(OUT)  :: orig
       integer(C_INT32_T), dimension(lnid,nj), intent(IN) :: diff
     end subroutine lorenzounpredict
-    subroutine lorenzounpredict_c(orig, diff, ni, lnio, lnid, nj) bind(C,name='LorenzoUnpredict_c')
+    subroutine lorenzounpredict_c(orig, diff, ni, lnio, lnid, nj) bind(C,name='LorenzoUnpredict')
       import :: C_INT32_T
       implicit none
       integer(C_INT32_T), intent(IN), value :: ni, lnio, lnid, nj
@@ -65,13 +65,13 @@ module lorenzo_mod
       integer(C_INT32_T), dimension(lnid,nj), intent(IN) :: diff
     end subroutine lorenzounpredict_c
 
-    subroutine lorenzounpredictinplace(orig, ni, lnio, nj) bind(C,name='LorenzoUnpredictInplace_c')
+    subroutine lorenzounpredictinplace(orig, ni, lnio, nj) bind(C,name='LorenzoUnpredictInplace')
       import :: C_INT32_T
       implicit none
       integer(C_INT32_T), intent(IN), value :: ni, lnio, nj
       integer(C_INT32_T), dimension(lnio,nj), intent(INOUT)  :: orig
     end subroutine lorenzounpredictinplace
-    subroutine lorenzounpredictinplace_c(orig, ni, lnio, nj) bind(C,name='LorenzoUnpredictInplace_c')
+    subroutine lorenzounpredictinplace_c(orig, ni, lnio, nj) bind(C,name='LorenzoUnpredictInplace')
       import :: C_INT32_T
       implicit none
       integer(C_INT32_T), intent(IN), value :: ni, lnio, nj

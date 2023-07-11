@@ -41,9 +41,9 @@ int main(int argc, char **argv){
     }
   }
 
-  LorenzoPredict_c(&data[0][0], &pred[0][0], NPTS, NPTS, NPTS, NPTS) ;
+  LorenzoPredict(&data[0][0], &pred[0][0], NPTS, NPTS, NPTS, NPTS) ;
   for(i=0 ; i<8 ; i++) fprintf(stderr, "%d ",pred[NPTS][i]); fprintf(stderr, "\n");
-  LorenzoUnpredict_c(&data2[0][0], &pred[0][0], NPTS, NPTS, NPTS, NPTS) ;
+  LorenzoUnpredict(&data2[0][0], &pred[0][0], NPTS, NPTS, NPTS, NPTS) ;
   for(i=0 ; i<8 ; i++) fprintf(stderr, "%d ",data2[NPTS][i]); fprintf(stderr, "\n");
   errors = 0 ;
   for(j=0 ; j<NPTS ; j++){
@@ -51,11 +51,11 @@ int main(int argc, char **argv){
       if(data2[j][i] != (2*i + 3*j + 5) ) errors++;
     }
   }
-  fprintf(stderr, "LorenzoUnpredict_c    : errors = %d\n\n",errors);
+  fprintf(stderr, "LorenzoUnpredict    : errors = %d\n\n",errors);
 
-  LorenzoPredict_c(&data[0][0], &pred[0][0], NPTS, NPTS, NPTS, NPTS) ;
+  LorenzoPredict(&data[0][0], &pred[0][0], NPTS, NPTS, NPTS, NPTS) ;
   for(i=0 ; i<8 ; i++) fprintf(stderr, "%d ",pred[NPTS][i]); fprintf(stderr, "\n");
-  LorenzoUnpredict_c(&data2[0][0], &pred[0][0], NPTS, NPTS, NPTS, NPTS) ;
+  LorenzoUnpredict(&data2[0][0], &pred[0][0], NPTS, NPTS, NPTS, NPTS) ;
   for(i=0 ; i<8 ; i++) fprintf(stderr, "%d ",data2[NPTS][i]); fprintf(stderr, "\n");
   errors = 0 ;
   for(j=0 ; j<NPTS ; j++){
@@ -63,12 +63,12 @@ int main(int argc, char **argv){
       if(data2[j][i] != (2*i + 3*j + 5) ) errors++;
     }
   }
-  fprintf(stderr, "LorenzoUnpredict_c_   : errors = %d\n\n",errors);
+  fprintf(stderr, "LorenzoUnpredict_   : errors = %d\n\n",errors);
 
 //   LorenzoPredictShort(&data[0][0], &pred2[0][0], NPTS, NPTS, NPTS, NPTS) ;
 //   for(i=0 ; i<8 ; i++) fprintf(stderr, "%d ",pred2[NPTS][i]); fprintf(stderr, "\n");
 //   for(j=0 ; j<NPTS+1 ; j++) for(i=0 ; i<NPTS ; i++) data2[j][i] = 999999 ;
-//   LorenzoUnpredict_c(&data2[0][0], &pred2[0][0], NPTS, NPTS, NPTS, NPTS) ;
+//   LorenzoUnpredict(&data2[0][0], &pred2[0][0], NPTS, NPTS, NPTS, NPTS) ;
 //   for(i=0 ; i<8 ; i++) fprintf(stderr, "%d ",data2[NPTS][i]); fprintf(stderr, "\n");
 //   errors = 0 ;
 //   for(j=0 ; j<NPTS ; j++){
@@ -76,19 +76,19 @@ int main(int argc, char **argv){
 //       if(data2[j][i] != (2*i + 3*j + 5) ) errors++;
 //     }
 //   }
-//   fprintf(stderr, "LorenzoPredict_c_S  : errors = %d\n\n",errors);
+//   fprintf(stderr, "LorenzoPredict_S  : errors = %d\n\n",errors);
 
-  TIME_LOOP(tmin, tmax, tavg, NTIMES, (NPTS*NPTS), buf, bufsiz, LorenzoPredict_c(&data[0][0], &pred[0][0], NPTS, NPTS, NPTS, NPTS) )
-  fprintf(stderr, "LorenzoPredict_c    : %s\n",buf);
+  TIME_LOOP(tmin, tmax, tavg, NTIMES, (NPTS*NPTS), buf, bufsiz, LorenzoPredict(&data[0][0], &pred[0][0], NPTS, NPTS, NPTS, NPTS) )
+  fprintf(stderr, "LorenzoPredict    : %s\n",buf);
 
 //   TIME_LOOP(tmin, tmax, tavg, NTIMES, (NPTS*NPTS), buf, bufsiz, LorenzoPredictShort(&data[0][0], &pred[0][0], NPTS, NPTS, NPTS, NPTS) )
-//   fprintf(stderr, "LorenzoPredict_c_S  : %s\n",buf);
+//   fprintf(stderr, "LorenzoPredict_S  : %s\n",buf);
 
-  TIME_LOOP(tmin, tmax, tavg, NTIMES, (NPTS*NPTS), buf, bufsiz, LorenzoUnpredict_c(&data[0][0], &pred[0][0], NPTS, NPTS, NPTS, NPTS) )
-  fprintf(stderr, "LorenzoUnpredict_c  : %s\n",buf);
+  TIME_LOOP(tmin, tmax, tavg, NTIMES, (NPTS*NPTS), buf, bufsiz, LorenzoUnpredict(&data[0][0], &pred[0][0], NPTS, NPTS, NPTS, NPTS) )
+  fprintf(stderr, "LorenzoUnpredict  : %s\n",buf);
 
-  TIME_LOOP(tmin, tmax, tavg, NTIMES, (NPTS*NPTS), buf, bufsiz, LorenzoUnpredict_c(&data[0][0], &pred[0][0], NPTS, NPTS, NPTS, NPTS) )
-  fprintf(stderr, "LorenzoUnpredict_c_ : %s\n",buf);
+  TIME_LOOP(tmin, tmax, tavg, NTIMES, (NPTS*NPTS), buf, bufsiz, LorenzoUnpredict(&data[0][0], &pred[0][0], NPTS, NPTS, NPTS, NPTS) )
+  fprintf(stderr, "LorenzoUnpredict_ : %s\n",buf);
 
   if(tmax == 0) fprintf(stderr, "tmax == 0, should not happen\n") ;
 }

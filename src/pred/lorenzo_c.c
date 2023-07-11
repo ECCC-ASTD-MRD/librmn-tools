@@ -276,7 +276,7 @@ STATIC inline void LorenzoPredictRowJ_inplace(int32_t * restrict top, int32_t * 
 // nj   : number of rows
 // the SIMD version tends to be 1.5-4 times faster than the non SIMD version
 // non SIMD version : Fortran anc C performances roughly equivalent (Fortran slightly faster with some compilers)
-void LorenzoPredict_c(int32_t * restrict orig, int32_t * restrict diff, int ni, int lnio, int lnid, int nj){
+void LorenzoPredict(int32_t * restrict orig, int32_t * restrict diff, int ni, int lnio, int lnid, int nj){
   if(ni < 9){             // less than 9 points, SIMD version will not give correct results
     LorenzoPredictShort(orig, diff, ni, lnio, lnid, nj) ;
     return ;
@@ -291,7 +291,7 @@ void LorenzoPredict_c(int32_t * restrict orig, int32_t * restrict diff, int ni, 
 
 // in place version of above function
 // in order to operate in place, prediction is done backwards from top row to bottom row
-void LorenzoPredictInplace_c(int32_t * restrict orig, int ni, int lnio, int nj){
+void LorenzoPredictInplace(int32_t * restrict orig, int ni, int lnio, int nj){
 //   int32_t diff[ni] ;
   orig += (lnio * (nj - 1)) ;
   while(--nj > 0){                                    // all rows other than bottom row
@@ -331,7 +331,7 @@ void LorenzoPredictInplace_c(int32_t * restrict orig, int ni, int lnio, int nj){
 //   }
 // }
 
-void LorenzoUnpredict_c(int32_t * restrict orig, int32_t * restrict diff, int ni, int lnio, int lnid, int nj){
+void LorenzoUnpredict(int32_t * restrict orig, int32_t * restrict diff, int ni, int lnio, int lnid, int nj){
   int i ;
   int32_t *top, *bot ;
   int32_t d00, d01, d10, d11 ;
@@ -372,7 +372,7 @@ void LorenzoUnpredict_c(int32_t * restrict orig, int32_t * restrict diff, int ni
 //   }
 // }
 
-void LorenzoUnpredictInplace_c(int32_t *orig, int ni, int lnio, int nj){
+void LorenzoUnpredictInplace(int32_t *orig, int ni, int lnio, int nj){
   int i ;
   int32_t *top, *bot ;
   int32_t d00, d01, d10, d11 ;
