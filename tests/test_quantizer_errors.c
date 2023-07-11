@@ -11,16 +11,7 @@
 #include <rmn/ieee_quantize.h>
 #include <rmn/compress_data.h>
 #include <rmn/compress_data.h>
-
-typedef struct{
-  int ndata ;         // numbre of data points involved
-  float bias ;        // running sum of differences between float arrays
-  float abs_error ;   // running sum of absolute differences between float arrays
-  float max_error ;   // largest absolute difference
-  double sum ;
-} error_stats ;
-int update_error_stats(float *fref, float *fnew, int nd, error_stats *e);
-int float_array_differences(float *fref, float *fnew, int nr, int lref, int lnew, int nj, error_stats *e);
+#include <rmn/eval_diff.h>
 
 void process_data_2d(void *buf, int ni, int nj, error_stats *e, char *name){
   float *f = (float *) buf ;

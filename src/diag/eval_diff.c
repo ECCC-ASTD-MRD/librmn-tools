@@ -13,14 +13,15 @@
 //
 
 #include <rmn/misc_operators.h>
+#include <rmn/eval_diff.h>
 
-typedef struct{
-  int ndata ;         // numbre of data points involved
-  float bias ;        // running sum of differences between float arrays
-  float abs_error ;   // running sum of absolute differences between float arrays
-  float max_error ;   // largest absolute difference
-  double sum ;
-} error_stats ;
+// typedef struct{
+//   int ndata ;         // numbre of data points involved
+//   float bias ;        // running sum of differences between float arrays
+//   float abs_error ;   // running sum of absolute differences between float arrays
+//   float max_error ;   // largest absolute difference
+//   double sum ;        // running sum for reference array
+// } error_stats ;
 
 // update error statistics structure
 // fref   : reference float array
