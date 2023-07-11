@@ -261,14 +261,16 @@ set(PROJECT_H_FILES
   src/PUBLIC_INCLUDES/rmn/tools_plugins.h
   src/PUBLIC_INCLUDES/rmn/tools_plugins.hf
   src/PUBLIC_INCLUDES/rmn/misc_pack.h
+  src/PUBLIC_INCLUDES/rmn/misc_pack.hf
   src/PUBLIC_INCLUDES/rmn/compress_data.h
   src/PUBLIC_INCLUDES/rmn/tile_encoders.h
-  src/PUBLIC_INCLUDES/rmn/misc_pack.hf
   src/PUBLIC_INCLUDES/rmn/misc_analyze.h
   src/PUBLIC_INCLUDES/rmn/ieee_quantize.h
   src/PUBLIC_INCLUDES/rmn/c_record_ioe.h
   src/PUBLIC_INCLUDES/rmn/serialized_functions.h
   src/PUBLIC_INCLUDES/rmn/c_binding_extras.hf
+  src/PUBLIC_INCLUDES/rmn/misc_operators.h
+  src/PUBLIC_INCLUDES/rmn/eval_diff.h
 )
 
 set(PROJECT_INCLUDES
