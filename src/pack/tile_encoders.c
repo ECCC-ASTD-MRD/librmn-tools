@@ -21,15 +21,17 @@
 
 // internal use for debug purposes
 static void print_stream_params(bitstream s, char *msg, char *expected_mode){
-  fprintf(stderr, "%s: filled = %d(%d), free= %d, first/in/out = %p/%p/%p [%ld], insert/xtract = %d/%d, in = %ld, out = %ld \n",
+  fprintf(stderr, "%s: used = %d(%d), free= %d, first/in/out = %p/%p/%p [%ld], insert/xtract = %d/%d, in = %ld, out = %ld, ",
     msg, StreamAvailableBits(&s), StreamStrictAvailableBits(&s), StreamAvailableSpace(&s), 
     s.first, s.out, s.in, s.in-s.out, s.insert, s.xtract, s.in-s.first, s.out-s.first ) ;
   if(expected_mode){
-    fprintf(stderr, "Stream mode = %s(%d) (%s expected)\n", StreamMode(s), StreamModeCode(s), expected_mode) ;
+    fprintf(stderr, "mode = %s(%d) (%s expected)\n", StreamMode(s), StreamModeCode(s), expected_mode) ;
     if(strcmp(StreamMode(s), expected_mode) != 0) { 
-      fprintf(stderr, "Bad mode, exiting\n") ;
+      fprintf(stderr, "Wrong mode, exiting\n") ;
       exit(1) ;
     }
+  }else{
+    fprintf(stderr, "mode = %s(%d)\n", StreamMode(s), StreamModeCode(s)) ;
   }
 }
 
@@ -154,7 +156,8 @@ static uint64_t encode_tile_properties_c(void *f, int ni, int lni, int nj, uint3
   if(max == min) goto constant ;             // same value for entire tile (zero or nonzero)
 
   nbits = 32 - lzcnt_32(max) ;               // max controls nbits (if vmax is 0, nbits will be 0)
-  if( (32 - (lzcnt_32(max-min)) < nbits) || 1 ){   // we gain one bit if subtracting the minimum value
+//   if( (32 - (lzcnt_32(max-min)) < nbits) || 1 ){   // we gain one bit if subtracting the minimum value
+  if( (32 - (lzcnt_32(max-min)) < nbits) ){  // we gain one bit if subtracting the minimum value
     max = max - min ;
     for(i=0 ; i<nij ; i++) tile[i] -= min ;
     p.t.h.min0 = 1 ;                         // min will be used
@@ -232,15 +235,15 @@ uint64_t encode_tile_properties(void *f, int ni, int lni, int nj, uint32_t tile[
   v6 = _mm256_loadu_si256((__m256i *)(block)) ; block += lni ;
   v7 = _mm256_loadu_si256((__m256i *)(block)) ;
 
-  vn = _mm256_and_si256(v0, v1) ; vp = _mm256_or_si256(v0, v1) ;  // "and" for negative, "and not" for non negative
+  vn = _mm256_and_si256(v0, v1) ; vp = _mm256_or_si256(v0, v1) ;  // "and" for negative, "or" for non negative
   vn = _mm256_and_si256(vn, v2) ; vp = _mm256_or_si256(vp, v2) ;
   vn = _mm256_and_si256(vn, v3) ; vp = _mm256_or_si256(vp, v3) ;
   vn = _mm256_and_si256(vn, v4) ; vp = _mm256_or_si256(vp, v4) ;
   vn = _mm256_and_si256(vn, v5) ; vp = _mm256_or_si256(vp, v5) ;
   vn = _mm256_and_si256(vn, v6) ; vp = _mm256_or_si256(vp, v6) ;
   vn = _mm256_and_si256(vn, v7) ; vp = _mm256_or_si256(vp, v7) ;
-  pos = (_mm256_movemask_ps((__m256) vp) == 0x00) ? 1 : 0 ;           // check that all MSB bits are on 
-  neg = (_mm256_movemask_ps((__m256) vn) == 0xFF) ? 1 : 0 ;
+  pos = (_mm256_movemask_ps((__m256) vp) == 0x00) ? 1 : 0 ;       // check that all MSB bits are off (no negative value)
+  neg = (_mm256_movemask_ps((__m256) vn) == 0xFF) ? 1 : 0 ;       // check that all MSB bits are on (all values negative)
 
   v0 = _mm256_xor_si256( _mm256_add_epi32(v0, v0) , _mm256_srai_epi32(v0, 31) ) ;  // convert to ZigZag
   v1 = _mm256_xor_si256( _mm256_add_epi32(v1, v1) , _mm256_srai_epi32(v1, 31) ) ;
@@ -271,12 +274,11 @@ uint64_t encode_tile_properties(void *f, int ni, int lni, int nj, uint32_t tile[
   _mm_storeu_si32(&max, v128) ;
 
   if(max == min) goto constant;   // constant field
-  // subtract min from max and vo -> v7
-  // set  min0 to 1
   nbits = 32 - lzcnt_32(max) ;
-  if( (32 - (lzcnt_32(max-min)) < nbits) || 1 ){   // we gain one bit if subtracting the minimum value
+//   if( (32 - (lzcnt_32(max-min)) < nbits) || 1 ){   // we gain one bit if subtracting the minimum value
+  if( (32 - (lzcnt_32(max-min)) < nbits) ){   // we gain one bit if subtracting the minimum value
     max = max - min ;
-    v0 = _mm256_sub_epi32(v0, vmin) ;
+    v0 = _mm256_sub_epi32(v0, vmin) ; // subtract min from max and vo -> v7
     v1 = _mm256_sub_epi32(v1, vmin) ;
     v2 = _mm256_sub_epi32(v2, vmin) ;
     v3 = _mm256_sub_epi32(v3, vmin) ;
@@ -418,7 +420,7 @@ int32_t encode_contiguous(uint64_t tp64, bitstream *s, uint32_t tile[64]){
   // will have to insert both number of bits and value
   if(p.t.h.min0){                                        // store nbitsm -1 into bit stream
     nbitsm = 32 - lzcnt_32(min) ;
-    BE64_PUT_NBITS(accum, insert, nbitsm-1, 5, stream) ; // insert number of bits for min value (5 bits)
+    BE64_PUT_NBITS(accum, insert, nbitsm-1, 5, stream) ; // insert number of bits -1 for min value (5 bits)
     BE64_PUT_NBITS(accum, insert, min, nbitsm, stream) ; // insert minimum value (nbitsm bits)
     nbtot += (nbitsm+5) ;
   }
