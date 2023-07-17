@@ -2,7 +2,8 @@
 
 !=========================== UNUSED CODE ===========================
 #if 0
-module analyze_data_mod
+! following line commented because of undesirable behavior with cmake+make (O.K. with cmake+ninja)
+! module analyze_data_mod
   use ISO_C_BINDING
   implicit none
 #include <rmn/misc_pack.hf>
