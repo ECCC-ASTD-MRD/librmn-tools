@@ -17,10 +17,10 @@
 
 
 typedef struct{
-  int ndata ;         // numbre of data points involved
-  float bias ;        // running sum of differences between float arrays
-  float abs_error ;   // running sum of absolute differences between float arrays
+  int ndata ;         // number of data points involved
   float max_error ;   // largest absolute difference
+  double bias ;       // running sum of differences between float arrays
+  double abs_error ;  // running sum of absolute differences between float arrays
   double sum ;        // running sum for reference array
 } error_stats ;
 

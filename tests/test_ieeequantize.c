@@ -101,7 +101,7 @@ int main(int argc, char **argv){
   for(i=0 ; i<NPTS ; i++) fprintf(stderr, " %5.2f", ABS(fo[i]-fi[i])) ; fprintf(stderr, "\n") ;
 
 // ============================ TIMINGS (type 1) ============================
-#if 0
+#if 1
   fprintf(stderr, "\n=============== TIMINGS (type 1) ==============\n") ;
   for(i=0 ; i<NPTST ; i++) fi[i] = i + .0001f ;
   TIME_LOOP_EZ(1000, NPTST, h64 = IEEE32_linear_quantize_1(fi, NPTST, 16, .1f, qu)) ;
@@ -125,7 +125,7 @@ int main(int argc, char **argv){
   h64 = IEEE32_linear_quantize_1(fi, NPTST/8, 16, .1f, qu) ;
   TIME_LOOP_EZ(1000, NPTST/8, IEEE32_linear_unquantize_1(qu, h64, NPTST/8, fo) ;) ;
   fprintf(stderr, "IEEE32_linear_unquantize_1  : %s\n",timer_msg);
-return 0 ;
+// return 0 ;
 #endif
 // ============================ NOT IN PLACE TESTS (type 0) ============================
   fprintf(stderr, "\n=============== NOT IN PLACE (type 0) ==============\n") ;

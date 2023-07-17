@@ -15,22 +15,14 @@
 #include <rmn/misc_operators.h>
 #include <rmn/eval_diff.h>
 
-// typedef struct{
-//   int ndata ;         // numbre of data points involved
-//   float bias ;        // running sum of differences between float arrays
-//   float abs_error ;   // running sum of absolute differences between float arrays
-//   float max_error ;   // largest absolute difference
-//   double sum ;        // running sum for reference array
-// } error_stats ;
-
-// update error statistics structure
+// update error statistics structure with differences between arrays fref and fnew
 // fref   : reference float array
 // fnew   : array for which difference analysis is performed
 // nd     : number of values to be added to statistics
 // e      : error statistics structure
 int update_error_stats(float *fref, float *fnew, int nd, error_stats *e){
-  float bias = 0.0f ;
-  float abs_error = 0.0f ;
+  double bias = 0.0 ;
+  double abs_error = 0.0 ;
   float max_error = 0.0f ;
   float temp ;
   int i ;
@@ -38,10 +30,10 @@ int update_error_stats(float *fref, float *fnew, int nd, error_stats *e){
 
   if(nd <= 0){
     e->ndata = 0 ;
-    e->bias = 0.0f ;
-    e->abs_error = 0.0f ;
+    e->bias = 0.0 ;
+    e->abs_error = 0.0 ;
     e->max_error = 0.0f ;
-    e->sum = 0.0f ;
+    e->sum = 0.0 ;
   }
   nd = (nd < 0) ? -nd : nd ;
   for(i=0 ; i<nd ; i++){

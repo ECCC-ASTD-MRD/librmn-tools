@@ -100,14 +100,14 @@ typedef union{
 CT_ASSERT(8 == sizeof(tile_properties))
 
 // uint64_t encode_tile_scheme(uint64_t p64);
-uint64_t encode_tile_properties(void *f, int ni, int lni, int nj, uint32_t tile[64]);
+uint64_t encode_tile_properties(void *field, int ni, int lni, int nj, uint32_t tile[64]);
 void print_tile_properties(uint64_t p64);
 
-int32_t encode_tile(void *f, int ni, int lni, int nj, bitstream *s, uint32_t tile[64]);
-int32_t encode_contiguous(uint64_t tp64, bitstream *s, uint32_t tile[64]);
-int32_t encode_as_tiles(void *f, int ni, int lni, int nj, bitstream *s);
+int32_t encode_tile(void *field, int ni, int lni, int nj, bitstream *stream, uint32_t tile[64]);
+int32_t encode_contiguous(uint64_t tp64, bitstream *stream, uint32_t tile[64]);
+int32_t encode_as_tiles(void *field, int ni, int lni, int nj, bitstream *stream);
 
-int32_t decode_tile(void *f, int *ni, int lni, int *nj, bitstream *stream);
-int32_t decode_as_tiles(void *f, int ni, int lni, int nj, bitstream *s);
+int32_t decode_tile(void *field, int *ni, int lni, int *nj, bitstream *stream);
+int32_t decode_as_tiles(void *field, int ni, int lni, int nj, bitstream *stream);
 
 #endif

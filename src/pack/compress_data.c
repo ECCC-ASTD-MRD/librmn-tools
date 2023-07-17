@@ -15,6 +15,7 @@
 #include <stdio.h>
 #include <rmn/compress_data.h>
 
+// Fortran style indexing (column major)
 #define INDEX2D_C(array, col, lrow, row) ((array) + (col) + (row)*(lrow))
 
 /*
@@ -149,6 +150,10 @@
   <-- 16 bits -->
   (see tile_encoders.h for encoding tile layout)
 */
+
+// compress a 2D block as tiles into bit stream using compress rules
+void compress_2d_block(void *data, int lni, int ni, int nj, compress_rules r, bitstream *stream){
+}
 
 bitstream *compress_2d_chunk(void *data, int lni, int ni, int nj, compress_rules r){
 //   bitstream *t ;

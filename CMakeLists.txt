@@ -143,7 +143,7 @@ if(WITH_OPENMP)
   set(M_OPENMP -mp)
 endif()
 
-set(Intel_FFLAGS -convert big_endian -align array32byte -assume byterecl -march=skylake -diag-disable=5268,10121,7025,7028,7416,6477,8291 ${Q_OPENMP})
+set(Intel_FFLAGS -convert big_endian -align array32byte -assume byterecl -march=skylake -diag-disable=10441,5268,10121,7025,7028,7416,6477,8291 ${Q_OPENMP})
 set(IntelLLVM_FFLAGS -convert big_endian -align array32byte -assume byterecl -march=skylake ${Q_OPENMP})
 set(GNU_FFLAGS -fconvert=big-endian -fcray-pointer -frecord-marker=4 -fno-second-underscore ${F_OPENMP} -ldl -pthread)
 set(Flang_FFLAGS -Mbyteswapio ${F_OPENMP})
@@ -187,10 +187,14 @@ endfunction()
 
 # ======================== PROJECT FILES ======================
 # generate c_binding_extras.hf using program tools/c_binding_extras.c
+# ger rid of icc message about switching to icx
+if( ${CMAKE_C_COMPILER} MATCHES  "/icc" )
+  set(C_10441 -diag-disable=10441)
+endif()
 add_custom_command(
     OUTPUT ${CMAKE_CURRENT_SOURCE_DIR}/src/PUBLIC_INCLUDES/c_binding_extras.hf
     PRE_BUILD
-    COMMAND ${CMAKE_C_COMPILER} ${CMAKE_CURRENT_SOURCE_DIR}/tools/c_binding_extras.c -o ${CMAKE_CURRENT_BINARY_DIR}/c_binding_extras.exe
+    COMMAND ${CMAKE_C_COMPILER} ${C_10441} ${CMAKE_CURRENT_SOURCE_DIR}/tools/c_binding_extras.c -o ${CMAKE_CURRENT_BINARY_DIR}/c_binding_extras.exe
     COMMAND ${CMAKE_CURRENT_BINARY_DIR}/c_binding_extras.exe >${CMAKE_CURRENT_SOURCE_DIR}/src/PUBLIC_INCLUDES/rmn/c_binding_extras.hf
     COMMAND rm -f ${CMAKE_CURRENT_BINARY_DIR}/c_binding_extras.exe
     COMMENT "c_binding_extras.hf"

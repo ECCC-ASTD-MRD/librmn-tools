@@ -1,4 +1,4 @@
-#if ! defined(CHUNK_I) && ! defined(BLK_I)
+#if ! defined(CHUNK_I) && ! defined(CHUNK_J) && ! defined(BLK_I) && ! defined(BLK_J)
 
 #include <rmn/bi_endian_pack.h>
 #include <rmn/tile_encoders.h>
@@ -101,7 +101,8 @@ typedef struct{
   uint32_t *data ;            // pointer to data
 }compressed_field ;
 
-bitstream *compress_2d_chunk(void *data, int lni, int ni, int nj, compress_rules r);
-compressed_field compress_2d_data(void *data, int lni, int ni, int nj, compress_rules r);
+void compress_2d_block(void *data, int lni, int ni, int nj, compress_rules rules, bitstream *stream);
+bitstream *compress_2d_chunk(void *data, int lni, int ni, int nj, compress_rules rules);
+compressed_field compress_2d_data(void *data, int lni, int ni, int nj, compress_rules rules);
 
 #endif
