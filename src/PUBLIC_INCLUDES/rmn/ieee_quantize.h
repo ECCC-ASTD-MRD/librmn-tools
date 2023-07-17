@@ -42,8 +42,30 @@ typedef struct{
   uint32_t limit ;   // maximum absolute value possible
 } qhead ;            // quantization information header
 
+typedef struct{
+  uint32_t maxa ;   // IEEE32 bit pattern of largest absolute value
+  uint32_t mina ;   // IEEE32 bit pattern of smallest absolute value
+  int32_t  maxs ;   // IEEE32 bit pattern of highest signed value
+  int32_t  mins ;   // IEEE32 bit pattern of lowest signed value
+}limits_i ;
+
+typedef struct{
+  float maxa ;      // IEEE32 bit pattern of largest absolute value
+  float mina ;      // IEEE32 bit pattern of smallest absolute value
+  float maxs ;      // IEEE32 bit pattern of highest signed value
+  float mins ;      // IEEE32 bit pattern of lowest signed value
+}limits_f ;
+
+typedef union{
+  limits_i i ;
+  limits_f f ;
+} limits_32 ;
+
+void int32_extrema(void * restrict f, int np, limits_32 *l);
+
 float quantum_adjust(float quantum);
 
+void IEEE32_extrema(void * restrict f, int np, limits_32 *extrema);
 uint64_t IEEE32_limits(void * restrict f, int np);
 void IEEE32_exp_limits(uint64_t u64, int *emin, int *emax);
 

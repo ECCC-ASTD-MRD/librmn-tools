@@ -87,8 +87,63 @@ typedef union{    // the union allows to transfer the whole 64 bit contents in o
   uint32_t  w[2]  ;  // access via 2 32 bit unsigned ints for packing headers
 } ieee32_props ;
 
+// get integer 32 extrema (signed and absolute value)
+// f     [IN]  32 bit signed integer array
+// np    [IN]  number of data items
+// l    [OUT]  extrema
+void int32_extrema(void * restrict f, int np, limits_32 *l){
+  int32_t *fs = (int32_t *) f ;
+  int i ;
+  uint32_t maxa, mina, tu ;
+  int32_t maxs, mins, ts ;
+
+  maxa = mina = (fs[0] < 0) ? -fs[0] : fs[0] ;
+  maxs = mins = fs[0] ;
+  for(i=0 ; i<np ; i++){
+    tu = (fs[i] < 0) ? -fs[i] : fs[i] ;
+    maxa = (tu > maxa) ? tu : maxa ;
+    mina = (tu < mina) ? tu : mina ;
+    ts = fs[i] ;
+    maxs = (ts > maxs) ? ts : maxs ;
+    mins = (ts < mins) ? ts : mins ;
+  }
+  l->i.maxs = maxs ;
+  l->i.mins = mins ;
+  l->i.mina = mina ;
+  l->i.maxa = maxa ;
+}
+
 // ========================================== common functions ==========================================
 // prepare for quantization of IEEE floats
+
+// get IEEE 32 extrema (signed and absolute value)
+// f     [IN]  32 bit IEEE float array
+// np    [IN]  number of data items
+// l    [OUT]  extrema
+void IEEE32_extrema(void * restrict f, int np, limits_32 *l){
+  uint32_t *fu = (uint32_t *) f ;
+  int32_t *fs = (int32_t *) f ;
+  int i ;
+  uint32_t maxa, mina ;
+  int32_t maxs, mins, ts, tu ;
+
+  maxa = mina = fu[0] & 0x7FFFFFFF ;
+  ts = (fs[0] & 0x7FFFFFFF) ^ (fs[0] >> 31) ;
+  maxs = mins = ts ;
+  for(i=0 ; i<np ; i++){
+    tu = fu[i] & 0x7FFFFFFF ;
+    ts = (fs[i] & 0x7FFFFFFF) ^ (fs[i] >> 31) ;
+    maxa = (tu > maxa) ? tu : maxa ;
+    mina = (tu < mina) ? tu : mina ;
+    maxs = (ts > maxs) ? ts : maxs ;
+    mins = (ts < mins) ? ts : mins ;
+  }
+  l->i.maxs = (maxs & 0x7FFFFFFF) ^ (maxs >> 31) ;  // maximum float value (signed)
+  l->i.mins = (mins & 0x7FFFFFFF) ^ (mins >> 31) ;  // minimum float value (signed)
+  l->i.mina = mina ;                                // largest float absolute value
+  l->i.maxa = maxa ;                                // smallest float absolute value
+}
+
 // get minimum and maximum absolute values, set all < 0 and none < 0 flags
 // f     [IN]  32 bit IEEE float array, data to be quantized
 // np    [IN]  number of data items to quantize
