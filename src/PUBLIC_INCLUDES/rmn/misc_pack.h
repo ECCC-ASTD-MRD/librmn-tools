@@ -175,9 +175,6 @@ void float_unquantize_simple_1D(float * restrict z, int32_t * restrict q, int ni
 void float_unquantize_simple(float * restrict z, int32_t * restrict q, int ni, int lniz, int lniq, int nj, float quantum, FloatPair *t);
 
 float quantum_adjust(float quantum);
-int float_info_no_missing(float *zz, int ni, int lni, int nj, float *maxval, float *minval, float *minabs);
-int float_info_missing(float *zz, int ni, int lni, int nj, float *maxval, float *minval, float *minabs, float *spval, uint32_t spmask);
-int float_info(float *zz, int ni, int lni, int nj, float *maxval, float *minval, float *minabs, float *spval, uint32_t spmask);
 
 // the basic struct to handle insertion/extraction into/from a packed stream
 typedef struct{

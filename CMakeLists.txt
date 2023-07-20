@@ -1,6 +1,6 @@
 # The minimum version can not be 3.16 because of the LINK_LANGUAGE generator expression in Config.cmake.in
 cmake_minimum_required(VERSION 3.20)
-
+# set(CMAKE_Fortran_PREPROCESS ON)
 #========================= help text =========================
 # what follows gets written in terminal window if 
 # - the HELP environment variable is defined
@@ -222,7 +222,7 @@ set(PROJECT_C_FILES
   src/diag/tee_print.c
   src/diag/test_helpers.c
   src/diag/misc_analyze.c
-  src/diag/float_info.c
+  src/diag/data_info.c
   src/diag/c_record_io.c
   src/diag/eval_diff.c
   src/plugins/plugin_code.c
@@ -274,6 +274,7 @@ set(PROJECT_H_FILES
   src/PUBLIC_INCLUDES/rmn/serialized_functions.h
   src/PUBLIC_INCLUDES/rmn/c_binding_extras.hf
   src/PUBLIC_INCLUDES/rmn/misc_operators.h
+  src/PUBLIC_INCLUDES/rmn/data_info.h
   src/PUBLIC_INCLUDES/rmn/eval_diff.h
 )
 
