@@ -57,6 +57,7 @@ typedef struct{
   uint32_t mina ;   // IEEE32 bit pattern of smallest absolute value
   int32_t  maxs ;   // IEEE32 bit pattern of highest signed value
   int32_t  mins ;   // IEEE32 bit pattern of lowest signed value
+  int32_t  min0 ;   // IEEE32 bit pattern of smallest non zero absolute value
 }limits_i ;
 
 typedef struct{
@@ -64,6 +65,7 @@ typedef struct{
   float mina ;      // IEEE32 bit pattern of smallest absolute value
   float maxs ;      // IEEE32 bit pattern of highest signed value
   float mins ;      // IEEE32 bit pattern of lowest signed value
+  float min0 ;      // IEEE32 bit pattern of smallest non zero absolute value
 }limits_f ;
 
 typedef union{
@@ -73,14 +75,15 @@ typedef union{
 
 limits_i int32_extrema(void * restrict f, int np);
 limits_i int32_extrema_c(void * restrict f, int np);
-limits_i int32_extrema_missing(void * restrict f, int np, void * missing, uint32_t mmask);
-limits_i int32_extrema_c_missing(void * restrict f, int np, void * missing, uint32_t mmask);
+limits_i int32_extrema_missing(void * restrict f, int np, void * missing, uint32_t mmask, void *pad);
+limits_i int32_extrema_c_missing(void * restrict f, int np, void * missing, uint32_t mmask, void *pad);
 
 limits_f IEEE32_extrema(void * restrict f, int np);
 limits_f IEEE32_extrema_c(void * restrict f, int np);
-limits_f IEEE32_extrema_missing(void * restrict f, int np, void * missing, uint32_t mmask);
-limits_f IEEE32_extrema_missing_simd(void * restrict f, int np, void * missing, uint32_t mmask);
-limits_f IEEE32_extrema_c_missing(void * restrict f, int np, void *missing, uint32_t mmask);
+
+limits_f IEEE32_extrema_missing(void * restrict f, int np, void * missing, uint32_t mmask, void *pad);
+limits_f IEEE32_extrema_missing_simd(void * restrict f, int np, void * missing, uint32_t mmask, void *pad);
+// limits_f IEEE32_extrema_c_missing(void * restrict f, int np, void *missing, uint32_t mmask, void *pad);
 
 int float_info_no_missing(float *zz, int ni, int lni, int nj, float *maxval, float *minval, float *minabs);
 int float_info_missing(float *zz, int ni, int lni, int nj, float *maxval, float *minval, float *minabs, float *spval, uint32_t spmask);

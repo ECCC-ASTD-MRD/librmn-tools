@@ -16,6 +16,7 @@ int main(int argc, char **argv){
   uint64_t t[NTIMES] ;
   TIME_LOOP_DATA ;
   char *errmsg ;
+  float fg = 0.5f ;  // replacement value for "missing" values
 
   start_of_test("data_info test C");
 
@@ -36,37 +37,52 @@ int main(int argc, char **argv){
   for(i=NP-1 ; i<NP+2 ; i++) TEE_FPRINTF(stderr,2, "%f ", ff[i]); TEE_FPRINTF(stderr,2, ", missing = %f\n", ff[NP]) ;
   lf.maxa = lf.mina = lf.maxs = lf.mins = 0 ;
   lf = IEEE32_extrema(ff+NP-1, 3) ;
-  TEE_FPRINTF(stderr,2, "SHORT        : maxs = %f, mins = %f, maxa = %f, mina = %f\n", lf.maxs, lf.mins, lf.maxa, lf.mina) ;
-  TEE_FPRINTF(stderr,2, "  expected   : maxs = %f, mins = %f, maxa = %f, mina = %f\n", ff[NP-1], ff[NP+1], -ff[NP+1], ff[NP]) ;
+  TEE_FPRINTF(stderr,2, "SHORT             : maxs = %f, mins = %f, maxa = %f, mina = %f\n", lf.maxs, lf.mins, lf.maxa, lf.mina) ;
+  TEE_FPRINTF(stderr,2, "  expected        : maxs = %f, mins = %f, maxa = %f, mina = %f\n", ff[NP-1], ff[NP+1], -ff[NP+1], ff[NP]) ;
   errmsg = "not getting expected value" ;
   if(lf.maxs != ff[NP-1] || lf.mins != ff[NP+1] || lf.maxa != -ff[NP+1] || lf.mina != ff[NP]) goto error ;
 
-  lf = IEEE32_extrema_missing_simd(ff+NP-1, 3, ff+NP, 0) ;
-  TEE_FPRINTF(stderr,2, "SHORT MISSING: maxs = %f, mins = %f, maxa = %f, mina = %f\n", lf.maxs, lf.mins, lf.maxa, lf.mina) ;
-  TEE_FPRINTF(stderr,2, "  expected   : maxs = %f, mins = %f, maxa = %f, mina = %f\n", ff[NP-1], ff[NP+1], -ff[NP+1], ff[NP-1]) ;
-  errmsg = "not getting expected value" ;
+  lf = IEEE32_extrema_missing_simd(ff+NP-1, 3, ff+NP, 0, NULL) ;
+  TEE_FPRINTF(stderr,2, "SHORT MISSING SIMD: maxs = %f, mins = %f, maxa = %f, mina = %f\n", lf.maxs, lf.mins, lf.maxa, lf.mina) ;
+  TEE_FPRINTF(stderr,2, "  expected        : maxs = %f, mins = %f, maxa = %f, mina = %f\n", ff[NP-1], ff[NP+1], -ff[NP+1], ff[NP-1]) ;
   if(lf.maxs != ff[NP-1] || lf.mins != ff[NP+1] || lf.maxa != -ff[NP+1] || lf.mina != ff[NP-1]) goto error ;
+
+  lf = IEEE32_extrema_missing(ff+NP-1, 3, ff+NP, 0, NULL) ;
+  TEE_FPRINTF(stderr,2, "SHORT MISSING C   : maxs = %f, mins = %f, maxa = %f, mina = %f\n", lf.maxs, lf.mins, lf.maxa, lf.mina) ;
+  TEE_FPRINTF(stderr,2, "  expected        : maxs = %f, mins = %f, maxa = %f, mina = %f\n", ff[NP-1], ff[NP+1], -ff[NP+1], ff[NP-1]) ;
+  if(lf.maxs != ff[NP-1] || lf.mins != ff[NP+1] || lf.maxa != -ff[NP+1] || lf.mina != ff[NP-1]){
+    TEE_FPRINTF(stderr,2, "  errors : %g, %g, %g, %g\n", lf.maxs-ff[NP-1], lf.mins-ff[NP+1], lf.maxa+ff[NP+1], lf.mina-ff[NP-1]) ;
+    goto error ;
+  }
+  // testing at full length (NP2)
+  ff[NP+3] = 0.0f ; // make sure there is a zero in the fray to test min0
 
   lf.maxa = lf.mina = lf.maxs = lf.mins = 0 ;
   lf = IEEE32_extrema(ff, NP2) ;
-  TEE_FPRINTF(stderr,2, "NO MISSING   : maxs = %f, mins = %f, maxa = %f, mina = %f\n", lf.maxs, lf.mins, lf.maxa, lf.mina) ;
-  TEE_FPRINTF(stderr,2, "  expected   : maxs = %f, mins = %f, maxa = %f, mina = %f\n", ff[0], ff[NP2-1], -ff[NP2-1], ff[NP]) ;
-  if(lf.maxs != ff[0] || lf.mins != ff[NP2-1] || lf.maxa != -ff[NP2-1] || lf.mina != ff[NP]) goto error ;
+  TEE_FPRINTF(stderr,2, "NO MISSING   : maxs = %f, mins = %f, maxa = %f, mina = %f, min0 = %f\n", lf.maxs, lf.mins, lf.maxa, lf.mina, lf.min0) ;
+  TEE_FPRINTF(stderr,2, "  expected   : maxs = %f, mins = %f, maxa = %f, mina = %f, min0 = %f\n", ff[0], ff[NP2-1], -ff[NP2-1], 0.0, ff[NP]) ;
+  if(lf.maxs != ff[0] || lf.mins != ff[NP2-1] || lf.maxa != -ff[NP2-1] || lf.mina != 0.0 || lf.min0 != ff[NP]) goto error ;
 
   lf.maxa = lf.mina = lf.maxs = lf.mins = 0 ;
-  lf = IEEE32_extrema_missing_simd(ff, NP2, ff+NP, 0) ;
-  TEE_FPRINTF(stderr,2, "WITH MISSING : maxs = %f, mins = %f, maxa = %f, mina = %f\n", lf.maxs, lf.mins, lf.maxa, lf.mina) ;
-  TEE_FPRINTF(stderr,2, "  expected   : maxs = %f, mins = %f, maxa = %f, mina = %f\n", ff[0], ff[NP2-1], -ff[NP2-1], ff[NP-1]) ;
-  if(lf.maxs != ff[0] || lf.mins != ff[NP2-1] || lf.maxa != -ff[NP2-1] || lf.mina != ff[NP-1]) goto error ;
+  lf = IEEE32_extrema_missing_simd(ff, NP2, ff+NP, 0, NULL) ;   // NO replacement value for "missing" values
+  TEE_FPRINTF(stderr,2, "SIMD MISSING : maxs = %f, mins = %f, maxa = %f, mina = %f, min0 = %f\n", lf.maxs, lf.mins, lf.maxa, lf.mina, lf.min0) ;
+  TEE_FPRINTF(stderr,2, "  expected   : maxs = %f, mins = %f, maxa = %f, mina = %f, min0 = %f\n", ff[0], ff[NP2-1], -ff[NP2-1], 0.0, ff[NP-1]) ;
+  if(lf.maxs != ff[0] || lf.mins != ff[NP2-1] || lf.maxa != -ff[NP2-1] || lf.mina != 0.0 || lf.min0 != ff[NP-1]) goto error ;
+
+  lf.maxa = lf.mina = lf.maxs = lf.mins = 0 ;
+  lf = IEEE32_extrema_missing(ff, NP2, ff+NP, 0, &fg) ;       // replacement value for "missing" values supplied
+  TEE_FPRINTF(stderr,2, "C    MISSING : maxs = %f, mins = %f, maxa = %f, mina = %f, min0 = %f\n", lf.maxs, lf.mins, lf.maxa, lf.mina, lf.min0) ;
+  TEE_FPRINTF(stderr,2, "  expected   : maxs = %f, mins = %f, maxa = %f, mina = %f, min0 = %f\n", ff[0], ff[NP2-1], -ff[NP2-1], 0.0, fg) ;
+  if(lf.maxs != ff[0] || lf.mins != ff[NP2-1] || lf.maxa != -ff[NP2-1] || lf.mina != 0.0 || lf.min0 != fg) goto error ;
 
   TIME_LOOP_EZ(1000, NP2, lf = IEEE32_extrema(ff, NP2)) ;
-  TEE_FPRINTF(stderr,2, "IEEE32_extrema         : %s\n",timer_msg);
+  TEE_FPRINTF(stderr,2, "IEEE32_extrema             : %s\n",timer_msg);
 
-  TIME_LOOP_EZ(1000, NP2, lf = IEEE32_extrema_missing_simd(ff, NP2, ff+NP, 0)) ;
-  TEE_FPRINTF(stderr,2, "IEEE32_extrema_missing : %s\n",timer_msg);
+  TIME_LOOP_EZ(1000, NP2, lf = IEEE32_extrema_missing_simd(ff, NP2, ff+NP, 0, NULL)) ;
+  TEE_FPRINTF(stderr,2, "IEEE32_extrema_missing_simd: %s\n",timer_msg);
 
-  TIME_LOOP_EZ(1000, NP2, lf = IEEE32_extrema_c_missing(ff, NP2, ff+NP, 0)) ;
-  TEE_FPRINTF(stderr,2, "IEEE32_extrema_c_missing : %s\n",timer_msg);
+  TIME_LOOP_EZ(1000, NP2, lf = IEEE32_extrema_missing(ff, NP2, ff+NP, 0, NULL)) ;
+  TEE_FPRINTF(stderr,2, "IEEE32_extrema_missing     : %s\n",timer_msg);
 
   li.maxa = li.mina = li.maxs = li.mins = 0 ;
   li = int32_extrema(fi, NP2) ;
