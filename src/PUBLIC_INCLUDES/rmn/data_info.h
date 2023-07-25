@@ -41,20 +41,20 @@ interface
     integer(C_INT32_T), intent(IN), value :: np
     type(limits_f) :: limits
   end function
-  function int32_extrema(f, np) result(limits) bind(C, name='int32_extrema')
+  function int32_extrema(f, np) result(limits) bind(C, name='INT32_extrema')
     import :: C_INT32_T, limits_i
     implicit none
     integer(C_INT32_T), dimension(*), intent(IN) :: f
     integer(C_INT32_T), intent(IN), value :: np
     type(limits_i) :: limits
   end function
-!  function uint32_extrema(f, np) result(limits) bind(C, name='uint32_extrema')
-!    import :: C_INT32_T, limits_i
-!    implicit none
-!    integer(C_INT32_T), dimension(*), intent(IN) :: f
-!    integer(C_INT32_T), intent(IN), value :: np
-!    type(limits_i) :: limits
-!  end function
+  function uint32_extrema(f, np) result(limits) bind(C, name='UINT32_extrema')
+    import :: C_INT32_T, limits_i
+    implicit none
+    integer(C_INT32_T), dimension(*), intent(IN) :: f
+    integer(C_INT32_T), intent(IN), value :: np
+    type(limits_i) :: limits
+  end function
 end interface
 
 #else
@@ -90,15 +90,20 @@ typedef union{
   limits_f f ;
 } limits_w32 ;
 
-limits_w32 uint32_extrema(void * restrict f, int np);
+// N.B. some compiler versions fail to compile when the return value of a function is larger than 128 bits
 
-limits_w32 int32_extrema(void * restrict f, int np);
-limits_w32 int32_extrema_missing(void * restrict f, int np, void * missing, uint32_t mmask, void *pad);
+int W32_replace_missing(void * restrict f, int np, void *spval, uint32_t mmask, void *pad);
 
+limits_w32 UINT32_extrema(void * restrict f, int np);
+
+uint32_t INT32_maxa(limits_w32 l32);
+limits_w32 INT32_extrema(void * restrict f, int np);
+limits_w32 INT32_extrema_missing(void * restrict f, int np, void * missing, uint32_t mmask, void *pad);
+
+uint32_t IEEE32_maxa(limits_w32 l32);
 limits_w32 IEEE32_extrema(void * restrict f, int np);
 limits_w32 IEEE32_extrema_missing(void * restrict f, int np, void * missing, uint32_t mmask, void *pad);
 limits_w32 IEEE32_extrema_missing_simd(void * restrict f, int np, void * missing, uint32_t mmask, void *pad);
-// limits_f IEEE32_extrema_c_missing(void * restrict f, int np, void *missing, uint32_t mmask, void *pad);
 
 int float_info_no_missing(float *zz, int ni, int lni, int nj, float *maxval, float *minval, float *minabs);
 int float_info_missing(float *zz, int ni, int lni, int nj, float *maxval, float *minval, float *minabs, float *spval, uint32_t spmask);

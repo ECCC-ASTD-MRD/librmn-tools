@@ -16,6 +16,7 @@ int main(int argc, char **argv){
   TIME_LOOP_DATA ;
   char *errmsg ;
   float fg = 0.5f ;  // replacement value for "missing" values
+  float pad = 1.12345f ;
 
   start_of_test("data_info test C");
 
@@ -75,10 +76,18 @@ int main(int argc, char **argv){
   if(l.f.maxs != ff[0] || l.f.mins != ff[NP2-1] || l.f.maxa != -ff[NP2-1] || l.f.mina != 0.0 || l.f.min0 != fg) goto error ;
 
   l.i.maxa = l.i.mina = l.i.maxs = l.i.mins = 0 ;
-  l = int32_extrema(fi, NP2) ;
+  l = INT32_extrema(fi, NP2) ;
   TEE_FPRINTF(stderr,2, "INT32_extrema : maxs = %d, mins = %d, maxa = %d, mina = %d\n", l.i.maxs, l.i.mins, l.i.maxa, l.i.mina) ;
   TEE_FPRINTF(stderr,2, "  expected    : maxs = %d, mins = %d, maxa = %d, mina = %d \n", fi[0], fi[NP2-1], -fi[NP2-1], fi[NP]) ;
   if(l.i.maxs != fi[0] || l.i.mins != fi[NP2-1] || l.i.maxa != -fi[NP2-1] || l.i.mina != fi[NP]) goto error ;
+
+  ff[0] = ff[NP2-1] = fg ;
+  i = W32_replace_missing(ff, NP2, &fg, 0, &pad) ;
+  TEE_FPRINTF(stderr,2, "rep_missing   : %f, %f\n", ff[0], ff[NP2-1]) ;
+  TEE_FPRINTF(stderr,2, "  expected    : %f, %f\n", pad, pad) ;
+  if(ff[0] != pad || ff[NP2-1] != pad) goto error ;           // pad should be found at 0 and NP2-1
+  errmsg = "getting unexpected pad value" ;
+  for(i = 1 ; i < NP2-1 ; i++) if(ff[i] == pad) goto error ;  // pad should only be found at 0 and NP2-1
 
   TEE_FPRINTF(stderr,2, "====================  TIMINGS ====================\n") ;
   TIME_LOOP_EZ(1000, NP2, l = IEEE32_extrema(ff, NP2)) ;
@@ -90,8 +99,11 @@ int main(int argc, char **argv){
   TIME_LOOP_EZ(1000, NP2, l = IEEE32_extrema_missing(ff, NP2, ff+NP, 0, NULL)) ;
   TEE_FPRINTF(stderr,2, "IEEE32_extrema_missing     : %s\n",timer_msg);
 
-  TIME_LOOP_EZ(1000, NP2, l = int32_extrema(fi, NP2)) ;
-  TEE_FPRINTF(stderr,2, "int32_extrema    : %s\n",timer_msg);
+  TIME_LOOP_EZ(1000, NP2, l = INT32_extrema(fi, NP2)) ;
+  TEE_FPRINTF(stderr,2, "int32_extrema              : %s\n",timer_msg);
+
+  TIME_LOOP_EZ(1000, NP2, i = W32_replace_missing(ff, NP2, &fg, 0, &pad)) ;
+  TEE_FPRINTF(stderr,2, "w32_replace_missing        : %s\n",timer_msg);
 
   TEE_FPRINTF(stderr,2, "\nSUCCESS\n") ;
   return 0 ;

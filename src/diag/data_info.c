@@ -20,7 +20,7 @@
 
 #include <rmn/data_info.h>
 
-uint32_t int32_maxa(limits_w32 l32){
+uint32_t INT32_maxa(limits_w32 l32){
   int32_t maxs = l32.i.maxs ;
   int32_t mins = l32.i.mins ;
   maxs = (maxs < 0) ? -maxs : maxs ;          // ABS(maxs)
@@ -34,17 +34,24 @@ uint32_t int32_maxa(limits_w32 l32){
 // spval   [IN]  pointer to 32 bit " missing value" pattern
 // mmask   [IN]  missing mask (bits having the value 1 will be ignored for missing values)
 // pad     [IN]  pointer to 32 bit value to be used as "missing" replacement
-void w32_replace_missing(void * restrict f, int np, void *spval, uint32_t mmask, void *pad){
+int W32_replace_missing(void * restrict f, int np, void *spval, uint32_t mmask, void *pad){
+  uint32_t *fu = (uint32_t *) f, missf, *fill = (uint32_t *) pad, *miss = (uint32_t *) spval ;
   int i ;
 
+  if(f == NULL || spval == NULL || mmask == 0xFFFFFFFFu || pad == NULL) return -1 ;  // nothing can be done, error
   mmask = ~mmask ;
+  missf = mmask & *miss ;                            // masked "missing" value
+  for(i=0 ; i<np ; i++){
+    fu[i] = ( (fu[i] & mmask) == missf ) ? *fill : fu[i] ;
+  }
+  return np ;
 }
 
 // get unsigned integer 32 extrema
 // f     [IN]  32 bit unsigned integer array
 // np    [IN]  number of data items
 // l    [OUT]  extrema
-limits_w32 uint32_extrema(void * restrict f, int np){
+limits_w32 UINT32_extrema(void * restrict f, int np){
   uint32_t *fu = (uint32_t *) f ;
   int i ;
   uint32_t maxa, mina, min0, tu, t0 ;
@@ -71,7 +78,7 @@ limits_w32 uint32_extrema(void * restrict f, int np){
 // f     [IN]  32 bit signed integer array
 // np    [IN]  number of data items
 // l    [OUT]  extrema
-limits_w32 int32_extrema(void * restrict f, int np){
+limits_w32 INT32_extrema(void * restrict f, int np){
   int32_t *fs = (int32_t *) f ;
   int i ;
   uint32_t maxa, mina, min0, tu, t0 ;
@@ -94,7 +101,7 @@ limits_w32 int32_extrema(void * restrict f, int np){
   l.i.mins = mins ;
   l.i.mina = mina ;
   l.i.min0 = min0 ;
-  l.i.maxa = int32_maxa(l) ;
+  l.i.maxa = INT32_maxa(l) ;
   return l ;
 }
 
@@ -108,7 +115,7 @@ limits_w32 int32_extrema(void * restrict f, int np){
 //
 // values with bit pattern (~mmask) & *spval wil be treated as "missing" and ignored
 // if mmask == 0 or spval == NULL, the "missing" check is inactivated
-limits_w32 int32_extrema_missing(void * restrict f, int np, void *spval, uint32_t mmask, void *pad){
+limits_w32 INT32_extrema_missing(void * restrict f, int np, void *spval, uint32_t mmask, void *pad){
   int32_t *fs = (int32_t *) f ;
   int i ;
   uint32_t maxa, mina, min0, tu, t0 ;
@@ -131,7 +138,7 @@ limits_w32 int32_extrema_missing(void * restrict f, int np, void *spval, uint32_
   l.i.mins = mins ;
   l.i.mina = mina ;
   l.i.min0 = min0 ;
-  l.i.maxa = int32_maxa(l) ;
+  l.i.maxa = INT32_maxa(l) ;
   return l ;
 }
 
