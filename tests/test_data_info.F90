@@ -29,7 +29,7 @@ program test_data_info
   error = error .or. lf%maxs .ne. ff(1)
   error = error .or. lf%mins .ne. ff(NP2)
   error = error .or. lf%maxa .ne. abs(ff(NP2))
-  if(.not. error) print *,"SUCCESS"
+  if(error) stop 1
 
   li = int32_extrema(fi, NP2)
   print 2, "maxs, mins, maxa, mina :" , li%maxs, li%mins, li%maxa, li%mina
@@ -37,7 +37,29 @@ program test_data_info
   error = error .or. li%maxs .ne. fi(1)
   error = error .or. li%mins .ne. fi(NP2)
   error = error .or. li%maxa .ne. abs(fi(NP2))
-  if(.not. error) print *,"SUCCESS"
+  if(error) stop 1
+
+  fi(3) = 0
+  li = int32_extrema(fi, NP)
+  print 2, "maxs, mins, mina, min0 :" , li%maxs, li%mins, li%mina, li%min0
+  print 2, "allm, allp             :" , li%allm, li%allp
+  error = li%allm .ne. 0 .or. li%allp .ne. 1 .or. li%mina .ne. 0 .or. li%min0 .ne. 128
+  if(error) stop 1
+
+  li = int32_extrema(fi(NP+2), NP-1)
+  print 2, "maxs, mins, mina, min0 :" , li%maxs, li%mins, li%mina, li%min0
+  print 2, "allm, allp             :" , li%allm, li%allp
+  error = li%allm .ne. 1 .or. li%allp .ne. 0 .or. li%mina .ne. 129 .or. li%min0 .ne. 129
+  if(error) stop 1
+
+  fi(NP2-3) = 0
+  li = int32_extrema(fi(NP+2), NP-1)
+  print 2, "maxs, mins, mina, min0 :" , li%maxs, li%mins, li%mina, li%min0
+  print 2, "allm, allp             :" , li%allm, li%allp
+  error = li%allm .ne. 0 .or. li%allp .ne. 0 .or. li%mina .ne. 0 .or. li%min0 .ne. 129
+  if(error) stop 1
+
+  print *,"SUCCESS"
 
 1 format(A,4F15.2)
 2 format(A,4I15)

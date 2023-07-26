@@ -18,11 +18,13 @@
 #if defined(IN_FORTRAN_CODE) || defined(__GFORTRAN__)
 
 type, BIND(C) :: limits_f
-  real(C_FLOAT) :: mins
-  real(C_FLOAT) :: maxs
-  real(C_FLOAT) :: mina
-  real(C_FLOAT) :: maxa
-  real(C_FLOAT) :: min0
+  real(C_FLOAT)      :: mins
+  real(C_FLOAT)      :: maxs
+  real(C_FLOAT)      :: mina
+  real(C_FLOAT)      :: maxa
+  real(C_FLOAT)      :: min0
+  integer(C_INT16_T) :: allp
+  integer(C_INT16_T) :: allm
 end type
 
 type, BIND(C) :: limits_i
@@ -31,6 +33,8 @@ type, BIND(C) :: limits_i
   integer(C_INT32_T) :: mina
   integer(C_INT32_T) :: maxa
   integer(C_INT32_T) :: min0
+  integer(C_INT16_T) :: allp
+  integer(C_INT16_T) :: allm
 end type
 
 interface
@@ -67,6 +71,8 @@ typedef struct{
   uint32_t mina ;   // smallest absolute value
   uint32_t maxa ;   // largest absolute value
   uint32_t min0 ;   // smallest non zero absolute value
+  uint16_t allp ;   // 1 if all values are non negative
+  uint16_t allm ;   // 1 if all values are negative
 }limits_i ;
 
 typedef struct{
@@ -75,6 +81,8 @@ typedef struct{
   uint32_t mina ;   // smallest absolute value (same as mins)
   uint32_t maxa ;   // largest absolute value (same as maxs)
   uint32_t min0 ;   // smallest non zero absolute value
+  uint16_t allp ;   // 1 if all values are non negative
+  uint16_t allm ;   // 1 if all values are negative
 }limits_u ;
 
 typedef struct{
@@ -83,6 +91,8 @@ typedef struct{
   float mina ;      // IEEE32 bit pattern of smallest absolute value
   float maxa ;      // IEEE32 bit pattern of largest absolute value
   float min0 ;      // IEEE32 bit pattern of smallest non zero absolute value
+  uint16_t allp ;   // 1 if all values are non negative
+  uint16_t allm ;   // 1 if all values are negative
 }limits_f ;
 
 typedef union{
@@ -92,15 +102,18 @@ typedef union{
 
 // N.B. some compiler versions fail to compile when the return value of a function is larger than 128 bits
 
+// true if all values are non negative
+#define W32_ALLP(l) (((l.i.maxs | l.i.mins) >> 31) == 0)
+// true if all values are negative
+#define W32_ALLM(l) (((l.i.maxs & l.i.mins) >> 31) != 0)
+
 int W32_replace_missing(void * restrict f, int np, void *spval, uint32_t mmask, void *pad);
 
 limits_w32 UINT32_extrema(void * restrict f, int np);
 
-uint32_t INT32_maxa(limits_w32 l32);
 limits_w32 INT32_extrema(void * restrict f, int np);
-limits_w32 INT32_extrema_missing(void * restrict f, int np, void * missing, uint32_t mmask, void *pad);
+limits_w32 INT32_extrema_missing(void * restrict f, int np, void *spval, uint32_t mmask, void *pad);
 
-uint32_t IEEE32_maxa(limits_w32 l32);
 limits_w32 IEEE32_extrema(void * restrict f, int np);
 limits_w32 IEEE32_extrema_missing(void * restrict f, int np, void * missing, uint32_t mmask, void *pad);
 limits_w32 IEEE32_extrema_missing_simd(void * restrict f, int np, void * missing, uint32_t mmask, void *pad);
