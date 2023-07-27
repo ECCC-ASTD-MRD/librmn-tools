@@ -216,7 +216,7 @@ return 0 ;
 //             j, he.fmax, he.fmin, he.amin, he.rng, he.rnga);
 //   }
 // return 0 ;
-  ieee_clip(fi, 0, 16) ;
+  IEEE32_clip(fi, 0, 16) ;
   fi[0] = zmax ;
   for(i=1 ; i<NPTS ; i++) fi[i] = fi[i-1] * .499 ;
 //   fi[5] = -fi[5] ;
@@ -229,12 +229,12 @@ return 0 ;
   nbits0 = 16 ;
   nbits = nbits0 ;
 //   if(h.fmin * h.fmax < 0) nbits-- ;  // positive and negative numbers, need to reserve a bit for the sign
-//   e0 = ieee_quantize( fi, &zmax,  q, N, NEXP, nbits, &h) ;
-  e0 = ieee_quantize_v4( fi, q, N, NEXP, nbits, &h) ;
+//   e0 = IEEE32_quantize( fi, &zmax,  q, N, NEXP, nbits, &h) ;
+  e0 = IEEE32_quantize_v4( fi, q, N, NEXP, nbits, &h) ;
   fprintf(stderr,"nexp = %d, nbits = %d, e0 = %d %d, min = %d, max = %d, span = %d, limit = %8.8x, sbit = %d, neg = %d\n",
           h.nexp, h.nbits, h.e0, e0, h.min, h.max, h.max-h.min, h.limit, h.sbit, h.negative) ;
-//   ieee_unquantize( fo, q, N, NEXP, e0, 16, &h) ;
-  ieee_unquantize( fo, q, N, &h) ;
+//   IEEE32_unquantize( fo, q, N, NEXP, e0, 16, &h) ;
+  IEEE32_unquantize( fo, q, N, &h) ;
   for(i = 0 ; i < N ; i++) {
     fi0.f = fi[i] ; fo0.f = fo[i] ;
     r = fo[i]/fi[i] ; r = r - 1.0 ; r = (r>0) ? r : -r ;
@@ -254,13 +254,13 @@ fprintf(stderr,"====================================\n");
   t1.i = (254 - 15) << 23 ;
 first_denorm = 1;
   for(i = 0 ; i < 35 ; i++) {
-    e0 = ieee_quantize( &z0.f, &zmax,  &y.i, 1, NEXP, 16, h) ;
+    e0 = IEEE32_quantize( &z0.f, &zmax,  &y.i, 1, NEXP, 16, h) ;
     denorm = (y.i >> 11) == 0 ;
     if(denorm && first_denorm) {
       fprintf(stderr,"\n") ;
       first_denorm = 0 ;
     }
-    ieee_unquantize( &x3.f, &y.i, 1, NEXP, e0, 16, h) ;
+    IEEE32_unquantize( &x3.f, &y.i, 1, NEXP, e0, 16, h) ;
     r = x3.f / z0.f ;
     fprintf(stderr,"z0 = %8.8x %12g, x1 = %8.8x %12g, coded = %8.8x, z1 = %8.8x %12g, r = %f\n", 
                     z0.i, z0.f,      x1.i, x1.f,      y.i,       x3.i, x3.f,      r) ;

@@ -23,8 +23,9 @@ type, BIND(C) :: limits_f
   real(C_FLOAT)      :: mina
   real(C_FLOAT)      :: maxa
   real(C_FLOAT)      :: min0
-  integer(C_INT16_T) :: allp
-  integer(C_INT16_T) :: allm
+  integer(C_INT8_T)  :: allp
+  integer(C_INT8_T)  :: allm
+  integer(C_INT16_T) :: resv
 end type
 
 type, BIND(C) :: limits_i
@@ -33,8 +34,9 @@ type, BIND(C) :: limits_i
   integer(C_INT32_T) :: mina
   integer(C_INT32_T) :: maxa
   integer(C_INT32_T) :: min0
-  integer(C_INT16_T) :: allp
-  integer(C_INT16_T) :: allm
+  integer(C_INT8_T)  :: allp
+  integer(C_INT8_T)  :: allm
+  integer(C_INT16_T) :: resv
 end type
 
 interface
@@ -64,6 +66,7 @@ end interface
 #else
 
 #include <stdint.h>
+#include <rmn/ct_assert.h>
 
 typedef struct{
   int32_t  mins ;   // lowest signed value
@@ -71,8 +74,9 @@ typedef struct{
   uint32_t mina ;   // smallest absolute value
   uint32_t maxa ;   // largest absolute value
   uint32_t min0 ;   // smallest non zero absolute value
-  uint16_t allp ;   // 1 if all values are non negative
-  uint16_t allm ;   // 1 if all values are negative
+  uint8_t  allp ;   // 1 if all values are non negative
+  uint8_t  allm ;   // 1 if all values are negative
+  uint16_t resv ;   // reserved for future use
 }limits_i ;
 
 typedef struct{
@@ -81,8 +85,9 @@ typedef struct{
   uint32_t mina ;   // smallest absolute value (same as mins)
   uint32_t maxa ;   // largest absolute value (same as maxs)
   uint32_t min0 ;   // smallest non zero absolute value
-  uint16_t allp ;   // 1 if all values are non negative
-  uint16_t allm ;   // 1 if all values are negative
+  uint8_t  allp ;   // 1 if all values are non negative
+  uint8_t  allm ;   // 1 if all values are negative
+  uint16_t resv ;   // reserved for future use
 }limits_u ;
 
 typedef struct{
@@ -91,14 +96,17 @@ typedef struct{
   float mina ;      // IEEE32 bit pattern of smallest absolute value
   float maxa ;      // IEEE32 bit pattern of largest absolute value
   float min0 ;      // IEEE32 bit pattern of smallest non zero absolute value
-  uint16_t allp ;   // 1 if all values are non negative
-  uint16_t allm ;   // 1 if all values are negative
+  uint8_t  allp ;   // 1 if all values are non negative
+  uint8_t  allm ;   // 1 if all values are negative
+  uint16_t resv ;   // reserved for future use
 }limits_f ;
 
 typedef union{
   limits_i i ;
   limits_f f ;
 } limits_w32 ;
+
+CT_ASSERT(sizeof(limits_w32) == 24)
 
 // N.B. some compiler versions fail to compile when the return value of a function is larger than 128 bits
 

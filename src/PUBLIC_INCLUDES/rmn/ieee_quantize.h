@@ -20,8 +20,9 @@
 #define IEEE_QUANTIZE_INCLUDES
 
 #include <stdint.h>
-// #include <rmn/tools_types.h>
+#include <rmn/data_info.h>
 
+// full quantization header
 typedef struct{
   int32_t e0 ;       // reference exponent (used at unquantize time) (ieee quantization)
                      // true exponent of largest absolute value
@@ -42,30 +43,8 @@ typedef struct{
   uint32_t limit ;   // maximum absolute value possible
 } qhead ;            // quantization information header
 
-typedef struct{
-  uint32_t maxa ;   // IEEE32 bit pattern of largest absolute value
-  uint32_t mina ;   // IEEE32 bit pattern of smallest absolute value
-  int32_t  maxs ;   // IEEE32 bit pattern of highest signed value
-  int32_t  mins ;   // IEEE32 bit pattern of lowest signed value
-}limits_i ;
-
-typedef struct{
-  float maxa ;      // IEEE32 bit pattern of largest absolute value
-  float mina ;      // IEEE32 bit pattern of smallest absolute value
-  float maxs ;      // IEEE32 bit pattern of highest signed value
-  float mins ;      // IEEE32 bit pattern of lowest signed value
-}limits_f ;
-
-typedef union{
-  limits_i i ;
-  limits_f f ;
-} limits_32 ;
-
-void int32_extrema(void * restrict f, int np, limits_32 *l);
-
 float quantum_adjust(float quantum);
 
-void IEEE32_extrema(void * restrict f, int np, limits_32 *extrema);
 uint64_t IEEE32_limits(void * restrict f, int np);
 void IEEE32_exp_limits(uint64_t u64, int *emin, int *emax);
 
@@ -84,20 +63,20 @@ int IEEE32_fakelog_unquantize_0(void * restrict q, uint64_t h64, int ni, void * 
 void quantize_setup(float *z,            // array to be quantized (IEEE 754 32 bit float) (INPUT)
                         int n,           // number of data elements
                         qhead *h);       // quantization control information (OUTPUT)
-void ieee_clip(void *f, int n, int nbits);
-int32_t ieee_quantize(float *f,        // array to quantize (IEEE 754 32 bit float) (INPUT)
+void IEEE32_clip(void *f, int n, int nbits);
+int32_t IEEE32_quantize(float *f,        // array to quantize (IEEE 754 32 bit float) (INPUT)
                       int32_t *q,      // quantized data (OUTPUT)
                       int n,           // number of data elements
                       int nexp,        // number of bits for the exponent part of quantized data (INPUT)
                       int nbits,       // number of bits in quantized data (INPUT)
                       qhead *h);       // quantization control information (OUTPUT)
-int32_t ieee_quantize_v4(float *f,        // array to quantize (IEEE 754 32 bit float) (INPUT)
+int32_t IEEE32_quantize_v4(float *f,        // array to quantize (IEEE 754 32 bit float) (INPUT)
                       int32_t *q,      // quantized data (OUTPUT)
                       int n,           // number of data elements
                       int nexp,        // number of bits for the exponent part of quantized data (INPUT)
                       int nbits,       // number of bits in quantized data (INPUT)
                       qhead *h);       // quantization control information (OUTPUT)
-int32_t ieee_unquantize(float *f,      // restored array (IEEE 754 32 bit float) (OUTPUT)
+int32_t IEEE32_unquantize(float *f,      // restored array (IEEE 754 32 bit float) (OUTPUT)
                         int32_t *q,    // quantized array (INPUT)
                         int n,         // number of data elements (INPUT)
                         qhead *h);     // quantization control information (INPUT)

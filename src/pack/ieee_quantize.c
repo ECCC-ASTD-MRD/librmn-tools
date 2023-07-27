@@ -19,7 +19,9 @@
 
 #include <rmn/misc_operators.h>
 #include <rmn/tools_types.h>
+#include <rmn/data_info.h>
 #include <rmn/ieee_quantize.h>
+#include <rmn/ct_assert.h>
 
 #if defined(__GNUC__)
 #if ! defined(__INTEL_COMPILER_UPDATE)
@@ -41,9 +43,15 @@ typedef struct{
            mina:31;  // minimum absolute value (never more than 31 bits)
 } ieee32_l ;
 
+typedef struct{
+  int32_t  maxs ;    // maximum value
+  int32_t  mins ;    // minimum value
+} ieee32_s ;
+
 // some (useful for quantization) properties of an IEEE float array, 64 bits total
-// types ieee32_props and ieee32_p are kept internal, uint64_t is exposed in the interface
-// used for "style 0" linear quantization
+// types ieee32_props and ieee32_p are for internal use, uint64_t is exposed in the interface
+//
+// type 0 linear quantization header
 typedef struct{
   uint64_t bias:32,  // minimum absolute value (actually never more than 31 bits)
            npts:16,  // number of points, 0 means unknown
@@ -55,7 +63,7 @@ typedef struct{
            allm:1 ;  // all numbers are < 0
 } ieee32_p ;
 
-// linear quantization header for style 1
+// type 1 linear quantization header
 typedef struct {
   uint64_t bias:32,  // integer offset reflecting minimum value of packed field
            npts:16,  // number of points, 0 means unknown
@@ -65,6 +73,15 @@ typedef struct {
            allp:1 ,  // all numbers are >= 0
            allm:1 ;  // all numbers are < 0
 } ieee32_q ;
+
+// type 2 linear quantization header
+typedef struct {
+  int32_t  bias:32;  // signed integer offset reflecting minimum value of packed field
+  uint32_t npts:14,  // number of points, 0 means unknown
+           expm:8 ,  // largest IEEE exponent (biased)
+           shft:5 ,  // shift count (0 -> 31) for normalization
+           nbts:5 ;  // number of bits (0 -> 31) per value
+} ieee32_r ;
 
 // pseudo log quantization header
 typedef struct {
@@ -78,14 +95,19 @@ typedef struct {
            allm:1 ;  // all numbers are < 0
 } ieee32_e ;
 
-typedef union{    // the union allows to transfer the whole 64 bit contents in one shot
-  ieee32_p  p  ;
-  ieee32_q  q  ;
-  ieee32_l  l  ;
-  ieee32_e  e  ;
-  uint64_t  u  ;
-  uint32_t  w[2]  ;  // access via 2 32 bit unsigned ints for packing headers
+// access to all properties structs through a single union
+typedef union{
+  ieee32_p  p  ;     // type 0 linear header
+  ieee32_q  q  ;     // type 1 linear header
+  ieee32_r  r  ;     // type 2 linear header
+  ieee32_l  l  ;     // absolute value analysis
+  ieee32_s  s  ;     // signed value analysis
+  ieee32_e  e  ;     // pseudo log header
+  uint64_t  u  ;     // access as a single 64 bit unsigned integer
+  uint32_t  w[2]  ;  // access as 2 32 bit unsigned integers
 } ieee32_props ;
+// make sure that access as a single 64 bit unsigned integer is respected
+CT_ASSERT(sizeof(ieee32_props) == sizeof(uint64_t))
 
 // ========================================== common functions ==========================================
 // prepare for quantization of IEEE floats
@@ -418,7 +440,7 @@ end:
   return 0 ;
 }
 
-// evaluate the discretization quantum as a function of nbits (style 0)
+// evaluate the discretization quantum as a function of nbits (type 0)
 FloatPair IEEE32_linear_quantum_0(uint64_t u64, int nbits){
 //   ieee32_props h64 ;
 //   uint64_t allp, allm, pos_neg ;
@@ -435,7 +457,7 @@ FloatPair IEEE32_linear_quantum_0(uint64_t u64, int nbits){
   return result ;
 }
 
-// prepare for linear quantization of IEEE floats (style 0)
+// prepare for linear quantization of IEEE floats (type 0)
 // normally for cases where all values have the same sign
 // and largest/smallest absolute value ratio is relatively small
 // u64   [IN]  analysis from IEEE32_limits
@@ -471,7 +493,7 @@ uint64_t IEEE32_linear_prep_0(uint64_t u64, int np, int nbits, float quant){
   }
   if( (nbits <= 0) ) {                    // automatic determination of nbits
     int32_t temp ;
-    fi1.u = maxa[0] ; fi2.u = mina[0] ; fi1.f = fi1.f - fi2.f ;  // i1.f = range of data values
+    fi1.u = maxa[0] ; fi2.u = mina[0] ; fi1.f = fi1.f - fi2.f ;  // fi1.f = range of data values
     fi2.f = quant ;
     if(fi2.u <= 0){                       // quantum <= 0 (automatic quantum)
       nbits = pos_neg + 1 ;  // make sure nbits does not become zero if positive and negative values are present
@@ -613,10 +635,10 @@ uint64_t IEEE32_linear_quantize_0(void * restrict f, int ni, int nbits, float qu
   ieee32_props h64 ;
 
   h64.u = IEEE32_limits(f, ni) ;                            // get min and max absolute values
-  h64.u = IEEE32_linear_prep_0(h64.u, ni, nbits, quantum) ; // get quantization parameters (style 0)
+  h64.u = IEEE32_linear_prep_0(h64.u, ni, nbits, quantum) ; // get quantization parameters (type 0)
 // fprintf(stderr,"npts = %d, shft = %d, nbts = %d, cnst = %d, allp = %d, allm = %d\n", 
 //         h64.p.npts, h64.p.shft, h64.p.nbts, h64.p.cnst, h64.p.allp, h64.p.allm) ;
-  h64.u = IEEE32_quantize_linear_0(f, h64.u, qs) ;                  // actual quantization (style 0)
+  h64.u = IEEE32_quantize_linear_0(f, h64.u, qs) ;                  // actual quantization (type 0)
   return h64.u ;
 }
 
@@ -704,7 +726,7 @@ int IEEE32_linear_unquantize_1(void * restrict q, uint64_t u64, int ni, void * r
   return 0 ;
 }
 
-// evaluate the discretization quantum as a function of nbits (style 0)
+// evaluate the discretization quantum as a function of nbits (type 0)
 FloatPair IEEE32_linear_quantum_1(uint64_t u64, int nbits){
 //   ieee32_props h64 ;
 //   uint64_t allp, allm, pos_neg ;
@@ -721,22 +743,21 @@ FloatPair IEEE32_linear_quantum_1(uint64_t u64, int nbits){
   return result ;
 }
 
-// prepare for linear quantization of IEEE floats (style 1)
+// prepare for linear quantization of IEEE floats (type 1)
 // normally for cases where all values have the same sign
 // and largest/smallest absolute value ratio is relatively small
 // u64   [IN]  analysis from IEEE32_limits
 // np    [IN]  number of data items to quantize
 // nbits [IN]  number of bits to use for quantized data (0 means use quantum)
 // quant [IN]  quantization interval (if non zero, it is used instead of nbits)
-// N.B. quant and nbits CANNOT BE 0 at the asme time
+// N.B. quant and nbits CANNOT BE 0 at the same time
 uint64_t IEEE32_linear_prep_1(uint64_t u64, int np, int nbits, float quant){
   ieee32_props h64 ;
   uint32_t range, efac, erange, allp, allm, pos_neg, emax, emin ;
   AnyType32 q, m1, m2, m3, r, f, t ;
-//   int32_t qm1 ;
-// fprintf(stderr, "requested nbits = %d, quantum = %f\n", nbits, quant) ;
+
   h64.u = u64 ;                      // get inbound metadata
-  allp  = h64.l.allp ;               // no neggative values
+  allp  = h64.l.allp ;               // no negative values
   allm  = h64.l.allm ;               // all negative values
   pos_neg = (allp || allm) ? 0 : 1 ;
   m1.u  = h64.l.maxa ;               // largest absolute value
@@ -744,7 +765,7 @@ uint64_t IEEE32_linear_prep_1(uint64_t u64, int np, int nbits, float quant){
   m2.u  = h64.l.mina ;               // smallest absolute value
   emin  = (m2.u >> 23) ;
   q.f   = quant ;
-  q.u  &= 0x7F800000 ;               // get rid of quantum mantissa
+  q.u  &= 0x7F800000 ;               // get rid of quantum mantissa (now a power of 2)
   if(nbits == 0){                    // adjust nbits to quantum
     m3.f  = m1.f - m2.f ;            // range of values (float)
     r.f   = m3.f / q.f ;             // range / quantum
@@ -783,7 +804,7 @@ adjust_offset:                       // m2.f should be a multiple of quantum
 // fprintf(stderr, "DEBUG: offset(%f) is a multiple of quantum\n", m2.f);
   }
 
-  r.f   = m3.f / q.f ;               // range / quantum
+  r.f   = m3.f / q.f ;               // adjusted range / quantum
   erange = (r.u >> 23) - 127 ;       // unbiased exponent for range / quantum
 // fprintf(stderr, "np = %d, nbits = %d, quant = %f(%f)\n", np, nbits, quant, q.f) ;
 
@@ -881,13 +902,95 @@ uint64_t IEEE32_linear_quantize_1(void * restrict f, int ni, int nbits, float qu
   ieee32_props h64 ;
 
   h64.u = IEEE32_limits(f, ni) ;                     // get min and max absolute values
-  h64.u = IEEE32_linear_prep_1(h64.u, ni, nbits, quantum) ; // get quantization parameters (style 0)
+  h64.u = IEEE32_linear_prep_1(h64.u, ni, nbits, quantum) ; // get quantization parameters (type 0)
 // fprintf(stderr,"efac = %d, nbts = %d, cnst/allp/allm = %d/%d/%d\n", h64.q.efac, h64.q.nbts, h64.q.cnst, h64.q.allp, h64.q.allm);
-  h64.u = IEEE32_quantize_linear_1(f, h64.u, qs) ;                  // actual quantization (style 0)
+  h64.u = IEEE32_quantize_linear_1(f, h64.u, qs) ;                  // actual quantization (type 0)
   return h64.u ;
 }
 
-// ========================================== quantizer #2 ==========================================
+// ========================================== linear quantizer 2 ==========================================
+
+// normalize a mantissa to an exponent
+int32_t normalize_mantissa(int32_t src, int32_t MaxExp)
+{
+  int32_t Mantis = (1 << 23) | ( 0x7FFFFF & src );   // get IEEE mantissa, restore hidden 1
+  int32_t Exp    = (src >> 23) & 0xFF;               // extract IEEE float 32 exponent
+  int32_t Shift  = MaxExp - Exp;                     // normalize mantissa to largest exponent
+  Shift = (Shift > 31) ? 31 : Shift ;                // max shift count = 31
+  Mantis = Mantis >> Shift;                          // normalize mantissa to largest exponent
+  Mantis = ( src < 0 ) ? -Mantis : Mantis ;          // apply sign
+  Mantis = (Exp == 0) ? 0 : Mantis ;                 // denormalized returned as 0
+  return Mantis ;
+}
+
+int64_t IEEE32_linear_prep_2(uint64_t u64, int np, int nbits, float quant)
+{
+  ieee32_props  h64  ;
+  AnyType32 fmin ,fmax;
+  int32_t MinExp, MaxExp, BigExp, Exp, Mantis, Shift, Shift2, Maximum, Minimum, Mask ;
+
+  h64.u = u64 ;
+  fmin.i = h64.s.mins ;                          // signed minimum
+  fmax.i = h64.s.maxs ;                          // signed maximum
+  MaxExp = (fmax.i >> 23) & 0xFF ;               // biased exponent
+  MinExp = (fmin.i >> 23) & 0xFF ;               // biased exponent
+  BigExp = (MaxExp > MinExp) ? MaxExp : MinExp ; // largest exponent
+
+  Maximum = normalize_mantissa(fmax.i, BigExp) ;
+  Minimum = normalize_mantissa(fmin.i, BigExp) ;
+  Maximum = Maximum - Minimum;                   // range of normalized mantissas (>= 0)
+  Shift2 = 0;
+  Mask   = ~( -1 << nbits);                      // right mask of nbits bits
+  while ( Maximum > Mask ) {                     // Maximum must fit within nbits bits
+    Maximum = Maximum >> 1;
+    Shift2++;
+    }
+
+  h64.r.npts = np ;
+  h64.r.expm = BigExp ;
+  h64.r.shft = Shift2 ;
+  h64.r.bias = Minimum ;
+  return h64.u ;
+}
+
+// int32_t IEEE32_quantize_linear_2(float *source, int32_t nbits, int32_t *header, int32_t *stream, int32_t npts)
+uint64_t IEEE32_quantize_linear_2(void * restrict f, uint64_t u64, void * restrict qs){
+  float *z=f;
+  int32_t *intsrc= (int32_t *)f;
+  int32_t *qu = (int32_t *) qs ;
+  int32_t i, npts;
+  int32_t MaxExp, Exp, Mantis, Shift, Minimum, Src, Shift2, Round, nbits, Mask;
+  ieee32_props h64 ;
+
+  h64.u   = u64 ;
+  npts    = h64.r.npts ;
+  MaxExp  = h64.r.expm ;
+  Shift2  = h64.r.shft ;
+  Minimum = h64.r.bias ;
+  nbits   = h64.r.nbts ;
+  Round = (1 << Shift2) ;
+  Round >>= 1 ;
+  Minimum = Minimum - Round ;
+  Mask = RMASK31(nbits) ;
+
+// Lib_Log(APP_LIBRMN,APP_DEBUG,"%f: axExp=%d min=%f fmin.i=%X max=%f Minimum=%d Maximum=%\n",__func__,MaxExp,fmin.f,fmin.i,fmax.f,Minimum,Maximum); */
+  for(i=0 ; i<npts ; i++){                               // transform input floating point into integers
+    Src = intsrc[i];
+    Mantis = (1 << 23) | ( 0x7FFFFF & Src );
+    Exp    = (Src >> 23) & 0xFF;
+    Shift  = MaxExp - Exp;
+    if (Shift > 31) Shift = 31;
+    Mantis = Mantis >> Shift;
+    if( Src >> 31 ) Mantis = - Mantis;
+    Mantis = Mantis - Minimum;              // subtract minimum from mantissa, add rounding term
+    Mantis = Mantis >> Shift2;              // force to fit within nbits bits
+    if (Mantis > Mask) Mantis = Mask;
+    qu[i] = Mantis ;
+    }
+  return 0;
+}
+
+// ========================================== linear quantizer 3 ==========================================
 
 // largest exponent as a function of exponent bit field width
 static int32_t e[] = {0, 1, 3, 7, 15, 31, 63, 127, 255} ;
@@ -950,7 +1053,7 @@ void quantize_setup(float *z,            // array to be quantized (IEEE 754 32 b
 }
 
 // only keep nbits in the mantissa of IEEE 754 floating point numbers
-void ieee_clip(void *f, int n, int nbits){
+void IEEE32_clip(void *f, int n, int nbits){
   int i, j ;
   uint32_t *fi = (uint32_t *) f ;
   uint32_t mask = 0xFFFFFFFF ;
@@ -976,7 +1079,7 @@ void ieee_clip(void *f, int n, int nbits){
 // the absolute value of the input float is converted to a new floating format
 // with a reduced size exponent and a reduced size mantissa (nm bits)
 // this new "reduced size float" is treated as an integer when restoring sign if needed
-STATIC inline int32_t ieee_f_to_q(float f, int32_t e0, int32_t round, float t0, int nm, int32_t limit, int32_t sbit){
+STATIC inline int32_t IEEE32_f_to_q(float f, int32_t e0, int32_t round, float t0, int nm, int32_t limit, int32_t sbit){
   FloatInt z, x1, y ;
   int sign, ex ;
   int q ;                       // final result
@@ -1005,7 +1108,7 @@ STATIC inline int32_t ieee_f_to_q(float f, int32_t e0, int32_t round, float t0, 
 //
 // return restored float value
 // t1 * t2 might generate an overflow, which is why they MUST be applied separately using 2 multiplies
-STATIC inline float ieee_q_to_f_2(int32_t q, float t1, float t2, int nm, int32_t sbit, int32_t neg){
+STATIC inline float IEEE32_q_to_f_2(int32_t q, float t1, float t2, int nm, int32_t sbit, int32_t neg){
   int sign ;
   FloatInt q1 ;
   float f ;                     // final result
@@ -1019,7 +1122,7 @@ STATIC inline float ieee_q_to_f_2(int32_t q, float t1, float t2, int nm, int32_t
   return f ;
 }
 // single factor version if t1 * t2 are known not to create an overflow
-STATIC inline float ieee_q_to_f_1(int32_t q, float t1t2, int nm, int32_t sbit, int32_t neg){
+STATIC inline float IEEE32_q_to_f_1(int32_t q, float t1t2, int nm, int32_t sbit, int32_t neg){
   int sign ;
   FloatInt q1 ;
   float f ;                     // final result
@@ -1046,7 +1149,7 @@ STATIC inline float ieee_q_to_f_1(int32_t q, float t1t2, int nm, int32_t sbit, i
 // numbers 0.0 -> *fmaxa get converted to range
 //         0.0 -> 2 ** (e[nexp] + 1 -127)
 //         taking advantage of denormalized numbers to extend the dynamic range
-int32_t ieee_quantize(float *f,        // array to quantize (IEEE 754 32 bit float) (INPUT)
+int32_t IEEE32_quantize(float *f,        // array to quantize (IEEE 754 32 bit float) (INPUT)
                       int32_t *q,      // quantized data (OUTPUT)
                       int n,           // number of data elements (INPUT)
                       int nexp,        // number of bits for the exponent part of quantized data (INPUT)
@@ -1076,7 +1179,7 @@ int32_t ieee_quantize(float *f,        // array to quantize (IEEE 754 32 bit flo
 
   min = INT_MAX ; max = INT_MIN ;
   for(i = 0 ; i < n ; i++) {
-    q[i] = ieee_f_to_q(f[i], e0, round, t0.f, nm, limit, sbit) ;
+    q[i] = IEEE32_f_to_q(f[i], e0, round, t0.f, nm, limit, sbit) ;
     min = (q[i] < min) ? q[i] : min ;
     max = (q[i] > max) ? q[i] : max ;
   }
@@ -1086,15 +1189,15 @@ int32_t ieee_quantize(float *f,        // array to quantize (IEEE 754 32 bit flo
     h->nexp = nexp ;         // number of exponent bits
 //     h->min = min ;
 //     h->max = max ;
-    h->max = ieee_f_to_q(h->fmax, e0, round, t0.f, nm, limit, sbit) ;  // largest quantized signed value
-    h->min = ieee_f_to_q(h->fmin, e0, round, t0.f, nm, limit, sbit) ;  // lowest quantized signed value
+    h->max = IEEE32_f_to_q(h->fmax, e0, round, t0.f, nm, limit, sbit) ;  // largest quantized signed value
+    h->min = IEEE32_f_to_q(h->fmin, e0, round, t0.f, nm, limit, sbit) ;  // lowest quantized signed value
     h->limit = limit ;       // keep limit mask
   }
   return e0 ;  // retourner e0/nbits/nexp/sbit/negative ?  8/8/8/4/4 bits ?
 }
 
 // vector version of above
-int32_t ieee_quantize_v4(float *f,        // array to quantize (IEEE 754 32 bit float) (INPUT)
+int32_t IEEE32_quantize_v4(float *f,        // array to quantize (IEEE 754 32 bit float) (INPUT)
                       int32_t *q,      // quantized data (OUTPUT)
                       int n,           // number of data elements (INPUT)
                       int nexp,        // number of bits for the exponent part of quantized data (INPUT)
@@ -1126,7 +1229,7 @@ int32_t ieee_quantize_v4(float *f,        // array to quantize (IEEE 754 32 bit 
   vl = (n & 3) ; vl = (vl == 0) ? 4 : vl ;
   for(j = 0 ; j < n-3 ;){          // n is ASSUMED TO BE > 3
     for(i = 0 ; i < 4 ; i++){
-      q[j+i] = ieee_f_to_q(f[j+i], e0, round, t0.f, nm, limit, sbit) ;
+      q[j+i] = IEEE32_f_to_q(f[j+i], e0, round, t0.f, nm, limit, sbit) ;
     }
     j += vl ;
     vl = 4 ;
@@ -1135,8 +1238,8 @@ int32_t ieee_quantize_v4(float *f,        // array to quantize (IEEE 754 32 bit 
     h->e0 = e0 ;
     h->nbits = nbits ;
     h->nexp = nexp ;
-    h->max = ieee_f_to_q(h->fmax, e0, round, t0.f, nm, limit, sbit) ;
-    h->min = ieee_f_to_q(h->fmin, e0, round, t0.f, nm, limit, sbit) ;
+    h->max = IEEE32_f_to_q(h->fmax, e0, round, t0.f, nm, limit, sbit) ;
+    h->min = IEEE32_f_to_q(h->fmin, e0, round, t0.f, nm, limit, sbit) ;
     h->limit = limit ;       // keep limit mask
   }
   return e0 ;
@@ -1144,7 +1247,7 @@ int32_t ieee_quantize_v4(float *f,        // array to quantize (IEEE 754 32 bit 
 
 // restore float values from quantized (ieee style) values
 // utiliser un composite e0/nbits/nexp/sbit/negative  ( 8/8/8/4/4 bits ) plutot que h ?
-int32_t ieee_unquantize(float *f,      // restored array (IEEE 754 32 bit float) (OUTPUT)
+int32_t IEEE32_unquantize(float *f,      // restored array (IEEE 754 32 bit float) (OUTPUT)
                         int32_t *q,    // quantized array (INPUT)
                         int n,         // number of data elements (INPUT)
                         qhead *h)      // quantization control information (INPUT)
@@ -1159,7 +1262,7 @@ int32_t ieee_unquantize(float *f,      // restored array (IEEE 754 32 bit float)
   nbits = h->nbits ;                         // number of bits in quantized data
   nexp = h->nexp ;                           // number of bits for the exponent part of quantized data
   if(nexp < 1 || nexp > 8) return 0 ;        // nexp too small or too large
-  e0 = h->e0 ;                               // reference exponent (from ieee_quantize)
+  e0 = h->e0 ;                               // reference exponent (from IEEE32_quantize)
   if(e0 > 127 || e0 < -127 ) return 0 ;      // invalid reference exponent
 
   nm = nbits - nexp ;                        // number of effective mantissa bits
@@ -1172,13 +1275,13 @@ fprintf(stdout,"BEEP\n");
     t1.u = ((254 - e[nexp]) << 23) ;
     t2.u = ((127 + e0)      << 23) ;         // t1.f * t2.f would be too large ( > 2**128 )
     for(i = 0 ; i < n ; i++) {
-      f[i] = ieee_q_to_f_2(q[i], t1.f, t2.f, nm, sbit, neg) ;
+      f[i] = IEEE32_q_to_f_2(q[i], t1.f, t2.f, nm, sbit, neg) ;
     }
   }else{                                     // can use 1 factor if e0 <= e[nexp]
 fprintf(stdout,"BOP\n");
     t1.u = ((254 - e[nexp] + e0) << 23) ;
     for(i = 0 ; i < n ; i++) {
-      f[i] = ieee_q_to_f_1(q[i], t1.f, nm, sbit, neg) ;
+      f[i] = IEEE32_q_to_f_1(q[i], t1.f, nm, sbit, neg) ;
     }
   }
   return 1 ;
@@ -1188,7 +1291,7 @@ fprintf(stdout,"BOP\n");
 
 // IEEE 32 bit floating point to half precision (16 bit) IEEE floating point
 // any number >= 65520 will be coded as infinity in FP16
-STATIC inline uint16_t ieee_fp32_to_fp16(float f){
+STATIC inline uint16_t IEEE32_fp32_to_fp16(float f){
   FloatInt z, y ;
   uint32_t sign ;
   uint32_t round = 0x1000 ;
@@ -1208,10 +1311,10 @@ STATIC inline uint16_t ieee_fp32_to_fp16(float f){
 // IEEE 32 bit floating point to half precision (16 bit) IEEE floating point
 void fp32_to_fp16(float *f, uint16_t *q, int n){
   int i ;
-  for(i = 0 ; i < n ; i++) q[i] = ieee_fp32_to_fp16(f[i]) ;
+  for(i = 0 ; i < n ; i++) q[i] = IEEE32_fp32_to_fp16(f[i]) ;
 }
 
-STATIC inline uint32_t ieee_fp32_to_fp24(float f){
+STATIC inline uint32_t IEEE32_fp32_to_fp24(float f){
   FloatInt z ;
   uint32_t mant, exp, sign ;
   uint32_t round = 1 << 7 ;
@@ -1233,7 +1336,7 @@ void fp32_to_fp24(float *f, uint32_t *q, int n){
   uint32_t t[4] ;
   for(i0=0 ; i0<n-3 ; i0+=4){
     for(i=0 ; i<4 ; i++){
-      t[i] = ieee_fp32_to_fp24(f[i0+i]) ;
+      t[i] = IEEE32_fp32_to_fp24(f[i0+i]) ;
     }
     // pack tokens big endian style
     q[0] = (t[0] <<  8) | (t[1] >> 16) ;  // t0 , upper 8 bits of t1
@@ -1243,25 +1346,25 @@ void fp32_to_fp24(float *f, uint32_t *q, int n){
   }
   for(i=0 ; i<4 ; i++) t[i] = 0 ;
   for(i=0 ; i0<n ; i0++, i++){
-    t[i] = ieee_fp32_to_fp24(f[i0]) ;
+    t[i] = IEEE32_fp32_to_fp24(f[i0]) ;
   }
   if(i>0) q[0] = (t[0] <<  8) | (t[1] >> 16) ;  // t0 , upper 8 bits of t1
   if(i>1) q[1] = (t[1] << 16) | (t[2] >>  8) ;  // lower 16 bits of t1, upper 16 bits fo t2
   if(i>2) q[2] = (t[2] << 24) | (t[3]) ;        // lower 8 bits of t2, t3
-//   for(i = 0 ; i < n ; i++) q[i] = ieee_fp32_to_fp16(f[i]) ;
+//   for(i = 0 ; i < n ; i++) q[i] = IEEE32_fp32_to_fp16(f[i]) ;
 }
 
 // scaled IEEE 32 bit floating point to half precision (16 bit) IEEE floating point
 void fp32_to_fp16_scaled(float *f, uint16_t *q, int n, float scale){
   int i ;
-  for(i = 0 ; i < n ; i++) q[i] = ieee_fp32_to_fp16(f[i]*scale) ;
+  for(i = 0 ; i < n ; i++) q[i] = IEEE32_fp32_to_fp16(f[i]*scale) ;
 }
 
 // scaled IEEE 32 bit floating point to 3/4 precision (24 bit) IEEE style floating point
 // 4 values in f for each group of 4 q values
 void fp32_to_fp24_scaled(float *f, uint32_t *q, int n, float scale){
   int i ;
-  for(i = 0 ; i < n ; i++) q[i] = ieee_fp32_to_fp24(f[i]*scale) ;
+  for(i = 0 ; i < n ; i++) q[i] = IEEE32_fp32_to_fp24(f[i]*scale) ;
 }
 
 // IEEE 32 bit floating point to brain float (16 bit)
@@ -1286,7 +1389,7 @@ void fp32_to_bf16(float *f, uint16_t *q, int n){
 // half precision (16 bit) IEEE floating point to IEEE 32 bit floating point
 // the infinity argment value is used as a result if the FP16 exponent is 31
 // (the sign of the FP16 value will be preserved)
-STATIC inline float ieee_fp16_to_fp32(uint16_t q, uint32_t infinity){
+STATIC inline float IEEE32_fp16_to_fp32(uint16_t q, uint32_t infinity){
   FloatInt z, y ;
   int sign ;
   int e0;
@@ -1313,7 +1416,7 @@ void fp16_to_fp32(float *f, void *f16, int n, void *inf){
   uint16_t *q = f16 ;
 
   Inf = inf ? *(uint32_t *)inf : Inf ;
-  for(i = 0 ; i < n ; i++) f[i] = ieee_fp16_to_fp32(q[i], Inf) ;
+  for(i = 0 ; i < n ; i++) f[i] = IEEE32_fp16_to_fp32(q[i], Inf) ;
 }
 
 void fp24_to_fp32(float *f, void *f24, int n, void *inf){
@@ -1361,7 +1464,7 @@ void fp16_to_fp32_scaled(float *f, void *f16, int n, void *inf, float scale){
 //   Inf = (*FudgedWordFetch)(inf) ;         // NOTE: defeat some overzealous at O2 and above
   Inf = inf ? *((uint32_t *)inf) : 0X7F800000 ;    // IEEE infinity
 #endif
-  for(i = 0 ; i < n ; i++) f[i] = rscale * ieee_fp16_to_fp32(q[i], Inf) ;
+  for(i = 0 ; i < n ; i++) f[i] = rscale * IEEE32_fp16_to_fp32(q[i], Inf) ;
 }
 
 // brain float (16 bit) to IEEE 32 bit floating point
