@@ -18,25 +18,27 @@
 #if defined(IN_FORTRAN_CODE) || defined(__GFORTRAN__)
 
 type, BIND(C) :: limits_f
-  real(C_FLOAT)      :: mins
-  real(C_FLOAT)      :: maxs
-  real(C_FLOAT)      :: mina
-  real(C_FLOAT)      :: maxa
-  real(C_FLOAT)      :: min0
-  integer(C_INT8_T)  :: allp
-  integer(C_INT8_T)  :: allm
-  integer(C_INT16_T) :: resv
+  real(C_FLOAT)      :: mins   ! lowest signed value
+  real(C_FLOAT)      :: maxs   ! highest signed value
+  real(C_FLOAT)      :: mina   ! smallest absolute value
+  real(C_FLOAT)      :: maxa   ! largest absolute value
+  real(C_FLOAT)      :: min0   ! smallest non zero absolute value
+  integer(C_INT8_T)  :: allp   ! 1 if all values are non negative
+  integer(C_INT8_T)  :: allm   ! 1 if all values are negative
+  integer(C_INT8_T)  :: maxe   ! highest IEEE exponent (with bias)
+  integer(C_INT8_T)  :: mine   ! lowest IEEE exponent (with bias)
 end type
 
 type, BIND(C) :: limits_i
-  integer(C_INT32_T) :: mins
-  integer(C_INT32_T) :: maxs
-  integer(C_INT32_T) :: mina
-  integer(C_INT32_T) :: maxa
-  integer(C_INT32_T) :: min0
-  integer(C_INT8_T)  :: allp
-  integer(C_INT8_T)  :: allm
-  integer(C_INT16_T) :: resv
+  integer(C_INT32_T) :: mins   ! lowest signed value
+  integer(C_INT32_T) :: maxs   ! highest signed value
+  integer(C_INT32_T) :: mina   ! smallest absolute value
+  integer(C_INT32_T) :: maxa   ! largest absolute value
+  integer(C_INT32_T) :: min0   ! smallest non zero absolute value
+  integer(C_INT8_T)  :: allp   ! 1 if all values are non negative
+  integer(C_INT8_T)  :: allm   ! 1 if all values are negative
+  integer(C_INT8_T)  :: maxe   ! highest IEEE exponent (with bias)
+  integer(C_INT8_T)  :: mine   ! lowest IEEE exponent (with bias)
 end type
 
 interface
@@ -76,7 +78,8 @@ typedef struct{
   uint32_t min0 ;   // smallest non zero absolute value
   uint8_t  allp ;   // 1 if all values are non negative
   uint8_t  allm ;   // 1 if all values are negative
-  uint16_t resv ;   // reserved for future use
+  uint8_t  maxe ;   // highest IEEE exponent (with bias)
+  uint8_t  mine ;   // lowest IEEE exponent (with bias)
 }limits_i ;
 
 typedef struct{
@@ -87,7 +90,8 @@ typedef struct{
   uint32_t min0 ;   // smallest non zero absolute value
   uint8_t  allp ;   // 1 if all values are non negative
   uint8_t  allm ;   // 1 if all values are negative
-  uint16_t resv ;   // reserved for future use
+  uint8_t  maxe ;   // highest IEEE exponent (with bias)
+  uint8_t  mine ;   // lowest IEEE exponent (with bias)
 }limits_u ;
 
 typedef struct{
@@ -98,11 +102,13 @@ typedef struct{
   float min0 ;      // IEEE32 bit pattern of smallest non zero absolute value
   uint8_t  allp ;   // 1 if all values are non negative
   uint8_t  allm ;   // 1 if all values are negative
-  uint16_t resv ;   // reserved for future use
+  uint8_t  maxe ;   // highest IEEE exponent (with bias)
+  uint8_t  mine ;   // lowest IEEE exponent (with bias)
 }limits_f ;
 
 typedef union{
   limits_i i ;
+  limits_u u ;
   limits_f f ;
 } limits_w32 ;
 
@@ -110,10 +116,11 @@ CT_ASSERT(sizeof(limits_w32) == 24)
 
 // N.B. some compiler versions fail to compile when the return value of a function is larger than 128 bits
 
-// true if all values are non negative
+// true if all values are non negative (sign bit of maxs and mins is 0)
 #define W32_ALLP(l) (((l.i.maxs | l.i.mins) >> 31) == 0)
-// true if all values are negative
-#define W32_ALLM(l) (((l.i.maxs & l.i.mins) >> 31) != 0)
+// true if all values are negative or 0
+#define W32_ALLM(l) ( (l.i.maxs <= 0) & (l.i.mins <= 0) )
+// #define W32_ALLM(l) (((l.i.maxs & l.i.mins) >> 31) != 0)
 
 int W32_replace_missing(void * restrict f, int np, void *spval, uint32_t mmask, void *pad);
 
@@ -123,8 +130,9 @@ limits_w32 INT32_extrema(void * restrict f, int np);
 limits_w32 INT32_extrema_missing(void * restrict f, int np, void *spval, uint32_t mmask, void *pad);
 
 limits_w32 IEEE32_extrema(void * restrict f, int np);
+limits_w32 IEEE32_extrema_abs(void * restrict f, int np);
 limits_w32 IEEE32_extrema_missing(void * restrict f, int np, void * missing, uint32_t mmask, void *pad);
-limits_w32 IEEE32_extrema_missing_simd(void * restrict f, int np, void * missing, uint32_t mmask, void *pad);
+// limits_w32 IEEE32_extrema_missing_simd(void * restrict f, int np, void * missing, uint32_t mmask, void *pad);
 
 int float_info_no_missing(float *zz, int ni, int lni, int nj, float *maxval, float *minval, float *minabs);
 int float_info_missing(float *zz, int ni, int lni, int nj, float *maxval, float *minval, float *minabs, float *spval, uint32_t spmask);

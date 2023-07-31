@@ -22,11 +22,13 @@
 #include <stdlib.h>
 #include <float.h>
 
+#include <rmn/misc_operators.h>
 #include <rmn/data_info.h>
 
 // compute maxa for 32 bit integers
 // l32  [IN] limits structure
-static uint32_t INT32_maxa(limits_w32 l32){
+static uint32_t INT32_maxa(limits_w32 l32)
+{
   int32_t maxs = l32.i.maxs ;
   int32_t mins = l32.i.mins ;
   maxs = (maxs < 0) ? -maxs : maxs ;          // ABS(maxs)
@@ -36,7 +38,8 @@ static uint32_t INT32_maxa(limits_w32 l32){
 
 // compute maxa for 32 bit IEEE floats
 // l32  [IN] limits structure
-static uint32_t IEEE32_maxa(limits_w32 l32){
+static uint32_t IEEE32_maxa(limits_w32 l32)
+{
   uint32_t maxs = l32.i.maxs & 0x7FFFFFFF ;          // ABS(maxs)
   uint32_t mins = l32.i.mins & 0x7FFFFFFF ;          // ABS(mins)
   return (maxs > mins) ? maxs : mins ;               // MAX(ABS(maxs), ABS(mins))
@@ -48,7 +51,8 @@ static uint32_t IEEE32_maxa(limits_w32 l32){
 // spval   [IN]  pointer to 32 bit " missing value" pattern
 // mmask   [IN]  missing mask (bits having the value 1 will be ignored for missing values)
 // pad     [IN]  pointer to 32 bit value to be used as "missing" replacement
-int W32_replace_missing(void * restrict f, int np, void *spval, uint32_t mmask, void *pad){
+int W32_replace_missing(void * restrict f, int np, void *spval, uint32_t mmask, void *pad)
+{
   uint32_t *fu = (uint32_t *) f, missf, *fill = (uint32_t *) pad, *miss = (uint32_t *) spval, repl ;
   int i ;
 
@@ -66,7 +70,8 @@ int W32_replace_missing(void * restrict f, int np, void *spval, uint32_t mmask, 
 // f     [IN]  32 bit unsigned integer array
 // np    [IN]  number of data items
 // l    [OUT]  extrema
-limits_w32 UINT32_extrema(void * restrict f, int np){
+limits_w32 UINT32_extrema(void * restrict f, int np)
+{
   uint32_t *fu = (uint32_t *) f ;
   int i ;
   uint32_t maxa, mina, min0, tu, t0 ;
@@ -95,14 +100,14 @@ limits_w32 UINT32_extrema(void * restrict f, int np){
 // f     [IN]  32 bit signed integer array
 // np    [IN]  number of data items
 // l    [OUT]  extrema
-limits_w32 INT32_extrema(void * restrict f, int np){
+limits_w32 INT32_extrema(void * restrict f, int np)
+{
   int32_t *fs = (int32_t *) f ;
   int i ;
-  uint32_t maxa, mina, min0, tu, t0 ;
+  uint32_t mina, min0, tu, t0 ;
   int32_t maxs, mins, ts ;
   limits_w32 l ;
 
-  maxa = 0 ;
   mina = 0x7FFFFFFF ;
   maxs = mins = fs[0] ;
   min0 = 0x7FFFFFFF ;
@@ -125,7 +130,7 @@ limits_w32 INT32_extrema(void * restrict f, int np){
   return l ;
 }
 
-// get IEEE 32 extrema (signed and absolute value)
+// get integer 32 extrema (signed and absolute value) "missing" values are accounted for
 // f       [IN]  32 bit integer array
 // np      [IN]  number of data items
 // spval   [IN]  pointer to 32 bit " missing value" pattern
@@ -135,18 +140,17 @@ limits_w32 INT32_extrema(void * restrict f, int np){
 //
 // values with bit pattern (~mmask) & *spval wil be treated as "missing" and ignored
 // if mmask == 0 or spval == NULL, the "missing" check is inactivated
-limits_w32 INT32_extrema_missing(void * restrict f, int np, void *spval, uint32_t mmask, void *pad){
+limits_w32 INT32_extrema_missing(void * restrict f, int np, void *spval, uint32_t mmask, void *pad)
+{
   int32_t  *fs = (int32_t *) f ;
-//   uint32_t *fu = (uint32_t *) f ;
   int i ;
-  uint32_t maxa, mina, min0, missf, good, tu, t0, *miss = (uint32_t *)spval, *fill = (uint32_t *)pad ;
-  int32_t maxs, mins, ts ;
+  uint32_t mina, min0, missf, tu, t0, *miss = (uint32_t *)spval ;
+  int32_t maxs, mins, ts, good, *fill = (uint32_t *)pad ;
   limits_w32 l ;
 
   mmask = ~mmask ;
   if(spval == NULL || mmask == 0) return INT32_extrema(f, np) ;
 
-  maxa = 0 ;
   mina = 0x7FFFFFFFu ;
   maxs = 0x80000000 ;
   mins = 0x7FFFFFFF ;
@@ -164,10 +168,9 @@ limits_w32 INT32_extrema_missing(void * restrict f, int np, void *spval, uint32_
   // gcc seems to have problems vectorizing this loop
   for(i=0 ; i<np ; i++){
     ts   = fs[i] ;
-    tu   = (uint32_t) ts ;
-    ts   = ((tu & mmask) == missf) ? good : ts ;     // replace "missing" values with "non missing" value
+    ts   = (((uint32_t) ts & mmask) == missf) ? good : ts ;     // replace "missing" values with "non missing" value
     tu   = (ts < 0) ? -ts : ts ;                     // ABS(fs[i])
-    t0   = (tu == 0) ? 0xFFFFFFFF : tu ;             // ignore 0 for non zero minimum
+    t0   = (tu == 0) ? 0x7FFFFFFF : tu ;             // ignore 0 for non zero minimum, replace with HUGE value
     mina = (tu < mina) ? tu : mina ;                 // smallest absolute value
     min0 = (t0 < min0) ? t0 : min0 ;                 // smallest non zero absolute value
     maxs = (ts > maxs) ? ts : maxs ;                 // signed maximum
@@ -186,9 +189,10 @@ limits_w32 INT32_extrema_missing(void * restrict f, int np, void *spval, uint32_
 // get IEEE 32 extrema (signed and absolute value)
 // f     [IN]  32 bit IEEE float array
 // np    [IN]  number of data items
-// return an extrema limits_f struct
+// return an extrema limits_w32 struct
 // N.B. this code only works for IEEE754 32 bit floats, all processing is done in INTEGER mode
-limits_w32 IEEE32_extrema(void * restrict f, int np){
+limits_w32 IEEE32_extrema(void * restrict f, int np)
+{
   uint32_t *fu = (uint32_t *) f ;
   int32_t *fs = (int32_t *) f ;
   int i ;
@@ -196,33 +200,62 @@ limits_w32 IEEE32_extrema(void * restrict f, int np){
   int32_t maxs, mins, ts ;
   limits_w32 l ;
 
-  mina = fu[0] & 0x7FFFFFFF ;
-  ts = (fs[0] & 0x7FFFFFFF) ^ (fs[0] >> 31) ;
+  mina = fu[0] & 0x7FFFFFFF ;                      // drop sign
+  ts = (fs[0] & 0x7FFFFFFF) ^ (fs[0] >> 31) ;      // signed integer from float
   maxs = mins = ts ;
-  min0 = 0x7FFFFFFF ;
+  min0 = 0x7FFFFFFF ;                              // huge positive value
   for(i=0 ; i<np ; i++){
-    tu = fu[i] & 0x7FFFFFFF ;
-    t0 = (tu == 0) ? 0x7FFFFFFF : tu ;
-    ts = (fs[i] & 0x7FFFFFFF) ^ (fs[i] >> 31) ;
-    mina = (tu < mina) ? tu : mina ;
-    min0 = (t0 < min0) ? t0 : min0 ;
-    maxs = (ts > maxs) ? ts : maxs ;
-    mins = (ts < mins) ? ts : mins ;
+    tu = fu[i] & 0x7FFFFFFF ;                      // drop sign
+    t0 = (tu == 0) ? 0x7FFFFFFF : tu ;             // replace 0 with huge value for min()
+    ts = (fs[i] & 0x7FFFFFFF) ^ (fs[i] >> 31) ;    // signed integer from float
+    mina = (tu < mina) ? tu : mina ;               // unsigned min
+    min0 = (t0 < min0) ? t0 : min0 ;               // unsigned min
+    maxs = (ts > maxs) ? ts : maxs ;               // signed max
+    mins = (ts < mins) ? ts : mins ;               // signed min
   }
   l.i.maxs = (maxs & 0x7FFFFFFF) ^ (maxs >> 31) ;  // maximum float value (signed)
   l.i.mins = (mins & 0x7FFFFFFF) ^ (mins >> 31) ;  // minimum float value (signed)
   l.i.mina = mina ;                                // smallest float absolute value
   l.i.min0 = min0 ;                                // smallest float non zero absolute value
-//   maxs = l32.i.maxs & 0x7FFFFFFF ;                   // ABS(maximum float value)
-//   mins = l32.i.mins & 0x7FFFFFFF ;                   // ABS(minimum float value)
-//   l32.i.maxa = (maxs > mins) ? maxs : mins ;         // largest float absolute value
   l.i.maxa = IEEE32_maxa(l) ;                      // largest float absolute value
   l.i.allm = W32_ALLM(l) ;
   l.i.allp = W32_ALLP(l) ;
   return l ;
 }
+// get minimum and maximum absolute values, set all <= 0 and all >= 0 flags
+// f     [IN]  32 bit IEEE float array
+// np    [IN]  number of data items
+// return an extrema limits_w32 struct
+// N.B. this code only works for IEEE754 32 bit floats, all processing is done in INTEGER mode
+limits_w32 IEEE32_extrema_abs(void * restrict f, int np)
+{
+  uint32_t *fu = (uint32_t *) f ;
+  int i ;
+  uint32_t mina, maxa, ands, ors, to, ta ;
+  limits_w32 l ;
 
-// get IEEE 32 extrema (signed and absolute value)
+  ands = ors  = fu[0] ;
+  mina = maxa = fu[0] & 0x7FFFFFFF ;               // drop sign
+  for(i=0 ; i<np ; i++){
+    to = fu[i] ;
+    ta = (to == 0) ? 0x80000000u : to ;            // +0 will not alter all negative condition
+    ands |= ta ;                                   // running and, MSB remains 1 if negative or 0
+    ors  |= to ;                                   // running or, MSB stays 0 if positive or 0
+    to   &= 0x7FFFFFFF ;                           // drop sign
+    mina = (to < mina) ? to : mina ;               // unsigned minimum absolute value
+    maxa = (to > maxa) ? to : maxa ;               // unsigned maximum absolute value
+  }
+  l.i.mins = 0 ;                                   // dummy
+  l.i.maxs = 0 ;                                   // dummy
+  l.i.mina = mina ;                                // smallest float absolute value
+  l.i.min0 = 0 ;                                   // dummy
+  l.i.maxa = maxa ;                                // smallest float non zero absolute value
+  l.i.allm = ands >> 31 ;                          // 1 if all values negative or 0
+  l.i.allp = (ors >> 31) == 0 ;                    // 1 if all values positive or 0
+  return l ;
+}
+
+// get IEEE 32 extrema (signed and absolute value), "missing" values are accounted for
 // f       [IN]  32 bit IEEE float array
 // np      [IN]  number of data items
 // spval   [IN]  pointer to 32 bit " missing value" pattern
@@ -233,7 +266,8 @@ limits_w32 IEEE32_extrema(void * restrict f, int np){
 // values with bit pattern (~mmask) & *spval wil be treated as "missing" and ignored
 // if mmask == 0 or spval == NULL, the "missing" check is inactivated
 // N.B. this code only works for IEEE754 32 bit floats, all processing is done in INTEGER mode
-limits_w32 IEEE32_extrema_missing(void * restrict f, int np, void *spval, uint32_t mmask, void *pad){
+limits_w32 IEEE32_extrema_missing(void * restrict f, int np, void *spval, uint32_t mmask, void *pad)
+{
   uint32_t *fu = (uint32_t *) f ;
   int i ;
   uint32_t mina, min0, tu, t0, good, missf, *miss = (uint32_t *)spval, *fill = (uint32_t *)pad  ;
@@ -279,6 +313,8 @@ limits_w32 IEEE32_extrema_missing(void * restrict f, int np, void *spval, uint32
   return l ;                                       // return union
 }
 
+// OLD code, temporarily kept for reference, vectorizers from gcc/flang/ifort seem to do a good job
+#if 0
 // if for some reason some vectorizers do a bad job in plain C, an explicit SIMD X86 AVX2 version is supplied
 #if defined(__AVX2__) && defined(__x86_64__)
 #include <immintrin.h>
@@ -689,3 +725,4 @@ int float_info(float *zz, int ni, int lni, int nj, float *maxval, float *minval,
   }
 }
 
+#endif // defined(COMPILE_UNNEEDED_CODE)

@@ -81,6 +81,7 @@ interface
   end subroutine
 end interface
 
+#if 0
 ! int float_info(float *zz, int ni, int lni, int nj, float *maxval, float *minval, float *minabs, float *spval, uint32_t spmask);
 interface float_info  ! generic interface for both missing and no missing cases
 ! int float_info_no_missing(float *zz, int ni, int lni, int nj, float *maxval, float *minval, float *minabs);
@@ -108,6 +109,7 @@ interface float_info  ! generic interface for both missing and no missing cases
     integer(C_INT) :: n
   end function
 end interface
+#endif
 
 #else
 

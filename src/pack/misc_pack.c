@@ -29,7 +29,8 @@
 
 // adjust quantum to first power of 2 <= quantum
 float quantum_adjust(float quantum){
-  FloatInt rq ;
+  AnyType32 rq ;
+//   FloatInt rq ;
 
   rq.f = quantum ;
   rq.i &= 0x7F800000 ;   // drop mantissa bits

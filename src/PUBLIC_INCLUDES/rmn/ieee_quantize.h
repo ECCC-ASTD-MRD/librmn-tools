@@ -53,9 +53,11 @@ uint64_t IEEE32_linear_prep_1(uint64_t u64, int np, int nbits, float quant);
 
 uint64_t IEEE32_linear_quantize_0(void * restrict f, int ni, int nbits, float quantum, void * restrict q);
 uint64_t IEEE32_linear_quantize_1(void * restrict f, int ni, int nbits, float quantum, void * restrict q);
+uint64_t IEEE32_linear_quantize_1s(void * restrict f, int ni, int nbits, float quantum, void * restrict q);
 
 int IEEE32_linear_unquantize_0(void * restrict q, uint64_t h64, int ni, void * restrict f);
 int IEEE32_linear_unquantize_1(void * restrict q, uint64_t h64, int ni, void * restrict f);
+int IEEE32_linear_unquantize_s(void * restrict q, uint64_t h64, int ni, void * restrict f);
 
 uint64_t IEEE32_fakelog_quantize_0(void * restrict f, int ni, int nbits, float qzero, void * restrict qs);
 int IEEE32_fakelog_unquantize_0(void * restrict q, uint64_t h64, int ni, void * restrict f);
