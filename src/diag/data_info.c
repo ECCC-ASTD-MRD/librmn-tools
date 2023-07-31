@@ -145,7 +145,7 @@ limits_w32 INT32_extrema_missing(void * restrict f, int np, void *spval, uint32_
   int32_t  *fs = (int32_t *) f ;
   int i ;
   uint32_t mina, min0, missf, tu, t0, *miss = (uint32_t *)spval ;
-  int32_t maxs, mins, ts, good, *fill = (uint32_t *)pad ;
+  int32_t maxs, mins, ts, good, *fill = (int32_t *)pad ;
   limits_w32 l ;
 
   mmask = ~mmask ;
@@ -165,7 +165,7 @@ limits_w32 INT32_extrema_missing(void * restrict f, int np, void *spval, uint32_
   }else{
     good = *fill ;                                   // we have an explicit replacement value
   }
-  // gcc seems to have problems vectorizing this loop
+  // gcc seems to have problems vectorizing this loop if using t0   = (tu == 0) ? 0xFFFFFFFF : tu ;
   for(i=0 ; i<np ; i++){
     ts   = fs[i] ;
     ts   = (((uint32_t) ts & mmask) == missf) ? good : ts ;     // replace "missing" values with "non missing" value
