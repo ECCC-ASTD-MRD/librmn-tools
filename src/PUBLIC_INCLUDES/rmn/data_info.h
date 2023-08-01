@@ -49,11 +49,27 @@ interface
     integer(C_INT32_T), intent(IN), value :: np
     type(limits_f) :: limits
   end function
+  function IEEE32_extrema_missing(f, np, missing, mmask, pad ) result(limits) bind(C, name='IEEE32_extrema_missing')
+    import :: C_FLOAT, C_INT32_T, limits_f, C_PTR
+    implicit none
+    real(C_FLOAT), dimension(*), intent(IN) :: f
+    integer(C_INT32_T), intent(IN), value :: np, mmask
+    type(C_PTR), intent(IN), value :: missing, pad
+    type(limits_f) :: limits
+  end function
   function int32_extrema(f, np) result(limits) bind(C, name='INT32_extrema')
     import :: C_INT32_T, limits_i
     implicit none
     integer(C_INT32_T), dimension(*), intent(IN) :: f
     integer(C_INT32_T), intent(IN), value :: np
+    type(limits_i) :: limits
+  end function
+  function int32_extrema_missing(f, np, missing, mmask, pad) result(limits) bind(C, name='INT32_extrema_missing')
+    import :: C_INT32_T, limits_i, C_PTR
+    implicit none
+    integer(C_INT32_T), dimension(*), intent(IN) :: f
+    integer(C_INT32_T), intent(IN), value :: np, mmask
+    type(C_PTR), intent(IN), value :: missing, pad
     type(limits_i) :: limits
   end function
   function uint32_extrema(f, np) result(limits) bind(C, name='UINT32_extrema')
@@ -63,9 +79,17 @@ interface
     integer(C_INT32_T), intent(IN), value :: np
     type(limits_i) :: limits
   end function
+  function uint32_extrema_missing(f, np, missing, mmask, pad) result(limits) bind(C, name='UINT32_extrema_missing')
+    import :: C_INT32_T, limits_i, C_PTR
+    implicit none
+    integer(C_INT32_T), dimension(*), intent(IN) :: f
+    integer(C_INT32_T), intent(IN), value :: np, mmask
+    type(C_PTR), intent(IN), value :: missing, pad
+    type(limits_i) :: limits
+  end function
 end interface
 
-#else
+#else        // defined(IN_FORTRAN_CODE)
 
 #include <stdint.h>
 #include <rmn/ct_assert.h>
@@ -125,6 +149,7 @@ CT_ASSERT(sizeof(limits_w32) == 24)
 int W32_replace_missing(void * restrict f, int np, void *spval, uint32_t mmask, void *pad);
 
 limits_w32 UINT32_extrema(void * restrict f, int np);
+limits_w32 UINT32_extrema_missing(void * restrict f, int np, void *spval, uint32_t mmask, void *pad);
 
 limits_w32 INT32_extrema(void * restrict f, int np);
 limits_w32 INT32_extrema_missing(void * restrict f, int np, void *spval, uint32_t mmask, void *pad);
@@ -132,12 +157,7 @@ limits_w32 INT32_extrema_missing(void * restrict f, int np, void *spval, uint32_
 limits_w32 IEEE32_extrema(void * restrict f, int np);
 limits_w32 IEEE32_extrema_abs(void * restrict f, int np);
 limits_w32 IEEE32_extrema_missing(void * restrict f, int np, void * missing, uint32_t mmask, void *pad);
-// limits_w32 IEEE32_extrema_missing_simd(void * restrict f, int np, void * missing, uint32_t mmask, void *pad);
 
-int float_info_no_missing(float *zz, int ni, int lni, int nj, float *maxval, float *minval, float *minabs);
-int float_info_missing(float *zz, int ni, int lni, int nj, float *maxval, float *minval, float *minabs, float *spval, uint32_t spmask);
-int float_info(float *zz, int ni, int lni, int nj, float *maxval, float *minval, float *minabs, float *spval, uint32_t spmask);
+#endif        // defined(IN_FORTRAN_CODE)
 
-#endif
-
-#endif
+#endif        // ! defined(DATA_INFO_PROTOTYPES)
