@@ -9,8 +9,8 @@ function(add_project_test name source)
   cmake_parse_arguments(PARSE_ARGV 0 "TN" "NOCTEST;NODIAG;STATIC;NO_TOOLS;DL" "" "MPI;LINK_LIBS")
   # Use same name for target and executable file
   add_executable(${name} ${source})
-  if( TN_NODIAG AND ${COMPILER_SUITE} MATCHES  "nvhpc" )
-    SET_SOURCE_FILES_PROPERTIES( ${name} PROPERTIES 
+  if( TN_NODIAG AND ${COMPILER_SUITE} MATCHES  "nvhpc" AND ${source} MATCHES ".c")
+    SET_SOURCE_FILES_PROPERTIES( ${source} PROPERTIES 
       COMPILE_OPTIONS "--diag_suppress;declared_but_not_referenced;--diag_suppress;set_but_not_used;--diag_suppress;code_is_unreachable" )
   endif()
   if(TN_DL)
