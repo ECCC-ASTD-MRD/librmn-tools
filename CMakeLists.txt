@@ -242,6 +242,7 @@ set(PROJECT_F_FILES
   src/pred/analyze_data.F90
   src/plugins/fortran_plugins.F90
   src/pred/misc_operators_mod.F90
+  src/diag/data_info_mod.F90
 )
 SET_SOURCE_FILES_PROPERTIES( src/pred/lorenzo_mod.F90 PROPERTIES COMPILE_OPTIONS -DNO_EXTRA_FORTRAN )
 
@@ -471,7 +472,7 @@ write_basic_package_version_file(
 install(DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/modules/
         DESTINATION modules
         FILES_MATCHING PATTERN "*.mod"
-        PATTERN "*.smod"
+                       PATTERN "*.smod"
         )
 
 install(
