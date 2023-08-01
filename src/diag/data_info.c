@@ -25,7 +25,7 @@
 #include <rmn/misc_operators.h>
 #include <rmn/data_info.h>
 
-// compute maxa for 32 bit integers
+// compute maxa (largest absolute value) for 32 bit integers
 // l32  [IN] limits structure
 static uint32_t INT32_maxa(limits_w32 l32)
 {
@@ -36,7 +36,7 @@ static uint32_t INT32_maxa(limits_w32 l32)
   return (maxs > mins) ? maxs : mins ;        // MAX(ABS(maxs), ABS(mins))
 }
 
-// compute maxa for 32 bit IEEE floats
+// compute maxa (largest absolute value) for 32 bit IEEE floats
 // l32  [IN] limits structure
 static uint32_t IEEE32_maxa(limits_w32 l32)
 {
@@ -51,6 +51,7 @@ static uint32_t IEEE32_maxa(limits_w32 l32)
 // spval   [IN]  pointer to 32 bit " missing value" pattern
 // mmask   [IN]  missing mask (bits having the value 1 will be ignored for missing values)
 // pad     [IN]  pointer to 32 bit value to be used as "missing" replacement
+// return number of points in array if successful, -1 in case of error
 int W32_replace_missing(void * restrict f, int np, void *spval, uint32_t mmask, void *pad)
 {
   uint32_t *fu = (uint32_t *) f, missf, *fill = (uint32_t *) pad, *miss = (uint32_t *) spval, repl ;
@@ -88,11 +89,11 @@ limits_w32 UINT32_extrema(void * restrict f, int np)
   }
   l.i.maxs = 0 ;     // signed maximum makes no sense for unsigned integers, using unsigned value
   l.i.mins = 1 ;     // signed minimum makes no sense for unsigned integers, using unsigned value
-  l.u.mina = mina ;
-  l.u.min0 = min0 ;
-  l.u.maxa = maxa ;
-  l.u.allm = 0 ;
-  l.u.allp = 1 ;
+  l.u.mina = mina ;  // smallest absolute value
+  l.u.min0 = min0 ;  // smallest non zero absolute value
+  l.u.maxa = maxa ;  // largest absolute value
+  l.u.allm = 0 ;     // no negative number by definition
+  l.u.allp = 1 ;     // all positive or 0 numbers by definition
   return l ;
 }
 
@@ -137,11 +138,11 @@ limits_w32 UINT32_extrema_missing(void * restrict f, int np, void *spval, uint32
   }
   l.i.maxs = 0 ;     // signed maximum makes no sense for unsigned integers, using unsigned value
   l.i.mins = 1 ;     // signed minimum makes no sense for unsigned integers, using unsigned value
-  l.u.mina = mina ;
-  l.u.min0 = min0 ;
-  l.u.maxa = maxa ;
-  l.u.allm = 0 ;
-  l.u.allp = 1 ;
+  l.u.mina = mina ;  // smallest absolute value
+  l.u.min0 = min0 ;  // smallest non zero absolute value
+  l.u.maxa = maxa ;  // largest absolute value
+  l.u.allm = 0 ;     // no negative number by definition
+  l.u.allp = 1 ;     // all positive or 0 numbers by definition
   return l ;
 }
 
@@ -169,13 +170,13 @@ limits_w32 INT32_extrema(void * restrict f, int np)
     maxs = (ts > maxs) ? ts : maxs ;
     mins = (ts < mins) ? ts : mins ;
   }
-  l.i.maxs = maxs ;
-  l.i.mins = mins ;
-  l.i.mina = mina ;
-  l.i.min0 = min0 ;
-  l.i.maxa = INT32_maxa(l) ;
-  l.i.allm = W32_ALLM(l) ;
-  l.i.allp = W32_ALLP(l) ;
+  l.i.maxs = maxs ;           // signed maximum
+  l.i.mins = mins ;           // signed minimum
+  l.i.mina = mina ;           // smallest absolute value
+  l.i.min0 = min0 ;           // smallest non zero absolute value
+  l.i.maxa = INT32_maxa(l) ;  // largest absolute value
+  l.i.allm = W32_ALLM(l) ;    // 1 if all values <= 0
+  l.i.allp = W32_ALLP(l) ;    // 1 if all values >= 0
   return l ;
 }
 
@@ -225,13 +226,13 @@ limits_w32 INT32_extrema_missing(void * restrict f, int np, void *spval, uint32_
     maxs = (ts > maxs) ? ts : maxs ;                 // signed maximum
     mins = (ts < mins) ? ts : mins ;                 // signed minimum
   }
-  l.i.maxs = maxs ;
-  l.i.mins = mins ;
-  l.i.mina = mina ;
-  l.i.min0 = min0 ;
-  l.i.maxa = INT32_maxa(l) ;
-  l.i.allm = W32_ALLM(l) ;
-  l.i.allp = W32_ALLP(l) ;
+  l.i.maxs = maxs ;           // signed maximum
+  l.i.mins = mins ;           // signed minimum
+  l.i.mina = mina ;           // smallest absolute value
+  l.i.min0 = min0 ;           // smallest non zero absolute value
+  l.i.maxa = INT32_maxa(l) ;  // largest absolute value
+  l.i.allm = W32_ALLM(l) ;    // 1 if all values <= 0
+  l.i.allp = W32_ALLP(l) ;    // 1 if all values >= 0
   return l ;
 }
 
@@ -267,11 +268,11 @@ limits_w32 IEEE32_extrema(void * restrict f, int np)
   l.i.mina = mina ;                                // smallest float absolute value
   l.i.min0 = min0 ;                                // smallest float non zero absolute value
   l.i.maxa = IEEE32_maxa(l) ;                      // largest float absolute value
-  l.i.allm = W32_ALLM(l) ;
-  l.i.allp = W32_ALLP(l) ;
+  l.i.allm = W32_ALLM(l) ;                         // all values <= 0
+  l.i.allp = W32_ALLP(l) ;                         // all values >= 0
   return l ;
 }
-// get minimum and maximum absolute values, set all <= 0 and all >= 0 flags
+// get minimum and maximum absolute values, set all <= 0 and all >= 0 flags (quick version)
 // f     [IN]  32 bit IEEE float array
 // np    [IN]  number of data items
 // return an extrema limits_w32 struct
@@ -349,15 +350,12 @@ limits_w32 IEEE32_extrema_missing(void * restrict f, int np, void *spval, uint32
     maxs = (ts > maxs) ? ts : maxs ;                 // maximum signed value
     mins = (ts < mins) ? ts : mins ;                 // minimum signed value
   }
-  l.i.maxs = (maxs & 0x7FFFFFFF) ^ (maxs >> 31) ;  // restore float from fake signed integer
-  l.i.mins = (mins & 0x7FFFFFFF) ^ (mins >> 31) ;  // restore float from fake signed integer
-  l.i.mina = mina ;                                // no restore needed, mina/min0 are >= 0
-  l.i.min0 = min0 ;
-//   maxs = l32.i.maxs & 0x7FFFFFFF ;                   // ABS(maxs)
-//   mins = l32.i.mins & 0x7FFFFFFF ;                   // ABS(mins)
-//   l32.i.maxa = (maxs > mins) ? maxs : mins ;         // MAX(ABS(maxs), ABS(mins))
+  l.i.maxs = (maxs & 0x7FFFFFFF) ^ (maxs >> 31) ;  // maximum float value (signed) (restored from fake integer)
+  l.i.mins = (mins & 0x7FFFFFFF) ^ (mins >> 31) ;  // minimum float value (signed) (restored from fake integer)
+  l.i.mina = mina ;                                // smallest float absolute value
+  l.i.min0 = min0 ;                                // smallest float non zero absolute value
   l.i.maxa = IEEE32_maxa(l) ;                      // largest float absolute value
-  l.i.allm = W32_ALLM(l) ;
-  l.i.allp = W32_ALLP(l) ;
+  l.i.allm = W32_ALLM(l) ;                         // all values <= 0
+  l.i.allp = W32_ALLP(l) ;                         // all values >= 0
   return l ;                                       // return union
 }

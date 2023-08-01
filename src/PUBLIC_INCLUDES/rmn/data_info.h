@@ -42,6 +42,12 @@ type, BIND(C) :: limits_i
 end type
 
 interface
+  function W32_replace_missing(f, np, spval, mmask, pad) result(n) bind(C, name='W32_replace_missing')
+    import C_PTR, C_INT32_T
+    type(C_PTR), intent(IN), value :: f, spval, pad
+    integer(C_INT32_T), intent(IN), value :: np, mmask
+    integer(C_INT32_T) :: n
+  end function
   function IEEE32_extrema(f, np) result(limits) bind(C, name='IEEE32_extrema')
     import :: C_FLOAT, C_INT32_T, limits_f
     implicit none

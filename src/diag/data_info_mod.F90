@@ -13,6 +13,7 @@
 ! Author:
 !     M. Valin,   Environnement et Changement climatique Canada, 2023
 !
+! interface to C functions from data_info.c
 module data_info_mod
   use ISO_C_BINDING
   implicit none
@@ -25,7 +26,7 @@ module data_info_mod
     module procedure extrema_i   ! signed / unsigned integer
   end interface
 contains
-  function extrema_f(f, np, missing, mmask, pad) result(limits)
+  function extrema_f(f, np, missing, mmask, pad) result(limits)  ! float version
     implicit none
     real(C_FLOAT), dimension(*), intent(IN) :: f
     integer(C_INT32_T), intent(IN), value :: np
@@ -44,7 +45,7 @@ contains
     if(present(  mmask))    mmask_   = mmask
     limits = IEEE32_extrema_missing(f, np, missing_, mmask_, pad_ )
   end function
-  function extrema_i(f, np, missing, mmask, pad, unsigned) result(limits)
+  function extrema_i(f, np, missing, mmask, pad, unsigned) result(limits)  ! signed/unsigned integer version
     implicit none
     integer(C_INT32_T), dimension(*), intent(IN) :: f
     integer(C_INT32_T), intent(IN), value :: np
