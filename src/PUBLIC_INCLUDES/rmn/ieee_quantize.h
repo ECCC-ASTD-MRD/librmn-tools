@@ -43,21 +43,47 @@ typedef struct{
   uint32_t limit ;   // maximum absolute value possible
 } qhead ;            // quantization information header
 
+#define Q_SUBMODE_MASK 0xF
+#define Q_MODE_LINEAR   64
+#define Q_MODE_LOG     128
+typedef union{
+    int32_t  i ;
+    uint32_t u ;
+    float    f ;
+} i_u_f ;
+typedef struct{
+  int32_t mode ;
+  i_u_f   bias ;
+  i_u_f   spval ;
+  i_u_f   mmask ;
+  i_u_f   pad ;
+  int32_t min ;
+  int32_t max ;
+  int32_t nbits ;
+  int32_t sign ;
+  int32_t npts ;
+} q_meta ;
+
 float quantum_adjust(float quantum);
 
 uint64_t IEEE32_limits(void * restrict f, int np);
 void IEEE32_exp_limits(uint64_t u64, int *emin, int *emax);
 
+int64_t IEEE_quantize(void * restrict f, void * restrict q, q_meta *meta,  int nd, int nbits, float error, int mode, void *spval, uint32_t mmask, void *pad);
+int64_t IEEE_qrestore(void * restrict f, void * restrict q, q_meta *meta,  int nd);
+
 uint64_t IEEE32_linear_prep_0(uint64_t u64, int np, int nbits, float quant);
 uint64_t IEEE32_linear_prep_1(uint64_t u64, int np, int nbits, float quant);
 
+uint64_t IEEE32_quantize_linear_0(void * restrict f, uint64_t u64, void * restrict qs);
+
 uint64_t IEEE32_linear_quantize_0(void * restrict f, int ni, int nbits, float quantum, void * restrict q);
 uint64_t IEEE32_linear_quantize_1(void * restrict f, int ni, int nbits, float quantum, void * restrict q);
-uint64_t IEEE32_linear_quantize_1s(void * restrict f, int ni, int nbits, float quantum, void * restrict q);
+uint64_t IEEE32_linear_quantize_2(void * restrict f, int ni, int nbits, float quantum, void * restrict q);
 
 int IEEE32_linear_unquantize_0(void * restrict q, uint64_t h64, int ni, void * restrict f);
 int IEEE32_linear_unquantize_1(void * restrict q, uint64_t h64, int ni, void * restrict f);
-int IEEE32_linear_unquantize_s(void * restrict q, uint64_t h64, int ni, void * restrict f);
+int IEEE32_linear_unquantize_2(void * restrict q, uint64_t h64, int ni, void * restrict f);
 
 uint64_t IEEE32_fakelog_quantize_0(void * restrict f, int ni, int nbits, float qzero, void * restrict qs);
 int IEEE32_fakelog_unquantize_0(void * restrict q, uint64_t h64, int ni, void * restrict f);

@@ -1,20 +1,16 @@
-/* Hopefully useful routines for C and FORTRAN
- * Copyright (C) 2021  Recherche en Prevision Numerique
+/* Hopefully useful functions for C and FORTRAN
+ * Copyright (C) 2021-2023  Recherche en Prevision Numerique
  *
- * This library is free software; you can redistribute it and/or
+ * This is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation,
  * version 2.1 of the License.
  *
- * This library is distributed in the hope that it will be useful,
+ * This is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * Library General Public License for more details.
  *
- * You should have received a copy of the GNU Library General Public
- * License along with this library; if not, write to the
- * Free Software Foundation, Inc., 59 Temple Place - Suite 330,
- * Boston, MA 02111-1307, USA.
  */
 
 #include <stdio.h>
@@ -88,6 +84,47 @@ int main(int argc, char **argv){
 //   for(i=0 ; i<NPTS ; i++) fi[i] = baseval ;   // this MUST work too (constant array)
   for(i=0 ; i<NPTS ; i+=2) fi[i] = -fi[i] ;   // alternate signs, positive even, negative odd
 
+// ============================ NOT IN PLACE TESTS (type 2) ============================
+  fprintf(stderr, "\n=============== NOT IN PLACE (type 2) ==============\n") ;
+  fprintf(stderr, " in[0:1] = %12.6g, %12.6g\n", fi[0], fi[1]) ;
+  for(i=0 ; i<NPTS ; i++) fprintf(stderr, " %5.2f", (fi[i] < 0.0f) ? fi[i] + baseval : fi[i] - baseval) ; fprintf(stderr, "\n") ;
+  for(i=0 ; i<NPTS ; i++) qu[i] = -999999 ;
+  h64 = IEEE32_linear_quantize_2(fi, NPTS, nbits_test, quantum, qu) ;
+  for(i=0 ; i<NPTS ; i++) fprintf(stderr, " %5d", qu[i]) ; fprintf(stderr, "\n") ;
+  IEEE32_linear_unquantize_2(qu, h64, NPTS, fo) ;
+  for(i=0 ; i<NPTS ; i++) FO[i] = (fo[i] < 0) ? fo[i] + baseval : fo[i] - baseval ;
+  for(i=0 ; i<NPTS ; i++) fprintf(stderr, " %5.2f", fo[i]) ; fprintf(stderr, "\n") ;
+  for(i=0 ; i<NPTS ; i++) fprintf(stderr, " %5.2f", FO[i]) ; fprintf(stderr, "\n") ;
+  fprintf(stderr, " out[0:1] = %12.6g, %12.6g\n", fo[0], fo[1]) ;
+  for(i=0 ; i<NPTS ; i++) fprintf(stderr, " %5.2f", ABS(fo[i]-fi[i])) ; fprintf(stderr, "\n") ;
+// return 0 ;
+#if 1
+  fprintf(stderr, "\n=============== TIMINGS (type 2) ==============\n") ;
+  for(i=0 ; i<NPTST ; i++) fi[i] = i + .0001f ;
+  for(i=0 ; i<NPTS ; i+=2) fi[i] = -fi[i] ;   // alternate signs, positive even, negative odd
+  TIME_LOOP_EZ(1000, NPTST, h64 = IEEE32_linear_quantize_2(fi, NPTST, 16, .1f, qu)) ;
+  fprintf(stderr, "IEEE32_linear_quantize_2    : %s\n",timer_msg);
+  TIME_LOOP_EZ(1000, NPTST/2, h64 = IEEE32_linear_quantize_2(fi, NPTST/2, 16, .1f, qu)) ;
+  fprintf(stderr, "IEEE32_linear_quantize_2    : %s\n",timer_msg);
+  TIME_LOOP_EZ(1000, NPTST/4, h64 = IEEE32_linear_quantize_2(fi, NPTST/4, 16, .1f, qu)) ;
+  fprintf(stderr, "IEEE32_linear_quantize_2    : %s\n",timer_msg);
+  TIME_LOOP_EZ(1000, NPTST/32, h64 = IEEE32_linear_quantize_2(fi, NPTST/32, 16, .1f, qu)) ;
+  fprintf(stderr, "IEEE32_linear_quantize_2    : %s\n",timer_msg);
+
+  h64 = IEEE32_linear_quantize_2(fi, NPTST, 16, .1f, qu) ;
+  TIME_LOOP_EZ(1000, NPTST, IEEE32_linear_unquantize_2(qu, h64, NPTST, fo) ;) ;
+  fprintf(stderr, "IEEE32_linear_unquantize_2  : %s\n",timer_msg);
+  h64 = IEEE32_linear_quantize_2(fi, NPTST/2, 16, .1f, qu) ;
+  TIME_LOOP_EZ(1000, NPTST/2, IEEE32_linear_unquantize_2(qu, h64, NPTST/2, fo) ;) ;
+  fprintf(stderr, "IEEE32_linear_unquantize_2  : %s\n",timer_msg);
+  h64 = IEEE32_linear_quantize_2(fi, NPTST/4, 16, .1f, qu) ;
+  TIME_LOOP_EZ(1000, NPTST/4, IEEE32_linear_unquantize_2(qu, h64, NPTST/4, fo) ;) ;
+  fprintf(stderr, "IEEE32_linear_unquantize_2  : %s\n",timer_msg);
+  h64 = IEEE32_linear_quantize_2(fi, NPTST/8, 16, .1f, qu) ;
+  TIME_LOOP_EZ(1000, NPTST/8, IEEE32_linear_unquantize_2(qu, h64, NPTST/8, fo) ;) ;
+  fprintf(stderr, "IEEE32_linear_unquantize_2  : %s\n",timer_msg);
+#endif
+// return 0 ;
 // ============================ NOT IN PLACE TESTS (type 1) ============================
   fprintf(stderr, "\n=============== NOT IN PLACE (type 1) ==============\n") ;
   fprintf(stderr, " in[0:1] = %g, %g\n", fi[0], fi[1]) ;
@@ -132,7 +169,7 @@ int main(int argc, char **argv){
   fprintf(stderr, "IEEE32_linear_unquantize_1  : %s\n",timer_msg);
 // return 0 ;
 #endif
-return 0 ;
+// return 0 ;
 // ============================ NOT IN PLACE TESTS (type 0) ============================
   fprintf(stderr, "\n=============== NOT IN PLACE (type 0) ==============\n") ;
 //   for(i=0 ; i<NPTS ; i++) fprintf(stderr, "%8.8x ", ui[i]) ; fprintf(stderr, "\n");
@@ -166,6 +203,7 @@ return 0 ;
 #if 1
   fprintf(stderr, "\n=============== TIMINGS (type 0) ==============\n") ;
   for(i=0 ; i<NPTST ; i++) fi[i] = i + .0001f ;
+  for(i=0 ; i<NPTS ; i+=2) fi[i] = -fi[i] ;   // alternate signs, positive even, negative odd
   TIME_LOOP_EZ(1000, NPTST, h64 = IEEE32_linear_quantize_0(fi, NPTST, 16, .1f, qu)) ;
   fprintf(stderr, "IEEE32_linear_quantize_0    : %s\n",timer_msg);
   TIME_LOOP_EZ(1000, NPTST/2, h64 = IEEE32_linear_quantize_0(fi, NPTST/2, 16, .1f, qu)) ;

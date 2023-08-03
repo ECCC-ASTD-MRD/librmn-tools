@@ -108,9 +108,9 @@ typedef struct{
   uint32_t min0 ;   // smallest non zero absolute value
   uint8_t  allp ;   // 1 if all values are non negative
   uint8_t  allm ;   // 1 if all values are negative
-  uint8_t  maxe ;   // highest IEEE exponent (with bias)
-  uint8_t  mine ;   // lowest IEEE exponent (with bias)
-}limits_i ;
+  uint8_t  maxe ;   // should be 0 (only makes sense for floats)
+  uint8_t  mine ;   // should be 0 (only makes sense for floats)
+}limits_i ;         // signed integer limits
 
 typedef struct{
   uint32_t mins ;   // lowest absolute value
@@ -120,9 +120,9 @@ typedef struct{
   uint32_t min0 ;   // smallest non zero absolute value
   uint8_t  allp ;   // 1 if all values are non negative
   uint8_t  allm ;   // 1 if all values are negative
-  uint8_t  maxe ;   // highest IEEE exponent (with bias)
-  uint8_t  mine ;   // lowest IEEE exponent (with bias)
-}limits_u ;
+  uint8_t  maxe ;   // should be 0 (only makes sense for floats)
+  uint8_t  mine ;   // should be 0 (only makes sense for floats)
+}limits_u ;         // unsigned integer limits
 
 typedef struct{
   float mins ;      // IEEE32 bit pattern of lowest signed value
@@ -134,13 +134,13 @@ typedef struct{
   uint8_t  allm ;   // 1 if all values are negative
   uint8_t  maxe ;   // highest IEEE exponent (with bias)
   uint8_t  mine ;   // lowest IEEE exponent (with bias)
-}limits_f ;
+}limits_f ;         // IEEE float limits
 
 typedef union{
-  limits_i i ;
-  limits_u u ;
-  limits_f f ;
-} limits_w32 ;
+  limits_i i ;      // signed integer limits
+  limits_u u ;      // unsigned integer limits
+  limits_f f ;      // IEEE float limits
+} limits_w32 ;      // limits union
 
 CT_ASSERT(sizeof(limits_w32) == 24)
 
