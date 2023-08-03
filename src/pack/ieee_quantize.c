@@ -1037,6 +1037,7 @@ static inline float IEEE32_Q2F_linear_2(int32_t q, int32_t offset, int32_t maxEx
   temp1.i = temp1.i | q ;                  // restore mantissa ;
   return temp1.f - temp2.f ;               // compensate for possibly missing "hidden 1"
 }
+// external version of above
 float IEEE32_q2f_linear_2(int32_t q, int32_t offset, int32_t maxExp, int32_t shift2){
   return IEEE32_Q2F_linear_2(q, offset, maxExp, shift2) ;
 }
@@ -1055,6 +1056,7 @@ static inline int32_t IEEE32_F2Q_linear_2(int32_t Src, int32_t MaxExp, int32_t S
   if (Mantis > Mask) Mantis = Mask;          // clip to avoid exceeding all nbits bits set
   return Mantis ;
 }
+// external version of above
 int32_t IEEE32_f2q_linear_2(int32_t Src, int32_t MaxExp, int32_t Shift2, int32_t Minimum, int32_t Mask){
   return IEEE32_F2Q_linear_2(Src, MaxExp, Shift2, Minimum, Mask) ;
 }
@@ -1080,7 +1082,7 @@ uint64_t IEEE32_quantize_linear_2(void * restrict f, uint64_t u64, void * restri
 
 // Lib_Log(APP_LIBRMN,APP_DEBUG,"%f: axExp=%d min=%f fmin.i=%X max=%f Minimum=%d Maximum=%\n",__func__,MaxExp,fmin.f,fmin.i,fmax.f,Minimum,Maximum); */
   for(i=0 ; i<npts ; i++){                     // transform input floating point into integers
-    qu[i] = IEEE32_F2Q_linear_2(intsrc[i], MaxExp, Shift2, Minimum, Mask) ;
+    qu[i] = IEEE32_F2Q_linear_2(intsrc[i], MaxExp, Shift2, Minimum, Mask) ;  // use inline function
 //     Src = intsrc[i];
 //     Mantis = (1 << 23) | ( 0x7FFFFF & Src );   // get IEEE mantissa, restore hidden 1
 //     Exp    = (Src >> 23) & 0xFF;               // extract IEEE float 32 exponent
@@ -1125,7 +1127,7 @@ int IEEE32_linear_unquantize_2(void * restrict q, uint64_t u64, int ni, void * r
       return 0;
   }
   for(i = 0 ; i < ni ; i++){
-    dest[i] = IEEE32_Q2F_linear_2(qu[i], offset, maxExp, shift2) ;
+    dest[i] = IEEE32_Q2F_linear_2(qu[i], offset, maxExp, shift2) ;  // use inline function
 //     mantis = qu[i] ;
 //     mantis = mantis << shift2 ;                        // scale
 //     mantis = mantis + offset ;                         // add offset
