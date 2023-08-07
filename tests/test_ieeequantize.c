@@ -33,6 +33,13 @@
 #define N    35
 #define NEXP 4
 
+float max_abs_err(float *f1, float *f2, int n){
+  float maxerr = 0.0f ;
+  int i ;
+  for(i=0 ; i<n ; i++) maxerr = MAX(maxerr, ABS(f1[i] - f2[i])) ;
+  return maxerr ;
+}
+
 int main(int argc, char **argv){
   FloatInt x1, x2, x3, y, z0, z, t0, t1, t2, fi0, fo0 ;
   uint32_t e, e0, m ;
@@ -89,15 +96,16 @@ int main(int argc, char **argv){
   fprintf(stderr, " in[0:1] = %12.6g, %12.6g\n", fi[0], fi[1]) ;
   for(i=0 ; i<NPTS ; i++) fprintf(stderr, " %5.2f", (fi[i] < 0.0f) ? fi[i] + baseval : fi[i] - baseval) ; fprintf(stderr, "\n") ;
   for(i=0 ; i<NPTS ; i++) qu[i] = -999999 ;
-  h64 = IEEE32_linear_quantize_2(fi, NPTS, nbits_test, quantum, qu) ;
+quantum = 0.003f ;
+  h64 = IEEE32_linear_quantize_2(fi, NPTS, nbits_test, quantum*.5f, qu) ;
   for(i=0 ; i<NPTS ; i++) fprintf(stderr, " %5d", qu[i]) ; fprintf(stderr, "\n") ;
   IEEE32_linear_unquantize_2(qu, h64, NPTS, fo) ;
   for(i=0 ; i<NPTS ; i++) FO[i] = (fo[i] < 0) ? fo[i] + baseval : fo[i] - baseval ;
   for(i=0 ; i<NPTS ; i++) fprintf(stderr, " %5.2f", fo[i]) ; fprintf(stderr, "\n") ;
   for(i=0 ; i<NPTS ; i++) fprintf(stderr, " %5.2f", FO[i]) ; fprintf(stderr, "\n") ;
-  fprintf(stderr, " out[0:1] = %12.6g, %12.6g\n", fo[0], fo[1]) ;
+  fprintf(stderr, " out[0:1] = %12.6g, %12.6g, largest error = %12.6g, desired errmax = %g\n", fo[0], fo[1], max_abs_err(fi, fo, NPTS), quantum*.5f) ;
   for(i=0 ; i<NPTS ; i++) fprintf(stderr, " %5.2f", ABS(fo[i]-fi[i])) ; fprintf(stderr, "\n") ;
-// return 0 ;
+return 0 ;
 #if 1
   fprintf(stderr, "\n=============== TIMINGS (type 2) ==============\n") ;
   for(i=0 ; i<NPTST ; i++) fi[i] = i + .0001f ;
