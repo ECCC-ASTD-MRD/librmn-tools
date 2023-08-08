@@ -40,6 +40,14 @@ float max_abs_err(float *f1, float *f2, int n){
   return maxerr ;
 }
 
+float avg_abs_err(float *f1, float *f2, int n){
+  float maxerr = 0.0f ;
+  int i ;
+  for(i=0 ; i<n ; i++) maxerr += ABS(f1[i] - f2[i]) ;
+//   for(i=0 ; i<n ; i++) maxerr += (f1[i] - f2[i]) ;
+  return maxerr/n ;
+}
+
 int main(int argc, char **argv){
   FloatInt x1, x2, x3, y, z0, z, t0, t1, t2, fi0, fo0 ;
   uint32_t e, e0, m ;
@@ -76,37 +84,43 @@ int main(int argc, char **argv){
 //   float baseval = 262143.0f ;
 //   float baseval = 131070.10f ;
 //   float baseval = 65534.1f ;
-//   float baseval = 64.1f ;
+  float baseval = 64.01f ;
 //   float baseval = 1.001f ;
-  float baseval = 1.0f / 32768.0f ;
+//   float baseval = 1.0f / 32768.0f ;
+//   float basefac = 1.0f ;
+  float basefac = -32768.0f ;
 //   int nbits_test = -1 ;
   int nbits_test = 13 ;
 //   float quantum = 0.01f ;
   float quantum = 0.0f ;
   TIME_LOOP_DATA ;
-
+  ieee32_u hieee ;
+  int pos_neg = 0 ;
+#define WITH_TIMINGS
   start_of_test(argv[0]);
-
-  for(i=0 ; i<NPTS ; i++) fi[i] = baseval + (0.00001f + (i * 1.0f) / NPTS) ;
-//   for(i=0 ; i<NPTS ; i++) fi[i] = baseval ;   // this MUST work too (constant array)
-  for(i=0 ; i<NPTS ; i+=2) fi[i] = -fi[i] ;   // alternate signs, positive even, negative odd
+quantum = 0.1f ;
 
 // ============================ NOT IN PLACE TESTS (type 2) ============================
+  for(i=0 ; i<NPTS ; i++) fi[i] = baseval + basefac * (0.00001f + (i * 1.0f) / NPTS) ;
+//   for(i=0 ; i<NPTS ; i++) fi[i] = baseval ;   // this MUST work too (constant array)
+  if(pos_neg) for(i=0 ; i<NPTS ; i+=2) fi[i] = -fi[i] ;   // alternate signs, positive even, negative odd
+
   fprintf(stderr, "\n=============== NOT IN PLACE (type 2) ==============\n") ;
-  fprintf(stderr, " in[0:1] = %12.6g, %12.6g\n", fi[0], fi[1]) ;
+  fprintf(stderr, " in[0:1:last] = %12.6g, %12.6g, %12.6g\n", fi[0], fi[1], fi[NPTS-1]) ;
   for(i=0 ; i<NPTS ; i++) fprintf(stderr, " %5.2f", (fi[i] < 0.0f) ? fi[i] + baseval : fi[i] - baseval) ; fprintf(stderr, "\n") ;
   for(i=0 ; i<NPTS ; i++) qu[i] = -999999 ;
-quantum = 0.003f ;
-  h64 = IEEE32_linear_quantize_2(fi, NPTS, nbits_test, quantum*.5f, qu) ;
+  h64 = IEEE32_linear_quantize_2(fi, NPTS, quantum > 0 ? 0 : nbits_test, quantum*.5f, qu) ;
+  hieee.u = h64 ;
   for(i=0 ; i<NPTS ; i++) fprintf(stderr, " %5d", qu[i]) ; fprintf(stderr, "\n") ;
   IEEE32_linear_unquantize_2(qu, h64, NPTS, fo) ;
   for(i=0 ; i<NPTS ; i++) FO[i] = (fo[i] < 0) ? fo[i] + baseval : fo[i] - baseval ;
   for(i=0 ; i<NPTS ; i++) fprintf(stderr, " %5.2f", fo[i]) ; fprintf(stderr, "\n") ;
   for(i=0 ; i<NPTS ; i++) fprintf(stderr, " %5.2f", FO[i]) ; fprintf(stderr, "\n") ;
-  fprintf(stderr, " out[0:1] = %12.6g, %12.6g, largest error = %12.6g, desired errmax = %g\n", fo[0], fo[1], max_abs_err(fi, fo, NPTS), quantum*.5f) ;
+  fprintf(stderr, "<2> out[0:1:last] = %12.6g, %12.6g, %12.6g, avg(max) error = %12.6g(%12.6g), desired errmax = %g, nbits = %d\n",
+          fo[0], fo[1], fo[NPTS-1], avg_abs_err(fi, fo, NPTS), max_abs_err(fi, fo, NPTS-1), quantum*.5f, hieee.x.nbts) ;
   for(i=0 ; i<NPTS ; i++) fprintf(stderr, " %5.2f", ABS(fo[i]-fi[i])) ; fprintf(stderr, "\n") ;
-return 0 ;
-#if 1
+// return 0 ;
+#if defined(WITH_TIMINGS)
   fprintf(stderr, "\n=============== TIMINGS (type 2) ==============\n") ;
   for(i=0 ; i<NPTST ; i++) fi[i] = i + .0001f ;
   for(i=0 ; i<NPTS ; i+=2) fi[i] = -fi[i] ;   // alternate signs, positive even, negative odd
@@ -134,23 +148,29 @@ return 0 ;
 #endif
 // return 0 ;
 // ============================ NOT IN PLACE TESTS (type 1) ============================
+  for(i=0 ; i<NPTS ; i++) fi[i] = baseval + basefac * (0.00001f + (i * 1.0f) / NPTS) ;
+//   for(i=0 ; i<NPTS ; i++) fi[i] = baseval ;   // this MUST work too (constant array)
+  if(pos_neg) for(i=0 ; i<NPTS ; i+=2) fi[i] = -fi[i] ;   // alternate signs, positive even, negative odd
+
   fprintf(stderr, "\n=============== NOT IN PLACE (type 1) ==============\n") ;
-  fprintf(stderr, " in[0:1] = %g, %g\n", fi[0], fi[1]) ;
+  fprintf(stderr, " in[0:1:last] = %12.6g, %12.6g, %12.6g\n", fi[0], fi[1], fi[NPTS-1]) ;
   for(i=0 ; i<NPTS ; i++) fprintf(stderr, " %5.2f", (fi[i] < 0.0f) ? fi[i] + baseval : fi[i] - baseval) ; fprintf(stderr, "\n") ;
   for(i=0 ; i<NPTS ; i++) qu[i] = -999999 ;
 //   fi[NPTS/2] = 0.0f ;
-  h64 = IEEE32_linear_quantize_1(fi, NPTS, nbits_test, quantum, qu) ;
+  h64 = IEEE32_linear_quantize_1(fi, NPTS, quantum > 0 ? 0 : nbits_test, quantum*.5f, qu) ;
+  hieee.u = h64 ;
   for(i=0 ; i<NPTS ; i++) fprintf(stderr, " %5d", qu[i]) ; fprintf(stderr, "\n") ;
   IEEE32_linear_unquantize_1(qu, h64, NPTS, fo) ;
   for(i=0 ; i<NPTS ; i++) FO[i] = (fo[i] < 0) ? fo[i] + baseval : fo[i] - baseval ;
   for(i=0 ; i<NPTS ; i++) fprintf(stderr, " %5.2f", fo[i]) ; fprintf(stderr, "\n") ;
   for(i=0 ; i<NPTS ; i++) fprintf(stderr, " %5.2f", FO[i]) ; fprintf(stderr, "\n") ;
 //   for(i=0 ; i<NPTS ; i++) fprintf(stderr, " %5.2f", (fo[i] < 0) ? fo[i] + baseval : fo[i] - baseval) ; fprintf(stderr, "\n") ;
-  fprintf(stderr, " out[0:1] = %g, %g\n", fo[0], fo[1]) ;
+  fprintf(stderr, "<1> out[0:1:last] = %12.6g, %12.6g, %12.6g, avg(max) error = %12.6g(%12.6g), desired errmax = %g, nbits = %d\n",
+          fo[0], fo[1], fo[NPTS-1], avg_abs_err(fi, fo, NPTS), max_abs_err(fi, fo, NPTS-1), quantum*.5f, hieee.x.nbts) ;
   for(i=0 ; i<NPTS ; i++) fprintf(stderr, " %5.2f", ABS(fo[i]-fi[i])) ; fprintf(stderr, "\n") ;
-
+// return 0 ;
 // ============================ TIMINGS (type 1) ============================
-#if 1
+#if defined(WITH_TIMINGS)
   fprintf(stderr, "\n=============== TIMINGS (type 1) ==============\n") ;
   for(i=0 ; i<NPTST ; i++) fi[i] = i + .0001f ;
   for(i=0 ; i<NPTS ; i+=2) fi[i] = -fi[i] ;   // alternate signs, positive even, negative odd
@@ -179,20 +199,26 @@ return 0 ;
 #endif
 // return 0 ;
 // ============================ NOT IN PLACE TESTS (type 0) ============================
+  for(i=0 ; i<NPTS ; i++) fi[i] = baseval + basefac * (0.00001f + (i * 1.0f) / NPTS) ;
+//   for(i=0 ; i<NPTS ; i++) fi[i] = baseval ;   // this MUST work too (constant array)
+  if(pos_neg) for(i=0 ; i<NPTS ; i+=2) fi[i] = -fi[i] ;   // alternate signs, positive even, negative odd
+
   fprintf(stderr, "\n=============== NOT IN PLACE (type 0) ==============\n") ;
 //   for(i=0 ; i<NPTS ; i++) fprintf(stderr, "%8.8x ", ui[i]) ; fprintf(stderr, "\n");
 //   for(i=0 ; i<NPTS ; i++) fo[i] = fi[i] ;
   fprintf(stderr, " in[0:1] = %g, %g\n", fi[0], fi[1]) ;
   for(i=0 ; i<NPTS ; i++) fprintf(stderr, " %5.2f", (fi[i] < 0.0f) ? fi[i] + baseval : fi[i] - baseval) ; fprintf(stderr, "\n") ;
   for(i=0 ; i<NPTS ; i++) qu[i] = -1 ;
-  h64 = IEEE32_linear_quantize_0(fi, NPTS, nbits_test, quantum, qu) ;
+  h64 = IEEE32_linear_quantize_0(fi, NPTS, quantum > 0 ? 0 : nbits_test, quantum*0.5f, qu) ;
   for(i=0 ; i<NPTS ; i++) fprintf(stderr, " %5d", qu[i]) ; fprintf(stderr, "\n") ;
   for(i=0 ; i<NPTS ; i++) fo[i] = 999999.0f ;
   IEEE32_linear_unquantize_0(qu, h64, NPTS, fo) ;
 //   for(i=0 ; i<NPTS ; i++) fprintf(stderr, "%5.2f", fi[i]) ; fprintf(stderr, "\n") ;
 //   for(i=0 ; i<NPTS ; i++) fprintf(stderr, "%5.2f", fo[i]) ; fprintf(stderr, "\n") ;
-  for(i=0 ; i<NPTS ; i++) fprintf(stderr, " %5.2f", (fo[i] < 0) ? fo[i] + baseval : fo[i] - baseval) ; fprintf(stderr, "\n") ;
-  fprintf(stderr, " out[0:1] = %g, %g\n", fo[0], fo[1]) ;
+  fprintf(stderr, "<0> out[0:1:last] = %12.6g, %12.6g, %12.6g, avg(max) error = %12.6g(%12.6g), desired errmax = %g, nbits = %d\n",
+          fo[0], fo[1], fo[NPTS-1], avg_abs_err(fi, fo, NPTS), max_abs_err(fi, fo, NPTS-1), quantum*.5f, hieee.x.nbts) ;
+//   for(i=0 ; i<NPTS ; i++) fprintf(stderr, " %5.2f", (fo[i] < 0) ? fo[i] + baseval : fo[i] - baseval) ; fprintf(stderr, "\n") ;
+//   fprintf(stderr, " out[0:1] = %g, %g\n", fo[0], fo[1]) ;
   for(i=0 ; i<NPTS ; i++) fprintf(stderr, " %5.2f", ABS(fo[i]-fi[i])) ; fprintf(stderr, "\n") ;
 
 // ============================ IN PLACE TESTS (type 0) ============================
@@ -200,15 +226,17 @@ return 0 ;
   for(i=0 ; i<NPTS ; i++) fo[i] = fi[i] ;
   fprintf(stderr, " in[0:1] = %g, %g\n", fo[0], fo[1]) ;
   for(i=0 ; i<NPTS ; i++) fprintf(stderr, " %5.2f", (fo[i] < 0) ? fo[i] + baseval : fo[i] - baseval) ; fprintf(stderr, "\n") ;
-  h64 = IEEE32_linear_quantize_0(fo, NPTS, nbits_test, quantum, fo) ;;                   // quantize in-place
+  h64 = IEEE32_linear_quantize_0(fo, NPTS, quantum > 0 ? 0 : nbits_test, quantum*0.5f, fo) ;;                   // quantize in-place
   for(i=0 ; i<NPTS ; i++) fprintf(stderr, " %5d", uo[i]) ; fprintf(stderr, "\n") ;
   IEEE32_linear_unquantize_0(fo, h64, NPTS, fo) ;                            // restore in-place
-  for(i=0 ; i<NPTS ; i++) fprintf(stderr, " %5.2f", (fo[i] < 0) ? fo[i] + baseval : fo[i] - baseval) ; fprintf(stderr, "\n") ;
-  fprintf(stderr, " out[0:1] = %g, %g\n", fo[0], fo[1]) ;
+  fprintf(stderr, ">0< out[0:1:last] = %12.6g, %12.6g, %12.6g, avg(max) error = %12.6g(%12.6g), desired errmax = %g, nbits = %d\n",
+          fo[0], fo[1], fo[NPTS-1], avg_abs_err(fi, fo, NPTS), max_abs_err(fi, fo, NPTS-1), quantum*.5f, hieee.x.nbts) ;
+//   for(i=0 ; i<NPTS ; i++) fprintf(stderr, " %5.2f", (fo[i] < 0) ? fo[i] + baseval : fo[i] - baseval) ; fprintf(stderr, "\n") ;
+//   fprintf(stderr, " out[0:1] = %g, %g\n", fo[0], fo[1]) ;
   for(i=0 ; i<NPTS ; i++) fprintf(stderr, " %5.2f", ABS(fo[i]-fi[i])) ; fprintf(stderr, "\n") ;
 
 // ============================ TIMINGS (type 0) ============================
-#if 1
+#if defined(WITH_TIMINGS)
   fprintf(stderr, "\n=============== TIMINGS (type 0) ==============\n") ;
   for(i=0 ; i<NPTST ; i++) fi[i] = i + .0001f ;
   for(i=0 ; i<NPTS ; i+=2) fi[i] = -fi[i] ;   // alternate signs, positive even, negative odd
@@ -234,6 +262,7 @@ return 0 ;
   TIME_LOOP_EZ(1000, NPTST/8, IEEE32_linear_unquantize_0(qu, h64, NPTST/8, fo) ;) ;
   fprintf(stderr, "IEEE32_linear_unquantize_0  : %s\n",timer_msg);
 #endif
+
 return 0 ;
 
   fprintf(stderr, "limit16 = %8.8x, %8d, %8.8x\n", limit16, limit16 >> 23, limit16 & 0x7FFFFF);

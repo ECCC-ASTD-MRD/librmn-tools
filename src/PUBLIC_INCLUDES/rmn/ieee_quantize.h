@@ -51,6 +51,19 @@ typedef union{
     uint32_t u ;
     float    f ;
 } i_u_f ;
+
+typedef struct{
+  uint32_t bias:32;  // minimum value
+  uint32_t npts:14,  // number of points, 0 means unknown
+           resv:13,
+           nbts:5 ;  // number of bits (0 -> 31) per value (nbts == 0 : same value, same sign)
+} ieee32_x ;
+
+typedef union{
+  ieee32_x x ;
+  uint64_t u ;
+} ieee32_u ;
+
 typedef struct{
   int32_t mode ;
   i_u_f   bias ;
