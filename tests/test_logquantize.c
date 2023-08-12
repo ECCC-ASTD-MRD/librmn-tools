@@ -57,6 +57,7 @@ int main(int argc, char **argv){
   uint64_t h64 ;
   TIME_LOOP_DATA ;
   int emin, emax ;
+  limits_w32 l32 ;
 
   start_of_test(argv[0]);
 
@@ -72,8 +73,8 @@ int main(int argc, char **argv){
 //   for(i=1 ; i<NPTS ; i++) x[i] = 1.00135f * x[i-1] ;
   ramp_float_test_data_1D(x, NPTS, 1.00001f, 1.00135f) ;
   scale_float_test_data_1D(x, NPTS, 1.0f/4, 0.0f) ;
-  h64 = IEEE32_limits(x, NPTS) ;
-  IEEE32_exp_limits(h64, &emin, &emax) ;
+  l32 = IEEE32_extrema(x, NPTS) ;
+  IEEE32_exp_limits(l32, &emin, &emax) ;
   fprintf(stderr,"exponent range : %d -> %d (%d)\n", emin, emax, emax-emin+1) ;
 //   for(i=0 ; i<NPTS ; i++) x[i] /= 16.0f ;
 //   for(i=0 ; i<NPTS ; i++) x[i] = (x[i] < qzero) ? qzero : x[i] ;

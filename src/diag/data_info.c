@@ -359,3 +359,12 @@ limits_w32 IEEE32_extrema_missing(void * restrict f, int np, void *spval, uint32
   l.i.allp = W32_ALLP(l) ;                         // all values >= 0
   return l ;                                       // return union
 }
+
+// get IEEE exponents (without 127 bias) from smallest and largest absolute values
+// l32   [IN] : analysis from IEEE32_extrema
+// emin [OUT] : pointer to exponent from smallest non zero absolute value
+// emax [OUT] : pointer to exponent from largest absolute value
+void IEEE32_exp_limits(limits_w32 l32, int *emin, int *emax){
+  *emin = (l32.i.min0 >> 23) - 127 ;
+  *emax = (l32.i.maxa >> 23) - 127 ;
+}

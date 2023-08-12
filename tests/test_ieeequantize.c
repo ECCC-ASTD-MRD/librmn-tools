@@ -96,7 +96,7 @@ int main(int argc, char **argv){
   TIME_LOOP_DATA ;
   ieee32_u hieee ;
   int pos_neg = 0 ;
-#define WITH_TIMINGS
+// #define WITH_TIMINGS
   start_of_test(argv[0]);
 quantum = 0.1f ;
 
@@ -210,6 +210,7 @@ quantum = 0.1f ;
   for(i=0 ; i<NPTS ; i++) fprintf(stderr, " %5.2f", (fi[i] < 0.0f) ? fi[i] + baseval : fi[i] - baseval) ; fprintf(stderr, "\n") ;
   for(i=0 ; i<NPTS ; i++) qu[i] = -1 ;
   h64 = IEEE32_linear_quantize_0(fi, NPTS, quantum > 0 ? 0 : nbits_test, quantum*0.5f, qu) ;
+hieee.u = h64 ;
   for(i=0 ; i<NPTS ; i++) fprintf(stderr, " %5d", qu[i]) ; fprintf(stderr, "\n") ;
   for(i=0 ; i<NPTS ; i++) fo[i] = 999999.0f ;
   IEEE32_linear_unquantize_0(qu, h64, NPTS, fo) ;
@@ -220,7 +221,7 @@ quantum = 0.1f ;
 //   for(i=0 ; i<NPTS ; i++) fprintf(stderr, " %5.2f", (fo[i] < 0) ? fo[i] + baseval : fo[i] - baseval) ; fprintf(stderr, "\n") ;
 //   fprintf(stderr, " out[0:1] = %g, %g\n", fo[0], fo[1]) ;
   for(i=0 ; i<NPTS ; i++) fprintf(stderr, " %5.2f", ABS(fo[i]-fi[i])) ; fprintf(stderr, "\n") ;
-
+return 0 ;
 // ============================ IN PLACE TESTS (type 0) ============================
   fprintf(stderr, "\n=============== IN PLACE (type 0) ==============\n") ;
   for(i=0 ; i<NPTS ; i++) fo[i] = fi[i] ;

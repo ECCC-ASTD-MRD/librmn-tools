@@ -164,6 +164,8 @@ limits_w32 IEEE32_extrema(void * restrict f, int np);
 limits_w32 IEEE32_extrema_abs(void * restrict f, int np);
 limits_w32 IEEE32_extrema_missing(void * restrict f, int np, void * missing, uint32_t mmask, void *pad);
 
+void IEEE32_exp_limits(limits_w32 l32, int *emin, int *emax);
+
 #endif        // defined(IN_FORTRAN_CODE)
 
 #endif        // ! defined(DATA_INFO_PROTOTYPES)
