@@ -187,57 +187,6 @@ int64_t IEEE_qrestore(void * restrict f, void * restrict q, q_meta *meta,  int n
 
 // ========================================== common functions ==========================================
 // prepare for quantization of IEEE floats
-// (to be replaced by IEEE32_extrema from data_info.c)
-#if 0
-// get minimum and maximum absolute values, set all < 0 and none < 0 flags
-// f     [IN]  32 bit IEEE float array, data to be quantized
-// np    [IN]  number of data items to quantize
-uint64_t IEEE32_limits(void * restrict f, int np){
-  int32_t *fu = (int32_t *) f ;
-  ieee32_props h64 ;
-  uint32_t maxa[8], mina[8], ands[8], ors[8], t[8], masksign ;
-  int i0, i, ni7 ;
-  uint32_t allm, allp ;
-
-  masksign = RMASK31(31) ;       // sign bit is 0, all others are 1
-  h64.u = 0 ;
-  for(i=0 ; i<8 ; i++){          // prepare mina, maxa, ors, ands for accumulation
-    maxa[i] = ors[i]  = 0u ;     // 0
-    mina[i] = ands[i] = ~0u ;    // FFFFFFFF
-  }
-  ni7 = (np & 7) ;
-  for(i=0 ; i<8 && i<ni7 ; i++){
-//     if(i >= ni7) break ;                  // safety for case where we have less than 8 values
-    t[i] = fu[i] & masksign ;             // get rid of sign
-    maxa[i]  = MAX( maxa[i], t[i]) ;      // largest absolute value
-    mina[i]  = MIN( mina[i], t[i]) ;      // smallest absolute value
-    ands[i] &= fu[i] ;                    // all < 0 detection
-    ors[i]  |= fu[i] ;                    // all >= 0 detection
-  }
-  for(i0=ni7 ; i0<np-7 ; i0+=8){          // chunks of 8 values
-    for(i=0 ; i<8 ; i++){
-      t[i] = fu[i0+i] & masksign ;        // get rid of sign
-      maxa[i]  = MAX( maxa[i], t[i]) ;    // largest absolute value
-      mina[i]  = MIN( mina[i], t[i]) ;    // smallest absolute value
-      ands[i] &= fu[i0+i] ;               // all < 0 detection
-      ors[i]  |= fu[i0+i] ;               // all >= 0 detection
-    }
-  }
-  for(i=0 ; i<8 ; i++){        // fold 8 long vectors into single values
-    maxa[0]  = MAX( maxa[0], maxa[i]) ;
-    mina[0]  = MIN( mina[0], mina[i]) ;
-    ands[0] &= ands[i] ;       // will be 1 if all values are < 0, will be 0 if any value is >= 0
-    ors[0]  |= ors[i] ;        // will be 0 if all values >= 0, will be 1 if any value is <0
-  }
-  allm = (ands[0] >> 31) == 1 ;           // all values are negative
-  allp = (ors[0] >> 31) == 0 ;            // we have NO negative values
-  h64.l.allp = allp ;
-  h64.l.allm = allm ;
-  h64.l.maxa = maxa[0] ;
-  h64.l.mina = mina[0] ;
-  return h64.u ;             // return 64 bit aggregate
-}
-#endif
 // ========================================== pseudo log quantizer 0 ==========================================
 
 // restore floating point numbers quantized with IEEE32_fakelog_quantize_0
