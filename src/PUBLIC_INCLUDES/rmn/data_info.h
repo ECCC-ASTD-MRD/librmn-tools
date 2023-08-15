@@ -23,6 +23,7 @@ type, BIND(C) :: limits_f
   real(C_FLOAT)      :: mina   ! smallest absolute value
   real(C_FLOAT)      :: maxa   ! largest absolute value
   real(C_FLOAT)      :: min0   ! smallest non zero absolute value
+  integer(C_INT32_T) :: spec   ! number of "special" values
   integer(C_INT8_T)  :: allp   ! 1 if all values are non negative
   integer(C_INT8_T)  :: allm   ! 1 if all values are negative
   integer(C_INT8_T)  :: maxe   ! highest IEEE exponent (with bias)
@@ -35,6 +36,7 @@ type, BIND(C) :: limits_i
   integer(C_INT32_T) :: mina   ! smallest absolute value
   integer(C_INT32_T) :: maxa   ! largest absolute value
   integer(C_INT32_T) :: min0   ! smallest non zero absolute value
+  integer(C_INT32_T) :: spec   ! number of "special" values
   integer(C_INT8_T)  :: allp   ! 1 if all values are non negative
   integer(C_INT8_T)  :: allm   ! 1 if all values are negative
   integer(C_INT8_T)  :: maxe   ! highest IEEE exponent (with bias)
@@ -106,6 +108,7 @@ typedef struct{
   uint32_t mina ;   // smallest absolute value
   uint32_t maxa ;   // largest absolute value
   uint32_t min0 ;   // smallest non zero absolute value
+  uint32_t spec ;   // number of "special" values
   uint8_t  allp ;   // 1 if all values are non negative
   uint8_t  allm ;   // 1 if all values are negative
   uint8_t  maxe ;   // should be 0 (only makes sense for floats)
@@ -118,6 +121,7 @@ typedef struct{
   uint32_t mina ;   // smallest absolute value (same as mins)
   uint32_t maxa ;   // largest absolute value (same as maxs)
   uint32_t min0 ;   // smallest non zero absolute value
+  uint32_t spec ;   // number of "special" values
   uint8_t  allp ;   // 1 if all values are non negative
   uint8_t  allm ;   // 1 if all values are negative
   uint8_t  maxe ;   // should be 0 (only makes sense for floats)
@@ -130,6 +134,7 @@ typedef struct{
   float mina ;      // IEEE32 bit pattern of smallest absolute value
   float maxa ;      // IEEE32 bit pattern of largest absolute value
   float min0 ;      // IEEE32 bit pattern of smallest non zero absolute value
+  uint32_t spec ;   // number of "special" values
   uint8_t  allp ;   // 1 if all values are non negative
   uint8_t  allm ;   // 1 if all values are negative
   uint8_t  maxe ;   // highest IEEE exponent (with bias)
@@ -142,7 +147,7 @@ typedef union{
   limits_f f ;      // IEEE float limits
 } limits_w32 ;      // limits union
 
-CT_ASSERT(sizeof(limits_w32) == 24)
+CT_ASSERT(sizeof(limits_w32) == 28)
 
 // N.B. some compiler versions fail to compile when the return value of a function is larger than 128 bits
 

@@ -45,12 +45,12 @@ static uint32_t IEEE32_maxa(limits_w32 l32)
   return (maxs > mins) ? maxs : mins ;               // MAX(ABS(maxs), ABS(mins))
 }
 
-// replace "missing" values in 32 bit array
+// replace "special" values in 32 bit array
 // f    [INOUT]  array of 32 bit values
 // np      [IN]  number of data items
-// spval   [IN]  pointer to 32 bit " missing value" pattern
-// mmask   [IN]  missing mask (bits having the value 1 will be ignored for missing values)
-// pad     [IN]  pointer to 32 bit value to be used as "missing" replacement
+// spval   [IN]  pointer to 32 bit " special value" pattern
+// mmask   [IN]  special mask (bits having the value 1 will be ignored for special values)
+// pad     [IN]  pointer to 32 bit value to be used as "special" replacement
 // return number of points in array if successful, -1 in case of error
 int W32_replace_missing(void * restrict f, int np, void *spval, uint32_t mmask, void *pad)
 {
@@ -59,7 +59,7 @@ int W32_replace_missing(void * restrict f, int np, void *spval, uint32_t mmask, 
 
   if(f == NULL || spval == NULL || mmask == 0xFFFFFFFFu || pad == NULL) return -1 ;  // nothing can be done, error
   mmask = ~mmask ;
-  missf = mmask & *miss ;                            // masked "missing" value
+  missf = mmask & *miss ;                            // masked "special" value
   repl  = *fill ;                                    // replacement value
   for(i=0 ; i<np ; i++){
     fu[i] = ( (fu[i] & mmask) == missf ) ? repl : fu[i] ;
@@ -92,23 +92,24 @@ limits_w32 UINT32_extrema(void * restrict f, int np)
   l.u.mina = mina ;  // smallest absolute value
   l.u.min0 = min0 ;  // smallest non zero absolute value
   l.u.maxa = maxa ;  // largest absolute value
+  l.u.spec = 0 ;     // no "special" values
   l.u.allm = 0 ;     // no negative number by definition
   l.u.allp = 1 ;     // all positive or 0 numbers by definition
   return l ;
 }
 
-// get unsigned integer 32 extrema, "missing" values are accounted for
+// get unsigned integer 32 extrema, "special" values are accounted for
 // f       [IN]  32 bit integer array
 // np      [IN]  number of data items
-// spval   [IN]  pointer to 32 bit " missing value" pattern
-// mmask   [IN]  missing mask (bits having the value 1 will be ignored for missing values)
-// pad     [IN]  pointer to 32 bit value to be used as "missing" replacement
+// spval   [IN]  pointer to 32 bit " special value" pattern
+// mmask   [IN]  special mask (bits having the value 1 will be ignored for special values)
+// pad     [IN]  pointer to 32 bit value to be used as "special" replacement
 // return an extrema limits_w32 struct
 limits_w32 UINT32_extrema_missing(void * restrict f, int np, void *spval, uint32_t mmask, void *pad)
 {
   uint32_t *fu = (uint32_t *) f ;
   int i ;
-  uint32_t maxa, mina, min0, tu, t0, *miss = (uint32_t *)spval, missf, good, *fill = (uint32_t *)pad ;
+  uint32_t maxa, mina, min0, tu, t0, *miss = (uint32_t *)spval, missf, good, *fill = (uint32_t *)pad, spec = 0, special ;
   limits_w32 l ;
 
 
@@ -118,19 +119,21 @@ limits_w32 UINT32_extrema_missing(void * restrict f, int np, void *spval, uint32
   mina = 0xFFFFFFFFu ;
   maxa = 0 ;
   min0 = 0xFFFFFFFFu ;
-  missf = mmask & *miss ;                            // masked "missing" value
+  missf = mmask & *miss ;                            // masked "special" value
   if(fill == NULL){                                  // no explicit replacement value
-    good = (uint32_t)fu[0] ;                         // in case no non "missing" value found
-    for(i=0 ; i<np ; i++){                           // find first non "missing" value
+    good = (uint32_t)fu[0] ;                         // in case no non "special" value found
+    for(i=0 ; i<np ; i++){                           // find first non "special" value
       good = (uint32_t)fu[i] ;
-      if( (good & mmask) != missf) break ;           // non "missing" value found
+      if( (good & mmask) != missf) break ;           // non "special" value found
     }
   }else{
     good = *fill ;                                   // we have an explicit replacement value
   }
   for(i=0 ; i<np ; i++){
     tu = fu[i] ;
-    tu   = ((tu & mmask) == missf) ? good : tu ;     // replace "missing" values with "non missing" value
+    special = ((tu & mmask) == missf) ? 1 : 0 ;
+    tu   = special ? good : tu ;                     // replace "special" values with "non special" value
+    spec = spec + special ;                          // count "special" values
     t0 = (tu == 0) ? 0xFFFFFFFEu : tu ;              // ignore 0 for non zero minimum, replace with HUGE value
     mina = (tu < mina) ? tu : mina ;                 // smallest absolute value
     min0 = (t0 < min0) ? t0 : min0 ;                 // smallest non zero absolute value
@@ -141,6 +144,7 @@ limits_w32 UINT32_extrema_missing(void * restrict f, int np, void *spval, uint32
   l.u.mina = mina ;  // smallest absolute value
   l.u.min0 = min0 ;  // smallest non zero absolute value
   l.u.maxa = maxa ;  // largest absolute value
+  l.u.spec = spec ;  // "special" values
   l.u.allm = 0 ;     // no negative number by definition
   l.u.allp = 1 ;     // all positive or 0 numbers by definition
   return l ;
@@ -175,26 +179,27 @@ limits_w32 INT32_extrema(void * restrict f, int np)
   l.i.mina = mina ;           // smallest absolute value
   l.i.min0 = min0 ;           // smallest non zero absolute value
   l.i.maxa = INT32_maxa(l) ;  // largest absolute value
+  l.u.spec = 0 ;              // no "special" values
   l.i.allm = W32_ALLM(l) ;    // 1 if all values <= 0
   l.i.allp = W32_ALLP(l) ;    // 1 if all values >= 0
   return l ;
 }
 
-// get integer 32 extrema (signed and absolute value) "missing" values are accounted for
+// get integer 32 extrema (signed and absolute value) "special" values are accounted for
 // f       [IN]  32 bit integer array
 // np      [IN]  number of data items
-// spval   [IN]  pointer to 32 bit " missing value" pattern
-// mmask   [IN]  missing mask (bits having the value 1 will be ignored for missing values)
-// pad     [IN]  pointer to 32 bit value to be used as "missing" replacement
+// spval   [IN]  pointer to 32 bit " special value" pattern
+// mmask   [IN]  special mask (bits having the value 1 will be ignored for special values)
+// pad     [IN]  pointer to 32 bit value to be used as "special" replacement
 // return an extrema limits_w32 struct
 //
-// values with bit pattern (~mmask) & *spval wil be treated as "missing" and ignored
-// if mmask == 0 or spval == NULL, the "missing" check is inactivated
+// values with bit pattern (~mmask) & *spval wil be treated as "special" and ignored
+// if mmask == 0 or spval == NULL, the "special" check is inactivated
 limits_w32 INT32_extrema_missing(void * restrict f, int np, void *spval, uint32_t mmask, void *pad)
 {
   int32_t  *fs = (int32_t *) f ;
   int i ;
-  uint32_t mina, min0, missf, tu, t0, *miss = (uint32_t *)spval ;
+  uint32_t mina, min0, missf, tu, t0, *miss = (uint32_t *)spval, spec = 0, special ;
   int32_t maxs, mins, ts, good, *fill = (int32_t *)pad ;
   limits_w32 l ;
 
@@ -205,12 +210,12 @@ limits_w32 INT32_extrema_missing(void * restrict f, int np, void *spval, uint32_
   maxs = 0x80000000 ;
   mins = 0x7FFFFFFF ;
   min0 = 0xFFFFFFFFu ;
-  missf = mmask & *miss ;                            // masked "missing" value
+  missf = mmask & *miss ;                            // masked "special" value
   if(fill == NULL){                                  // no explicit replacement value
-    good = (uint32_t)fs[0] ;                         // in case no non "missing" value found
-    for(i=0 ; i<np ; i++){                           // find first non "missing" value
+    good = (uint32_t)fs[0] ;                         // in case no non "special" value found
+    for(i=0 ; i<np ; i++){                           // find first non "special" value
       good = (uint32_t)fs[i] ;
-      if( (good & mmask) != missf) break ;           // non "missing" value found
+      if( (good & mmask) != missf) break ;           // non "special" value found
     }
   }else{
     good = *fill ;                                   // we have an explicit replacement value
@@ -218,7 +223,9 @@ limits_w32 INT32_extrema_missing(void * restrict f, int np, void *spval, uint32_
   // gcc seems to have problems vectorizing this loop if using t0   = (tu == 0) ? 0xFFFFFFFF : tu ;
   for(i=0 ; i<np ; i++){
     ts   = fs[i] ;
-    ts   = (((uint32_t) ts & mmask) == missf) ? good : ts ;     // replace "missing" values with "non missing" value
+    special = (((uint32_t) ts & mmask) == missf) ? 1 : 0 ;
+    ts   = special ? good : ts ;                     // replace "special" values with "non special" value
+    spec = spec + special ;
     tu   = (ts < 0) ? -ts : ts ;                     // ABS(fs[i])
     t0   = (tu == 0) ? 0xFFFFFFFEu : tu ;             // ignore 0 for non zero minimum, replace with HUGE value
     mina = (tu < mina) ? tu : mina ;                 // smallest absolute value
@@ -231,6 +238,7 @@ limits_w32 INT32_extrema_missing(void * restrict f, int np, void *spval, uint32_
   l.i.mina = mina ;           // smallest absolute value
   l.i.min0 = min0 ;           // smallest non zero absolute value
   l.i.maxa = INT32_maxa(l) ;  // largest absolute value
+  l.u.spec = spec ;           // "special" values
   l.i.allm = W32_ALLM(l) ;    // 1 if all values <= 0
   l.i.allp = W32_ALLP(l) ;    // 1 if all values >= 0
   return l ;
@@ -268,6 +276,7 @@ limits_w32 IEEE32_extrema(void * restrict f, int np)
   l.i.mina = mina ;                                // smallest float absolute value
   l.i.min0 = min0 ;                                // smallest float non zero absolute value
   l.i.maxa = IEEE32_maxa(l) ;                      // largest float absolute value
+  l.u.spec = 0 ;                                   // no "special" values
   l.i.allm = W32_ALLM(l) ;                         // all values <= 0
   l.i.allp = W32_ALLP(l) ;                         // all values >= 0
   return l ;
@@ -300,48 +309,51 @@ limits_w32 IEEE32_extrema_abs(void * restrict f, int np)
   l.i.mina = mina ;                                // smallest float absolute value
   l.i.min0 = 0 ;                                   // dummy
   l.i.maxa = maxa ;                                // smallest float non zero absolute value
+  l.u.spec = 0 ;                                   // no "special" values
   l.i.allm = ands >> 31 ;                          // 1 if all values negative or 0
   l.i.allp = (ors >> 31) == 0 ;                    // 1 if all values positive or 0
   return l ;
 }
 
-// get IEEE 32 extrema (signed and absolute value), "missing" values are accounted for
+// get IEEE 32 extrema (signed and absolute value), "special" values are accounted for
 // f       [IN]  32 bit IEEE float array
 // np      [IN]  number of data items
-// spval   [IN]  pointer to 32 bit " missing value" pattern
-// mmask   [IN]  missing mask (bits having the value 1 will be ignored for missing values)
-// pad     [IN]  pointer to 32 bit value to be used as "missing" replacement
+// spval   [IN]  pointer to 32 bit " special value" pattern
+// mmask   [IN]  special mask (bits having the value 1 will be ignored for special values)
+// pad     [IN]  pointer to 32 bit value to be used as "special" replacement
 // return an extrema limits_w32 struct
 //
-// values with bit pattern (~mmask) & *spval wil be treated as "missing" and ignored
-// if mmask == 0 or spval == NULL, the "missing" check is inactivated
+// values with bit pattern (~mmask) & *spval wil be treated as "special" and ignored
+// if mmask == 0 or spval == NULL, the "special" check is inactivated
 // N.B. this code only works for IEEE754 32 bit floats, all processing is done in INTEGER mode
 limits_w32 IEEE32_extrema_missing(void * restrict f, int np, void *spval, uint32_t mmask, void *pad)
 {
   uint32_t *fu = (uint32_t *) f ;
   int i ;
-  uint32_t mina, min0, tu, t0, good, missf, *miss = (uint32_t *)spval, *fill = (uint32_t *)pad  ;
+  uint32_t mina, min0, tu, t0, good, missf, *miss = (uint32_t *)spval, *fill = (uint32_t *)pad, sp = 0, special  ;
   int32_t maxs, mins, ts ;
   limits_w32 l ;
 
   mmask = ~mmask ;
-  if(spval == NULL || mmask == 0) return IEEE32_extrema(f, np) ;   // "missing" option not used
+  if(spval == NULL || mmask == 0) return IEEE32_extrema(f, np) ;   // "special" option not used
 
   mins = mina = min0 = 0x7FFFFFFFu ;                 // largest positive value
   maxs = 1 << 31 ;                                   // largest negative value
-  missf = mmask & *miss ;                            // masked "missing" value
+  missf = mmask & *miss ;                            // masked "special" value
   if(fill == NULL){                                  // no explicit replacement value
-    good = fu[0] ;                                   // in case no non "missing" value found
-    for(i=0 ; i<np ; i++){                           // find first non "missing" value
+    good = fu[0] ;                                   // in case no non "special" value found
+    for(i=0 ; i<np ; i++){                           // find first non "special" value
       good = fu[i] ;
-      if( (good & mmask) != missf) break ;           // non "missing" value found
+      if( (good & mmask) != missf) break ;           // non "special" value found
     }
   }else{
     good = *fill ;                                   // we have an explicit replacement value
   }
   for(i=0 ; i<np ; i++){
     tu = fu[i] ;
-    tu = (tu & mmask) == missf ? good : tu ;         // replace "missing" value with "good" value
+    special = (tu & mmask) == missf ? 1 : 0 ;
+    tu = special ? good : tu ;                       // replace "special" value with "good" value
+    sp = sp + special ;                              // count "special" values
     t0 = (tu == 0) ? 0x7FFFFFFF : tu ;               // if tu == 0, set t0 to largest value to compute min0
     ts = (tu & 0x7FFFFFFF) ^ ((int32_t)tu >> 31) ;   // fake signed integer from float
     tu = tu & 0x7FFFFFFF ;                           // ABS(tu)
@@ -355,6 +367,7 @@ limits_w32 IEEE32_extrema_missing(void * restrict f, int np, void *spval, uint32
   l.i.mina = mina ;                                // smallest float absolute value
   l.i.min0 = min0 ;                                // smallest float non zero absolute value
   l.i.maxa = IEEE32_maxa(l) ;                      // largest float absolute value
+  l.u.spec = sp ;                                  // "special" values
   l.i.allm = W32_ALLM(l) ;                         // all values <= 0
   l.i.allp = W32_ALLP(l) ;                         // all values >= 0
   return l ;                                       // return union
