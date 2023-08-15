@@ -24,7 +24,7 @@ program test_data_info
 
   ! generic call needs what looks like a rank 1 array as first argument to match dimension(*)
   lf = extrema(ff(:,1), NP2)                 ! float extrema, all optional arguments are omitted
-  print 1, "lf   : maxs, mins, maxa, mina :" , lf%maxs, lf%mins, lf%maxa, lf%mina
+  print 1, "lf   : maxs, mins, maxa, mina, specials :" , lf%maxs, lf%mins, lf%maxa, lf%mina, lf%spec
   error = lf%mina .ne. ff(NP+1,1)
   error = error .or. lf%maxs .ne. ff(1,1)
   error = error .or. lf%mins .ne. ff(NP2,1)
@@ -32,8 +32,8 @@ program test_data_info
   if(error) stop 1
 
   ! float extrema, one optional argument omitted
-  lf = extrema_f(ff, NP2, missing = 0.0, mmask = -1, pad = 0.0)
-  print 1, "lf   : maxs, mins, maxa, mina :" , lf%maxs, lf%mins, lf%maxa, lf%mina
+  lf = extrema_f(ff, NP2, missing = 0.0, mmask = -1, pad = 0.0)   ! mmask = -1 : no special value
+  print 1, "lf   : maxs, mins, maxa, mina, specials :" , lf%maxs, lf%mins, lf%maxa, lf%mina, lf%spec
   error = lf%mina .ne. ff(NP+1,1)
   error = error .or. lf%maxs .ne. ff(1,1)
   error = error .or. lf%mins .ne. ff(NP2,1)
@@ -41,7 +41,7 @@ program test_data_info
   if(error) stop 1
 
   li = extrema_i(fi, NP2, unsigned=.false.)  ! signed integer extrema, 3 optional arguments are omitted
-  print 2, "li(f): maxs, mins, maxa, mina :" , li%maxs, li%mins, li%maxa, li%mina
+  print 2, "li(f): maxs, mins, maxa, mina, specials :" , li%maxs, li%mins, li%maxa, li%mina, li%spec
   error = li%mina .ne. fi(NP+1,1)
   error = error .or. li%maxs .ne. fi(1,1)
   error = error .or. li%mins .ne. fi(NP2,1)
@@ -49,7 +49,7 @@ program test_data_info
   if(error) stop 1
 
   li = extrema_i(fi, NP+1, unsigned=.true.)  ! unsigned integer extrema, 3 optional arguments are omitted
-  print 2, "li(t): maxs, mins, maxa, mina :" , li%maxs, li%mins, li%maxa, li%mina
+  print 2, "li(t): maxs, mins, maxa, mina, specials :" , li%maxs, li%mins, li%maxa, li%mina, li%spec
   error = li%mina .ne. fi(NP+1,1)
   error = error .or. li%maxs .ne. 0
   error = error .or. li%mins .ne. 1
@@ -58,29 +58,29 @@ program test_data_info
 
   fi(3,1) = 0
   li = extrema_i(fi, NP)                     ! integer extrema, all optional arguments are omitted
-  print 2, "li(l): maxs, mins, mina, min0 :" , li%maxs, li%mins, li%mina, li%min0
-  print 2, "       allm, allp             :" , li%allm, li%allp
+  print 2, "li(l): maxs, mins, mina, min0, specials :" , li%maxs, li%mins, li%mina, li%min0, li%spec
+  print 2, "       allm, allp                       :" , li%allm, li%allp
   error = li%allm .ne. 0 .or. li%allp .ne. 1 .or. li%mina .ne. 0 .or. li%min0 .ne. 128
   if(error) stop 1
 
   ! specific function call O.K. with dimension(*)
   li = extrema_i(fi(NP+2,1), NP-1)           ! integer extrema, all optional arguments are omitted
-  print 2, "li(u): maxs, mins, mina, min0 :" , li%maxs, li%mins, li%mina, li%min0
-  print 2, "       allm, allp             :" , li%allm, li%allp
+  print 2, "li(u): maxs, mins, mina, min0, specials :" , li%maxs, li%mins, li%mina, li%min0, li%spec
+  print 2, "       allm, allp                       :" , li%allm, li%allp
   error = li%allm .ne. 1 .or. li%allp .ne. 0 .or. li%mina .ne. 129 .or. li%min0 .ne. 129
   if(error) stop 1
 
   ! generic call needs what looks like a rank 1 array as first argument to match dimension(*)
   li = extrema(fi(NP+2:,1), NP-1)            ! integer extrema, all optional arguments are omitted
-  print 2, "li(u): maxs, mins, mina, min0 :" , li%maxs, li%mins, li%mina, li%min0
-  print 2, "       allm, allp             :" , li%allm, li%allp
+  print 2, "li(u): maxs, mins, mina, min0, specials :" , li%maxs, li%mins, li%mina, li%min0, li%spec
+  print 2, "       allm, allp                       :" , li%allm, li%allp
   error = li%allm .ne. 1 .or. li%allp .ne. 0 .or. li%mina .ne. 129 .or. li%min0 .ne. 129
   if(error) stop 1
 
   fi(NP2-3,1) = 0
   li = int32_extrema_missing(fi(NP+2,1), NP-1, C_NULL_PTR, -1, C_NULL_PTR)   ! explicit C function call
-  print 2, "li(m): maxs, mins, mina, min0 :" , li%maxs, li%mins, li%mina, li%min0
-  print 2, "       allm, allp             :" , li%allm, li%allp
+  print 2, "li(m): maxs, mins, mina, min0, specials :" , li%maxs, li%mins, li%mina, li%min0, li%spec
+  print 2, "       allm, allp                       :" , li%allm, li%allp
   error = li%allm .ne. 1 .or. li%allp .ne. 0 .or. li%mina .ne. 0 .or. li%min0 .ne. 129
   if(error) stop 1
 
@@ -93,6 +93,6 @@ program test_data_info
 
   print *,"SUCCESS"
 
-1 format(A,4F15.2)
-2 format(A,4I15)
+1 format(A,4F15.2,I3)
+2 format(A,4I15,I3)
 end program
