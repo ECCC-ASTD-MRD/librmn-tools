@@ -70,8 +70,8 @@ typedef struct{
   i_u_f   spval ;
   i_u_f   mmask ;
   i_u_f   pad ;
-  int32_t min ;
-  int32_t max ;
+  i_u_f   mins ;
+  i_u_f   maxs ;
   int32_t nbits ;
   int32_t sign ;
   int32_t npts ;
@@ -79,7 +79,8 @@ typedef struct{
 
 float quantum_adjust(float quantum);
 
-int64_t IEEE_quantize(void * restrict f, void * restrict q, q_meta *meta,  int nd, int nbits, float error, int mode, void *spval, uint32_t mmask, void *pad);
+int64_t IEEE_quantize(void * restrict f, void * restrict q, q_meta *meta,  int nd, int nbits, float error, 
+                      int mode, void *spval, uint32_t mmask, void *pad);
 int64_t IEEE_qrestore(void * restrict f, void * restrict q, q_meta *meta,  int nd);
 
 uint64_t IEEE32_linear_prep_0(limits_w32 l32, int np, int nbits, float quant);

@@ -87,8 +87,10 @@ int main(int argc, char **argv){
   float baseval = 64.01f ;
 //   float baseval = 1.001f ;
 //   float baseval = 1.0f / 32768.0f ;
-//   float basefac = 1.0f ;
-  float basefac = -32768.0f ;
+  float basefac = 1.0f ;
+//   float basefac = -16.0f ;
+//   float basefac = -128.0f ;
+//   float basefac = -32768.0f ;
 //   int nbits_test = -1 ;
   int nbits_test = 13 ;
 //   float quantum = 0.01f ;
@@ -96,7 +98,7 @@ int main(int argc, char **argv){
   TIME_LOOP_DATA ;
   ieee32_u hieee ;
   int pos_neg = 0 ;
-// #define WITH_TIMINGS
+#define WITH_TIMINGS
   start_of_test(argv[0]);
 quantum = 0.1f ;
 
@@ -206,8 +208,9 @@ quantum = 0.1f ;
   fprintf(stderr, "\n=============== NOT IN PLACE (type 0) ==============\n") ;
 //   for(i=0 ; i<NPTS ; i++) fprintf(stderr, "%8.8x ", ui[i]) ; fprintf(stderr, "\n");
 //   for(i=0 ; i<NPTS ; i++) fo[i] = fi[i] ;
-  fprintf(stderr, " in[0:1] = %g, %g\n", fi[0], fi[1]) ;
-  for(i=0 ; i<NPTS ; i++) fprintf(stderr, " %5.2f", (fi[i] < 0.0f) ? fi[i] + baseval : fi[i] - baseval) ; fprintf(stderr, "\n") ;
+  fprintf(stderr, " in[0:1:last] = %12.6g, %12.6g, %12.6g\n", fi[0], fi[1], fi[NPTS-1]) ;
+//   for(i=0 ; i<NPTS ; i++) fprintf(stderr, " %5.2f", (fi[i] < 0.0f) ? fi[i] + baseval : fi[i] - baseval) ; fprintf(stderr, "\n") ;
+  for(i=0 ; i<NPTS ; i++) fprintf(stderr, " %5.2f",fi[i]) ; fprintf(stderr, "\n") ;
   for(i=0 ; i<NPTS ; i++) qu[i] = -1 ;
   h64 = IEEE32_linear_quantize_0(fi, NPTS, quantum > 0 ? 0 : nbits_test, quantum*0.5f, qu) ;
 hieee.u = h64 ;
@@ -221,7 +224,7 @@ hieee.u = h64 ;
 //   for(i=0 ; i<NPTS ; i++) fprintf(stderr, " %5.2f", (fo[i] < 0) ? fo[i] + baseval : fo[i] - baseval) ; fprintf(stderr, "\n") ;
 //   fprintf(stderr, " out[0:1] = %g, %g\n", fo[0], fo[1]) ;
   for(i=0 ; i<NPTS ; i++) fprintf(stderr, " %5.2f", ABS(fo[i]-fi[i])) ; fprintf(stderr, "\n") ;
-return 0 ;
+// return 0 ;
 // ============================ IN PLACE TESTS (type 0) ============================
   fprintf(stderr, "\n=============== IN PLACE (type 0) ==============\n") ;
   for(i=0 ; i<NPTS ; i++) fo[i] = fi[i] ;
