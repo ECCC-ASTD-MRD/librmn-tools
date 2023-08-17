@@ -43,9 +43,13 @@ typedef struct{
   uint32_t limit ;   // maximum absolute value possible
 } qhead ;            // quantization information header
 
-#define Q_SUBMODE_MASK 0xF
-#define Q_MODE_LINEAR   64
-#define Q_MODE_LOG     128
+#define Q_SUBMODE_MASK  0xF
+#define Q_MODE_LINEAR    64
+#define Q_MODE_LINEAR_0  65
+#define Q_MODE_LINEAR_1  66
+#define Q_MODE_LINEAR_2  67
+#define Q_MODE_LOG      128
+#define Q_MODE_CONSTANT 256
 typedef union{
     int32_t  i ;
     uint32_t u ;
