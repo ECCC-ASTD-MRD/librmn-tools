@@ -1342,17 +1342,6 @@ uint64_t IEEE32_quantize_linear_2(void * restrict f, uint64_t u64, void * restri
 
   for(i=0 ; i<npts ; i++){                     // transform input floating point into integers
     qu[i] = IEEE32_F2Q_linear_2(intsrc[i], MaxExp, Shift2, Minimum, Mask) ;  // use inline function
-//     Src = intsrc[i];
-//     Mantis = (1 << 23) | ( 0x7FFFFF & Src );   // get IEEE mantissa, restore hidden 1
-//     Exp    = (Src >> 23) & 0xFF;               // extract IEEE float 32 exponent
-//     Shift  = MaxExp - Exp;                     // shift count to normalize mantissa to largest exponent
-//     if (Shift > 31) Shift = 31;                // max shift count = 31
-//     Mantis = Mantis >> Shift;                  // normalize mantissa to largest exponent
-//     if( Src >> 31 ) Mantis = - Mantis;         // apply sign
-//     Mantis = Mantis - Minimum;                 // subtract minimum from mantissa, add rounding term
-//     Mantis = Mantis >> Shift2;                 // force to fit within nbits bits
-//     if (Mantis > Mask) Mantis = Mask;          // clip to avoid exceeding all nbits bits set
-//     qu[i] = Mantis ;
     }
   return u64 ;
 }
@@ -1413,17 +1402,6 @@ int IEEE32_linear_unquantize_2(void * restrict q, uint64_t u64, int np, void * r
 
   for(i = 0 ; i < np ; i++){
     dest[i] = IEEE32_Q2F_linear_2(qu[i], offset, maxExp, shift2) ;  // use inline function
-//     mantis = qu[i] ;
-//     mantis = mantis << shift2 ;                        // scale
-//     mantis = mantis + offset ;                         // add offset
-//     sgn = (mantis >> 31) & 1 ;                         // extract sign
-//     mantis = sgn ? -mantis : mantis ;                  // abs(mnantis)
-//     mantis = (mantis > 0xFFFFFF) ? 0xFFFFFF : mantis ; // clip to 24 bits
-//     temp1.i = (sgn << 31) | (maxExp << 23) ;           // restore exponent and sign
-//     temp2.i = (mantis & hidden1) ? 0 : temp1.i ;       // 0 if "hidden 1", compensation term if no "hidden 1"
-//     mantis &= 0x7FFFFF ;                               // get rid of "hidden 1" in mantissa
-//     temp1.i = temp1.i | mantis ;                       // restore mantissa ;
-//     dest[i] = temp1.f - temp2.f ;                      // compensate for possibly missing "hidden 1"
   }
 
   return npts ;
