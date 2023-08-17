@@ -219,6 +219,7 @@ set(PROJECT_C_FILES
   src/pack/compress_data.c
   src/pack/tile_encoders.c
   src/pack/serialized_functions.c
+  src/pack/bitmaps.c
   src/diag/tee_print.c
   src/diag/test_helpers.c
   src/diag/misc_analyze.c
