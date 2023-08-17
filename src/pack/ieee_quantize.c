@@ -388,14 +388,7 @@ adjust_qo:                              // fmiu.f (minimum absolute value) shoul
     fmiu.f = t.f ;                      // offset is now a multiple of q
     goto adjust_qo ;                    // q and offset might need to be readjusted
   }
-//   t.f   = m3.f / q1.f ;                 // adjusted range / quantum
-//   erange = (t.u >> 23) - 127 ;          // unbiased exponent for range / quantum
 
-//   if(nbits1 == 0){                    // nbits1 should not be 0 at this point
-//     nbits1 = erange + 1 ;             // adjust nbits1 to reflect quantum
-//     nbits1 = (nbits1<1) ? 1 : nbits1 ;  // minimum = 1 bit
-//     if(pos_neg) nbits1++ ;
-//   }
   t.f   = 1.0f/q1.f ;                   // factor to bring (largest number - offset) to 2**nbits1 -1 ;
   efac  = (t.u >> 23) ;                 // exponent of quantization factor (for restore)
 
