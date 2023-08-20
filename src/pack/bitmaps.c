@@ -48,6 +48,7 @@ rmn_bitmap *bitmask_be_01(void *array, rmn_bitmap *bmp, uint32_t special, uint32
   }
   bits = (uint32_t *) bitmap->bm ;
   bitmap->elem = n ;                           // array bm will contain n useful bits
+  bitmap->rle = 0 ;                            // not RLE encoded
 
   for(i0 = 0 ; i0 < n-31 ; i0 += 32){          // slices of 32 elements
     result = 0 ;
@@ -86,6 +87,7 @@ int bitmask_restore_be_01(void *array, rmn_bitmap *bmp, uint32_t special, int n)
 
   if(array == NULL || bmp == NULL) return -1 ; // bad addresses
   if(n > bmp->elem) return -2 ;                // not enough data in bitmap
+  if(bmp->rle) return -3 ;                     // RLE encoded bitmap, OOPS
 
   bitmap = bmp->bm ;
   for(i0 = 0 ; i0 < n-31 ; i0 += 32){          // slices of 32 elements
@@ -105,14 +107,18 @@ int bitmask_restore_be_01(void *array, rmn_bitmap *bmp, uint32_t special, int n)
   return n ;
 }
 
-#define EMIT1_1 { ; }
-#define EMIT1_0 { ; }
+#define EMIT1_1 { fprintf(stderr,"1") ; kount++ ; accum |= (1 << shift) ; shift-- ; if(shift<0){ *str = accum ; str++ ; accum = 0 ; shift = 31 ; } }
+#define EMIT1_0 { fprintf(stderr,"0") ; kount++ ;                         shift-- ; if(shift<0){ *str = accum ; str++ ; accum = 0 ; shift = 31 ; } }
+// #define EMIT1 { kount++ ; shift-- ; if(shift<0){ *str = accum ; str++ ; accum = 0 ; shift = 31 ; } }
+// #define EMIT1_1 { accum |= (1 << shift) ; EMIT1 }
+// #define EMIT1_0 {                       ; EMIT1 }
+#define NG 12
 // 1s are assumed to be occurring much less frequently than 0s
 // encoding for a stream of 0s (starts with 0, ends before second 1)
 // 0 -+---------+- 1 -+---------+- start of stream of 1s
 //    ^         |     ^         |
-//    +--- 0 ---+     +--- 0 ---+  (single 0, optional set of 8 0s, separator, optional single 0s)
-// 1       8       0       1       (count value)
+//    +--- 0 ---+     +--- 0 ---+  (single 0, optional set of NG 0s, separator, optional single 0s)
+// 1      NG       0       1       (count value)
 //
 // encoding for a stream of 1s ( starts with 1, ends before next 0)
 // 1 -+---------+-  start of stream of 0s
@@ -127,13 +133,16 @@ int bitmask_restore_be_01(void *array, rmn_bitmap *bmp, uint32_t special, int n)
 // 1 010 1111     : 1 x 1, 2 x 0, 4 x 1
 //
 rmn_rle_bitmap *bitmap_encode_be_01(rmn_bitmap *bmp, rmn_rle_bitmap *rle_stream){
-  int totavail, nb, ntot, bit_type, left ;
+  int totavail, nb, ntot, bit_type, left, last_type ;
   uint32_t *bitmap, scan0, scan1 ;
   rmn_rle_bitmap *stream = rle_stream ;
+  int kount = 0 ;
+  uint32_t accum, *str ;
+  int shift ;
 
   if(bmp == NULL) return NULL ;
-  if(rle_stream == NULL) rle_stream = (rmn_rle_bitmap *) malloc(sizeof(rmn_rle_bitmap) + sizeof(uint32_t)*bmp->size) ;
-  if(rle_stream == NULL) return NULL ;               // allocation failed
+  if(stream == NULL) stream = (rmn_rle_bitmap *) malloc(sizeof(rmn_rle_bitmap) + sizeof(uint32_t)*bmp->size) ;
+  if(stream == NULL) return NULL ;                   // allocation failed
 
   totavail = bmp->elem ;
   bitmap = bmp->bm ;
@@ -142,12 +151,16 @@ rmn_rle_bitmap *bitmap_encode_be_01(rmn_bitmap *bmp, rmn_rle_bitmap *rle_stream)
   left = 32 ;
   ntot = 0 ;
   bit_type = 0 ;                                     // start by counting 0s
+  accum = 0 ;
+  str = stream->rle ;
+  shift = 31 ;
 
 count_1_or_0 :
   nb = lzcnt_32( (bit_type ? scan1 : scan0) ) ;      // get number of leading zeroes
   ntot     += nb ;
   left     -= nb ;
   totavail -= nb ;
+// fprintf(stderr, "nb=%2d ",nb);
   if(left == 0){                                     // nothing left in scan0/scan1
     if(totavail <= 0) goto done ;                    // nothing left in bitmap
     scan0 = *bitmap ; bitmap++ ;                     // get next 32 bits from bitmap
@@ -155,14 +168,17 @@ count_1_or_0 :
     left = 32 ;                                      // 32 bits in scan0/scan1
     goto count_1_or_0 ;                              // keep counting for this bit type (0 / 1)
   }else{
-    if(nb > 0){                                      // do nothing if count is 0
+    if(nb > 0){                                      // do not shoft if count is 0
       scan0 = ~((~scan0) << nb) ;                    // shift left, introducing 1s from the right
       scan1 = ~((~scan1) << nb) ;                    // shift left, introducing 1s from the right
+    }
       // we have ntot bits of type bit_type
-fprintf(stderr, "  %d x %d\n", ntot, bit_type) ;
+// fprintf(stderr, "  %d x %d\n", ntot, bit_type) ;
+    if(ntot > 0){
+      last_type = bit_type ;
       if(bit_type == 0){                             // encode 0s
         EMIT1_0 ; ntot-- ;                           // lead 0
-        while(ntot >=8) { ntot -=8 ; EMIT1_0 ; }     // groups of 8 0s
+        while(ntot >=NG) { ntot -= NG ; EMIT1_0 ; }  // groups of 0s
         EMIT1_1 ;                                    // separator
         while(ntot > 0) { ntot-- ; EMIT1_0 ; }       // single 0s
       }else{                                         // encode 1s
@@ -174,7 +190,36 @@ fprintf(stderr, "  %d x %d\n", ntot, bit_type) ;
     if(totavail > 0) goto count_1_or_0 ;
   }
 done:
-if(ntot > 0) fprintf(stderr, "> %d x %d\n", ntot, bit_type) ;
-
+  if(ntot > 0) {
+//     fprintf(stderr, "> %d x %d\n", ntot, bit_type) ;
+    last_type = bit_type ;
+    if(bit_type == 0){                             // encode 0s
+      EMIT1_0 ; ntot-- ;                           // lead 0
+      while(ntot >= NG) { ntot -=NG ; EMIT1_0 ; }  // groups of 8 0s
+      EMIT1_1 ;                                    // separator
+      while(ntot > 0) { ntot-- ; EMIT1_0 ; }       // single 0s
+    }else{                                         // encode 1s
+      while(ntot > 0) { ntot-- ; EMIT1_1 ; }       // single 1s
+    }
+  }
+  // add a guard bit
+  if(last_type == 0){
+    EMIT1_1 ;
+  }else{
+    EMIT1_0 ;
+  }
+  if(shift < 31) *str = accum ; str++ ; // flush accumulator leftovers
+//   bmp->rle = kount - 1 ;   // true RLE bit count
+fprintf(stderr, "\nkount = %d (%d), shift = %d, last_type = %d\n", kount, bmp->elem, shift, last_type);
+int i ;
+for(i=0 ; i<str-stream->rle ; i++) fprintf(stderr, "%8.8x ", stream->rle[i]) ;
+fprintf(stderr, "\n");
   return stream ;
+  // copy RLE stream back into bitmap ?
+}
+
+rmn_bitmap *bitmap_decode_be_01(rmn_bitmap *bmp, rmn_rle_bitmap *rle_stream){
+  if(bmp == NULL || rle_stream == NULL) return NULL ;
+
+  return bmp ;
 }

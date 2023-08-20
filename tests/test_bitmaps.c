@@ -21,8 +21,8 @@
 #include <rmn/bitmaps.h>
 #include <rmn/timers.h>
 
-#define NPTS 512
-#define EVERY 127
+#define NPTS 1024
+#define EVERY 37
 
 int main(int argc, char **argv){
   int32_t array[NPTS] ;
@@ -35,7 +35,7 @@ int main(int argc, char **argv){
   stream32 stream ;
 
   for(i=0 ; i<NPTS ; i++) array[i] = i - NPTS/2 ;
-  for(i=EVERY ; i<NPTS ; i+=EVERY) array[i] = special ;
+  for(i=EVERY+1 ; i<NPTS ; i+=EVERY) array[i] = special ;
   for(i=NPTS-3 ; i<NPTS ; i++) array[i] = special ;
   array[0] = special ;
   for(i=0 ; i<NPTS ; i++) if(array[i] == special) fprintf(stderr, "%d ",i) ;
@@ -51,7 +51,9 @@ int main(int argc, char **argv){
 
 // decode bit map
   for(i=0 ; i<NPTS ; i++) restored[i] = array[i] ;
-  for(i=EVERY ; i<NPTS ; i+=EVERY) restored[i] = -special ;
+  for(i=EVERY+1 ; i<NPTS ; i+=EVERY) restored[i] = -special ;
+  for(i=NPTS-3 ; i<NPTS ; i++) restored[i] = -special ;
+  restored[0] = -special ;
   bitmask_restore_be_01(restored, bitmap, special, NPTS) ;
   errors = 0 ;
   for(i=0 ; i<NPTS ; i++){

@@ -20,6 +20,7 @@
 typedef struct{
   uint32_t size ;    // size of bm in uint32_t units
   uint32_t elem ;    // number of bits used in bitmap
+  uint32_t rle  ;    // number of bits if rle encoded, 0 if not
   int32_t bm[] ;
 } rmn_bitmap ;       // uncompressed bitmap
 
