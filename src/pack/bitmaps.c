@@ -13,66 +13,85 @@
 //
 #include <stdint.h>
 #include <stdlib.h>
+#include <stdio.h>
+
+#include <rmn/bitmaps.h>
+#include <rmn/bits.h>
+
 // O3 useful for gcc to get faster code
-#if defined(__GNUC__)
-#if ! defined(__INTEL_COMPILER_UPDATE)
-#if ! defined(__PGI)
-#pragma GCC optimize "O3,tree-vectorize"
-#endif
-#endif
+#if defined(__GNUC__) && ! defined(__INTEL_COMPILER_UPDATE) &&  ! defined(__INTEL_LLVM_COMPILER) && ! defined(__clang__) && ! defined(__PGI)
+#pragma GCC optimize "O3"
 #endif
 
 // build a 1 bit per element bitmap (big endian style)
 // array   [IN] : source array (32 bit elements)
-// bmp    [OUT] : array that will receive bitmap
+// bmp    [OUT] : pointer to rmn_bitmap struct
 // special [IN] : "special" value
 // mmask   [IN] : mask applied to "special" value
 // n       [IN] : number of elements in array
-void *bitmask_be_01(void *array, void *bmp, uint32_t special, uint32_t mmask, int n){
+// return value : pointer to rmn_bitmap struct if successful, NULL if ther was an error
+rmn_bitmap *bitmask_be_01(void *array, rmn_bitmap *bmp, uint32_t special, uint32_t mmask, int n){
   uint32_t i, i0, t, result, n31 = n & 0x1F ;
-  uint32_t *bitmap = (uint32_t *) bmp ;
+  rmn_bitmap *bitmap = bmp ;
+  uint32_t *bits ;
   uint32_t *src = (uint32_t *) array ;
-  size_t bmp_size = (n+7)/8+sizeof(uint32_t) ; // needed size for bitmap
+  size_t bmp_size ; // needed size for bitmap
+
+  mmask = (~mmask) ;
   // allocate bitmap if bmp was NULL
-  if(bmp == NULL) bitmap = (uint32_t *) malloc(bmp_size) ;
+  if(bmp == NULL) {
+    bmp_size = ((n + 31)/32)*sizeof(uint32_t)+sizeof(rmn_bitmap) ;
+    bitmap = (rmn_bitmap *) malloc(bmp_size) ;
+    bitmap->size = (n + 31)/32 ;               // number of 32 bit elements in bitmap array
+  }else{
+    if(n > bitmap->size * 32) return NULL ;    // not enough room in array bm
+  }
+  bits = (uint32_t *) bitmap->bm ;
+  bitmap->elem = n ;                           // array bm will contain n useful bits
 
   for(i0 = 0 ; i0 < n-31 ; i0 += 32){          // slices of 32 elements
     result = 0 ;
     for(i=0 ; i<32 ; i++){                     // encode a 32 element slice
-      t   = ((src[i] & mmask) == special) ? 1 : 0 ;
+      t   = ((src[i] & mmask) == special) ? 1 : 0 ;   // 1 if special value, 0 if not
       t <<= (31 - i) ;                         // shift to insertion point (big endian style)
       result |= t ;                            // inject into accumulator
     }
     src += 32 ;                                // next slice from source array
-    *bitmap = result ;                         // store 32 bits into bitmap
-    bitmap++ ;                                 // bump bitnap pointer
+    *bits = result ;                           // store 32 bits into bitmap
+    bits++ ;                                   // bump bitnap pointer
   }
   result = 0 ;
   for(i=0 ; i<n31 ; i++){                      // last, shorter slice
-    t   = ((src[i] & mmask) == special) ? 1 : 0 ;
-    t <<= (31 - i) ;
+    t   = ((src[i] & mmask) == special) ? 1 : 0 ;   // 1 if special value, 0 if not
+    t <<= (31 - i) ;                           // shift to insertion point (big endian style)
     result |= t ;
   }
-  if(n31 > 0){
-    *bitmap = result ;
+  if(n31 > 0){                                 // do not store if there were no leftovers
+    *bits = result ;
   }
   return bitmap ;
 }
 
 // restore array from a 1 bit per element bitmap (big endian style)
 // array  [OUT] : destination array (32 bit elements)
-// bmp     [IN] : array that contains the bitmap
+// bmp     [IN] : pointer to rmn_bitmap struct
 // special [IN] : value plugged into array where is a 1 in the bitmap
 // n       [IN] : number of elements in array
-void bitmask_restore_be_01(void *array, void *bmp, uint32_t special, int n){
+// return value : number of values scanned in bit map, negative value if there was an error
+int bitmask_restore_be_01(void *array, rmn_bitmap *bmp, uint32_t special, int n){
   uint32_t i, i0, n31 = n & 0x1F ;
   int32_t token ;
-  int32_t *bitmap = (int32_t *) bmp ;
+  int32_t *bitmap ;
   uint32_t *dst = (uint32_t *) array ;
+
+  if(array == NULL || bmp == NULL) return -1 ; // bad addresses
+  if(n > bmp->elem) return -2 ;                // not enough data in bitmap
+
+  bitmap = bmp->bm ;
   for(i0 = 0 ; i0 < n-31 ; i0 += 32){          // slices of 32 elements
     token = *bitmap ;
     bitmap++ ;
-    for(i=0 ; i<32 ; i++){                     // plug a 32 element slice
+    for(i=0 ; i<32 ; i++){                     // conditionally plug a 32 element slice
       dst[i] = (token < 0) ? special : dst[i] ;
       token <<= 1 ;
     }
@@ -83,4 +102,79 @@ void bitmask_restore_be_01(void *array, void *bmp, uint32_t special, int n){
     dst[i] = (token < 0) ? special : dst[i] ;
     token <<= 1 ;
   }
+  return n ;
+}
+
+#define EMIT1_1 { ; }
+#define EMIT1_0 { ; }
+// 1s are assumed to be occurring much less frequently than 0s
+// encoding for a stream of 0s (starts with 0, ends before second 1)
+// 0 -+---------+- 1 -+---------+- start of stream of 1s
+//    ^         |     ^         |
+//    +--- 0 ---+     +--- 0 ---+  (single 0, optional set of 8 0s, separator, optional single 0s)
+// 1       8       0       1       (count value)
+//
+// encoding for a stream of 1s ( starts with 1, ends before next 0)
+// 1 -+---------+-  start of stream of 0s
+//    ^         |
+//    +--- 1 ---+   (single 1, optional single 1s)
+// 1       1       (count value)
+//
+// 01 1111        : 1 x 0, 4 x 1
+// 0100 1111      : 3 x 0, 4 x 1
+// 000100 1111    : 1+16+2 x 0 , 4 x 1
+// 1 01 111       : 1 x 1, 1 x 0, 3 x 1
+// 1 010 1111     : 1 x 1, 2 x 0, 4 x 1
+//
+rmn_rle_bitmap *bitmap_encode_be_01(rmn_bitmap *bmp, rmn_rle_bitmap *rle_stream){
+  int totavail, nb, ntot, bit_type, left ;
+  uint32_t *bitmap, scan0, scan1 ;
+  rmn_rle_bitmap *stream = rle_stream ;
+
+  if(bmp == NULL) return NULL ;
+  if(rle_stream == NULL) rle_stream = (rmn_rle_bitmap *) malloc(sizeof(rmn_rle_bitmap) + sizeof(uint32_t)*bmp->size) ;
+  if(rle_stream == NULL) return NULL ;               // allocation failed
+
+  totavail = bmp->elem ;
+  bitmap = bmp->bm ;
+  scan0 = *bitmap ; bitmap++ ;                       // accumulator to scan for 0s
+  scan1 = ~scan0 ;                                   // accumulator to scan for 1s
+  left = 32 ;
+  ntot = 0 ;
+  bit_type = 0 ;                                     // start by counting 0s
+
+count_1_or_0 :
+  nb = lzcnt_32( (bit_type ? scan1 : scan0) ) ;      // get number of leading zeroes
+  ntot     += nb ;
+  left     -= nb ;
+  totavail -= nb ;
+  if(left == 0){                                     // nothing left in scan0/scan1
+    if(totavail <= 0) goto done ;                    // nothing left in bitmap
+    scan0 = *bitmap ; bitmap++ ;                     // get next 32 bits from bitmap
+    scan1 = ~scan0 ;
+    left = 32 ;                                      // 32 bits in scan0/scan1
+    goto count_1_or_0 ;                              // keep counting for this bit type (0 / 1)
+  }else{
+    if(nb > 0){                                      // do nothing if count is 0
+      scan0 = ~((~scan0) << nb) ;                    // shift left, introducing 1s from the right
+      scan1 = ~((~scan1) << nb) ;                    // shift left, introducing 1s from the right
+      // we have ntot bits of type bit_type
+fprintf(stderr, "  %d x %d\n", ntot, bit_type) ;
+      if(bit_type == 0){                             // encode 0s
+        EMIT1_0 ; ntot-- ;                           // lead 0
+        while(ntot >=8) { ntot -=8 ; EMIT1_0 ; }     // groups of 8 0s
+        EMIT1_1 ;                                    // separator
+        while(ntot > 0) { ntot-- ; EMIT1_0 ; }       // single 0s
+      }else{                                         // encode 1s
+        while(ntot > 0) { ntot-- ; EMIT1_1 ; }       // single 1s
+      }
+    }
+    bit_type = 1 - bit_type ;                        // invert bit type to scan
+    ntot = 0 ;                                       // reset bit counter
+    if(totavail > 0) goto count_1_or_0 ;
+  }
+done:
+if(ntot > 0) fprintf(stderr, "> %d x %d\n", ntot, bit_type) ;
+
+  return stream ;
 }

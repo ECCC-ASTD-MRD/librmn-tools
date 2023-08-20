@@ -259,6 +259,7 @@ set(PROJECT_H_FILES
   src/PUBLIC_INCLUDES/rmn/pack_macros.h
   src/PUBLIC_INCLUDES/rmn/bi_endian_pack.h
   src/PUBLIC_INCLUDES/rmn/bits.h
+  src/PUBLIC_INCLUDES/rmn/bitmaps.h
   src/PUBLIC_INCLUDES/rmn/tee_print.h
   src/PUBLIC_INCLUDES/rmn/test_helpers.h
   src/PUBLIC_INCLUDES/rmn/identify_compiler_c.h
