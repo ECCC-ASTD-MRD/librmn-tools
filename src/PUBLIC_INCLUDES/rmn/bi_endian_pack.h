@@ -74,9 +74,11 @@
 #define STATIC_DEFINED_HERE
 #endif
 
+// simple data buffer structure with capacity and fill level
 typedef struct{
-  uint32_t *buf ;     // pointer to start of data
-  int32_t size ;      // data size in 32 bit units (max 16G - 4 bytes)
+  int32_t size ;      // max data size in 32 bit units (max 16G - 4 bytes)
+  int32_t next ;      // next insertion point in buf (0 in empty bucket)
+  uint32_t buf[] ;    // data buffer
 } bitbucket ;
 
 // bit stream descriptor. both insert / extract may be positive
