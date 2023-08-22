@@ -351,15 +351,15 @@ rmn_bitmap *bitmap_encode_be_01(rmn_bitmap *bmp, rmn_bitmap *rle_stream, int mod
   if(stream == NULL) return NULL ;                   // allocation failed
 
   totavail = bmp->elem ;
-  bitmap = bmp->data ;
+  bitmap = (uint32_t *)bmp->data ;
   scan0 = *bitmap ; bitmap++ ;                       // accumulator to scan for 0s
   scan1 = ~scan0 ;                                   // accumulator to scan for 1s
   left = 32 ;
   ntot = 0 ;
   bit_type = 0 ;                                     // start by counting 0s
   accum = 0 ;
-  str = stream->data ;
-  str_limit = stream->data + stream->size ;
+  str = (uint32_t *)stream->data ;
+  str_limit = ((uint32_t *)stream->data) + stream->size ;
   shift = 31 ;
 
 count_1_or_0 :
@@ -459,10 +459,10 @@ fprintf(stderr, "decode_be_01 : in-place decoding\n");
     bmp->nrle = 0 ;                                             // mark bitmap as non encoded
   }
 
-  bitmap = bmp->data ;                     // insertion point in bitmap
+  bitmap = (uint32_t *)bmp->data ;       // insertion point in bitmap
   accum = 0 ;                            // insertion accumulator for bitmap
   insert = 31 ;                          // insertion point in bitmap
-  rle = rle_stream->data ;
+  rle = (uint32_t *)rle_stream->data ;
   totavail = rle_stream->nrle ;          // total number of bits to decode
 fprintf(stderr, "%d bits to decode from %d RLE encoded bits\n", rle_stream->elem, rle_stream->nrle) ;
   avail = 0 ;
