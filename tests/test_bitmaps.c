@@ -17,6 +17,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 
+// double include intended for test purposes
 #include <rmn/bitmaps.h>
 #include <rmn/bitmaps.h>
 #include <rmn/timers.h>
@@ -25,48 +26,150 @@
 #define EVERY 37
 
 int main(int argc, char **argv){
-  int32_t array[NPTS] ;
+  int32_t iarray[NPTS] ;
+  uint32_t uarray[NPTS] ;
+  float farray[NPTS] ;
   int32_t restored[NPTS] ;
-  rmn_bitmap *bitmap = NULL ;
+  rmn_bitmap *bitmap = NULL, *bitmap2, *bitmap3, *bitmapp ;
+  rmn_bitmap *rle, *rle2 ;
   int i0, i, errors ;
   int32_t special = 999999 ;
   uint32_t mmask = 0u ;
   TIME_LOOP_DATA ;
-  stream32 stream ;
 
-  for(i=0 ; i<NPTS ; i++) array[i] = i - NPTS/2 ;
-  for(i=EVERY+1 ; i<NPTS ; i+=EVERY) array[i] = special ;
-  for(i=NPTS-3 ; i<NPTS ; i++) array[i] = special ;
-  array[0] = special ;
-  for(i=0 ; i<NPTS ; i++) if(array[i] == special) fprintf(stderr, "%d ",i) ;
-  fprintf(stderr, "\n\n");
+  for(i=0 ; i<NPTS ; i++) iarray[i] = i - NPTS/2 ;
+  for(i=0 ; i<NPTS ; i++) farray[i] = i - NPTS/2 ;
+  for(i=0 ; i<NPTS ; i++) uarray[i] = 0x80000000u + i - NPTS/2 ;
 
-// build bit map
-  bitmap = bitmask_be_01(array, NULL, special, mmask, NPTS) ;
+  bitmapp = bitmap_create(NPTS) ;   // create an empty bitmap for up to NPTS elements
+
+  bitmapp = bitmap_be_fp_01(farray, bitmapp, 31.5f, 0x7, NPTS, OP_SIGNED_GT) ;
+  fprintf(stderr, "RAW  > 31.5 bitmap    (float) :\n");
   for(i0=0 ; i0<NPTS/32-15 ; i0+=16){
-    for(i=0 ; i<16 ; i++) fprintf(stderr, "%8.8x ", bitmap->bm[i0+i]) ;
+    for(i=0 ; i<16 ; i++) fprintf(stderr, "%8.8x ", bitmapp->data[i0+i]) ;
     fprintf(stderr, "\n");
   }
-  bitmap_encode_be_01(bitmap, NULL) ;
 
-// decode bit map
-  for(i=0 ; i<NPTS ; i++) restored[i] = array[i] ;
+  bitmapp = bitmap_be_fp_01(farray, bitmapp, 31.5f, 0x7, NPTS, OP_SIGNED_LT) ;
+  fprintf(stderr, "RAW  < 31.5 bitmap    (float) :\n");
+  for(i0=0 ; i0<NPTS/32-15 ; i0+=16){
+    for(i=0 ; i<16 ; i++) fprintf(stderr, "%8.8x ", bitmapp->data[i0+i]) ;
+    fprintf(stderr, "\n");
+  }
+
+  bitmapp = bitmap_be_int_01(iarray, bitmapp, 0, 0x7, NPTS, OP_SIGNED_GT) ;
+  fprintf(stderr, "RAW  > 0 bitmap   (signed) :\n");
+  for(i0=0 ; i0<NPTS/32-15 ; i0+=16){
+    for(i=0 ; i<16 ; i++) fprintf(stderr, "%8.8x ", bitmapp->data[i0+i]) ;
+    fprintf(stderr, "\n");
+  }
+
+  bitmapp = bitmap_be_int_01(uarray, bitmapp, uarray[NPTS/2-32], 0, NPTS, OP_UNSIGNED_GT) ;
+  fprintf(stderr, "RAW  > %8.8x bitmap (unsigned) :\n", uarray[NPTS/2-32]);
+  for(i0=0 ; i0<NPTS/32-15 ; i0+=16){
+    for(i=0 ; i<16 ; i++) fprintf(stderr, "%8.8x ", bitmapp->data[i0+i]) ;
+    fprintf(stderr, "\n");
+  }
+
+  bitmapp = bitmap_be_int_01(iarray, bitmapp, 0, 0x7, NPTS, OP_SIGNED_LT) ;
+  fprintf(stderr, "RAW  < 0 bitmap   (signed) :\n");
+  for(i0=0 ; i0<NPTS/32-15 ; i0+=16){
+    for(i=0 ; i<16 ; i++) fprintf(stderr, "%8.8x ", bitmapp->data[i0+i]) ;
+    fprintf(stderr, "\n");
+  }
+
+  bitmapp = bitmap_be_int_01(uarray, bitmapp, uarray[NPTS/2-32], 0, NPTS, OP_UNSIGNED_LT) ;
+  fprintf(stderr, "RAW  < %8.8x bitmap (unsigned) :\n", uarray[NPTS/2-32]);
+  for(i0=0 ; i0<NPTS/32-15 ; i0+=16){
+    for(i=0 ; i<16 ; i++) fprintf(stderr, "%8.8x ", bitmapp->data[i0+i]) ;
+    fprintf(stderr, "\n");
+  }
+
+  bitmapp = bitmap_be_int_01(iarray, bitmapp, -7, 0x7, NPTS, 0) ;
+  fprintf(stderr, "RAW == -7/0x7 bitmap :\n");
+  for(i0=0 ; i0<NPTS/32-15 ; i0+=16){
+    for(i=0 ; i<16 ; i++) fprintf(stderr, "%8.8x ", bitmapp->data[i0+i]) ;
+    fprintf(stderr, "\n");
+  }
+
+  // add special value and mask to the fray
+  for(i=EVERY+1 ; i<NPTS ; i+=EVERY) iarray[i] = special ;
+  for(i=NPTS-3 ; i<NPTS ; i++) iarray[i] = special ;
+  iarray[0] = special ;
+  for(i=0 ; i<NPTS ; i++) if(iarray[i] == special) fprintf(stderr, "%d ",i) ;
+  fprintf(stderr, "\n\n");
+
+  bitmap = bitmap_be_eq_01(iarray, NULL, special, mmask, NPTS) ;
+  bitmap2 = bitmap_create(NPTS) ;
+  fprintf(stderr, "RAW == %8.8x/%8.8x bitmap :\n", special, mmask);
+  for(i0=0 ; i0<NPTS/32-15 ; i0+=16){
+    for(i=0 ; i<16 ; i++) fprintf(stderr, "%8.8x ", bitmap->data[i0+i]) ;
+    fprintf(stderr, "\n");
+  }
+
+// RLE encode bit map
+  rle2 = bitmap_encode_be_01(bitmap, NULL, 0) ;                       // encoding
+  rle  = bitmap_encode_be_01(bitmap, bitmap, 0) ;   // in-place encoding
+  fprintf(stderr, "RLE encoded bitmap :%d RLE bits , encoding %d RAW bits, max size = %d\n", rle->nrle, rle->elem, 32*rle->size);
+  for(i=0 ; i<(rle->nrle+31)/32 ; i++) fprintf(stderr, "%8.8x ",rle->data[i]) ;
+  fprintf(stderr, "\n");
+  errors = 0 ;
+  for(i=0 ; i<(rle->nrle+31)/32 ; i++) if(bitmap->data[i] != rle2->data[i]) errors++ ;
+  fprintf(stderr, "in-place encoding errors = %d (%d|%d elements)\n", errors, (rle->nrle+31)/32, (bitmap->nrle+31)/32) ;
+
+// try to restore from RLE coded bitmap
+  for(i=0 ; i<NPTS ; i++) restored[i] = iarray[i] ;
   for(i=EVERY+1 ; i<NPTS ; i+=EVERY) restored[i] = -special ;
   for(i=NPTS-3 ; i<NPTS ; i++) restored[i] = -special ;
   restored[0] = -special ;
-  bitmask_restore_be_01(restored, bitmap, special, NPTS) ;
+  int nrestore = bitmap_restore_be_01(restored, bitmap, special, NPTS) ;
+  fprintf(stderr, "restore from RLE encoding : nrestore = %d\n", nrestore) ;
   errors = 0 ;
   for(i=0 ; i<NPTS ; i++){
-    if(array[i] != restored[i]) {
-      if(errors < 10) fprintf(stderr, "i = %d, expected %d, got %d\n", i, array[i], restored[i]);
+    if(iarray[i] != restored[i]) {
+      if(errors < 10) fprintf(stderr, "i = %d, expected %d, got %d\n", i, iarray[i], restored[i]);
+      errors++ ;
+    }
+  }
+  fprintf(stderr, "RLE bitmap restore errors = %d\n", errors) ;
+
+// decode RLE encoded bitmap
+  fprintf(stderr, "bitmap2 O.K. for up to %d bits\n", 32 * bitmap2->size) ;
+  for(i=0 ; i<bitmap2->size ; i++) bitmap2->data[i] = 0xFFFFFFFFu ;
+  bitmap3 = bitmap_decode_be_01(bitmap2, rle2) ;
+  fprintf(stderr, "decoded RLE bitmap :\n");
+  for(i0=0 ; i0<NPTS/32-15 ; i0+=16){
+    for(i=0 ; i<16 ; i++) fprintf(stderr, "%8.8x ", bitmap3->data[i0+i]) ;
+    fprintf(stderr, "\n");
+  }
+
+// restore from bit map
+  for(i=0 ; i<NPTS ; i++) restored[i] = iarray[i] ;
+  for(i=EVERY+1 ; i<NPTS ; i+=EVERY) restored[i] = -special ;
+  for(i=NPTS-3 ; i<NPTS ; i++) restored[i] = -special ;
+  restored[0] = -special ;
+  bitmap_restore_be_01(restored, bitmap3, special, NPTS) ;
+  errors = 0 ;
+  for(i=0 ; i<NPTS ; i++){
+    if(iarray[i] != restored[i]) {
+      if(errors < 10) fprintf(stderr, "i = %d, expected %d, got %d\n", i, iarray[i], restored[i]);
       errors++ ;
     }
   }
   fprintf(stderr, "bitmap restore errors = %d\n", errors) ;
 
-  TIME_LOOP_EZ(1000, NPTS, bitmask_be_01(array, bitmap, special, mmask, NPTS)) ;
-  fprintf(stderr, "bitmask_be_01    : %s\n",timer_msg);
+  TIME_LOOP_EZ(1000, NPTS, bitmap_be_eq_01(iarray, bitmap, special, mmask, NPTS)) ;
+  fprintf(stderr, "bitmap_be_eq_01 : %s\n",timer_msg);
 
-  TIME_LOOP_EZ(1000, NPTS, bitmask_restore_be_01(restored, bitmap, special, NPTS)) ;
-  fprintf(stderr, "bitmask_be_01    : %s\n",timer_msg);
+  TIME_LOOP_EZ(1000, NPTS, bitmap_be_int_01(iarray, bitmap, iarray[NPTS/2], mmask, NPTS, OP_SIGNED_GT)) ;
+  fprintf(stderr, "bitmap_be_int_01 : %s\n",timer_msg);
+
+  TIME_LOOP_EZ(1000, NPTS, bitmap_be_fp_01(farray, bitmap, farray[NPTS/2], mmask, NPTS, OP_SIGNED_GT)) ;
+  fprintf(stderr, "bitmap_be_fp_01 : %s\n",timer_msg);
+
+//   TIME_LOOP_EZ(1000, NPTS, rle = bitmap_encode_be_01(bitmap, rle, 0)) ;
+//   fprintf(stderr, "encode_be_01    : %s\n",timer_msg);
+
+  TIME_LOOP_EZ(1000, NPTS, bitmap_restore_be_01(restored, bitmap, special, NPTS)) ;
+  fprintf(stderr, "restore_be_01   : %s\n",timer_msg);
 }
