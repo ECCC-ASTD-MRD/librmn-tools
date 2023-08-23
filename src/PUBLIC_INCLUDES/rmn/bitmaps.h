@@ -28,8 +28,8 @@ typedef struct{
   int32_t  data[] ;
 } rmn_bitmap ;       // uncompressed bitmap
 
-#define RLE_FULL_0  1
-#define RLE_FULL_1  2
+#define RLE_FULL_0  2
+#define RLE_FULL_1  1
 // by default, use full encoding for 0s and simple encoding for 1s
 #define RLE_DEFAULT RLE_FULL_0
 // full (complex) encoding for both 0s and 1s

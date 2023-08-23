@@ -22,15 +22,15 @@
 #include <rmn/bitmaps.h>
 #include <rmn/timers.h>
 
-#define NPTS 1024
-#define EVERY 37
+#define NPTS 1022
+#define EVERY 127
 
 int main(int argc, char **argv){
   int32_t iarray[NPTS] ;
   uint32_t uarray[NPTS] ;
   float farray[NPTS] ;
   int32_t restored[NPTS] ;
-  rmn_bitmap *bitmap = NULL, *bitmap2, *bitmap3, *bitmapp ;
+  rmn_bitmap *bitmap = NULL, *bitmap2, *bitmap3, *bitmapp, *bitmapd ;
   rmn_bitmap *rle, *rle2 ;
   int i0, i, errors ;
   int32_t special = 999999 ;
@@ -102,7 +102,7 @@ int main(int argc, char **argv){
   bitmap = bitmap_be_eq_01(iarray, NULL, special, mmask, NPTS) ;
   bitmap2 = bitmap_create(NPTS) ;
   fprintf(stderr, "RAW == %8.8x/%8.8x bitmap :\n", special, mmask);
-  for(i0=0 ; i0<NPTS/32-15 ; i0+=16){
+  for(i0=0 ; i0<NPTS/32 ; i0+=16){
     for(i=0 ; i<16 ; i++) fprintf(stderr, "%8.8x ", bitmap->data[i0+i]) ;
     fprintf(stderr, "\n");
   }
@@ -138,7 +138,7 @@ int main(int argc, char **argv){
   for(i=0 ; i<bitmap2->size ; i++) bitmap2->data[i] = 0xFFFFFFFFu ;
   bitmap3 = bitmap_decode_be_01(bitmap2, rle2) ;
   fprintf(stderr, "decoded RLE bitmap :\n");
-  for(i0=0 ; i0<NPTS/32-15 ; i0+=16){
+  for(i0=0 ; i0<NPTS/32 ; i0+=16){
     for(i=0 ; i<16 ; i++) fprintf(stderr, "%8.8x ", bitmap3->data[i0+i]) ;
     fprintf(stderr, "\n");
   }
@@ -170,6 +170,10 @@ int main(int argc, char **argv){
 //   TIME_LOOP_EZ(1000, NPTS, rle = bitmap_encode_be_01(bitmap, rle, 0)) ;
 //   fprintf(stderr, "encode_be_01    : %s\n",timer_msg);
 
-  TIME_LOOP_EZ(1000, NPTS, bitmap_restore_be_01(restored, bitmap, special, NPTS)) ;
+  for(i=0 ; i<NPTS ; i++) iarray[i] = i - NPTS/2 ;
+  for(i=1 ; i<NPTS ; i+=(31)) iarray[i] = special ;
+  bitmapd = bitmap_be_eq_01(iarray, NULL, special, mmask, NPTS) ;
+
+  TIME_LOOP_EZ(1000, NPTS, bitmap_restore_be_01(restored, bitmapd, special, NPTS)) ;
   fprintf(stderr, "restore_be_01   : %s\n",timer_msg);
 }

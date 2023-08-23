@@ -130,13 +130,13 @@ rmn_bitmap *bitmap_be_eq_01(void *array, rmn_bitmap *bmp, uint32_t special, uint
 // where bits in mmask are 1, the corresponding bits in array are ignored
 // e.g. mmask = 7 will ignore the lower (least significant) 3 bits
 rmn_bitmap *bitmap_be_int_01(void *array, rmn_bitmap *bmp, int32_t special, int32_t mmask, int n, int oper){
-  uint32_t t_gt, t_lt, t_eq, result_lt, result_gt, result_eq, result, n31 ;
+  uint32_t t, t_gt, t_lt, t_eq, result_lt, result_gt, result_eq, result, n31 ;
   rmn_bitmap *bitmap = bmp ;
   uint32_t *data, ones = 0 ;
   int32_t i, i0, *src = (int32_t *) array, special0, msb = 0 ;
 
   mmask = (~mmask) ;
-  special0 &= mmask ;   // mmask is only used for == comparisons (oper == 0)
+  special0 = special & mmask ;   // mmask is only used for == comparisons (oper == 0)
   if(oper == OP_UNSIGNED_LT || oper == OP_UNSIGNED_GT) {
     msb = (1 << 31) ;   // the MSB will have to be complemented (^msb) for unsigned comparisons
     special ^= msb ;    // using signed comparison operators
@@ -147,46 +147,52 @@ rmn_bitmap *bitmap_be_int_01(void *array, rmn_bitmap *bmp, int32_t special, int3
   }else{
     if(n > bitmap->size * 32) return NULL ;    // not enough room in bitmap data array data
   }
-  data = (uint32_t *) bitmap->data ;               // bitmap data array
+  data = (uint32_t *) bitmap->data ;           // bitmap data array
   bitmap->elem = n ;                           // array data will contain n useful bits
   bitmap->nrle = 0 ;                           // not RLE encoded
 
   for(i0 = 0 ; i0 < n-31 ; i0 += 32){          // full slices of 32 elements
-    result_gt = result_lt= result_eq = 0 ;
-    for(i=0 ; i<32 ; i++){                     // encode a 32 element slice
-      t_gt   = ((src[i] ^ msb)  > special) ? 1 : 0 ;     // 1 if > special value, 0 if not
-      t_lt   = ((src[i] ^ msb)  < special) ? 1 : 0 ;     // 1 if < special value, 0 if not
-      t_eq   = ((src[i] & mmask) == special0) ? 1 : 0 ;  // 1 if == special0, 0 if not (mmask is used)
-      t_gt <<= (31 - i) ;                      // shift to insertion point (big endian style)
-      t_lt <<= (31 - i) ;                      // shift to insertion point (big endian style)
-      t_eq <<= (31 - i) ;                      // shift to insertion point (big endian style)
-      result_gt |= t_gt ;                      // inject into accumulator
-      result_lt |= t_lt ;                      // inject into accumulator
-      result_eq |= t_eq ;                      // inject into accumulator
+    result = 0 ;
+    if(oper < 0){
+      for(i=0 ; i<32 ; i++){                     // encode a 32 element slice
+        t   = ((src[i] ^ msb)  < special) ? 1 : 0 ;     // 1 if < special value, 0 if not
+        t <<= (31 - i) ;                         // shift to insertion point (big endian style)
+        result |= t ;                            // inject into accumulator
+      }
+    }else if(oper == 0){
+      for(i=0 ; i<32 ; i++){                     // encode a 32 element slice
+        t   = ((src[i] & mmask) == special0) ? 1 : 0 ;  // 1 if == special0, 0 if not (mmask is used)
+        t <<= (31 - i) ;                         // shift to insertion point (big endian style)
+        result |= t ;                            // inject into accumulator
+      }
+    }else{
+      for(i=0 ; i<32 ; i++){                     // encode a 32 element slice
+        t   = ((src[i] ^ msb)  > special) ? 1 : 0 ;     // 1 if > special value, 0 if not
+        t <<= (31 - i) ;                         // shift to insertion point (big endian style)
+        result |= t ;                            // inject into accumulator
+      }
     }
-    result = (oper < 0) ? result_lt : result_gt ;
-    result = (oper == 0) ? result_eq : result ;
     ones += popcnt_32(result) ;
-    src += 32 ;                                // next slice from source array
+    src += 32 ;                                  // next slice from source array
     *data = result ;                             // store 32 bits into bitmap
     data++ ;                                     // bump bitmap pointer
   }
   result_gt = result_lt= result_eq = 0 ;
-  n31 = n & 0x1F ;                             // n modulo 32 (number of leftovers)
-  for(i = 0 ; i < n31 ; i++){                  // last, shorter slice (0 -> 31 elements)
+  n31 = n & 0x1F ;                               // n modulo 32 (number of leftovers)
+  for(i = 0 ; i < n31 ; i++){                    // last, shorter slice (0 -> 31 elements)
     t_gt   = ((src[i] ^ msb)  > special) ? 1 : 0 ;   // 1 if > special value, 0 if not
     t_lt   = ((src[i] ^ msb)  < special) ? 1 : 0 ;   // 1 if < special value, 0 if not
     t_eq   = ((src[i] & mmask) == special) ? 1 : 0 ;   // 1 if < special value, 0 if not
-    t_gt <<= (31 - i) ;                         // shift to insertion point (big endian style)
-    t_lt <<= (31 - i) ;                         // shift to insertion point (big endian style)
-    t_eq <<= (31 - i) ;                         // shift to insertion point (big endian style)
-    result_gt |= t_gt ;                            // inject into accumulator
-    result_lt |= t_lt ;                            // inject into accumulator
-    result_eq |= t_eq ;                            // inject into accumulator
+    t_gt <<= (31 - i) ;                          // shift to insertion point (big endian style)
+    t_lt <<= (31 - i) ;                          // shift to insertion point (big endian style)
+    t_eq <<= (31 - i) ;                          // shift to insertion point (big endian style)
+    result_gt |= t_gt ;                          // inject into accumulator
+    result_lt |= t_lt ;                          // inject into accumulator
+    result_eq |= t_eq ;                          // inject into accumulator
   }
-  if(n31 > 0){                                     // only store if there were leftovers
+  if(n31 > 0){                                   // only store if there were leftovers
     result = (oper < 0) ? result_lt : result_gt ;  // < or >
-    result = (oper == 0) ? result_eq : result ;    // ==
+    result = (oper == 0) ? result_eq : result ;  // ==
     ones += popcnt_32(result) ;
     *data = result ;
   }
@@ -208,9 +214,8 @@ rmn_bitmap *bitmap_be_int_01(void *array, rmn_bitmap *bmp, int32_t special, int3
 // where bits in mmask are 1, the corresponding bits in array are ignored
 // e.g. mmask = 7 will ignore the lower (least significant) 3 bits
 rmn_bitmap *bitmap_be_fp_01(float *array, rmn_bitmap *bmp, float special, int32_t mmask, int n, int oper){
-  uint32_t t_gt, t_lt, t_eq, result_lt, result_gt, result_eq, result, n31 ;
   rmn_bitmap *bitmap = bmp ;
-  uint32_t *data, ones = 0 ;
+  uint32_t t, t_gt, t_lt, result_lt, result_gt, result_eq, result, n31, *data, ones = 0 ;
   int32_t i, i0 ;
   float *src = (float *) array ;
 
@@ -226,22 +231,27 @@ rmn_bitmap *bitmap_be_fp_01(float *array, rmn_bitmap *bmp, float special, int32_
   bitmap->nrle = 0 ;                           // not RLE encoded
 
   for(i0 = 0 ; i0 < n-31 ; i0 += 32){          // full slices of 32 elements
-    result_gt = result_lt = 0 ;
-    for(i=0 ; i<32 ; i++){                     // encode a 32 element slice
-      t_gt   = ((src[i])  > special) ? 1 : 0 ;     // 1 if > special value, 0 if not
-      t_lt   = ((src[i])  < special) ? 1 : 0 ;     // 1 if < special value, 0 if not
-      t_gt <<= (31 - i) ;                      // shift to insertion point (big endian style)
-      t_lt <<= (31 - i) ;                      // shift to insertion point (big endian style)
-      result_gt |= t_gt ;                      // inject into accumulator
-      result_lt |= t_lt ;                      // inject into accumulator
+    if(oper < 0){
+      result = 0 ;
+      for(i=0 ; i<32 ; i++){                     // encode a 32 element slice
+        t   = ((src[i])  < special) ? 1 : 0 ;    // 1 if < special value, 0 if not
+        t <<= (31 - i) ;                         // shift to insertion point (big endian style)
+        result |= t ;                            // inject into accumulator
+      }
+    }else{
+      result = 0 ;
+      for(i=0 ; i<32 ; i++){                     // encode a 32 element slice
+        t   = ((src[i])  > special) ? 1 : 0 ;    // 1 if > special value, 0 if not
+        t <<= (31 - i) ;                         // shift to insertion point (big endian style)
+        result |= t ;                            // inject into accumulator
+      }
     }
-    result = (oper < 0) ? result_lt : result_gt ;
     ones += popcnt_32(result) ;
     src += 32 ;                                // next slice from source array
     *data = result ;                             // store 32 bits into bitmap
     data++ ;                                     // bump bitmap pointer
   }
-  result_gt = result_lt= result_eq = 0 ;
+  result_gt = result_lt = 0 ;
   n31 = n & 0x1F ;                             // n modulo 32 (number of leftovers)
   for(i = 0 ; i < n31 ; i++){                  // last, shorter slice (0 -> 31 elements)
     t_gt   = ((src[i])  > special) ? 1 : 0 ;   // 1 if > special value, 0 if not
@@ -253,7 +263,6 @@ rmn_bitmap *bitmap_be_fp_01(float *array, rmn_bitmap *bmp, float special, int32_
   }
   if(n31 > 0){                                     // only store if there were leftovers
     result = (oper < 0) ? result_lt : result_gt ;  // < or >
-    result = (oper == 0) ? result_eq : result ;    // ==
     ones += popcnt_32(result) ;
     *data = result ;
   }
@@ -261,18 +270,29 @@ rmn_bitmap *bitmap_be_fp_01(float *array, rmn_bitmap *bmp, float special, int32_
   return bitmap ;
 }
 
+#if defined(__x86_64__) && defined(__AVX2__)
+#include <immintrin.h>
+#endif
 // restore array from a 1 bit per element bitmap (big endian style)
 // array  [OUT] : destination array (32 bit elements)
 // bmp     [IN] : pointer to rmn_bitmap struct
 // plug    [IN] : value plugged into array where is a 1 in the bitmap
 // n       [IN] : size of array
 // return value : number of values restored from bit map, negative value if there was an error
+// NOTE : some compilers generate suboptimal code with the plain C version, a faster AVX2 version is supplied
 int bitmap_restore_be_01(void *array, rmn_bitmap *bmp, uint32_t plug, int n){
-  uint32_t n31 = n & 0x1F ;
-  int32_t i, i0, token ;
-  int32_t *bitmap ;
-  uint32_t *dst = (uint32_t *) array ;
-  rmn_bitmap *rle ;
+  int32_t i, i0 ;
+  uint32_t *bitmap, token, *dst = (uint32_t *)array, n31 = n & 0x1F ;
+#if defined(__x86_64__) && defined(__AVX2__)
+  uint32_t masks[8] = { 0x80, 0x40, 0x20, 0x10, 0x08, 0x04, 0x02, 0x01 } ;
+  __m256i vzr, vto, vl0, vl1, vl2, vl3, vm0, vm1, vm2, vm3, vb0, vb1, vb2, vb3, vsp ;
+  vm3 = _mm256_loadu_si256((__m256i *)masks) ;
+  vm2 = _mm256_slli_epi32(vm3,  8) ;
+  vm1 = _mm256_slli_epi32(vm3, 16) ;
+  vm0 = _mm256_slli_epi32(vm3, 24) ;
+  vzr = _mm256_xor_si256(vm3, vm3) ;
+  vsp = (__m256i) _mm256_broadcast_ss((float const *) &plug) ;
+#endif
 
   if(array == NULL || bmp == NULL) return -1 ; // bad addresses
   if(n < bmp->elem) return -2 ;                // array is too small
@@ -280,31 +300,57 @@ int bitmap_restore_be_01(void *array, rmn_bitmap *bmp, uint32_t plug, int n){
     bmp = bitmap_decode_be_01(bmp, bmp) ;
   }
 
-  bitmap = bmp->data ;
+  bitmap = (uint32_t *)bmp->data ;
   for(i0 = 0 ; i0 < n-31 ; i0 += 32){          // slices of 32 elements
     token = *bitmap ;
-    bitmap++ ;
-    for(i=0 ; i<32 ; i++){                     // conditionally plug a 32 element slice
-      dst[i] = (token < 0) ? plug : dst[i] ;
-      token <<= 1 ;
+    if(token != 0){                            // check that the whole slice is not 0
+#if defined(__x86_64__) && defined(__AVX2__)
+      // fast but idiot simple SIMD (AVX2) version
+      vto = (__m256i) _mm256_broadcast_ss((float const *) bitmap) ;
+      vl0 = _mm256_loadu_si256((__m256i *)(dst+ 0)) ;    // load 32 elements from source data
+      vl1 = _mm256_loadu_si256((__m256i *)(dst+ 8)) ;
+      vl2 = _mm256_loadu_si256((__m256i *)(dst+16)) ;
+      vl3 = _mm256_loadu_si256((__m256i *)(dst+24)) ;
+      vb0 = _mm256_and_si256(vto, vm0) ;                 // token & bit mask
+      vb1 = _mm256_and_si256(vto, vm1) ;
+      vb2 = _mm256_and_si256(vto, vm2) ;
+      vb3 = _mm256_and_si256(vto, vm3) ;
+      vb0 = _mm256_cmpeq_epi32(vzr, vb0) ;               // compare to 0
+      vb1 = _mm256_cmpeq_epi32(vzr, vb1) ;               // - will have all 0s where source data must be "plugged"
+      vb2 = _mm256_cmpeq_epi32(vzr, vb2) ;               // - will have all 1s where source data must be kept
+      vb3 = _mm256_cmpeq_epi32(vzr, vb3) ;
+      vl0 = _mm256_blendv_epi8(vsp, vl0, vb0) ;          // special value where (token & bit mask) non zero
+      vl1 = _mm256_blendv_epi8(vsp, vl1, vb1) ;          // original value where (token & bit mask) is zero
+      vl2 = _mm256_blendv_epi8(vsp, vl2, vb2) ;
+      vl3 = _mm256_blendv_epi8(vsp, vl3, vb3) ;
+      _mm256_storeu_si256((__m256i *)(dst+ 0), vl0) ;    // store possibly modified data
+      _mm256_storeu_si256((__m256i *)(dst+ 8), vl1) ;
+      _mm256_storeu_si256((__m256i *)(dst+16), vl2) ;
+      _mm256_storeu_si256((__m256i *)(dst+24), vl3) ;
+#else
+      for(i=0 ; i<32 ; i++){                     // conditionally plug a 32 element slice
+        dst[i] = (token & (1 << (31-i))) ? plug : dst[i] ;
+      }
+#endif
     }
+    bitmap++ ;
     dst += 32 ;
   }
   token = *bitmap ;
-  for(i=0 ; i<n31 ; i++){                      // last, shorter slice
-    dst[i] = (token < 0) ? plug : dst[i] ;
-    token <<= 1 ;
+  for(i=0 ; i<n31 ; i++){                      // last, shorter slice (if n not a multiple of 32)
+    dst[i] = (token & (1 << (31-i))) ? plug : dst[i] ;
   }
   return n ;
 }
 
+// EMIT macros are unsafe, they should check that str does not overflow str_limit
+//
 // #define EMIT1_1 { fprintf(stderr,"1") ; kount++ ; accum |= (1 << shift) ; shift-- ; if(shift<0){ *str = accum ; str++ ; accum = 0 ; shift = 31 ; } }
 // #define EMIT1_0 { fprintf(stderr,"0") ; kount++ ;                         shift-- ; if(shift<0){ *str = accum ; str++ ; accum = 0 ; shift = 31 ; } }
 #define EMIT1   { kount++ ; shift-- ; if(shift<0){ *str = accum ; str++ ; accum = 0 ; shift = 31 ; } }
 #define EMIT1_1 { accum |= (1 << shift) ; EMIT1 }
 #define EMIT1_0 {                       ; EMIT1 }
 #define NG 12
-// EMIT macros are unsafe, they should check that str does not overflow str_limit
 //
 // 1s are assumed to be occurring much less frequently than 0s (reletively long sequences of 0s)
 // full encoding for a stream of 0s (starts with 0, ends before second 1)
@@ -336,6 +382,16 @@ int bitmap_restore_be_01(void *array, rmn_bitmap *bmp, uint32_t plug, int n){
 //
 // TODO : make sure that we are not overflowing the storage if the encoded stream
 //        becomes longer than the original stream (EMIT macros)
+// TODO :
+//        maybe add 2 bits at the beginning to tell whether fuul or simple encoding is used
+//        xy  00 would mean that no encoding is used, default would be 10 (full 0, simple 1)
+//        x : 1 if full encoding is used for 0s, 0 if simple encoding is used
+//        y : 1 if full encoding is used for 01s, 0 if simple encoding is used
+//
+// bmp         [IN] : pointer to bitmap to encode
+// rle_stream [OUT] : pointer to encoded bitmap (if NULL, it will be allocated internally)
+// mode        [IN] : see xy bits above. use RLE_FULL_0 and RLE_FULL_1 macros
+// return pointer to encoded stream, NULL in case of error
 rmn_bitmap *bitmap_encode_be_01(rmn_bitmap *bmp, rmn_bitmap *rle_stream, int mode){
   int totavail, nb, ntot, bit_type, left, last_type ;
   uint32_t *bitmap, scan0, scan1 ;
