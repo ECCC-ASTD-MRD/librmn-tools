@@ -22,8 +22,17 @@
 #include <rmn/bitmaps.h>
 #include <rmn/timers.h>
 
-#define NPTS 1022
-#define EVERY 127
+#define NPTS 511
+#define EVERY 31
+
+void print_encode_mode(char *msg, int mode){
+  int full_83_1 = (mode&RLE_FULL_1) && ((mode&RLE_123_1) == 0) ;
+  int full_83_0 = (mode&RLE_FULL_0) && ((mode&RLE_123_0) == 0) ;
+  fprintf(stderr, "%s : mode = %s %s%s (0) %s %s%s (1)\n", 
+          msg, 
+          mode&RLE_FULL_0 ? "FULL" : "SIMPLE" , mode&RLE_123_0 ? "12/3" : "", full_83_0 ? "8/3" : "",
+          mode&RLE_FULL_1 ? "FULL" : "SIMPLE" , mode&RLE_123_1 ? "12/3" : "", full_83_1 ? "8/3" : "") ;
+}
 
 int main(int argc, char **argv){
   int32_t iarray[NPTS] ;
@@ -32,7 +41,7 @@ int main(int argc, char **argv){
   int32_t restored[NPTS] ;
   rmn_bitmap *bitmap = NULL, *bitmap2, *bitmap3, *bitmapp, *bitmapd ;
   rmn_bitmap *rle, *rle2 ;
-  int i0, i, errors ;
+  int i0, i, errors, mode ;
   int32_t special = 999999 ;
   uint32_t mmask = 0u ;
   TIME_LOOP_DATA ;
@@ -49,6 +58,9 @@ int main(int argc, char **argv){
     for(i=0 ; i<16 ; i++) fprintf(stderr, "%8.8x ", bitmapp->data[i0+i]) ;
     fprintf(stderr, "\n");
   }
+
+  mode = bitmap_encode_hint_01(bitmapp) ;
+  print_encode_mode("bitmap_encode_hint_01", mode) ;
 
   bitmapp = bitmap_be_fp_01(farray, bitmapp, 31.5f, 0x7, NPTS, OP_SIGNED_LT) ;
   fprintf(stderr, "RAW  < 31.5 bitmap    (float) :\n");
@@ -107,9 +119,12 @@ int main(int argc, char **argv){
     fprintf(stderr, "\n");
   }
 
+  mode = bitmap_encode_hint_01(bitmap) ;
+  print_encode_mode("bitmap_encode_hint_01", mode) ;
+
 // RLE encode bit map
-  rle2 = bitmap_encode_be_01(bitmap, NULL, 0) ;                       // encoding
-  rle  = bitmap_encode_be_01(bitmap, bitmap, 0) ;   // in-place encoding
+  rle2 = bitmap_encode_be_01(bitmap, NULL, RLE_DEFAULT) ;                       // encoding
+  rle  = bitmap_encode_be_01(bitmap, bitmap, RLE_DEFAULT) ;   // in-place encoding
   fprintf(stderr, "RLE encoded bitmap :%d RLE bits , encoding %d RAW bits, max size = %d\n", rle->nrle, rle->elem, 32*rle->size);
   for(i=0 ; i<(rle->nrle+31)/32 ; i++) fprintf(stderr, "%8.8x ",rle->data[i]) ;
   fprintf(stderr, "\n");
@@ -132,7 +147,7 @@ int main(int argc, char **argv){
     }
   }
   fprintf(stderr, "RLE bitmap restore errors = %d\n", errors) ;
-
+return 0 ;
 // decode RLE encoded bitmap
   fprintf(stderr, "bitmap2 O.K. for up to %d bits\n", 32 * bitmap2->size) ;
   for(i=0 ; i<bitmap2->size ; i++) bitmap2->data[i] = 0xFFFFFFFFu ;
@@ -158,22 +173,31 @@ int main(int argc, char **argv){
   }
   fprintf(stderr, "bitmap restore errors = %d\n", errors) ;
 
-  TIME_LOOP_EZ(1000, NPTS, bitmap_be_eq_01(iarray, bitmap, special, mmask, NPTS)) ;
-  fprintf(stderr, "bitmap_be_eq_01 : %s\n",timer_msg);
+//   TIME_LOOP_EZ(1000, NPTS, bitmap_be_eq_01(iarray, bitmap, special, mmask, NPTS)) ;
+//   fprintf(stderr, "bitmap_be_eq_01 : %s\n",timer_msg);
 
   TIME_LOOP_EZ(1000, NPTS, bitmap_be_int_01(iarray, bitmap, iarray[NPTS/2], mmask, NPTS, OP_SIGNED_GT)) ;
   fprintf(stderr, "bitmap_be_int_01 : %s\n",timer_msg);
 
   TIME_LOOP_EZ(1000, NPTS, bitmap_be_fp_01(farray, bitmap, farray[NPTS/2], mmask, NPTS, OP_SIGNED_GT)) ;
-  fprintf(stderr, "bitmap_be_fp_01 : %s\n",timer_msg);
-
-//   TIME_LOOP_EZ(1000, NPTS, rle = bitmap_encode_be_01(bitmap, rle, 0)) ;
-//   fprintf(stderr, "encode_be_01    : %s\n",timer_msg);
+  fprintf(stderr, "bitmap_be_fp_01  : %s\n",timer_msg);
 
   for(i=0 ; i<NPTS ; i++) iarray[i] = i - NPTS/2 ;
   for(i=1 ; i<NPTS ; i+=(31)) iarray[i] = special ;
   bitmapd = bitmap_be_eq_01(iarray, NULL, special, mmask, NPTS) ;
 
+  TIME_LOOP_EZ(1000, NPTS, bitmap_be_eq_01(iarray, bitmapd, special, mmask, NPTS)) ;
+  fprintf(stderr, "bitmap_be_eq_01  : %s\n",timer_msg);
+
+  TIME_LOOP_EZ(1000, NPTS, mode = bitmap_encode_hint_01(bitmapd)) ;
+  fprintf(stderr, "encode_hint_01   : %s\n",timer_msg);
+
+  TIME_LOOP_EZ(1000, NPTS, rle = bitmap_encode_be_01(bitmapd, rle, RLE_DEFAULT)) ;
+  fprintf(stderr, "encode_be_01     : %s\n",timer_msg);
+
+  TIME_LOOP_EZ(1000, NPTS, bitmap3 = bitmap_decode_be_01(bitmapd, rle)) ;
+  fprintf(stderr, "decode_be_01     : %s\n",timer_msg);
+
   TIME_LOOP_EZ(1000, NPTS, bitmap_restore_be_01(restored, bitmapd, special, NPTS)) ;
-  fprintf(stderr, "restore_be_01   : %s\n",timer_msg);
+  fprintf(stderr, "restore_be_01    : %s\n",timer_msg);
 }

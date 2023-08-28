@@ -28,9 +28,15 @@ typedef struct{
   int32_t  data[] ;
 } rmn_bitmap ;       // uncompressed bitmap
 
+// 12/3 full encoding, appropriate for long (>48) sequences
+// 0 means use 8/3 encoding, appropriate for shorter (>4, <49) sequences
+#define RLE_123_0   8
+#define RLE_123_1   4
+// use full encoding for 0s or 1s, 12/3 or 8/3, medium or long (>4 sequences)
+// 0 means simple encoding, appropriate for very short(<5) sequences
 #define RLE_FULL_0  2
 #define RLE_FULL_1  1
-// by default, use full encoding for 0s and simple encoding for 1s
+// by default, use full 8/3 encoding for 0s and simple encoding for 1s
 #define RLE_DEFAULT RLE_FULL_0
 // full (complex) encoding for both 0s and 1s
 #define RLE_FULL_01 (RLE_FULL_0 | RLE_FULL_1)
@@ -50,6 +56,8 @@ rmn_bitmap *bitmap_be_fp_01(float *array, rmn_bitmap *bmp, float special, int32_
 // data from bitmap (potentially RLE encoded)
 int bitmap_restore_be_01(void *array, rmn_bitmap *bmp, uint32_t plug, int nelem);
 
+// RLE encoder hints
+int bitmap_encode_hint_01(rmn_bitmap *bmp);
 // RLE encoder for bitmap
 rmn_bitmap *bitmap_encode_be_01(rmn_bitmap *bmp, rmn_bitmap *rle_stream, int rle_mode);
 // decode RLE encoded bitmap

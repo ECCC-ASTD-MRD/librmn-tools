@@ -28,13 +28,14 @@
 #endif
 
 // add potential guard bits at end of bitmap
-#define GUARD_BITS 32
+// now using 4 extra bits at beginning (encoding mode) + 1 extra bit at end (inverted guard)
+#define EXTRA_BITS 32
 
 // create a bit map capable of containing nelem elements
 // (can also be used to create a  pointer to an encoded (RLE) bitmap using a cast)
 // nelem [IN] : max number of elements in bitmap
 rmn_bitmap *bitmap_create(int nelem){
-  size_t bmp_size = (nelem + GUARD_BITS + 31)/32 ;     // number of uint32_t elements needed
+  size_t bmp_size = (nelem + EXTRA_BITS + 31)/32 ;     // number of uint32_t elements needed
   rmn_bitmap *bitmap = (rmn_bitmap *) malloc( bmp_size * sizeof(uint32_t) + sizeof(rmn_bitmap) ) ;
   bitmap->size = bmp_size ;                            // capacity of bitmap
   bitmap->elem = 0 ;                                   // number of used bits in bitmap
@@ -51,7 +52,7 @@ rmn_bitmap *bitmap_create(int nelem){
 rmn_bitmap *bitmap_dup(rmn_bitmap *bmp_dst, rmn_bitmap *bmp_src){
   int i, to_copy ;
   if(bmp_src == NULL) return NULL ;
-  if(bmp_dst == NULL) bmp_dst = bitmap_create(32 * bmp_src->size - GUARD_BITS) ;
+  if(bmp_dst == NULL) bmp_dst = bitmap_create(32 * bmp_src->size - EXTRA_BITS) ;
   if(bmp_dst->size < bmp_src->size) return NULL ;
   bmp_dst->elem = bmp_src->elem ;
   bmp_dst->nrle = bmp_src->nrle ;
@@ -342,28 +343,25 @@ int bitmap_restore_be_01(void *array, rmn_bitmap *bmp, uint32_t plug, int n){
   }
   return n ;
 }
-
-// EMIT macros are unsafe, they should check that str does not overflow str_limit
-//
-// #define EMIT1_1 { fprintf(stderr,"1") ; kount++ ; accum |= (1 << shift) ; shift-- ; if(shift<0){ *str = accum ; str++ ; accum = 0 ; shift = 31 ; } }
-// #define EMIT1_0 { fprintf(stderr,"0") ; kount++ ;                         shift-- ; if(shift<0){ *str = accum ; str++ ; accum = 0 ; shift = 31 ; } }
-#define EMIT1   { kount++ ; shift-- ; if(shift<0){ *str = accum ; str++ ; accum = 0 ; shift = 31 ; } }
-#define EMIT1_1 { accum |= (1 << shift) ; EMIT1 }
-#define EMIT1_0 {                       ; EMIT1 }
-#define NG 12
 //
 // 1s are assumed to be occurring much less frequently than 0s (reletively long sequences of 0s)
-// full encoding for a stream of 0s (starts with 0, ends before second 1)
-// 0 -+---------+- 1 -+---------+- start of stream of 1s
-//    ^         |     ^         |
-//    +--- 0 ---+     +--- 0 ---+  (single 0, optional set of NG 0s, separator(1), optional single 0s)
-// 1      NG       0       1       (count value)
+// full encoding for a stream of 0s (starts with 0, ends before third 1)
+// 0 -+---------+- 1 -+---------+- 1 -+---------+- start of stream of 1s
+//    ^         |     ^         |     ^         |
+//    +--- 0 ---+     +--- 0 ---+     +--- 0 ---+  (0, set of 0s, 1, set of 0s, 1, set of 0s)
+// 1      NG       0       3       0       1       (weight, 12 or 8)
 //
 // simple encoding for a stream of 1s ( starts with 1, ends before next 0)
-// 1 -+---------+-  start of stream of 0s
+// 1 -+---------+- start of stream of 0s
 //    ^         |
-//    +--- 1 ---+   (single 1, optional single 1s)
-// 1       1       (count value)
+//    +--- 1 ---+  (single 1, optional single 1s)
+// 1       1       (weight)
+//
+// simple encoding for a stream of 0s ( starts with 0, ends before next 1)
+// 0 -+---------+- start of stream of 0s
+//    ^         |
+//    +--- 0 ---+  (single 0, optional single 0s)
+// 1       1       (weight)
 //
 // 01 1111        : 1 x 0, 4 x 1
 // 0100 1111      : 3 x 0, 4 x 1
@@ -372,97 +370,200 @@ int bitmap_restore_be_01(void *array, rmn_bitmap *bmp, uint32_t plug, int n){
 // 1 010 1111     : 1 x 1, 2 x 0, 4 x 1
 //
 // if 1s and 0s are occurring with similar probability in relatively long sequences
-// full encoding for a stream of 1s (starts with 1, ends before second 0)
-// 1 -+---------+- 0 -+---------+- start of stream of 1s
-//    ^         |     ^         |
-//    +--- 1 ---+     +--- 1 ---+  (single 1, optional set of NG 1s, separator (0), optional single 1s)
-// 1      NG       0       1       (count value)
-//
-// for now only full encoding for 0s and simple encoding for 1s is implemented
+// full encoding for a stream of 1s (starts with 1, ends before third 0)
+// 1 -+---------+- 0 -+---------+- 0 -+---------+- start of stream of 1s
+//    ^         |     ^         |     ^         |
+//    +--- 1 ---+     +--- 1 ---+     +--- 1 ---+  (single 1, set of 1s, 0, set of 1s, 0, set of 1s)
+// 1      NG       0       3       0       1       (weight, 12 or 8)
 //
 // TODO : make sure that we are not overflowing the storage if the encoded stream
 //        becomes longer than the original stream (EMIT macros)
 // TODO :
-//        maybe add 2 bits at the beginning to tell whether fuul or simple encoding is used
+//        maybe add 2 bits at the beginning to tell whether full or simple encoding is used
 //        xy  00 would mean that no encoding is used, default would be 10 (full 0, simple 1)
 //        x : 1 if full encoding is used for 0s, 0 if simple encoding is used
 //        y : 1 if full encoding is used for 01s, 0 if simple encoding is used
 //
-// bmp         [IN] : pointer to bitmap to encode
-// rle_stream [OUT] : pointer to encoded bitmap (if NULL, it will be allocated internally)
-// mode        [IN] : see xy bits above. use RLE_FULL_0 and RLE_FULL_1 macros
-// return pointer to encoded stream, NULL in case of error
-rmn_bitmap *bitmap_encode_be_01(rmn_bitmap *bmp, rmn_bitmap *rle_stream, int mode){
-  int totavail, nb, ntot, bit_type, left, last_type ;
+// bmp         [IN] : pointer to bitmap to analyze
+int bitmap_encode_hint_01(rmn_bitmap *bmp){
+  int totavail, nb, ntot, bit_type, left, count[2], lseq[2], mode ;
   uint32_t *bitmap, scan0, scan1 ;
-  rmn_bitmap *stream = rle_stream ;
-  int kount = 0 ;
-  uint32_t accum, *str, *str_limit ;
-  int shift ;
 
-  if(bmp == NULL) return NULL ;
-  if( (void *)bmp == (void *)rle_stream) stream = NULL ;    // inplace encoding
-  if(stream == NULL) stream = (rmn_bitmap *) bitmap_create(bmp->elem) ;
-//   if(stream == NULL) stream = (rmn_bitmap *) malloc(sizeof(rmn_bitmap) + sizeof(uint32_t)*bmp->size) ;
-  if(stream == NULL) return NULL ;                   // allocation failed
-
-  totavail = bmp->elem ;
-  bitmap = (uint32_t *)bmp->data ;
+  if(bmp == NULL) return -1 ;
+  totavail = bmp->elem ;                             // number of elements to encode
+  totavail >>= 1 ;                                   // only analyze the first half of the bitmap for hints
+  bitmap = (uint32_t *)bmp->data ;                   // bitmap to encode
   scan0 = *bitmap ; bitmap++ ;                       // accumulator to scan for 0s
   scan1 = ~scan0 ;                                   // accumulator to scan for 1s
   left = 32 ;
   ntot = 0 ;
   bit_type = 0 ;                                     // start by counting 0s
-  accum = 0 ;
-  str = (uint32_t *)stream->data ;
-  str_limit = ((uint32_t *)stream->data) + stream->size ;
-  shift = 31 ;
+  count[0] = count[1] = lseq[0] = lseq[1] = 0 ;      // set counters to 0
 
 count_1_or_0 :
   nb = lzcnt_32( (bit_type ? scan1 : scan0) ) ;      // get number of leading zeroes
   ntot     += nb ;
   left     -= nb ;
   totavail -= nb ;
-// fprintf(stderr, "nb=%2d ",nb);
+
   if(left == 0){                                     // nothing left in scan0/scan1
-    if(totavail <= 0) goto done ;                    // nothing left in bitmap
+    if(totavail <= 0) goto done ;                    // nothing left to encode in bitmap
+    scan0 = *bitmap ; bitmap++ ;                     // get next 32 bits from bitmap
+    scan1 = ~scan0 ;                                 // scan1 is complement of scan0
+    left = 32 ;                                      // 32 bits available in scan0/scan1
+    goto count_1_or_0 ;                              // keep counting for this bit type (0 / 1)
+  }else{                                             // there are bits left in scan0/scan1
+    if(nb > 0){                                      // do not shift if count is 0
+      scan0 = ~((~scan0) << nb) ;                    // shift left, introducing 1s from the right
+      scan1 = ~((~scan1) << nb) ;                    // shift left, introducing 1s from the right
+    }
+    if(ntot > 0){                                    // (ntot can be 0)
+      count[bit_type]++ ;                            // add one to the sequence count
+      lseq[bit_type] += ntot ;                       // we have a sequence of ntot bits of type bit_type
+    }
+    bit_type = 1 - bit_type ;                        // invert bit type to scan
+    ntot = 0 ;                                       // reset counter
+    if(totavail > 0) goto count_1_or_0 ;             // start counting potential new sequence
+  }
+done:
+  if(ntot > 0) {                                     // (ntot may be 0)
+    count[bit_type]++ ;                              // add one to the sequence count
+    lseq[bit_type] += ntot ;                         // we have a sequence of ntot bits of type bit_type
+  }
+
+  if(count[0] > 0) lseq[0] /= count[0] ;             // average length for sequences of 0s (assume at least 1 sequence)
+  if(count[1] > 0) lseq[1] /= count[1] ;             // average length for sequences of 1s (assume at least 1 sequence)
+  mode = 0 ;                                         // simple encoding for both 1s and 0s
+  if(lseq[0] >  4) mode |= RLE_FULL_0 ;              // full encoding for 0s
+  if(lseq[1] >  4) mode |= RLE_FULL_1 ;              // full encoding for 1s
+  if(lseq[0] > 48) mode |= RLE_123_0 ;               // 12/3 encoding rather thatn 8/3 for 0s
+  if(lseq[1] > 48) mode |= RLE_123_1 ;               // 12/3 encoding rather thatn 8/3 for 1s
+  return mode ;                                      // return full vs simple, 12/3 vs 8/3 encoding hint
+}
+
+// EMIT macros are unsafe, they should check that str does not overflow str_limit
+//
+// #define EMIT1_1 { fprintf(stderr,"1") ; kount++ ; accum |= (1 << shift) ; shift-- ; if(shift<0){ *str = accum ; str++ ; accum = 0 ; shift = 31 ; } }
+// #define EMIT1_0 { fprintf(stderr,"0") ; kount++ ;                         shift-- ; if(shift<0){ *str = accum ; str++ ; accum = 0 ; shift = 31 ; } }
+#define EMIT1   { kount++ ; shift-- ; if(shift<0){ *str = accum ; str++ ; accum = 0 ; shift = 31 ; } }
+#define EMIT1_1 { accum |= (1 << shift) ; EMIT1 }
+#define EMIT1_0 {                       ; EMIT1 }
+// #define NG 12
+
+// bmp         [IN] : pointer to bitmap to encode
+// rle_stream [OUT] : pointer to encoded bitmap (if NULL, it will be allocated internally)
+// mode        [IN] : see bitmap_encode_hint_01 above.(-1 means default)
+//                    use RLE_FULL_0, RLE_FULL_1, RLE_123_0, RLE_123_1 macros
+// return pointer to encoded stream, NULL in case of error
+// for now only full encoding for 0s and simple encoding for 1s is implemented
+//
+rmn_bitmap *bitmap_encode_be_01(rmn_bitmap *bmp, rmn_bitmap *rle_stream, int mode){
+  int totavail, nb, ntot, bit_type, left, last_type ;
+  uint32_t *bitmap, scan0, scan1 ;
+  rmn_bitmap *stream = rle_stream ;
+  int kount = 0 ;
+  uint32_t accum, *str, *str_limit ;
+  int shift, inplace ;
+  int full_0, full_1, ng0, ng1 ;
+
+  if(mode == -1) mode = RLE_FULL_0 | RLE_123_0 ;  // default : simple encoding for 1s, full 12/3 encoding for 0s
+  if(mode & RLE_FULL_0){
+    int full_12_0, full_8_0 ;
+    full_0 = 1 ;
+    full_12_0 = (mode & RLE_123_0) != 0 ;
+    full_8_0  = (mode & RLE_123_0) == 0 ;
+    ng0 = full_12_0 ? 12 : 8 ;
+  }else{
+    full_0 = ng0 = 0 ;
+  }
+  if(mode & RLE_FULL_1){
+    int full_12_1, full_8_1 ;
+    full_1 = 1 ;
+    full_12_1 = (mode & RLE_123_1) != 0 ;
+    full_8_1  = (mode & RLE_123_1) == 0 ;
+    ng1 = full_12_1 ? 12 : 8 ;
+  }else{
+    full_1 = ng1 = 0 ;
+  }
+fprintf(stderr, "ng0 = %d, ng1 = %d\n", ng0, ng1) ;
+  if(bmp == NULL) return NULL ;
+  inplace = (void *)bmp == (void *)rle_stream ;
+  if(inplace) stream = NULL ;                        // inplace encoding
+  if(stream == NULL)                                 // need to allocate an encoded stream
+    stream = (rmn_bitmap *) bitmap_create(bmp->elem) ;
+  if(stream == NULL) return NULL ;                   // error : allocation failed
+
+  totavail = bmp->elem ;                             // number of elements to encode
+  bitmap = (uint32_t *)bmp->data ;                   // bitmap to encode
+  scan0 = *bitmap ; bitmap++ ;                       // accumulator to scan for 0s
+  scan1 = ~scan0 ;                                   // accumulator to scan for 1s
+  left = 32 ;
+  ntot = 0 ;
+  bit_type = 0 ;                                     // start by counting 0s
+//   accum = 0 ;
+//   shift = 31 ;
+  accum = mode << 28 ;
+  shift = 27 ;
+  str = (uint32_t *)stream->data ;
+  str_limit = ((uint32_t *)stream->data) + stream->size ;
+
+count_1_or_0 :
+  nb = lzcnt_32( (bit_type ? scan1 : scan0) ) ;      // get number of leading zeroes
+  ntot     += nb ;
+  left     -= nb ;
+  totavail -= nb ;
+
+  if(left == 0){                                     // nothing left in scan0/scan1
+    if(totavail <= 0) goto done ;                    // nothing left to encode in bitmap
     scan0 = *bitmap ; bitmap++ ;                     // get next 32 bits from bitmap
     scan1 = ~scan0 ;
     left = 32 ;                                      // 32 bits in scan0/scan1
     goto count_1_or_0 ;                              // keep counting for this bit type (0 / 1)
   }else{
-    if(nb > 0){                                      // do not shoft if count is 0
+    if(nb > 0){                                      // do not shift if count is 0
       scan0 = ~((~scan0) << nb) ;                    // shift left, introducing 1s from the right
       scan1 = ~((~scan1) << nb) ;                    // shift left, introducing 1s from the right
     }
-      // we have ntot bits of type bit_type
-// fprintf(stderr, "  %d x %d\n", ntot, bit_type) ;
+    // we have ntot bits of type bit_type (ntot may be 0)
     if(ntot > 0){
       last_type = bit_type ;
       if(bit_type == 0){                             // encode 0s (full encoding)
         EMIT1_0 ; ntot-- ;                           // lead 0
-        while(ntot >=NG) { ntot -= NG ; EMIT1_0 ; }  // groups of 0s
-        EMIT1_1 ;                                    // separator
+        if(full_0){
+          while(ntot >= ng0) { ntot -= ng0 ; EMIT1_0 ; } // groups of NG 0s
+          EMIT1_1 ;                                    // separator
+          while(ntot >= 3) { ntot -= 3 ; EMIT1_0 ; }   // groups of 3 0s
+          EMIT1_1 ;                                    // separator
+        }
         while(ntot > 0) { ntot-- ; EMIT1_0 ; }       // single 0s
       }else{                                         // encode 1s (simple encoding)
+        EMIT1_1 ; ntot-- ;
+        if(full_1){
+        }
         while(ntot > 0) { ntot-- ; EMIT1_1 ; }       // single 1s
       }
     }
     bit_type = 1 - bit_type ;                        // invert bit type to scan
     ntot = 0 ;                                       // reset bit counter
-    if(totavail > 0) goto count_1_or_0 ;
+    if(totavail > 0) goto count_1_or_0 ;             // start counting for new sequence
   }
 done:
   if(ntot > 0) {
-//     fprintf(stderr, "> %d x %d\n", ntot, bit_type) ;
     last_type = bit_type ;
-    if(bit_type == 0){                             // encode 0s (full encoding)
-      EMIT1_0 ; ntot-- ;                           // lead 0
-      while(ntot >= NG) { ntot -=NG ; EMIT1_0 ; }  // groups of 8 0s
-      EMIT1_1 ;                                    // separator
-      while(ntot > 0) { ntot-- ; EMIT1_0 ; }       // single 0s
-    }else{                                         // encode 1s (simple encoding)
-      while(ntot > 0) { ntot-- ; EMIT1_1 ; }       // single 1s
+    if(bit_type == 0){                               // encode 0s (full encoding)
+      EMIT1_0 ; ntot-- ;                             // lead 0
+      if(full_0){
+        while(ntot >= ng0) { ntot -=ng0 ; EMIT1_0 ; }    // groups of NG 0s
+        EMIT1_1 ;                                      // separator
+        while(ntot >= 3) { ntot -=3 ; EMIT1_0 ; }      // groups of 3 0s
+        EMIT1_1 ;                                      // separator
+      }
+      while(ntot > 0) { ntot-- ; EMIT1_0 ; }         // single 0s
+    }else{                                           // encode 1s (simple encoding)
+      EMIT1_1 ; ntot-- ;
+      if(full_1){
+      }
+      while(ntot > 0) { ntot-- ; EMIT1_1 ; }         // single 1s
     }
   }
   // add a guard bit
@@ -473,9 +574,9 @@ done:
   }
   if(shift < 31) *str = accum ; str++ ;            // flush accumulator leftovers
   if( (void *)bmp == (void *)rle_stream){          // copy RLE stream back into original bitmap
-fprintf(stderr, "copying %d + 1 bits back into original stream\n", kount-1);
     int i ;
-    for(i = 0 ; i < ((kount+31)/32) ; i++) bmp->data[i] = stream->data[i] ;
+    for(i = 0 ; i < ((kount+31)/32) ; i++) 
+      bmp->data[i] = stream->data[i] ;
     free(stream) ;
     stream = (rmn_bitmap *)bmp ;
   }else{
@@ -490,23 +591,26 @@ fprintf(stderr, "copying %d + 1 bits back into original stream\n", kount-1);
 #define INSERT1          { ninserted++ ; insert-- ; if(insert < 0) { *bitmap = accum ; bitmap++ ; accum = 0 ; insert = 31 ; } }
 #define INSERT1_1        { accum |= (1 << insert) ; INSERT1 }
 #define INSERT1_0        { INSERT1 }
-#define INSERTN_0        {  ninserted+=NG ; insert -= NG ; if(insert < 0) { *bitmap = accum ; bitmap++ ; accum = 0 ; insert += 32 ;} ; }
+#define INSERTN_0(NG)    {  ninserted+=NG ; insert -= NG ; if(insert < 0) { *bitmap = accum ; bitmap++ ; accum = 0 ; insert += 32 ;} ; }
+#define INSERT3_0        {  ninserted+=3 ; insert -= 3 ; if(insert < 0) { *bitmap = accum ; bitmap++ ; accum = 0 ; insert += 32 ;} ; }
+#define INSERTN_1(NG)    { int n ; for(n=0 ; n<NG; n++) {INSERT1_1} ; }
+#define INSERT3_1        { int n ; for(n=0 ; n<3 ; n++) {INSERT1_1} ; }
 #define GET_1_RLE(X)   { ndecoded++ ; if(avail == 0) { encoded = *rle ; rle++ ; avail = 32 ; } ; X = (encoded >> 31) ; encoded <<= 1 ; avail--  ; totavail-- ; }
 // for now only full encoding for 0s and simple encoding for 1s is implemented in the decoder
 rmn_bitmap *bitmap_decode_be_01(rmn_bitmap *bmp, rmn_bitmap *rle_stream){
   uint32_t *bitmap, *rle, encoded, accum, bit ;
   uint32_t msb1 = 0x80000000u ;        // 1 in Most Significant Bit
   int totavail, avail, insert, ndecoded, ninserted, inplace = 0, i ;
+  int full_0, full_1, ng0, ng1, full_12_0, full_12_1 ;
 
   if(rle_stream == NULL) return NULL ;   // no encoded stream to decode
 
   if(bmp == NULL) {                      // auto allocate bmp
     bmp = (rmn_bitmap *)bitmap_create(rle_stream->elem) ;
-fprintf(stderr, "decode_be_01 : creating bitmap for %d elements\n", rle_stream->elem) ;
+// fprintf(stderr, "decode_be_01 : creating bitmap for %d elements\n", rle_stream->elem) ;
   }
   if((void *)bmp == (void *)rle_stream){ // in-place decoding
-fprintf(stderr, "decode_be_01 : in-place decoding\n");
-//     return NULL ;
+// fprintf(stderr, "decode_be_01 : in-place decoding\n");
     rle_stream = (rmn_bitmap *) bitmap_create(bmp->elem) ;  // new RLE stream
     inplace = 1 ;                                               // flag it to be freed at exit
     rle_stream->nrle = bmp->nrle ;
@@ -519,35 +623,53 @@ fprintf(stderr, "decode_be_01 : in-place decoding\n");
   accum = 0 ;                            // insertion accumulator for bitmap
   insert = 31 ;                          // insertion point in bitmap
   rle = (uint32_t *)rle_stream->data ;
-  totavail = rle_stream->nrle ;          // total number of bits to decode
-fprintf(stderr, "%d bits to decode from %d RLE encoded bits\n", rle_stream->elem, rle_stream->nrle) ;
+// fprintf(stderr, "%d bits to decode from %d RLE encoded bits\n", rle_stream->elem, rle_stream->nrle) ;
+  totavail = 0 ;
   avail = 0 ;
   ndecoded = 0 ;
   ninserted = 0 ;
 
-  GET_1_RLE(bit) ;                       // get first bit
+  // get 4 bit header that describes encoding
+  GET_1_RLE(full_12_0) ; ng0 = full_12_0 ? 12 : 8 ;     // full 12/3 or 8/3 encoding for 0s
+  GET_1_RLE(full_12_1) ; ng1 = full_12_1 ? 12 : 8 ;     // full 12/3 or 8/3 encoding for 1s
+  GET_1_RLE(full_0)    ; ng0 = full_0 ? ng0 : 0 ;       // full or simple encoding for 0s
+  GET_1_RLE(full_1)    ; ng1 = full_1 ? ng1 : 0 ;       // full or simple encoding for 1s
+  ndecoded = 0 ;
+  totavail = rle_stream->nrle ;          // total number of bits to decode
+
+  GET_1_RLE(bit) ;                       // get first RLE encoded bit
   if(bit == 1) goto decode1 ;
 
 decode0:
-  INSERT1_0 ;
+  INSERT1_0 ;                            // insert first 0
   GET_1_RLE(bit) ;
-  while(bit == 0) { INSERTN_0 ; GET_1_RLE(bit) ; }  // bit == 1 after groups of NG loop
-  GET_1_RLE(bit) ;
-  while(bit == 0) { INSERT1_0 ; GET_1_RLE(bit) ; }  // bit == 1 after single loop
+  if(full_0){                            // full encoding using ng0/3
+    while(bit == 0) { INSERTN_0(ng0) ; GET_1_RLE(bit) ; }  // separator == 1 after groups of NG loop
+    GET_1_RLE(bit) ;
+    while(bit == 0) { INSERT3_0 ; GET_1_RLE(bit) ; }       // separator == 1 after groups of 3 loop
+    GET_1_RLE(bit) ;
+  }
+  while(bit == 0) { INSERT1_0 ; GET_1_RLE(bit) ; }         // bit == 1 after singles loop
   if(totavail <= 0) goto end ;
 
 decode1:
-  INSERT1_1 ;
+  INSERT1_1 ;                            // insert first 1
   GET_1_RLE(bit) ;
-  while(bit == 1) { INSERT1_1 ; GET_1_RLE(bit) ; }  // bit == 0 after single loop
+  if(full_1){
+    while(bit == 1) { INSERTN_1(ng1) ; GET_1_RLE(bit) ; }  // separator == 0 after groups of NG loop
+    GET_1_RLE(bit) ;
+    while(bit == 1) { INSERT3_1 ; GET_1_RLE(bit) ; }       // separator == 1 after groups of 3 loop
+    GET_1_RLE(bit) ;
+  }
+  while(bit == 1) { INSERT1_1 ; GET_1_RLE(bit) ; }         // bit == 0 after singles loop
   if(totavail > 0) goto decode0 ;
 
 end:
   if(insert < 31) *bitmap = accum ;   // insert last token
   if(inplace) {
     free(rle_stream) ;      // free internally allocated rle stream
-fprintf(stderr, "RLE stream freed\n");
+// fprintf(stderr, "RLE stream freed\n");
   }
-fprintf(stderr, "%d RLE bits decoded, %d bits inserted\n", ndecoded-1, ninserted) ;
+// fprintf(stderr, "%d RLE bits decoded, %d bits inserted\n", ndecoded-1, ninserted) ;
   return bmp ;
 }
