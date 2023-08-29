@@ -214,17 +214,17 @@ STATIC inline uint64_t get_cycles_overhead(){
   return overhead ;
 }
 STATIC inline uint64_t elapsed_cycles(void) {
-  if(cycles_overhead == 0) cycles_overhead = get_cycles_overhead() ;
+//   if(cycles_overhead == 0) cycles_overhead = get_cycles_overhead() ;
 #if defined(__x86_64__)
   uint64_t lo, hi, t ;
   __asm__ volatile ("lfence");
   __asm__ volatile ("rdtsc" : /* outputs   */ "=a" (lo), "=d" (hi) );
   t = lo | (hi << 32) ;
-  return t - cycles_overhead ;
+  return t ; // - cycles_overhead ;
 #elif defined(__aarch64__)
   uint64_t time0 ;
   asm volatile ("isb ; mrs %0, cntvct_el0" : "=r" (time0));
-  return time0 - cycles_overhead ;
+  return time0 ; // - cycles_overhead ;
 #else
   return elapsed_us() * 1000 ;  // nanoseconds
 #endif
