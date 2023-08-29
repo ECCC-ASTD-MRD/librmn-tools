@@ -25,6 +25,8 @@ typedef struct{
   uint32_t elem ;    // number of bits used in bitmap
   uint32_t nrle ;    // number of bits if rle encoded, 0 if not
   uint32_t ones ;    // number of bits set to 1
+  uint32_t zero ;    // number of 32 bit words with the value 0
+  uint32_t all1 ;    // number of 32 bit words with all bits set
   int32_t  data[] ;
 } rmn_bitmap ;       // uncompressed bitmap
 

@@ -72,7 +72,7 @@ rmn_bitmap *bitmap_dup(rmn_bitmap *bmp_dst, rmn_bitmap *bmp_src){
 // n       [IN] : number of elements in array
 // return value : pointer to rmn_bitmap struct if successful, NULL if ther was an error
 rmn_bitmap *bitmap_be_eq_01(void *array, rmn_bitmap *bmp, uint32_t special, uint32_t mmask, int n){
-  uint32_t t, result, n31, ones = 0 ;
+  uint32_t t, result, n31, ones = 0, all1 = 0, zero = 0 ;
   int32_t i, i0 ;
   rmn_bitmap *bitmap = bmp ;
   uint32_t *bits ;
@@ -86,7 +86,7 @@ rmn_bitmap *bitmap_be_eq_01(void *array, rmn_bitmap *bmp, uint32_t special, uint
   }else{
     if(n > bitmap->size * 32) return NULL ;    // not enough room in bitmap data array data
   }
-  bits = (uint32_t *) bitmap->data ;             // bitmap data array
+  bits = (uint32_t *) bitmap->data ;           // bitmap data array
   bitmap->elem = n ;                           // array data will contain n useful bits
   bitmap->nrle = 0 ;                           // not RLE encoded
 
@@ -98,6 +98,8 @@ rmn_bitmap *bitmap_be_eq_01(void *array, rmn_bitmap *bmp, uint32_t special, uint
       result |= t ;                            // inject into accumulator
     }
     ones += popcnt_32(result) ;                // count bits set to 1
+    all1 += (~result == 0) ? 1 : 0 ;
+    zero += (result == 0) ? 1 : 0 ;
     src += 32 ;                                // next slice from source array
     *bits = result ;                           // store 32 bits into bitmap
     bits++ ;                                   // bump bitmap pointer
@@ -114,6 +116,8 @@ rmn_bitmap *bitmap_be_eq_01(void *array, rmn_bitmap *bmp, uint32_t special, uint
     *bits = result ;
   }
   bitmap->ones = ones ;                        // number of bits set to 1
+  bitmap->all1 = all1 ;                        // number of words set to 0xFFFFFFFF
+  bitmap->zero = zero ;                        // number of words set to 0
   return bitmap ;
 }
 
@@ -133,7 +137,7 @@ rmn_bitmap *bitmap_be_eq_01(void *array, rmn_bitmap *bmp, uint32_t special, uint
 rmn_bitmap *bitmap_be_int_01(void *array, rmn_bitmap *bmp, int32_t special, int32_t mmask, int n, int oper){
   uint32_t t, t_gt, t_lt, t_eq, result_lt, result_gt, result_eq, result, n31 ;
   rmn_bitmap *bitmap = bmp ;
-  uint32_t *data, ones = 0 ;
+  uint32_t *data, ones = 0, all1 = 0, zero = 0 ;
   int32_t i, i0, *src = (int32_t *) array, special0, msb = 0 ;
 
   mmask = (~mmask) ;
@@ -144,15 +148,15 @@ rmn_bitmap *bitmap_be_int_01(void *array, rmn_bitmap *bmp, int32_t special, int3
   }
   // allocate bitmap if bmp is NULL
   if(bmp == NULL) {
-    bitmap = bitmap_create(n) ;                // create an empty bitmap with the appropriate size
+    bitmap = bitmap_create(n) ;                  // create an empty bitmap with the appropriate size
   }else{
-    if(n > bitmap->size * 32) return NULL ;    // not enough room in bitmap data array data
+    if(n > bitmap->size * 32) return NULL ;      // not enough room in bitmap data array data
   }
-  data = (uint32_t *) bitmap->data ;           // bitmap data array
-  bitmap->elem = n ;                           // array data will contain n useful bits
-  bitmap->nrle = 0 ;                           // not RLE encoded
+  data = (uint32_t *) bitmap->data ;             // bitmap data array
+  bitmap->elem = n ;                             // array data will contain n useful bits
+  bitmap->nrle = 0 ;                             // not RLE encoded
 
-  for(i0 = 0 ; i0 < n-31 ; i0 += 32){          // full slices of 32 elements
+  for(i0 = 0 ; i0 < n-31 ; i0 += 32){            // full slices of 32 elements
     result = 0 ;
     if(oper < 0){
       for(i=0 ; i<32 ; i++){                     // encode a 32 element slice
@@ -174,6 +178,8 @@ rmn_bitmap *bitmap_be_int_01(void *array, rmn_bitmap *bmp, int32_t special, int3
       }
     }
     ones += popcnt_32(result) ;
+    all1 += (~result == 0) ? 1 : 0 ;
+    zero += (result == 0) ? 1 : 0 ;
     src += 32 ;                                  // next slice from source array
     *data = result ;                             // store 32 bits into bitmap
     data++ ;                                     // bump bitmap pointer
@@ -192,12 +198,14 @@ rmn_bitmap *bitmap_be_int_01(void *array, rmn_bitmap *bmp, int32_t special, int3
     result_eq |= t_eq ;                          // inject into accumulator
   }
   if(n31 > 0){                                   // only store if there were leftovers
-    result = (oper < 0) ? result_lt : result_gt ;  // < or >
+    result = (oper < 0) ? result_lt : result_gt ;// < or >
     result = (oper == 0) ? result_eq : result ;  // ==
     ones += popcnt_32(result) ;
     *data = result ;
   }
-  bitmap->ones = ones ;
+  bitmap->ones = ones ;                          // number of bits set to 1
+  bitmap->all1 = all1 ;                          // number of words set to 0xFFFFFFFF
+  bitmap->zero = zero ;                          // number of words set to 0
   return bitmap ;
 }
 
@@ -216,22 +224,22 @@ rmn_bitmap *bitmap_be_int_01(void *array, rmn_bitmap *bmp, int32_t special, int3
 // e.g. mmask = 7 will ignore the lower (least significant) 3 bits
 rmn_bitmap *bitmap_be_fp_01(float *array, rmn_bitmap *bmp, float special, int32_t mmask, int n, int oper){
   rmn_bitmap *bitmap = bmp ;
-  uint32_t t, t_gt, t_lt, result_lt, result_gt, result_eq, result, n31, *data, ones = 0 ;
+  uint32_t t, t_gt, t_lt, result_lt, result_gt, result_eq, result, n31, *data, ones = 0, all1 = 0, zero = 0 ;
   int32_t i, i0 ;
   float *src = (float *) array ;
 
   mmask = (~mmask) ;
   // allocate bitmap if bmp is NULL
   if(bmp == NULL) {
-    bitmap = bitmap_create(n) ;                // create an empty bitmap with the appropriate size
+    bitmap = bitmap_create(n) ;                  // create an empty bitmap with the appropriate size
   }else{
-    if(n > bitmap->size * 32) return NULL ;    // not enough room in bitmap data array data
+    if(n > bitmap->size * 32) return NULL ;      // not enough room in bitmap data array data
   }
-  data = (uint32_t *) bitmap->data ;           // bitmap data array
-  bitmap->elem = n ;                           // array data will contain n useful bits
-  bitmap->nrle = 0 ;                           // not RLE encoded
+  data = (uint32_t *) bitmap->data ;             // bitmap data array
+  bitmap->elem = n ;                             // array data will contain n useful bits
+  bitmap->nrle = 0 ;                             // not RLE encoded
 
-  for(i0 = 0 ; i0 < n-31 ; i0 += 32){          // full slices of 32 elements
+  for(i0 = 0 ; i0 < n-31 ; i0 += 32){            // full slices of 32 elements
     if(oper < 0){
       result = 0 ;
       for(i=0 ; i<32 ; i++){                     // encode a 32 element slice
@@ -248,26 +256,30 @@ rmn_bitmap *bitmap_be_fp_01(float *array, rmn_bitmap *bmp, float special, int32_
       }
     }
     ones += popcnt_32(result) ;
-    src += 32 ;                                // next slice from source array
+    all1 += (~result == 0) ? 1 : 0 ;
+    zero += (result == 0) ? 1 : 0 ;
+    src += 32 ;                                  // next slice from source array
     *data = result ;                             // store 32 bits into bitmap
     data++ ;                                     // bump bitmap pointer
   }
   result_gt = result_lt = 0 ;
-  n31 = n & 0x1F ;                             // n modulo 32 (number of leftovers)
-  for(i = 0 ; i < n31 ; i++){                  // last, shorter slice (0 -> 31 elements)
-    t_gt   = ((src[i])  > special) ? 1 : 0 ;   // 1 if > special value, 0 if not
-    t_lt   = ((src[i])  < special) ? 1 : 0 ;   // 1 if < special value, 0 if not
-    t_gt <<= (31 - i) ;                         // shift to insertion point (big endian style)
-    t_lt <<= (31 - i) ;                         // shift to insertion point (big endian style)
-    result_gt |= t_gt ;                            // inject into accumulator
-    result_lt |= t_lt ;                            // inject into accumulator
+  n31 = n & 0x1F ;                               // n modulo 32 (number of leftovers)
+  for(i = 0 ; i < n31 ; i++){                    // last, shorter slice (0 -> 31 elements)
+    t_gt   = ((src[i])  > special) ? 1 : 0 ;     // 1 if > special value, 0 if not
+    t_lt   = ((src[i])  < special) ? 1 : 0 ;     // 1 if < special value, 0 if not
+    t_gt <<= (31 - i) ;                          // shift to insertion point (big endian style)
+    t_lt <<= (31 - i) ;                          // shift to insertion point (big endian style)
+    result_gt |= t_gt ;                          // inject into accumulator
+    result_lt |= t_lt ;                          // inject into accumulator
   }
-  if(n31 > 0){                                     // only store if there were leftovers
-    result = (oper < 0) ? result_lt : result_gt ;  // < or >
+  if(n31 > 0){                                   // only store if there were leftovers
+    result = (oper < 0) ? result_lt : result_gt ;// < or >
     ones += popcnt_32(result) ;
     *data = result ;
   }
-  bitmap->ones = ones ;
+  bitmap->ones = ones ;                          // number of bits set to 1
+  bitmap->all1 = all1 ;                          // number of words set to 0xFFFFFFFF
+  bitmap->zero = zero ;                          // number of words set to 0
   return bitmap ;
 }
 
@@ -485,7 +497,7 @@ rmn_bitmap *bitmap_encode_be_01(rmn_bitmap *bmp, rmn_bitmap *rle_stream, int mod
   }else{
     full_1 = ng1 = 0 ;
   }
-fprintf(stderr, "ng0 = %d, ng1 = %d\n", ng0, ng1) ;
+// fprintf(stderr, "ng0 = %d, ng1 = %d\n", ng0, ng1) ;
   if(bmp == NULL) return NULL ;
   inplace = (void *)bmp == (void *)rle_stream ;
   if(inplace) stream = NULL ;                        // inplace encoding

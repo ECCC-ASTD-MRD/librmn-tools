@@ -147,7 +147,7 @@ int main(int argc, char **argv){
     }
   }
   fprintf(stderr, "RLE bitmap restore errors = %d\n", errors) ;
-return 0 ;
+
 // decode RLE encoded bitmap
   fprintf(stderr, "bitmap2 O.K. for up to %d bits\n", 32 * bitmap2->size) ;
   for(i=0 ; i<bitmap2->size ; i++) bitmap2->data[i] = 0xFFFFFFFFu ;
