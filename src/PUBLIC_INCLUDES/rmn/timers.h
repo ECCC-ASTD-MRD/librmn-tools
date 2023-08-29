@@ -206,11 +206,14 @@ STATIC inline uint64_t get_cycles_overhead(){
   uint64_t t0, t1, overhead ;
   int i ;
   t0 = elapsed_cycles_fast() ;
+  overhead = elapsed_cycles_fast() - t0 ;
   for(i=0 ; i<32 ; i++){
-    t1 = elapsed_cycles_raw() ;
+    t0 = elapsed_cycles_fast() ;
+    t1 = (elapsed_cycles_fast() - t0) ;
+    overhead = (t1 - t0) < overhead ? (t1 - t0) : overhead ;
   }
-  overhead = (t1 - t0) >> 5 ;             // (t1 - t0) / 32
-  overhead = overhead - (overhead >> 3) ; // keep 7/8 of value
+//   overhead = (t1 - t0) >> 5 ;             // (t1 - t0) / 32
+//   overhead = overhead - (overhead >> 3) ; // keep 7/8 of value
   return overhead ;
 }
 STATIC inline uint64_t elapsed_cycles(void) {
