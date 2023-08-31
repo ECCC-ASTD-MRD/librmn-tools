@@ -50,7 +50,7 @@ typedef struct{
 #define OP_UNSIGNED_GT  2
 #define OP_UNSIGNED_LT -2
 
-rmn_pixmap *pixmap_create(int nelem);
+rmn_pixmap *pixmap_create(int nelem, int nbits);
 rmn_pixmap *pixmap_dup(rmn_pixmap *bmp_dst, rmn_pixmap *bmp_src);
 // pixmap from data
 rmn_pixmap *pixmap_be_eq_01(void *array, rmn_pixmap *bmp, uint32_t special, uint32_t mmask, int nelem);

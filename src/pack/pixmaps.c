@@ -31,17 +31,20 @@
 // now using 4 extra bits at beginning (encoding mode) + 1 extra bit at end (inverted guard)
 #define EXTRA_BITS 32
 
-// create a bit map capable of containing nelem elements
+// create an empty pixmap capable of containing nelem bits
 // (can also be used to create a  pointer to an encoded (RLE) pixmap using a cast)
 // nelem [IN] : max number of elements in pixmap
-rmn_pixmap *pixmap_create(int nelem){
-  size_t bmp_size = (nelem + EXTRA_BITS + 31)/32 ;     // number of uint32_t elements needed
+// nbits [IN] : number of bits per element in pixmap
+rmn_pixmap *pixmap_create(int nelem, int nbits){
+  size_t bmp_size = (nelem * nbits + EXTRA_BITS + 31)/32 ;     // number of uint32_t elements needed
   rmn_pixmap *pixmap = (rmn_pixmap *) malloc( bmp_size * sizeof(uint32_t) + sizeof(rmn_pixmap) ) ;
   pixmap->size = bmp_size ;                            // capacity of pixmap
-  pixmap->bits = 0 ;                                   // 0 bit pixmap
+  pixmap->bits = 0 ;                                   // 0 bit pixmap (0 = undefined number of bits per element)
   pixmap->elem = 0 ;                                   // number of used bits in pixmap
   pixmap->nrle = 0 ;                                   // number of used bits if RLE encoded
   pixmap->pop1 = 0 ;                                   // number of bits set in bit map
+  pixmap->zero = 0 ;                                   // number of 32 bit words with the value 0 in pixmap
+  pixmap->all1 = 0 ;                                   // number of 32 bit words with all bits set in pixmap
   return pixmap ;
 }
 
@@ -53,7 +56,8 @@ rmn_pixmap *pixmap_create(int nelem){
 rmn_pixmap *pixmap_dup(rmn_pixmap *bmp_dst, rmn_pixmap *bmp_src){
   int i, to_copy ;
   if(bmp_src == NULL) return NULL ;
-  if(bmp_dst == NULL) bmp_dst = pixmap_create(32 * bmp_src->size - EXTRA_BITS) ;
+  if(bmp_dst == NULL) bmp_dst = (rmn_pixmap *) malloc( bmp_src->size * sizeof(uint32_t) + sizeof(rmn_pixmap) ) ;
+//     pixmap_create(32 * bmp_src->size - EXTRA_BITS) ;
   if(bmp_dst->size < bmp_src->size) return NULL ;
   bmp_dst->bits = bmp_src->bits ;
   bmp_dst->elem = bmp_src->elem ;
@@ -84,7 +88,7 @@ rmn_pixmap *pixmap_be_eq_01(void *array, rmn_pixmap *bmp, uint32_t special, uint
   special &= mmask ;
   // allocate pixmap if bmp was NULL
   if(bmp == NULL) {
-    pixmap = pixmap_create(n) ;                // create an empty pixmap with the needed size
+    pixmap = pixmap_create(n, 1) ;             // create an empty pixmap with the needed size
   }else{
     if(n > pixmap->size * 32) return NULL ;    // not enough room in pixmap data array data
   }
@@ -151,7 +155,7 @@ rmn_pixmap *pixmap_be_int_01(void *array, rmn_pixmap *bmp, int32_t special, int3
   }
   // allocate pixmap if bmp is NULL
   if(bmp == NULL) {
-    pixmap = pixmap_create(n) ;                  // create an empty pixmap with the appropriate size
+    pixmap = pixmap_create(n, 1) ;               // create an empty pixmap with the appropriate size
   }else{
     if(n > pixmap->size * 32) return NULL ;      // not enough room in pixmap data array data
   }
@@ -235,7 +239,7 @@ rmn_pixmap *pixmap_be_fp_01(float *array, rmn_pixmap *bmp, float special, int32_
   mmask = (~mmask) ;
   // allocate pixmap if bmp is NULL
   if(bmp == NULL) {
-    pixmap = pixmap_create(n) ;                  // create an empty pixmap with the appropriate size
+    pixmap = pixmap_create(n, 1) ;               // create an empty pixmap with the appropriate size
   }else{
     if(n > pixmap->size * 32) return NULL ;      // not enough room in pixmap data array data
   }
@@ -526,7 +530,7 @@ rmn_pixmap *pixmap_encode_be_01(rmn_pixmap *bmp, rmn_pixmap *rle_stream, int mod
   inplace = (void *)bmp == (void *)rle_stream ;
   if(inplace) stream = NULL ;                        // inplace encoding
   if(stream == NULL) {                               // need to allocate an encoded stream
-    stream = (rmn_pixmap *) pixmap_create(bmp->elem) ;
+    stream = (rmn_pixmap *) pixmap_create(bmp->elem, 1) ;
   }
   if(stream == NULL) return NULL ;                   // error : allocation failed
 
@@ -645,13 +649,13 @@ rmn_pixmap *pixmap_decode_be_01(rmn_pixmap *bmp, rmn_pixmap *rle_stream){
   if(rle_stream->bits != 1) return NULL ;  // not a 1 bit pixmap
 
   if(bmp == NULL) {                      // auto allocate bmp (1 bit pixmap)
-    bmp = (rmn_pixmap *)pixmap_create(rle_stream->elem) ;
+    bmp = (rmn_pixmap *)pixmap_create(rle_stream->elem, 1) ;
     bmp->bits = 1 ;
 // fprintf(stderr, "decode_be_01 : creating pixmap for %d elements\n", rle_stream->elem) ;
   }
   if((void *)bmp == (void *)rle_stream){ // in-place decoding
 // fprintf(stderr, "decode_be_01 : in-place decoding\n");
-    rle_stream = (rmn_pixmap *) pixmap_create(bmp->elem) ;      // new RLE stream
+    rle_stream = (rmn_pixmap *) pixmap_create(bmp->elem, 1) ;   // new RLE stream
     inplace = 1 ;                                               // flag it to be freed at exit
     rle_stream->nrle = bmp->nrle ;
     rle_stream->elem = bmp->elem ;

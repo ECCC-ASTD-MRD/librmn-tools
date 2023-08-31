@@ -28,6 +28,11 @@
 
 #define STUFF(what) { if(free < 32) { *in = acc > (32-free) ; in++ ; free += 32 ; } ; acc <<= bits ; acc |= what ; free -= bits ; }
 
+// 2 bits per element, packing done 16 values at a time to vectorize
+void pixmap_be_02(uint32_t *src, int nbits, int n, rmn_pixmap *s){
+}
+
+// 3 or 4 bits per element, packing done 8 values at a time to vectorize
 void pixmap_be_34(uint32_t *src, int nbits, int n, rmn_pixmap *s){
    uint32_t i, i0, t, r1, r2, r3, r4, n7 = n & 0x7 ;
    int32_t sh[8] ;
@@ -65,6 +70,7 @@ void pixmap_be_34(uint32_t *src, int nbits, int n, rmn_pixmap *s){
    STUFF(r1) ;
 }
 
+// 5 to 8 bits per element, packing done 4 values at a time to vectorize
 void pixmap_be_58(uint32_t *src, int nbits, int n, rmn_pixmap *s){
    uint32_t i, i0, t, r1, r2, r3, r4, n3 = n & 0x3 ;
    int32_t sh[4] ;
@@ -129,7 +135,7 @@ int main(int argc, char **argv){
   for(i=0 ; i<NPTS ; i++) farray[i] = i - NPTS/2 ;
   for(i=0 ; i<NPTS ; i++) uarray[i] = 0x80000000u + i - NPTS/2 ;
 
-  pixmapp = pixmap_create(NPTS) ;   // create an empty pixmap for up to NPTS elements
+  pixmapp = pixmap_create(NPTS, 1) ;   // create an empty pixmap for up to NPTS 1 bit elements
 
   pixmapp = pixmap_be_fp_01(farray, pixmapp, 31.5f, 0x7, NPTS, OP_SIGNED_GT) ;
   fprintf(stderr, "RAW  > 31.5 pixmap    (float) :\n");
@@ -191,7 +197,7 @@ int main(int argc, char **argv){
   fprintf(stderr, "\n\n");
 
   pixmap = pixmap_be_eq_01(iarray, NULL, special, mmask, NPTS) ;
-  pixmap2 = pixmap_create(NPTS) ;
+  pixmap2 = pixmap_create(NPTS, 1) ;
   fprintf(stderr, "RAW == %8.8x/%8.8x pixmap :\n", special, mmask);
   for(i0=0 ; i0<NPTS/32 ; i0+=16){
     for(i=0 ; i<16 ; i++) fprintf(stderr, "%8.8x ", pixmap->data[i0+i]) ;
@@ -280,7 +286,7 @@ int main(int argc, char **argv){
   TIME_LOOP_EZ(1000, NPTS, pixmap_restore_be_01(restored, pixmapd, special, NPTS)) ;
   fprintf(stderr, "restore_be_01    : %s\n",timer_msg);
 
-  pixmapx = pixmap_create(8 * NPTS) ;
+  pixmapx = pixmap_create(NPTS, 8) ;
   TIME_LOOP_EZ(1000, NPTS, pixmap_be_34((uint32_t *)iarray, 3, NPTS, pixmapx)) ;
   fprintf(stderr, "pixmap_be_34(3)  : %s\n",timer_msg);
 
