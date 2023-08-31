@@ -22,13 +22,14 @@
 
 typedef struct{
   uint32_t size ;    // size of bm in uint32_t units
-  uint32_t elem ;    // number of bits used in bitmap
-  uint32_t nrle ;    // number of bits if rle encoded, 0 if not
-  uint32_t ones ;    // number of bits set to 1
+  uint32_t bits ;    // number of bits per element in pixmap
+  uint32_t elem ;    // number of bits used in pixmap
+  uint32_t nrle ;    // number of bits used if rle encoded, 0 if not
+  uint32_t pop1 ;    // number of bits set to 1
   uint32_t zero ;    // number of 32 bit words with the value 0
   uint32_t all1 ;    // number of 32 bit words with all bits set
   int32_t  data[] ;
-} rmn_bitmap ;       // uncompressed bitmap
+} rmn_pixmap ;       // uncompressed or RLE encoded pixmap
 
 // 12/3 full encoding, appropriate for long (>48) sequences
 // 0 means use 8/3 encoding, appropriate for shorter (>4, <49) sequences
@@ -49,21 +50,21 @@ typedef struct{
 #define OP_UNSIGNED_GT  2
 #define OP_UNSIGNED_LT -2
 
-rmn_bitmap *bitmap_create(int nelem);
-rmn_bitmap *bitmap_dup(rmn_bitmap *bmp_dst, rmn_bitmap *bmp_src);
-// bitmap from data
-rmn_bitmap *bitmap_be_eq_01(void *array, rmn_bitmap *bmp, uint32_t special, uint32_t mmask, int nelem);
-rmn_bitmap *bitmap_be_int_01(void *array, rmn_bitmap *bmp, int32_t special, int32_t mmask, int n, int oper);
-rmn_bitmap *bitmap_be_fp_01(float *array, rmn_bitmap *bmp, float special, int32_t mmask, int n, int oper);
-// data from bitmap (potentially RLE encoded)
-int bitmap_restore_be_01(void *array, rmn_bitmap *bmp, uint32_t plug, int nelem);
+rmn_pixmap *pixmap_create(int nelem);
+rmn_pixmap *pixmap_dup(rmn_pixmap *bmp_dst, rmn_pixmap *bmp_src);
+// pixmap from data
+rmn_pixmap *pixmap_be_eq_01(void *array, rmn_pixmap *bmp, uint32_t special, uint32_t mmask, int nelem);
+rmn_pixmap *pixmap_be_int_01(void *array, rmn_pixmap *bmp, int32_t special, int32_t mmask, int n, int oper);
+rmn_pixmap *pixmap_be_fp_01(float *array, rmn_pixmap *bmp, float special, int32_t mmask, int n, int oper);
+// data from pixmap (potentially RLE encoded)
+int pixmap_restore_be_01(void *array, rmn_pixmap *bmp, uint32_t plug, int nelem);
 
 // RLE encoder hints
-int bitmap_encode_hint_01(rmn_bitmap *bmp);
-// RLE encoder for bitmap
-rmn_bitmap *bitmap_encode_be_01(rmn_bitmap *bmp, rmn_bitmap *rle_stream, int rle_mode);
-// decode RLE encoded bitmap
-rmn_bitmap *bitmap_decode_be_01(rmn_bitmap *bmp, rmn_bitmap *rle_stream);
+int pixmap_encode_hint_01(rmn_pixmap *bmp);
+// RLE encoder for pixmap
+rmn_pixmap *pixmap_encode_be_01(rmn_pixmap *bmp, rmn_pixmap *rle_stream, int rle_mode);
+// decode RLE encoded pixmap
+rmn_pixmap *pixmap_decode_be_01(rmn_pixmap *bmp, rmn_pixmap *rle_stream);
 
 #endif
 
