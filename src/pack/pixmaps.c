@@ -48,21 +48,26 @@ rmn_pixmap *pixmap_create(int nelem, int nbits){
   return pixmap ;
 }
 
-// duplicate a bit map (possibly RLE encoded)
+// duplicate a pixmap (possibly RLE encoded)
 // bmp_src  [IN] : pointer to a valid rmn_pixmap structure to be duplicated
 // bmp_dst [OUT] : pointer to a valid rmn_pixmap structure to receive the duplicate
 //                 (if NULL, a new bit map will be created)
-// return : pointer to duplicata, NULL if error
+// return : pointer to duplicate, NULL if error
 rmn_pixmap *pixmap_dup(rmn_pixmap *bmp_dst, rmn_pixmap *bmp_src){
   int i, to_copy ;
   if(bmp_src == NULL) return NULL ;
-  if(bmp_dst == NULL) bmp_dst = (rmn_pixmap *) malloc( bmp_src->size * sizeof(uint32_t) + sizeof(rmn_pixmap) ) ;
+  if(bmp_dst == NULL) {
+    bmp_dst = (rmn_pixmap *) malloc( bmp_src->size * sizeof(uint32_t) + sizeof(rmn_pixmap) ) ;
+    bmp_dst->size = bmp_src->size ;
+  }
 //     pixmap_create(32 * bmp_src->size - EXTRA_BITS) ;
-  if(bmp_dst->size < bmp_src->size) return NULL ;
+  if(bmp_dst->size < bmp_src->size) return NULL ;   // destination smaller than source
   bmp_dst->bits = bmp_src->bits ;
   bmp_dst->elem = bmp_src->elem ;
   bmp_dst->nrle = bmp_src->nrle ;
   bmp_dst->pop1 = bmp_src->pop1 ;
+  bmp_dst->zero = bmp_src->zero ;
+  bmp_dst->all1 = bmp_src->all1 ;
   to_copy = (bmp_src->elem > bmp_src->nrle) ? bmp_src->elem : bmp_src->nrle ; // max(elem, nrle)
   to_copy = (to_copy + 31) / 32 ;                                             // in 32 bit word units
   for(i=0 ; i<to_copy ; i++) bmp_dst->data[i] = bmp_src->data[i] ;
