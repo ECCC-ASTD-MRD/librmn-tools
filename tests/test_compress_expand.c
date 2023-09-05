@@ -1,10 +1,12 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+// double include done on purpose (test protection against double inclusion)
+#include <rmn/compress_expand.h>
 #include <rmn/compress_expand.h>
 #include <rmn/timers.h>
 
-#define NPTS 4095
+#define NPTS 1023
 
 int main(int argc, char **argv){
   TIME_LOOP_DATA ;
