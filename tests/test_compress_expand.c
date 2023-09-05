@@ -31,6 +31,7 @@ int main(int argc, char **argv){
 //   for(i=16 ; i<32 ; i++) fprintf(stderr, "%8.8x ", ucomp0[i]) ; fprintf(stderr, "\n") ;
 //   for(i=32 ; i<48 ; i++) fprintf(stderr, "%8.8x ", ucomp0[i]) ; fprintf(stderr, "\n") ;
 
+#if defined(__x86_64__) && defined(__SSE2__)
   for(i=0 ; i<NPTS ; i++) ucomp1[i] = 0xF0F0F0F0u ;
   d1 = stream_compress_32_sse(uarray, ucomp1, masks, NPTS) ;
   pop1 = d1-ucomp1 ;
@@ -43,6 +44,7 @@ int main(int argc, char **argv){
   for(i=0 ; i<pop0 ; i++) errors += ((ucomp0[i] != ucomp1[i]) ? 1 : 0 ) ;
   fprintf(stderr, "SSE(%d) vs C(%d) discrepancies = %d\n", pop1, pop0, errors) ;
   if(errors) exit(1) ;
+#endif
 
   for(i=0 ; i<NPTS ; i++) urest0[i] = 0xFFFFFFFFu ;
   stream_expand_32(ucomp0, urest0, masks, NPTS, &fill) ;
@@ -50,6 +52,7 @@ int main(int argc, char **argv){
   for(i=0 ; i<16 ; i++) fprintf(stderr, "%8.8x ", urest0[i]) ; fprintf(stderr, "\n") ;
   for(i=16; i<32 ; i++) fprintf(stderr, "%8.8x ", urest0[i]) ; fprintf(stderr, "\n") ;
 
+#if defined(__x86_64__) && defined(__SSE2__)
   for(i=0 ; i<NPTS ; i++) urest1[i] = 0xFFFFFFFFu ;
   stream_expand_32_sse(ucomp0, urest1, masks, NPTS, &fill) ;
   fprintf(stderr, "after expand_sse\n") ;
@@ -60,6 +63,7 @@ int main(int argc, char **argv){
   for(i=0 ; i<NPTS ; i++) errors += ((urest0[i] != urest1[i]) ? 1 : 0 ) ;
   fprintf(stderr, "SSE vs C expand discrepancies = %d\n", errors) ;
   if(errors) exit(1) ;
+#endif
 
   for(i=0 ; i<NPTS ; i++) urest0[i] = 0xFF000000u + i + 1 ;
   stream_expand_32(ucomp0, urest0, masks, NPTS, NULL) ;
@@ -67,6 +71,7 @@ int main(int argc, char **argv){
   for(i=0 ; i<16 ; i++) fprintf(stderr, "%8.8x ", urest0[i]) ; fprintf(stderr, "\n") ;
   for(i=16; i<32 ; i++) fprintf(stderr, "%8.8x ", urest0[i]) ; fprintf(stderr, "\n") ;
 
+#if defined(__x86_64__) && defined(__SSE2__)
   for(i=0 ; i<NPTS ; i++) urest1[i] = 0xFF000000u + i + 1 ;
   stream_expand_32_sse(ucomp0, urest1, masks, NPTS, NULL) ;
   fprintf(stderr, "after replace_sse\n") ;
@@ -77,22 +82,29 @@ int main(int argc, char **argv){
   for(i=0 ; i<NPTS ; i++) errors += ((urest0[i] != urest1[i]) ? 1 : 0 ) ;
   fprintf(stderr, "SSE vs C replace discrepancies = %d\n", errors) ;
   if(errors) exit(1) ;
+#endif
 
   TIME_LOOP_EZ(1000, NPTS, stream_compress_32(uarray, ucomp0, masks, NPTS)) ;
   fprintf(stderr, "compress       : %s\n", timer_msg);
 
+#if defined(__x86_64__) && defined(__SSE2__)
   TIME_LOOP_EZ(1000, NPTS, stream_compress_32_sse(uarray, ucomp0, masks, NPTS)) ;
   fprintf(stderr, "compress_sse   : %s\n", timer_msg);
+#endif
 
   TIME_LOOP_EZ(1000, NPTS, stream_expand_32(uarray, ucomp0, masks, NPTS, &fill)) ;
   fprintf(stderr, "expand_fill    : %s\n", timer_msg);
 
+#if defined(__x86_64__) && defined(__SSE2__)
   TIME_LOOP_EZ(1000, NPTS, stream_expand_32_sse(uarray, ucomp0, masks, NPTS, &fill)) ;
   fprintf(stderr, "expand_fill_sse: %s\n", timer_msg);
+#endif
 
   TIME_LOOP_EZ(1000, NPTS, stream_expand_32(uarray, ucomp0, masks, NPTS, NULL)) ;
   fprintf(stderr, "replace        : %s\n", timer_msg);
 
+#if defined(__x86_64__) && defined(__SSE2__)
   TIME_LOOP_EZ(1000, NPTS, stream_expand_32_sse(uarray, ucomp0, masks, NPTS, NULL)) ;
   fprintf(stderr, "replace_sse    : %s\n", timer_msg);
+#endif
 }

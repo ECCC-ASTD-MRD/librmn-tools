@@ -11,13 +11,17 @@
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
 // Library General Public License for more details.
 //
+// uncomment following line to force plain C (non SIMD) code
+// #undef __SSE2__
 
 #if ! defined(STORE_COMPRESS_LOAD_EXPAND)
 #define STORE_COMPRESS_LOAD_EXPAND
 
 #include <stdint.h>
-#include <immintrin.h>
 #include <rmn/bits.h>
+
+#if defined(__x86_64__) && defined(__SSE2__)
+#include <immintrin.h>
 
 static struct exptab{   // lookup permutation table used to perform a SIMD load-expand
   int8_t stab[16] ;
@@ -102,6 +106,7 @@ static inline uint32_t *sse_expand_replace_32(uint32_t *s, uint32_t *d, uint32_t
   }
   return s ;
 }
+#endif
 
 uint32_t *expand_replace_32(uint32_t *s, uint32_t *d, uint32_t mask){
   int i ;
@@ -144,6 +149,7 @@ static uint32_t *expand_replace_n(uint32_t *s, uint32_t *d, uint32_t mask, int n
   return s ;
 }
 
+#if defined(__x86_64__) && defined(__SSE2__)
 static inline uint32_t * sse_expand_fill_32(uint32_t *s, uint32_t *d, uint32_t mask, uint32_t fill){
   int i ;
   __m128i vt0, vs0, vf0, vb0 ;
@@ -182,6 +188,7 @@ static inline uint32_t * sse_expand_fill_32(uint32_t *s, uint32_t *d, uint32_t m
   }
   return s ;
 }
+#endif
 
 static inline uint32_t *expand_fill_32(uint32_t *s, uint32_t *d, uint32_t mask, uint32_t fill){
   int i ;
@@ -222,6 +229,7 @@ static inline uint32_t * expand_fill_n(uint32_t *s, uint32_t *d, uint32_t mask, 
   return s ;
 }
 
+#if defined(__x86_64__) && defined(__SSE2__)
 // store-compress 32 items according to mask using SSE2 instructions
 static inline uint32_t *sse_compress_32(uint32_t *s, uint32_t *d, uint32_t mask){
   uint32_t pop0, mask0, i ;
@@ -255,6 +263,7 @@ static inline uint32_t *sse_compress_32(uint32_t *s, uint32_t *d, uint32_t mask)
   }
   return d ;
 }
+#endif
 
 // store-compress n ( 0 <= n < 32) items according to mask
 static inline uint32_t *c_compress_n(uint32_t *s, uint32_t *d, uint32_t mask, int n){
