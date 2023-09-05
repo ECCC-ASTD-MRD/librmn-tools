@@ -39,7 +39,7 @@ void pixmap_be_02(uint32_t *src, int n, rmn_pixmap *s){
   int32_t sh[16] ;
   uint64_t  acc  = 0 ;
   int32_t   free = 64 ;
-  uint32_t *in  = s->data ;
+  uint32_t *in  = (uint32_t *)(s->data) ;
   int zero = 0, all1 = 0 ;
 
   for(i=0 ; i<16 ; i++) sh[i] = 2 * (15 - i) ;
@@ -52,8 +52,8 @@ void pixmap_be_02(uint32_t *src, int n, rmn_pixmap *s){
     }
     src += 32 ;
     STUFF(r1) ; STUFF(r2) ;
-    zero = zero + (r1 == 0) ? 1 : 0 + (r2 == 0) ? 1 : 0 ;
-    all1 = all1 + (r1 == ~0u) ? 1 : 0 + (r2 == ~0u) ? 1 : 0 ;
+    zero = zero + (((r1 == 0) ? 1 : 0) + ((r2 == 0) ? 1 : 0)) ;
+    all1 = all1 + (((r1 == ~0u) ? 1 : 0) + ((r2 == ~0u) ? 1 : 0)) ;
   }
   r1 = 0 ;
   for(     ; i0<n-15 ; i0+=16){
@@ -62,8 +62,8 @@ void pixmap_be_02(uint32_t *src, int n, rmn_pixmap *s){
     }
     src += 16 ;
     STUFF(r1) ;
-    zero = zero + (r1 == 0) ? 1 : 0 ;
-    all1 = all1 + (r1 == ~0u) ? 1 : 0 ;
+    zero = zero + ((r1 == 0) ? 1 : 0) ;
+    all1 = all1 + ((r1 == ~0u) ? 1 : 0) ;
   }
   if(i0 < n){
     r1 = 0 ;
@@ -80,7 +80,7 @@ void pixmap_be_02(uint32_t *src, int n, rmn_pixmap *s){
 }
 void pixmap_restore_be_02(uint32_t *dst, int n, rmn_pixmap *s){
   uint32_t mask = RMASK31(2) ;
-  uint32_t *out  = s->data ;
+  uint32_t *out  = (uint32_t *)(s->data) ;
   uint64_t  acc = 0 ;
   int32_t   avail = 0 ;
   int bits = 2*16 ;         // extraction done 8 packed values at a time
@@ -135,8 +135,8 @@ void pixmap_be_34(uint32_t *src, int nbits, int n, rmn_pixmap *s){
     }
     src += 32 ;
     STUFF(r1) ; STUFF(r2) ; STUFF(r3) ; STUFF(r4) ;
-    zero = zero + (r1 == 0) ? 1 : 0 + (r2 == 0) ? 1 : 0 + (r3 == 0) ? 1 : 0 + (r4 == 0) ? 1 : 0 ;
-    all1 = all1 + (r1 == ~0u) ? 1 : 0 + (r2 == ~0u) ? 1 : 0 + (r3 == ~0u) ? 1 : 0 + (r4 == ~0u) ? 1 : 0 ;
+    zero = zero + ((r1 == 0) ? 1 : 0) + ((r2 == 0) ? 1 : 0) + ((r3 == 0) ? 1 : 0) + ((r4 == 0) ? 1 : 0) ;
+    all1 = all1 + ((r1 == ~0u) ? 1 : 0) + ((r2 == ~0u) ? 1 : 0) + ((r3 == ~0u) ? 1 : 0) + ((r4 == ~0u) ? 1 : 0) ;
   }
   for(     ; i0<n-7 ; i0+=8){          // 1x 8 slices
     r1 = 0 ;
@@ -145,7 +145,7 @@ void pixmap_be_34(uint32_t *src, int nbits, int n, rmn_pixmap *s){
     }
     src += 8 ;
     STUFF(r1) ;
-    zero = zero + (r1 == 0) ? 1 : 0 ;
+    zero = zero + ((r1 == 0) ? 1 : 0) ;
   }
   r1 = 0 ;
   for(i=0 ; i<n7 ; i++){
@@ -161,7 +161,7 @@ void pixmap_be_34(uint32_t *src, int nbits, int n, rmn_pixmap *s){
 
 void pixmap_restore_be_34(uint32_t *dst, int nbits, int n, rmn_pixmap *s){
   uint32_t mask = RMASK31(nbits) ;
-  uint32_t *out  = s->data ;
+  uint32_t *out  = (uint32_t *)(s->data) ;
   uint64_t  acc ;
   int32_t   avail ;
   int bits = nbits*8 ;         // extraction done 8 packed values at a time
@@ -217,8 +217,8 @@ void pixmap_be_58(uint32_t *src, int nbits, int n, rmn_pixmap *s){
     }
     src += 16 ;
     STUFF(r1) ; STUFF(r2) ; STUFF(r3) ; STUFF(r4) ;
-    zero = zero + (r1 == 0) ? 1 : 0 + (r2 == 0) ? 1 : 0 + (r3 == 0) ? 1 : 0 + (r4 == 0) ? 1 : 0 ;
-    all1 = all1 + (r1 == ~0u) ? 1 : 0 + (r2 == ~0u) ? 1 : 0 + (r3 == ~0u) ? 1 : 0 + (r4 == ~0u) ? 1 : 0 ;
+    zero = zero + ((r1 == 0) ? 1 : 0) + ((r2 == 0) ? 1 : 0) + ((r3 == 0) ? 1 : 0) + ((r4 == 0) ? 1 : 0) ;
+    all1 = all1 + ((r1 == ~0u) ? 1 : 0) + ((r2 == ~0u) ? 1 : 0) + ((r3 == ~0u) ? 1 : 0) + ((r4 == ~0u) ? 1 : 0) ;
   }
   for(     ; i0<n-3 ; i0+=4){
     r1 = 0 ;
@@ -227,8 +227,8 @@ void pixmap_be_58(uint32_t *src, int nbits, int n, rmn_pixmap *s){
     }
     src += 4 ;
     STUFF(r1) ;
-    zero = zero + (r1 == 0) ? 1 : 0 ;
-    all1 = all1 + (r1 == ~0u) ? 1 : 0 ;
+    zero = zero + ((r1 == 0) ? 1 : 0) ;
+    all1 = all1 + ((r1 == ~0u) ? 1 : 0) ;
   }
   r1 = 0 ;
   for(i=0 ; i<n3 ; i++){
@@ -244,7 +244,7 @@ void pixmap_be_58(uint32_t *src, int nbits, int n, rmn_pixmap *s){
 
 void pixmap_restore_be_58(uint32_t *dst, int nbits, int n, rmn_pixmap *s){
   uint32_t mask = RMASK31(nbits) ;
-  uint32_t *out  = s->data ;
+  uint32_t *out  = (uint32_t *)(s->data) ;
   uint64_t  acc ;
   int32_t   avail ;
   int bits = nbits*4 ;         // extraction done 4 packed values at a time
