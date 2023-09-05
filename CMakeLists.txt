@@ -220,6 +220,7 @@ set(PROJECT_C_FILES
   src/pack/tile_encoders.c
   src/pack/serialized_functions.c
   src/pack/pixmaps.c
+  src/pack/compress_expand.c
   src/diag/tee_print.c
   src/diag/test_helpers.c
   src/diag/misc_analyze.c
@@ -261,6 +262,7 @@ set(PROJECT_H_FILES
   src/PUBLIC_INCLUDES/rmn/bi_endian_pack.h
   src/PUBLIC_INCLUDES/rmn/bits.h
   src/PUBLIC_INCLUDES/rmn/pixmaps.h
+  src/PUBLIC_INCLUDES/rmn/compress_expand.h
   src/PUBLIC_INCLUDES/rmn/tee_print.h
   src/PUBLIC_INCLUDES/rmn/test_helpers.h
   src/PUBLIC_INCLUDES/rmn/identify_compiler_c.h
