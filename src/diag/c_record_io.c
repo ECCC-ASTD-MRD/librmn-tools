@@ -13,6 +13,7 @@
  *
  */
 #include <stdio.h>
+#include <stdint.h>
 #include <stddef.h>
 #include <unistd.h>
 #include <stdlib.h>
@@ -20,7 +21,9 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 
-// read a 32 bit (integer or float) data record : 
+#include <rmn/c_record_io.h>
+
+// read a 32 bit (integer or float) data record (native endianness)
 // layout :  number_of_dimensions dimensions[number_of_dimensions] data[] number_of_data
 // data array is in Fortran order (first index varying first)
 // filename    [IN] : path/to/file (only valid if fdi == 0)
@@ -28,15 +31,21 @@
 // dims[]   [INOUT] : array dimensions (max 10 dimensions) (OUT if ndim == 0, IN for check if ndim > 0)
 // ndim     [INOUT] : number of dimensions (0 means unknown and get dimensions and number of dimensions)
 // ndata      [OUT] : number of data items read, -1 if error, 0 if End Of File
+// name       [OUT] : 4 character array that will receive the variable name
 // return : pointer to data array from file
 void *read_32bit_data_record(char *filename, int *fdi, int *dims, int *ndim, int *ndata){
+  char name[5] ;
+  return read_32bit_data_record_named(filename, fdi, dims, ndim, ndata, name) ;
+}
+void *read_32bit_data_record_named(char *filename, int *fdi, int *dims, int *ndim, int *ndata, char name[4]){
   size_t nc = 4, nd ;
   ssize_t nr ;
   void *buf = NULL ;
-  int ntot ;
+  uint32_t ntot, ndims ;
   int i, ni ;
   int fd = *fdi ;
 
+  name[0] = name[1] = name[2] = name[3] = ' ' ; name[4] = 0 ;
   *ndata = -1 ;                                                // precondition for error
   fd = (fd < 0) ? -fd : fd ;                                   // ABS(fd), negative fdi means close after reading record
   if(fd == 0 && filename[0] == '\0') return NULL ;             // filename should be valid if fd == 0
@@ -54,6 +63,15 @@ void *read_32bit_data_record(char *filename, int *fdi, int *dims, int *ndim, int
     fprintf(stderr,"ERROR, short read\n");
     return NULL ;
   }
+  name[0] = ntot >> 25 ; ntot <<= 7 ;                   // extract the 4 character variable name
+  name[1] = ntot >> 25 ; ntot <<= 7 ;
+  name[2] = ntot >> 25 ; ntot <<= 7 ;
+  name[3] = ntot >> 25 ; ntot <<= 7 ;
+  for(i=0 ; i<4 ; i++) name[i] = (name[i] == 0) ? ' ' : name[i] ;
+  ntot >>= 28 ;                                         // get the number of dimensions
+  ntot &= 0xF ;                                         // clip to 15
+  ndims = ntot ;
+
   if(ntot > 10){
     fprintf(stderr,"ERROR, more than 10 dimensions (%d)\n", ntot) ;
     return NULL ;
@@ -99,7 +117,9 @@ void *read_32bit_data_record(char *filename, int *fdi, int *dims, int *ndim, int
   *ndata = ntot ;
 end:
   if(*fdi < 0) close(fd) ;
-
+// fprintf(stderr,"INFO : read record ( %d ", dims[0]) ;
+// for(i=1 ; i<ndims ; i++) fprintf(stderr,"x %d", dims[i]) ;
+// fprintf(stderr," ) , %d items, name = '%c%c%c%c'\n", nd, name[0], name[1], name[2], name[3]) ;
   return buf ;
 
 error:
@@ -109,7 +129,7 @@ fprintf(stderr,"ERROR in read_32bit_data_record\n");
   goto end ;
 }
 
-// write a 32 bit (integer or float) data record : 
+// write a 32 bit (integer or float) data record (native endianness)
 // layout :  number_of_dimensions dimensions[number_of_dimensions] data[] number_of_data
 // data array is in Fortran order (first index varying first)
 // filename    [IN] : path/to/file (only valid if fdi == 0)
@@ -117,24 +137,33 @@ fprintf(stderr,"ERROR in read_32bit_data_record\n");
 // dims[]      [IN] : array dimensions (max 10 dimensions) (OUT if ndim == 0, IN for check if ndim > 0)
 // ndim        [IN] : number of dimensions (0 means unknown and get dimensions and number of dimensions)
 // buf         [IN] : data to be written
+// name        [IN] : 4 character array containing the variable name
 // return : number of data items written (-1 in case of error)
 int write_32bit_data_record(char *filename, int *fdi, int *dims, int ndim, void *buf){
+  return write_32bit_data_record_named(filename, fdi, dims, ndim, buf, NULL) ;
+}
+int write_32bit_data_record_named(char *filename, int *fdi, int *dims, int ndim, void *buf, char name[4]){
   int fd = *fdi ;
   size_t nc = 4 ;
   ssize_t nr ;
-  int ndims = ndim, ntot, i ;
+  int ndims, ntot, i, clos = (*fdi < 0) ;
 
   fd = (fd < 0) ? -fd : fd ;                                   // ABS(fd), negative fdi means close after reading record
-  if(fd == 0 && filename[0] == '\0') return -1 ;               // filename should be valid
-  if(fd != 0 && filename[0] != '\0') return -1 ;               // invalid fd / filename combination
-  fd = (filename[0] != '\0') ? open(filename, O_WRONLY | O_CREAT, 0777) : fd ;    // open file if filename supplied
+  if(fd == 0 && filename[0] == '\0') return -1 ;               // filename MUST be valid if fd == 0
+  if(fd == 0) fd = open(filename, O_WRONLY | O_CREAT, 0777) ;  // open file using filename if fd == 0
+//   if(fd != 0 && filename[0] != '\0') return -1 ;               // invalid fd / filename combination
+//   fd = (filename[0] != '\0') ? open(filename, O_WRONLY | O_CREAT, 0777) : fd ;    // open file if filename supplied
   if(fd < 0) return -1 ;                                       // open failed
-  if(*fdi == 0) *fdi = fd ;                                    // new fd stored in fdi
+  *fdi = fd ;                                                  // new fd stored in fdi
   if(buf == NULL){                                             // just open or close the file if buf is NULL
     ntot = 0 ;
 fprintf(stderr,"INFO: just closing fd = %d\n", fd);
     goto end ;
   }
+
+  ndims = 0 ;                                                  // encode number of dimensions and 4 character name
+  for(i=0 ; i<4 ; i++) { ndims <<= 7 ; ndims |= (name[i] & 0x7F) ; }
+  ndims <<= 4 ; ndims |= ndim ;
 
   if( (nr = write(fd, &ndims, nc)) != nc) goto error ;         // number of dimensions
   if( (nr = write(fd, dims, ndim*nc)) != ndim*nc) goto error ; // dimensions
@@ -144,7 +173,7 @@ fprintf(stderr,"INFO: just closing fd = %d\n", fd);
   nr = write(fd, &ntot, nc) ;                                  // number of data
   if(nr != nc) goto error ;                                    // done this way to suppress warnings
 end:
-  if(*fdi < 0) close(fd) ;
+  if(clos) close(fd) ;
   return ntot ;
 error:
   goto end ;
