@@ -33,6 +33,7 @@
 // ndata      [OUT] : number of data items read, -1 if error, 0 if End Of File
 // name       [OUT] : 4 character array that will receive the variable name
 // return : pointer to data array from file
+// if *fdi != 0, filename will be ignored
 void *read_32bit_data_record(char *filename, int *fdi, int *dims, int *ndim, int *ndata){
   char name[5] ;
   return read_32bit_data_record_named(filename, fdi, dims, ndim, ndata, name) ;
@@ -45,12 +46,13 @@ void *read_32bit_data_record_named(char *filename, int *fdi, int *dims, int *ndi
   int i, ni ;
   int fd = *fdi ;
 
-  name[0] = name[1] = name[2] = name[3] = ' ' ; name[4] = 0 ;
+  name[0] = name[1] = name[2] = name[3] = ' ' ;                // set name to all spaces
   *ndata = -1 ;                                                // precondition for error
   fd = (fd < 0) ? -fd : fd ;                                   // ABS(fd), negative fdi means close after reading record
   if(fd == 0 && filename[0] == '\0') return NULL ;             // filename should be valid if fd == 0
-  if(fd != 0 && filename[0] != '\0') return NULL ;             // invalid fd / filename combination
-  fd = (filename[0] != '\0') ? open(filename, O_RDONLY) : fd ; // open file if filename supplied
+  if(fd == 0) fd = open(filename, O_RDONLY) ;                  // open file using filename only if fd == 0
+//   if(fd != 0 && filename[0] != '\0') return NULL ;             // invalid fd / filename combination
+//   fd = (filename[0] != '\0') ? open(filename, O_RDONLY) : fd ; // open file if filename supplied
   if(fd < 0) return NULL ;                                     // open failed
   if(*fdi == 0) *fdi = fd ;                                    // new fd stored in fdi
 
@@ -115,15 +117,14 @@ void *read_32bit_data_record_named(char *filename, int *fdi, int *dims, int *ndi
     goto error ;  // inconsistent number of data
   }
   *ndata = ntot ;
+
 end:
   if(*fdi < 0) close(fd) ;
-// fprintf(stderr,"INFO : read record ( %d ", dims[0]) ;
-// for(i=1 ; i<ndims ; i++) fprintf(stderr,"x %d", dims[i]) ;
-// fprintf(stderr," ) , %d items, name = '%c%c%c%c'\n", nd, name[0], name[1], name[2], name[3]) ;
+
   return buf ;
 
 error:
-fprintf(stderr,"ERROR in read_32bit_data_record\n");
+//   fprintf(stderr,"DEBUG : ERROR in read_32bit_data_record\n");
   if(buf != NULL) free(buf) ;
   buf = NULL ;
   goto end ;
@@ -139,6 +140,7 @@ fprintf(stderr,"ERROR in read_32bit_data_record\n");
 // buf         [IN] : data to be written
 // name        [IN] : 4 character array containing the variable name
 // return : number of data items written (-1 in case of error)
+// if *fdi != 0, filename will be ignored
 int write_32bit_data_record(char *filename, int *fdi, int *dims, int ndim, void *buf){
   return write_32bit_data_record_named(filename, fdi, dims, ndim, buf, NULL) ;
 }
@@ -150,7 +152,7 @@ int write_32bit_data_record_named(char *filename, int *fdi, int *dims, int ndim,
 
   fd = (fd < 0) ? -fd : fd ;                                   // ABS(fd), negative fdi means close after reading record
   if(fd == 0 && filename[0] == '\0') return -1 ;               // filename MUST be valid if fd == 0
-  if(fd == 0) fd = open(filename, O_WRONLY | O_CREAT, 0777) ;  // open file using filename if fd == 0
+  if(fd == 0) fd = open(filename, O_WRONLY | O_CREAT, 0777) ;  // open file using filename only if fd == 0
 //   if(fd != 0 && filename[0] != '\0') return -1 ;               // invalid fd / filename combination
 //   fd = (filename[0] != '\0') ? open(filename, O_WRONLY | O_CREAT, 0777) : fd ;    // open file if filename supplied
   if(fd < 0) return -1 ;                                       // open failed
