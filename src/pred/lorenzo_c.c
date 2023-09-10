@@ -51,7 +51,7 @@ STATIC inline void LorenzoPredictRow0(int32_t * restrict row, int32_t * restrict
   diff[0] = row[0] ;
 #if defined(WITH_SIMD) && defined(__AVX2__) && defined(__x86_64__)
   if(n < 9){   // the SIMD version will not work for n < 9
-    for(i=1 ; i<n ; i++) diff[i] = diff[i] = row[i] - row[i-1] ;
+    for(i=1 ; i<n ; i++) diff[i] = row[i] - row[i-1] ;
     return ;
   }
   for(ii0 = 1 ; ii0 < n ; ii0 += 8) {
@@ -61,7 +61,7 @@ STATIC inline void LorenzoPredictRow0(int32_t * restrict row, int32_t * restrict
     _mm256_storeu_si256( (__m256i *) (diff+i0), _mm256_sub_epi32( vi, vi1 ) ) ;
   }
 #else
-  for(i=1 ; i<n ; i++) diff[i] = diff[i] = row[i] - row[i-1] ;
+  for(i=1 ; i<n ; i++) diff[i] = row[i] - row[i-1] ;
 #endif
 }
 
