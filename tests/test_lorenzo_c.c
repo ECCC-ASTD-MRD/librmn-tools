@@ -13,15 +13,15 @@
 
 #include <rmn/lorenzo.h>
 
+// NOTE: the C test is not as exhaustive as the Fortran test, the in place mode is not tested
+
 int main(int argc, char **argv){
   int32_t data[NPTS+1][NPTS] ;
   int32_t data2[NPTS+1][NPTS] ;
   int32_t pred[NPTS+1][NPTS] ;
-//   int32_t pred2[NPTS+1][NPTS] ;
   int i, j, errors ;
   uint64_t tmin, tmax, freq ;
   double nano, tavg ;
-//   int niter = NTIMES ;
   char buf[1024] ;
   size_t bufsiz = sizeof(buf) ;
 
@@ -37,7 +37,6 @@ int main(int argc, char **argv){
       data[j][i]  = (2*i + 3*j + 5) ;
       data2[j][i] = 999999 ;
       pred[j][i]  = 999999 ;
-//       pred2[j][i] = 999999 ;
     }
   }
 
@@ -65,24 +64,8 @@ int main(int argc, char **argv){
   }
   fprintf(stderr, "LorenzoUnpredict_   : errors = %d\n\n",errors);
 
-//   LorenzoPredictShort(&data[0][0], &pred2[0][0], NPTS, NPTS, NPTS, NPTS) ;
-//   for(i=0 ; i<8 ; i++) fprintf(stderr, "%d ",pred2[NPTS][i]); fprintf(stderr, "\n");
-//   for(j=0 ; j<NPTS+1 ; j++) for(i=0 ; i<NPTS ; i++) data2[j][i] = 999999 ;
-//   LorenzoUnpredict(&data2[0][0], &pred2[0][0], NPTS, NPTS, NPTS, NPTS) ;
-//   for(i=0 ; i<8 ; i++) fprintf(stderr, "%d ",data2[NPTS][i]); fprintf(stderr, "\n");
-//   errors = 0 ;
-//   for(j=0 ; j<NPTS ; j++){
-//     for(i=0 ; i<NPTS ; i++){
-//       if(data2[j][i] != (2*i + 3*j + 5) ) errors++;
-//     }
-//   }
-//   fprintf(stderr, "LorenzoPredict_S  : errors = %d\n\n",errors);
-
   TIME_LOOP(tmin, tmax, tavg, NTIMES, (NPTS*NPTS), buf, bufsiz, LorenzoPredict(&data[0][0], &pred[0][0], NPTS, NPTS, NPTS, NPTS) )
   fprintf(stderr, "LorenzoPredict    : %s\n",buf);
-
-//   TIME_LOOP(tmin, tmax, tavg, NTIMES, (NPTS*NPTS), buf, bufsiz, LorenzoPredictShort(&data[0][0], &pred[0][0], NPTS, NPTS, NPTS, NPTS) )
-//   fprintf(stderr, "LorenzoPredict_S  : %s\n",buf);
 
   TIME_LOOP(tmin, tmax, tavg, NTIMES, (NPTS*NPTS), buf, bufsiz, LorenzoUnpredict(&data[0][0], &pred[0][0], NPTS, NPTS, NPTS, NPTS) )
   fprintf(stderr, "LorenzoUnpredict  : %s\n",buf);

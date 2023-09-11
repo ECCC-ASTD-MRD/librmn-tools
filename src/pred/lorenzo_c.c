@@ -18,13 +18,14 @@
 
 #include <with_simd.h>
 
-#if ! defined(STATIC)
+// #if ! defined(STATIC)
 #define STATIC static
-#endif
+// #endif
 
 #include <rmn/lorenzo.h>
 
 // plain C version for cases where ni < 9
+// does not work in place
 static void LorenzoPredictShort(int32_t * restrict orig, int32_t * restrict diff, int ni, int lnio, int lnid, int nj){
   int i ;
   diff[0] = orig[0] ;
@@ -65,7 +66,7 @@ STATIC inline void LorenzoPredictRow0(int32_t * restrict row, int32_t * restrict
 #endif
 }
 
-// bottom row, n < 8, in place transform
+// bottom row, n < 8, in place prediction
 static inline void LorenzoPredictRow0_inplace_07(int32_t * restrict row, int n){
   int i, n7 = (n & 7) ;
   int32_t r[7] ;
@@ -74,9 +75,7 @@ static inline void LorenzoPredictRow0_inplace_07(int32_t * restrict row, int n){
   for(i=0 ; i<n7 ; i++) row[i] = r[i] ;
 }
 
-// bottom row, in place transform
-// PROBLEMS NOT SOLVED YET with PGI/Nvidia C compiler
-// _mm256_blend_epi32 seems to create problems (illegal instruction)
+// bottom row, in place prediction
 #if defined(__x86_64__) && defined(__AVX2__) && defined(WITH_SIMD) && (! defined(__PGI))
 
 STATIC inline void LorenzoPredictRow0_inplace(int32_t * restrict row, int n){
@@ -146,6 +145,7 @@ STATIC inline void LorenzoPredictRow0_inplace(int32_t * restrict row, int n){
 
 #endif
 
+// all rows but bottom row, not in place prediction
 // predict row j where j > 0 (2D prediction)
 // top  : row j
 // bot  : row (j - 1)
@@ -179,7 +179,7 @@ STATIC inline void LorenzoPredictRowJ(int32_t * restrict top, int32_t * restrict
 #endif
 }
 
-// all rows but bottom row, n < 8, in place transform
+// all rows but bottom row, n < 8, in place prediction
 static void LorenzoPredictRowJ_inplace_07(int32_t * restrict top, int32_t * restrict bot, int n){
   int i, n7 = (n & 7) ;
   int32_t r[7] ;
@@ -188,7 +188,7 @@ static void LorenzoPredictRowJ_inplace_07(int32_t * restrict top, int32_t * rest
   for(i=0 ; i<n7 ; i++) top[i] = r[i] ;
 }
 
-// all rows but bottom row, in place transform
+// all rows but bottom row, in place prediction
 #if defined(__x86_64__) && defined(__AVX2__) && defined(WITH_SIMD) && (! defined(__PGI))
 
 STATIC inline void LorenzoPredictRowJ_inplace(int32_t * restrict top, int32_t * restrict bot, int n){
@@ -267,6 +267,25 @@ STATIC inline void LorenzoPredictRowJ_inplace(int32_t * restrict top, int32_t * 
 }
 #endif
 
+// in place version of function LorenzoPredict (normally called by LorenzoPredict)
+// in order to operate in place, prediction is done backwards from top row to bottom row
+// 2D lorenzo prediction (32 bit signed integers)
+// orig : input  : original values (32 bit signed integers)
+//        output : original value - predicted value (using 2D Lorenzo predictor) (32 bit signed integers)
+// ni   : number of useful points in row
+// lnio : row storage dimension for orig
+// nj   : number of rows
+// the SIMD version tends to be 1.5-4 times faster than the non SIMD version
+STATIC void LorenzoPredictInplace(int32_t * restrict orig, int ni, int lnio, int nj){
+
+  orig += (lnio * (nj - 1)) ;
+  while(--nj > 0){                                    // all rows other than bottom row
+    LorenzoPredictRowJ_inplace(orig, orig-lnio, ni) ; // predict upper row in row pair -> diff
+    orig -= lnio ;                                    // next row
+  }
+  LorenzoPredictRow0_inplace(orig, ni) ;              // bottom row
+}
+
 // 2D lorenzo prediction (32 bit signed integers)
 // orig : input : original values (32 bit signed integers)
 // diff : output : original value - predicted value (using 2D Lorenzo predictor) (32 bit signed integers)
@@ -275,8 +294,12 @@ STATIC inline void LorenzoPredictRowJ_inplace(int32_t * restrict top, int32_t * 
 // lnid : row storage dimension for diff
 // nj   : number of rows
 // the SIMD version tends to be 1.5-4 times faster than the non SIMD version
-// non SIMD version : Fortran anc C performances roughly equivalent (Fortran slightly faster with some compilers)
 void LorenzoPredict(int32_t * restrict orig, int32_t * restrict diff, int ni, int lnio, int lnid, int nj){
+
+  if(orig == diff){             // called in place
+    LorenzoPredictInplace(orig, ni, lnio, nj) ;
+    return ;
+  }
   if(ni < 9){             // less than 9 points, SIMD version will not give correct results
     LorenzoPredictShort(orig, diff, ni, lnio, lnid, nj) ;
     return ;
@@ -289,22 +312,41 @@ void LorenzoPredict(int32_t * restrict orig, int32_t * restrict diff, int ni, in
   }
 }
 
-// in place version of above function
-// in order to operate in place, prediction is done backwards from top row to bottom row
-void LorenzoPredictInplace(int32_t * restrict orig, int ni, int lnio, int nj){
-//   int32_t diff[ni] ;
-  orig += (lnio * (nj - 1)) ;
-  while(--nj > 0){                                    // all rows other than bottom row
-    LorenzoPredictRowJ_inplace(orig, orig-lnio, ni) ;
-//     LorenzoPredictRowJ(orig, orig-lnio, diff, ni) ;   // predict upper row in row pair -> diff
-//     mem_cpy_w32(orig, diff, ni) ;                     // copy predicted row back into orig
-//     memcpy(orig, diff, sizeof(diff)) ;                // copy predicted row back into orig
-    orig -= lnio ;                                    // next row
+// in place function normally called by not in place function
+// restore ogiginal from 2D lorenzo prediction (32 bit signed integers)
+// orig : input  : original value - predicted value (32 bit signed integers)
+//        output : restored original values from predicted differences
+// ni   : number of useful points in row
+// lnio : row storage dimension
+// nj   : number of rows
+// NOTE : no SIMD version exists, as the process is fully recursive
+// NOTE : nj == 1 may be used for 1D prediction restore
+STATIC void LorenzoUnpredictInplace(int32_t *orig, int ni, int lnio, int nj){
+  int i ;
+  int32_t *top, *bot ;
+  int32_t d00, d01, d10, d11 ;
+//   d01 d11   unpredict : d11 = d11 + d01 + d10 - d00
+//   d00 d10
+
+  d00 = orig[0] ;                                    // first point in bottom row
+  for(i=1 ; i<ni ; i++) {                            // remainder of bottom row
+    d00 = orig[i] = orig[i] + d00 ; 
   }
-  LorenzoPredictRow0_inplace(orig, ni) ;
-//   LorenzoPredictRow0(orig, diff, ni) ;                // bottom row
-//   mem_cpy_w32(orig, diff, ni) ;                       // copy predicted row back into orig
-//   memcpy(orig, diff, sizeof(diff)) ;                  // copy predicted row back into orig
+
+  while(--nj > 0){
+    bot   = orig ;
+    orig += lnio ; 
+    top   = orig ;
+    d01 = orig[0] = top[0] + bot[0] ;                // first point in row (1D prediction)
+    d00 = bot[0] ;
+
+    for(i=1 ; i<ni ; i++) {
+      d10 = bot[i] ;
+      d11 = top[i] ;
+      d01 = orig[i] = (d11 + d01) + (d10 - d00) ;    // (original - predicted) + predicted
+      d00 = d10 ;
+    }
+  }
 }
 
 // restore ogiginal from 2D lorenzo prediction (32 bit signed integers)
@@ -312,31 +354,20 @@ void LorenzoPredictInplace(int32_t * restrict orig, int ni, int lnio, int nj){
 // orig : output : restored original values from predicted differences
 // ni   : number of useful points in row
 // lnio : row storage dimension for orig
-// lnid : row storage dimension for diff
+// lnid : row storage dimension for diff (ignored if in place)
 // nj   : number of rows
 // NOTE : no SIMD version exists, as the process is fully recursive
-// NOTE : with the Intel compiler, it seems slower than the Fortran version
-// void LorenzoUnpredict_c(int32_t * restrict orig, int32_t * restrict diff, int ni, int lnio, int lnid, int nj){
-//   int i ;
-// 
-//   orig[0] = diff[0] ;                                    // restore first point of bottom row
-//   for(i=1 ; i<ni ; i++) orig[i] = diff[i] + orig[i-1] ;  // restore bottom row
-// 
-//   while(--nj > 0){
-//     orig += lnio ; 
-//     diff += lnid ;
-//     orig[0] = diff[0] + orig[0-lnio] ;                   // first point in row (1D prediction)
-//     // (original - predicted) + predicted
-//     for(i=1 ; i<ni ; i++) orig[i] = diff[i] + (orig[i-1] + orig[i-lnio] - orig[i-1-lnio]) ;
-//   }
-// }
-
+// NOTE : nj == 1 may be used for 1D prediction restore
 void LorenzoUnpredict(int32_t * restrict orig, int32_t * restrict diff, int ni, int lnio, int lnid, int nj){
   int i ;
   int32_t *top, *bot ;
   int32_t d00, d01, d10, d11 ;
 //   d01 d11   unpredict : d11 = d11 + d01 + d10 - d00
 //   d00 d10
+  if(orig == diff){         // in place
+    LorenzoUnpredictInplace(orig, ni, lnio, nj) ;
+    return ;
+  }
 
   d00 = orig[0] = diff[0] ;         // restore first point of bottom row
   for(i=1 ; i<ni ; i++) {           // restore rest of bottom row
@@ -350,45 +381,6 @@ void LorenzoUnpredict(int32_t * restrict orig, int32_t * restrict diff, int ni, 
     top = diff ;
     d01 = orig[0] = top[0] + bot[0] ;                // first point in row (1D prediction)
     d00 = bot[0] ;
-    for(i=1 ; i<ni ; i++) {
-      d10 = bot[i] ;
-      d11 = top[i] ;
-      d01 = orig[i] = (d11 + d01) + (d10 - d00) ;    // (original - predicted) + predicted
-      d00 = d10 ;
-    }
-  }
-}
-
-// void LorenzoUnpredictInplace_c(int32_t * restrict orig, int ni, int lnio, int nj){
-//   int i ;
-// 
-//   for(i=1 ; i<ni ; i++) orig[i] = orig[i] + orig[i-1] ;  // restore bottom row
-// 
-//   while(--nj > 0){
-//     orig += lnio ; 
-//     orig[0] = orig[0] + orig[0-lnio] ;                   // first point in row (1D prediction)
-//     // (original - predicted) + predicted
-//     for(i=1 ; i<ni ; i++) orig[i] = orig[i] + (orig[i-1] + orig[i-lnio] - orig[i-1-lnio]) ;
-//   }
-// }
-
-void LorenzoUnpredictInplace(int32_t *orig, int ni, int lnio, int nj){
-  int i ;
-  int32_t *top, *bot ;
-  int32_t d00, d01, d10, d11 ;
-//   d01 d11   unpredict : d11 = d11 + d01 + d10 - d00
-//   d00 d10
-
-  d00 = orig[0] ;
-  for(i=1 ; i<ni ; i++) { d00 = orig[i] = orig[i] + d00 ; } // restore rest of bottom row
-
-  while(--nj > 0){
-    bot   = orig ;
-    orig += lnio ; 
-    top   = orig ;
-    d01 = orig[0] = top[0] + bot[0] ;                // first point in row (1D prediction)
-    d00 = bot[0] ;
-
     for(i=1 ; i<ni ; i++) {
       d10 = bot[i] ;
       d11 = top[i] ;

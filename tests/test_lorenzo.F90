@@ -13,12 +13,12 @@
 ! Author:
 !     M. Valin,   Environnement et Changement climatique Canada, 2022
 !
+! the Fortran test is more exhaustive thatn the C test, in place calls are used
 program lorenzo_test
-  use lorenzo_mod
+  use lorenzo_mod    ! use the module rather than the include file
   use rmn_timers
   use ISO_C_BINDING
   implicit none
-#include <rmn/gossip_constants.h>
 
 #if ! defined(NI)
 #define NI 128
@@ -69,7 +69,8 @@ program lorenzo_test
   do k = 1, NTIMES
     f = fr
     t(k) = timer_cycles()
-    call lorenzopredictinplace(f, ni, lnio, nj)
+!     call lorenzopredictinplace(f, ni, lnio, nj)
+    call lorenzopredict(f, f, ni, lnio, lnid, nj)
     t(k) = timer_cycles() - t(k)
   enddo
 
@@ -100,7 +101,8 @@ program lorenzo_test
   do k = 1, NTIMES
     f = fr
     t(k) = timer_cycles()
-    call lorenzopredictinplace_c(f, ni, lnio, nj)
+!     call lorenzopredictinplace_c(f, ni, lnio, nj)
+    call lorenzopredict(f, f, ni, lnio, lnid, nj)
     t(k) = timer_cycles() - t(k)
   enddo
   avg = SUM(t*ns)/NTIMES
@@ -162,9 +164,11 @@ program lorenzo_test
 
   do k = 1, NTIMES
     fp = fr
-    call lorenzopredictinplace(fp, ni, lnio, nj)
+!     call lorenzopredictinplace(fp, ni, lnio, nj)
+    call lorenzopredict(fp, fp, ni, lnio, lnid, nj)
     t(k) = timer_cycles()
-    call lorenzounpredictinplace(fp, ni, lnio, nj)
+!     call lorenzounpredictinplace(fp, ni, lnio, nj)
+    call lorenzounpredict(fp, fp, ni, lnio, lnid, nj)
     t(k) = timer_cycles() - t(k)
   enddo
   avg = SUM(t*ns)/NTIMES
@@ -209,9 +213,11 @@ program lorenzo_test
 
   do k = 1, NTIMES
     fp = fr
-    call lorenzopredictinplace_c(fp, ni, lnio, nj)
+!     call lorenzopredictinplace_c(fp, ni, lnio, nj)
+    call lorenzopredict(fp, fp, ni, lnio, lnid, nj)
     t(k) = timer_cycles()
-    call lorenzounpredictinplace_c(fp, ni, lnio, nj)
+!     call lorenzounpredictinplace_c(fp, ni, lnio, nj)
+    call lorenzounpredict(fp, fp, ni, lnio, lnid, nj)
     t(k) = timer_cycles() - t(k)
   enddo
   avg = SUM(t*ns)/NTIMES
