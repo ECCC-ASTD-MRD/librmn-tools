@@ -65,12 +65,15 @@
 // the sign bit is omitted and value or ~value is stored
 //
 // header for an encoded tile (16 bits)
+// for a 1D tile, npti and nptj are to be interpreted as ni = 1 + npti + 8 * nptj, nj = 1
+// for a 2D tile, ni = npti + 1, nj = nptj + 1
+// if both npti == 7 and nptj == 7, it does not matter, we have a full 64 value block
 typedef struct{
   uint16_t nbts: 5,      // number of bits per token - 1
            sign: 2,      // 00 all == 0, 01 all >= 0, 10 all < 0, 11 ZigZag
            encd: 2,      // encoding ( 00: none, 01: 0//short , 1//full, 10: 0 , 1//full, 11: constant tile
-           npti: 3,      // first dimension (npti = ni - 1) (1 <= ni <= 8)
-           nptj: 3,      // second dimension (nptj = nj - 1) (1 <= nj <= 8)
+           npti: 3,      // first dimension (npti = ni - 1) (0 <= ni <= 8)
+           nptj: 3,      // second dimension (nptj = nj - 1) (0 <= nj <= 8)
            min0: 1;      // 1 : minimum value is used as offset, 0 : minimum not used
 }tile_head ;             // header with bit fields
 CT_ASSERT(2 == sizeof(tile_head))

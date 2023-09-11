@@ -86,7 +86,7 @@ static uint64_t encode_tile_scheme(uint64_t p64){
     p.t.nshort = nshort ;                 // "short" tokens used
     p.t.nzero = 0 ;                       // no "0" token
   }
-fprintf(stderr, "normal tile, min = %8.8x (%d x %d)\n", p.t.min, p.t.h.npti+1, p.t.h.nptj+1) ;
+// fprintf(stderr, "normal tile, min = %8.8x (%d x %d)\n", p.t.min, p.t.h.npti+1, p.t.h.nptj+1) ;
   return p.u64 ;
 }
 
@@ -99,7 +99,7 @@ static uint64_t constant_tile_scheme(uint64_t p64){
   tile_properties p ;
 
   p.u64   = p64 ;
-fprintf(stderr, "constant tile, min = %8.8x (%d x %d)\n", p.t.min, p.t.h.npti+1, p.t.h.nptj+1) ;
+// fprintf(stderr, "constant tile, min = %8.8x (%d x %d)\n", p.t.min, p.t.h.npti+1, p.t.h.nptj+1) ;
   p.t.h.encd = 3 ;     // constant tile
   p.t.h.min0 = 0 ;     // not needed
   p.t.nzero  = 0 ;     // not needed
@@ -125,6 +125,7 @@ fprintf(stderr, "constant tile, min = %8.8x (%d x %d)\n", p.t.min, p.t.h.npti+1,
 // this value will then be passed to the encoder itself
 // generic version with no explicit SIMD function calls
 // called by encode_tile_properties for non 8x8 tiles or if SIMD functions are not available
+// TODO: process nj = 1, 1 <= ni <= 64, lni = dont't care (should be == ni) correctly
 static uint64_t encode_tile_properties_c(void *f, int ni, int lni, int nj, uint32_t tile[64]){
   uint32_t *block = (uint32_t *)f ;
   uint32_t pos, neg, nshort, nzero ;
@@ -133,6 +134,8 @@ static uint64_t encode_tile_properties_c(void *f, int ni, int lni, int nj, uint3
   int32_t i, j, i0, nij ;
 
   p.u64 = 0 ;
+  // TODO: ERROR if ni * nj > 64 or <= 0
+  // TODO: fix code if nj == 1, 1 <= ni <= 64
   p.t.h.npti = ni - 1 ;
   p.t.h.nptj = nj - 1;
   i0 = 0 ;
@@ -208,7 +211,9 @@ constant:
 // tile [OUT] : extracted tile (in sign/magnitude form and with minimum value possibly subtracted)
 // the function returns a tile parameter structure as an "opaque" 64 bit value
 // this value will then be passed to the encoder itself
-// X86_64 AVX2 version, 8 x 8 tiles only (ni ==8, nj == 8)
+// X86_64 AVX2 version, 8 x 8 tiles only (ni == 8, nj == 8) (FULL TILE)
+// NOTE: for a 1D full tile, ni = 8, nj = 8, lni = ni
+//       otherwise, for a 1D tile, nj = 1, 1 <= ni <= 64, lni = ni
 uint64_t encode_tile_properties(void *f, int ni, int lni, int nj, uint32_t tile[64]){
   uint32_t *block = (uint32_t *)f ;
   int32_t pos, neg, nshort, nzero ;
@@ -429,13 +434,14 @@ int32_t encode_contiguous(uint64_t tp64, bitstream *s, uint32_t tile[64]){
   {
   case 0 :                                                      // no special encoding
     for(i=0 ; i<nij ; i++){
-      BE64_PUT_NBITS(accum, insert, tile[i], nbits, stream) ;   // insert nbits bits into stream
+      w32 = tile[i] - min ;
+      BE64_PUT_NBITS(accum, insert, w32, nbits, stream) ;   // insert nbits bits into stream
       nbtot += nbits ;
     }
     break ;
   case 1 :                                                      // 0//short , 1//full encoding
     for(i=0 ; i<nij ; i++){
-      w32 = tile[i] ;
+      w32 = tile[i] - min ;
       if((w32 & mask0) == 0){                                   // value uses nbits0 bits or less
         nbitsi = nbits0+1 ;                                     // nbits0+1 bits
       }else{
@@ -448,7 +454,7 @@ int32_t encode_contiguous(uint64_t tp64, bitstream *s, uint32_t tile[64]){
     break ;
   case 2 :                                                      // 0 , 1//full encoding
     for(i=0 ; i<nij ; i++){
-      w32 = tile[i] ;
+      w32 = tile[i] - min ;
       if(w32 == 0){                                             // value is zero
         nbitsi = 1 ;                                            // 1 bit
       }else{
@@ -489,11 +495,14 @@ constant:
 int32_t encode_tile(void *f, int ni, int lni, int nj, bitstream *s, uint32_t tile[64]){
   uint64_t tp64 ;
   int32_t used ;
+  tile_properties tp ;
 
   tp64 = encode_tile_properties(f, ni, lni, nj, tile) ;   // extract tile, compute data properties
 //   print_stream_params(*s, "before tile encode", NULL) ;
   used = encode_contiguous(tp64, s, tile) ;               // encode extracted tile into bit stream
-  fprintf(stderr, "used bits = %d\n", used) ;
+  tp.u64 = tp64 ;
+  fprintf(stderr, "used bits = %d, nbits = %d, encoding = %d, sign = %d, min0 = %d, value = %8.8x\n", 
+          used, tp.t.h.nbts+1, tp.t.h.encd, tp.t.h.sign, tp.t.h.min0, tp.t.min) ;
 //   print_stream_params(*s, "after  tile encode", NULL) ;
 //   fprintf(stderr, "\n");
   return used ;                                           // will be negative if encode_contiguous failed
@@ -522,7 +531,7 @@ int32_t encode_as_tiles(void *f, int ni, int lni, int nj, bitstream *s){
       nbtile = encode_tile(fi+indexj+indexi, ni0, lni, nj0, s, tile) ;
 //       print_stream_params(*s, "after tile encode", NULL) ;
       nbtot += nbtile ;
-      fprintf(stderr, "encoding : nbtile = %d, indexi/indexj = %d/%d, LLcorner = %8.8x\n\n", nbtile, indexi, indexj, fi[indexi+indexj]) ;
+//       fprintf(stderr, "encoding : nbtile = %d, indexi/indexj = %d/%d, LLcorner = %8.8x\n\n", nbtile, indexi, indexj/lni, fi[indexi+indexj]) ;
 // fprintf(stderr,"tile (%3d,%3d) -> (%3d,%3d) [%d x %d][%4d,%4d], nbtile = %d (%4.1f/value)\n\n", 
 //         i0, j0, i0+ni0-1, j0+nj0-1, ni0, nj0, indexi, indexj, nbtile, nbtile*1.0/(ni0*nj0)) ;
     }
@@ -692,8 +701,8 @@ int32_t decode_as_tiles(void *f, int ni, int lni, int nj, bitstream *s){
     for(i0 = 0 ; i0 < ni ; i0 += 8){
       indexi = i0 ;
       ni0 = ((ni - i0) > 8) ? 8 : (ni - i0) ;
-      print_stream_params(*s, "before tile decode", NULL) ;
-      fprintf(stderr,"tile (%3d,%3d) -> (%3d,%3d) [%d x %d] [%4d,%4d]\n", i0, j0, i0+ni0-1, j0+nj0-1, ni0, nj0, indexi, indexj) ;
+//       print_stream_params(*s, "before tile decode", NULL) ;
+//       fprintf(stderr,"tile (%3d,%3d) -> (%3d,%3d) [%d x %d] [%4d,%4d]\n", i0, j0, i0+ni0-1, j0+nj0-1, ni0, nj0, indexi, indexj) ;
 #if 0
 StreamSaveState(s, &state) ;
 print_stream_params(*s, "after save state", NULL) ;
@@ -703,11 +712,11 @@ StreamRestoreState(s, &state, 0) ;
 print_stream_params(*s, "after restore state", NULL) ;
 #endif
       nbtile = decode_tile(fi+indexi+indexj, &nit, lni, &njt, s) ;
-      fprintf(stderr,"nit = %d, njt = %d, nbtile = %d\n", nit, njt, nbtile) ;
+//       fprintf(stderr,"nit = %d, njt = %d, nbtile = %d\n", nit, njt, nbtile) ;
       if(ni0 != nit || nj0 != njt) return -1 ;        // decoding error
       nbtot += nbtile ;
-      print_stream_params(*s, "after tile decode", NULL) ;
-      fprintf(stderr,"\n");
+//       print_stream_params(*s, "after tile decode", NULL) ;
+//       fprintf(stderr,"\n");
       if(nit != ni0 || njt != nj0) return 1 ;
     }
     indexj += lni*8 ;

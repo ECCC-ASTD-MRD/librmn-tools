@@ -51,6 +51,9 @@ static void compare_tile(int32_t *ref, int32_t *tile, int ni, int lni, int nj){
     for(i=0 ; i<ni ; i++){
       ij = INDEX(i, lni, j) ;
       if(ref[ij] != tile[ij]) errors++ ;
+//       if(errors <= 64 && ref[ij] != tile[ij]){
+//         TEE_FPRINTF(stderr,2, "i = %3d, j = %3d, expected %8.8x, got %8.8x\n", i, j, ref[ij], tile[ij]) ;
+//       }
     }
   }
   TEE_FPRINTF(stderr,2, "errors = %d (%d values)\n", errors, ni*nj) ;
@@ -82,8 +85,8 @@ int main(int argc, char **argv){
   uint64_t freq ;
   double nano ;
   int32_t tile0[64], tile1[64], tile2[64], tile3[64], tile4[64], tile5[64] ;
-  int32_t chunk_i[NPTSJ*NPTSLNI] ;
-  int32_t chunk_o[NPTSJ*NPTSLNI] ;
+  int32_t chunk_i[NPTSJ*NPTSLNI+64] ;
+  int32_t chunk_o[NPTSJ*NPTSLNI+64] ;
   uint32_t packed0[NPTSJ*NPTSLNI+64] ;
   uint32_t packed1[NPTSJ*NPTSLNI+64] ;
   int i, j, ij, ni, nj ;
@@ -217,6 +220,7 @@ CT_ASSERT(2 == sizeof(uint16_t))
   }
   TEE_FPRINTF(stderr,2,"\n");
 
+  TEE_FPRINTF(stderr,2,"========== decode from stream copy test ==========\n");
   BeStreamInit(&stream0, packed0, sizeof(packed0), 0) ;  // force read-write stream0 mode
   print_stream_params(stream0, "Init stream0", "RW") ;
   print_stream_data(stream0, "stream0 contents") ;
@@ -227,6 +231,22 @@ CT_ASSERT(2 == sizeof(uint16_t))
   print_stream_params(stream0, "encoded_tiles stream0", "RW") ;
   TEE_FPRINTF(stderr,2, "\n") ;
 
+  TEE_FPRINTF(stderr,2,"========== decoded from original stream ==========\n");
+  nbtot = decode_as_tiles(chunk_o, NPTSI, NPTSLNI, NPTSJ, &stream0);
+
+//   for(j=NPTSJ-1 ; j>=0 ; j--){
+//     for(i=0 ; i<NPTSLNI ; i++){
+//       ij = INDEX(i, NPTSLNI, j) ;
+//       if(i==8 || i==16)TEE_FPRINTF(stderr,2,"  ");
+//       TEE_FPRINTF(stderr,2," %8.8x", chunk_o[ij]^chunk_i[ij]) ;
+//     }
+//     TEE_FPRINTF(stderr,2,"\n");
+//     if(j == 8) TEE_FPRINTF(stderr,2,"\n");
+//   }
+//   TEE_FPRINTF(stderr,2,"\n");
+  compare_tile(chunk_i, chunk_o, NPTSI, NPTSLNI, NPTSJ) ;
+
+  TEE_FPRINTF(stderr,2,"========== decoded from copy ==========\n");
   for(i=0 ; i< sizeof(packed1)/4 ; i++) packed1[i] = 0 ;
   ncopy = StreamCopy(&stream0, packed1, sizeof(packed1)) ;         // transfer stream0 buffer to packed1
   TEE_FPRINTF(stderr,2, "%ld(%ld) bits copied into stream1 buffer\n", ncopy, ((ncopy+31)/32)*32) ;
@@ -236,16 +256,16 @@ CT_ASSERT(2 == sizeof(uint16_t))
   TEE_FPRINTF(stderr,2, "\n") ;
   nbtot = decode_as_tiles(chunk_o, NPTSI, NPTSLNI, NPTSJ, &stream1);
 
-  for(j=NPTSJ-1 ; j>=0 ; j--){
-    for(i=0 ; i<NPTSLNI ; i++){
-      ij = INDEX(i, NPTSLNI, j) ;
-      if(i==8 || i==16)TEE_FPRINTF(stderr,2,"  ");
-      TEE_FPRINTF(stderr,2," %8.8x", chunk_o[ij]) ;
-    }
-    TEE_FPRINTF(stderr,2,"\n");
-    if(j == 8) TEE_FPRINTF(stderr,2,"\n");
-  }
-  TEE_FPRINTF(stderr,2,"\n");
+//   for(j=NPTSJ-1 ; j>=0 ; j--){
+//     for(i=0 ; i<NPTSLNI ; i++){
+//       ij = INDEX(i, NPTSLNI, j) ;
+//       if(i==8 || i==16)TEE_FPRINTF(stderr,2,"  ");
+//       TEE_FPRINTF(stderr,2," %8.8x", chunk_o[ij]) ;
+//     }
+//     TEE_FPRINTF(stderr,2,"\n");
+//     if(j == 8) TEE_FPRINTF(stderr,2,"\n");
+//   }
+//   TEE_FPRINTF(stderr,2,"\n");
 
   compare_tile(chunk_i, chunk_o, NPTSI, NPTSLNI, NPTSJ) ;
 
