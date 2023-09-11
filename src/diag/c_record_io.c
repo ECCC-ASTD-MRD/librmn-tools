@@ -42,9 +42,10 @@ void *read_32bit_data_record_named(char *filename, int *fdi, int *dims, int *ndi
   size_t nc = 4, nd ;
   ssize_t nr ;
   void *buf = NULL ;
-  uint32_t ntot, ndims ;
+  uint32_t ntot ;
   int i, ni ;
   int fd = *fdi ;
+  int diml[7] ;
 
   name[0] = name[1] = name[2] = name[3] = ' ' ;                // set name to all spaces
   *ndata = -1 ;                                                // precondition for error
@@ -70,12 +71,10 @@ void *read_32bit_data_record_named(char *filename, int *fdi, int *dims, int *ndi
   name[2] = ntot >> 25 ; ntot <<= 7 ;
   name[3] = ntot >> 25 ; ntot <<= 7 ;
   for(i=0 ; i<4 ; i++) name[i] = (name[i] == 0) ? ' ' : name[i] ;
-  ntot >>= 28 ;                                         // get the number of dimensions
-  ntot &= 0xF ;                                         // clip to 15
-  ndims = ntot ;
+  ntot >>= 28 ;                                         // get the number of dimensions (lower 4 bits)
 
-  if(ntot > 10){
-    fprintf(stderr,"ERROR, more than 10 dimensions (%d)\n", ntot) ;
+  if(ntot > 7){
+    fprintf(stderr,"ERROR, more than 7 dimensions (%d)\n", ntot) ;
     return NULL ;
   }
   if(*ndim == 0) {
@@ -88,14 +87,15 @@ void *read_32bit_data_record_named(char *filename, int *fdi, int *dims, int *ndi
     }
   }
   nd = 1 ;
-  for(i=0 ; i<ntot ; i++) {                             // read the dimensions
-    if( (nr = read(fd, &ni, nc)) != nc) goto error ;    // OOPS short read
-    if(dims[i] == 0) dims[i] = ni ;                     // return dimension to caller
-    if(dims[i] != ni){                                  // check dimension
-      fprintf(stderr,"ERROR, dimensions mismatch\n");
+  nr = read(fd, diml, nc * ntot) ;                      // read the dimensions
+  if(nr != nc * ntot) goto error ;                      // OOPS short read
+  for(i=0 ; i<ntot ; i++) {                             // check the dimensions
+    if(dims[i] == 0) dims[i] = diml[i] ;                // return dimension to caller if dims[i] == 0
+    if(dims[i] != diml[i]){                             // check dimension against request
+      fprintf(stderr,"ERROR, dimension %d mismatch\n", i+1);
       goto error ;
     }
-    nd *= ni ;                                          // update size of array to be read
+    nd *= diml[i] ;                                     // update size of array to be read
   }
   if(nd <= 0) {
     fprintf(stderr,"ERROR, one or more dimension is <= 0\n") ;
