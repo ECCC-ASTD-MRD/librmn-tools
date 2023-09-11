@@ -501,7 +501,7 @@ int32_t encode_tile(void *f, int ni, int lni, int nj, bitstream *s, uint32_t til
 //   print_stream_params(*s, "before tile encode", NULL) ;
   used = encode_contiguous(tp64, s, tile) ;               // encode extracted tile into bit stream
   tp.u64 = tp64 ;
-  fprintf(stderr, "used bits = %d, nbits = %d, encoding = %d, sign = %d, min0 = %d, value = %8.8x\n", 
+  fprintf(stderr, "needed bits = %4d, nbits = %2d, encoding = %d, sign = %d, min0 = %d, value = %8.8x\n", 
           used, tp.t.h.nbts+1, tp.t.h.encd, tp.t.h.sign, tp.t.h.min0, tp.t.min) ;
 //   print_stream_params(*s, "after  tile encode", NULL) ;
 //   fprintf(stderr, "\n");
@@ -582,9 +582,6 @@ int32_t decode_tile(void *f, int *ni, int lni, int *nj, bitstream *s){
     nbitsm = 0 ;
   }
 
-fprintf(stderr, " TILE : ni = %d, nj = %d, nbits = %d, encoding = %d, sign = %d, min0 = %d, min = %8.8x, nbitsm = %d\n", 
-        *ni, *nj, nbits, th.h.encd, th.h.sign, th.h.min0, min, nbitsm) ;
-
   switch(th.h.encd)
   {
   case 1 :                                                 // 0//short , 1//full encoding
@@ -655,6 +652,9 @@ fprintf(stderr, " TILE : ni = %d, nj = %d, nbits = %d, encoding = %d, sign = %d,
 //     for(i=0 ; i<nij ; i++){ fi[i] = from_zigzag_32((fe[i]+min)) ; }  // restore from ZigZag
   }
 
+fprintf(stderr, " TILE     : bits = %4d, ni = %2d, nj = %2d, nbits = %2d, encoding = %d, sign = %d, min0 = %d, min   = %8.8x, nbitsm = %2d\n", 
+        nbtot, *ni, *nj, nbits, th.h.encd, th.h.sign, th.h.min0, min, nbitsm) ;
+
 end:
   STREAM_SET_XTRACT_STATE(*s, accum, xtract, stream) ;
   return nbtot ;
@@ -669,8 +669,8 @@ constant:
     nbtot += nbits ;
     iw32 = from_zigzag_32(w32) ;
   }
-fprintf(stderr, " CONSTANT : ni = %d, nj = %d, nbits = %d, encoding = %d, sign = %d, min0 = %d, value = %8.8x, nij = %d\n", 
-        *ni, *nj, nbits, th.h.encd, th.h.sign, th.h.min0, iw32, nij) ;
+fprintf(stderr, " CONSTANT : bits = %4d, ni = %2d, nj = %2d, nbits = %2d, encoding = %d, sign = %d, min0 = %d, value = %8.8x, nij = %2d\n", 
+        nbtot, *ni, *nj, nbits, th.h.encd, th.h.sign, th.h.min0, iw32, nij) ;
   for(j=0 ; j<*nj ; j++){
     for(i=0 ; i<*ni ; i++){
       fi[i] = iw32 ;  // restore from ZigZag

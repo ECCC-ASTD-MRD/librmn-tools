@@ -22,13 +22,20 @@ static void print_stream_data(bitstream s, char *msg){
   uint32_t *first = s.first ;
   uint32_t *cur = first ;
 
-  TEE_FPRINTF(stderr,2, "%s", msg) ;
-  while(cur < in){
-    TEE_FPRINTF(stderr,2, " %8.8x", *cur) ;
+  TEE_FPRINTF(stderr,2, "%s : ", msg) ;
+  TEE_FPRINTF(stderr,2, "accum = %16.16lx", s.acc_i << (64 - s.insert)) ;
+  TEE_FPRINTF(stderr,2, ", guard = %8.8x, data =", *cur) ;
+  while(cur <= in){
+    if(in - cur == 0 && s.insert == 0) break ;                // last element not used
+    if(in - cur == 2 && s.insert != 0) {cur++ ; continue ; }  // last element used
+    if(cur-first < 3 || in-cur < 3) {
+      TEE_FPRINTF(stderr,2, " %8.8x", *cur) ;
+    }else{
+      TEE_FPRINTF(stderr,2, ".") ;
+    }
     cur++ ;
   }
-  TEE_FPRINTF(stderr,2, ", accum = %16.16lx", s.acc_i << (64 - s.insert)) ;
-  TEE_FPRINTF(stderr,2, ", guard = %8.8x\n", *cur) ;
+  TEE_FPRINTF(stderr,2, "\n") ;
 }
 
 static void print_stream_params(bitstream s, char *msg, char *expected_mode){
@@ -44,7 +51,7 @@ static void print_stream_params(bitstream s, char *msg, char *expected_mode){
   }
 }
 
-static void compare_tile(int32_t *ref, int32_t *tile, int ni, int lni, int nj){
+static int compare_tile(int32_t *ref, int32_t *tile, int ni, int lni, int nj){
   int i, j, ij, errors ;
   errors = 0 ;
   for(j=nj-1 ; j>=0 ; j--){
@@ -56,7 +63,8 @@ static void compare_tile(int32_t *ref, int32_t *tile, int ni, int lni, int nj){
 //       }
     }
   }
-  TEE_FPRINTF(stderr,2, "errors = %d (%d values)\n", errors, ni*nj) ;
+  TEE_FPRINTF(stderr,2, "errors = %d (%d items checked)\n", errors, ni*nj) ;
+  return errors ;
 }
 
 static void print_tile(int32_t *tile, int ni, int lni, int nj, char *msg){
@@ -89,7 +97,7 @@ int main(int argc, char **argv){
   int32_t chunk_o[NPTSJ*NPTSLNI+64] ;
   uint32_t packed0[NPTSJ*NPTSLNI+64] ;
   uint32_t packed1[NPTSJ*NPTSLNI+64] ;
-  int i, j, ij, ni, nj ;
+  int i, j, ij, ni, nj, errors ;
   bitstream stream0, stream1  ;
   int32_t nbtot ;
   size_t ncopy ;
@@ -108,12 +116,12 @@ CT_ASSERT(2 == sizeof(uint16_t))
   nano = 1000000000 ;
   nano /= freq ;
 
-  start_of_test("tile1 encoder test C");
-  TEE_FPRINTF(stderr,2, "sizeof(tile_header) = %ld, expecting 2\n", sizeof(tile_header)) ;
-  TEE_FPRINTF(stderr,2, "sizeof(tile_parms) = %ld, expecting 8\n", sizeof(tile_parms)) ;
-  TEE_FPRINTF(stderr,2, "sizeof(tile_properties) = %ld, expecting 8\n", sizeof(tile_properties)) ;
+  start_of_test("C tile encoder test");
   if((8 != sizeof(tile_properties)) || (8 != sizeof(tile_parms)) || (2 != sizeof(tile_header))) {
     TEE_FPRINTF(stderr,2, "ERROR, bd size for some tile properties structure\n") ;
+    TEE_FPRINTF(stderr,2, "sizeof(tile_header) = %ld, expecting 2\n", sizeof(tile_header)) ;
+    TEE_FPRINTF(stderr,2, "sizeof(tile_parms) = %ld, expecting 8\n", sizeof(tile_parms)) ;
+    TEE_FPRINTF(stderr,2, "sizeof(tile_properties) = %ld, expecting 8\n", sizeof(tile_properties)) ;
     goto error ;
   }
 
@@ -172,43 +180,43 @@ CT_ASSERT(2 == sizeof(uint16_t))
   fprintf(stderr, "encode_tile_properties_    : %s\n\n",timer_msg);
 #endif
 
-//   print_tile(tile1, 8, 8, 8, "original tile1") ;
-  print_tile(tile3, 8, 8, 8, "original tile3") ;
+  TEE_FPRINTF(stderr,2,"========== single tile encode / decode ==========\n");
+  print_tile(tile3, 8, 8, 8, "original tile (mixed signs)") ;
+  TEE_FPRINTF(stderr,2,"\n");
 
   BeStreamInit(&stream0, packed0, sizeof(packed0), 0) ;  // force read-write stream0 mode
   print_stream_params(stream0, "Init stream0", "RW") ;
-  print_stream_data(stream0, "stream0 contents") ;
+  print_stream_data(stream0, "stream0") ;
 
-//   nbtot = encode_tile_(tile1, 8, 8, 7, &stream0, temp) ;
-  nbtot = encode_tile(tile3, 8, 8, 8, &stream0, temp) ;
-
-  TEE_FPRINTF(stderr,2, "nbtot = %d\n", nbtot) ;
+  nbtot = encode_tile(tile3, 8, 8, 8, &stream0, temp) ;  // 8 x 8 compact full tile
+  TEE_FPRINTF(stderr,2, "bits after encoding = %d\n", nbtot) ;
   print_stream_params(stream0, "encoded stream0", "RW") ;
-  print_stream_data(stream0, "stream0 contents") ;
+  print_stream_data(stream0, "stream0") ;
 
   // no need to rewind stream0 in this case
   for(i=0 ; i< sizeof(packed1)/4 ; i++) packed1[i] = 0 ;
-  ncopy = StreamCopy(&stream0, packed1, sizeof(packed1)) ;
-  BeStreamInit(&stream1, packed1, sizeof(packed1), 0) ;  // force read-write stream1 mode
-  StreamSetFilledBits(&stream1, nbtot) ;
+  ncopy = StreamCopy(&stream0, packed1, sizeof(packed1)) ;    // copy stream0 data into packed1
+  BeStreamInit(&stream1, packed1, sizeof(packed1), 0) ;       // initialize stream1 (RW) using packed1
+  StreamSetFilledBits(&stream1, nbtot) ;                      // set available number of bits
   print_stream_params(stream1, "Init stream1", "RW") ;
-  nbtot = decode_tile(tile0, &ni, 8, &nj, &stream1) ;
+  print_stream_data(stream1, "stream1") ;
+  nbtot = decode_tile(tile0, &ni, 8, &nj, &stream1) ;         // decode tile from stream1 into tile0
   TEE_FPRINTF(stderr,2, "ni = %d, nj = %d\n", ni, nj) ;
-  print_tile(tile0, ni, ni, nj, "restored tile") ;
-//   compare_tile(tile0, tile1, ni, ni, nj) ;
-  compare_tile(tile0, tile3, ni, ni, nj) ;
+  errors = compare_tile(tile0, tile3, ni, ni, nj) ;
+  if(errors > 0) print_tile(tile0, ni, ni, nj, "restored tile") ;
   TEE_FPRINTF(stderr,2,"\n");
 
+  TEE_FPRINTF(stderr,2,"========== multi tile encode / decode ==========\n");
   for(j=0 ; j<NPTSJ ; j++){
     for(i=0 ; i<NPTSLNI ; i++){
       ij = INDEX(i, NPTSLNI, j) ;
       chunk_i[ij] = (i << 8) + j ;   // 16 bits max
       chunk_o[ij] = -1 ;
-      if(i<8 && j<8) chunk_i[ij] = 0 ;
-      if(i>7 && j>7) chunk_i[ij] = 0x00001234 ;
+      if(i<8 && j<8) chunk_i[ij] = 0 ;             // lower left tile
+      if(i>7 && j>7) chunk_i[ij] = 0x00001234 ;    // upper right tile
     }
   }
-
+  TEE_FPRINTF(stderr,2,"Original data\n") ;
   for(j=NPTSJ-1 ; j>=0 ; j--){
     for(i=0 ; i<NPTSLNI ; i++){
       ij = INDEX(i, NPTSLNI, j) ;
@@ -220,18 +228,19 @@ CT_ASSERT(2 == sizeof(uint16_t))
   }
   TEE_FPRINTF(stderr,2,"\n");
 
-  TEE_FPRINTF(stderr,2,"========== decode from stream copy test ==========\n");
   BeStreamInit(&stream0, packed0, sizeof(packed0), 0) ;  // force read-write stream0 mode
   print_stream_params(stream0, "Init stream0", "RW") ;
-  print_stream_data(stream0, "stream0 contents") ;
+  print_stream_data(stream0, "stream0") ;
   TEE_FPRINTF(stderr,2, "\n");
 
+  TEE_FPRINTF(stderr,2,"========== encoding tiles ==========\n");
   nbtot = encode_as_tiles(chunk_i, NPTSI, NPTSLNI, NPTSJ, &stream0) ;
   TEE_FPRINTF(stderr,2, "needed %d bits (%4.1f/value)\n\n", nbtot, nbtot*1.0/(NPTSI*NPTSJ)) ;
   print_stream_params(stream0, "encoded_tiles stream0", "RW") ;
   TEE_FPRINTF(stderr,2, "\n") ;
 
-  TEE_FPRINTF(stderr,2,"========== decoded from original stream ==========\n");
+  TEE_FPRINTF(stderr,2,"========== decoding from original stream ==========\n");
+
   nbtot = decode_as_tiles(chunk_o, NPTSI, NPTSLNI, NPTSJ, &stream0);
 
 //   for(j=NPTSJ-1 ; j>=0 ; j--){
@@ -246,11 +255,12 @@ CT_ASSERT(2 == sizeof(uint16_t))
 //   TEE_FPRINTF(stderr,2,"\n");
   compare_tile(chunk_i, chunk_o, NPTSI, NPTSLNI, NPTSJ) ;
 
-  TEE_FPRINTF(stderr,2,"========== decoded from copy ==========\n");
+  TEE_FPRINTF(stderr,2,"========== decoding from copy ==========\n");
   for(i=0 ; i< sizeof(packed1)/4 ; i++) packed1[i] = 0 ;
+  print_stream_params(stream0, "Source stream0", "RW") ;
   ncopy = StreamCopy(&stream0, packed1, sizeof(packed1)) ;         // transfer stream0 buffer to packed1
   TEE_FPRINTF(stderr,2, "%ld(%ld) bits copied into stream1 buffer\n", ncopy, ((ncopy+31)/32)*32) ;
-  BeStreamInit(&stream1, packed1, sizeof(packed1), 0) ;            // force read-write stream1 mode
+  BeStreamInit(&stream1, packed1, sizeof(packed1), 0) ;            // force read-write stream1 mode using packed1
   StreamSetFilledBits(&stream1, nbtot) ;
   print_stream_params(stream1, "Filled stream1", "RW") ;
   TEE_FPRINTF(stderr,2, "\n") ;
@@ -267,7 +277,7 @@ CT_ASSERT(2 == sizeof(uint16_t))
 //   }
 //   TEE_FPRINTF(stderr,2,"\n");
 
-  compare_tile(chunk_i, chunk_o, NPTSI, NPTSLNI, NPTSJ) ;
+  errors = compare_tile(chunk_i, chunk_o, NPTSI, NPTSLNI, NPTSJ) ;
 
 end:
   return 0 ;
