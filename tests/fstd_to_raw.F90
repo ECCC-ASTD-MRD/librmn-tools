@@ -20,37 +20,6 @@ program fstd_to_raw
   integer :: iunout
   integer :: i, j, the_kind, ii
   real :: p1
-  interface
-    function c_creat(name, mode) result(fd) bind(C,name='creat')
-      import :: C_CHAR, C_INT
-      implicit none
-      character(C_CHAR), dimension(*), intent(IN) :: name
-      integer(C_INT), intent(IN), value :: mode
-      integer(C_INT) :: fd
-    end function
-    function c_write(fd, buf, cnt) result(nc) bind(C, name='write')
-      import :: C_SIZE_T, C_PTR, C_INT
-      implicit none
-      integer(C_INT), intent(IN), value :: fd
-      type(C_PTR), intent(IN), value :: buf
-      integer(C_SIZE_T), intent(IN), value :: cnt
-      integer(C_SIZE_T) :: nc
-    end function
-    function c_read(fd, buf, cnt) result(nc) bind(C, name='read')
-      import :: C_SIZE_T, C_PTR, C_INT
-      implicit none
-      integer(C_INT), intent(IN), value :: fd
-      type(C_PTR), intent(IN), value :: buf
-      integer(C_SIZE_T), intent(IN), value :: cnt
-      integer(C_SIZE_T) :: nc
-    end function
-    function c_close(fd) result(status) bind(C,name='close')
-      import :: C_INT
-      implicit none
-      integer(C_INT), intent(IN), value :: fd
-      integer(C_INT) :: status
-    end function
-  end interface
   integer, dimension(:,:), pointer :: bits0
   integer :: fd, fdstatus, fdmode, ipkind
   real :: ipvalue
@@ -134,7 +103,7 @@ program fstd_to_raw
         enddo
 ! ==========================================================================
         write(c_fname,1111)trim(dirname)//'/',trim(nomvar),'_'//trim(ipstring)//filename(c1:c2)   ! create file name
-        ndata = write_32bit_data_record_named(trim(c_fname)//achar(0), fd, [ni, nj], 2, C_LOC(p(1)), nomvar//achar(0)) ;
+        ndata = write_32bit_data_record_named(trim(c_fname)//achar(0), fd, [ni, nj], 2, C_LOC(p(1)), nomvar//achar(0))
         if(fd < 0) goto 999   ! error opening output file
         print 2,'INFO, wrote',nc+16," bytes into '",trim(c_fname), "', fd =", fd,    &
                 ", avg(p) = ",sum(p)/sizep, ' , avg(|p|) = ', sum(abs(p))/sizep,     &
@@ -144,7 +113,8 @@ program fstd_to_raw
     key = fstsui(iun,ni,nj,nk)
   enddo        ! while(key >= 0)
   write(6,*)'number of records processed:',irec,' out of',nrec
-  fdstatus = c_close(fd)                ! close output file
+  fd = -fd
+  fdstatus = write_32bit_data_record_named("", fd, [0], 0, C_NULL_PTR, "") ! dummy call to close output file
   if(iun .ne. 0) call fstfrm(iun)       ! close input file
   stop
 999 continue
