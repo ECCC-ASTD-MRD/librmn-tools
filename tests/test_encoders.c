@@ -279,6 +279,35 @@ CT_ASSERT(2 == sizeof(uint16_t))
 
   errors = compare_tile(chunk_i, chunk_o, NPTSI, NPTSLNI, NPTSJ) ;
 
+  int32_t pop[4] ;
+  int32_t ref[4] = { 2, 4, 8, 16 } ;
+
+  tp.u64 = encode_tile_properties(tile1, 8, 8, 8, temp) ;
+  for(j=7 ; j>=0 ; j--){
+    for(i=0 ; i<8 ; i++){
+      ij = i + 8 * j ;
+      TEE_FPRINTF(stderr,2," %8.8x", temp[ij]);
+    }
+    TEE_FPRINTF(stderr,2,"\n");
+  }
+  fprintf(stderr, "zero = %d, short = %d, bits = %d, encd = %d\n", tp.t.nzero, tp.t.nshort, tp.t.h.nbts, tp.t.h.encd);
+  ref[0] = 1 ; ref[1] = 1 << 6 ; ref[2] = 1 << 5 ; ref[3] = 1 << 7 ;
+  tile_population(temp, 64, pop, ref) ;
+  fprintf(stderr, "pop = %d %d %d %d\n", pop[0], pop[1], pop[2], pop[3]);
+
+//   TIME_LOOP_EZ(1000, 64, tp.u64 = encode_tile_properties(tile1, 8, 8, 8, temp)) ;
+//   fprintf(stderr, "encode_tile_properties : %s, zero = %d, short = %d, bits = %d\n\n", timer_msg, tp.t.nzero, tp.t.nshort, tp.t.h.nbts);
+//
+
+  TIME_LOOP_EZ(1000, 64, tile_population(temp, 64, pop, ref)) ;
+  fprintf(stderr, "tile_population_64     : %s, pop = %d %d %d %d\n", timer_msg, pop[0], pop[1], pop[2], pop[3]);
+
+  TIME_LOOP_EZ(1000, 63, tile_population(temp, 63, pop, ref)) ;
+  fprintf(stderr, "tile_population_63     : %s, pop = %d %d %d %d\n", timer_msg, pop[0], pop[1], pop[2], pop[3]);
+
+  TIME_LOOP_EZ(1000, 56, tile_population(temp, 56, pop, ref)) ;
+  fprintf(stderr, "tile_population_56     : %s, pop = %d %d %d %d\n", timer_msg, pop[0], pop[1], pop[2], pop[3]);
+
 end:
   return 0 ;
 

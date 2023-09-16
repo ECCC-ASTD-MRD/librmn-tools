@@ -38,6 +38,7 @@ static void print_stream_params(bitstream s, char *msg, char *expected_mode){
 // print tile properties as set by encode_tile_properties
 // p64 [IN] : blind token containing tile properties 
 // (from encode_tile_scheme/constant_tile_scheme/encode_tile_properties)
+// TODO: npti, nptj or npij ?
 void print_tile_properties(uint64_t p64){
   tile_properties p ;
   int nij, nbits, nbts0, nbitss, nb0, nbi ;
@@ -58,6 +59,7 @@ void print_tile_properties(uint64_t p64){
 // the function returns a tile parameter structure as an "opaque" 64 bit value
 // this value will eventually be passed to the encoder itself
 // used by encode_tile_properties
+// TODO: npti, nptj or npij ?
 static uint64_t encode_tile_scheme(uint64_t p64){
   tile_properties p ;
   int nbits_temp, nbits_full, nbits_zero, nbits_short, nij, nbits, nbits0, nzero, nshort ;
@@ -126,10 +128,11 @@ static uint64_t constant_tile_scheme(uint64_t p64){
 // generic version with no explicit SIMD function calls
 // called by encode_tile_properties for non 8x8 tiles or if SIMD functions are not available
 // TODO: process nj = 1, 1 <= ni <= 64, lni = dont't care (should be == ni) correctly
+// TODO: npti, nptj or npij ?
 static uint64_t encode_tile_properties_c(void *f, int ni, int lni, int nj, uint32_t tile[64]){
   uint32_t *block = (uint32_t *)f ;
-  uint32_t pos, neg, nshort, nzero ;
-  uint32_t max, min, nbits, nbits0, mask0 ;
+  uint32_t pos, neg, nshort, nshort1, nzero ;
+  uint32_t max, min, nbits, nbits0, mask0, mask1 ;
   tile_properties p ;
   int32_t i, j, i0, nij ;
 
@@ -186,12 +189,15 @@ static uint64_t encode_tile_properties_c(void *f, int ni, int lni, int nj, uint3
   p.t.h.encd = 0 ;                           // default is NO special encoding
   nbits0 = (nbits + NB0) >> 1 ;              // number of bits for "short" values
   mask0 = RMASK31(nbits0) ;                  // value & mask0 will be 0 if nbits0 or less bits are needed
+  mask1 = mask0 >> 1 ;
   mask0 = ~mask0 ;                           // keep only the upper bits
+  mask1 = ~mask1 ;
 
-  nshort = nzero = 0 ;
+  nshort = nzero = nshort1 = 0 ;
   for(i=0 ; i<nij ; i++){
     if(tile[i] == 0)           nzero++ ;      // zero value
-    if((tile[i] & mask0) == 0) nshort++ ;     // value needing nbits0 bits or less
+    if((tile[i] & mask0) == 0) nshort++ ;     // value needing nbits0   bits or less
+    if((tile[i] & mask1) == 0) nshort1++ ;    // value needing nbits0-1 bits or less
   }
   p.t.nzero  = nzero ;
   p.t.nshort = nshort ;
@@ -201,6 +207,146 @@ static uint64_t encode_tile_properties_c(void *f, int ni, int lni, int nj, uint3
 constant:
   p.t.min = min ;                             // constant value in min
   return constant_tile_scheme(p.u64) ;        // setup for constant values
+}
+
+// tile [IN] : array of 64 x 32 bit elements to be compared with 4 reference values
+// pop [OUT] : 4 element array to receive population counts
+// ref  [IN] : 4 element array containing reference values
+// pop[i] will receive the number of values in tile < ref[i]
+// NOTE: the AVX2 version is a way faster than the dumb vanilla C version
+//       the chunked by 8 C version is 1.3 - 3 x slower than the AVX2 version with most compilers
+//       and much slower (up to 10x) with some others
+static void tile_population_64(int32_t *tile, int32_t pop[4], int32_t ref[4]){
+#if defined(__x86_64__) && defined(__AVX2__) && defined(WITH_SIMD)
+  __m256i v0, v1, v2, v3, v4, v5, v6, v7 ;
+  __m256i t0, t1, s0, s1 ;
+  __m128i i0, i1 ;
+// int i ;
+// for(i=0 ; i<10 ; i++){  // loop for timings
+  v0 = _mm256_loadu_si256((__m256i *)(tile+ 0)) ;   // load 8 x 8 values from tile
+  v1 = _mm256_loadu_si256((__m256i *)(tile+ 8)) ;
+  v2 = _mm256_loadu_si256((__m256i *)(tile+16)) ;
+  v3 = _mm256_loadu_si256((__m256i *)(tile+24)) ;
+  v4 = _mm256_loadu_si256((__m256i *)(tile+32)) ;
+  v5 = _mm256_loadu_si256((__m256i *)(tile+40)) ;
+  v6 = _mm256_loadu_si256((__m256i *)(tile+48)) ;
+  v7 = _mm256_loadu_si256((__m256i *)(tile+56)) ;
+
+  t0 = _mm256_set1_epi32(ref[0]) ;
+  t1 = _mm256_set1_epi32(ref[1]) ;
+  // cmpgt result is -1 where reference is larger than value, 0 otherwise
+  s0 =                      _mm256_cmpgt_epi32(t0, v0)  ; s1 =                      _mm256_cmpgt_epi32(t1, v0)  ;
+  s0 = _mm256_add_epi32(s0, _mm256_cmpgt_epi32(t0, v1)) ; s1 = _mm256_add_epi32(s1, _mm256_cmpgt_epi32(t1, v1)) ;
+  s0 = _mm256_add_epi32(s0, _mm256_cmpgt_epi32(t0, v2)) ; s1 = _mm256_add_epi32(s1, _mm256_cmpgt_epi32(t1, v2)) ;
+  s0 = _mm256_add_epi32(s0, _mm256_cmpgt_epi32(t0, v3)) ; s1 = _mm256_add_epi32(s1, _mm256_cmpgt_epi32(t1, v3)) ;
+  s0 = _mm256_add_epi32(s0, _mm256_cmpgt_epi32(t0, v4)) ; s1 = _mm256_add_epi32(s1, _mm256_cmpgt_epi32(t1, v4)) ;
+  s0 = _mm256_add_epi32(s0, _mm256_cmpgt_epi32(t0, v5)) ; s1 = _mm256_add_epi32(s1, _mm256_cmpgt_epi32(t1, v5)) ;
+  s0 = _mm256_add_epi32(s0, _mm256_cmpgt_epi32(t0, v6)) ; s1 = _mm256_add_epi32(s1, _mm256_cmpgt_epi32(t1, v6)) ;
+  s0 = _mm256_add_epi32(s0, _mm256_cmpgt_epi32(t0, v7)) ; s1 = _mm256_add_epi32(s1, _mm256_cmpgt_epi32(t1, v7)) ;
+  // fold sums
+  i0 = _mm_add_epi32(_mm256_extracti128_si256(s0, 0) , _mm256_extracti128_si256(s0, 1)) ;
+  i1 = _mm_add_epi32(_mm256_extracti128_si256(s1, 0) , _mm256_extracti128_si256(s1, 1)) ;
+  i0 = _mm_add_epi32(i0, _mm_shuffle_epi32(i0, 0b11101110)) ;
+  i1 = _mm_add_epi32(i1, _mm_shuffle_epi32(i1, 0b11101110)) ;
+  i0 = _mm_add_epi32(i0, _mm_shuffle_epi32(i0, 0b01010101)) ;
+  i1 = _mm_add_epi32(i1, _mm_shuffle_epi32(i1, 0b01010101)) ;
+  _mm_storeu_si32(pop  , i0) ; pop[0] = -pop[0] ;  // make sum positive
+  _mm_storeu_si32(pop+1, i1) ; pop[1] = -pop[1] ;
+
+  t0 = _mm256_set1_epi32(ref[2]) ;
+  t1 = _mm256_set1_epi32(ref[3]) ;
+  s0 =                      _mm256_cmpgt_epi32(t0, v0)  ; s1 =                      _mm256_cmpgt_epi32(t1, v0)  ;
+  s0 = _mm256_add_epi32(s0, _mm256_cmpgt_epi32(t0, v1)) ; s1 = _mm256_add_epi32(s1, _mm256_cmpgt_epi32(t1, v1)) ;
+  s0 = _mm256_add_epi32(s0, _mm256_cmpgt_epi32(t0, v2)) ; s1 = _mm256_add_epi32(s1, _mm256_cmpgt_epi32(t1, v2)) ;
+  s0 = _mm256_add_epi32(s0, _mm256_cmpgt_epi32(t0, v3)) ; s1 = _mm256_add_epi32(s1, _mm256_cmpgt_epi32(t1, v3)) ;
+  s0 = _mm256_add_epi32(s0, _mm256_cmpgt_epi32(t0, v4)) ; s1 = _mm256_add_epi32(s1, _mm256_cmpgt_epi32(t1, v4)) ;
+  s0 = _mm256_add_epi32(s0, _mm256_cmpgt_epi32(t0, v5)) ; s1 = _mm256_add_epi32(s1, _mm256_cmpgt_epi32(t1, v5)) ;
+  s0 = _mm256_add_epi32(s0, _mm256_cmpgt_epi32(t0, v6)) ; s1 = _mm256_add_epi32(s1, _mm256_cmpgt_epi32(t1, v6)) ;
+  s0 = _mm256_add_epi32(s0, _mm256_cmpgt_epi32(t0, v7)) ; s1 = _mm256_add_epi32(s1, _mm256_cmpgt_epi32(t1, v7)) ;
+  i0 = _mm_add_epi32(_mm256_extracti128_si256(s0, 0) , _mm256_extracti128_si256(s0, 1)) ;
+  i1 = _mm_add_epi32(_mm256_extracti128_si256(s1, 0) , _mm256_extracti128_si256(s1, 1)) ;
+  i0 = _mm_add_epi32(i0, _mm_shuffle_epi32(i0, 0b11101110)) ;
+  i1 = _mm_add_epi32(i1, _mm_shuffle_epi32(i1, 0b11101110)) ;
+  i0 = _mm_add_epi32(i0, _mm_shuffle_epi32(i0, 0b01010101)) ;
+  i1 = _mm_add_epi32(i1, _mm_shuffle_epi32(i1, 0b01010101)) ;
+  _mm_storeu_si32(pop+2, i0) ; pop[2] = -pop[2] ;
+  _mm_storeu_si32(pop+3, i1) ; pop[3] = -pop[3] ;
+// }
+#else
+  int i0, i, ns0[8], ns1[8], ns2[8], ns3[8] ;
+// int32_t *tile0 = tile, irep ;
+// for(irep=0 ; irep<10 ; irep++){  // loop for timings
+//   tile = tile0 ;
+  for(i=0 ; i<8 ; i++) {
+    ns0[i] = ns1[i] = ns2[i] = ns3[i] = 0 ;
+  }
+  for(i0=0 ; i0<57 ; i0+=8){
+    for(i=0 ; i<8 ; i++){
+      ns0[i] += (( ref[0] > tile[i]) ? 1 : 0) ;
+      ns1[i] += (( ref[1] > tile[i]) ? 1 : 0) ;
+      ns2[i] += (( ref[2] > tile[i]) ? 1 : 0) ;
+      ns3[i] += (( ref[3] > tile[i]) ? 1 : 0) ;
+    }
+    tile += 8 ;
+  }
+  pop[0] = pop[1] = pop[2] = pop[3] = 0 ;
+  for(i=0 ; i<8 ; i++){
+    pop[0] += ns0[i] ;
+    pop[1] += ns1[i] ;
+    pop[2] += ns2[i] ;
+    pop[3] += ns3[i] ;
+  }
+// }
+#endif
+}
+
+// tile [IN] : array of 32 bit elements to be compared with 4 reference values
+// n    [IN] : size of tile
+// pop [OUT] : 4 element array to receive population counts
+// ref  [IN] : 4 element array containing reference values
+// pop[i] will receive the number of values in tile < ref[i]
+void tile_population(int32_t *tile, int n, int32_t pop[4], int32_t ref[4]){
+  int i0, i, ns0[8], ns1[8], ns2[8], ns3[8] ;
+
+  if(n == 64){  // full 8x8 tile
+    tile_population_64(tile, pop, ref) ;
+    return ;
+  }
+// int32_t *tile0 = tile, irep ;
+// for(irep=0 ; irep<10 ; irep++){  // loop for timings
+//   tile = tile0 ;
+  for(i=0 ; i<8 ; i++) {ns0[i] = ns1[i] = ns2[i] = ns3[i] = 0 ; }
+  for(i0=0 ; i0<n-7 ; i0+=8){
+    for(i=0 ; i<8 ; i++){
+      ns0[i] += (( ref[0] > tile[i]) ? 1 : 0) ;
+      ns1[i] += (( ref[1] > tile[i]) ? 1 : 0) ;
+      ns2[i] += (( ref[2] > tile[i]) ? 1 : 0) ;
+      ns3[i] += (( ref[3] > tile[i]) ? 1 : 0) ;
+    }
+    tile += 8 ;
+  }
+  for(i=0 ; i<(n&7) ; i++){
+    ns0[i] += (( ref[0] > tile[i]) ? 1 : 0) ;
+    ns1[i] += (( ref[1] > tile[i]) ? 1 : 0) ;
+    ns2[i] += (( ref[2] > tile[i]) ? 1 : 0) ;
+    ns3[i] += (( ref[3] > tile[i]) ? 1 : 0) ;
+  }
+  for(i=0 ; i<4 ; i++) pop[i] = 0 ;
+  for(i=0 ; i<8 ; i++){
+    pop[0] += ns0[i] ;
+    pop[1] += ns1[i] ;
+    pop[2] += ns2[i] ;
+    pop[3] += ns3[i] ;
+  }
+// dumb C version, kept for reference
+//   pop[0] = pop[1] = pop[2] = pop[3] = 0 ;
+//   for(i=0 ; i<n ; i++){
+//     pop[0] += (( ref[0] > tile[i]) ? 1 : 0) ;
+//     pop[1] += (( ref[1] > tile[i]) ? 1 : 0) ;
+//     pop[2] += (( ref[2] > tile[i]) ? 1 : 0) ;
+//     pop[3] += (( ref[3] > tile[i]) ? 1 : 0) ;
+//   }
+// }
 }
 
 // gather tile to be encoded, determine useful data properties
@@ -214,15 +360,16 @@ constant:
 // X86_64 AVX2 version, 8 x 8 tiles only (ni == 8, nj == 8) (FULL TILE)
 // NOTE: for a 1D full tile, ni = 8, nj = 8, lni = ni
 //       otherwise, for a 1D tile, nj = 1, 1 <= ni <= 64, lni = ni
+// TODO: npti, nptj or npij ?
 uint64_t encode_tile_properties(void *f, int ni, int lni, int nj, uint32_t tile[64]){
   uint32_t *block = (uint32_t *)f ;
-  int32_t pos, neg, nshort, nzero ;
+  int32_t pos, neg, nshort, nzero, nshort1 ;
   uint32_t max, min, nbits, nbits0, mask0 ;
   tile_properties p ;
 
 #if defined(__x86_64__) && defined(__AVX2__) && defined(WITH_SIMD)
   __m256i v0, v1, v2, v3, v4, v5, v6, v7 ;
-  __m256i vp, vn, vz, vs, vm0, vmax, vmin, vz0 ;
+  __m256i vp, vn, vz, vs, vm0, vm1, vmax, vmin, vz0 ;
   __m128i v128 ;
 
   if(ni != 8 || nj != 8) return encode_tile_properties_c(f, ni, lni, nj, tile) ; // not a full 8x8 tile
@@ -270,7 +417,7 @@ uint64_t encode_tile_properties(void *f, int ni, int lni, int nj, uint32_t tile[
   v128 = _mm_min_epu32( _mm256_extractf128_si256 (vmin, 0) ,  _mm256_extractf128_si256 (vmin, 1) ) ;  // reduce to 1 value for min
   v128 = _mm_min_epu32(v128, _mm_shuffle_epi32(v128, 0b11101110) ) ; // [0,1,2,3] [2,2,2,3]
   v128 = _mm_min_epu32(v128, _mm_shuffle_epi32(v128, 0b01010101) ) ; // [0,1,2,3] [1,1,1,1]
-  vmin = _mm256_broadcastd_epi32(v128) ;
+  vmin = _mm256_broadcastd_epi32(v128) ;                             // [0,0,0,0,0,0,0,0]
   _mm_storeu_si32(&min, v128) ;
 
   v128 = _mm_max_epu32( _mm256_extractf128_si256 (vmax, 0) ,  _mm256_extractf128_si256 (vmax, 1) ) ;  // reduce to 1 value for max
@@ -338,27 +485,41 @@ uint64_t encode_tile_properties(void *f, int ni, int lni, int nj, uint32_t tile[
   vz = _mm256_add_epi32(vz, _mm256_cmpeq_epi32(v6, vz0)) ;
   vz = _mm256_add_epi32(vz, _mm256_cmpeq_epi32(v7, vz0)) ;
   v128 = _mm_add_epi32(_mm256_extractf128_si256 (vz, 0) ,  _mm256_extractf128_si256 (vz, 1)) ;
-  v128 = _mm_add_epi32(v128,  _mm_shuffle_epi32(v128, 0b11101110) ) ; // [0,1,2,3] [2,2,2,3]
+  v128 = _mm_add_epi32(v128,  _mm_shuffle_epi32(v128, 0b11101110) ) ; // [0,1,2,3] [2,3,2,3]
   v128 = _mm_add_epi32(v128,  _mm_shuffle_epi32(v128, 0b01010101) ) ; // [0,1,2,3] [1,1,1,1]
   _mm_storeu_si32(&nzero, v128) ; p.t.nzero = -nzero ;
-
   nbits0 = (nbits + NB0) >> 1 ;     // number of bits for "short" values
-  mask0 = RMASK31(nbits0) ;         // value & ~mask0 will be 0 if nbits0 or less bits are needed
-  mask0 = ~mask0 ;                  // keep only the upper bits
+  mask0 = 1 << nbits0 ;             // look for mask0 > value
+//   mask0 = RMASK31(nbits0) ;         // value & ~mask0 will be 0 if nbits0 or less bits are needed
+//   mask0 = ~mask0 ;                  // keep only the upper bits
   vm0 = _mm256_set1_epi32(mask0) ;  // vector of mask0
+  vm1 = _mm256_srli_epi32(vm0,1) ;  // reflects nbits0 - 1
 
-  vs = _mm256_cmpeq_epi32(_mm256_and_si256(v0, vm0), vz0) ;  // count values <= mask0
-  vs = _mm256_add_epi32(vs, _mm256_cmpeq_epi32(_mm256_and_si256(v1, vm0), vz0)) ;
-  vs = _mm256_add_epi32(vs, _mm256_cmpeq_epi32(_mm256_and_si256(v2, vm0), vz0)) ;
-  vs = _mm256_add_epi32(vs, _mm256_cmpeq_epi32(_mm256_and_si256(v3, vm0), vz0)) ;
-  vs = _mm256_add_epi32(vs, _mm256_cmpeq_epi32(_mm256_and_si256(v4, vm0), vz0)) ;
-  vs = _mm256_add_epi32(vs, _mm256_cmpeq_epi32(_mm256_and_si256(v5, vm0), vz0)) ;
-  vs = _mm256_add_epi32(vs, _mm256_cmpeq_epi32(_mm256_and_si256(v6, vm0), vz0)) ;
-  vs = _mm256_add_epi32(vs, _mm256_cmpeq_epi32(_mm256_and_si256(v7, vm0), vz0)) ;
+  vs =                      _mm256_cmpgt_epi32(vm0, v0)  ; vz =                      _mm256_cmpgt_epi32(vm1, v0)  ; // count values < mask[01]
+  vs = _mm256_add_epi32(vs, _mm256_cmpgt_epi32(vm0, v1)) ; vz = _mm256_add_epi32(vz, _mm256_cmpgt_epi32(vm1, v1)) ;
+  vs = _mm256_add_epi32(vs, _mm256_cmpgt_epi32(vm0, v2)) ; vz = _mm256_add_epi32(vz, _mm256_cmpgt_epi32(vm1, v2)) ;
+  vs = _mm256_add_epi32(vs, _mm256_cmpgt_epi32(vm0, v3)) ; vz = _mm256_add_epi32(vz, _mm256_cmpgt_epi32(vm1, v3)) ;
+  vs = _mm256_add_epi32(vs, _mm256_cmpgt_epi32(vm0, v4)) ; vz = _mm256_add_epi32(vz, _mm256_cmpgt_epi32(vm1, v4)) ;
+  vs = _mm256_add_epi32(vs, _mm256_cmpgt_epi32(vm0, v5)) ; vz = _mm256_add_epi32(vz, _mm256_cmpgt_epi32(vm1, v5)) ;
+  vs = _mm256_add_epi32(vs, _mm256_cmpgt_epi32(vm0, v6)) ; vz = _mm256_add_epi32(vz, _mm256_cmpgt_epi32(vm1, v6)) ;
+  vs = _mm256_add_epi32(vs, _mm256_cmpgt_epi32(vm0, v7)) ; vz = _mm256_add_epi32(vz, _mm256_cmpgt_epi32(vm1, v7)) ;
+//   vs = _mm256_cmpeq_epi32(_mm256_and_si256(v0, vm0), vz0) ;  // count values <= mask0
+//   vs = _mm256_add_epi32(vs, _mm256_cmpeq_epi32(_mm256_and_si256(v1, vm0), vz0)) ;
+//   vs = _mm256_add_epi32(vs, _mm256_cmpeq_epi32(_mm256_and_si256(v2, vm0), vz0)) ;
+//   vs = _mm256_add_epi32(vs, _mm256_cmpeq_epi32(_mm256_and_si256(v3, vm0), vz0)) ;
+//   vs = _mm256_add_epi32(vs, _mm256_cmpeq_epi32(_mm256_and_si256(v4, vm0), vz0)) ;
+//   vs = _mm256_add_epi32(vs, _mm256_cmpeq_epi32(_mm256_and_si256(v5, vm0), vz0)) ;
+//   vs = _mm256_add_epi32(vs, _mm256_cmpeq_epi32(_mm256_and_si256(v6, vm0), vz0)) ;
+//   vs = _mm256_add_epi32(vs, _mm256_cmpeq_epi32(_mm256_and_si256(v7, vm0), vz0)) ;
   v128 = _mm_add_epi32(_mm256_extractf128_si256 (vs, 0) ,  _mm256_extractf128_si256 (vs, 1)) ;
-  v128 = _mm_add_epi32(v128,  _mm_shuffle_epi32(v128, 0b11101110) ) ; // [0,1,2,3] [2,2,2,3]
+  v128 = _mm_add_epi32(v128,  _mm_shuffle_epi32(v128, 0b11101110) ) ; // [0,1,2,3] [2,3,2,3]
   v128 = _mm_add_epi32(v128,  _mm_shuffle_epi32(v128, 0b01010101) ) ; // [0,1,2,3] [1,1,1,1]
   _mm_storeu_si32(&nshort, v128) ; p.t.nshort = -nshort ;
+
+  v128 = _mm_add_epi32(_mm256_extractf128_si256 (vz, 0) ,  _mm256_extractf128_si256 (vz, 1)) ;
+  v128 = _mm_add_epi32(v128,  _mm_shuffle_epi32(v128, 0b11101110) ) ; // [0,1,2,3] [2,3,2,3]
+  v128 = _mm_add_epi32(v128,  _mm_shuffle_epi32(v128, 0b01010101) ) ; // [0,1,2,3] [1,1,1,1]
+  _mm_storeu_si32(&nshort1, v128) ; nshort1 = -nshort1 ;
 
   return encode_tile_scheme(p.u64) ;
 
@@ -380,6 +541,7 @@ constant:
 // tile [IN] : pre extracted tile (1->64 values)
 // return total number of bits added to bit stream
 // if not enough room in stream, return a negative error reflecting the number of extra bits needed
+// TODO: npti, nptj or npij ?
 int32_t encode_contiguous(uint64_t tp64, bitstream *s, uint32_t tile[64]){
   STREAM_DCL_STATE_VARS(accum, insert, stream) ;
   STREAM_GET_INSERT_STATE(*s, accum, insert, stream) ;
@@ -547,6 +709,7 @@ int32_t encode_as_tiles(void *f, int ni, int lni, int nj, bitstream *s){
 // nj    [IN] : second dimension of array f
 // s  [INOUT] : bit stream
 // return the number of bits extracted from the bit stream
+// TODO: npti, nptj or npij ?
 int32_t decode_tile(void *f, int *ni, int lni, int *nj, bitstream *s){
   int32_t *fi = (int32_t *) f ;
 //   uint32_t *fu = (uint32_t *) f ;

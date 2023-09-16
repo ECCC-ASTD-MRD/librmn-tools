@@ -68,6 +68,7 @@
 // for a 1D tile, npti and nptj are to be interpreted as ni = 1 + npti + 8 * nptj, nj = 1
 // for a 2D tile, ni = npti + 1, nj = nptj + 1
 // if both npti == 7 and nptj == 7, it does not matter, we have a full 64 value block
+// TODO: npti, nptj or npij ?
 typedef struct{
   uint16_t nbts: 5,      // number of bits per token - 1
            sign: 2,      // 00 all == 0, 01 all >= 0, 10 all < 0, 11 ZigZag
@@ -89,7 +90,7 @@ CT_ASSERT(2 == sizeof(tile_header))
 // tile properties for encoding (includes tile header)
 typedef struct{
       uint32_t min ;                // u32[0]
-      uint16_t nzero:8, nshort:8 ;  // u16[2]
+      uint16_t nzero:7, nshort:7, qshort: 2 ;  // u16[2]
       tile_head h ;                 // u16[3]
 } tile_parms ;
 CT_ASSERT(8 == sizeof(tile_parms))
@@ -103,6 +104,7 @@ typedef union{
 CT_ASSERT(8 == sizeof(tile_properties))
 
 // uint64_t encode_tile_scheme(uint64_t p64);
+void tile_population(int32_t *tile, int n, int32_t pop[4], int32_t ref[4]);
 uint64_t encode_tile_properties(void *field, int ni, int lni, int nj, uint32_t tile[64]);
 void print_tile_properties(uint64_t p64);
 
