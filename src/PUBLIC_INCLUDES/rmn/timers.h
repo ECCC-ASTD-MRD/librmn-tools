@@ -81,8 +81,8 @@ STATIC double inline cycles_to_ns(uint64_t t){
   } \
   timer_min = mint ; timer_max = maxt ; timer_avg = avgt/iter ; \
   if(npts > 0 && timer_msg != NULL) \
-    snprintf(timer_msg, (size_t)timer_msg_size, " npts = %d, niter = %d, ns = %6.0f (%6.0f), %6.2f ns/pt", \
-             npts, iter, timer_min*NaNoSeC, timer_avg*NaNoSeC, timer_avg*NaNoSeC/(npts)) ; \
+    snprintf(timer_msg, (size_t)timer_msg_size, " npts = %d, niter = %d, ns = %6.0f (%6.0f), %6.2f (%6.2f) ns/pt", \
+             npts, iter, timer_min*NaNoSeC, timer_avg*NaNoSeC, timer_min*NaNoSeC/(npts), timer_avg*NaNoSeC/(npts)) ; \
 }
 #define TIME_LOOP_BOT_EZ(npts) TIME_LOOP_BOT(timer_min, timer_max, timer_avg, npts, timer_msg, timer_msg_size)
 #define TIME_ONCE_BOT(npts, timer_msg, timer_msg_size) \
