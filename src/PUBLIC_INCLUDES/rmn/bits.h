@@ -117,6 +117,16 @@ STATIC inline uint32_t lzcnt_32(uint32_t what){
   return cnt ;
 }
 
+// number of bits needed to encode an unsigned 32 bit integer (minimum 1)
+STATIC inline uint32_t encodebits_32(uint32_t what){
+  uint32_t nbits = 32 - lzcnt_32(what) ;
+  return nbits ? nbits : 1 ;  // if nbits == 0, return 1
+}
+// position of most significant 1 bit in unsigned 32 bit integer (-1 if what ==0)
+STATIC inline int32_t msb1_32(uint32_t what){
+  return 31 - lzcnt_32(what) ;
+}
+
 // leading ones count (32 bit word)
 STATIC inline uint32_t lnzcnt_32(uint32_t what){
   return lzcnt_32(~what) ;
@@ -145,6 +155,16 @@ STATIC inline uint32_t lzcnt_64(uint64_t what){
    if(what) cnt-- ;                            // bit 0 not 0 ;
 #endif
   return cnt ;
+}
+
+// number of bits needed to encode an unsigned 64 bit integer (minimum 1)
+STATIC inline uint32_t encodebits_64(uint32_t what){
+  uint32_t nbits = 64 - lzcnt_64(what) ;
+  return nbits ? nbits : 1 ;  // if nbits == 0, return 1
+}
+// position of most significant 1 bit in unsigned 64 bit integer (-1 if what ==0)
+STATIC inline int32_t msb1_64(uint32_t what){
+  return 63 - lzcnt_64(what) ;
 }
 
 // leading ones count (64 bit word)
