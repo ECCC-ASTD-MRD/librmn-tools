@@ -363,8 +363,8 @@ void tile_population(int32_t *tile, int n, int32_t pop[4], int32_t ref[4]){
 // TODO: npti, nptj or npij ?
 uint64_t encode_tile_properties(void *f, int ni, int lni, int nj, uint32_t tile[64]){
   uint32_t *block = (uint32_t *)f ;
-  int32_t pos, neg, nshort, nzero, nshort1 ;
-  uint32_t max, min, nbits, nbits0, mask0 ;
+  int32_t pos, neg, nzero ;
+  uint32_t max, min, nbits, nbits0, nshort, nsaved, bshort ;
   tile_properties p ;
 
 #if defined(__x86_64__) && defined(__AVX2__) && defined(WITH_SIMD)
@@ -476,6 +476,8 @@ uint64_t encode_tile_properties(void *f, int ni, int lni, int nj, uint32_t tile[
   p.t.h.encd = 0 ;
   vz0 = _mm256_xor_si256(v0, v0) ;  // vector of zeros
 
+  uint32_t ref[4], kount, bsaved ;
+
   vz = _mm256_cmpeq_epi32(v0, vz0) ;                         // count zero values
   vz = _mm256_add_epi32(vz, _mm256_cmpeq_epi32(v1, vz0)) ;
   vz = _mm256_add_epi32(vz, _mm256_cmpeq_epi32(v2, vz0)) ;
@@ -487,15 +489,22 @@ uint64_t encode_tile_properties(void *f, int ni, int lni, int nj, uint32_t tile[
   v128 = _mm_add_epi32(_mm256_extractf128_si256 (vz, 0) ,  _mm256_extractf128_si256 (vz, 1)) ;
   v128 = _mm_add_epi32(v128,  _mm_shuffle_epi32(v128, 0b11101110) ) ; // [0,1,2,3] [2,3,2,3]
   v128 = _mm_add_epi32(v128,  _mm_shuffle_epi32(v128, 0b01010101) ) ; // [0,1,2,3] [1,1,1,1]
-  _mm_storeu_si32(&nzero, v128) ; p.t.nzero = -nzero ;
-  nbits0 = (nbits + NB0) >> 1 ;     // number of bits for "short" values
-  mask0 = 1 << nbits0 ;             // look for mask0 > value
-//   mask0 = RMASK31(nbits0) ;         // value & ~mask0 will be 0 if nbits0 or less bits are needed
-//   mask0 = ~mask0 ;                  // keep only the upper bits
-  vm0 = _mm256_set1_epi32(mask0) ;  // vector of mask0
-  vm1 = _mm256_srli_epi32(vm0,1) ;  // reflects nbits0 - 1
+  nzero = _mm_cvtsi128_si32(v128) ; nsaved = nbits * nzero + 64 ;
+  nshort = nzero ; bshort = 0 ;
+//   _mm_storeu_si32(&nzero, v128) ; p.t.nzero = -nzero ;
+//   nshort = nzero ; nsaved = nbits * nzero + 64 ; bshort = 0 ;
 
-  vs =                      _mm256_cmpgt_epi32(vm0, v0)  ; vz =                      _mm256_cmpgt_epi32(vm1, v0)  ; // count values < mask[01]
+  nbits0 = (nbits + NB0) >> 1 ;     // number of bits for "short" values
+  ref[0] = 1 << nbits0 ;            // will look for ref[0] > value  (nbits0)
+  ref[1] = ref[0] >> 1 ;            // will look for ref[1] > value  (nbits0 - 1)
+  ref[2] = ref[0] << 1 ;            // will look for ref[2] > value  (nbits0 + 1)
+  ref[2] = ref[1] >> 1 ;            // will look for ref[2] > value  (nbits0 - 2)
+//   ref[0] = RMASK31(nbits0) ;        // value & ~ref[0] will be 0 if nbits0 or less bits are needed
+//   ref[0] = ~ref[0] ;                // keep only the upper bits
+  vm0 = _mm256_set1_epi32(ref[0]) ; // vector of ref[0] (reflects nbits0)
+  vm1 = _mm256_set1_epi32(ref[1]);  // vector of ref[1] (reflects nbits0 - 1)
+  // count values < mask[01]
+  vs =                      _mm256_cmpgt_epi32(vm0, v0)  ; vz =                      _mm256_cmpgt_epi32(vm1, v0)  ;
   vs = _mm256_add_epi32(vs, _mm256_cmpgt_epi32(vm0, v1)) ; vz = _mm256_add_epi32(vz, _mm256_cmpgt_epi32(vm1, v1)) ;
   vs = _mm256_add_epi32(vs, _mm256_cmpgt_epi32(vm0, v2)) ; vz = _mm256_add_epi32(vz, _mm256_cmpgt_epi32(vm1, v2)) ;
   vs = _mm256_add_epi32(vs, _mm256_cmpgt_epi32(vm0, v3)) ; vz = _mm256_add_epi32(vz, _mm256_cmpgt_epi32(vm1, v3)) ;
@@ -503,24 +512,60 @@ uint64_t encode_tile_properties(void *f, int ni, int lni, int nj, uint32_t tile[
   vs = _mm256_add_epi32(vs, _mm256_cmpgt_epi32(vm0, v5)) ; vz = _mm256_add_epi32(vz, _mm256_cmpgt_epi32(vm1, v5)) ;
   vs = _mm256_add_epi32(vs, _mm256_cmpgt_epi32(vm0, v6)) ; vz = _mm256_add_epi32(vz, _mm256_cmpgt_epi32(vm1, v6)) ;
   vs = _mm256_add_epi32(vs, _mm256_cmpgt_epi32(vm0, v7)) ; vz = _mm256_add_epi32(vz, _mm256_cmpgt_epi32(vm1, v7)) ;
-//   vs = _mm256_cmpeq_epi32(_mm256_and_si256(v0, vm0), vz0) ;  // count values <= mask0
-//   vs = _mm256_add_epi32(vs, _mm256_cmpeq_epi32(_mm256_and_si256(v1, vm0), vz0)) ;
-//   vs = _mm256_add_epi32(vs, _mm256_cmpeq_epi32(_mm256_and_si256(v2, vm0), vz0)) ;
-//   vs = _mm256_add_epi32(vs, _mm256_cmpeq_epi32(_mm256_and_si256(v3, vm0), vz0)) ;
-//   vs = _mm256_add_epi32(vs, _mm256_cmpeq_epi32(_mm256_and_si256(v4, vm0), vz0)) ;
-//   vs = _mm256_add_epi32(vs, _mm256_cmpeq_epi32(_mm256_and_si256(v5, vm0), vz0)) ;
-//   vs = _mm256_add_epi32(vs, _mm256_cmpeq_epi32(_mm256_and_si256(v6, vm0), vz0)) ;
-//   vs = _mm256_add_epi32(vs, _mm256_cmpeq_epi32(_mm256_and_si256(v7, vm0), vz0)) ;
+
   v128 = _mm_add_epi32(_mm256_extractf128_si256 (vs, 0) ,  _mm256_extractf128_si256 (vs, 1)) ;
   v128 = _mm_add_epi32(v128,  _mm_shuffle_epi32(v128, 0b11101110) ) ; // [0,1,2,3] [2,3,2,3]
   v128 = _mm_add_epi32(v128,  _mm_shuffle_epi32(v128, 0b01010101) ) ; // [0,1,2,3] [1,1,1,1]
-  _mm_storeu_si32(&nshort, v128) ; p.t.nshort = -nshort ;
+  kount = _mm_cvtsi128_si32(v128) ; bsaved = (nbits - nbits0    ) * kount + 69 ;
+  if(bsaved < nsaved){ nshort = kount ; nsaved = bsaved ; bshort = nbits0 ; }
+//   _mm_storeu_si32(count+0, v128) ; saved[0] = (nbits - nbits0    ) * count[0] + 69 ;
 
   v128 = _mm_add_epi32(_mm256_extractf128_si256 (vz, 0) ,  _mm256_extractf128_si256 (vz, 1)) ;
   v128 = _mm_add_epi32(v128,  _mm_shuffle_epi32(v128, 0b11101110) ) ; // [0,1,2,3] [2,3,2,3]
   v128 = _mm_add_epi32(v128,  _mm_shuffle_epi32(v128, 0b01010101) ) ; // [0,1,2,3] [1,1,1,1]
-  _mm_storeu_si32(&nshort1, v128) ; nshort1 = -nshort1 ;
+  kount = _mm_cvtsi128_si32(v128) ; bsaved = (nbits - nbits0 + 1) * kount + 69 ;
+  if(bsaved < nsaved){ nshort = kount ; nsaved = bsaved ; bshort = nbits0-1 ; }
+//   _mm_storeu_si32(count+1, v128) ; saved[1] = (nbits - nbits0 + 1) * count[1] + 69 ;
+//   if(saved[1] < nsaved){     // pick the best of zero bits / nbits0-1 bits
+//     nshort = count[1] ; nsaved = saved[1] ; bshort = nbits0-1 ;
+//   }
+  if(nbits < 8) goto end ;
 
+  vm0 = _mm256_set1_epi32(ref[2]) ; // vector of ref[2] (reflects nbits0 + 1)
+  vm1 = _mm256_set1_epi32(ref[3]);  // vector of ref[3] (reflects nbits0 - 2)
+  // count values < mask[23]
+  vs =                      _mm256_cmpgt_epi32(vm0, v0)  ; vz =                      _mm256_cmpgt_epi32(vm1, v0)  ;
+  vs = _mm256_add_epi32(vs, _mm256_cmpgt_epi32(vm0, v1)) ; vz = _mm256_add_epi32(vz, _mm256_cmpgt_epi32(vm1, v1)) ;
+  vs = _mm256_add_epi32(vs, _mm256_cmpgt_epi32(vm0, v2)) ; vz = _mm256_add_epi32(vz, _mm256_cmpgt_epi32(vm1, v2)) ;
+  vs = _mm256_add_epi32(vs, _mm256_cmpgt_epi32(vm0, v3)) ; vz = _mm256_add_epi32(vz, _mm256_cmpgt_epi32(vm1, v3)) ;
+  vs = _mm256_add_epi32(vs, _mm256_cmpgt_epi32(vm0, v4)) ; vz = _mm256_add_epi32(vz, _mm256_cmpgt_epi32(vm1, v4)) ;
+  vs = _mm256_add_epi32(vs, _mm256_cmpgt_epi32(vm0, v5)) ; vz = _mm256_add_epi32(vz, _mm256_cmpgt_epi32(vm1, v5)) ;
+  vs = _mm256_add_epi32(vs, _mm256_cmpgt_epi32(vm0, v6)) ; vz = _mm256_add_epi32(vz, _mm256_cmpgt_epi32(vm1, v6)) ;
+  vs = _mm256_add_epi32(vs, _mm256_cmpgt_epi32(vm0, v7)) ; vz = _mm256_add_epi32(vz, _mm256_cmpgt_epi32(vm1, v7)) ;
+
+  v128 = _mm_add_epi32(_mm256_extractf128_si256 (vs, 0) ,  _mm256_extractf128_si256 (vs, 1)) ;
+  v128 = _mm_add_epi32(v128,  _mm_shuffle_epi32(v128, 0b11101110) ) ; // [0,1,2,3] [2,3,2,3]
+  v128 = _mm_add_epi32(v128,  _mm_shuffle_epi32(v128, 0b01010101) ) ; // [0,1,2,3] [1,1,1,1]
+  kount = _mm_cvtsi128_si32(v128) ; bsaved = (nbits - nbits0 - 1) * kount + 69 ;
+  if(bsaved < nsaved){ nshort = kount ; nsaved = bsaved ; bshort = nbits0+1 ; }
+//   _mm_storeu_si32(count+2, v128) ;  saved[2] = (nbits - nbits0 - 1) * count[2] + 69 ;
+//   if(saved[2] < nsaved){     // pick the best of zero bits / nbits0+1 bits
+//     nshort = count[2] ; nsaved = saved[2] ; bshort = nbits0 ;
+//   }
+
+  v128 = _mm_add_epi32(_mm256_extractf128_si256 (vz, 0) ,  _mm256_extractf128_si256 (vz, 1)) ;
+  v128 = _mm_add_epi32(v128,  _mm_shuffle_epi32(v128, 0b11101110) ) ; // [0,1,2,3] [2,3,2,3]
+  v128 = _mm_add_epi32(v128,  _mm_shuffle_epi32(v128, 0b01010101) ) ; // [0,1,2,3] [1,1,1,1]
+  kount = _mm_cvtsi128_si32(v128) ; bsaved = (nbits - nbits0 + 2) * kount + 69 ;
+  if(bsaved < nsaved){ nshort = kount ; nsaved = bsaved ; bshort = nbits0-2 ; }
+//   _mm_storeu_si32(count+3, v128) ;  saved[3] = (nbits - nbits0 + 2) * count[3] + 69 ;
+//   if(saved[3] < nsaved){     // pick the best of zero bits / nbits0-2 bits
+//     nshort = count[3] ; nsaved = saved[3] ; bshort = nbits0 ;
+//   }
+
+end:
+  p.t.nzero  = - nzero ;
+  p.t.nshort = -nshort ;
   return encode_tile_scheme(p.u64) ;
 
 constant:
