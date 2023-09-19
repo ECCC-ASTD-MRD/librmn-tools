@@ -6,6 +6,7 @@
 #include <fcntl.h>
 #include <string.h>
 #include <strings.h>
+#include <ctype.h>
 
 #include <rmn/test_helpers.h>
 #include <rmn/misc_operators.h>
@@ -107,11 +108,11 @@ end:
   update_error_stats(f, t, -ni*nj, e1) ;
 
   e0->bias /= e0->ndata ; e0->abs_error /= e0->ndata ; e0->sum /= e0->ndata ;
-  fprintf(stderr, "name = %c%c, ndata = %d, bias = %f, abs_error = %f, max_error = %f, avg = %f\n", 
+  fprintf(stderr, "[e0] name = %c%c, ndata = %d, bias = %f, abs_error = %f, max_error = %f, avg = %f\n", 
           name[0], name[1], e0->ndata, e0->bias, e0->abs_error, e0->max_error, e0->sum) ;
 
   e1->bias /= e1->ndata ; e1->abs_error /= e1->ndata ; e1->sum /= e1->ndata ;
-  fprintf(stderr, "name = %c%c, ndata = %d, bias = %f, abs_error = %f, max_error = %f, avg = %f\n", 
+  fprintf(stderr, "[e1] name = %c%c, ndata = %d, bias = %f, abs_error = %f, max_error = %f, avg = %f\n", 
           name[0], name[1], e1->ndata, e1->bias, e1->abs_error, e1->max_error, e1->sum) ;
 return ;
 
@@ -178,6 +179,9 @@ int main(int argc, char **argv){
   bitstream **streams ;
   compressed_field field ;
   compress_rules rules ;
+  char ca ;
+  char *nomvar = NULL ;
+  char vn[4] ;
 
   start_of_test(argv[0]);
   for(j=0 ; j<NPTSJ ; j++){
@@ -195,22 +199,31 @@ int main(int argc, char **argv){
 //   fprintf(stderr, "ndata = %d, bias = %f, abs_error = %f, max_error = %f, avg = %f\n", e.ndata, e.bias, e.abs_error, e.max_error, e.sum) ;
 
   for(i=1 ; i<argc ; i++){
+    ca = *argv[i] ;
+    if( (! isalpha(ca)) &&  (ca != '.') && (ca != '/') ){
+      fprintf(stderr, "option = '%s'\n", argv[i]) ;
+      if(ca == '=') nomvar = argv[i] + 1 ;
+      continue ;
+    }
     fd = 0 ;
     ndim = 0 ;
-    buf = read_32bit_data_record(argv[i], &fd, dims, &ndim, &ndata) ;
+    vn[0] = vn[1] = vn[2] = vn[3] = ' ' ;
+    buf = read_32bit_data_record_named(argv[i], &fd, dims, &ndim, &ndata, vn) ;
     fprintf(stderr, "file = '%s', fd = %d\n", argv[i], fd) ;
     while(buf != NULL){
       fprintf(stderr, "number of dimensions = %d : (", ndim) ;
-      for(j=0 ; j<ndim ; j++) fprintf(stderr, "%d ", dims[j]) ; fprintf(stderr, ") [%d]\n", ndata);
+      for(j=0 ; j<ndim ; j++) fprintf(stderr, "%d ", dims[j]) ; fprintf(stderr, ") [%d], name = '%c%c%c%c'\n", ndata, vn[0], vn[1], vn[2], vn[3]);
       if(ndim == 2){
-        process_data_2d(buf, dims[0], dims[1], &e, argv[i]) ;
+//         process_data_2d(buf, dims[0], dims[1], &e, nomvar ? nomvar : argv[i]) ;
 //         field = compress_2d_data(buf, dims[0], dims[0], dims[1], rules) ;
       }
-      free(buf) ;
+      free(buf) ;    // done with this record
 // break ;   // only one record for now
-      fprintf(stderr, "reading next record, fd = %d\n", fd);
-      buf = read_32bit_data_record("", &fd, dims, &ndim, &ndata) ;
+//       fprintf(stderr, "reading next record, fd = %d\n", fd);
+      vn[0] = vn[1] = vn[2] = vn[3] = ' ' ;
+      buf = read_32bit_data_record_named("", &fd, dims, &ndim, &ndata, vn) ;
     }
+    nomvar = NULL ;
     if(ndata == 0) {
       fprintf(stderr, "end of file = '%s', close status = %d\n", argv[i], close(fd)) ;
     }else{
