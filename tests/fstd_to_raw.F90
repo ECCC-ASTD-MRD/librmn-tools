@@ -114,7 +114,7 @@ program fstd_to_raw
   enddo        ! while(key >= 0)
   write(6,*)'number of records processed:',irec,' out of',nrec
   fd = -fd
-  fdstatus = write_32bit_data_record_named("", fd, [0], 0, C_NULL_PTR, "") ! dummy call to close output file
+  fdstatus = write_32bit_data_record_named(""//achar(0), fd, [0], 0, C_NULL_PTR, ""//achar(0)) ! dummy call to close output file
   if(iun .ne. 0) call fstfrm(iun)       ! close input file
   stop
 999 continue
