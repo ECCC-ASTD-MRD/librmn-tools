@@ -114,7 +114,7 @@ quantum = 0.1f ;
   h64 = IEEE32_linear_quantize_2(fi, NPTS, quantum > 0 ? 0 : nbits_test, quantum*.5f, qu) ;
   hieee.u = h64 ;
   for(i=0 ; i<NPTS ; i++) fprintf(stderr, " %5d", qu[i]) ; fprintf(stderr, "\n") ;
-  IEEE32_linear_unquantize_2(qu, h64, NPTS, fo) ;
+  IEEE32_linear_restore_2(qu, h64, NPTS, fo) ;
   for(i=0 ; i<NPTS ; i++) FO[i] = (fo[i] < 0) ? fo[i] + baseval : fo[i] - baseval ;
   for(i=0 ; i<NPTS ; i++) fprintf(stderr, " %5.2f", fo[i]) ; fprintf(stderr, "\n") ;
   for(i=0 ; i<NPTS ; i++) fprintf(stderr, " %5.2f", FO[i]) ; fprintf(stderr, "\n") ;
@@ -136,17 +136,17 @@ quantum = 0.1f ;
   fprintf(stderr, "IEEE32_linear_quantize_2    : %s\n",timer_msg);
 
   h64 = IEEE32_linear_quantize_2(fi, NPTST, 16, .1f, qu) ;
-  TIME_LOOP_EZ(1000, NPTST, IEEE32_linear_unquantize_2(qu, h64, NPTST, fo) ;) ;
-  fprintf(stderr, "IEEE32_linear_unquantize_2  : %s\n",timer_msg);
+  TIME_LOOP_EZ(1000, NPTST, IEEE32_linear_restore_2(qu, h64, NPTST, fo) ;) ;
+  fprintf(stderr, "IEEE32_linear_restore_2  : %s\n",timer_msg);
   h64 = IEEE32_linear_quantize_2(fi, NPTST/2, 16, .1f, qu) ;
-  TIME_LOOP_EZ(1000, NPTST/2, IEEE32_linear_unquantize_2(qu, h64, NPTST/2, fo) ;) ;
-  fprintf(stderr, "IEEE32_linear_unquantize_2  : %s\n",timer_msg);
+  TIME_LOOP_EZ(1000, NPTST/2, IEEE32_linear_restore_2(qu, h64, NPTST/2, fo) ;) ;
+  fprintf(stderr, "IEEE32_linear_restore_2  : %s\n",timer_msg);
   h64 = IEEE32_linear_quantize_2(fi, NPTST/4, 16, .1f, qu) ;
-  TIME_LOOP_EZ(1000, NPTST/4, IEEE32_linear_unquantize_2(qu, h64, NPTST/4, fo) ;) ;
-  fprintf(stderr, "IEEE32_linear_unquantize_2  : %s\n",timer_msg);
+  TIME_LOOP_EZ(1000, NPTST/4, IEEE32_linear_restore_2(qu, h64, NPTST/4, fo) ;) ;
+  fprintf(stderr, "IEEE32_linear_restore_2  : %s\n",timer_msg);
   h64 = IEEE32_linear_quantize_2(fi, NPTST/8, 16, .1f, qu) ;
-  TIME_LOOP_EZ(1000, NPTST/8, IEEE32_linear_unquantize_2(qu, h64, NPTST/8, fo) ;) ;
-  fprintf(stderr, "IEEE32_linear_unquantize_2  : %s\n",timer_msg);
+  TIME_LOOP_EZ(1000, NPTST/8, IEEE32_linear_restore_2(qu, h64, NPTST/8, fo) ;) ;
+  fprintf(stderr, "IEEE32_linear_restore_2  : %s\n",timer_msg);
 #endif
 // return 0 ;
 // ============================ NOT IN PLACE TESTS (type 1) ============================
@@ -162,7 +162,7 @@ quantum = 0.1f ;
   h64 = IEEE32_linear_quantize_1(fi, NPTS, quantum > 0 ? 0 : nbits_test, quantum*.5f, qu) ;
   hieee.u = h64 ;
   for(i=0 ; i<NPTS ; i++) fprintf(stderr, " %5d", qu[i]) ; fprintf(stderr, "\n") ;
-  IEEE32_linear_unquantize_1(qu, h64, NPTS, fo) ;
+  IEEE32_linear_restore_1(qu, h64, NPTS, fo) ;
   for(i=0 ; i<NPTS ; i++) FO[i] = (fo[i] < 0) ? fo[i] + baseval : fo[i] - baseval ;
   for(i=0 ; i<NPTS ; i++) fprintf(stderr, " %5.2f", fo[i]) ; fprintf(stderr, "\n") ;
   for(i=0 ; i<NPTS ; i++) fprintf(stderr, " %5.2f", FO[i]) ; fprintf(stderr, "\n") ;
@@ -186,17 +186,17 @@ quantum = 0.1f ;
   fprintf(stderr, "IEEE32_linear_quantize_1    : %s\n",timer_msg);
 
   h64 = IEEE32_linear_quantize_1(fi, NPTST, 16, .1f, qu) ;
-  TIME_LOOP_EZ(1000, NPTST, IEEE32_linear_unquantize_1(qu, h64, NPTST, fo) ;) ;
-  fprintf(stderr, "IEEE32_linear_unquantize_1  : %s\n",timer_msg);
+  TIME_LOOP_EZ(1000, NPTST, IEEE32_linear_restore_1(qu, h64, NPTST, fo) ;) ;
+  fprintf(stderr, "IEEE32_linear_restore_1  : %s\n",timer_msg);
   h64 = IEEE32_linear_quantize_1(fi, NPTST/2, 16, .1f, qu) ;
-  TIME_LOOP_EZ(1000, NPTST/2, IEEE32_linear_unquantize_1(qu, h64, NPTST/2, fo) ;) ;
-  fprintf(stderr, "IEEE32_linear_unquantize_1  : %s\n",timer_msg);
+  TIME_LOOP_EZ(1000, NPTST/2, IEEE32_linear_restore_1(qu, h64, NPTST/2, fo) ;) ;
+  fprintf(stderr, "IEEE32_linear_restore_1  : %s\n",timer_msg);
   h64 = IEEE32_linear_quantize_1(fi, NPTST/4, 16, .1f, qu) ;
-  TIME_LOOP_EZ(1000, NPTST/4, IEEE32_linear_unquantize_1(qu, h64, NPTST/4, fo) ;) ;
-  fprintf(stderr, "IEEE32_linear_unquantize_1  : %s\n",timer_msg);
+  TIME_LOOP_EZ(1000, NPTST/4, IEEE32_linear_restore_1(qu, h64, NPTST/4, fo) ;) ;
+  fprintf(stderr, "IEEE32_linear_restore_1  : %s\n",timer_msg);
   h64 = IEEE32_linear_quantize_1(fi, NPTST/8, 16, .1f, qu) ;
-  TIME_LOOP_EZ(1000, NPTST/8, IEEE32_linear_unquantize_1(qu, h64, NPTST/8, fo) ;) ;
-  fprintf(stderr, "IEEE32_linear_unquantize_1  : %s\n",timer_msg);
+  TIME_LOOP_EZ(1000, NPTST/8, IEEE32_linear_restore_1(qu, h64, NPTST/8, fo) ;) ;
+  fprintf(stderr, "IEEE32_linear_restore_1  : %s\n",timer_msg);
 // return 0 ;
 #endif
 // return 0 ;
@@ -216,7 +216,7 @@ quantum = 0.1f ;
 hieee.u = h64 ;
   for(i=0 ; i<NPTS ; i++) fprintf(stderr, " %5d", qu[i]) ; fprintf(stderr, "\n") ;
   for(i=0 ; i<NPTS ; i++) fo[i] = 999999.0f ;
-  IEEE32_linear_unquantize_0(qu, h64, NPTS, fo) ;
+  IEEE32_linear_restore_0(qu, h64, NPTS, fo) ;
 //   for(i=0 ; i<NPTS ; i++) fprintf(stderr, "%5.2f", fi[i]) ; fprintf(stderr, "\n") ;
 //   for(i=0 ; i<NPTS ; i++) fprintf(stderr, "%5.2f", fo[i]) ; fprintf(stderr, "\n") ;
   fprintf(stderr, "<0> out[0:1:last] = %12.6g, %12.6g, %12.6g, avg(max) error = %12.6g(%12.6g), desired errmax = %g, nbits = %d\n",
@@ -232,7 +232,7 @@ hieee.u = h64 ;
   for(i=0 ; i<NPTS ; i++) fprintf(stderr, " %5.2f", (fo[i] < 0) ? fo[i] + baseval : fo[i] - baseval) ; fprintf(stderr, "\n") ;
   h64 = IEEE32_linear_quantize_0(fo, NPTS, quantum > 0 ? 0 : nbits_test, quantum*0.5f, fo) ;;                   // quantize in-place
   for(i=0 ; i<NPTS ; i++) fprintf(stderr, " %5d", uo[i]) ; fprintf(stderr, "\n") ;
-  IEEE32_linear_unquantize_0(fo, h64, NPTS, fo) ;                            // restore in-place
+  IEEE32_linear_restore_0(fo, h64, NPTS, fo) ;                            // restore in-place
   fprintf(stderr, ">0< out[0:1:last] = %12.6g, %12.6g, %12.6g, avg(max) error = %12.6g(%12.6g), desired errmax = %g, nbits = %d\n",
           fo[0], fo[1], fo[NPTS-1], avg_abs_err(fi, fo, NPTS), max_abs_err(fi, fo, NPTS-1), quantum*.5f, hieee.x.nbts) ;
 //   for(i=0 ; i<NPTS ; i++) fprintf(stderr, " %5.2f", (fo[i] < 0) ? fo[i] + baseval : fo[i] - baseval) ; fprintf(stderr, "\n") ;
@@ -254,17 +254,17 @@ hieee.u = h64 ;
   fprintf(stderr, "IEEE32_linear_quantize_0    : %s\n",timer_msg);
 
   h64 = IEEE32_linear_quantize_0(fi, NPTST, 16, .1f, qu) ;
-  TIME_LOOP_EZ(1000, NPTST, IEEE32_linear_unquantize_0(qu, h64, NPTST, fo) ;) ;
-  fprintf(stderr, "IEEE32_linear_unquantize_0  : %s\n",timer_msg);
+  TIME_LOOP_EZ(1000, NPTST, IEEE32_linear_restore_0(qu, h64, NPTST, fo) ;) ;
+  fprintf(stderr, "IEEE32_linear_restore_0  : %s\n",timer_msg);
   h64 = IEEE32_linear_quantize_0(fi, NPTST/2, 16, .1f, qu) ;
-  TIME_LOOP_EZ(1000, NPTST/2, IEEE32_linear_unquantize_0(qu, h64, NPTST/2, fo) ;) ;
-  fprintf(stderr, "IEEE32_linear_unquantize_0  : %s\n",timer_msg);
+  TIME_LOOP_EZ(1000, NPTST/2, IEEE32_linear_restore_0(qu, h64, NPTST/2, fo) ;) ;
+  fprintf(stderr, "IEEE32_linear_restore_0  : %s\n",timer_msg);
   h64 = IEEE32_linear_quantize_0(fi, NPTST/4, 16, .1f, qu) ;
-  TIME_LOOP_EZ(1000, NPTST/4, IEEE32_linear_unquantize_0(qu, h64, NPTST/4, fo) ;) ;
-  fprintf(stderr, "IEEE32_linear_unquantize_0  : %s\n",timer_msg);
+  TIME_LOOP_EZ(1000, NPTST/4, IEEE32_linear_restore_0(qu, h64, NPTST/4, fo) ;) ;
+  fprintf(stderr, "IEEE32_linear_restore_0  : %s\n",timer_msg);
   h64 = IEEE32_linear_quantize_0(fi, NPTST/8, 16, .1f, qu) ;
-  TIME_LOOP_EZ(1000, NPTST/8, IEEE32_linear_unquantize_0(qu, h64, NPTST/8, fo) ;) ;
-  fprintf(stderr, "IEEE32_linear_unquantize_0  : %s\n",timer_msg);
+  TIME_LOOP_EZ(1000, NPTST/8, IEEE32_linear_restore_0(qu, h64, NPTST/8, fo) ;) ;
+  fprintf(stderr, "IEEE32_linear_restore_0  : %s\n",timer_msg);
 #endif
 
 return 0 ;
@@ -318,8 +318,8 @@ return 0 ;
   e0 = IEEE32_quantize_v4( fi, q, N, NEXP, nbits, &h) ;
   fprintf(stderr,"nexp = %d, nbits = %d, e0 = %d %d, min = %d, max = %d, span = %d, limit = %8.8x, sbit = %d, neg = %d\n",
           h.nexp, h.nbits, h.e0, e0, h.min, h.max, h.max-h.min, h.limit, h.sbit, h.negative) ;
-//   IEEE32_unquantize( fo, q, N, NEXP, e0, 16, &h) ;
-  IEEE32_unquantize( fo, q, N, &h) ;
+//   IEEE32_restore( fo, q, N, NEXP, e0, 16, &h) ;
+  IEEE32_restore( fo, q, N, &h) ;
   for(i = 0 ; i < N ; i++) {
     fi0.f = fi[i] ; fo0.f = fo[i] ;
     r = fo[i]/fi[i] ; r = r - 1.0 ; r = (r>0) ? r : -r ;
@@ -345,7 +345,7 @@ first_denorm = 1;
       fprintf(stderr,"\n") ;
       first_denorm = 0 ;
     }
-    IEEE32_unquantize( &x3.f, &y.i, 1, NEXP, e0, 16, h) ;
+    IEEE32_restore( &x3.f, &y.i, 1, NEXP, e0, 16, h) ;
     r = x3.f / z0.f ;
     fprintf(stderr,"z0 = %8.8x %12g, x1 = %8.8x %12g, coded = %8.8x, z1 = %8.8x %12g, r = %f\n", 
                     z0.i, z0.f,      x1.i, x1.f,      y.i,       x3.i, x3.f,      r) ;

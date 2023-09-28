@@ -24,7 +24,7 @@
 
 // full quantization header
 typedef struct{
-  int32_t e0 ;       // reference exponent (used at unquantize time) (ieee quantization)
+  int32_t e0 ;       // reference exponent (used at restore time) (ieee quantization)
                      // true exponent of largest absolute value
   int32_t nbits ;    // maximum number of bits retained in quantized token
   int32_t nexp ;     // number of bits for the exponenent (ieee quantization)
@@ -81,6 +81,14 @@ typedef struct{
   int32_t npts ;
 } q_meta ;
 
+// consistent interfaces for quantizers and restorers
+//
+// quantizer (linear or log) interface
+// uint64_t = quantizer(void * restrict f, int ni, int nbits, float qref, void * restrict qs)
+//
+// restorer (linear or log) interface
+// int restorer(void * restrict q, uint64_t h64, int ni, void * restrict f)
+
 float quantum_adjust(float quantum);
 
 int64_t IEEE_quantize(void * restrict f, void * restrict q, q_meta *meta,  int nd, int nbits, float error, 
@@ -99,12 +107,15 @@ uint64_t IEEE32_linear_quantize_0(void * restrict f, int ni, int nbits, float qu
 uint64_t IEEE32_linear_quantize_1(void * restrict f, int ni, int nbits, float quantum, void * restrict q);
 uint64_t IEEE32_linear_quantize_2(void * restrict f, int ni, int nbits, float quantum, void * restrict q);
 
-int IEEE32_linear_unquantize_0(void * restrict q, uint64_t h64, int ni, void * restrict f);
-int IEEE32_linear_unquantize_1(void * restrict q, uint64_t h64, int ni, void * restrict f);
-int IEEE32_linear_unquantize_2(void * restrict q, uint64_t h64, int ni, void * restrict f);
+int IEEE32_linear_restore_0(void * restrict q, uint64_t h64, int ni, void * restrict f);
+int IEEE32_linear_restore_1(void * restrict q, uint64_t h64, int ni, void * restrict f);
+int IEEE32_linear_restore_2(void * restrict q, uint64_t h64, int ni, void * restrict f);
 
 uint64_t IEEE32_fakelog_quantize_0(void * restrict f, int ni, int nbits, float qzero, void * restrict qs);
-int IEEE32_fakelog_unquantize_0(void * restrict q, uint64_t h64, int ni, void * restrict f);
+uint64_t IEEE32_fakelog_quantize_1(void * restrict f, int ni, int nbits, float qzero, void * restrict qs);
+
+int IEEE32_fakelog_restore_0(void * restrict q, uint64_t h64, int ni, void * restrict f);
+int IEEE32_fakelog_restore_1(void * restrict q, uint64_t h64, int ni, void * restrict f);
 
 void quantize_setup(float *z,            // array to be quantized (IEEE 754 32 bit float) (INPUT)
                         int n,           // number of data elements
@@ -122,7 +133,7 @@ int32_t IEEE32_quantize_v4(float *f,        // array to quantize (IEEE 754 32 bi
                       int nexp,        // number of bits for the exponent part of quantized data (INPUT)
                       int nbits,       // number of bits in quantized data (INPUT)
                       qhead *h);       // quantization control information (OUTPUT)
-int32_t IEEE32_unquantize(float *f,      // restored array (IEEE 754 32 bit float) (OUTPUT)
+int32_t IEEE32_restore(float *f,      // restored array (IEEE 754 32 bit float) (OUTPUT)
                         int32_t *q,    // quantized array (INPUT)
                         int n,         // number of data elements (INPUT)
                         qhead *h);     // quantization control information (INPUT)

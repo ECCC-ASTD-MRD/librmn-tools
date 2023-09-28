@@ -7,6 +7,7 @@
 #include <string.h>
 #include <strings.h>
 #include <ctype.h>
+#include <math.h>
 
 #include <rmn/test_helpers.h>
 #include <rmn/misc_operators.h>
@@ -22,7 +23,7 @@ typedef struct{
   uint64_t bias:32,  // minimum absolute value (actually never more than 31 bits)
            npts:16,  // number of points, 0 means unknown
            resv:3 ,
-           shft:5 ,  // shift count (0 -> 31) for quanze/unquantize
+           shft:5 ,  // shift count (0 -> 31) for quantize/restore
            nbts:5 ,  // number of bits (0 -> 31) per value (nbts == 0 : same value, same sign)
            cnst:1 ,  // range is 0, constant absolute values
            allp:1 ,  // all numbers are >= 0
@@ -89,10 +90,10 @@ void process_data_2d(void *data, int ni, int nj, error_stats *e0, char *name){
       // step 2 : predict (Lorenzo)
       // step 3 : pseudo-encode
       // step 4 : unpredict
-      // step 5 : unquantize
+      // step 5 : restore
       bzero(block1, sizeof(block1)) ;
-//       status = IEEE32_linear_unquantize_0(block2, h64, in*jn, block1) ;
-      status = IEEE32_linear_unquantize_1(block2, h64, in*jn, block1) ;
+//       status = IEEE32_linear_restore_0(block2, h64, in*jn, block1) ;
+      status = IEEE32_linear_restore_1(block2, h64, in*jn, block1) ;
 //       memcpy(block1, block0, sizeof(float)*in*jn) ;
       // step 6 : analyze
       update_error_stats(block0, block1, in*jn, e0) ;
@@ -162,6 +163,42 @@ return ;
   fprintf(stderr, "freed t\n") ;
 }
 
+void analyze_float_data(void *fv, int n){
+  float *ff = (float *) fv ;
+  uint32_t *fi = (uint32_t *) fv ;
+  double t, sum = 0.0, sum2 = 0.0, dev, avg, avgabs = 0.0 ;
+  int i, i0, in ;
+  float min = ff[0], max = ff[0] ;
+  uint32_t exp[256], te ;
+
+  for(i=0 ; i<256 ; i++) exp[i] = 0 ;
+  for(i=0 ; i<n ; i++){
+    t = ff[i] ;
+    te = 0xFF & (fi[i] >> 23) ;  // IEEE exponent
+    exp[te] ++ ;
+    min = (t < min) ? t : min ;
+    max = (t > max) ? t : max ;
+    avgabs += ((t < 0) ? -t : t) ;
+    sum += t ;
+    sum2 += (t * t) ;
+  }
+  for(i0=0 ; i0<255 ; i0++) if(exp[i0] != 0) break ;
+  for(in=255 ; in>0 ; in--) if(exp[in] != 0) break ;
+  fprintf(stderr, ">           exponent range = %d -> %d\n", i0, in) ;
+  fprintf(stderr, ">           exponent pop = ");
+  for(i=i0 ; i<=in ; i++) fprintf(stderr, "%4d ", exp[i] >> 8) ;
+  fprintf(stderr, "\n") ;
+  avg = sum / n ;
+  avgabs /= n ;
+  dev = sum2 - 2.0 * avg * sum + n * avg * avg ;
+  dev /= n ;
+  dev = sqrt(dev) ;
+  fprintf(stderr, ">           average = %10.3E |%10.3E|, std dev = %10.3E, min = %10.3E, max = %10.3E \n", avg, avgabs, dev, min, max) ;
+}
+
+void test_log_quantizer(void *fv, int ni, int nj, error_stats *e, char *vn){
+}
+
 #define NPTSI 100
 #define NPTSJ 100
 
@@ -173,16 +210,22 @@ int main(int argc, char **argv){
   int fd = 0 ;
   int i, j ;
   void *buf ;
-  int ndata ;
+  int ndata, test_mode = -1, maxrec = 999999, nrec = 0 ;
   float ref[NPTSI*NPTSJ], new[NPTSI*NPTSJ] ;
   error_stats e ;
   bitstream **streams ;
   compressed_field field ;
   compress_rules rules ;
   char ca ;
-  char *nomvar = NULL ;
-  char vn[4] ;
+  char *nomvar = "" ;
+  char vn[5] ;
 
+  if(argc < 3){
+    fprintf(stderr, "usage: %s [-ttest_mode] [-nnb_rec] [-vvar_name] file_1 ... [[-ttest_mode] [-nnb_var] [-vvar_name] file_n]\n", argv[0]) ;
+    fprintf(stderr, "ex: %s -t0 -n4 -vDD path/my_data_file\n", argv[0]) ;
+    fprintf(stderr, "    test 0, first 4 records of variable DD from file path/my_data_file\n") ;
+    exit(1) ;
+  }
   start_of_test(argv[0]);
   for(j=0 ; j<NPTSJ ; j++){
     for(i=0 ; i<NPTSI ; i++){
@@ -200,22 +243,59 @@ int main(int argc, char **argv){
 
   for(i=1 ; i<argc ; i++){
     ca = *argv[i] ;
-    if( (! isalpha(ca)) &&  (ca != '.') && (ca != '/') ){
-      fprintf(stderr, "option = '%s'\n", argv[i]) ;
-      if(ca == '=') nomvar = argv[i] + 1 ;
+    if( ca == '-' ){
+      ca = argv[i][1] ;
+//       fprintf(stderr, "option %c = '%s'[%d] ", ca, argv[i]+2, strlen(argv[i]+2));
+      if(ca == 't') {
+        test_mode = atoi(argv[i]+2) ;
+        fprintf(stderr, "test mode = %d ", test_mode) ; 
+      }
+      if(ca == 'n') {
+        maxrec = atoi(argv[i]+2) ;
+        fprintf(stderr, "maxrec = %d ", maxrec) ; 
+      }
+      if(ca == 'v') {
+        nomvar = argv[i] + 2 ;
+        fprintf(stderr, "variable = '%s'[%d] ", nomvar, strlen(nomvar)) ;
+      }
       continue ;
     }
     fd = 0 ;
     ndim = 0 ;
-    vn[0] = vn[1] = vn[2] = vn[3] = ' ' ;
+    vn[0] = vn[1] = vn[2] = vn[3] = ' ' ; vn[4] = '\0' ;
     buf = read_32bit_data_record_named(argv[i], &fd, dims, &ndim, &ndata, vn) ;
-    fprintf(stderr, "file = '%s', fd = %d\n", argv[i], fd) ;
-    while(buf != NULL){
-      fprintf(stderr, "number of dimensions = %d : (", ndim) ;
-      for(j=0 ; j<ndim ; j++) fprintf(stderr, "%d ", dims[j]) ; fprintf(stderr, ") [%d], name = '%c%c%c%c'\n", ndata, vn[0], vn[1], vn[2], vn[3]);
-      if(ndim == 2){
-//         process_data_2d(buf, dims[0], dims[1], &e, nomvar ? nomvar : argv[i]) ;
-//         field = compress_2d_data(buf, dims[0], dims[0], dims[1], rules) ;
+    fprintf(stderr, " file = '%s', fd = %d\n", argv[i], fd) ;
+    while(buf != NULL && nrec < maxrec){
+      nrec++ ;
+      if(strncmp(nomvar, vn, strnlen(nomvar,4)) != 0) {
+        fprintf(stderr, "'%s' and '%s' do not match\n", nomvar, vn) ;
+        continue ;
+      }
+//       fprintf(stderr, "dimensions = %d : (", ndim) ;
+      fprintf(stderr, "%c%c%c%c(", vn[0], vn[1], vn[2], vn[3]) ;
+      for(j=0 ; j<ndim ; j++) fprintf(stderr, "%d ", dims[j]) ;
+       fprintf(stderr, ") [%d]\n", ndata) ;
+//       for(j=0 ; j<ndim ; j++) fprintf(stderr, "%d ", dims[j]) ; fprintf(stderr, ") [%d], name = '%c%c%c%c'\n", ndata, vn[0], vn[1], vn[2], vn[3]);
+      if(ndim == 2){    // 2 dimensional data only
+        switch(test_mode)
+        {
+          case 0:  // do nothing
+//             fprintf(stderr, "analysis test\n");
+            analyze_float_data(buf, dims[0] * dims[1]) ;
+            break;
+          case 1:  // linear quantizer test
+            process_data_2d(buf, dims[0], dims[1], &e, nomvar ? nomvar : argv[i]) ;
+            break;
+          case 2:  // fake log quantizer test
+            test_log_quantizer(buf, dims[0], dims[1], &e, vn) ;
+            break;
+          case 3:
+            field = compress_2d_data(buf, dims[0], dims[0], dims[1], rules) ;
+            break;
+          default:
+            fprintf(stderr, "unrecognized test mode %d\n", test_mode) ;
+            exit(1) ;
+        }
       }
       free(buf) ;    // done with this record
 // break ;   // only one record for now

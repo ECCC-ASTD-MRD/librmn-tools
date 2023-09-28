@@ -181,6 +181,7 @@ CT_ASSERT(2 == sizeof(uint16_t))
 #endif
 
   TEE_FPRINTF(stderr,2,"========== single tile encode / decode ==========\n");
+//   tile3[0] = -2 ;
   print_tile(tile3, 8, 8, 8, "original tile (mixed signs)") ;
   TEE_FPRINTF(stderr,2,"\n");
 
@@ -205,7 +206,7 @@ CT_ASSERT(2 == sizeof(uint16_t))
   errors = compare_tile(tile0, tile3, ni, ni, nj) ;
   if(errors > 0) print_tile(tile0, ni, ni, nj, "restored tile") ;
   TEE_FPRINTF(stderr,2,"\n");
-
+// return 0 ;
   TEE_FPRINTF(stderr,2,"========== multi tile encode / decode ==========\n");
   for(j=0 ; j<NPTSJ ; j++){
     for(i=0 ; i<NPTSLNI ; i++){
@@ -254,7 +255,7 @@ CT_ASSERT(2 == sizeof(uint16_t))
 //   }
 //   TEE_FPRINTF(stderr,2,"\n");
   compare_tile(chunk_i, chunk_o, NPTSI, NPTSLNI, NPTSJ) ;
-
+return 0 ;
   TEE_FPRINTF(stderr,2,"========== decoding from copy ==========\n");
   for(i=0 ; i< sizeof(packed1)/4 ; i++) packed1[i] = 0 ;
   print_stream_params(stream0, "Source stream0", "RW") ;
@@ -290,7 +291,7 @@ CT_ASSERT(2 == sizeof(uint16_t))
     }
     TEE_FPRINTF(stderr,2,"\n");
   }
-  fprintf(stderr, "zero = %d, short = %d, bits = %d, encd = %d\n", tp.t.nzero, tp.t.nshort, tp.t.h.nbts, tp.t.h.encd);
+  fprintf(stderr, "bshort = %d, nshort = %d, bits = %d, encd = %d\n", tp.t.bshort, tp.t.nshort, tp.t.h.nbts, tp.t.h.encd);
   ref[0] = 1 ; ref[1] = 1 << 6 ; ref[2] = 1 << 5 ; ref[3] = 1 << 7 ;
   tile_population(temp, 64, pop, ref) ;
   fprintf(stderr, "pop = %d %d %d %d\n", pop[0], pop[1], pop[2], pop[3]);

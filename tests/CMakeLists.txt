@@ -146,7 +146,7 @@ endif()
 add_project_test(test_c_record_io test_c_record_io.c NOCTEST)    # not included in ctest for now
 add_project_test(test_c_record_io_f test_c_record_io.F90 NOCTEST DL)    # not included in ctest for now
 
-add_project_test(test_quantizer_errors test_quantizer_errors.c NOCTEST NODIAG)    # not included in ctest for now
+add_project_test(test_quantizer_errors test_quantizer_errors.c LINK_LIBS "m" NOCTEST NODIAG)    # not included in ctest for now
 
 add_project_test(test_serialized_functions test_serialized_functions.c NODIAG)
 # maybe needed depending upon print statement distribution in test code

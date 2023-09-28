@@ -90,7 +90,7 @@ CT_ASSERT(2 == sizeof(tile_header))
 // tile properties for encoding (includes tile header)
 typedef struct{
       uint32_t min ;                // u32[0]
-      uint16_t nzero:7, nshort:7, qshort: 2 ;  // u16[2]
+      uint16_t bshort:8, nshort:8 ; // u16[2]
       tile_head h ;                 // u16[3]
 } tile_parms ;
 CT_ASSERT(8 == sizeof(tile_parms))
@@ -99,7 +99,7 @@ typedef union{
     tile_parms t ;
     uint64_t u64 ;         // allows to grab everything as one piece
     uint32_t u32[2] ;      // u32[0] : min
-    uint16_t u16[4] ;      // u16[2] : grab nzero and nshort, u16[3] : grab tile head
+    uint16_t u16[4] ;      // u16[2] : grab bshort and nshort, u16[3] : grab tile header
 } tile_properties ;
 CT_ASSERT(8 == sizeof(tile_properties))
 
