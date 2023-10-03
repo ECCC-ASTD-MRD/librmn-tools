@@ -726,6 +726,7 @@ error:
   emin = (mina >> 23) & 0xFF ;            // IEEE exponent of smallest absolute value (emin may be < elow)
   if((qzero < 0) && (emin < elow))        // will force a restore to zero if quantized value == 0
     q64.q.clip = 1 ;
+fprintf(stderr, "elow = %d, emin = %d, clip = %d, qzero = %f\n", elow, emin, q64.q.clip, qzero) ;
   emin = (emin < elow) ? elow : emin ;    // if emin < elow, set emin to elow for quantization
   q64.q.emin = emin ;                     // store adjusted value of emin into q64
   emax -= 127 ;                           // remove IEEE exponent bias from emax, emin
@@ -760,21 +761,24 @@ error:
   if(pos_neg){
     for(i=0 ; i<ni ; i++){
       fa = fu[i] & 0x7FFFFFFF ;             // absolute value
-      fa = (offset > fa) ? offset : fa ;    // max(fa, offset)
+//       fa = (offset > fa) ? offset : fa ;    // max(fa, offset)
       fs = fu[i] >> 31 ;                    // save sign
       fa += round ;                         // add rounding term
       fa -= offset ;                        // subtract offset term
       fa >>= shift ;                        // shift right to fit within nbits
       fa++ ;                                // to be able to preserve sign of minimum absolute value
+      fa = (fa < 0) ? 0 : fa ;
       qo[i] = fs ? -fa : fa ;               // apply sign
     }
   }else{
     for(i=0 ; i<ni ; i++){
       fa = fu[i] & 0x7FFFFFFF ;             // absolute value
-      fa = (offset > fa) ? offset : fa ;    // max(fa, offset)
+//       fa = (offset > fa) ? offset : fa ;    // max(fa, offset)
       fa += round ;                         // add rounding term
       fa -= offset ;                        // subtract offset term
       fa >>= shift ;                        // shift right to fit within nbits
+      fa++ ;
+      fa = (fa < 0) ? 0 : fa ;
       qo[i] = fa ;
     }
   }

@@ -205,7 +205,7 @@ int check_fake_log_1(void){
   uint32_t q[NPTSIJ] ;
   uint32_t *fi = (uint32_t *)f ;
   int i ;
-  q_desc r = {.f.ref = 0.0f, .f.type = Q_FAKE_LOG_1, .f.nbits = 0, .f.mbits = 8, .f.state = TO_QUANTIZE} ;
+  q_desc r = {.f.ref = 0.9f, .f.type = Q_FAKE_LOG_1, .f.nbits = 0, .f.mbits = 8, .f.state = TO_QUANTIZE} ;
   q_desc qu ;
   fprintf(stderr, "checking fake_log_1\n");
   f[0] = 1.1 ; q[0] = 0xFFFFFFFFu ; fr[0] = 999999999 ;
@@ -214,6 +214,7 @@ int check_fake_log_1(void){
     q[i] = q[i-1] ;
     fr[i] = fr[i-1] ;
   }
+  f[1] = .22f ;
   qu.u = IEEE32_fakelog_quantize_1(f, NPTSIJ, r, q).u ;
   for(i=0 ; i<NPTSIJ ; i++) fprintf(stderr, "%12.5g", f[i]) ; fprintf(stderr, "\n") ;
   for(i=0 ; i<NPTSIJ ; i++) fprintf(stderr, "%12.8x", q[i]) ; fprintf(stderr, "\n") ;
