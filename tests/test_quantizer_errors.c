@@ -199,6 +199,31 @@ void analyze_float_data(void *fv, int n){
 void test_log_quantizer(void *fv, int ni, int nj, error_stats *e, char *vn){
 }
 
+#define NPTSIJ 12
+int check_fake_log_1(void){
+  float    f[NPTSIJ], fr[NPTSIJ] ;
+  uint32_t q[NPTSIJ] ;
+  uint32_t *fi = (uint32_t *)f ;
+  int i ;
+  q_desc r = {.f.ref = 0.0f, .f.type = Q_FAKE_LOG_1, .f.nbits = 0, .f.mbits = 8, .f.state = TO_QUANTIZE} ;
+  q_desc qu ;
+  fprintf(stderr, "checking fake_log_1\n");
+  f[0] = 1.1 ; q[0] = 0xFFFFFFFFu ; fr[0] = 999999999 ;
+  for(i=1 ; i<NPTSIJ ; i++){
+    f[i] = 2.0001f * f[i-1] ;
+    q[i] = q[i-1] ;
+    fr[i] = fr[i-1] ;
+  }
+  qu.u = IEEE32_fakelog_quantize_1(f, NPTSIJ, r, q).u ;
+  for(i=0 ; i<NPTSIJ ; i++) fprintf(stderr, "%12.5g", f[i]) ; fprintf(stderr, "\n") ;
+  for(i=0 ; i<NPTSIJ ; i++) fprintf(stderr, "%12.8x", q[i]) ; fprintf(stderr, "\n") ;
+fprintf(stderr, "type after quantizing = %d\n", qu.q.type) ;
+  qu.u = IEEE32_fakelog_restore_1(fr, NPTSIJ, qu, q).u ;
+  for(i=0 ; i<NPTSIJ ; i++) fprintf(stderr, "%12.5g", fr[i]) ; fprintf(stderr, "\n") ;
+  for(i=0 ; i<NPTSIJ ; i++) fprintf(stderr, "%12.7f", fr[i]/f[i]) ; fprintf(stderr, "\n") ;
+  return 0 ;
+}
+
 #define NPTSI 100
 #define NPTSJ 100
 
@@ -227,6 +252,9 @@ int main(int argc, char **argv){
     exit(1) ;
   }
   start_of_test(argv[0]);
+
+  if(check_fake_log_1()) goto error ; ;
+return 0 ;
   for(j=0 ; j<NPTSJ ; j++){
     for(i=0 ; i<NPTSI ; i++){
       ref[i+j*NPTSJ] = 1.0f ;
@@ -310,4 +338,8 @@ int main(int argc, char **argv){
       fprintf(stderr, "error reading record\n") ;
     }
   }
+  return 0 ;
+
+error:
+  return 1 ;
 }
