@@ -139,6 +139,11 @@ typedef union{
 // make sure that q_desc does not need more than 64 bits
 CT_ASSERT(sizeof(q_desc) <= sizeof(uint64_t))
 
+static void printf_quant_out(FILE *file, q_desc d){
+  if(d.q.state != QUANTIZED) { fprintf(file, "ERROR: invalid state, expected %d, got %d\n", QUANTIZED, d.q.state) ; return ; }
+  fprintf(file, "type = %d, clip = %d, nbits(mbits) = %d(%d), allp/allm = %d/%d\n", d.q.type, d.q.clip, d.q.nbits, d.q.mbits, d.q.allp, d.q.allm) ;
+}
+
 static q_desc q_desc_0 = {.f.state = 0, .q.offset.u = 0, .u = 0 } ;
 
 typedef q_desc quantizer_function(void * restrict f, int ni, q_desc rule, void * restrict q) ;

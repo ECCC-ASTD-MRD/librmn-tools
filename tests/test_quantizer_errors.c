@@ -16,6 +16,9 @@
 #include <rmn/compress_data.h>
 #include <rmn/compress_data.h>
 #include <rmn/eval_diff.h>
+#include <rmn/timers.h>
+
+#define NTIMES 100000
 
 #define INDEX_F(F, I, LNI, J) (F + I + J*LNI)
 
@@ -200,15 +203,23 @@ void test_log_quantizer(void *fv, int ni, int nj, error_stats *e, char *vn){
 }
 
 #define NPTSIJ 12
+#define NPTS_TIMING 4096
+
 int check_fake_log_1(void){
   float    f[NPTSIJ], fr[NPTSIJ] ;
+  float ft[NPTS_TIMING], rt[NPTS_TIMING] ;
   uint32_t q[NPTSIJ] ;
+  uint32_t qt[NPTS_TIMING] ;
   uint32_t *fi = (uint32_t *)f ;
   int i ;
-  q_desc r = {.f.ref = 0.9f, .f.type = Q_FAKE_LOG_1, .f.nbits = 0, .f.mbits = 8, .f.state = TO_QUANTIZE} ;
-  q_desc qu ;
+  q_desc r = {.f.ref = -1.0f, .f.type = Q_FAKE_LOG_1, .f.nbits = 0, .f.mbits = 8, .f.state = TO_QUANTIZE} ;
+  q_desc qu, qut ;
+  TIME_LOOP_DATA ;
+  float err, avgerr, bias ;
+  int plus, minus ;
+
   fprintf(stderr, "checking fake_log_1\n");
-  f[0] = 1.1 ; q[0] = 0xFFFFFFFFu ; fr[0] = 999999999 ;
+  f[0] = -1.1 ; q[0] = 0xFFFFFFFFu ; fr[0] = 999999999 ;
   for(i=1 ; i<NPTSIJ ; i++){
     f[i] = 2.0001f * f[i-1] ;
     q[i] = q[i-1] ;
@@ -217,11 +228,41 @@ int check_fake_log_1(void){
   f[1] = .22f ;
   qu.u = IEEE32_fakelog_quantize_1(f, NPTSIJ, r, q).u ;
   for(i=0 ; i<NPTSIJ ; i++) fprintf(stderr, "%12.5g", f[i]) ; fprintf(stderr, "\n") ;
+  printf_quant_out(stderr, qu) ;
   for(i=0 ; i<NPTSIJ ; i++) fprintf(stderr, "%12.8x", q[i]) ; fprintf(stderr, "\n") ;
-fprintf(stderr, "type after quantizing = %d\n", qu.q.type) ;
+
   qu.u = IEEE32_fakelog_restore_1(fr, NPTSIJ, qu, q).u ;
   for(i=0 ; i<NPTSIJ ; i++) fprintf(stderr, "%12.5g", fr[i]) ; fprintf(stderr, "\n") ;
   for(i=0 ; i<NPTSIJ ; i++) fprintf(stderr, "%12.7f", fr[i]/f[i]) ; fprintf(stderr, "\n") ;
+
+  ft[0] = 1.001f ;
+  for(i=1 ; i<NPTS_TIMING ; i++) ft[i] = ft[i-1] * 1.002f ;
+  fprintf(stderr, "min = %12.5g, max = %12.5g\n", ft[0], ft[NPTS_TIMING-1]) ;
+
+  qu.u = IEEE32_fakelog_quantize_1(ft, NPTS_TIMING,  r, qt).u ;
+  printf_quant_out(stderr, qu) ;
+  qut.u = IEEE32_fakelog_restore_1(rt, NPTS_TIMING, qu, qt).u ;
+  err = avgerr = bias = 0.0f ;
+  plus = minus = 0 ;
+  for(i=0 ; i<NPTS_TIMING ; i++){
+    float errloc = 1.0f - rt[i] / ft[i] ;
+    if(errloc < 0) plus++ ; else minus ++ ;
+    bias += errloc ;
+    errloc = (errloc < 0) ? -errloc : errloc ;
+    err = (errloc > err) ? errloc : err ;
+    avgerr += errloc ;
+  }
+  avgerr /= NPTS_TIMING ;
+  bias /= NPTS_TIMING ;
+  fprintf(stderr, "max(avg) rel error = %12.5g(%12.5g), 1 part in %9.3f(%9.3f), rel bias = %12.5g\n", err, avgerr, 1.0f/err,1.0f/avgerr, bias ) ;
+  fprintf(stderr, "plus = %d, minus = %d\n", plus, minus) ;
+
+  TIME_LOOP_EZ(1000, NPTS_TIMING, qu.u = IEEE32_fakelog_quantize_1(ft, NPTS_TIMING, r, qt).u ) ;
+  fprintf(stderr, "fakelog_quantize_1    : %s\n",timer_msg);
+
+  TIME_LOOP_EZ(1000, NPTS_TIMING, qut.u = IEEE32_fakelog_restore_1(ft, NPTS_TIMING, qu, qt).u ) ;
+  fprintf(stderr, "fakelog_restore_1     : %s\n",timer_msg);
+
   return 0 ;
 }
 
@@ -245,6 +286,7 @@ int main(int argc, char **argv){
   char ca ;
   char *nomvar = "" ;
   char vn[5] ;
+  TIME_LOOP_DATA ;
 
   if(argc < 3){
     fprintf(stderr, "usage: %s [-ttest_mode] [-nnb_rec] [-vvar_name] file_1 ... [[-ttest_mode] [-nnb_var] [-vvar_name] file_n]\n", argv[0]) ;
