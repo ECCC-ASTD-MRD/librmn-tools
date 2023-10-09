@@ -467,32 +467,39 @@ int64_t IEEE_qrestore(void * restrict f, void * restrict q, q_meta *meta,  int n
 // q     [IN]  32 bit integer array containing the quantized data
 // f    [OUT]  32 bit IEEE float array that will receive restored floats
 // ni    [IN]  number of data items (used for checking purposes only)
-// u64   [IN]  metadata information describing quantization (from IEEE32_fakelog_quantize_0)
+// desc  [IN]  information describing quantization (from IEEE32_fakelog_quantize_0)
 // N.B. if values have mixed signs, the sign is stored as the LSB in the quantized integer
-int IEEE32_fakelog_restore_0(void * restrict f, uint64_t u64, int ni, void * restrict q){
+// int IEEE32_fakelog_restore_0(void * restrict f, uint64_t u64, int ni, void * restrict q){
+q_desc  IEEE32_fakelog_restore_0(void * restrict f, int ni, q_desc desc, void * restrict q){
   uint32_t *qi = (uint32_t *) q ;
   float *fo = (float *) f ;
-  ieee32_props h64 ;
+  q_desc q64 = {.u = 0 } ;  // invalid restored state
+//   ieee32_props h64 ;
   int i, nbits ;
-  int32_t emax, emin, elow, exp ;
+  int32_t emax, emin, exp ;
+//   int32_t elow ;
   uint32_t allp, allm, pos_neg, ti, sign ;
   AnyType32 t, x ;
   float fac, qrange, q0 ;
 
-  h64.u = u64 ;
-  emax = h64.e.emax - 127 ;
-  emin = h64.e.emin - 127 ;
-  elow = h64.e.elow ;
-  nbits = h64.e.nbts ;
-  allp = h64.e.allp ;
-  allm = h64.e.allm ;
+  if(desc.q.type  != Q_FAKE_LOG_0) goto error ;  // wrong quantizer
+  if(desc.q.state != QUANTIZED)    goto error ;  // must be quantized data
+
+  q64.u = desc.u ;
+  emax = desc.q.offset.emax - 127 ;
+  emin = desc.q.emin - 127 ;
+//   elow = desc.q.offset.elow ;
+  nbits = desc.q.nbits ;
+  allp = desc.q.allp ;
+  allm = desc.q.allm ;
   pos_neg = (allp || allm) ? 0 : 1 ;      // we have both positive and negative values
   sign = (allm << 31) ;                   // move sign of all values to MSB position
 // fprintf(stderr, "allm = %d, allp = %d, pos_neg = %d\n", allm, allp, pos_neg) ;
 
   x.u = ((emin + 127) << 23) ;
   x.u |= sign ;                           // restore sign (if all numbers are negative)
-  q0 = (elow == 0) ? 0.0f : x.f ;
+//   q0 = (elow == 0) ? 0.0f : x.f ;
+  q0 = (desc.q.clip == 1) ? 0.0f : x.f ;
 
   qrange = (1 << nbits) ;         // range of quantized values (2**nbits)
   t.f = (emax - emin + 1) ;       // maximum possible value of "fake log"
@@ -530,153 +537,6 @@ int IEEE32_fakelog_restore_0(void * restrict f, uint64_t u64, int ni, void * res
       fo[i] = (qi[i] == 0) ? q0 : x.f ;
     }
   }
-  return 0 ;
-}
-
-// quantize IEEE floats
-// qs   [OUT]  32 bit integer array that will receive the quantized result
-// f     [IN]  32 bit IEEE float array, data to be quantized
-// ni    [IN]  number of data items to quantize
-// nbits [IN]  number of bits to use for quantized data
-// qzero [IN]  smallest value considered significant (if qzero < 0, it will be restored as 0.0)
-// N.B. qzero will be reduced to a power of 2 <= qzero
-//      if there are mixed signs, the sign is stored in the LSB position
-uint64_t IEEE32_fakelog_quantize_0(void * restrict f, int ni, int nbits, float qzero, void * restrict qs){
-  float *fu = (float *) f ;
-  uint32_t *qo = (uint32_t *) qs ;
-  ieee32_props h64 ;
-  uint32_t allp, allm, pos_neg ;
-//   uint32_t clip ;
-  uint32_t maxa, mina, sign, maskbits ;
-  int32_t emax, emin, elow ;
-  AnyType32 t ;
-  float fac, qrange ;   // quantization factor
-  int i ;
-
-  limits_w32 l32 = IEEE32_extrema(fu, ni) ;
-  allm = l32.i.allm ;                     // extract all useful values from u64
-  allp = l32.i.allp ;
-  maxa = l32.i.maxa ;
-  mina = l32.i.mina ;
-  pos_neg = (allp || allm) ? 0 : 1 ;      // we have both positive and negative values
-  nbits -= pos_neg ;                      // one bit is needed for sign ==> one less available for quantized value
-// fprintf(stderr, "allm = %d, allp = %d, pos_neg = %d\n", allm, allp, pos_neg) ;
-  h64.u = 0 ;                             // initialize metadata
-  h64.e.nbts = nbits ;
-  h64.e.allp = allp ;
-  h64.e.allm = allm ;
-  h64.e.clip = 0 ;
-  h64.e.qmin = 0 ;
-
-  t.f  = qzero ;                          // lowest significant value
-  elow = (t.u >> 23) & 0xFF ;             // will be 0 when qzero == 0.0
-  h64.e.elow = elow ; elow -= 127 ;
-  emax = (maxa >> 23) & 0xFF ;
-  h64.e.emax = emax ; emax -= 127 ;
-  emin = (mina >> 23) & 0xFF ;
-  emin -= 127 ;                           // original emin may be < elow
-//   clip = (emin < elow) ? 1 : 0 ;          // original emin < elow
-  if((qzero < 0) && (emin < elow)) h64.e.elow = 0 ;  // will force a restore to zero where quantized value == 0
-  emin = (emin < elow) ? elow : emin ;    // emin < elow, set emin to elow for quantization
-//   emin = (emin < elow) ? elow - 1 : emin ;     // emin < elow, set emin to elow - 1 for quantization
-// NOTE: we will want to force emin > emax - 64 and store emax - emin and store emin instead of emax
-  h64.e.emin = emin + 127 ;                    // store adjusted value into h64.e.emin
-
-  qrange = (1 << nbits) ;         // range of quantized values (2**nbits)
-  t.f = (emax - emin + 1) ;       // maximum possible value of "fake log"
-  fac = t.f = qrange / t.f ;      // factor to quantize "fake log"
-  maskbits = RMASK31(nbits) ;     // 2**nbits -1, largest allowable quantized value
-
-  if(pos_neg){
-    for(i=0 ; i<ni ; i++){
-      int exp ;
-      AnyType32 x ;
-      x.f = fu[i] ;                 // float to quantize
-      sign = x.ie32.s ;             // save sign
-      exp = (x.u >> 23) & 0xFF ;    // exponent from value (with +127 bias)
-      exp = exp - emin ;            // this will have a value of 127 for the lowest "significant" exponent
-      x.u &= 0x7FFFFF ;             // get rid of exponent and sign, only keep mantissa
-      x.u |= (0x7F << 23) ;         // force 127 as exponent (1.0 <= x.f < 2.0)
-      x.f += (exp - 127 - 1) ;      // add value of exponent from original float (0.0 <= x.f < max "fake log")
-      // if(i == 0 || i == ni-1) fprintf(stderr,"%14.8f\n", x.f) ;
-      qo[i] = x.f * fac + .5f ;     // quantize the fake log
-      qo[i] = (x.f <  0.0f) ? 0 : qo[i] ;               // < qzero (exp < emin)
-      qo[i] = (x.f == 0.0f) ? 1 : qo[i] ;               // == lowest significant value (emin or elow)
-      qo[i] = (qo[i] > maskbits) ? maskbits : qo[i] ;   // clamp at 2**nbits -1
-      qo[i] = (qo[i] << 1) | sign ; // sign as LSB
-    }
-  }else{                            // all values have the same sign
-    for(i=0 ; i<ni ; i++){
-      int exp ;
-      AnyType32 x ;
-      x.f = fu[i] ;                 // float to quantize
-      exp = (x.u >> 23) & 0xFF ;    // exponent from value (with +127 bias)
-      exp = exp - emin ;            // this will have a value of 127 for the lowest "significant" exponent
-      x.u &= 0x7FFFFF ;             // get rid of exponent and sign, only keep mantissa
-      x.u |= (0x7F << 23) ;         // force 127 as exponent (1.0 <= x.f < 2.0)
-      x.f += (exp - 127 - 1) ;      // add value of exponent from original float (0.0 <= x.f < max "fake log")
-      // if(i == 0 || i == ni-1) fprintf(stderr,"%14.8f\n", x.f) ;
-      qo[i] = x.f * fac + .5f ;     // quantize the fake log
-      qo[i] = (x.f <  0.0f) ? 0 : qo[i] ;               // < qzero (exp < emin)
-      qo[i] = (x.f == 0.0f) ? 1 : qo[i] ;               // == lowest significant value (emin or elow)
-      qo[i] = (qo[i] > maskbits) ? maskbits : qo[i] ;   // clamp at 2**nbits -1
-    }
-  }
-  return h64.u ;
-}
-
-// ========================================== fake log quantizer 1 ==========================================
-
-// restore floating point numbers quantized with IEEE32_fakelog_quantize_1
-// q     [IN]  32 bit integer array containing the quantized data
-// f    [OUT]  32 bit IEEE float array that will receive restored floats
-// ni    [IN]  number of data items
-// u64   [IN]  metadata information describing quantization (from IEEE32_fakelog_quantize_0)
-// N.B. if values have mixed signs, the quantized data is signed
-//      a zero quantized value will be restored either as 0 or the minimum value
-//      depending upon flag "clip"
-//      IEEE 32 bit floats are processed as if they were signed integers
-// int IEEE32_fakelog_restore_1(void * restrict f, uint64_t u64, int ni, void * restrict q){
-q_desc IEEE32_fakelog_restore_1(void * restrict f, int ni, q_desc desc, void * restrict q){
-  int32_t *qi = (int32_t *) q ;
-  int32_t *fo = (int32_t *) f ;
-  q_desc q64 = {.u = 0 } ;  // invalid restored state
-  int i, nbits, shift, offset, mbits, clip, pos_neg, sign, fa, fs, zero, f0 ;
-
-  if(desc.q.type  != Q_FAKE_LOG_1) goto error ;  // wrong quantizer
-
-  nbits  = desc.q.nbits ;
-  mbits  = desc.q.mbits ;
-  clip   = desc.q.clip ;
-  shift  = 23 - mbits ;
-  pos_neg= (desc.q.allm | desc.q.allp) ? 0 : 1 ;
-  sign   = desc.q.allm ;
-  sign <<= 31 ;
-  offset = desc.q.offset.i ;
-  zero = clip ? 0 : offset ;
-
-  if(pos_neg){
-    for(i=0 ; i<ni ; i++){
-      fs = qi[i] & 0x80000000 ;             // save sign
-      f0 = (qi[i] < 0) ? -qi[i] : qi[i] ;   // absolute value
-      f0-- ;                                // to preserve sign for minimum absolute value
-      fa  = f0 << shift ;                   // apply shift
-      fa += offset ;                        // add offset term
-      fa  = (qi[i] == 0) ? zero : fa ;      // special case for quantized value == 0
-      fa |= fs ;                            // apply sign
-      fo[i] = fa ;
-    }
-  }else{
-    for(i=0 ; i<ni ; i++){
-      f0  = qi[i] ;
-      f0-- ;                                // to preserve sign for minimum absolute value
-      fa  = f0 << shift ;                   // apply shift
-      fa += offset ;                        // add offset term
-      fa  = (qi[i] == 0) ? zero : fa ;      // special case for quantized value == 0
-      fa |= sign ;                          // apply sign
-      fo[i] = fa ;
-    }
-  }
   q64.u = desc.u ;
   q64.r.npts = ni ;
   q64.r.state = RESTORED ;
@@ -688,52 +548,62 @@ error:
   return q64 ;
 }
 
-// quantize IEEE floats (fake log type 1)
+// quantize IEEE floats
 // qs   [OUT]  32 bit integer array that will receive the quantized result
 // f     [IN]  32 bit IEEE float array, data to be quantized
 // ni    [IN]  number of data items to quantize
 // nbits [IN]  number of bits to use for quantized data
 // qzero [IN]  smallest value considered significant (if qzero < 0, it will be restored as 0.0)
 // N.B. qzero will be reduced to a power of 2 <= qzero
-//      if there are mixed signs, the quantized result will be signed
-//      IEEE 32 bit floats are processed as if they were signed integers
-  q_desc IEEE32_fakelog_quantize_1(void * restrict f, int ni, q_desc rule, void * restrict q){
-  uint32_t *fu = (uint32_t *) f ;
-  int32_t *qo = (uint32_t *) q ;
+//      if there are mixed signs, the sign is stored in the LSB position
+// uint64_t IEEE32_fakelog_quantize_0(void * restrict f, int ni, int nbits, float qzero, void * restrict qs){
+q_desc IEEE32_fakelog_quantize_0(void * restrict f, int ni, q_desc rule, void * restrict q, limits_w32 *limits){
+  float *fu = (float *) f ;
+  uint32_t *qo = (uint32_t *) q ;
   q_desc q64 = {.u = 0 } ;  // set invalid output state
-  uint32_t allp, allm, pos_neg, maxa, mina, round = 0 ;
-  int32_t emax, emin, ebits, erange, mbits, shift, offset ;
+//   ieee32_props h64 ;
+  uint32_t allp, allm, pos_neg ;
+//   uint32_t clip ;
+  uint32_t maxa, mina, sign, maskbits ;
+  int32_t emax, emin, ebits, erange ;
+//   int32_t elow ;
   AnyType32 t ;
-  int nbits = rule.f.nbits ;
+  float fac, qrange ;   // quantization factor
+  int i ;
+  int nbits = rule.f.nbits, mbits = rule.f.mbits ;
   float qzero = rule.f.ref ;
+  limits_w32 l32, *l32p = &l32 ;
 
   if(rule.f.state != TO_QUANTIZE)            goto error ;       // invalid state
   if(rule.f.nbits == 0 && rule.f.mbits == 0) goto error ;       // cannot be both set to 0
 
-  limits_w32 l32 = IEEE32_extrema(fu, ni) ;
-// extract needed values from l32
-  allp = l32.i.allp ;                     // all values >= 0
-  allm = l32.i.allm ;                     // all values < 0
-  maxa = l32.i.maxa ;                     // largest absolute value
-  mina = l32.i.mina ;                     // smallest absolute value
+  if(limits == NULL){
+    l32 = IEEE32_extrema(fu, ni) ;
+  }else{
+    l32p = limits ;
+  }
+  allm = l32p->i.allm ;                   // extract all useful values from u64
+  allp = l32p->i.allp ;
+  maxa = l32p->i.maxa ;
+  mina = l32p->i.mina ;
   pos_neg = (allp || allm) ? 0 : 1 ;      // we have both positive and negative values
 
 // fill result struct
-  q64.q.allp = allp ;                     // all values >= 0 flag
-  q64.q.allm = allm ;                     // all values  < 0 flag
-// prepare to quantize
-  t.f  = qzero ;                          // smallest significant value
-  t.u &= 0x7FFFFFFFu ;                    // absolute value
-  emax = (maxa >> 23) & 0xFF ;            // IEEE exponent of largest absolute value
-  emin = (mina >> 23) & 0xFF ;            // IEEE exponent of smallest absolute value
-  if(mina < t.u){
-    q64.q.clip = (qzero < 0) ? 1 : 0 ;    // will force a restore to zero if quantized value == 0
-    mina = t.u ;                          // force mina to qzero if mina < qzero
-    emin = (t.u >> 23) & 0xFF ;           // exponent from qzero
+  q64.u       = 0 ;
+  q64.q.allp  = allp ;                    // all values >= 0 flag
+  q64.q.allm  = allm ;                    // all values  < 0 flag
+//   q64.q.clip  = 0 ;
+
+  t.f  = qzero ;                          // lowest significant value
+  t.u &= 0x7FFFFFFF ;                     // abs(t.f)
+//   elow = (t.u >> 23) & 0xFF ;             // will be 0 when qzero == 0.0
+  emax = (maxa >> 23) & 0xFF ;
+  if(mina < t.u){                         // if mina < lowest significant absolute value
+    mina = t.u ;                          // set it to taht value
+    if(qzero < 0) q64.q.clip  = 1 ;       // and it will be restored to 0.0 if qzero < 0
+//     elow = 0 ;
   }
-  q64.q.emin = emin ;                     // store adjusted value of emin into q64
-//   emax -= 127 ;                           // remove IEEE exponent bias from emax, emin
-//   emin -= 127 ;
+  emin = (mina >> 23) & 0xFF ;
   erange = emax - emin ;                  // exponent range
   ebits = 32 - lzcnt_32(erange) ;         // number of bits needed to encode exponent range (0 -> 8)
 // determine / adjust mbits and nbits
@@ -752,7 +622,211 @@ error:
   q64.q.nbits = nbits ;
   q64.q.mbits = mbits ;
 
-  if(mbits < 23) round = 1 << (22 - mbits) ;     // rounding term (0 if mbits == 23)
+//   clip = (emin < elow) ? 1 : 0 ;          // original emin < elow
+//   if((qzero < 0) && (emin < elow)) h64.e.elow = 0 ;  // will force a restore to zero where quantized value == 0
+//   emin = (emin < elow) ? elow : emin ;    // emin < elow, set emin to elow for quantization
+//   emin = (emin < elow) ? elow - 1 : emin ;     // emin < elow, set emin to elow - 1 for quantization
+  q64.q.offset.emax = emax ;
+//   q64.q.offset.elow = elow ;
+  q64.q.emin = emin ;                    // store adjusted value of emin
+  emax -= 127 ;
+  emin -= 127 ;
+
+  qrange = (1 << nbits) ;         // range of quantized values (2**nbits)
+  t.f = (emax - emin + 1) ;       // maximum possible value of "fake log"
+  fac = t.f = qrange / t.f ;      // factor to quantize "fake log"
+  maskbits = RMASK31(nbits) ;     // 2**nbits -1, largest allowable quantized value
+
+  if(pos_neg){
+    for(i=0 ; i<ni ; i++){
+      int exp ;
+      AnyType32 x ;
+      x.f = fu[i] ;                 // float to quantize
+      sign = x.ie32.s ;             // save sign
+      exp = (x.u >> 23) & 0xFF ;    // exponent from value (with +127 bias)
+      exp = exp - emin ;            // this will have a value of 127 for the lowest "significant" exponent
+      x.u &= 0x7FFFFF ;             // get rid of exponent and sign, only keep mantissa
+      x.u |= (0x7F << 23) ;         // force 127 as exponent (1.0 <= x.f < 2.0)
+      x.f += (exp - 127 - 1) ;      // add value of exponent from original float (0.0 <= x.f < max "fake log")
+      qo[i] = x.f * fac + .5f ;     // quantize the fake log
+      qo[i] = (x.f <  0.0f) ? 0 : qo[i] ;               // < qzero (exp < emin)
+      qo[i] = (x.f == 0.0f) ? 1 : qo[i] ;               // == lowest significant value (emin)
+      qo[i] = (qo[i] > maskbits) ? maskbits : qo[i] ;   // clamp at 2**nbits -1
+      qo[i] = (sign == 0) ? qo[i] : -qo[i] ;   // restore sign
+//       qo[i] = (qo[i] << 1) | sign ; // sign as LSB
+    }
+  }else{                            // all values have the same sign
+    for(i=0 ; i<ni ; i++){
+      int exp ;
+      AnyType32 x ;
+      x.f = fu[i] ;                 // float to quantize
+      exp = (x.u >> 23) & 0xFF ;    // exponent from value (with +127 bias)
+      exp = exp - emin ;            // this will have a value of 127 for the lowest "significant" exponent
+      x.u &= 0x7FFFFF ;             // get rid of exponent and sign, only keep mantissa
+      x.u |= (0x7F << 23) ;         // force 127 as exponent (1.0 <= x.f < 2.0)
+      x.f += (exp - 127 - 1) ;      // add value of exponent from original float (0.0 <= x.f < max "fake log")
+      qo[i] = x.f * fac + .5f ;     // quantize the fake log
+      qo[i] = (x.f <  0.0f) ? 0 : qo[i] ;               // < qzero (exp < emin)
+      qo[i] = (x.f == 0.0f) ? 1 : qo[i] ;               // == lowest significant value (emin)
+      qo[i] = (qo[i] > maskbits) ? maskbits : qo[i] ;   // clamp at 2**nbits -1
+    }
+  }
+  q64.q.state = QUANTIZED ;
+  q64.q.type  = Q_FAKE_LOG_0 ;
+  return q64 ;
+
+error:
+  q64.u = 0 ;
+  exit(1) ;
+  return q64 ;
+}
+
+// ========================================== fake log quantizer 1 ==========================================
+
+// restore floating point numbers quantized with IEEE32_fakelog_quantize_1
+// q     [IN]  32 bit integer array containing the quantized data
+// f    [OUT]  32 bit IEEE float array that will receive restored floats
+// ni    [IN]  number of data items
+// desc  [IN]  information describing quantization (from IEEE32_fakelog_quantize_1)
+// N.B. if values have mixed signs, the quantized data is signed
+//      a zero quantized value will be restored either as 0 or the minimum value
+//      depending upon flag "clip"
+//      IEEE 32 bit floats are processed as if they were signed integers
+// int IEEE32_fakelog_restore_1(void * restrict f, uint64_t u64, int ni, void * restrict q){
+q_desc IEEE32_fakelog_restore_1(void * restrict f, int ni, q_desc desc, void * restrict q){
+  int32_t *qi = (int32_t *) q ;
+  int32_t *fo = (int32_t *) f ;
+  q_desc q64 = {.u = 0 } ;  // invalid restored state
+  int i, shift, offset, pos_neg, fa, fs, zero, f0 ;
+
+  if(desc.q.type  != Q_FAKE_LOG_1) goto error ;  // wrong quantizer
+  if(desc.q.state != QUANTIZED)    goto error ;  // must be quantized data
+  if(desc.q.allm && desc.q.allp)   goto error ;  // both flags cannot be true simultaneously
+
+  shift  = 23 - desc.q.mbits ;
+  pos_neg= (desc.q.allm | desc.q.allp) ? 0 : 1 ;
+  offset = desc.q.offset.i ;
+  zero = desc.q.clip ? 0 : offset ;         // replacement value for quantized value 0
+
+  if(pos_neg){
+    for(i=0 ; i<ni ; i++){
+      fs = qi[i] & 0x80000000 ;             // save sign
+      f0 = (qi[i] < 0) ? -qi[i] : qi[i] ;   // absolute value
+      f0-- ;                                // to preserve sign for minimum absolute value
+      fa  = f0 << shift ;                   // apply shift
+      fa += offset ;                        // add offset term
+      fa  = (qi[i] == 0) ? zero : fa ;      // special case for quantized value == 0
+      fa |= fs ;                            // apply sign
+      fo[i] = fa ;
+    }
+  }else{
+    int sign = desc.q.allm ;
+    sign <<= 31 ;
+    for(i=0 ; i<ni ; i++){
+      f0  = qi[i] ;
+      f0-- ;                                // to preserve sign for minimum absolute value
+      fa  = f0 << shift ;                   // apply shift
+      fa += offset ;                        // add offset term
+      fa  = (qi[i] == 0) ? zero : fa|sign ; // apply sign, special case for quantized value == 0
+      fo[i] = fa ;
+    }
+  }
+  q64.u = desc.u ;
+  q64.r.npts = ni ;
+  q64.r.state = RESTORED ;
+  return q64 ;
+
+error:
+  q64.u = 0 ;
+  return q64 ;
+}
+
+// quantize IEEE floats (fake log type 1)
+// qs   [OUT]  32 bit integer array that will receive the quantized result
+// f     [IN]  32 bit IEEE float array, data to be quantized
+// ni    [IN]  number of data items to quantize
+// nbits [IN]  number of bits to use for quantized data
+// qzero [IN]  smallest value considered significant (if qzero < 0, it will be restored as 0.0)
+// N.B. qzero will be reduced to a power of 2 <= qzero
+//      if there are mixed signs, the quantized result will be signed
+//      IEEE 32 bit floats are processed as if they were signed integers
+q_desc IEEE32_fakelog_quantize_1(void * restrict f, int ni, q_desc rule, void * restrict q, limits_w32 *limits){
+  uint32_t *fu = (uint32_t *) f ;
+  int32_t *qo = (uint32_t *) q ;
+  q_desc q64 = {.u = 0 } ;  // set invalid output state, all components set to 0
+  uint32_t allp, allm, pos_neg, maxa, mina, round = 0 ;
+  int32_t emin, ebits, erange, shift, offset ;
+  AnyType32 z0 ;
+  int nbits = rule.f.nbits, mbits = rule.f.mbits ;
+  float qzero = rule.f.ref ;
+  limits_w32 l32, *l32p = &l32 ;
+int debug = 0 ;
+
+  if(rule.f.state != TO_QUANTIZE)   goto error ;       // invalid state
+  if(nbits == 0 && mbits == 0)      goto error ;       // cannot be both set to 0
+
+  if(limits != NULL){                     // caller supplied data information
+    l32p = limits ;                       // use supplied data information
+  }else{
+    l32 = IEEE32_extrema(fu, ni) ;        // get data information
+  }
+// get needed data information from l32p
+  allp = l32p->i.allp ;                   // all values >= 0
+  q64.q.allp = allp ;                     // all values >= 0 output flag
+  allm = l32p->i.allm ;                   // all values < 0
+  q64.q.allm = allm ;                     // all values  < 0 output flag
+  maxa = l32p->i.maxa ;                   // largest absolute value
+  mina = l32p->i.mina ;                   // smallest absolute value
+  pos_neg = (allp || allm) ? 0 : 1 ;      // we have both positive and negative values
+if(debug) fprintf(stderr, "z0 = %f, maxa = %8.8x, mina = %8.8x, allp = %d, allm = %d\n", qzero, maxa, mina, allp, allm);
+
+// prepare to quantize
+  z0.f  = (qzero < 0) ? -qzero : qzero ;  // ABS(smallest significant value)
+  if(mina < z0.u){                        // smallest absolute value < |qzero| ?
+    q64.q.clip = rule.f.clip ;            // will force a restore to zero if quantized value == 0
+    mina = z0.u ;                         // force mina to |qzero| if mina < |qzero|
+  }
+  emin = (mina >> 23) & 0xFF ;            // IEEE exponent of smallest absolute value
+  q64.q.emin = emin ;                     // store adjusted value of emin into q64
+  erange = maxa - mina ;                  // exponent range
+  erange = erange >> 23 ;                 // potentially 1 bit less than emax - emin
+  ebits = 32 - lzcnt_32(erange) ;         // number of bits needed to encode exponent range (0 -> 8)
+
+// determine / adjust mbits and nbits
+  int nbits0 = nbits ;                    // original value
+  int mbits0 = mbits ;                    // original value
+  mbits = (mbits > 22) ? 22 : mbits ;     // make sure mbits <= 22
+  if(nbits > 0 && nbits < mbits+pos_neg)  // a smaller value for nbits cannot make sense
+    nbits = mbits + pos_neg ;
+
+  if(mbits == 0){                         // nbits > 0, mbits == 0
+    mbits = nbits - ebits - pos_neg ;     // left after removing sign (if necessary) and exponent bits
+    mbits = (mbits > 22) ? 22 : mbits ;   // make sure mbits <= 22
+    mbits = (mbits <  1) ?  1 : mbits ;   // make sure mbits > 0
+if(debug) fprintf(stderr, "(mbits == 0)\n") ;
+
+  }else if(nbits == 0){                   // mbits > 0, nbits == 0
+    mbits = (mbits > 22) ? 22 : mbits ;   // make sure mbits <= 22
+if(debug) fprintf(stderr, "(nbits == 0)") ;
+
+  }else{                                  // mbits > 0, nbits > 0
+    mbits = (mbits > 22) ? 22 : mbits ;   // make sure mbits <= 22
+    while(nbits < ebits + mbits + pos_neg){
+      nbits++ ;                           // increase nbits
+      if(nbits >= ebits + mbits + pos_neg) break ;
+      if(mbits > 1) mbits-- ;             // decrease ebits
+      if(nbits >= ebits + mbits + pos_neg) break ;
+      nbits++ ;                           // increase nbits
+    }
+if(debug) fprintf(stderr, "(nbits,mbits)") ;
+  }
+  nbits = mbits + ebits + pos_neg ;       // (re)compute nbits
+if(debug) fprintf(stderr, " nbits = %d(%d), mbits = %d(%d), ebits = %d, pos_neg = %d\n", nbits, nbits0, mbits, mbits0, ebits, pos_neg) ;
+
+  q64.q.nbits = nbits ;                   // number of bits
+  q64.q.mbits = mbits ;                   // number of mantissa bits
+
+  if(mbits < 23) round = 1 << (22-mbits) ;// rounding term (0 if mbits == 23)
   shift = 23 - mbits ;                    // number of bits from IEEE mantissa that will be dropped
   mina += round ;                         // adjust smallest absolute value with rounding term
   offset = (mina >> shift) << shift ;     // will substract adjusted smallest absolute value
@@ -769,7 +843,7 @@ error:
       fa -= offset ;                      // subtract offset term, add rounding term
       fa >>= shift ;                      // shift right to fit within nbits
       fa++ ;                              // to be able to preserve sign for minimum absolute value
-      fa = (fa < 0) ? 0 : fa ;            // fa must NOT be < 0
+      fa = (fa < 0) ? 0 : fa ;            // fa must NOT be < 0 at this point
       qo[i] = fs ? -fa : fa ;             // apply sign
     }
   }else{                                  // all values have the same sign
@@ -778,7 +852,7 @@ error:
       fa -= offset ;                      // subtract offset term, add rounding term
       fa >>= shift ;                      // shift right to fit within nbits
       fa++ ;                              // to be able to preserve sign for minimum absolute value
-      fa = (fa < 0) ? 0 : fa ;            // fa must NOT be < 0
+      fa = (fa < 0) ? 0 : fa ;            // fa must NOT be < 0 at this point
       qo[i] = fa ;
     }
   }
@@ -788,7 +862,6 @@ error:
 
 error:
   q64.u = 0 ;
-  exit(1) ;
   return q64 ;
 }
 

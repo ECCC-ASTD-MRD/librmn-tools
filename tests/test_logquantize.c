@@ -86,23 +86,23 @@ int main(int argc, char **argv){
   fprintf(stderr, "%12f\n", x[NPTS-1]) ;
   fprintf(stderr, "\n") ;
 
-  h64 = IEEE32_fakelog_quantize_0(x, NPTS, nbits, qzero, qi);
-  fprintf(stderr, "%12d ", qi[0]) ;
-  for(i=1 ; i<NPTS ; i+=511) fprintf(stderr, "%12d ", qi[i]) ;
-  fprintf(stderr, "%12d\n", qi[NPTS-1]) ;
-  fprintf(stderr, "\n") ;
-
-  TIME_LOOP_EZ(1000, NPTS, h64 = IEEE32_fakelog_quantize_0(x, NPTS, nbits, qzero, qi)) ;
-  fprintf(stderr, "IEEE32_fakelog_quantize_0    : %s\n\n",timer_msg);
-
-  IEEE32_fakelog_restore_0(r, h64, NPTS, qi);
-  fprintf(stderr, "%12f ", r[0]) ;
-  for(i=1 ; i<NPTS ; i+=511) fprintf(stderr, "%12f ", r[i]) ;
-  fprintf(stderr, "%12f\n", r[NPTS-1]) ;
-  fprintf(stderr, "\n") ;
-
-  TIME_LOOP_EZ(1000, NPTS, IEEE32_fakelog_restore_0(r, h64, NPTS, qi)) ;
-  fprintf(stderr, "IEEE32_fakelog_restore_0    : %s\n\n",timer_msg);
+//   h64 = IEEE32_fakelog_quantize_0(x, NPTS, nbits, qzero, qi);
+//   fprintf(stderr, "%12d ", qi[0]) ;
+//   for(i=1 ; i<NPTS ; i+=511) fprintf(stderr, "%12d ", qi[i]) ;
+//   fprintf(stderr, "%12d\n", qi[NPTS-1]) ;
+//   fprintf(stderr, "\n") ;
+//
+//   TIME_LOOP_EZ(1000, NPTS, h64 = IEEE32_fakelog_quantize_0(x, NPTS, nbits, qzero, qi)) ;
+//   fprintf(stderr, "IEEE32_fakelog_quantize_0    : %s\n\n",timer_msg);
+//
+//   IEEE32_fakelog_restore_0(r, h64, NPTS, qi);
+//   fprintf(stderr, "%12f ", r[0]) ;
+//   for(i=1 ; i<NPTS ; i+=511) fprintf(stderr, "%12f ", r[i]) ;
+//   fprintf(stderr, "%12f\n", r[NPTS-1]) ;
+//   fprintf(stderr, "\n") ;
+//
+//   TIME_LOOP_EZ(1000, NPTS, IEEE32_fakelog_restore_0(r, h64, NPTS, qi)) ;
+//   fprintf(stderr, "IEEE32_fakelog_restore_0    : %s\n\n",timer_msg);
 
   fprintf(stderr, "%12.0f ", x[0]/(x[0]-r[0])) ;
   for(i=1 ; i<NPTS ; i+=511) fprintf(stderr, "%12.0f ", x[i]/(x[i]-r[i])) ;

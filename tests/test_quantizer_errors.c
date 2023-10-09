@@ -199,6 +199,25 @@ void analyze_float_data(void *fv, int n){
   fprintf(stderr, ">           average = %10.3E |%10.3E|, std dev = %10.3E, min = %10.3E, max = %10.3E \n", avg, avgabs, dev, min, max) ;
 }
 
+void evaluate_rel_diff(float *rt, float *ft, int n){
+  float err, avgerr, bias ;
+  int i, plus, minus ;
+  err = avgerr = bias = 0.0f ;
+  plus = minus = 0 ;
+  for(i=0 ; i<n ; i++){
+    float errloc = 1.0f - rt[i] / ft[i] ;
+    if(errloc < 0) plus++ ; else minus ++ ;
+    bias += errloc ;
+    errloc = (errloc < 0) ? -errloc : errloc ;
+    err = (errloc > err) ? errloc : err ;
+    avgerr += errloc ;
+  }
+  avgerr /= n ;
+  bias /= n ;
+  fprintf(stderr, "max(avg) rel error = %12.5g(%12.5g), 1 part in %9.3f(%9.3f), rel bias = %12.5g\n", err, avgerr, 1.0f/err,1.0f/avgerr, bias ) ;
+  fprintf(stderr, "plus = %d, minus = %d\n", plus, minus) ;
+}
+
 void test_log_quantizer(void *fv, int ni, int nj, error_stats *e, char *vn){
 }
 
@@ -207,62 +226,89 @@ void test_log_quantizer(void *fv, int ni, int nj, error_stats *e, char *vn){
 
 int check_fake_log_1(void){
   float    f[NPTSIJ], fr[NPTSIJ] ;
-  float ft[NPTS_TIMING], rt[NPTS_TIMING] ;
+  float ft[NPTS_TIMING], rt[NPTS_TIMING], xt[NPTS_TIMING] ;
   uint32_t q[NPTSIJ] ;
   uint32_t qt[NPTS_TIMING] ;
   uint32_t *fi = (uint32_t *)f ;
-  int i ;
-  q_desc r = {.f.ref = -1.0f, .f.type = Q_FAKE_LOG_1, .f.nbits = 0, .f.mbits = 8, .f.state = TO_QUANTIZE} ;
+  int i, diff ;
+  q_desc r = {.f.ref = 1.0f, .f.clip = 0, .f.type = Q_FAKE_LOG_1, .f.nbits = 0, .f.mbits = 8, .f.state = TO_QUANTIZE} ;
   q_desc qu, qut ;
   TIME_LOOP_DATA ;
   float err, avgerr, bias ;
   int plus, minus ;
+  limits_w32 l32, *l32p = &l32 ;
 
-  fprintf(stderr, "checking fake_log_1\n");
-  f[0] = -1.1 ; q[0] = 0xFFFFFFFFu ; fr[0] = 999999999 ;
+  fprintf(stderr, "==================== testing fake_log quantizer ====================\n");
+  f[0] = 1.1 ; q[0] = 0xFFFFFFFFu ; fr[0] = 999999999 ;
   for(i=1 ; i<NPTSIJ ; i++){
-    f[i] = 2.0001f * f[i-1] ;
+    f[i] = 2.11f * f[i-1] ;
     q[i] = q[i-1] ;
     fr[i] = fr[i-1] ;
   }
   f[1] = .22f ;
-  qu.u = IEEE32_fakelog_quantize_1(f, NPTSIJ, r, q).u ;
+
+  l32 = IEEE32_extrema(f, NPTSIJ) ;
+//   fprintf(stderr, "IEEE32_fakelog_quantize_0\n");
+//   qu.u = IEEE32_fakelog_quantize_0(f, NPTSIJ, r, q, &l32).u ;
+//   for(i=0 ; i<NPTSIJ ; i++) fprintf(stderr, "%12.5g", f[i]) ; fprintf(stderr, "\n") ;
+//   printf_quant_out(stderr, qu) ;
+//   for(i=0 ; i<NPTSIJ ; i++) fprintf(stderr, "%12.8x", q[i]) ; fprintf(stderr, "\n") ;
+
+//   fprintf(stderr, "IEEE32_fakelog_restore_0\n");
+//   qu.u = IEEE32_fakelog_restore_0(fr, NPTSIJ, qu, q).u ;
+//   for(i=0 ; i<NPTSIJ ; i++) fprintf(stderr, "%12.5g", fr[i]) ; fprintf(stderr, "\n") ;
+//   for(i=0 ; i<NPTSIJ ; i++) fprintf(stderr, "%12.7f", fr[i]/f[i]) ; fprintf(stderr, "\n") ;
+
+  fprintf(stderr, "IEEE32_fakelog_quantize_1\n");
+  qu.u = IEEE32_fakelog_quantize_1(f, NPTSIJ, r, q, &l32).u ;
   for(i=0 ; i<NPTSIJ ; i++) fprintf(stderr, "%12.5g", f[i]) ; fprintf(stderr, "\n") ;
   printf_quant_out(stderr, qu) ;
   for(i=0 ; i<NPTSIJ ; i++) fprintf(stderr, "%12.8x", q[i]) ; fprintf(stderr, "\n") ;
 
+  fprintf(stderr, "IEEE32_fakelog_restore_1\n");
   qu.u = IEEE32_fakelog_restore_1(fr, NPTSIJ, qu, q).u ;
   for(i=0 ; i<NPTSIJ ; i++) fprintf(stderr, "%12.5g", fr[i]) ; fprintf(stderr, "\n") ;
   for(i=0 ; i<NPTSIJ ; i++) fprintf(stderr, "%12.7f", fr[i]/f[i]) ; fprintf(stderr, "\n") ;
+// return 0 ;
 
   ft[0] = 1.001f ;
-  for(i=1 ; i<NPTS_TIMING ; i++) ft[i] = ft[i-1] * 1.002f ;
-  fprintf(stderr, "min = %12.5g, max = %12.5g\n", ft[0], ft[NPTS_TIMING-1]) ;
+  for(i=1 ; i<NPTS_TIMING ; i++) ft[i] = ft[i-1] * 1.00016f ;
+  fprintf(stderr, "%d values, %12.5g <= value <=%12.5g\n", NPTS_TIMING, ft[0], ft[NPTS_TIMING-1]) ;
 
-  qu.u = IEEE32_fakelog_quantize_1(ft, NPTS_TIMING,  r, qt).u ;
+  l32 = IEEE32_extrema(ft, NPTS_TIMING) ;         // precompute data info for quantizer
+  qu.u = IEEE32_fakelog_quantize_1(ft, NPTS_TIMING,  r, qt, &l32).u ;
   printf_quant_out(stderr, qu) ;
+  for(i=0 ; i<NPTS_TIMING ; i++) rt[i] = 0.0f ;
   qut.u = IEEE32_fakelog_restore_1(rt, NPTS_TIMING, qu, qt).u ;
-  err = avgerr = bias = 0.0f ;
-  plus = minus = 0 ;
-  for(i=0 ; i<NPTS_TIMING ; i++){
-    float errloc = 1.0f - rt[i] / ft[i] ;
-    if(errloc < 0) plus++ ; else minus ++ ;
-    bias += errloc ;
-    errloc = (errloc < 0) ? -errloc : errloc ;
-    err = (errloc > err) ? errloc : err ;
-    avgerr += errloc ;
-  }
-  avgerr /= NPTS_TIMING ;
-  bias /= NPTS_TIMING ;
-  fprintf(stderr, "max(avg) rel error = %12.5g(%12.5g), 1 part in %9.3f(%9.3f), rel bias = %12.5g\n", err, avgerr, 1.0f/err,1.0f/avgerr, bias ) ;
-  fprintf(stderr, "plus = %d, minus = %d\n", plus, minus) ;
+  evaluate_rel_diff(rt, ft, NPTS_TIMING) ;
 
-  TIME_LOOP_EZ(1000, NPTS_TIMING, qu.u = IEEE32_fakelog_quantize_1(ft, NPTS_TIMING, r, qt).u ) ;
-  fprintf(stderr, "fakelog_quantize_1    : %s\n",timer_msg);
+  fprintf(stderr, "cyclical quantize->restore->quantize->restore test\n") ;
+  int cycles = 10 ;
+  fprintf(stderr, "cyclical encoding differences =") ;
+  while(cycles--){
+    qu.u = IEEE32_fakelog_quantize_1(rt, NPTS_TIMING,  r, qt, &l32).u ;  // quantize rt -> qt
+    for(i=0 ; i<NPTS_TIMING ; i++) xt[i] = 0.0f ;
+    qut.u = IEEE32_fakelog_restore_1(xt, NPTS_TIMING, qu, qt).u ;        // decode qt -> xt
+    diff = 0 ;
+    for(i=0 ; i<NPTS_TIMING ; i++){
+      diff += ((rt[i] != xt[i]) ? 1 : 0) ;                               // compare rt. qt
+      rt[i] = xt[i] ;                                                    // qt -> rt
+    }
+    fprintf(stderr, " %d", diff) ;
+  }
+  fprintf(stderr, "\n") ;
+
+int timing = 1 ;
+if(timing){
+  TIME_LOOP_EZ(1000, NPTS_TIMING, qu.u = IEEE32_fakelog_quantize_1(ft, NPTS_TIMING, r, qt, NULL).u ) ; // no precomputed info
+  fprintf(stderr, "fakelog_quantize_1      : %s\n",timer_msg);
+
+  TIME_LOOP_EZ(1000, NPTS_TIMING, qu.u = IEEE32_fakelog_quantize_1(ft, NPTS_TIMING, r, qt, &l32).u ) ; // with precomputed info
+  fprintf(stderr, "fakelog_quantize_1(l32) : %s\n",timer_msg);
 
   TIME_LOOP_EZ(1000, NPTS_TIMING, qut.u = IEEE32_fakelog_restore_1(ft, NPTS_TIMING, qu, qt).u ) ;
-  fprintf(stderr, "fakelog_restore_1     : %s\n",timer_msg);
-
+  fprintf(stderr, "fakelog_restore_1       : %s\n",timer_msg);
+}
   return 0 ;
 }
 
