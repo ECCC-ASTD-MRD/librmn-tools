@@ -231,7 +231,7 @@ int check_fake_log_1(void){
   uint32_t qt[NPTS_TIMING] ;
   uint32_t *fi = (uint32_t *)f ;
   int i, diff ;
-  q_desc r = {.f.ref = 1.0f, .f.rng10 = 3, .f.clip = 0, .f.type = Q_FAKE_LOG_1, .f.nbits = 0, .f.mbits = 8, .f.state = TO_QUANTIZE} ;
+  q_desc r = {.f.ref = 1.0f, .f.rng10 = 0, .f.clip = 0, .f.type = Q_FAKE_LOG_1, .f.nbits = 0, .f.mbits = 4, .f.state = TO_QUANTIZE} ;
   q_desc qu, qut ;
   TIME_LOOP_DATA ;
   float err, avgerr, bias ;
@@ -249,16 +249,17 @@ int check_fake_log_1(void){
   fprintf(stderr, "%d values, %12.5g <= value <=%12.5g\n", NPTSIJ, f[0], f[NPTSIJ-1]) ;
 
   l32 = IEEE32_extrema(f, NPTSIJ) ;
-//   fprintf(stderr, "IEEE32_fakelog_quantize_0\n");
-//   qu.u = IEEE32_fakelog_quantize_0(f, NPTSIJ, r, q, &l32).u ;
-//   for(i=0 ; i<NPTSIJ ; i++) fprintf(stderr, "%12.5g", f[i]) ; fprintf(stderr, "\n") ;
-//   printf_quant_out(stderr, qu) ;
-//   for(i=0 ; i<NPTSIJ ; i++) fprintf(stderr, "%12.8x", q[i]) ; fprintf(stderr, "\n") ;
+  fprintf(stderr, "IEEE32_fakelog_quantize_0\n");
+  qu.u = IEEE32_fakelog_quantize_0(f, NPTSIJ, r, q, &l32).u ;
+  for(i=0 ; i<NPTSIJ ; i++) fprintf(stderr, "%12.5g", f[i]) ; fprintf(stderr, "\n") ;
+  printf_quant_out(stderr, qu) ;
+  for(i=0 ; i<NPTSIJ ; i++) fprintf(stderr, "%12.8x", q[i]) ; fprintf(stderr, "\n") ;
 
-//   fprintf(stderr, "IEEE32_fakelog_restore_0\n");
-//   qu.u = IEEE32_fakelog_restore_0(fr, NPTSIJ, qu, q).u ;
-//   for(i=0 ; i<NPTSIJ ; i++) fprintf(stderr, "%12.5g", fr[i]) ; fprintf(stderr, "\n") ;
-//   for(i=0 ; i<NPTSIJ ; i++) fprintf(stderr, "%12.7f", fr[i]/f[i]) ; fprintf(stderr, "\n") ;
+  fprintf(stderr, "IEEE32_fakelog_restore_0\n");
+  qu.u = IEEE32_fakelog_restore_0(fr, NPTSIJ, qu, q).u ;
+  for(i=0 ; i<NPTSIJ ; i++) fprintf(stderr, "%12.5g", fr[i]) ; fprintf(stderr, "\n") ;
+  for(i=0 ; i<NPTSIJ ; i++) fprintf(stderr, "%12.7f", fr[i]/f[i]) ; fprintf(stderr, "\n") ;
+  fprintf(stderr, "\n") ;
 
   fprintf(stderr, "IEEE32_fakelog_quantize_1\n");
   qu.u = IEEE32_fakelog_quantize_1(f, NPTSIJ, r, q, &l32).u ;
@@ -274,18 +275,45 @@ int check_fake_log_1(void){
 // return 0 ;
 
   ft[0] = 1.001f ;
-  for(i=1 ; i<NPTS_TIMING ; i++) ft[i] = ft[i-1] * 1.00016f ;
-  fprintf(stderr, "%d values, %12.5g <= value <=%12.5g\n", NPTS_TIMING, ft[0], ft[NPTS_TIMING-1]) ;
+//   for(i=1 ; i<NPTS_TIMING ; i++) ft[i] = ft[i-1] * 1.00016f ;
+  for(i=1 ; i<NPTS_TIMING ; i++) ft[i] = ft[i-1] * 1.002f ;
+  fprintf(stderr, "%d values, %12.5g <= value <=%12.5g\n\n", NPTS_TIMING, ft[0], ft[NPTS_TIMING-1]) ;
 
   l32 = IEEE32_extrema(ft, NPTS_TIMING) ;         // precompute data info for quantizer
+
+  qu.u = IEEE32_fakelog_quantize_0(ft, NPTS_TIMING,  r, qt, &l32).u ;
+  printf_quant_out(stderr, qu) ;
+  for(i=0 ; i<NPTS_TIMING ; i++) rt[i] = 0.0f ;
+  qut.u = IEEE32_fakelog_restore_0(rt, NPTS_TIMING, qu, qt).u ;
+  evaluate_rel_diff(rt, ft, NPTS_TIMING) ;
+  fprintf(stderr, "\n") ;
+
   qu.u = IEEE32_fakelog_quantize_1(ft, NPTS_TIMING,  r, qt, &l32).u ;
   printf_quant_out(stderr, qu) ;
   for(i=0 ; i<NPTS_TIMING ; i++) rt[i] = 0.0f ;
   qut.u = IEEE32_fakelog_restore_1(rt, NPTS_TIMING, qu, qt).u ;
   evaluate_rel_diff(rt, ft, NPTS_TIMING) ;
-
-  fprintf(stderr, "cyclical quantize->restore->quantize->restore test\n") ;
+  fprintf(stderr, "\n") ;
+return 0 ;
   int cycles = 10 ;
+
+  fprintf(stderr, "cyclical quantize->restore->quantize->restore test (fakelog_quantize_0)\n") ;
+  fprintf(stderr, "cyclical encoding differences =") ;
+  while(cycles--){
+    qu.u = IEEE32_fakelog_quantize_0(rt, NPTS_TIMING,  r, qt, &l32).u ;  // quantize rt -> qt
+    for(i=0 ; i<NPTS_TIMING ; i++) xt[i] = 0.0f ;
+    qut.u = IEEE32_fakelog_restore_0(xt, NPTS_TIMING, qu, qt).u ;        // decode qt -> xt
+    diff = 0 ;
+    for(i=0 ; i<NPTS_TIMING ; i++){
+      diff += ((rt[i] != xt[i]) ? 1 : 0) ;                               // compare rt. qt
+      rt[i] = xt[i] ;                                                    // qt -> rt
+    }
+    fprintf(stderr, " %d", diff) ;
+  }
+  fprintf(stderr, "\n\n") ;
+
+  cycles = 10 ;
+  fprintf(stderr, "cyclical quantize->restore->quantize->restore test (fakelog_quantize_1)\n") ;
   fprintf(stderr, "cyclical encoding differences =") ;
   while(cycles--){
     qu.u = IEEE32_fakelog_quantize_1(rt, NPTS_TIMING,  r, qt, &l32).u ;  // quantize rt -> qt
@@ -298,10 +326,19 @@ int check_fake_log_1(void){
     }
     fprintf(stderr, " %d", diff) ;
   }
-  fprintf(stderr, "\n") ;
+  fprintf(stderr, "\n\n") ;
 
-int timing = 1 ;
+int timing = 0 ;
 if(timing){
+  TIME_LOOP_EZ(1000, NPTS_TIMING, qu.u = IEEE32_fakelog_quantize_0(ft, NPTS_TIMING, r, qt, NULL).u ) ; // no precomputed info
+  fprintf(stderr, "fakelog_quantize_0      : %s\n",timer_msg);
+
+  TIME_LOOP_EZ(1000, NPTS_TIMING, qu.u = IEEE32_fakelog_quantize_0(ft, NPTS_TIMING, r, qt, &l32).u ) ; // with precomputed info
+  fprintf(stderr, "fakelog_quantize_0(l32) : %s\n",timer_msg);
+
+  TIME_LOOP_EZ(1000, NPTS_TIMING, qut.u = IEEE32_fakelog_restore_0(ft, NPTS_TIMING, qu, qt).u ) ;
+  fprintf(stderr, "fakelog_restore_0       : %s\n",timer_msg);
+
   TIME_LOOP_EZ(1000, NPTS_TIMING, qu.u = IEEE32_fakelog_quantize_1(ft, NPTS_TIMING, r, qt, NULL).u ) ; // no precomputed info
   fprintf(stderr, "fakelog_quantize_1      : %s\n",timer_msg);
 

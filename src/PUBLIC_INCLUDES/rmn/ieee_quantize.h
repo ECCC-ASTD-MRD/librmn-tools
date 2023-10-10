@@ -93,6 +93,7 @@ typedef struct{
 #define Q_LINEAR_0     4
 #define Q_LINEAR_1     5
 #define Q_LINEAR_2     6
+// NOTES: Q_FAKE_LOG_1 is faster than Q_FAKE_LOG_0
 
 // structs frules/quant_out/restored should have a matching layout where there are common elements
 typedef union{
