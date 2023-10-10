@@ -231,7 +231,7 @@ int check_fake_log_1(void){
   uint32_t qt[NPTS_TIMING] ;
   uint32_t *fi = (uint32_t *)f ;
   int i, diff ;
-  q_desc r = {.f.ref = 1.0f, .f.clip = 0, .f.type = Q_FAKE_LOG_1, .f.nbits = 0, .f.mbits = 8, .f.state = TO_QUANTIZE} ;
+  q_desc r = {.f.ref = 1.0f, .f.rng10 = 3, .f.clip = 0, .f.type = Q_FAKE_LOG_1, .f.nbits = 0, .f.mbits = 8, .f.state = TO_QUANTIZE} ;
   q_desc qu, qut ;
   TIME_LOOP_DATA ;
   float err, avgerr, bias ;
@@ -246,6 +246,7 @@ int check_fake_log_1(void){
     fr[i] = fr[i-1] ;
   }
   f[1] = .22f ;
+  fprintf(stderr, "%d values, %12.5g <= value <=%12.5g\n", NPTSIJ, f[0], f[NPTSIJ-1]) ;
 
   l32 = IEEE32_extrema(f, NPTSIJ) ;
 //   fprintf(stderr, "IEEE32_fakelog_quantize_0\n");
@@ -269,6 +270,7 @@ int check_fake_log_1(void){
   qu.u = IEEE32_fakelog_restore_1(fr, NPTSIJ, qu, q).u ;
   for(i=0 ; i<NPTSIJ ; i++) fprintf(stderr, "%12.5g", fr[i]) ; fprintf(stderr, "\n") ;
   for(i=0 ; i<NPTSIJ ; i++) fprintf(stderr, "%12.7f", fr[i]/f[i]) ; fprintf(stderr, "\n") ;
+  fprintf(stderr, "\n") ;
 // return 0 ;
 
   ft[0] = 1.001f ;

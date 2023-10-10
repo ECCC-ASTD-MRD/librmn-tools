@@ -99,7 +99,8 @@ typedef union{
   uint64_t u ;             // used to access everything as one 64 bit piece
   struct frules{           // quantization rules, input to quantizing functions
     float    ref ;         // quantization quantum or max significant value
-    uint32_t resv:  14 ,   // reserved, should be 0
+    uint32_t rng2:   8 ,   // base 2 exponent range (may override ref for fake log quantization)
+             rng10:  6 ,   // base 10 exponent range (may override ref for fake log quantization)
              type:   3 ,   // quantization type (0 is invalid)
              clip:   1 ,   // quantized value of 0 is restored as 0
              nbits:  5 ,   // max number of bits for quantized value

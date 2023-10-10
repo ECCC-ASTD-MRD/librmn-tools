@@ -753,17 +753,19 @@ error:
 q_desc IEEE32_fakelog_quantize_1(void * restrict f, int ni, q_desc rule, void * restrict q, limits_w32 *limits){
   uint32_t *fu = (uint32_t *) f ;
   int32_t *qo = (uint32_t *) q ;
-  q_desc q64 = {.u = 0 } ;  // set invalid output state, all components set to 0
+  q_desc q64 = { .u = 0 } ;  // set invalid output state, all components set to 0
   uint32_t allp, allm, pos_neg, maxa, mina, round = 0 ;
   int32_t emin, ebits, erange, shift, offset ;
   AnyType32 z0 ;
   int nbits = rule.f.nbits, mbits = rule.f.mbits ;
+  int rng10 = rule.f.rng10, rng2 = rule.f.rng2 ;
   float qzero = rule.f.ref ;
   limits_w32 l32, *l32p = &l32 ;
 int debug = 0 ;
 
   if(rule.f.state != TO_QUANTIZE)   goto error ;       // invalid state
   if(nbits == 0 && mbits == 0)      goto error ;       // cannot be both set to 0
+  if(rng2 > 0 && rng10 > 10)        goto error ;       // cannot be both > 0
 
   if(limits != NULL){                     // caller supplied data information
     l32p = limits ;                       // use supplied data information
@@ -778,10 +780,19 @@ int debug = 0 ;
   maxa = l32p->i.maxa ;                   // largest absolute value
   mina = l32p->i.mina ;                   // smallest absolute value
   pos_neg = (allp || allm) ? 0 : 1 ;      // we have both positive and negative values
-if(debug) fprintf(stderr, "z0 = %f, maxa = %8.8x, mina = %8.8x, allp = %d, allm = %d\n", qzero, maxa, mina, allp, allm);
+  qzero = rule.f.ref ;
+  z0.f  = (qzero < 0) ? -qzero : qzero ;  // ABS(smallest significant value)
+  if(rng10 > 0) rng2 = rng10 * 3.33334f ; // 2**10 ~= 10**3
+  if(rng2 > 0){
+    AnyType32 z1 = { .u = 0 } ;
+    int mina2 = maxa - (rng2 << 23) ;
+    if(mina2 > 0) z1.u = mina2 ;
+    if(z1.u > z0.u) z0.u = z1.u ;
+  }
+if(debug) fprintf(stderr, "z0 = %f, rng2 = %d, rng10 = %d, clip = %d, maxa = %8.8x, mina = %8.8x, allp = %d, allm = %d\n",
+                           z0.f, rule.f.rng2, rule.f.rng10, rule.f.clip, maxa, mina, allp, allm);
 
 // prepare to quantize
-  z0.f  = (qzero < 0) ? -qzero : qzero ;  // ABS(smallest significant value)
   if(mina < z0.u){                        // smallest absolute value < |qzero| ?
     q64.q.clip = rule.f.clip ;            // will force a restore to zero if quantized value == 0
     mina = z0.u ;                         // force mina to |qzero| if mina < |qzero|
