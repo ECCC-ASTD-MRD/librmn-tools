@@ -470,7 +470,9 @@ int64_t IEEE_qrestore(void * restrict f, void * restrict q, q_meta *meta,  int n
 // desc  [IN]  information describing quantization (from IEEE32_fakelog_quantize_0)
 // N.B. if values have mixed signs, the sign is stored as the LSB in the quantized integer
 //
-// N.B. this version is kept for reference only, fake log quantizer 1 seems better and is much faster
+// N.B. fake log quantizer 1 is much faster than fake log quantizer 0
+//      fake log quantizer 0 does not behave well in cyclical test
+//      for now, this version is kept for reference
 q_desc  IEEE32_fakelog_restore_0(void * restrict f, int ni, q_desc desc, void * restrict q){
   int32_t *qi = (uint32_t *) q ;
   float *fo = (float *) f ;
@@ -514,7 +516,6 @@ q_desc  IEEE32_fakelog_restore_0(void * restrict f, int ni, q_desc desc, void * 
     i = 0 ;
 // N.B. clang(and llvm based compilers) seem to vectorize the code and not need explicit AVX2 code
 #if defined(__AVX2__) && ! defined(__clang__) && ! defined(__PGIC__)
-    tagazou
     __m256i vti, vz0, vc1, vm0, vex, vem, vfo, vmk, vsg, vmg ;
     __m256 vtf, vf1, vfa ;
     vz0 = _mm256_xor_si256(vz0, vz0) ;                    // 0
@@ -557,7 +558,8 @@ q_desc  IEEE32_fakelog_restore_0(void * restrict f, int ni, q_desc desc, void * 
   }else{                       // all numbers have the ame sign
     emin += 126 ;
     i = 0 ;
-#if defined(__AVX2__)
+// N.B. clang(and llvm based compilers) seem to vectorize the code and not need explicit AVX2 code
+#if defined(__AVX2__) && ! defined(__clang__) && ! defined(__PGIC__)
     __m256i vti, vz0, vc1, vm0, vex, vem, vfo, vmk, vsg ;
     __m256 vtf, vf1, vfa ;
     vz0 = _mm256_xor_si256(vz0, vz0) ;                    // 0
@@ -613,6 +615,7 @@ error:
 // N.B. if there are mixed signs, the sign is stored in the LSB position
 //
 // N.B. fake log quantizer 1 is much faster than fake log quantizer 0
+//      fake log quantizer 0 does not behave well in cyclical test
 q_desc IEEE32_fakelog_quantize_0(void * restrict f, int ni, q_desc rule, void * restrict q, limits_w32 *limits){
   float *fu = (float *) f ;
   uint32_t *qo = (uint32_t *) q ;
@@ -774,6 +777,7 @@ if(debug) fprintf(stderr, "fac = %f\n", fac) ;
   }else{                            // all values have the same sign
     emin += 128 ;                   // combining with (exp - 127 - 1)
     i = 0 ;
+// N.B. the AVX2 version does not provide a large speed increase with clang(and llvm based compilers)
 #if defined(__AVX2__)
     __m256i vfu, vz0, vc1, vm0, vm1, vqo, vex, vma, vme, vmi ;
     __m256 v15, vfa ;
@@ -839,7 +843,8 @@ error:
 //      a zero quantized value will be restored either as 0 or the minimum value
 //      depending upon flag "clip"
 //      IEEE 32 bit floats are processed as if they were signed integers
-// int IEEE32_fakelog_restore_1(void * restrict f, uint64_t u64, int ni, void * restrict q){
+//      extremely fast restore
+//      invariant after 1st quantization,  cyclical quantize->restore->quantize->restore ...
 q_desc IEEE32_fakelog_restore_1(void * restrict f, int ni, q_desc desc, void * restrict q){
   int32_t *qi = (int32_t *) q ;
   int32_t *fo = (int32_t *) f ;
@@ -896,6 +901,8 @@ error:
 // rule  [IN]  quantization rules
 // N.B. if there are mixed signs, the quantized result will be signed
 //      IEEE 32 bit floats are processed as if they were signed integers
+//      extremely fast quantize
+//      invariant after 1st quantization,  cyclical quantize->restore->quantize->restore ...
 q_desc IEEE32_fakelog_quantize_1(void * restrict f, int ni, q_desc rule, void * restrict q, limits_w32 *limits){
   uint32_t *fu = (uint32_t *) f ;
   int32_t *qo = (uint32_t *) q ;
@@ -987,13 +994,14 @@ if(debug) fprintf(stderr, " nbits = %d(%d), mbits = %d(%d), ebits = %d, pos_neg 
 
   if(mbits < 23) round = 1 << (22-mbits) ;// rounding term (0 if mbits == 23)
   shift = 23 - mbits ;                    // number of bits from IEEE mantissa that will be dropped
+// fprintf(stderr, ">>>>> maxa = %8.8x, mina = %8.8x, round = %8.8x, ", maxa, mina, round) ;
   mina += round ;                         // adjust smallest absolute value with rounding term
   offset = (mina >> shift) << shift ;     // will substract adjusted smallest absolute value
   q64.q.offset.i = offset ;
   offset -= round ;                       // combine offset and rounding term
   q64.q.type  = Q_FAKE_LOG_1 ;            // identify quantizing algorithm
   q64.q.state = QUANTIZED ;               // everything O.K.
-
+// fprintf(stderr, "offset = %8.8x, shift = %d, nbits = %d, mbits = %d\n", offset, shift, nbits, mbits) ;
 // quantize values using: offset, shift(mbits), pos_neg(allm,allp)
 // restore will need:     offset, mbits, offset, clip, allm, allp)
   int32_t fa, fs ;
