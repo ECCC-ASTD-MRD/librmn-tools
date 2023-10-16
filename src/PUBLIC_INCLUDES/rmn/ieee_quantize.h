@@ -114,8 +114,8 @@ typedef union{
     union{
       int32_t  i ;         // signed offset
       uint32_t u ;         // unsigned offset
-      uint32_t emax:16,    // fake log quantizer 0 uses unused offset to store emax and elow
-               elow:16 ;
+      uint32_t emax: 8,    // fake log quantizer 0 uses unused offset to store emax and elow
+               resv:24 ;
     }offset ;              // quantization offset (minimum raw quantized value)
     uint32_t resv:   6 ,   // reserved, should be 0
              emin:   8 ,   // IEEE exponent of minimum absolute value

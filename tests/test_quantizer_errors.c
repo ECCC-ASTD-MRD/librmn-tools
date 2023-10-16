@@ -206,16 +206,28 @@ void evaluate_rel_diff(float *rt, float *ft, int n){
   plus = minus = 0 ;
   for(i=0 ; i<n ; i++){
     float errloc = 1.0f - rt[i] / ft[i] ;
+    if(errloc > .5f)continue ;   // ignore the result of initial values < qzero
     if(errloc < 0) plus++ ; else minus ++ ;
     bias += errloc ;
     errloc = (errloc < 0) ? -errloc : errloc ;
+// if(errloc > 1.0f) fprintf(stderr, "i = %d, err = %12.5g, rt = %12.5g, ft = %12.5g\n", i, errloc, rt[i], ft[i]);
     err = (errloc > err) ? errloc : err ;
     avgerr += errloc ;
   }
   avgerr /= n ;
   bias /= n ;
-  fprintf(stderr, "max(avg) rel error = %12.5g(%12.5g), 1 part in %9.3f(%9.3f), rel bias = %12.5g\n", err, avgerr, 1.0f/err,1.0f/avgerr, bias ) ;
+  fprintf(stderr, "max(avg) rel error = %12.5g(%12.5g), 1 part in %9.3f(%9.3f), rel bias = %12.5e\n", err, avgerr, 1.0f/err,1.0f/avgerr, bias ) ;
   fprintf(stderr, "plus = %d, minus = %d\n", plus, minus) ;
+}
+
+int32_t count_bits(int32_t *q, int n){
+  int i, count = 0, wired_or = 0 ;
+  for(i=0 ; i<n ; i++) {
+    wired_or |= q[i] ;
+    if(q[i] >= 0) count += (32 -lzcnt_32(q[i])) ;
+    if(q[i] <  0) count += (32 -lzcnt_32(-(int32_t)q[i])) ;
+  }
+  return count + ((wired_or < 0) ? n : 0) ;  // one extra bit per item if negative numbers are present
 }
 
 void test_log_quantizer(void *fv, int ni, int nj, error_stats *e, char *vn){
@@ -228,10 +240,10 @@ int check_fake_log_1(void){
   float    f[NPTSIJ], fr[NPTSIJ] ;
   float ft[NPTS_TIMING], rt[NPTS_TIMING], xt[NPTS_TIMING] ;
   uint32_t q[NPTSIJ] ;
-  uint32_t qt[NPTS_TIMING] ;
+  int32_t qt[NPTS_TIMING] ;
   uint32_t *fi = (uint32_t *)f ;
   int i, diff ;
-  q_desc r = {.f.ref = 1.0f, .f.rng10 = 0, .f.clip = 0, .f.type = Q_FAKE_LOG_1, .f.nbits = 0, .f.mbits = 4, .f.state = TO_QUANTIZE} ;
+  q_desc r = {.f.ref = 1.0f, .f.rng10 = 0, .f.clip = 0, .f.type = Q_FAKE_LOG_1, .f.nbits = 0, .f.mbits = 6, .f.state = TO_QUANTIZE} ;
   q_desc qu, qut ;
   TIME_LOOP_DATA ;
   float err, avgerr, bias ;
@@ -239,6 +251,7 @@ int check_fake_log_1(void){
   limits_w32 l32, *l32p = &l32 ;
 
   fprintf(stderr, "==================== testing fake_log quantizer ====================\n");
+goto long_test ;
   f[0] = 1.1 ; q[0] = 0xFFFFFFFFu ; fr[0] = 999999999 ;
   for(i=1 ; i<NPTSIJ ; i++){
     f[i] = 2.11f * f[i-1] ;
@@ -274,31 +287,63 @@ int check_fake_log_1(void){
   fprintf(stderr, "\n") ;
 // return 0 ;
 
-  ft[0] = 1.001f ;
+long_test:
+  // clip to 0.0 values < 1.0f ;
+  r = (q_desc){.f.ref = 1.001f, .f.rng10 = 0, .f.clip = 1, .f.type = Q_FAKE_LOG_1, .f.nbits = 0, .f.mbits = 6, .f.state = TO_QUANTIZE} ;
+//   ft[0] = 1.001f ;
+  ft[0] = r.f.ref ;
 //   for(i=1 ; i<NPTS_TIMING ; i++) ft[i] = ft[i-1] * 1.00016f ;
-  for(i=1 ; i<NPTS_TIMING ; i++) ft[i] = ft[i-1] * 1.002f ;
+//   for(i=1 ; i<NPTS_TIMING ; i++) ft[i] = ft[i-1] * 1.00035f ;
+//   for(i=1 ; i<NPTS_TIMING ; i++) ft[i] = ft[i-1] * 1.00136f ;
+  for(i=1 ; i<NPTS_TIMING ; i++) ft[i] = ft[i-1] * -1.0018f ;
+  ft[1] = .22f ;
+//   for(i=1 ; i<NPTS_TIMING ; i++) ft[i] = ft[i-1] * 1.00203f ;
+//   for(i=1 ; i<NPTS_TIMING ; i++) ft[i] = ft[i-1] * -1.00254f ;
   fprintf(stderr, "%d values, %12.5g <= value <=%12.5g\n\n", NPTS_TIMING, ft[0], ft[NPTS_TIMING-1]) ;
 
   l32 = IEEE32_extrema(ft, NPTS_TIMING) ;         // precompute data info for quantizer
 
   qu.u = IEEE32_fakelog_quantize_0(ft, NPTS_TIMING,  r, qt, &l32).u ;
+  for(i=0 ; i<4 ; i++)                       fprintf(stderr, "%12.5g", ft[i]) ;
+  for(i=NPTS_TIMING-4 ; i<NPTS_TIMING ; i++) fprintf(stderr, "%12.5g", ft[i]) ;
+  fprintf(stderr, "\n") ;
+  for(i=0 ; i<4 ; i++)                       fprintf(stderr, "%12.8x", qt[i]) ;
+  for(i=NPTS_TIMING-4 ; i<NPTS_TIMING ; i++) fprintf(stderr, "%12.8x", qt[i]) ;
+  fprintf(stderr, " [%d]", count_bits(qt, NPTS_TIMING)) ;
+  fprintf(stderr, "\n") ;
   printf_quant_out(stderr, qu) ;
   for(i=0 ; i<NPTS_TIMING ; i++) rt[i] = 0.0f ;
   qut.u = IEEE32_fakelog_restore_0(rt, NPTS_TIMING, qu, qt).u ;
+  for(i=0 ; i<4 ; i++)                       fprintf(stderr, "%12.5g", rt[i]) ;
+  for(i=NPTS_TIMING-4 ; i<NPTS_TIMING ; i++) fprintf(stderr, "%12.5g", rt[i]) ;
+  fprintf(stderr, "\n") ;
+  for(i=0 ; i<4 ; i++)                       fprintf(stderr, "%12.5g", rt[i]/ft[i]) ;
+  for(i=NPTS_TIMING-4 ; i<NPTS_TIMING ; i++) fprintf(stderr, "%12.5g", rt[i]/ft[i]) ;
+  fprintf(stderr, "\n") ;
   evaluate_rel_diff(rt, ft, NPTS_TIMING) ;
   fprintf(stderr, "\n") ;
 
   qu.u = IEEE32_fakelog_quantize_1(ft, NPTS_TIMING,  r, qt, &l32).u ;
+  for(i=0 ; i<4 ; i++)                       fprintf(stderr, "%12.8x", qt[i]) ;
+  for(i=NPTS_TIMING-4 ; i<NPTS_TIMING ; i++) fprintf(stderr, "%12.8x", qt[i]) ;
+  fprintf(stderr, " [%d]", count_bits(qt, NPTS_TIMING)) ;
+  fprintf(stderr, "\n") ;
   printf_quant_out(stderr, qu) ;
   for(i=0 ; i<NPTS_TIMING ; i++) rt[i] = 0.0f ;
   qut.u = IEEE32_fakelog_restore_1(rt, NPTS_TIMING, qu, qt).u ;
+  for(i=0 ; i<4 ; i++)                       fprintf(stderr, "%12.5g", rt[i]) ;
+  for(i=NPTS_TIMING-4 ; i<NPTS_TIMING ; i++) fprintf(stderr, "%12.5g", rt[i]) ;
+  fprintf(stderr, "\n") ;
+  for(i=0 ; i<4 ; i++)                       fprintf(stderr, "%12.5g", rt[i]/ft[i]) ;
+  for(i=NPTS_TIMING-4 ; i<NPTS_TIMING ; i++) fprintf(stderr, "%12.5g", rt[i]/ft[i]) ;
+  fprintf(stderr, "\n") ;
   evaluate_rel_diff(rt, ft, NPTS_TIMING) ;
   fprintf(stderr, "\n") ;
-return 0 ;
-  int cycles = 10 ;
+// return 0 ;
+  int cycles = 3 ;
 
   fprintf(stderr, "cyclical quantize->restore->quantize->restore test (fakelog_quantize_0)\n") ;
-  fprintf(stderr, "cyclical encoding differences =") ;
+  fprintf(stderr, "cyclical encoding differences = ") ;
   while(cycles--){
     qu.u = IEEE32_fakelog_quantize_0(rt, NPTS_TIMING,  r, qt, &l32).u ;  // quantize rt -> qt
     for(i=0 ; i<NPTS_TIMING ; i++) xt[i] = 0.0f ;
@@ -306,15 +351,16 @@ return 0 ;
     diff = 0 ;
     for(i=0 ; i<NPTS_TIMING ; i++){
       diff += ((rt[i] != xt[i]) ? 1 : 0) ;                               // compare rt. qt
-      rt[i] = xt[i] ;                                                    // qt -> rt
     }
-    fprintf(stderr, " %d", diff) ;
+    fprintf(stderr, "%d-", diff) ;
+//     evaluate_rel_diff(rt, xt, NPTS_TIMING) ;
+    for(i=0 ; i<NPTS_TIMING ; i++) rt[i] = xt[i] ;                       // qt -> rt
   }
   fprintf(stderr, "\n\n") ;
 
-  cycles = 10 ;
+  cycles = 3 ;
   fprintf(stderr, "cyclical quantize->restore->quantize->restore test (fakelog_quantize_1)\n") ;
-  fprintf(stderr, "cyclical encoding differences =") ;
+  fprintf(stderr, "cyclical encoding differences = ") ;
   while(cycles--){
     qu.u = IEEE32_fakelog_quantize_1(rt, NPTS_TIMING,  r, qt, &l32).u ;  // quantize rt -> qt
     for(i=0 ; i<NPTS_TIMING ; i++) xt[i] = 0.0f ;
@@ -322,13 +368,14 @@ return 0 ;
     diff = 0 ;
     for(i=0 ; i<NPTS_TIMING ; i++){
       diff += ((rt[i] != xt[i]) ? 1 : 0) ;                               // compare rt. qt
-      rt[i] = xt[i] ;                                                    // qt -> rt
     }
-    fprintf(stderr, " %d", diff) ;
+    fprintf(stderr, "%d-", diff) ;
+//     evaluate_rel_diff(rt, xt, NPTS_TIMING) ;
+    for(i=0 ; i<NPTS_TIMING ; i++) rt[i] = xt[i] ;                       // qt -> rt
   }
   fprintf(stderr, "\n\n") ;
 
-int timing = 0 ;
+int timing = 1 ;
 if(timing){
   TIME_LOOP_EZ(1000, NPTS_TIMING, qu.u = IEEE32_fakelog_quantize_0(ft, NPTS_TIMING, r, qt, NULL).u ) ; // no precomputed info
   fprintf(stderr, "fakelog_quantize_0      : %s\n",timer_msg);

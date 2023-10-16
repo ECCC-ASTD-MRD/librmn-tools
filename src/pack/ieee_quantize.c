@@ -461,7 +461,7 @@ int64_t IEEE_qrestore(void * restrict f, void * restrict q, q_meta *meta,  int n
   int mode = meta->mode ;
   return 0 ;
 }
-// ========================================== fake log quantizer 0 ==========================================
+// ========================================== fake log quantization type 0 ==========================================
 
 // restore floating point numbers quantized with IEEE32_fakelog_quantize_0
 // q     [IN]  32 bit integer array containing the quantized data
@@ -472,14 +472,15 @@ int64_t IEEE_qrestore(void * restrict f, void * restrict q, q_meta *meta,  int n
 //
 // N.B. this version is kept for reference only, fake log quantizer 1 seems better and is much faster
 q_desc  IEEE32_fakelog_restore_0(void * restrict f, int ni, q_desc desc, void * restrict q){
-  uint32_t *qi = (uint32_t *) q ;
+  int32_t *qi = (uint32_t *) q ;
   float *fo = (float *) f ;
   q_desc q64 = {.u = 0 } ;  // invalid restored state
 //   ieee32_props h64 ;
   int i, nbits ;
   int32_t emax, emin, exp ;
 //   int32_t elow ;
-  uint32_t allp, allm, pos_neg, ti, sign ;
+  uint32_t allp, allm, pos_neg, sign ;
+  int32_t ti ;
   AnyType32 t, x ;
   float fac, qrange, q0 ;
 
@@ -502,22 +503,50 @@ q_desc  IEEE32_fakelog_restore_0(void * restrict f, int ni, q_desc desc, void * 
 //   q0 = (elow == 0) ? 0.0f : x.f ;
   q0 = (desc.q.clip == 1) ? 0.0f : x.f ;
 
-  qrange = (1 << nbits) ;         // range of quantized values (2**nbits)
+  qrange = (1 << (nbits - pos_neg)) ;         // range of quantized values (2**nbits)
   t.f = (emax - emin + 1) ;       // maximum possible value of "fake log"
   fac = t.f / qrange ;      // factor to quantize "fake log"
 // fprintf(stderr,"nbits = %d, emax-emin+1 = %d, fac = %f, emin = %d, emax = %d, elow = %d, q0 = %f\n", nbits, emax-emin+1, fac, emin, emax, elow, q0) ;
 // restore values using: t.f, fac, sign, pos_neg, 
 //                       emax, emin, nbits, allm, allp
   if(pos_neg){                 // mix of positive and negative numbers
-    for(i=0 ; i<ni ; i++){
+    emin += 126 ;
+    i = 0 ;
+// N.B. clang(and llvm based compilers) seem to vectorize the code and not need explicit AVX2 code
+#if defined(__AVX2__) && ! defined(__clang__) && ! defined(__PGIC__)
+    tagazou
+    __m256i vti, vz0, vc1, vm0, vex, vem, vfo, vmk, vsg, vmg ;
+    __m256 vtf, vf1, vfa ;
+    vz0 = _mm256_xor_si256(vz0, vz0) ;                    // 0
+    vm0 = _mm256_cmpeq_epi32(vz0, vz0) ;                  // -1
+    vc1 = _mm256_sub_epi32(vz0, vm0) ;                    // 0 - -1 = 1
+    vem = _mm256_set1_epi32(emin) ;                       // emin
+    vf1 = _mm256_set1_ps(1.0f) ;                          // 1.0
+    vfa = _mm256_set1_ps(fac) ;                           // fac
+    vmk = _mm256_set1_epi32(0x7FFFFF) ;                   // mask for mantissa
+    vmg = _mm256_set1_epi32(1 << 31) ;                    // mask for sign
+    for( ; i<ni-7 ; i+=8){
+      vti = _mm256_loadu_si256((__m256i *)(qi + i)) ;
+      vsg = _mm256_and_si256(vti, vmg) ;                  // -1 if vti < 0, 0 otherwise
+      vti = _mm256_abs_epi32(vti) ;                       // |vti|
+      vtf = _mm256_cvtepi32_ps( _mm256_add_epi32(vti, vm0) ) ;   // float(vti - 1)
+      vtf = _mm256_fmadd_ps(vtf, vfa, vf1) ;               // vtf * fac + 1.0
+      vex = _mm256_cvttps_epi32(vtf) ;                     // int(above)
+      vtf = _mm256_sub_ps(vtf, _mm256_cvtepi32_ps( _mm256_add_epi32(vex, vm0) ) ) ;  // vtf = vtf - float(exp -1)
+      vex = _mm256_slli_epi32( _mm256_add_epi32(vex, vem) , 23) ;                    // exp = (exp + emin) << 23
+      vfo = _mm256_and_si256((__m256i)vtf, vmk) ;          // restore mantissa
+      vfo = _mm256_or_si256(vfo, vex) ;                    // restore exponent
+      vfo = _mm256_or_si256(vfo, vsg) ;                    // restore sign
+      _mm256_storeu_ps(fo + i, (__m256)vfo) ;
+    }
+#endif
+    for( ; i<ni ; i++){
       ti  = qi[i] ;
-      sign = ti << 31 ;        // sign from LSB -> MSB
-      ti >>= 1 ;               // remove sign
-      t.f = fac * ti ;
-      t.f += 1.0f ;
+      sign = ti & 0x80000000u ;
+      ti = (ti < 0) ? -ti : ti ;  // remove sign
+      t.f = fac * (ti - 1) + 1.0f ;
       exp = t.f ;              // exponent
-      t.f = t.f - exp + 1.0f ;
-      exp += 126 ;
+      t.f = t.f - (exp - 1) ;
       exp += emin ;
       exp <<= 23 ;
       x.u = t.u & 0x7FFFFF ;   // restore mantissa
@@ -526,18 +555,43 @@ q_desc  IEEE32_fakelog_restore_0(void * restrict f, int ni, q_desc desc, void * 
       fo[i] = (ti == 0) ? q0 : x.f ;
     }
   }else{                       // all numbers have the ame sign
-    for(i=0 ; i<ni ; i++){
-      t.f = fac * qi[i] ;
-      t.f += 1.0f ;
+    emin += 126 ;
+    i = 0 ;
+#if defined(__AVX2__)
+    __m256i vti, vz0, vc1, vm0, vex, vem, vfo, vmk, vsg ;
+    __m256 vtf, vf1, vfa ;
+    vz0 = _mm256_xor_si256(vz0, vz0) ;                    // 0
+    vm0 = _mm256_cmpeq_epi32(vz0, vz0) ;                  // -1
+    vc1 = _mm256_sub_epi32(vz0, vm0) ;                    // 0 - -1 = 1
+    vem = _mm256_set1_epi32(emin) ;                       // emin
+    vf1 = _mm256_set1_ps(1.0f) ;                          // 1.0
+    vfa = _mm256_set1_ps(fac) ;                           // fac
+    vmk = _mm256_set1_epi32(0x7FFFFF) ;                   // mask for mantissa
+    vsg = _mm256_set1_epi32(sign) ;                       // sign
+    for( ; i<ni-7 ; i+=8){
+      vti = _mm256_loadu_si256((__m256i *)(qi + i)) ;
+      vtf = _mm256_cvtepi32_ps( _mm256_add_epi32(vti, vm0) ) ;   // float(vti - 1)
+      vtf = _mm256_fmadd_ps(vtf, vfa, vf1) ;               // vtf * fac + 1.0
+      vex = _mm256_cvttps_epi32(vtf) ;                     // int(above)
+      vtf = _mm256_sub_ps(vtf, _mm256_cvtepi32_ps( _mm256_add_epi32(vex, vm0) ) ) ;  // vtf = vtf - float(exp -1)
+      vex = _mm256_slli_epi32( _mm256_add_epi32(vex, vem) , 23) ;                    // exp = (exp + emin) << 23
+      vfo = _mm256_and_si256((__m256i)vtf, vmk) ;          // restore mantissa
+      vfo = _mm256_or_si256(vfo, vex) ;                    // restore exponent
+      vfo = _mm256_or_si256(vfo, vsg) ;                    // restore sign
+      _mm256_storeu_ps(fo + i, (__m256)vfo) ;
+    }
+#endif
+    for( ; i<ni ; i++){
+      ti  = qi[i] ;
+      t.f = fac * (ti - 1) + 1.0f ;
       exp = t.f ;              // exponent
-      t.f = t.f - exp + 1.0f ;
-      exp += 126 ;
+      t.f = t.f - (exp - 1) ;
       exp += emin ;
       exp <<= 23 ;
       x.u = t.u & 0x7FFFFF ;   // restore mantissa
       x.u |= exp ;             // restore exponent
       x.u |= sign ;            // restore sign
-      fo[i] = (qi[i] == 0) ? q0 : x.f ;
+      fo[i] = (ti == 0) ? q0 : x.f ;
     }
   }
   q64.u = desc.u ;
@@ -574,7 +628,7 @@ q_desc IEEE32_fakelog_quantize_0(void * restrict f, int ni, q_desc rule, void * 
   int rng10 = rule.f.rng10, rng2 = rule.f.rng2 ;
   float qzero = rule.f.ref ;
   limits_w32 l32, *l32p = &l32 ;
-int debug = 1 ;
+int debug = 0 ;
 
   if(rule.f.state != TO_QUANTIZE)            goto error ;       // invalid state
   if(rule.f.nbits == 0 && rule.f.mbits == 0) goto error ;       // cannot be both set to 0
@@ -597,6 +651,7 @@ int debug = 1 ;
 
   qzero = rule.f.ref ;
   z0.f  = (qzero < 0) ? -qzero : qzero ;  // ABS(smallest significant value)
+  qzero = z0.f ;
   if(rng10 > 0) rng2 = rng10 * 3.33334f ; // 2**10 ~= 10**3
   if(rng2 > 0){
     AnyType32 z1 = { .u = 0 } ;
@@ -654,36 +709,102 @@ if(debug) fprintf(stderr, " nbits = %d(%d), mbits = %d(%d), ebits = %d, pos_neg 
   emax -= 127 ;
   emin -= 127 ;
 
-  qrange = (1 << nbits) ;         // range of quantized values (2**nbits)
+  qrange = (1 << (nbits - pos_neg)) ;         // range of quantized values (2**nbits)
   z0.f = (emax - emin + 1) ;       // maximum possible value of "fake log"
   fac = z0.f = qrange / z0.f ;      // factor to quantize "fake log"
 //   maskbits = RMASK31(nbits) ;     // 2**nbits -1, largest allowable quantized value
-
+if(debug) fprintf(stderr, "fac = %f\n", fac) ;
   q64.q.type  = Q_FAKE_LOG_0 ;            // identify quantizing algorithm
   q64.q.state = QUANTIZED ;               // everything O.K.
 
 // quantize values using: fac(nbits,emax,emin), emin, pos_neg(allm,allp)
 // restore will need:     emax, emin, nbits, allm, allp
   if(pos_neg){
-    for(i=0 ; i<ni ; i++){
+    emin += 128 ;                   // combining with (exp - 127 - 1)
+    i = 0 ;
+// N.B. the AVX2 version does not provide a large speed increase with clang(and llvm based compilers)
+#if defined(__AVX2__)
+    __m256i vfu, vz0, vc1, vm0, vm1, vqo, vex, vma, vme, vmi, vsg ;
+    __m256 v15, vfa ;
+    vz0 = _mm256_xor_si256(vz0, vz0) ;                    // 0
+    vm0 = _mm256_cmpeq_epi32(vz0, vz0) ;                  // -1
+    vc1 = _mm256_sub_epi32(vz0, vm0) ;                    // 0 - -1 = 1
+    vm0 = _mm256_srli_epi32(vm0, 1) ;                     // mask for sign 0x7FFFFFFF
+    vm1 = _mm256_srli_epi32(vm0, 8) ;                     // mask for mantissa or exponent 0x007FFFFF
+    vme = _mm256_set1_epi32(127 << 23) ;                  // 127 << 23  0x3F800000
+    vmi = _mm256_set1_epi32(emin) ;
+    v15 = _mm256_set1_ps(1.5f) ;
+    vfa =  _mm256_set1_ps(fac) ;
+    for( ; i<ni-7 ; i+=8){
+      vfu = _mm256_loadu_si256((__m256i *)(fu + i)) ;
+      vsg = _mm256_srai_epi32(vfu, 31) ;                  // sign, -1 if fu < 0, 0 if fu >= 0
+      vfu = _mm256_and_si256(vfu, vm0) ;                  // |vfu|
+      vex = _mm256_andnot_si256(vm1, vfu) ;               // exponent << 23
+      vex = _mm256_srli_epi32(vex, 23) ;
+      vex = _mm256_sub_epi32(vex, vmi) ;                  // exponent - emin
+      vex = (__m256i) _mm256_cvtepi32_ps(vex) ;           // convert to float
+      vma = _mm256_and_si256(vfu, vm1) ;                  // mantissa
+      vma = _mm256_or_si256(vma, vme) ;                   // mantissa + 127 as exponent (1.0 <= vma < 2.0)
+      vex = (__m256i)_mm256_add_ps((__m256)vex, (__m256) vma) ;  // fake log = exponent + vma - 1 (0.0 <= vex < exponent + 1)
+      vex = (__m256i)_mm256_fmadd_ps((__m256)vex, vfa, v15) ;    // fake_log * fac + 1.5
+      vma = _mm256_srai_epi32((__m256i)vex, 31) ;         // propagate sign to all bits
+      vqo = _mm256_cvttps_epi32((__m256)vex) ;            // truncate to integer
+      vqo = _mm256_max_epi32(vqo, vc1) ;                  // max(1, vqo)
+      vqo = _mm256_andnot_si256(vma, vqo) ;               // zero where vma == -1
+      vqo = _mm256_xor_si256(vqo, vsg) ;                  // restore sign = vqo ^ sign - sign (2's complement negate)
+      vqo = _mm256_sub_epi32(vqo, vsg) ;
+      _mm256_storeu_si256((__m256i *)(qo + i), vqo) ;
+    }
+#endif
+    for(  ; i<ni ; i++){
       int exp ;
       AnyType32 x ;
       x.f = fu[i] ;                 // float to quantize
-      sign = x.ie32.s ;             // save sign
+      sign = (x.f <  0.0f) ? 1 : 0 ;
       exp = (x.u >> 23) & 0xFF ;    // exponent from value (with +127 bias)
       exp = exp - emin ;            // this will have a value of 127 for the lowest "significant" exponent
       x.u &= 0x7FFFFF ;             // get rid of exponent and sign, only keep mantissa
       x.u |= (0x7F << 23) ;         // force 127 as exponent (1.0 <= x.f < 2.0)
-      x.f += (exp - 127 - 1) ;      // add value of exponent from original float (0.0 <= x.f < max "fake log")
-      qo[i] = x.f * fac + .5f ;     // quantize the fake log
+      x.f += exp ;                  // add value of exponent from original float (0.0 <= x.f < max "fake log")
+      qo[i] = x.f * fac + 1.5f ;     // quantize the fake log
       qo[i] = (x.f <  0.0f) ? 0 : qo[i] ;               // < qzero (exp < emin)
       qo[i] = (x.f == 0.0f) ? 1 : qo[i] ;               // == lowest significant value (emin)
-//       qo[i] = (qo[i] > maskbits) ? maskbits : qo[i] ;   // clamp at 2**nbits -1
       qo[i] = (sign == 0) ? qo[i] : -qo[i] ;   // restore sign
-//       qo[i] = (qo[i] << 1) | sign ; // sign as LSB
     }
   }else{                            // all values have the same sign
-    for(i=0 ; i<ni ; i++){
+    emin += 128 ;                   // combining with (exp - 127 - 1)
+    i = 0 ;
+#if defined(__AVX2__)
+    __m256i vfu, vz0, vc1, vm0, vm1, vqo, vex, vma, vme, vmi ;
+    __m256 v15, vfa ;
+    vz0 = _mm256_xor_si256(vz0, vz0) ;                    // 0
+    vm0 = _mm256_cmpeq_epi32(vz0, vz0) ;                  // -1
+    vc1 = _mm256_sub_epi32(vz0, vm0) ;                    // 0 - -1 = 1
+    vm0 = _mm256_srli_epi32(vm0, 1) ;                     // mask for sign 0x7FFFFFFF
+    vm1 = _mm256_srli_epi32(vm0, 8) ;                     // mask for mantissa or exponent 0x007FFFFF
+    vme = _mm256_set1_epi32(127 << 23) ;                  // 127 << 23  0x3F800000
+    vmi = _mm256_set1_epi32(emin) ;                       // emin
+    v15 = _mm256_set1_ps(1.5f) ;                          // constant 1.5
+    vfa =  _mm256_set1_ps(fac) ;                          // quantization factor
+    for( ; i<ni-7 ; i+=8){
+      vfu = _mm256_loadu_si256((__m256i *)(fu + i)) ;
+      vfu = _mm256_and_si256(vfu, vm0) ;                  // |vfu|
+      vex = _mm256_andnot_si256(vm1, vfu) ;               // exponent << 23
+      vex = _mm256_srli_epi32(vex, 23) ;
+      vex = _mm256_sub_epi32(vex, vmi) ;                  // exponent - emin
+      vex = (__m256i) _mm256_cvtepi32_ps(vex) ;           // convert to float
+      vma = _mm256_and_si256(vfu, vm1) ;                  // mantissa
+      vma = _mm256_or_si256(vma, vme) ;                   // mantissa + 127 as exponent
+      vex = (__m256i)_mm256_add_ps((__m256)vex, (__m256) vma) ;  // fake log
+      vex = (__m256i)_mm256_fmadd_ps((__m256)vex, vfa, v15) ;   // fake_log * fac + 1.5
+      vma = _mm256_srai_epi32((__m256i)vex, 31) ;         // propagate sign to all bits
+      vqo = _mm256_cvttps_epi32((__m256)vex) ;            // truncate to integer
+      vqo = _mm256_max_epi32(vqo, vc1) ;                  // max(1, vqo)
+      vqo = _mm256_andnot_si256(vma, vqo) ;               // zero where vma == -1
+      _mm256_storeu_si256((__m256i *)(qo + i), vqo) ;
+    }
+#endif
+    for( ; i<ni ; i++){
       int exp ;
       AnyType32 x ;
       x.f = fu[i] ;                 // float to quantize
@@ -691,10 +812,11 @@ if(debug) fprintf(stderr, " nbits = %d(%d), mbits = %d(%d), ebits = %d, pos_neg 
       exp = exp - emin ;            // this will have a value of 127 for the lowest "significant" exponent
       x.u &= 0x7FFFFF ;             // get rid of exponent and sign, only keep mantissa
       x.u |= (0x7F << 23) ;         // force 127 as exponent (1.0 <= x.f < 2.0)
-      x.f += (exp - 127 - 1) ;      // add value of exponent from original float (0.0 <= x.f < max "fake log")
-      qo[i] = x.f * fac + .5f ;     // quantize the fake log
-      qo[i] = (x.f <  0.0f) ? 0 : qo[i] ;               // < qzero (exp < emin)
-      qo[i] = (x.f == 0.0f) ? 1 : qo[i] ;               // == lowest significant value (emin)
+//       x.f += (exp - 127 - 1) ;
+      x.f += exp ;                  // add value of exponent from original float (0.0 <= x.f < max "fake log")
+      qo[i] = x.f * fac + 1.5f ;     // quantize the fake log
+      qo[i] = (x.i == 0) ? 1 : qo[i] ;               // == lowest significant value (emin)
+      qo[i] = (x.i <  0) ? 0 : qo[i] ;               // < qzero (exp < emin)
 //       qo[i] = (qo[i] > maskbits) ? maskbits : qo[i] ;   // clamp at 2**nbits -1
     }
   }
@@ -706,7 +828,7 @@ error:
   return q64 ;
 }
 
-// ========================================== fake log quantizer 1 ==========================================
+// ========================================== fake log quantization type 1 ==========================================
 
 // restore floating point numbers quantized with IEEE32_fakelog_quantize_1
 // q     [IN]  32 bit integer array containing the quantized data
@@ -785,7 +907,7 @@ q_desc IEEE32_fakelog_quantize_1(void * restrict f, int ni, q_desc rule, void * 
   int rng10 = rule.f.rng10, rng2 = rule.f.rng2 ;
   float qzero = rule.f.ref ;
   limits_w32 l32, *l32p = &l32 ;
-int debug = 1 ;
+int debug = 0 ;
 
   if(rule.f.state != TO_QUANTIZE)   goto error ;       // invalid state
   if(nbits == 0 && mbits == 0)      goto error ;       // cannot be both set to 0
@@ -836,28 +958,29 @@ if(debug) fprintf(stderr, "z0 = %f, rng2 = %d, rng10 = %d, clip = %d, maxa = %8.
     nbits = mbits + pos_neg ;
 
   if(mbits == 0){                         // nbits > 0, mbits == 0
+if(debug) fprintf(stderr, "(mbits == 0), \n") ;
     mbits = nbits - ebits - pos_neg ;     // left after removing sign (if necessary) and exponent bits
     mbits = (mbits > 22) ? 22 : mbits ;   // make sure mbits <= 22
     mbits = (mbits <  1) ?  1 : mbits ;   // make sure mbits > 0
-if(debug) fprintf(stderr, "(mbits == 0)\n") ;
 
   }else if(nbits == 0){                   // mbits > 0, nbits == 0
+if(debug) fprintf(stderr, "(nbits == 0), ") ;
     mbits = (mbits > 22) ? 22 : mbits ;   // make sure mbits <= 22
-if(debug) fprintf(stderr, "(nbits == 0)") ;
 
   }else{                                  // mbits > 0, nbits > 0
+if(debug) fprintf(stderr, "(nbits,mbits), ") ;
     mbits = (mbits > 22) ? 22 : mbits ;   // make sure mbits <= 22
     while(nbits < ebits + mbits + pos_neg){
       nbits++ ;                           // increase nbits
       if(nbits >= ebits + mbits + pos_neg) break ;
-      if(mbits > 1) mbits-- ;             // decrease ebits
+      if(mbits > 1) mbits-- ;             // decrease mbits
       if(nbits >= ebits + mbits + pos_neg) break ;
       nbits++ ;                           // increase nbits
     }
-if(debug) fprintf(stderr, "(nbits,mbits)") ;
   }
+  if((erange + (erange >> 1)) <= RMASK31(ebits)) mbits++ ;  // increase mbits if using less than 2/3 of the possible exponent range
   nbits = mbits + ebits + pos_neg ;       // (re)compute nbits
-if(debug) fprintf(stderr, " nbits = %d(%d), mbits = %d(%d), ebits = %d, pos_neg = %d\n", nbits, nbits0, mbits, mbits0, ebits, pos_neg) ;
+if(debug) fprintf(stderr, " nbits = %d(%d), mbits = %d(%d), ebits = %d, pos_neg = %d, erange = %d\n", nbits, nbits0, mbits, mbits0, ebits, pos_neg, erange) ;
 
   q64.q.nbits = nbits ;                   // number of bits
   q64.q.mbits = mbits ;                   // number of mantissa bits
