@@ -243,7 +243,7 @@ void test_log_quantizer(void *fv, int ni, int nj, error_stats *e, char *vn){
 
 int check_fake_log_1(void){
   float    f[NPTSIJ], fr[NPTSIJ] ;
-  float ft[NPTS_TIMING], rt[NPTS_TIMING], xt[NPTS_TIMING] ;
+  float ft[NPTS_TIMING], rt[NPTS_TIMING], xt[NPTS_TIMING], ft2[NPTS_TIMING], rt2[NPTS_TIMING] ;
   uint32_t q[NPTSIJ] ;
   int32_t qt[NPTS_TIMING] ;
   uint32_t *fi = (uint32_t *)f ;
@@ -295,17 +295,17 @@ goto long_test ;
 
 long_test:
   // clip to 0.0 values < 1.0f ;
-//   r = (q_desc){.f.ref = 1.001f, .f.rng10 = 0, .f.clip = 1, .f.type = Q_FAKE_LOG_1, .f.nbits = 0, .f.mbits = 6, .f.state = TO_QUANTIZE} ;
-  r = (q_desc){.f.ref = 0.0f, .f.rng10 = 0, .f.clip = 0, .f.type = Q_FAKE_LOG_1, .f.nbits = 0, .f.mbits = 6, .f.state = TO_QUANTIZE} ;
+  r = (q_desc){.f.ref = 1.001f, .f.rng10 = 0, .f.clip = 1, .f.type = Q_FAKE_LOG_1, .f.nbits = 0, .f.mbits = 6, .f.state = TO_QUANTIZE} ;
+//   r = (q_desc){.f.ref = 0.0f, .f.rng10 = 0, .f.clip = 0, .f.type = Q_FAKE_LOG_1, .f.nbits = 0, .f.mbits = 6, .f.state = TO_QUANTIZE} ;
   ft[0] = 1.001f ;
 //   ft[0] = r.f.ref ;
-//   for(i=1 ; i<NPTS_TIMING ; i++) ft[i] = ft[i-1] * 1.00016f ;
-//   for(i=1 ; i<NPTS_TIMING ; i++) ft[i] = ft[i-1] * 1.00035f ;
-//   for(i=1 ; i<NPTS_TIMING ; i++) ft[i] = ft[i-1] * 1.00136f ;
-//   for(i=1 ; i<NPTS_TIMING ; i++) ft[i] = ft[i-1] * -1.0018f ;
-//   for(i=1 ; i<NPTS_TIMING ; i++) ft[i] = ft[i-1] * 1.00203f ;
-  for(i=1 ; i<NPTS_TIMING ; i++) ft[i] = ft[i-1] * 1.00254f ;
-//   ft[1] = .22f ;
+//   for(i=1 ; i<NPTS_TIMING ; i++) ft[i] = ft[i-1] * 1.00016f ;      // 1.001 <= value <=      1.9272
+//   for(i=1 ; i<NPTS_TIMING ; i++) ft[i] = ft[i-1] * 1.00035f ;      // 1.001 <= value <=      4.1954
+//   for(i=1 ; i<NPTS_TIMING ; i++) ft[i] = ft[i-1] * 1.00136f ;      // 1.001 <= value <=      261.56
+//   for(i=1 ; i<NPTS_TIMING ; i++) ft[i] = ft[i-1] * -1.0018f ;      // 1.001 <= value <=      1579.9
+  for(i=1 ; i<NPTS_TIMING ; i++) ft[i] = ft[i-1] * -1.00203f ;      // 1.001 <= value <=        4046
+//   for(i=1 ; i<NPTS_TIMING ; i++) ft[i] = ft[i-1] * 1.00254f ;      // 1.001 <= value <=       32503
+  ft[1] = .22f ;   // under r.f.ref, to test clipping
   fprintf(stderr, "%d values, %12.5g <= value <=%12.5g\n\n", NPTS_TIMING, ft[0], ft[NPTS_TIMING-1] < 0 ? -ft[NPTS_TIMING-1] : ft[NPTS_TIMING-1]) ;
 
   l32 = IEEE32_extrema(ft, NPTS_TIMING) ;         // precompute data info for quantizer
@@ -351,6 +351,9 @@ goto cyclical ;
 // return 0 ;
 cyclical:
   int cy, cycles = 5 ;
+  r = (q_desc){.f.ref = 1.001f, .f.rng10 = 0, .f.clip = 1, .f.type = Q_FAKE_LOG_1, .f.nbits = 0, .f.mbits = 8, .f.state = TO_QUANTIZE} ;
+  l32 = IEEE32_extrema(ft, NPTS_TIMING) ;         // precompute data info for quantizer
+
 #if 0
   fprintf(stderr, "cyclical quantize->restore->quantize->restore test (fakelog_quantize_0)\n") ;
 //   fprintf(stderr, "cyclical encoding differences = ") ;
@@ -373,6 +376,7 @@ cyclical:
   evaluate_rel_diff(ft, xt, NPTS_TIMING) ;
   fprintf(stderr, "\n") ;
 #endif
+
   fprintf(stderr, "cyclical quantize->restore->quantize->restore test (fakelog_quantize_1)\n\n") ;
   for(i=0 ; i<4 ; i++)                       fprintf(stderr, "%12.5g", ft[i]) ;
   for(i=NPTS_TIMING-4 ; i<NPTS_TIMING ; i++) fprintf(stderr, "%12.5g", ft[i]) ;
