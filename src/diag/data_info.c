@@ -52,7 +52,7 @@ static uint32_t IEEE32_maxa(limits_w32 l32)
 // mmask   [IN]  special mask (bits having the value 1 will be ignored for special values)
 // pad     [IN]  pointer to 32 bit value to be used as "special" replacement
 // return number of points in array if successful, -1 in case of error
-int W32_replace_missing(void * restrict f, int np, void *spval, uint32_t mmask, void *pad)
+static int W32_replace_missing(void * restrict f, int np, void *spval, uint32_t mmask, void *pad)
 {
   uint32_t *fu = (uint32_t *) f, missf, *fill = (uint32_t *) pad, *miss = (uint32_t *) spval, repl ;
   int i ;
@@ -109,7 +109,7 @@ limits_w32 UINT32_extrema(void * restrict f, int np)
 // mmask   [IN]  special mask (bits having the value 1 will be ignored for special values)
 // pad     [IN]  pointer to 32 bit value to be used as "special" replacement
 // return an extrema limits_w32 struct
-limits_w32 UINT32_extrema_missing(void * restrict f, int np, void *spval, uint32_t mmask, void *pad)
+static limits_w32 UINT32_extrema_missing(void * restrict f, int np, void *spval, uint32_t mmask, void *pad)
 {
   uint32_t *fu = (uint32_t *) f ;
   int i ;
@@ -203,7 +203,7 @@ limits_w32 INT32_extrema(void * restrict f, int np)
 //
 // values with bit pattern (~mmask) & *spval wil be treated as "special" and ignored
 // if mmask == 0 or spval == NULL, the "special" check is inactivated
-limits_w32 INT32_extrema_missing(void * restrict f, int np, void *spval, uint32_t mmask, void *pad)
+static limits_w32 INT32_extrema_missing(void * restrict f, int np, void *spval, uint32_t mmask, void *pad)
 {
   int32_t  *fs = (int32_t *) f ;
   int i ;
@@ -338,7 +338,7 @@ limits_w32 IEEE32_extrema_abs(void * restrict f, int np)
 // values with bit pattern (~mmask) & *spval wil be treated as "special" and ignored
 // if mmask == 0 or spval == NULL, the "special" check is inactivated
 // N.B. this code only works for IEEE754 32 bit floats, all processing is done in INTEGER mode
-limits_w32 IEEE32_extrema_missing(void * restrict f, int np, void *spval, uint32_t mmask, void *pad)
+static limits_w32 IEEE32_extrema_missing(void * restrict f, int np, void *spval, uint32_t mmask, void *pad)
 {
   uint32_t *fu = (uint32_t *) f ;
   int i ;
