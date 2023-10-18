@@ -33,6 +33,7 @@ contains
     integer(C_INT32_T), intent(IN), optional :: mmask
     real(C_FLOAT), intent(IN), optional, target :: missing, pad
     type(limits_f) :: limits
+    type(special_value) :: s
 
     integer(C_INT32_T) :: mmask_
     type(C_PTR) :: missing_, pad_
@@ -43,7 +44,9 @@ contains
     if(present(missing))    missing_ = C_LOC(missing)
     if(present(    pad))    pad_     = C_LOC(pad)
     if(present(  mmask))    mmask_   = mmask
-    limits = IEEE32_extrema_missing(f, np, missing_, mmask_, pad_ )
+    s = special_value(missing_, pad_, mmask_)
+    limits = IEEE32_extrema_special(f, np, s)
+!     limits = IEEE32_extrema_missing(f, np, missing_, mmask_, pad_ )
   end function
   function extrema_i(f, np, missing, mmask, pad, unsigned) result(limits)  ! signed/unsigned integer version
     implicit none
@@ -53,6 +56,7 @@ contains
     logical, intent(IN), optional :: unsigned
     integer(C_INT32_T), intent(IN), optional, target :: missing, pad
     type(limits_i) :: limits
+    type(special_value) :: s
 
     integer(C_INT32_T) :: mmask_
     type(C_PTR) :: missing_, pad_
@@ -66,10 +70,13 @@ contains
     if(present(     pad))    pad_     = C_LOC(pad)
     if(present(   mmask))    mmask_   = mmask
     if(present(unsigned))    unsigned_ = unsigned
+    s = special_value(missing_, pad_, mmask_)
     if(unsigned_) then
-      limits = UINT32_extrema_missing(f, np, missing_, mmask_, pad_)
+      limits = UINT32_extrema_special(f, np, s)
+!       limits = UINT32_extrema_missing(f, np, missing_, mmask_, pad_)
     else
-      limits =  INT32_extrema_missing(f, np, missing_, mmask_, pad_)
+      limits =  INT32_extrema_special(f, np, s)
+!       limits =  INT32_extrema_missing(f, np, missing_, mmask_, pad_)
     endif
   end function
 end module

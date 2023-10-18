@@ -66,6 +66,10 @@ int W32_replace_missing(void * restrict f, int np, void *spval, uint32_t mmask, 
   }
   return np ;
 }
+int W32_replace_special(void * restrict f, int np, special_value *sp){
+  if(sp == NULL) return -1 ;  // nothing can be done, error
+  return W32_replace_missing(f, np, sp->spv, sp->mask, sp->pad) ;
+}
 
 // get unsigned integer 32 extrema
 // f     [IN]  32 bit unsigned integer array
@@ -148,6 +152,10 @@ limits_w32 UINT32_extrema_missing(void * restrict f, int np, void *spval, uint32
   l.u.allm = 0 ;     // no negative number by definition
   l.u.allp = 1 ;     // all positive or 0 numbers by definition
   return l ;
+}
+limits_w32 UINT32_extrema_special(void * restrict f, int np, special_value *sp){
+  if(sp == NULL) return UINT32_extrema_missing(f, np, NULL, 0u, NULL) ;
+  return UINT32_extrema_missing(f, np, sp->spv, sp->mask, sp->pad) ;
 }
 
 // get integer 32 extrema (signed and absolute value)
@@ -242,6 +250,10 @@ limits_w32 INT32_extrema_missing(void * restrict f, int np, void *spval, uint32_
   l.i.allm = W32_ALLM(l) ;    // 1 if all values <= 0
   l.i.allp = W32_ALLP(l) ;    // 1 if all values >= 0
   return l ;
+}
+limits_w32 INT32_extrema_special(void * restrict f, int np, special_value *sp){
+  if(sp == NULL) return INT32_extrema_missing(f, np, NULL, 0u, NULL) ;
+  return INT32_extrema_missing(f, np, sp->spv, sp->mask, sp->pad) ;
 }
 
 // get IEEE 32 extrema (signed and absolute value)
@@ -371,6 +383,10 @@ limits_w32 IEEE32_extrema_missing(void * restrict f, int np, void *spval, uint32
   l.i.allm = W32_ALLM(l) ;                         // all values <= 0
   l.i.allp = W32_ALLP(l) ;                         // all values >= 0
   return l ;                                       // return union
+}
+limits_w32 IEEE32_extrema_special(void * restrict f, int np, special_value *sp){
+  if(sp == NULL) return IEEE32_extrema_missing(f, np, NULL, 0u, NULL) ;
+  return IEEE32_extrema_missing(f, np, sp->spv, sp->mask, sp->pad) ;
 }
 
 // get IEEE exponents (without 127 bias) from smallest and largest absolute values

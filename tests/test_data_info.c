@@ -19,6 +19,7 @@ int main(int argc, char **argv){
   float fg = 0.5f ;  // replacement value for "missing" values
   float pad = 1.12345f ;
   int32_t iplug = 12 ;
+  special_value s = {NULL, NULL, 0u} ;
 
   start_of_test("data_info test C");
 
@@ -51,7 +52,9 @@ int main(int argc, char **argv){
   TEE_FPRINTF(stderr,2, "  expected        : maxs = %f, mins = %f, maxa = %f, mina = %f\n", ff[NP-1], ff[NP+1], -ff[NP+1], ff[NP-1]) ;
   if(l.f.maxs != ff[NP-1] || l.f.mins != ff[NP+1] || l.f.maxa != -ff[NP+1] || l.f.mina != ff[NP-1]) goto error ;
 #endif
-  l = IEEE32_extrema_missing(ff+NP-1, 3, ff+NP, 0, NULL) ;
+  s = (special_value) {ff+NP, NULL, 0u } ;
+  l = IEEE32_extrema_special(ff+NP-1, 3, &s) ;
+//   l = IEEE32_extrema_missing(ff+NP-1, 3, ff+NP, 0, NULL) ;
   TEE_FPRINTF(stderr,2, "SHORT MISSING C   : maxs = %f, mins = %f, maxa = %f, mina = %f, missing = %f(n = %d)\n", l.f.maxs, l.f.mins, l.f.maxa, l.f.mina, ff[NP], l.f.spec) ;
   TEE_FPRINTF(stderr,2, "  expected        : maxs = %f, mins = %f, maxa = %f, mina = %f\n", ff[NP-1], ff[NP+1], -ff[NP+1], ff[NP-1]) ;
   if(l.f.maxs != ff[NP-1] || l.f.mins != ff[NP+1] || l.f.maxa != -ff[NP+1] || l.f.mina != ff[NP-1]){
@@ -75,7 +78,9 @@ int main(int argc, char **argv){
   if(l.f.maxs != ff[0] || l.f.mins != ff[NP2-1] || l.f.maxa != -ff[NP2-1] || l.f.mina != 0.0 || l.f.min0 != ff[NP-1]) goto error ;
 #endif
   l.f.maxa = l.f.mina = l.f.maxs = l.f.mins = 0 ;
-  l = IEEE32_extrema_missing(ff, NP2, ff+NP, 0, &fg) ;       // replacement value for "missing" values supplied
+  s = (special_value) {ff+NP, &fg, 0u } ;
+  l = IEEE32_extrema_special(ff, NP2, &s) ;
+//   l = IEEE32_extrema_missing(ff, NP2, ff+NP, 0, &fg) ;       // replacement value for "missing" values supplied
   TEE_FPRINTF(stderr,2, "C    MISSING  : maxs = %f, mins = %f, maxa = %f, mina = %f, min0 = %f, missing = %f(n = %d)\n", l.f.maxs, l.f.mins, l.f.maxa, l.f.mina, l.f.min0, ff[NP], l.f.spec) ;
   TEE_FPRINTF(stderr,2, "  expected    : maxs = %f, mins = %f, maxa = %f, mina = %f, min0 = %f\n", ff[0], ff[NP2-1], -ff[NP2-1], 0.0, fg) ;
   if(l.f.maxs != ff[0] || l.f.mins != ff[NP2-1] || l.f.maxa != -ff[NP2-1] || l.f.mina != 0.0 || l.f.min0 != fg) goto error ;
@@ -98,13 +103,18 @@ int main(int argc, char **argv){
   if(l.i.maxs != 0 || l.i.mins != +1 || l.i.maxa != fi[0] || l.i.mina != 0 || l.i.min0 != fi[NP]) goto error ;
 
   l.i.maxa = l.i.mina = l.i.maxs = l.i.mins = 0 ;
-  l = INT32_extrema_missing(fi, NP2, fi+NP, 0, NULL) ;   // NO replacement value for "missing" values
+  s = (special_value) {fi+NP, NULL, 0u } ;
+  l = INT32_extrema_special(fi, NP2, &s) ;
+//   l = INT32_extrema_missing(fi, NP2, fi+NP, 0, NULL) ;   // NO replacement value for "missing" values
   TEE_FPRINTF(stderr,2, "I_extrema_mis : maxs = %d, mins = %d, maxa = %d, mina = %d, min0 = %d, missing = %d(n = %d)\n", l.i.maxs, l.i.mins, l.i.maxa, l.i.mina, l.i.min0, fi[NP], l.i.spec) ;
   TEE_FPRINTF(stderr,2, "  expected    : maxs = %d, mins = %d, maxa = %d, mina = %d, min0 = %d\n", fi[0], fi[NP2-1], -fi[NP2-1], 0, fi[NP-1]) ;
   if(l.i.maxs != fi[0] || l.i.mins != fi[NP2-1] || l.i.maxa != -fi[NP2-1] || l.i.mina != 0 || l.i.min0 != fi[NP-1]) goto error ;
   TEE_FPRINTF(stderr,2, "\n");
 
-  l = INT32_extrema_missing(fi, NP+1, NULL, 0, NULL) ;     // lower NP+1 values, no missing value
+//   s = (special_value) {NULL, NULL, 0u } ;
+//   l = INT32_extrema_special(fi, NP+1, &s) ;
+  l = INT32_extrema_special(fi, NP+1, NULL) ;
+//   l = INT32_extrema_missing(fi, NP+1, NULL, 0, NULL) ;     // lower NP+1 values, no missing value
   TEE_FPRINTF(stderr,2, "extrema(lo)    : maxs = %d, mins = %d, maxa = %d, mina = %d, min0 = %d (%d missing)\n", l.i.maxs, l.i.mins, l.i.maxa, l.i.mina, l.i.min0, l.i.spec) ;
   TEE_FPRINTF(stderr,2, "  expected     : maxs = %d, mins = %d, maxa = %d, mina = %d, min0 = %d\n", fi[0], 0, fi[0], 0, fi[NP]) ;
   if(l.i.maxs != fi[0] || l.i.mins != 0 || l.i.maxa != fi[0] || l.i.mina != 0 || l.i.min0 != fi[NP]) goto error ;
@@ -113,13 +123,16 @@ int main(int argc, char **argv){
   if(l.i.allp != 1 || l.i.allm != 0) goto error ;
 
   l.i.maxa = l.i.mina = l.i.maxs = l.i.mins = 0 ;
-  l = UINT32_extrema_missing(fi, NP+1, NULL, 0, NULL) ;   // lower NP+1 values, no missing value
+  l = UINT32_extrema_special(fi, NP+1, NULL) ;
+//   l = UINT32_extrema_missing(fi, NP+1, NULL, 0, NULL) ;   // lower NP+1 values, no missing value
   TEE_FPRINTF(stderr,2, "U_extrema_mis : maxs = %d, mins = %d, maxa = %d, mina = %d, min0 = %d (%d missing)\n", l.i.maxs, l.i.mins, l.i.maxa, l.i.mina, l.i.min0, l.i.spec) ;
   TEE_FPRINTF(stderr,2, "  expected    : maxs = %d, mins = %d, maxa = %d, mina = %d, min0 = %d\n", 0, 1, fi[0], 0, fi[NP]) ;
   if(l.i.maxs != 0 || l.i.mins != 1 || l.i.maxa != fi[0] || l.i.mina != 0 || l.i.min0 != fi[NP]) goto error ;
   TEE_FPRINTF(stderr,2, "\n");
 
-  l = INT32_extrema_missing(fi, NP+1, fi+NP, 0, &iplug) ;     // lower NP+1 values, missing value = 1, plug = 2
+  s = (special_value) {fi+NP, &iplug, 0u } ;
+  l = INT32_extrema_special(fi, NP+1, &s) ;
+//   l = INT32_extrema_missing(fi, NP+1, fi+NP, 0, &iplug) ;     // lower NP+1 values, missing value = 1, plug = 2
   TEE_FPRINTF(stderr,2, "extrema(lo)(m) : maxs = %d, mins = %d, maxa = %d, mina = %d, min0 = %d, missing = %d(n = %d), plug = %d\n",
                       l.i.maxs, l.i.mins, l.i.maxa, l.i.mina, l.i.min0, fi[NP], l.i.spec, iplug) ;
   TEE_FPRINTF(stderr,2, "  expected     : maxs = %d, mins = %d, maxa = %d, mina = %d, min0 = %d\n",fi[0], 0, fi[0], 0, iplug) ;
@@ -128,7 +141,9 @@ int main(int argc, char **argv){
   errmsg = "bad allp/allm values" ;
   if(l.i.allp != 1 || l.i.allm != 0) goto error ;
 
-  l = UINT32_extrema_missing(fi, NP+1, fi+NP, 0, &iplug) ;     // lower NP+1 values, missing value = 1, plug = 2
+  s = (special_value) {fi+NP, &iplug, 0u } ;
+  l = UINT32_extrema_special(fi, NP+1, &s) ;
+//   l = UINT32_extrema_missing(fi, NP+1, fi+NP, 0, &iplug) ;     // lower NP+1 values, missing value = 1, plug = 2
   TEE_FPRINTF(stderr,2, "extrema(lo)(um): maxs = %d, mins = %d, maxa = %d, mina = %d, min0 = %d, missing = %d(n = %d), plug = %d\n",
                       l.i.maxs, l.i.mins, l.i.maxa, l.i.mina, l.i.min0, fi[NP], l.i.spec, iplug) ;
   TEE_FPRINTF(stderr,2, "  expected     : maxs = %d, mins = %d, maxa = %d, mina = %d, min0 = %d\n",0, 1, fi[0], 0, iplug) ;
@@ -138,7 +153,8 @@ int main(int argc, char **argv){
   if(l.i.allp != 1 || l.i.allm != 0) goto error ;
   TEE_FPRINTF(stderr,2, "\n");
 
-  l = INT32_extrema_missing(fi+NP, NP+1, NULL, 0, NULL) ;  // upper NP+1 values, no missing value
+  l = INT32_extrema_special(fi+NP, NP+1, NULL) ;
+//   l = INT32_extrema_missing(fi+NP, NP+1, NULL, 0, NULL) ;  // upper NP+1 values, no missing value
   TEE_FPRINTF(stderr,2, "extrema(hi)    : maxs = %d, mins = %d, maxa = %d, mina = %d, min0 = %d (%d missing)\n", l.i.maxs, l.i.mins, l.i.maxa, l.i.mina, l.i.min0, l.i.spec) ;
   TEE_FPRINTF(stderr,2, "  expected     : maxs = %d, mins = %d, maxa = %d, mina = %d, min0 = %d\n",fi[NP], fi[NP2-1], -fi[NP2-1], 0, fi[NP]) ;
   if(l.i.maxs != fi[NP] || l.i.mins != fi[NP2-1] || l.i.maxa != -fi[NP2-1] || l.i.mina != 0 || l.i.min0 != fi[NP]) goto error ;
@@ -146,7 +162,9 @@ int main(int argc, char **argv){
   if(l.i.allp != 0 || l.i.allm != 0) goto error ;
 
   iplug = -15 ;
-  l = INT32_extrema_missing(fi+NP, NP+1, fi+NP, 0, &iplug) ;  // upper NP+1 values, missing value = 1
+  s = (special_value) {fi+NP, &iplug, 0u } ;
+  l = INT32_extrema_special(fi+NP, NP+1, &s) ;
+//   l = INT32_extrema_missing(fi+NP, NP+1, fi+NP, 0, &iplug) ;  // upper NP+1 values, missing value = 1
   TEE_FPRINTF(stderr,2, "extrema(hi)(m) : maxs = %d, mins = %d, maxa = %d, mina = %d, min0 = %d, missing = %d(n = %d), plug = %d\n",
                       l.i.maxs, l.i.mins, l.i.maxa, l.i.mina, l.i.min0, fi[NP], l.i.spec, iplug) ;
   TEE_FPRINTF(stderr,2, "  expected     : maxs = %d, mins = %d, maxa = %d, mina = %d, min0 = %d\n",0, fi[NP2-1], -fi[NP2-1], 0, -iplug) ;
@@ -156,7 +174,9 @@ int main(int argc, char **argv){
   TEE_FPRINTF(stderr,2, "\n");
 
   ff[0] = ff[NP2-1] = fg ;
-  i = W32_replace_missing(ff, NP2, &fg, 0, &pad) ;
+  s = (special_value) {&fg, &pad, 0u } ;
+  i = W32_replace_special(ff, NP2, &s) ;
+//   i = W32_replace_missing(ff, NP2, &fg, 0, &pad) ;
   TEE_FPRINTF(stderr,2, "rep_missing   : %f, %f\n", ff[0], ff[NP2-1]) ;
   TEE_FPRINTF(stderr,2, "  expected    : %f, %f\n", pad, pad) ;
   if(ff[0] != pad || ff[NP2-1] != pad) goto error ;           // pad should be found at 0 and NP2-1
@@ -174,8 +194,11 @@ timings :
   TIME_LOOP_EZ(1000, NP2, l = IEEE32_extrema_missing_simd(ff, NP2, ff+NP, 0, NULL)) ;
   TEE_FPRINTF(stderr,2, "IEEE32_extrema_missing_simd: %s\n",timer_msg);
 #endif
-  TIME_LOOP_EZ(1000, NP2, l = IEEE32_extrema_missing(ff, NP2, ff+NP, 0, NULL)) ;
-  TEE_FPRINTF(stderr,2, "IEEE32_extrema_missing     : %s\n",timer_msg);
+  s = (special_value) {ff+NP, NULL, 0u } ;
+  TIME_LOOP_EZ(1000, NP2, l = IEEE32_extrema_special(ff, NP2, &s)) ;
+//   TIME_LOOP_EZ(1000, NP2, l = IEEE32_extrema_missing(ff, NP2, ff+NP, 0, NULL)) ;
+  TEE_FPRINTF(stderr,2, "IEEE32_extrema_special     : %s\n",timer_msg);
+//   TEE_FPRINTF(stderr,2, "IEEE32_extrema_missing     : %s\n",timer_msg);
 
   TIME_LOOP_EZ(1000, NP2, l = INT32_extrema(fi, NP2)) ;
   TEE_FPRINTF(stderr,2, "INT32_extrema              : %s\n",timer_msg);
@@ -183,14 +206,23 @@ timings :
   TIME_LOOP_EZ(1000, NP2, l = UINT32_extrema(fi, NP2)) ;
   TEE_FPRINTF(stderr,2, "UINT32_extrema             : %s\n",timer_msg);
 
-  TIME_LOOP_EZ(1000, NP2, l = INT32_extrema_missing(fi, NP2, fi+NP, 0, NULL)) ;
-  TEE_FPRINTF(stderr,2, "INT32_extrema_missing      : %s\n",timer_msg);
+  s = (special_value) {fi+NP, NULL, 0u } ;
+  TIME_LOOP_EZ(1000, NP2, l = INT32_extrema_special(fi, NP2, &s)) ;
+//   TIME_LOOP_EZ(1000, NP2, l = INT32_extrema_missing(fi, NP2, fi+NP, 0, NULL)) ;
+  TEE_FPRINTF(stderr,2, "INT32_extrema_special      : %s\n",timer_msg);
+//   TEE_FPRINTF(stderr,2, "INT32_extrema_missing      : %s\n",timer_msg);
 
-  TIME_LOOP_EZ(1000, NP2, l = UINT32_extrema_missing(fi, NP2, fi+NP, 0, NULL)) ;
-  TEE_FPRINTF(stderr,2, "UINT32_extrema_missing     : %s\n",timer_msg);
+  s = (special_value) {fi+NP, NULL, 0u } ;
+  TIME_LOOP_EZ(1000, NP2, l = UINT32_extrema_special(fi, NP2, &s)) ;
+//   TIME_LOOP_EZ(1000, NP2, l = UINT32_extrema_missing(fi, NP2, fi+NP, 0, NULL)) ;
+  TEE_FPRINTF(stderr,2, "UINT32_extrema_special     : %s\n",timer_msg);
+//   TEE_FPRINTF(stderr,2, "UINT32_extrema_missing     : %s\n",timer_msg);
 
-  TIME_LOOP_EZ(1000, NP2, i = W32_replace_missing(ff, NP2, &fg, 0, &pad)) ;
-  TEE_FPRINTF(stderr,2, "W32_replace_missing        : %s\n",timer_msg);
+  s = (special_value) {&fg, &pad, 0u } ;
+  TIME_LOOP_EZ(1000, NP2, i = W32_replace_special(ff, NP2, &s)) ;
+//   TIME_LOOP_EZ(1000, NP2, i = W32_replace_missing(ff, NP2, &fg, 0, &pad)) ;
+  TEE_FPRINTF(stderr,2, "W32_replace_special        : %s\n",timer_msg);
+//   TEE_FPRINTF(stderr,2, "W32_replace_missing        : %s\n",timer_msg);
 
   TEE_FPRINTF(stderr,2, "\nSUCCESS\n") ;
   return 0 ;

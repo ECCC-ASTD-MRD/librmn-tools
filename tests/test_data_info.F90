@@ -11,6 +11,7 @@ program test_data_info
   type(limits_i) :: li
   logical :: error
   integer(C_INT32_T), target :: ipad, imissing
+  type(special_value) :: s
 
   print *, "Fortran test_data_info"
   ff(NP+1,1) = 1.1
@@ -78,7 +79,9 @@ program test_data_info
   if(error) stop 1
 
   fi(NP2-3,1) = 0
-  li = int32_extrema_missing(fi(NP+2,1), NP-1, C_NULL_PTR, -1, C_NULL_PTR)   ! explicit C function call
+  s = special_value(C_NULL_PTR, C_NULL_PTR, -1)
+  li = int32_extrema_special(fi(NP+2,1), NP-1, s)   ! explicit C function call
+!   li = int32_extrema_missing(fi(NP+2,1), NP-1, C_NULL_PTR, -1, C_NULL_PTR)   ! explicit C function call
   print 2, "li(m): maxs, mins, mina, min0, specials :" , li%maxs, li%mins, li%mina, li%min0, li%spec
   print 2, "       allm, allp                       :" , li%allm, li%allp
   error = li%allm .ne. 1 .or. li%allp .ne. 0 .or. li%mina .ne. 0 .or. li%min0 .ne. 129
@@ -86,7 +89,9 @@ program test_data_info
 
   imissing = 1
   ipad     = 12
-  n = W32_replace_missing(C_LOC(fi(1,1)), NP2, C_LOC(imissing), 0, C_LOC(ipad))
+  s = special_value(C_LOC(imissing), C_LOC(ipad), 0)
+  n = W32_replace_special(C_LOC(fi(1,1)), NP2, s)
+!   n = W32_replace_missing(C_LOC(fi(1,1)), NP2, C_LOC(imissing), 0, C_LOC(ipad))
   print 2, "missing, pad, n, fi(NP+1)     :", imissing, ipad, n, fi(NP+1,1)
   error = n .ne. NP2 .or. fi(NP+1,1) .ne. ipad
   if(error) stop 1
