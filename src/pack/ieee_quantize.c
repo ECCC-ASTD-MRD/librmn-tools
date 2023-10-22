@@ -698,7 +698,8 @@ error:
 // u64   [IN]  metadata information describing quantization (from IEEE32_linear_quantize_0)
 // N.B. if values have mixed signs, the sign is stored as the LSB in the quantized integer
 //      a close sibling to fake log quantizer 1, shift and offset are applied in a different order
-int IEEE32_linear_restore_0(void * restrict q, uint64_t u64, int ni, void * restrict f){
+// int IEEE32_linear_restore_0(void * restrict q, uint64_t u64, int ni, void * restrict f){
+q_decode IEEE32_linear_restore_0(void * restrict f, int ni, q_encode desc, void * restrict q){
   int i0, i, ni7 ;
   int scount ;
   int32_t offset ;
@@ -707,23 +708,37 @@ int IEEE32_linear_restore_0(void * restrict q, uint64_t u64, int ni, void * rest
   int pos_neg ;  // not all >=0
   int sign ;
   uint32_t temp ;
-  ieee32_props h64 ;
+  q_desc q_out ;
+//   ieee32_props h64 ;
+//   q_out.offset.u = h64.p.bias ;
+//   q_out.mbits    = h64.p.shft ;
+//   q_out.cnst     = h64.p.cnst ;
+//   q_out.allp     = h64.p.allp ;
+//   q_out.allm     = h64.p.allm ;
+//   q_out.nbits    = h64.p.nbts ;
+//   q_out.type     = Q_LINEAR_0 ;
 
-  h64.u = u64 ;
-  if(h64.p.npts == 0) h64.p.npts = ni ;
-  if(h64.p.npts != ni) {
-    fprintf(stderr, "ERROR : inconsistent number of points, expecting %d, got %d\n", ni, h64.p.npts) ;
-    return 2 ;      // inconsistent number of values
-  }
-  scount = h64.p.shft ;                                 // shift count
-  offset = h64.p.bias >> scount ;                       // bias before shifting
-  pos_neg = (h64.p.allp || h64.p.allm) ? 0 : 1 ;        // mixed signs
+//   h64.u = u64 ;
+//   if(h64.p.npts == 0) h64.p.npts = ni ;
+//   if(h64.p.npts != ni) {
+//     fprintf(stderr, "ERROR : inconsistent number of points, expecting %d, got %d\n", ni, h64.p.npts) ;
+//     return 2 ;      // inconsistent number of values
+//   }
+//   scount = h64.p.shft ;                                 // shift count
+  scount = desc.mbits ;                                 // shift count
+//   offset = h64.p.bias >> scount ;                       // bias before shifting
+  offset = desc.offset.u >> scount ;                       // bias before shifting
+//   pos_neg = (h64.p.allp || h64.p.allm) ? 0 : 1 ;        // mixed signs
+  pos_neg = (desc.allp || desc.allm) ? 0 : 1 ;        // mixed signs
 // if(h64.p.cnst) fprintf(stderr, "DEBUG, constant field, pos_neg = %d\n", pos_neg) ;
   ni7 = (ni & 7) ;
   if(q == f) {        // restore IN PLACE
-    if(h64.p.nbts == 0){   // constant value, same sign
-      sign = h64.p.allm ? (1u << 31) : 0 ;
-      for(i=0 ; i<ni ; i++) qi[i] = h64.p.bias | sign ;
+//     if(h64.p.nbts == 0){   // constant value, same sign
+    if(desc.nbits == 0){   // constant value, same sign
+//       sign = h64.p.allm ? (1u << 31) : 0 ;
+      sign = desc.allm ? (1u << 31) : 0 ;
+//       for(i=0 ; i<ni ; i++) qi[i] = h64.p.bias | sign ;
+      for(i=0 ; i<ni ; i++) qi[i] = desc.offset.u | sign ;
       goto end ;
     }
     if(pos_neg){       // mix of positive and negative values
@@ -740,9 +755,12 @@ int IEEE32_linear_restore_0(void * restrict q, uint64_t u64, int ni, void * rest
       }
     }
   }else{        // restore NOT IN PLACE
-    if(h64.p.nbts == 0){   // constant value, same sign
-      sign = h64.p.allm ? (1u << 31) : 0 ;
-      for(i=0 ; i<ni ; i++) fo[i] = h64.p.bias | sign ;
+//     if(h64.p.nbts == 0){   // constant value, same sign
+    if(desc.nbits == 0){   // constant value, same sign
+//       sign = h64.p.allm ? (1u << 31) : 0 ;
+      sign = desc.allm ? (1u << 31) : 0 ;
+//       for(i=0 ; i<ni ; i++) fo[i] = h64.p.bias | sign ;
+      for(i=0 ; i<ni ; i++) fo[i] = desc.offset.u | sign ;
       goto end ;
     }
     if(pos_neg){       // mix of positive and negative values
@@ -755,7 +773,8 @@ int IEEE32_linear_restore_0(void * restrict q, uint64_t u64, int ni, void * rest
           fo[i] |= sign ;                                // apply sign
       }
     }else{
-      sign = h64.p.allm << 31 ;
+//       sign = h64.p.allm << 31 ;
+      sign = desc.allm << 31 ;
       for(i=0 ; i<ni ; i++){                       // first chunk (0 - > 7 items)
         fo[i] = (qi[i] + offset) << scount ;             // restore
         fo[i] |= sign ;
@@ -763,7 +782,11 @@ int IEEE32_linear_restore_0(void * restrict q, uint64_t u64, int ni, void * rest
     }
   }
 end:
-  return 0 ;
+  q_out = q_desc_0 ;
+  q_out.q = desc ;
+  q_out.r.npts = ni ;
+  q_out.r.state = RESTORED ;
+  return q_out.r ;
 }
 #if 0
 // evaluate the discretization quantum as a function of nbits (type 0)
@@ -860,21 +883,32 @@ end:
 // ni    [IN]  number of data items to quantize
 // nbits [IN]  number of bits to use for quantized data
 // quant [IN]  quantization interval (if non zero, it is used instead of nbits)
-uint64_t IEEE32_linear_quantize_0(void * restrict f, int ni, int nbits, float quantum, void * restrict qs, special_value *s){
+// uint64_t IEEE32_linear_quantize_0(void * restrict f, int ni, int nbits, float quantum, void * restrict qs, special_value *s){
+  q_encode IEEE32_linear_quantize_0(void * restrict f, int ni, q_rules rules, void * restrict q, limits_w32 *limits, special_value *s){
   ieee32_props h64 ;
+  q_encode q_out ;
   uint64_t u64[3] ;
   int hint ;
   limits_w32 l32 = IEEE32_extrema(f, ni);                   // get min and max absolute values
 
 //   h64.u = IEEE32_linear_prep_0(l32, ni, nbits, quantum) ; // get quantization parameters (type 0)
-  hint = IEEE32_linear_prep(&l32, ni, nbits, quantum, u64, Q_MODE_LINEAR_0) ;
-  h64.u = u64[0] ;
+  hint = IEEE32_linear_prep(&l32, ni, rules.nbits, rules.ref, u64, Q_MODE_LINEAR_0) ;
+//   h64.u = u64[0] ;
 // if(t64 != h64.u) fprintf(stderr, "t64 != h64.u : %16.16lx %16.16lx\n", t64, h64.u);
 // else fprintf(stderr, "t64 == h64.u\n");
 // fprintf(stderr,"npts = %d, shft = %d, nbts = %d, cnst = %d, allp = %d, allm = %d\n", 
 //         h64.p.npts, h64.p.shft, h64.p.nbts, h64.p.cnst, h64.p.allp, h64.p.allm) ;
-  h64.u = IEEE32_quantize_linear_0(f, ni, h64.u, qs) ;                  // actual quantization (type 0)
-  return h64.u ;
+  h64.u = IEEE32_quantize_linear_0(f, ni, u64[0], q) ;                  // actual quantization (type 0)
+  q_out          = q_desc_0.q ;
+  q_out.offset.u = h64.p.bias ;
+  q_out.mbits    = h64.p.shft ;
+  q_out.cnst     = h64.p.cnst ;
+  q_out.allp     = h64.p.allp ;
+  q_out.allm     = h64.p.allm ;
+  q_out.nbits    = h64.p.nbts ;
+  q_out.type     = Q_LINEAR_0 ;
+  q_out.state    = QUANTIZED ;
+  return q_out ;
 }
 
 // ========================================== linear quantizer type 1 ==========================================

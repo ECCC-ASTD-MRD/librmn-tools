@@ -122,7 +122,7 @@ typedef struct{          // quantization outcome, input to restore functions
            clip:   1 ,   // quantized value of 0 is restored as 0
            nbits:  5 ,   // max number of bits for quantized value
            mbits:  5 ,   // significant bits (fake log quantizers)
-                         // shift count (linear quantizer 2)
+                         // shift count (linear quantizer 0 and 2)
            allp:   1 ,   // all values are >= 0
            allm:   1 ,   // all values are <  0
            state:  2 ;   // invalid/to_quantize/quantized/restored (should be QUANTIZED)
@@ -219,13 +219,15 @@ int64_t IEEE_quantize(void * restrict f, void * restrict q, q_meta *meta,  int n
                       int mode, void *spval, uint32_t mmask, void *pad);
 int64_t IEEE_qrestore(void * restrict f, void * restrict q, q_meta *meta,  int nd);
 
-uint64_t IEEE32_linear_quantize_0(void * restrict f, int ni, int nbits, float quantum, void * restrict q, special_value *s);
+quantizer_function IEEE32_linear_quantize_0 ;
+// uint64_t IEEE32_linear_quantize_0(void * restrict f, int ni, int nbits, float quantum, void * restrict q, special_value *s);
 quantizer_function IEEE32_linear_quantize_1 ;
 // uint64_t IEEE32_linear_quantize_1(void * restrict f, int ni, int nbits, float quantum, void * restrict q);
 quantizer_function IEEE32_linear_quantize_2 ;
 // uint64_t IEEE32_linear_quantize_2(void * restrict f, int ni, int nbits, float quantum, void * restrict q, special_value *s);
 
-int IEEE32_linear_restore_0(void * restrict q, uint64_t h64, int ni, void * restrict f);
+restore_function IEEE32_linear_restore_0;
+// int IEEE32_linear_restore_0(void * restrict q, uint64_t h64, int ni, void * restrict f);
 restore_function IEEE32_linear_restore_1;
 // int IEEE32_linear_restore_1(void * restrict q, uint64_t h64, int ni, void * restrict f);
 restore_function IEEE32_linear_restore_2;

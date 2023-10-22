@@ -86,7 +86,7 @@ void process_data_2d(void *data, int ni, int nj, error_stats *e0, char *name){
       bzero(block2, sizeof(block2)) ;
       quantum = .01f ; nbits = 0 ;
 //       quantum = .00f ; nbits = 12 ;
-      h64 = IEEE32_linear_quantize_0(block0, in*jn, nbits, quantum, block2, NULL) ; p64.u = h64 ; nbts = p64.p.nbts ;
+//       h64 = IEEE32_linear_quantize_0(block0, in*jn, nbits, quantum, block2, NULL) ; p64.u = h64 ; nbts = p64.p.nbts ;
 //       h64 = IEEE32_linear_quantize_1(block0, in*jn, nbits, quantum, block2) ; p64.u = h64 ; nbts = p64.q.nbts ;
       btab[nbts]++ ;
       nbtot += nbts*in*jn ;
@@ -95,7 +95,7 @@ void process_data_2d(void *data, int ni, int nj, error_stats *e0, char *name){
       // step 4 : unpredict
       // step 5 : restore
       bzero(block1, sizeof(block1)) ;
-      status = IEEE32_linear_restore_0(block2, h64, in*jn, block1) ;
+//       status = IEEE32_linear_restore_0(block2, h64, in*jn, block1) ;
 //       status = IEEE32_linear_restore_1(block2, h64, in*jn, block1) ;
 //       memcpy(block1, block0, sizeof(float)*in*jn) ;
       // step 6 : analyze
@@ -595,7 +595,12 @@ int main(int argc, char **argv){
 //   ft[1] = .22f ;   // under r.f.ref, to test clipping
 
 //   if(check_fake_log_1()) goto error ;
-  r_f = (q_rules) {.ref = 0.0f, .rng10 = 0, .clip = 0, .type = Q_LINEAR_1, .nbits = 8, .mbits = 0, .state = TO_QUANTIZE} ;
+  r_f = (q_rules) {.ref = 0.0f, .rng10 = 0, .clip = 0, .type = 0, .nbits = 8, .mbits = 0, .state = TO_QUANTIZE} ;
+
+  r_f.type = Q_LINEAR_0 ;
+  if(check_linear(IEEE32_linear_quantize_0, IEEE32_linear_restore_0, 0, ft, NPTS_TIMING, r_f)) goto error ;
+
+  r_f.type = Q_LINEAR_1 ;
   if(check_linear(IEEE32_linear_quantize_1, IEEE32_linear_restore_1, 1, ft, NPTS_TIMING, r_f)) goto error ;
 
   r_f.type = Q_LINEAR_2 ;

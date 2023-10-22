@@ -203,6 +203,7 @@ quantum = 0.1f ;
 #endif
 #endif
 // return 0 ;
+#if 0
 // ============================ NOT IN PLACE TESTS (type 0) ============================
   for(i=0 ; i<NPTS ; i++) fi[i] = baseval + basefac * (0.00001f + (i * 1.0f) / NPTS) ;
 //   for(i=0 ; i<NPTS ; i++) fi[i] = baseval ;   // this MUST work too (constant array)
@@ -269,7 +270,7 @@ hieee.u = h64 ;
   TIME_LOOP_EZ(1000, NPTST/8, IEEE32_linear_restore_0(qu, h64, NPTST/8, fo) ;) ;
   fprintf(stderr, "IEEE32_linear_restore_0  : %s\n",timer_msg);
 #endif
-
+#endif
 return 0 ;
 
   fprintf(stderr, "limit16 = %8.8x, %8d, %8.8x\n", limit16, limit16 >> 23, limit16 & 0x7FFFFF);
