@@ -88,7 +88,6 @@ typedef struct{
 #define RESTORED     3
 
 // quantization types
-#define Q_FAKE_LOG_0   1
 #define Q_FAKE_LOG_1   2
 #define Q_LINEAR_0     4
 #define Q_LINEAR_1     5
@@ -96,84 +95,113 @@ typedef struct{
 // NOTES: Q_FAKE_LOG_1 is faster than Q_FAKE_LOG_0
 
 // structs frules/quant_out/restored should have a matching layout where there are common elements
+typedef struct{          // quantization rules, input to quantizing functions
+  float    ref ;         // quantization quantum or max significant value
+  uint32_t rng2:   8 ,   // base 2 exponent range (may override ref for fake log quantization)
+           rng10:  6 ,   // base 10 exponent range (may override ref for fake log quantization)
+           type:   3 ,   // quantization type (0 is invalid)
+           clip:   1 ,   // quantized value of 0 is restored as 0
+           nbits:  5 ,   // max number of bits for quantized value
+           mbits:  5 ,   // significant bits (fake log quantizers)
+           allp:   1 ,   // all values are >= 0
+           allm:   1 ,   // all values are <  0
+           state:  2 ;   // invalid/to_quantize/quantized/restored (should be TO_QUANTIZE)
+} q_rules ;
+
+typedef struct{          // quantization outcome, input to restore functions
+  union{
+    int32_t  i ;         // signed offset
+    uint32_t u ;         // unsigned offset
+    uint32_t emax: 8,    // fake log quantizer 0 uses unused offset to store emax
+             resv:24 ;
+  }offset ;              // quantization offset (minimum raw quantized value)
+  uint32_t resv:   5 ,   // reserved, should be 0
+           cnst:   1 ,   // constant field flag
+           exp0:   8 ,   // IEEE exponent of minimum absolute value or quantization multiplier
+           type:   3 ,   // quantization type (0 is invalid)
+           clip:   1 ,   // quantized value of 0 is restored as 0
+           nbits:  5 ,   // max number of bits for quantized value
+           mbits:  5 ,   // significant bits (fake log quantizers)
+                         // shift count (linear quantizer 2)
+           allp:   1 ,   // all values are >= 0
+           allm:   1 ,   // all values are <  0
+           state:  2 ;   // invalid/to_quantize/quantized/restored (should be QUANTIZED)
+} q_encode ;
+
+typedef struct{          // after restore operation
+  uint32_t npts ;        // number of points restored
+  uint32_t resv:   6 ,   // reserved, should be 0
+           exp0:   8 ,   // IEEE exponent of minimum absolute value or quantization multiplier
+           type:   3 ,   // quantization type (0 is invalid)
+           clip:   1 ,   // quantized value of 0 is restored as 0
+           nbits:  5 ,   // max number of bits for quantized value
+           mbits:  5 ,   // significant bits (fake log quantizers)
+           allp:   1 ,   // all values are >= 0
+           allm:   1 ,   // all values are <  0
+           state:  2 ;   // invalid/to_quantize/quantized/restored (should be RESTORED)
+} q_decode ;
+
 typedef union{
-  uint64_t u ;             // used to access everything as one 64 bit piece
-  struct frules{           // quantization rules, input to quantizing functions
-    float    ref ;         // quantization quantum or max significant value
-    uint32_t rng2:   8 ,   // base 2 exponent range (may override ref for fake log quantization)
-             rng10:  6 ,   // base 10 exponent range (may override ref for fake log quantization)
-             type:   3 ,   // quantization type (0 is invalid)
-             clip:   1 ,   // quantized value of 0 is restored as 0
-             nbits:  5 ,   // max number of bits for quantized value
-             mbits:  5 ,   // significant bits (fake log quantizers)
-             allp:   1 ,
-             allm:   1 ,
-             state:  2 ;   // invalid/to_quantize/quantized/restored (should be TO_QUANTIZE)
-  } f ;
-  struct quant_out{        // quantization outcome, input to restore functions
-    union{
-      int32_t  i ;         // signed offset
-      uint32_t u ;         // unsigned offset
-      uint32_t emax: 8,    // fake log quantizer 0 uses unused offset to store emax and elow
-               resv:24 ;
-    }offset ;              // quantization offset (minimum raw quantized value)
-    uint32_t resv:   6 ,   // reserved, should be 0
-             emin:   8 ,   // IEEE exponent of minimum absolute value
-             type:   3 ,   // quantization type (0 is invalid)
-             clip:   1 ,   // quantized value of 0 is restored as 0
-             nbits:  5 ,   // max number of bits for quantized value
-             mbits:  5 ,   // significant bits (fake log quantizers)
-             allp:   1 ,
-             allm:   1 ,
-             state:  2 ;   // invalid/to_quantize/quantized/restored (should be QUANTIZED)
-  } q ;
-  struct restored{         // quantization parameters, after restore operation
-    uint32_t npts ;        // number of points restored
-    uint32_t resv:   6 ,   // reserved, should be 0
-             emin:   8 ,   // IEEE exponent of minimum absolute value
-             type:   3 ,   // quantization type (0 is invalid)
-             clip:   1 ,   // quantized value of 0 is restored as 0
-             nbits:  5 ,   // max number of bits for quantized value
-             mbits:  5 ,   // significant bits (fake log quantizers)
-             allp:   1 ,
-             allm:   1 ,
-             state:  2 ;   // invalid/to_quantize/quantized/restored (should be RESTORED)
-  } r ;
+  uint64_t u ;             // used to access everything as a single 64 bit item
+  q_rules  f ;
+  q_encode q ;
+  q_decode r ;
 }q_desc ;
 // make sure that q_desc does not need more than 64 bits
 CT_ASSERT(sizeof(q_desc) <= sizeof(uint64_t))
 
-static void printf_quant_out(FILE *file, q_desc d){
-  if(d.q.state != QUANTIZED) { fprintf(file, "ERROR: invalid state, expected %d, got %d\n", QUANTIZED, d.q.state) ; return ; }
-  int pos_neg = (d.q.allp == 0) && (d.q.allm == 0) ;
-  fprintf(file, "type = %d, clip = %d, nbits[ebits](mbits) = %d[%d](%d), allp/allm = %d/%d\n", 
-                d.q.type, d.q.clip, d.q.nbits, d.q.nbits-d.q.mbits-pos_neg, d.q.mbits, d.q.allp, d.q.allm) ;
+static q_desc q_desc_0 = {.u = 0 } ;
+
+// "normalize" a mantissa to a reference exponent by shifting it right (after adding IEEE hidden 1)
+// apply sign of input float to mantissa
+// src    [IN] : 32 bit IEEE float (passed as a signed integer)
+// RefExp [IN} : reference exponent (includes +127 bias)
+// return signed "normalized" value
+static int32_t normalize_mantissa(int32_t src, int32_t RefExp)
+{
+  int32_t Mantis = (1 << 23) | ( 0x7FFFFF & src );   // extract IEEE mantissa, restore hidden 1
+  int32_t Exp    = (src >> 23) & 0xFF;               // extract IEEE float 32 exponent (includes +127 bias)
+  if(Exp == 0) return 0 ;                            // denormalized float, return 0
+  int32_t Shift  = RefExp - Exp;                     // shift count to normalize mantissa to RefExp exponent
+  Shift = (Shift <  0) ?  0 : Shift ;                // Exp > RefExp, cannot normalize (invalid condition, should not happen)
+  Shift = (Shift > 31) ? 31 : Shift ;                // max possible shift count = 31 (24 really)
+  Mantis = Mantis >> Shift;                          // normalize mantissa to RefExp exponent
+  Mantis = ( src < 0 ) ? -Mantis : Mantis ;          // apply sign
+  return Mantis ;                                    // "normalized" mantissa
 }
 
-static q_desc q_desc_0 = {.f.state = 0, .q.offset.u = 0, .u = 0 } ;
+static void printf_quant_out(FILE *file, q_encode d){
+  if(d.state != QUANTIZED) { fprintf(file, "ERROR: invalid state, expected %d, got %d\n", QUANTIZED, d.state) ; return ; }
+  int pos_neg = (d.allp == 0) && (d.allm == 0) ;
+  int ebits = d.nbits-d.mbits-pos_neg ;
+  if(d.type != Q_FAKE_LOG_1) ebits = 0 ;
+  fprintf(file, "type = %d, clip = %d, nbits[ebits](mbits) = %d[%d](%d), allp/allm = %d/%d, offset = %8.8x\n", 
+                d.type, d.clip, d.nbits, ebits, d.mbits, d.allp, d.allm, d.offset.u) ;
+}
 
-typedef q_desc quantizer_function(void * restrict f, int ni, q_desc rule, void * restrict q, limits_w32 *limits) ;
-typedef q_desc (*quantizer_fnptr)(void * restrict f, int ni, q_desc rule, void * restrict q, limits_w32 *limits) ;
+typedef q_encode quantizer_function(void * restrict f, int ni, q_rules rules, void * restrict q, limits_w32 *limits, special_value *s) ;
+typedef q_encode (*quantizer_fnptr)(void * restrict f, int ni, q_rules rules, void * restrict q, limits_w32 *limits, special_value *s) ;
 
 // https://gcc.gnu.org/onlinedocs/gcc/Compound-Literals.html
 static quantizer_function linear_quantizer_init ;
-static q_desc linear_quantizer_init(void * restrict f, int ni, q_desc rule, void * restrict q, limits_w32 *limits){
+static q_encode linear_quantizer_init(void * restrict f, int ni, q_rules rules, void * restrict q, limits_w32 *limits, special_value *s){
   q_desc qr ;
   qr.u = q_desc_0.u ;
+  qr.f = rules ;
   qr = (q_desc) {.u = q_desc_0.u } ;  // compound literal
-  qr = (q_desc) {.f.state = rule.f.state, .f.ref = rule.f.ref } ;
+  qr = (q_desc) {.q.state = rules.state, .f.ref = rules.ref } ;
   qr = q_desc_0 ;
-  return qr ;
+  return qr.q ;
 }
-static q_desc linear_qfunction_init(void * restrict f, int ni, q_desc rule, void * restrict q, limits_w32 *limits){
-  return linear_quantizer_init(f, ni, rule, q, NULL) ;
+static q_encode linear_q_init(void * restrict f, int ni, q_rules rules, void * restrict q, limits_w32 *limits, special_value *s){
+  return linear_quantizer_init(f, ni, rules, q, NULL, NULL) ;
 }
 
-typedef q_desc restore_function(void * restrict f, int ni, q_desc desc, void * restrict q) ;
-typedef q_desc (*restore_fnptr)(void * restrict f, int ni, q_desc desc, void * restrict q) ;
+typedef q_decode restore_function(void * restrict f, int ni, q_encode desc, void * restrict q) ;
+typedef q_decode (*restore_fnptr)(void * restrict f, int ni, q_encode desc, void * restrict q) ;
 
 restore_function linear_restore ;
-static q_desc linear_rfunction(void * restrict f, int ni, q_desc rule, void * restrict q){
+static q_decode linear_rfunction(void * restrict f, int ni, q_encode rule, void * restrict q){
   return linear_restore(f, ni, rule, q) ;
 }
 
@@ -191,21 +219,17 @@ int64_t IEEE_quantize(void * restrict f, void * restrict q, q_meta *meta,  int n
                       int mode, void *spval, uint32_t mmask, void *pad);
 int64_t IEEE_qrestore(void * restrict f, void * restrict q, q_meta *meta,  int nd);
 
-uint64_t IEEE32_linear_prep_0(limits_w32 l32, int np, int nbits, float quant);
-uint64_t IEEE32_linear_prep_1(limits_w32 l32, int np, int nbits, float quant);
-uint64_t IEEE32_linear_prep_2(limits_w32 l32, int np, int nbits, float quant);
-
-uint64_t IEEE32_quantize_linear_0(void * restrict f, uint64_t u64, void * restrict qs);
-uint64_t IEEE32_quantize_linear_1(void * restrict f, uint64_t u64, void * restrict qs);
-uint64_t IEEE32_quantize_linear_2(void * restrict f, uint64_t u64, void * restrict qs);
-
-uint64_t IEEE32_linear_quantize_0(void * restrict f, int ni, int nbits, float quantum, void * restrict q);
-uint64_t IEEE32_linear_quantize_1(void * restrict f, int ni, int nbits, float quantum, void * restrict q);
-uint64_t IEEE32_linear_quantize_2(void * restrict f, int ni, int nbits, float quantum, void * restrict q);
+uint64_t IEEE32_linear_quantize_0(void * restrict f, int ni, int nbits, float quantum, void * restrict q, special_value *s);
+quantizer_function IEEE32_linear_quantize_1 ;
+// uint64_t IEEE32_linear_quantize_1(void * restrict f, int ni, int nbits, float quantum, void * restrict q);
+quantizer_function IEEE32_linear_quantize_2 ;
+// uint64_t IEEE32_linear_quantize_2(void * restrict f, int ni, int nbits, float quantum, void * restrict q, special_value *s);
 
 int IEEE32_linear_restore_0(void * restrict q, uint64_t h64, int ni, void * restrict f);
-int IEEE32_linear_restore_1(void * restrict q, uint64_t h64, int ni, void * restrict f);
-int IEEE32_linear_restore_2(void * restrict q, uint64_t h64, int ni, void * restrict f);
+restore_function IEEE32_linear_restore_1;
+// int IEEE32_linear_restore_1(void * restrict q, uint64_t h64, int ni, void * restrict f);
+restore_function IEEE32_linear_restore_2;
+// int IEEE32_linear_restore_2(void * restrict q, uint64_t h64, int ni, void * restrict f);
 
 quantizer_function IEEE32_fakelog_quantize_0 ;
 // uint64_t IEEE32_fakelog_quantize_0(void * restrict f, int ni, int nbits, float qzero, void * restrict qs);
