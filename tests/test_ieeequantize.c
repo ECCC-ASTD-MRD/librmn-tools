@@ -96,7 +96,7 @@ int main(int argc, char **argv){
 //   float quantum = 0.01f ;
   float quantum = 0.0f ;
   TIME_LOOP_DATA ;
-  ieee32_u hieee ;
+//   ieee32_u hieee ;
   int pos_neg = 0 ;
 #define WITH_TIMINGS
   start_of_test(argv[0]);

@@ -51,12 +51,6 @@ typedef struct{
 //   int32_t  mins ;    // minimum value
 // } ieee32_s ;
 
-// equivalent to above ieee32_s, using floats
-// typedef struct{
-//   float  maxs ;    // maximum value
-//   float  mins ;    // minimum value
-// } ieee32_f ;
-
 // some (useful for quantization) properties of an IEEE float array, 64 bits total
 // types ieee32_props and ieee32_p are for internal use only, the interface exposes a uint64_t
 //
@@ -93,43 +87,16 @@ typedef struct {
            nbts:5 ;  // number of bits (0 -> 31) per value (nbts == 0 : same value, same sign)
 } ieee32_r ;
 
-// fake log quantization header (type 0)
-// typedef struct {
-//   uint32_t qmin:32;
-//   uint32_t emax:8 ,  // exponent of largest absolute value
-//            emin:8 ,  // exponent of smallest absolute value
-//            elow:8 ,  // exponent of smallest significant absolute value
-//            clip:1 ,  // original emin < elow, clipping may occur
-//            allp:1 ,  // all numbers are >= 0
-//            allm:1 ,  // all numbers are < 0
-//            nbts:5 ;  // number of bits (0 -> 31) per value (nbts == 0 : same value, same sign)
-// } ieee32_e ;
-
-// fake log quantization header (type 1)
-// typedef struct {
-//   uint32_t qmin:32;  // offset
-//   uint32_t emax:8 ,  // exponent of largest absolute value
-//            emin:8 ,  // exponent of smallest significant absolute value
-//            mbts:8 ,  // number of effective mantissa bits (shift = 23 - mbts)
-//            clip:1 ,  // original emin < elow, clipping may occur
-//            allp:1 ,  // all numbers are >= 0
-//            allm:1 ,  // all numbers are < 0
-//            nbts:5 ;  // number of bits (0 -> 31) per value (nbts == 0 : same value, same sign)
-// } ieee32_f ;
-
 // access to all properties structs through a single 64 bit wide union
 typedef union{
   ieee32_p  p  ;     // type 0 linear header
   ieee32_q  q  ;     // type 1 linear header
   ieee32_r  r  ;     // type 2 linear header
   ieee32_l  l  ;     // absolute value analysis
-//   ieee32_s  s  ;     // signed value analysis
-//   ieee32_s  f  ;     // float reflecting above signed value analysis
-//   ieee32_e  e  ;     // type 0 fake log header
-//   ieee32_f  f  ;     // type 1 fake log header
   qhead    *h  ;     // pointer to full quantization header (used by type 3)
   uint64_t  u  ;     // access as a single 64 bit unsigned integer
   uint32_t  w[2]  ;  // access as 2 32 bit unsigned integers
+  int32_t   i[2]  ;  // access as 2 32 bit nsigned integers
 } ieee32_props ;
 // make sure that access as a single 64 bit unsigned integer is respected
 CT_ASSERT(sizeof(ieee32_props) == sizeof(uint64_t))
@@ -139,26 +106,6 @@ static uint64_t IEEE32_quantize_linear_1(void * restrict f, int npts, uint64_t u
 static uint64_t IEEE32_quantize_linear_2(void * restrict f, int npts, uint64_t u64, void * restrict qs);
 
 // ========================================== common functions ==========================================
-#if 0
-// MOVED to ieee_quantize.h
-// "normalize" a mantissa to a reference exponent by shifting it right (after adding hidden 1)
-// apply sign of input float to mantissa
-// src    [IN] : 32 bit IEEE float
-// RefExp [IN} : reference exponent
-// return signed "normalized" value
-int32_t normalize_mantissa_(int32_t src, int32_t RefExp)
-{
-  int32_t Mantis = (1 << 23) | ( 0x7FFFFF & src );   // extract IEEE mantissa, restore hidden 1
-  int32_t Exp    = (src >> 23) & 0xFF;               // extract IEEE float 32 exponent (includes +127 bias)
-  if(Exp == 0) return 0 ;                            // denormalized float, return 0
-  int32_t Shift  = RefExp - Exp;                     // shift count to normalize mantissa to RefExp exponent
-  Shift = (Shift <  0) ?  0 : Shift ;                // Exp > RefExp, cannot normalize (invalid condition, should not happen)
-  Shift = (Shift > 31) ? 31 : Shift ;                // max possible shift count = 31 (24 really)
-  Mantis = Mantis >> Shift;                          // normalize mantissa to RefExp exponent
-  Mantis = ( src < 0 ) ? -Mantis : Mantis ;          // apply sign
-  return Mantis ;
-}
-#endif
 
 // prepare for linear quantization of IEEE floats (quantization type 0/1/2)
 // l32p   [IN] : pointer to limits_w32 struct containing information about data values
@@ -604,7 +551,7 @@ if(debug) fprintf(stderr, "z0 = %f, rng2 = %d, rng10 = %d, clip = %d, maxa = %8.
 // if(debug) fprintf(stderr, "min = %f, max = %f, z0 = %f\n", mi.f, ma.f, z0.f) ;
 // prepare to quantize
   if(mina < z0.u){                        // smallest absolute value < |qzero| ?
-    q64.q.clip = rules.clip ;            // will force a restore to zero if quantized value == 0
+    q64.q.clip = rules.clip ;             // will force a restore to zero if quantized value == 0
     mina = z0.u ;                         // force mina to |qzero| if mina < |qzero|
   }
   emin = (mina >> 23) & 0xFF ;            // IEEE exponent of smallest absolute value
@@ -641,7 +588,7 @@ if(debug) fprintf(stderr, "(nbits,mbits), ") ;
       nbits++ ;                           // increase nbits
     }
   }
-  if((erange + (erange >> 1)) <= RMASK31(ebits)) mbits++ ;  // increase mbits if using less than 2/3 of the possible exponent range
+  if((erange + (erange >> 1)) <= RMASK31(ebits) && erange > 0) mbits++ ;  // increase mbits if using less than 2/3 of the possible exponent range
   nbits = mbits + ebits + pos_neg ;       // (re)compute nbits
 if(debug) fprintf(stderr, " nbits = %d(%d), mbits = %d(%d), ebits = %d, pos_neg = %d, erange = %d\n", nbits, nbits0, mbits, mbits0, ebits, pos_neg, erange) ;
 
@@ -691,14 +638,20 @@ error:
 
 // ========================================== linear quantizer type 0 ==========================================
 
+// restore 1 IEEE float from type 0 quantized value
+// inline function used by IEEE32_linear_restore_0
+static inline int32_t IEEE32_Q2F_linear_0(int32_t q, int32_t offset, int32_t scount, int32_t allp, int32_t allm){
+}
+
 // restore floating point numbers quantized with IEEE32_linear_quantize_0
 // q     [IN]  32 bit integer array containing the quantized data
 // f    [OUT]  32 bit IEEE float array that will receive restored floats
-// ni    [IN]  number of data items (used for checking purposes only)
-// u64   [IN]  metadata information describing quantization (from IEEE32_linear_quantize_0)
+// ni    [IN]  number of data items to restore from quantized values
+// desc [IN]  metadata information describing quantization (from IEEE32_linear_quantize_0)
 // N.B. if values have mixed signs, the sign is stored as the LSB in the quantized integer
 //      a close sibling to fake log quantizer 1, shift and offset are applied in a different order
-// int IEEE32_linear_restore_0(void * restrict q, uint64_t u64, int ni, void * restrict f){
+//      uses mbits(scount), offset.u, allm, allp, cnst from desc
+//      does not use clip, exp0, nbits
 q_decode IEEE32_linear_restore_0(void * restrict f, int ni, q_encode desc, void * restrict q){
   int i0, i, ni7 ;
   int scount ;
@@ -709,35 +662,18 @@ q_decode IEEE32_linear_restore_0(void * restrict f, int ni, q_encode desc, void 
   int sign ;
   uint32_t temp ;
   q_desc q_out ;
-//   ieee32_props h64 ;
-//   q_out.offset.u = h64.p.bias ;
-//   q_out.mbits    = h64.p.shft ;
-//   q_out.cnst     = h64.p.cnst ;
-//   q_out.allp     = h64.p.allp ;
-//   q_out.allm     = h64.p.allm ;
-//   q_out.nbits    = h64.p.nbts ;
-//   q_out.type     = Q_LINEAR_0 ;
 
-//   h64.u = u64 ;
-//   if(h64.p.npts == 0) h64.p.npts = ni ;
-//   if(h64.p.npts != ni) {
-//     fprintf(stderr, "ERROR : inconsistent number of points, expecting %d, got %d\n", ni, h64.p.npts) ;
-//     return 2 ;      // inconsistent number of values
-//   }
-//   scount = h64.p.shft ;                                 // shift count
-  scount = desc.mbits ;                                 // shift count
-//   offset = h64.p.bias >> scount ;                       // bias before shifting
-  offset = desc.offset.u >> scount ;                       // bias before shifting
-//   pos_neg = (h64.p.allp || h64.p.allm) ? 0 : 1 ;        // mixed signs
-  pos_neg = (desc.allp || desc.allm) ? 0 : 1 ;        // mixed signs
-// if(h64.p.cnst) fprintf(stderr, "DEBUG, constant field, pos_neg = %d\n", pos_neg) ;
+  if(desc.type  != Q_LINEAR_0)   goto error ;  // wrong quantizer
+  if(desc.state != QUANTIZED)    goto error ;  // must be quantized data
+
+  scount  = desc.mbits ;                               // shift count
+  offset  = desc.offset.u >> scount ;                  // bias before shifting
+  pos_neg = (desc.allp || desc.allm) ? 0 : 1 ;         // mixed signs ?
+
   ni7 = (ni & 7) ;
-  if(q == f) {        // restore IN PLACE
-//     if(h64.p.nbts == 0){   // constant value, same sign
-    if(desc.nbits == 0){   // constant value, same sign
-//       sign = h64.p.allm ? (1u << 31) : 0 ;
+  if(q == f) {        // restore IN PLACE (array fo is ignored)
+    if(desc.cnst == 1){   // constant value, same sign
       sign = desc.allm ? (1u << 31) : 0 ;
-//       for(i=0 ; i<ni ; i++) qi[i] = h64.p.bias | sign ;
       for(i=0 ; i<ni ; i++) qi[i] = desc.offset.u | sign ;
       goto end ;
     }
@@ -749,22 +685,20 @@ q_decode IEEE32_linear_restore_0(void * restrict f, int ni, q_encode desc, void 
         qi[i] = (temp + offset) << scount ;              // restore
         qi[i] |= sign ;                                  // apply sign
       }
-    }else{              // positive values only
+    }else{              // same sign values
+      sign = desc.allm << 31 ;                           // get sign
       for(i=0 ; i<ni ; i++){                       // first chunk (0 - > 7 items)
         qi[i] = (qi[i] + offset) << scount ;             // restore
+        qi[i] |= sign ;                                  // restore sign
       }
     }
-  }else{        // restore NOT IN PLACE
-//     if(h64.p.nbts == 0){   // constant value, same sign
-    if(desc.nbits == 0){   // constant value, same sign
-//       sign = h64.p.allm ? (1u << 31) : 0 ;
+  }else{        // restore NOT IN PLACE (source = fi, destination = fo)
+    if(desc.cnst == 1){   // constant value, same sign
       sign = desc.allm ? (1u << 31) : 0 ;
-//       for(i=0 ; i<ni ; i++) fo[i] = h64.p.bias | sign ;
       for(i=0 ; i<ni ; i++) fo[i] = desc.offset.u | sign ;
       goto end ;
     }
     if(pos_neg){       // mix of positive and negative values
-// fprintf(stderr,"pos neg restore\n");
       for(i=0 ; i<ni ; i++){                       // first chunk (0 - > 7 items)
           temp = qi[i] ;
           sign = (temp & 1) << 31 ;                      // get sign
@@ -772,20 +706,24 @@ q_decode IEEE32_linear_restore_0(void * restrict f, int ni, q_encode desc, void 
           fo[i] = (temp + offset) << scount ;            // restore
           fo[i] |= sign ;                                // apply sign
       }
-    }else{
-//       sign = h64.p.allm << 31 ;
-      sign = desc.allm << 31 ;
+    }else{              // same sign values
+      sign = desc.allm << 31 ;                           // get sign
       for(i=0 ; i<ni ; i++){                       // first chunk (0 - > 7 items)
-        fo[i] = (qi[i] + offset) << scount ;             // restore
-        fo[i] |= sign ;
+        fo[i] = (qi[i] + offset) << scount ;             // restore value
+        fo[i] |= sign ;                                  // restore sign
       }
     }
   }
+
 end:
-  q_out = q_desc_0 ;
-  q_out.q = desc ;
-  q_out.r.npts = ni ;
-  q_out.r.state = RESTORED ;
+  q_out.q = desc ;              // propagate info from quantized data
+  q_out.r.npts = ni ;           // replace
+  q_out.r.state = RESTORED ;    // new state
+  return q_out.r ;
+
+error:
+  q_out.q = desc ;              // propagate info from quantized data
+  q_out.r.state = Q_INVALID ;   // set invalid state
   return q_out.r ;
 }
 #if 0
@@ -809,8 +747,11 @@ FloatPair IEEE32_linear_quantum_0(uint64_t u64, int nbits){
 // quantize IEEE floats using information from IEEE32_linear_prep_0
 // qs   [OUT]  32 bit integer array that will receive the quantized result
 // f     [IN]  32 bit IEEE float array, data to be quantized
-// u64   [IN]  metadata information describing quantization (from IEEE32_linear_prep_0)
+// u64   [IN]  metadata information describing quantization (from IEEE32_linear_prep)
+// returns metadata as received (pass through)
 // N.B. if values have mixed signs, the sign is stored as the LSB in the quantized integer
+//
+// uses nbts, shft, bias, cnst, allp, allm from u64
 static uint64_t IEEE32_quantize_linear_0(void * restrict f, int32_t ni, uint64_t u64, void * restrict qs){
   uint32_t *fu = (uint32_t *) f ;
   uint32_t *qo = (uint32_t *) qs ;
@@ -821,16 +762,15 @@ static uint64_t IEEE32_quantize_linear_0(void * restrict f, int32_t ni, uint64_t
 
   h64.u   = u64 ;                           // all properties
   nbits   = h64.p.nbts ;                    // number of bits needed for quantized results
-//   ni      = h64.p.npts ;                    // number of values
   scount  = h64.p.shft ;                    // shift count
   offset  = h64.p.bias >> scount ;          // offset from smallest absolute value
   round   = scount ? 1 << (scount-1) : 0 ;  // rounding term
   pos_neg = (h64.p.allp || h64.p.allm) ? 0 : 1 ;   // not same sign for all values
   maskn = RMASK31(nbits) ;                  // largest allowed value for quantized results
   masksign = RMASK31(31) ;                  // sign bit is 0, all others are 1
-// fprintf(stderr, "quantizing with nbits = %d, scount = %d\n", nbits, scount) ;
+
   if(h64.p.cnst){
-    if(pos_neg){
+    if(pos_neg){  // if mixed signs, store sign bit
       for(i=0 ; i<ni ; i++) qo[i] = fu[i] >> 31 ;
     }
     goto end ;
@@ -883,23 +823,26 @@ end:
 // ni    [IN]  number of data items to quantize
 // nbits [IN]  number of bits to use for quantized data
 // quant [IN]  quantization interval (if non zero, it is used instead of nbits)
+//
+//      sets mbits(scount), offset.u, allm, allp, nbits, cnst in desc
+//      ignores clip, exp0
 // uint64_t IEEE32_linear_quantize_0(void * restrict f, int ni, int nbits, float quantum, void * restrict qs, special_value *s){
   q_encode IEEE32_linear_quantize_0(void * restrict f, int ni, q_rules rules, void * restrict q, limits_w32 *limits, special_value *s){
   ieee32_props h64 ;
   q_encode q_out ;
   uint64_t u64[3] ;
   int hint ;
-  limits_w32 l32 = IEEE32_extrema(f, ni);                   // get min and max absolute values
+  limits_w32 l32 ;
 
-//   h64.u = IEEE32_linear_prep_0(l32, ni, nbits, quantum) ; // get quantization parameters (type 0)
-  hint = IEEE32_linear_prep(&l32, ni, rules.nbits, rules.ref, u64, Q_MODE_LINEAR_0) ;
-//   h64.u = u64[0] ;
-// if(t64 != h64.u) fprintf(stderr, "t64 != h64.u : %16.16lx %16.16lx\n", t64, h64.u);
-// else fprintf(stderr, "t64 == h64.u\n");
-// fprintf(stderr,"npts = %d, shft = %d, nbts = %d, cnst = %d, allp = %d, allm = %d\n", 
-//         h64.p.npts, h64.p.shft, h64.p.nbts, h64.p.cnst, h64.p.allp, h64.p.allm) ;
+  if(limits == NULL){
+    l32 = IEEE32_extrema(f, ni);                   // get extrema
+    limits = &l32 ;
+  }
+  hint = IEEE32_linear_prep(limits, ni, rules.nbits, rules.ref, u64, Q_MODE_LINEAR_0) ;
+
   h64.u = IEEE32_quantize_linear_0(f, ni, u64[0], q) ;                  // actual quantization (type 0)
-  q_out          = q_desc_0.q ;
+  // set values used by IEEE32_linear_restore_0
+  q_out          = q_desc_0.q ;   // blank slate
   q_out.offset.u = h64.p.bias ;
   q_out.mbits    = h64.p.shft ;
   q_out.cnst     = h64.p.cnst ;

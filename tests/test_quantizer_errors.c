@@ -17,6 +17,7 @@
 #include <rmn/compress_data.h>
 #include <rmn/eval_diff.h>
 #include <rmn/timers.h>
+#include <rmn/lorenzo.h>
 
 #define NTIMES 100000
 
@@ -202,7 +203,7 @@ void analyze_float_data(void *fv, int n){
 void evaluate_abs_diff(float *rt, float *ft, int n, char *msg){
   uint32_t *irt = (uint32_t *) rt , *ift = (uint32_t *) ft ;
   float err, avgerr, bias ;
-  int i, plus, minus ;
+  int i, plus, minus, i0 = 0 ;
   err = avgerr = bias = 0.0f ;
   plus = minus = 0 ;
   for(i=0 ; i<n ; i++){
@@ -210,7 +211,10 @@ void evaluate_abs_diff(float *rt, float *ft, int n, char *msg){
     if(errloc < 0) plus++ ; else minus ++ ;
     bias += errloc ;
     errloc = (errloc < 0) ? -errloc : errloc ;
-    err = (errloc > err) ? errloc : err ;
+    if(errloc > err){
+    err =  errloc ;
+    i0 = i ;
+    }
     avgerr += errloc ;
   }
   avgerr /= n ;
@@ -219,8 +223,8 @@ void evaluate_abs_diff(float *rt, float *ft, int n, char *msg){
     fprintf(stderr, "%s : no differences\n", msg) ;
     return ;
   }
-  fprintf(stderr, "%s : max(avg) abs error = %12.5g(%12.5g), bias = %12.5e",
-                  msg, err, avgerr, bias ) ;
+  fprintf(stderr, "%s : max(avg) abs error = %12.5g(%12.5g), bias = %12.5e, max at %4d (%g vs %g)",
+                  msg, err, avgerr, bias, i0, rt[i0], ft[i0]) ;
   fprintf(stderr, ", + = %d, - = %d\n", plus, minus) ;
 //   for(i=0 ; i<n ; i+=n/16) fprintf(stderr, "%8.8x ", (irt[i]^ift[i]) ) ; fprintf(stderr, "\n") ;
 //   for(i=0 ; i<n ; i+=n/16) fprintf(stderr, "%8.8x ", ift[i]) ; fprintf(stderr, "\n") ;
@@ -229,7 +233,7 @@ void evaluate_abs_diff(float *rt, float *ft, int n, char *msg){
 void evaluate_rel_diff(float *rt, float *ft, int n, char *msg){
   uint32_t *irt = (uint32_t *) rt , *ift = (uint32_t *) ft ;
   float err, avgerr, bias ;
-  int i, plus, minus ;
+  int i, plus, minus, i0 = 0 ;
   err = avgerr = bias = 0.0f ;
   plus = minus = 0 ;
   for(i=0 ; i<n ; i++){
@@ -240,7 +244,10 @@ void evaluate_rel_diff(float *rt, float *ft, int n, char *msg){
     bias += errloc ;
     errloc = (errloc < 0) ? -errloc : errloc ;
 // if(errloc > 1.0f) fprintf(stderr, "i = %d, err = %12.5g, rt = %12.5g, ft = %12.5g\n", i, errloc, rt[i], ft[i]);
-    err = (errloc > err) ? errloc : err ;
+    if(errloc > err){
+      err = errloc ;
+      i0 = i ;
+    }
     avgerr += errloc ;
   }
   avgerr /= n ;
@@ -249,8 +256,8 @@ void evaluate_rel_diff(float *rt, float *ft, int n, char *msg){
     fprintf(stderr, "%s : no differences\n", msg) ;
     return ;
   }
-  fprintf(stderr, "%s : max(avg) rel error = %12.5g(%12.5g), 1 part in %9.3f(%9.3f), rel bias = %12.5e",
-                  msg, err, avgerr, 1.0f/err,1.0f/avgerr, bias ) ;
+  fprintf(stderr, "%s : max(avg) rel error = %12.5g(%12.5g), 1 part in %9.3f(%9.3f), rel bias = %12.5e, max at %4d (%g vs %g)",
+                  msg, err, avgerr, 1.0f/err,1.0f/avgerr, bias, i0, rt[i0], ft[i0] ) ;
   fprintf(stderr, ", + = %d, - = %d\n", plus, minus) ;
 //   for(i=0 ; i<n ; i+=n/16) fprintf(stderr, "%8.8x ", (irt[i]^ift[i]) ) ; fprintf(stderr, "\n") ;
 //   for(i=0 ; i<n ; i+=n/16) fprintf(stderr, "%8.8x ", ift[i]) ; fprintf(stderr, "\n") ;
@@ -496,7 +503,7 @@ void print_flts(float *f, int npts, int nb){
   fprintf(stderr, "\n") ;
 }
 
-int check_linear(quantizer_fnptr qfunc, restore_fnptr rfunc, int type, float *ft, int npts, q_rules r){
+int check_linear(quantizer_fnptr qfunc, restore_fnptr rfunc, char *type, float *ft, int npts, q_rules r, float *rto){
   float rt[npts], xt[npts], ft2[npts], rt2[npts], ft0[npts] ;
   int32_t qt[npts], qt0[npts], qt2[npts] ;
   int i ;
@@ -505,9 +512,9 @@ int check_linear(quantizer_fnptr qfunc, restore_fnptr rfunc, int type, float *ft
   limits_w32 l32, *l32p = &l32 ;
 
   for(i=0 ; i<npts ; i++) ft0[i] = ft[i] ;
-  fprintf(stderr, "==================== testing linear quantizer %d ====================\n", type);
+  fprintf(stderr, "==================== testing %s ====================\n", type);
   print_flts(ft, npts, 0) ;
-  fprintf(stderr, "%d values, %12.5g <= value <=%12.5g\n\n", npts, ft[0], ft[npts-1] < 0 ? -ft[npts-1] : ft[npts-1]) ;
+  fprintf(stderr, "%d values, %12.5g <= value <=%12.5g\n\n", npts, ft[0], ft[npts-1]) ;
   l32 = IEEE32_extrema(ft, npts) ;         // precompute data info for quantizer
 
   for(i=0 ; i<npts ; i++) rt[i] = 0.0f ;
@@ -520,8 +527,10 @@ int check_linear(quantizer_fnptr qfunc, restore_fnptr rfunc, int type, float *ft
   print_flts(rt, npts, 0) ;
 //   evaluate_rel_diff(ft, rt, npts, "rt VS ft") ;                    // compare rt with ft
   evaluate_abs_diff(ft, rt, npts, "rt VS ft") ;                    // compare rt with ft
+  evaluate_rel_diff(ft, rt, npts, "rt VS ft") ;
   fprintf(stderr, "\n") ;
-
+  for(i=0 ; i<npts ; i++) rto[i] = rt[i] ;
+return 0 ;
 cyc_test:
   fprintf(stderr, "cyclical quantize->restore->quantize->restore test\n\n") ;
   print_flts(ft, npts, 0) ;
@@ -555,38 +564,15 @@ cyc_test:
 #define NPTSI 100
 #define NPTSJ 100
 
-int main(int argc, char **argv){
-  int dims[10] ;
-  int dim3[] = { 1,2,3 } ;
-  int buf3[6] ;
-  int ndim = 0 ;
-  int fd = 0 ;
-  int i, j ;
-  void *buf ;
-  int ndata, test_mode = -1, maxrec = 999999, nrec = 0 ;
-  float ref[NPTSI*NPTSJ], new[NPTSI*NPTSJ] ;
-  float ft[NPTS_TIMING] ;
+int test_linear_log(){
+  float ft[NPTS_TIMING], rt0[NPTS_TIMING], rt1[NPTS_TIMING], rt2[NPTS_TIMING], rt3[NPTS_TIMING] ;
   q_rules r_f ;
-  error_stats e ;
-  bitstream **streams ;
-  compressed_field field ;
-  compress_rules rules ;
-  char ca ;
-  char *nomvar = "" ;
-  char vn[5] ;
-  TIME_LOOP_DATA ;
-
-  if(argc < 3){
-    fprintf(stderr, "usage: %s [-ttest_mode] [-nnb_rec] [-vvar_name] file_1 ... [[-ttest_mode] [-nnb_var] [-vvar_name] file_n]\n", argv[0]) ;
-    fprintf(stderr, "ex: %s -t0 -n4 -vDD path/my_data_file\n", argv[0]) ;
-    fprintf(stderr, "    test 0, first 4 records of variable DD from file path/my_data_file\n") ;
-    exit(1) ;
-  }
-  start_of_test(argv[0]);
+  int i ;
 
   ft[0] = 1.001f ;
 //   for(i=1 ; i<NPTS_TIMING ; i++) ft[i] = ft[i-1] * 1.00016f ;      // 1.001 <= value <=      1.9272
-  for(i=1 ; i<NPTS_TIMING ; i++) ft[i] = ft[i-1] * 1.00035f ;      // 1.001 <= value <=      4.1954
+//   for(i=1 ; i<NPTS_TIMING ; i++) ft[i] = ft[i-1] * 1.00035f ;      // 1.001 <= value <=      4.1954
+  for(i=1 ; i<NPTS_TIMING ; i++) ft[i] = ft[i-1] * 1.00111f ;      // 1.001 <= value <=      94.043
 //   for(i=1 ; i<NPTS_TIMING ; i++) ft[i] = ft[i-1] * 1.00131f ;      // 1.001 <= value <=      213.13
 //   for(i=1 ; i<NPTS_TIMING ; i++) ft[i] = ft[i-1] * 1.00136f ;      // 1.001 <= value <=      261.56
 //   for(i=1 ; i<NPTS_TIMING ; i++) ft[i] = ft[i-1] * -1.0018f ;      // 1.001 <= value <=      1579.9
@@ -595,24 +581,140 @@ int main(int argc, char **argv){
 //   ft[1] = .22f ;   // under r.f.ref, to test clipping
 
 //   if(check_fake_log_1()) goto error ;
-  r_f = (q_rules) {.ref = 0.0f, .rng10 = 0, .clip = 0, .type = 0, .nbits = 8, .mbits = 0, .state = TO_QUANTIZE} ;
+  r_f = (q_rules) {.ref = 0.0f, .rng10 = 0, .clip = 0, .type = 0, .nbits = 12, .mbits = 0, .state = TO_QUANTIZE} ;
 
-  r_f.type = Q_LINEAR_0 ;
-  if(check_linear(IEEE32_linear_quantize_0, IEEE32_linear_restore_0, 0, ft, NPTS_TIMING, r_f)) goto error ;
+//   r_f.type = Q_LINEAR_0 ;
+//   if(check_linear(IEEE32_linear_quantize_0, IEEE32_linear_restore_0, "linear_quantize_0", ft, NPTS_TIMING, r_f, rt0)) goto error ;
+//   evaluate_abs_diff(rt0, rt0, NPTS_TIMING, "rt0 VS rt0") ;
 
   r_f.type = Q_LINEAR_1 ;
-  if(check_linear(IEEE32_linear_quantize_1, IEEE32_linear_restore_1, 1, ft, NPTS_TIMING, r_f)) goto error ;
+  if(check_linear(IEEE32_linear_quantize_1, IEEE32_linear_restore_1, "linear_quantize_1", ft, NPTS_TIMING, r_f, rt1)) goto error ;
+//   evaluate_abs_diff(rt0, rt1, NPTS_TIMING, "rt0 VS rt1") ;
 
   r_f.type = Q_LINEAR_2 ;
-  if(check_linear(IEEE32_linear_quantize_2, IEEE32_linear_restore_2, 2, ft, NPTS_TIMING, r_f)) goto error ;
+  if(check_linear(IEEE32_linear_quantize_2, IEEE32_linear_restore_2, "linear_quantize_2", ft, NPTS_TIMING, r_f, rt2)) goto error ;
 
-return 0 ;
-  for(j=0 ; j<NPTSJ ; j++){
-    for(i=0 ; i<NPTSI ; i++){
-      ref[i+j*NPTSJ] = 1.0f ;
-      new[i+j*NPTSJ] = 1.1f ;
+  r_f.type  = Q_FAKE_LOG_1 ;
+//   r_f.mbits = 9 ;
+  if(check_linear(IEEE32_fakelog_quantize_1, IEEE32_fakelog_restore_1, "fakelog_quantize_1", ft, NPTS_TIMING, r_f, rt3)) goto error ;
+//   evaluate_abs_diff(rt0, rt3, NPTS_TIMING, "rt0 VS rt3") ;
+
+  return 0 ;
+
+error:
+  return 1 ;
+}
+
+static int index_ij(int i, int j, int ni, q_rules r){
+  return (i + j * ni) ;
+}
+
+static int32_t encode_block(void *f, int ni, int nj){
+  int nbits_tot = 0 ;
+
+  return nbits_tot ;
+}
+
+static int32_t predict_block(void *f, int ni, int nj, void *p){
+  int32_t *p_i = (int32_t *) p ;
+  int nbits_tot = 0 ;
+  int i ;
+
+  // apply predictor
+  LorenzoPredict(f, p, ni, ni, ni, nj);
+  // count bits needed
+  for(i=0 ; i<ni*nj ; i++){
+    uint32_t temp = (p_i[i] < 0) ? -p_i[i] : p_i[i] ;
+    nbits_tot += (33 - lzcnt_32(temp)) ;
+  }
+  return nbits_tot ;
+}
+
+static int32_t quantize_block(void *f, int np, void *q, q_rules r){
+  int nbits_tot = 0 ;
+
+  return nbits_tot ;
+}
+
+int compress_2d_field(float *f, int ni, int nj, q_rules r){
+  int nbits_tot = 0 ;
+  int i0, j0, i1, j1, i, j, base, nbi, nbj, iblk ;
+  int blocki = 64, blockj = 64 ;
+  float   fblk[blocki * blockj] ;  // float block
+  int32_t qblk[blocki * blockj] ;  // quantized block
+  int32_t pblk[blocki * blockj] ;  // predicted block
+
+  nbi = (ni + blocki - 1) / blocki ;
+  nbj = (nj + blockj - 1) / blockj ;
+  int32_t qbts[nbi * nbj] ;        // bits used by quantizer
+  int32_t pbts[nbi * nbj] ;        // bits used by predictor
+  int32_t ebts[nbi * nbj] ;        // bits used by encoder
+
+  iblk = 0 ;                       // block number
+  for(j0=0 ; j0<nj ; j0+=blockj){
+    j1 = j0 + blockj ; j1 = (j1 > nj) ? nj : j1 ;
+    base = j0 * ni ;
+    for(i0=0 ; i0<ni ; i0+=blocki){
+      i1 = i0 + blocki ; i1 = (i1 > ni) ? ni : i1 ;
+      get_word_block(f + base, fblk, i1 - i0, ni, j1 - j0) ;              // get block
+      qbts[iblk] = quantize_block(fblk, (j1-j0) * (i1 - i0) , qblk, r) ;  // quantize according to rules
+      pbts[iblk] = predict_block(qblk, ni, nj, pblk) ;                    // apply predictor (Lorenzo)
+      ebts[iblk] = encode_block(qblk, ni, nj) ;                           // pseudo encoder (discard output stream)
+      base += blocki ;
+      iblk++ ;
     }
   }
+
+  return nbits_tot ;
+}
+
+static uint32_t code_var(char *nomvar, int len){
+  int k ;
+  uint32_t codevar = 0 ;
+  for(k=0 ; k<len ; k++) codevar = (codevar << 8) + nomvar[k] ;
+  return codevar ;
+}
+
+q_rules make_rules(char *nomvar){
+  q_rules r = q_desc_0.f ;
+  return r ;
+}
+
+int main(int argc, char **argv){
+  int dims[10] ;
+  int dim3[] = { 1,2,3 } ;
+  int buf3[6] ;
+  int ndim = 0 ;
+  int fd = 0 ;
+  int i, j, status ;
+  void *buf ;
+  int ndata, test_mode = -1, maxrec = 999999, nrec = 0 ;
+  error_stats e ;
+  bitstream **streams ;
+  compressed_field field ;
+  compress_rules rules ;
+  char ca ;
+  char *nomvar = "ZzZz" ;
+  uint32_t codevar = 0 ;
+  char vn[5] ;
+  TIME_LOOP_DATA ;
+  float ref[NPTSJ], new[NPTSJ] ;
+  q_rules q_r ;
+
+  if(argc < 2){
+    fprintf(stderr, "usage: %s [-ttest_mode] [-nnb_rec] [-vvar_name] file_1 ... [[-ttest_mode] [-nnb_var] [-vvar_name] file_n]\n", argv[0]) ;
+    fprintf(stderr, "ex: %s -t0 -n4 -vDD path/my_data_file\n", argv[0]) ;
+    fprintf(stderr, "    test 0, first 4 records of variable DD from file path/my_data_file\n") ;
+    exit(1) ;
+  }
+  start_of_test(argv[0]);
+
+//   for(j=0 ; j<NPTSJ ; j++){
+//     for(i=0 ; i<NPTSI ; i++){
+//       ref[i+j*NPTSJ] = 1.0f ;
+//       new[i+j*NPTSJ] = 1.1f ;
+//     }
+//   }
 //   update_error_stats(ref, new, 0, &e) ;
 //   ndata = update_error_stats(ref, new, -NPTSI*NPTSJ, &e) ;
 //   e.bias /= e.ndata ; e.abs_error /= e.ndata ; e.sum /= e.ndata ;
@@ -628,15 +730,23 @@ return 0 ;
 //       fprintf(stderr, "option %c = '%s'[%d] ", ca, argv[i]+2, strlen(argv[i]+2));
       if(ca == 't') {
         test_mode = atoi(argv[i]+2) ;
-        fprintf(stderr, "test mode = %d ", test_mode) ; 
+        fprintf(stderr, "test mode = %d ", test_mode) ;
+        if(test_mode == 100) {
+          status = test_linear_log() ;
+          return status ;
+        }
+        if(test_mode == 101) {
+          status = check_fake_log_1() ;
+          return status ;
+        }
       }
       if(ca == 'n') {
         maxrec = atoi(argv[i]+2) ;
         fprintf(stderr, "maxrec = %d ", maxrec) ; 
       }
       if(ca == 'v') {
-        nomvar = argv[i] + 2 ;
-        fprintf(stderr, "variable = '%s'[%d] ", nomvar, strlen(nomvar)) ;
+        nomvar = argv[i] + 2 ; codevar = code_var(nomvar, strlen(nomvar)) ;
+        fprintf(stderr, "variable = '%s'[%d], code = %8.8x, ", nomvar, strlen(nomvar), codevar) ;
       }
       continue ;
     }
@@ -648,7 +758,7 @@ return 0 ;
     while(buf != NULL && nrec < maxrec){
       nrec++ ;
       if(strncmp(nomvar, vn, strnlen(nomvar,4)) != 0) {
-        fprintf(stderr, "'%s' and '%s' do not match\n", nomvar, vn) ;
+        fprintf(stderr, "'%s'(%8.8x) and '%s'(%8.8x) do not match\n", nomvar, codevar, vn, code_var(vn,strnlen(nomvar,4))) ;
         continue ;
       }
 //       fprintf(stderr, "dimensions = %d : (", ndim) ;
@@ -659,18 +769,20 @@ return 0 ;
       if(ndim == 2){    // 2 dimensional data only
         switch(test_mode)
         {
-          case 0:  // do nothing
+          case 0:  // analyze data
 //             fprintf(stderr, "analysis test\n");
             analyze_float_data(buf, dims[0] * dims[1]) ;
             break;
           case 1:  // linear quantizer test
-            process_data_2d(buf, dims[0], dims[1], &e, nomvar ? nomvar : argv[i]) ;
+//             process_data_2d(buf, dims[0], dims[1], &e, nomvar ? nomvar : argv[i]) ;
             break;
           case 2:  // fake log quantizer test
-            test_log_quantizer(buf, dims[0], dims[1], &e, vn) ;
+//             test_log_quantizer(buf, dims[0], dims[1], &e, vn) ;
             break;
           case 3:
-            field = compress_2d_data(buf, dims[0], dims[0], dims[1], rules) ;
+            q_r = make_rules(nomvar) ;
+            compress_2d_field(buf, dims[0], dims[1], q_r) ;
+//             field = compress_2d_data(buf, dims[0], dims[0], dims[1], rules) ;
             break;
           default:
             fprintf(stderr, "unrecognized test mode %d\n", test_mode) ;

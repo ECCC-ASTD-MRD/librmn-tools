@@ -52,22 +52,22 @@ typedef struct{
 #define Q_MODE_LOG      128
 #define Q_MODE_CONSTANT 256
 typedef union{
-    int32_t  i ;
-    uint32_t u ;
-    float    f ;
+    int32_t  i ;   // signed integer
+    uint32_t u ;   // unsigned integer
+    float    f ;   // float
 } i_u_f ;
 
-typedef struct{
-  uint32_t bias:32;  // minimum value
-  uint32_t npts:14,  // number of points, 0 means unknown
-           resv:13,
-           nbts:5 ;  // number of bits (0 -> 31) per value (nbts == 0 : same value, same sign)
-} ieee32_x ;
+// typedef struct{
+//   uint32_t bias:32;  // minimum value
+//   uint32_t npts:14,  // number of points, 0 means unknown
+//            resv:13,
+//            nbts:5 ;  // number of bits (0 -> 31) per value (nbts == 0 : same value, same sign)
+// } ieee32_x ;
 
-typedef union{
-  ieee32_x x ;
-  uint64_t u ;
-} ieee32_u ;
+// typedef union{
+//   ieee32_x x ;
+//   uint64_t u ;
+// } ieee32_u ;
 
 typedef struct{
   int32_t mode ;
@@ -83,18 +83,19 @@ typedef struct{
 } q_meta ;
 
 // quantization states (0 is invalid)
+#define Q_INVALID    0
 #define TO_QUANTIZE  1
 #define QUANTIZED    2
 #define RESTORED     3
 
 // quantization types
-#define Q_FAKE_LOG_1   2
-#define Q_LINEAR_0     4
-#define Q_LINEAR_1     5
-#define Q_LINEAR_2     6
-// NOTES: Q_FAKE_LOG_1 is faster than Q_FAKE_LOG_0
+#define Q_FAKE_LOG_1   1
+#define Q_LINEAR_0     2
+#define Q_LINEAR_1     3
+#define Q_LINEAR_2     4
 
-// structs frules/quant_out/restored should have a matching layout where there are common elements
+// structs q_rules/q_encode/q_decode should have a matching layout for common elements
+// (state, allm, allp, mbits, nbits, clip, type)
 typedef struct{          // quantization rules, input to quantizing functions
   float    ref ;         // quantization quantum or max significant value
   uint32_t rng2:   8 ,   // base 2 exponent range (may override ref for fake log quantization)
@@ -130,7 +131,8 @@ typedef struct{          // quantization outcome, input to restore functions
 
 typedef struct{          // after restore operation
   uint32_t npts ;        // number of points restored
-  uint32_t resv:   6 ,   // reserved, should be 0
+  uint32_t resv:   5 ,   // reserved, should be 0
+           cnst:   1 ,   // constant field flag
            exp0:   8 ,   // IEEE exponent of minimum absolute value or quantization multiplier
            type:   3 ,   // quantization type (0 is invalid)
            clip:   1 ,   // quantized value of 0 is restored as 0
@@ -141,8 +143,8 @@ typedef struct{          // after restore operation
            state:  2 ;   // invalid/to_quantize/quantized/restored (should be RESTORED)
 } q_decode ;
 
-typedef union{
-  uint64_t u ;             // used to access everything as a single 64 bit item
+typedef union{           // union of structs q_rules/q_encode/q_decode
+  uint64_t u ;           // used to access everything as a single 64 bit item
   q_rules  f ;
   q_encode q ;
   q_decode r ;
@@ -175,7 +177,7 @@ static void printf_quant_out(FILE *file, q_encode d){
   int pos_neg = (d.allp == 0) && (d.allm == 0) ;
   int ebits = d.nbits-d.mbits-pos_neg ;
   if(d.type != Q_FAKE_LOG_1) ebits = 0 ;
-  fprintf(file, "type = %d, clip = %d, nbits[ebits](mbits) = %d[%d](%d), allp/allm = %d/%d, offset = %8.8x\n", 
+  fprintf(file, "type = %d, clip = %d, nbits[ebits](mbits/shift) = %d[%d](%d), allp/allm = %d/%d, offset = %8.8x\n", 
                 d.type, d.clip, d.nbits, ebits, d.mbits, d.allp, d.allm, d.offset.u) ;
 }
 
