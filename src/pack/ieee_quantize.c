@@ -35,7 +35,7 @@
 #endif
 
 // not much of a slowdown with CLIP_TO_NBITS defined
-#define CLIP_TO_NBITS
+#define CLIP_TO_NBITS_NO
 
 // first analysis pass, find absolute value extrema and sign properties
 typedef struct{
@@ -285,7 +285,6 @@ skip1:
   Maximum = normalize_mantissa(fmas.i, BigExp) ; // normalize mantissa of maximum to largest exponent
   Minimum = normalize_mantissa(fmis.i, BigExp) ; // normalize mantissa of minimum to largest exponent
   Range = Maximum - Minimum ;                    // range of normalized mantissas (>= 0)
-
   Shift2 = 0 ;
   Mask   = ~( -1 << nbits2) ;                    // right mask of nbits2 bits
   while ( Range > Mask ) {                       // Range MUST fit within nbits2 bits
@@ -1225,8 +1224,8 @@ q_encode IEEE32_linear_quantize_2(void * restrict f, int np, q_rules rules, void
   }
 //   h64.u = IEEE32_linear_prep_2(l32, np, nbits, maxerr) ;   // compute quantization parameters (type 2)
   hint = IEEE32_linear_prep(limits, np, nbits, maxerr, u64, Q_MODE_LINEAR_2) ;
-
   h64.u = IEEE32_quantize_linear_2(f, np, u64[2], qs) ;          // actual quantization (type 2)
+
   q_out          = q_desc_0.q ;
   q_out.offset.u = h64.r.bias ;
   q_out.exp0     = h64.r.expm ;
