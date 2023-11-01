@@ -34,6 +34,11 @@
 #define STATIC static
 #endif
 
+static void debug_exit(char *msg){
+  fprintf(stderr, "ERROR: %s\n", msg) ;
+  exit(1) ;
+}
+
 // not much of a slowdown with CLIP_TO_NBITS defined
 #define CLIP_TO_NBITS_NO
 
@@ -452,7 +457,7 @@ q_decode IEEE32_fakelog_restore_1(void * restrict f, int ni, q_encode desc, void
 
   if(desc.type  != Q_FAKE_LOG_1) goto error ;  // wrong quantizer
   if(desc.state != QUANTIZED)    goto error ;  // must be quantized data
-  if(desc.allm && desc.allp)   goto error ;    // both flags cannot be true simultaneously
+  if(desc.allm && desc.allp)     goto error ;  // both flags cannot be true simultaneously
 
   shift  = 23 - desc.mbits ;
   pos_neg= (desc.allm | desc.allp) ? 0 : 1 ;
@@ -489,6 +494,7 @@ q_decode IEEE32_fakelog_restore_1(void * restrict f, int ni, q_encode desc, void
   return q64.r ;
 
 error:
+  debug_exit("IEEE32_fakelog_restore_1") ;
   q64.u = 0 ;                               // ERROR: set invalid info
   return q64.r ;
 }
@@ -515,9 +521,10 @@ q_encode IEEE32_fakelog_quantize_1(void * restrict f, int ni, q_rules rules, voi
   limits_w32 l32, *l32p = &l32 ;
 int debug = 0 ;
 
+  if(rules.type  != Q_FAKE_LOG_1)  goto error ;       // wrong quantizer
   if(rules.state != TO_QUANTIZE)   goto error ;       // invalid state
-  if(nbits == 0 && mbits == 0)      goto error ;       // cannot be both set to 0
-  if(rng2 > 0 && rng10 > 10)        goto error ;       // cannot be both > 0
+  if(nbits == 0 && mbits == 0)     goto error ;       // cannot be both set to 0
+  if(rng2 > 0 && rng10 > 0)        goto error ;       // cannot be both > 0
 
   if(limits != NULL){                     // caller supplied data information
     l32p = limits ;                       // use supplied data information
@@ -631,6 +638,7 @@ if(debug) fprintf(stderr, "offset = %8.8x, shift = %d, nbits = %d, mbits = %d\n"
   return q64.q ;
 
 error:
+  debug_exit("IEEE32_fakelog_quantize_1") ;
   q64.u = 0 ;
   return q64.q ;
 }
@@ -664,6 +672,11 @@ q_decode IEEE32_linear_restore_0(void * restrict f, int ni, q_encode desc, void 
 
   if(desc.type  != Q_LINEAR_0)   goto error ;  // wrong quantizer
   if(desc.state != QUANTIZED)    goto error ;  // must be quantized data
+
+  if(desc.cnst == 1){
+    for(i=0 ; i<ni ; i++) fo[i] = desc.offset.i ;
+    goto end ;
+  }
 
   scount  = desc.mbits ;                               // shift count
   offset  = desc.offset.u >> scount ;                  // bias before shifting
@@ -723,6 +736,7 @@ end:
 error:
   q_out.q = desc ;              // propagate info from quantized data
   q_out.r.state = Q_INVALID ;   // set invalid state
+  debug_exit("IEEE32_linear_restore_0") ;
   return q_out.r ;
 }
 #if 0
@@ -830,27 +844,42 @@ end:
   ieee32_props h64 ;
   q_encode q_out ;
   uint64_t u64[3] ;
-  int hint ;
+  int hint, i ;
   limits_w32 l32 ;
 
+  if(rules.type  != Q_LINEAR_0)    goto error ;    // wrong quantizer
+  if(rules.state != TO_QUANTIZE)   goto error ;    // invalid state
   if(limits == NULL){
     l32 = IEEE32_extrema(f, ni);                   // get extrema
     limits = &l32 ;
   }
   hint = IEEE32_linear_prep(limits, ni, rules.nbits, rules.ref, u64, Q_MODE_LINEAR_0) ;
 
-  h64.u = IEEE32_quantize_linear_0(f, ni, u64[0], q) ;                  // actual quantization (type 0)
-  // set values used by IEEE32_linear_restore_0
-  q_out          = q_desc_0.q ;   // blank slate
-  q_out.offset.u = h64.p.bias ;
-  q_out.mbits    = h64.p.shft ;
-  q_out.cnst     = h64.p.cnst ;
-  q_out.allp     = h64.p.allp ;
-  q_out.allm     = h64.p.allm ;
-  q_out.nbits    = h64.p.nbts ;
+  if(hint == Q_MODE_CONSTANT){
+    uint32_t *fu = (uint32_t *) f ;
+    uint32_t *qu = (uint32_t *) q ;
+    for(i=0 ; i<ni ; i++) qu[i] = 0 ;     // not really necessary, but consistent
+    q_out.nbits    = 0 ;
+    q_out.cnst     = 1 ;
+    q_out.offset.u = fu[0] ;
+  }else{
+    h64.u = IEEE32_quantize_linear_0(f, ni, u64[0], q) ;                  // actual quantization (type 0)
+    // set values used by IEEE32_linear_restore_0
+    q_out          = q_desc_0.q ;   // blank slate
+    q_out.offset.u = h64.p.bias ;
+    q_out.mbits    = h64.p.shft ;
+    q_out.cnst     = h64.p.cnst ;
+    q_out.allp     = h64.p.allp ;
+    q_out.allm     = h64.p.allm ;
+    q_out.nbits    = h64.p.nbts ;
+  }
   q_out.type     = Q_LINEAR_0 ;
   q_out.state    = QUANTIZED ;
   return q_out ;
+
+error:
+  debug_exit("IEEE32_linear_quantize_0") ;
+  q_out          = q_desc_0.q ;   // blank slate
 }
 
 // ========================================== linear quantizer type 1 ==========================================
@@ -877,8 +906,13 @@ q_decode IEEE32_linear_restore_1(void * restrict f, int ni, q_encode desc, void 
   uint32_t allp, allm, pos_neg, sg ;
   q_desc qr = {.u = 0} ;
 
-  if(desc.type  != Q_LINEAR_1) goto error ;    // wrong quantizer
+  if(desc.type  != Q_LINEAR_1)   goto error ;  // wrong quantizer
   if(desc.state != QUANTIZED)    goto error ;  // must be quantized data
+
+  if(desc.cnst == 1) {
+    for(i=0 ; i<ni ; i++) fo[i] = desc.offset.f ;
+    goto end ;
+  }
 
 //   h64.u  = u64 ;
   allp = desc.allp ;
@@ -959,12 +993,15 @@ q_decode IEEE32_linear_restore_1(void * restrict f, int ni, q_encode desc, void 
       fo[i] = allm ? -tf : tf ;       // restore sign if all negative
     }
   }
+
 end:
   qr.q = desc ;
   qr.r.state = RESTORED ;
   qr.r.npts = ni ;
   return qr.r ;
+
 error:
+  debug_exit("IEEE32_linear_restore_1") ;
   return q_desc_0.r ;
 }
 
@@ -1056,33 +1093,44 @@ static uint64_t IEEE32_quantize_linear_1(void * restrict f, int npts, uint64_t u
 q_encode IEEE32_linear_quantize_1(void * restrict f, int np, q_rules rules, void * restrict q, limits_w32 *limits, special_value *s){
   ieee32_props h64 ;
   uint64_t u64[3] ;
-  int hint ;
+  int hint, i ;
   float maxerr = rules.ref ;
   int32_t nbits = rules.nbits ;
-  q_encode q_out ;   // invalid state
+  q_encode q_out = q_desc_0.q ;   // invalid state
   limits_w32 l32 ;
+
+  if(rules.type  != Q_LINEAR_1)    goto error ;     // wrong quantizer
+  if(rules.state != TO_QUANTIZE)   goto error ;     // invalid state
 
   if(limits == NULL){                               // not coming from outside
     l32 = IEEE32_extrema(f, np) ;                   // get data extrema and properties
     limits = &l32 ;
   }
-  else{
-//     fprintf(stderr, "using supplied data limits\n") ;
-  }
 
   hint = IEEE32_linear_prep(limits, np, nbits, maxerr, u64, Q_MODE_LINEAR_1) ;   // get quantization parameters for type 1
-
-  h64.u = IEEE32_quantize_linear_1(f, np, u64[1], q) ;          // actual quantization (type 1)
-  q_out          = q_desc_0.q ;
-  q_out.offset.u = h64.q.bias ;
-  q_out.exp0     = h64.q.efac ;
-  q_out.cnst     = h64.q.cnst ;
-  q_out.allp     = h64.q.allp ;
-  q_out.allm     = h64.q.allm ;
-  q_out.nbits    = h64.q.nbts ;
+  if(hint == Q_MODE_CONSTANT){
+    uint32_t *fu = (uint32_t *) f ;
+    uint32_t *qu = (uint32_t *) q ;
+    for(i=0 ; i<np ; i++) qu[i] = 0 ;     // not really necessary, but consistent
+    q_out.nbits    = 0 ;
+    q_out.cnst     = 1 ;
+    q_out.offset.u = fu[0] ;
+  }else{
+    h64.u = IEEE32_quantize_linear_1(f, np, u64[1], q) ;          // actual quantization (type 1)
+    q_out.offset.u = h64.q.bias ;
+    q_out.exp0     = h64.q.efac ;
+    q_out.cnst     = h64.q.cnst ;
+    q_out.allp     = h64.q.allp ;
+    q_out.allm     = h64.q.allm ;
+    q_out.nbits    = h64.q.nbts ;
+  }
   q_out.type     = Q_LINEAR_1 ;
   q_out.state    = QUANTIZED ;
   return q_out ;
+
+error:
+  debug_exit("IEEE32_linear_quantize_1") ;
+  q_out          = q_desc_0.q ;     // blank state
 }
 
 // ========================================== linear quantizer type 2 ==========================================
@@ -1212,28 +1260,42 @@ static uint64_t IEEE32_quantize_linear_2(void * restrict f, int32_t npts, uint64
 q_encode IEEE32_linear_quantize_2(void * restrict f, int np, q_rules rules, void * restrict qs, limits_w32 *limits, special_value *s){
   ieee32_props h64 ;
   uint64_t u64[3] ;
-  int hint ;
+  int hint, i ;
   limits_w32 l32 ;
   float maxerr = rules.ref ;
   int32_t nbits = rules.nbits ;
-  q_encode q_out ;
+  q_encode q_out = q_desc_0.q ;
+
+  if(rules.type  != Q_LINEAR_2)    goto error ;     // wrong quantizer
+  if(rules.state != TO_QUANTIZE)   goto error ;     // invalid state
 
   if(limits == NULL){                               // not coming from outside
     l32 = IEEE32_extrema(f, np) ;                   // get data extrema and properties
     limits = &l32 ;
   }
-//   h64.u = IEEE32_linear_prep_2(l32, np, nbits, maxerr) ;   // compute quantization parameters (type 2)
-  hint = IEEE32_linear_prep(limits, np, nbits, maxerr, u64, Q_MODE_LINEAR_2) ;
-  h64.u = IEEE32_quantize_linear_2(f, np, u64[2], qs) ;          // actual quantization (type 2)
 
-  q_out          = q_desc_0.q ;
-  q_out.offset.u = h64.r.bias ;
-  q_out.exp0     = h64.r.expm ;
-  q_out.mbits    = h64.r.shft ;
-  q_out.nbits    = h64.r.nbts ;
+  hint  = IEEE32_linear_prep(limits, np, nbits, maxerr, u64, Q_MODE_LINEAR_2) ;
+  if(hint == Q_MODE_CONSTANT){
+    uint32_t *fu = (uint32_t *) f ;
+    uint32_t *qu = (uint32_t *) qs ;
+    for(i=0 ; i<np ; i++) qu[i] = 0 ;     // not really necessary, but consistent
+    q_out.nbits    = 0 ;
+    q_out.cnst     = 1 ;
+    q_out.offset.u = fu[0] ;
+  }else{
+    h64.u = IEEE32_quantize_linear_2(f, np, u64[2], qs) ;          // actual quantization (type 2)
+    q_out.offset.u = h64.r.bias ;
+    q_out.exp0     = h64.r.expm ;
+    q_out.mbits    = h64.r.shft ;
+    q_out.nbits    = h64.r.nbts ;
+  }
+
   q_out.type     = Q_LINEAR_2 ;
   q_out.state    = QUANTIZED ;
   return q_out ;
+
+error:
+  debug_exit("IEEE32_linear_quantize_2") ;
 }
 
 // type 2 inverse linear quantizer (restores IEEE 32 bit floats))
@@ -1249,23 +1311,23 @@ q_decode IEEE32_linear_restore_2(void * restrict f, int np, q_encode desc, void 
   int32_t i, mantis, sgn, hidden1 = 1 << 23 ;
   q_desc q_out = {.u = 0 } ;
 
-  if(desc.type  != Q_LINEAR_2) goto error ;    // wrong quantizer
-  if(desc.state != QUANTIZED)    goto error ;  // must be quantized data
+  if(desc.type  != Q_LINEAR_2) goto error ;  // wrong quantizer
+  if(desc.state != QUANTIZED)  goto error ;  // must be quantized data
 
-//   h64.u = u64 ;
   int32_t offset  = desc.offset.u ;
-//   int32_t offset  = h64.r.bias ;
   int32_t maxExp  = desc.exp0 ;
-//   int32_t maxExp  = h64.r.expm ;
   int32_t shift2  = desc.mbits ;
-//   int32_t shift2  = h64.r.shft ;
   int32_t npts    = np ;
-//   int32_t npts    = h64.r.npts ;
   AnyType32 temp1, temp2 ;
 
+  if(desc.cnst == 1){    // constant field
+    for(i = 0 ; i < np ; i++) dest[i] = desc.offset.f ;
+    goto end ;
+  }
+
   if (maxExp == 0) {
-      for(i = 0 ; i < np ; i++) dest[i] = 0.0 ;
-      goto end ;
+    for(i = 0 ; i < np ; i++) dest[i] = 0.0 ;
+    goto end ;
   }
 #if defined(__x86_64__) && defined(__AVX2__)
 
@@ -1286,6 +1348,7 @@ end:
   q_out.r.npts = np ;
   return q_out.r ;
 error:
+  debug_exit("IEEE32_linear_restore_2") ;
   return q_desc_0.r ;
 }
 

@@ -114,6 +114,7 @@ typedef struct{          // quantization outcome, input to restore functions
   union{
     int32_t  i ;         // signed offset
     uint32_t u ;         // unsigned offset
+    float    f ;         // float offset (used for constant fields)
     uint32_t emax: 8,    // fake log quantizer 0 uses unused offset to store emax
              resv:24 ;
   }offset ;              // quantization offset (minimum raw quantized value)
