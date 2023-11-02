@@ -186,10 +186,10 @@ void analyze_float_data(void *fv, int n){
     sum += t ;
     sum2 += (t * t) ;
   }
-  for(i0=0 ; i0<255 ; i0++) if(exp[i0] != 0) break ;
+  for(i0=1 ; i0<255 ; i0++) if(exp[i0] != 0) break ;
   for(in=255 ; in>0 ; in--) if(exp[in] != 0) break ;
-  fprintf(stderr, ">           exponent range = %d -> %d\n", i0, in) ;
-  fprintf(stderr, ">           exponent pop = ");
+  fprintf(stderr, ">           exponent range   = %d -> %d\n", i0, in) ;
+  fprintf(stderr, ">           exponent pop/256 = ");
   for(i=i0 ; i<=in ; i++) fprintf(stderr, "%4d ", exp[i] >> 8) ;
   fprintf(stderr, "\n") ;
   avg = sum / n ;
@@ -461,7 +461,7 @@ cyclical:
   evaluate_rel_diff(ft, xt, NPTS_TIMING, "") ;
   fprintf(stderr, "\n") ;
 
-int timing = 0 ;
+int timing = 1 ;
 if(timing){
 //   TIME_LOOP_EZ(1000, NPTS_TIMING, qu.u = IEEE32_fakelog_quantize_0(ft, NPTS_TIMING, r_f, qt, NULL).u ) ; // no precomputed info
 //   fprintf(stderr, "fakelog_quantize_0      : %s\n",timer_msg);
@@ -533,7 +533,7 @@ int check_linear(quantizer_fnptr qfunc, restore_fnptr rfunc, char *type, float *
   evaluate_rel_diff(ft, rt, npts, "rt VS ft") ;
   fprintf(stderr, "\n") ;
   for(i=0 ; i<npts ; i++) rto[i] = rt[i] ;
-return 0 ;
+// return 0 ;
 cyc_test:
   fprintf(stderr, "cyclical quantize->restore->quantize->restore test\n\n") ;
   print_flts(ft, npts, 0) ;
@@ -587,8 +587,8 @@ for(i=0 ; i<NPTS_TIMING ; i++) ft[i] = i * 7.97f / NPTS_TIMING + 3123.0f ;
 //   if(check_fake_log_1()) goto error ;
   r_f = (q_rules) {.ref = 0.0f, .rng10 = 0, .clip = 0, .type = 0, .nbits = 8, .mbits = 0, .state = TO_QUANTIZE} ;
 
-  r_f.type = Q_LINEAR_0 ;
-  if(check_linear(IEEE32_linear_quantize_0, IEEE32_linear_restore_0, "linear_quantize_0", ft, NPTS_TIMING, r_f, rt0)) goto error ;
+//   r_f.type = Q_LINEAR_0 ;
+//   if(check_linear(IEEE32_linear_quantize_0, IEEE32_linear_restore_0, "linear_quantize_0", ft, NPTS_TIMING, r_f, rt0)) goto error ;
 //   evaluate_abs_diff(rt0, rt0, NPTS_TIMING, "rt0 VS rt0") ;
 
   r_f.type = Q_LINEAR_1 ;
@@ -613,7 +613,13 @@ static int index_ij(int i, int j, int ni, q_rules r){
   return (i + j * ni) ;
 }
 
-static int32_t encode_block(void *f, int ni, int nj){
+static int32_t decode_block(void *decoded, int ni, int nj, void *encoded){
+  int nbits_tot = 0 ;
+
+  return nbits_tot ;
+}
+
+static int32_t encode_block(void *decoded, int ni, int nj, void *encoded){
   int nbits_tot = 0 ;
 
   return nbits_tot ;
@@ -624,18 +630,37 @@ static int predict_nbits_apres = 0 ;
 
 int count_encoded_bits(int32_t *q, int ni, int lni, int nj);
 
+static int32_t unpredict_block(void *f, int ni, int nj, void *p){
+  int32_t *p_i = (int32_t *) p ;
+  int32_t *r_i = (int32_t *) f ;
+  int i, nbits_tot = 0 ;
+
+  for(i=0 ; i<ni*nj ; i++) r_i[i] = 0 ;
+  LorenzoUnpredict(f, p, ni, ni, ni, nj);
+  // count bits needed for restored block
+  nbits_tot = count_encoded_bits(f, ni, ni, nj) ;
+  return nbits_tot ;
+}
+
 static int32_t predict_block(void *f, int ni, int nj, void *p){
   int32_t *p_i = (int32_t *) p ;
   int32_t *f_i = (int32_t *) f ;
   int32_t fr[ni*nj] ;
   int nbits_tot = 0 ;
-  int i ;
+  int i, avant, apres ;
 
   // apply predictor
-  predict_nbits_avant += count_encoded_bits(f, ni, ni, nj) ;
+  avant = count_encoded_bits(f, ni, ni, nj) ;
+  predict_nbits_avant += avant ;
   for(i=0 ; i<ni*nj ; i++) fr[i] = 123456789 ;
   LorenzoPredict(f, p, ni, ni, ni, nj);
-  LorenzoUnpredict(fr, p, ni, ni, ni, nj);
+
+  apres = unpredict_block(fr, ni, nj, p);  // check that restore has no errors
+  if(avant != apres){
+    fprintf(stderr, "avant(%d)/apres(%d) error\n", avant, apres);
+    exit(1) ;
+  }
+//   LorenzoUnpredict(fr, p, ni, ni, ni, nj);
   for(i=0 ; i<ni*nj ; i++) if(fr[i] != f_i[i]) {
     fprintf(stderr, "predictor/restore error\n");
     exit (1) ;
@@ -684,45 +709,71 @@ int count_encoded_bits(int32_t *q, int ni, int lni, int nj){
   return tot_bits ;
 }
 
-static q_encode qe ;
-static int32_t quantize_block(void *f, int ni, int nj, void *q, q_rules r, void *rf){
+static q_encode qe ;   // last encoded block
+static q_decode qd ;   // last decoded block
+
+static int32_t dequantize_block(void *f, int ni, int nj, void *q, q_rules r){
   int nbits_tot = 0 ;
   int np = ni * nj ;
-  q_decode qd ;
-
-  switch(r.type)
-  {
-    case Q_LINEAR_0:
-      qe = IEEE32_linear_quantize_0(f, np, r, q, NULL, NULL) ;
-      qd = IEEE32_linear_restore_0(rf, np, qe, q) ;
-      break ;
-    case Q_LINEAR_1:
-      qe = IEEE32_linear_quantize_1(f, np, r, q, NULL, NULL) ;
-      qd = IEEE32_linear_restore_1(rf, np, qe, q) ;
-      break ;
-    case Q_LINEAR_2:
-      qe = IEEE32_linear_quantize_2(f, np, r, q, NULL, NULL) ;
-      qd = IEEE32_linear_restore_2(rf, np, qe, q) ;
-      break ;
-    case Q_FAKE_LOG_1:
-      qe = IEEE32_fakelog_quantize_1(f, np, r, q, NULL, NULL) ;
-      qd = IEEE32_fakelog_restore_1(rf, np, qe, q) ;
-      break ;
-    default:
-      fprintf(stderr, "unrecognized quantizer : %d\n", r.type) ;
-      return 0 ;
-  }
 
   if(qe.state != QUANTIZED){
 //     fprintf(stderr, "bad state after quantize : %d\n", qe.state) ;
     return 0 ;
   }
+
+  switch(qe.type)
+  {
+    case Q_LINEAR_0:
+      qd = IEEE32_linear_restore_0(f, np, qe, q) ;
+      break ;
+    case Q_LINEAR_1:
+      qd = IEEE32_linear_restore_1(f, np, qe, q) ;
+      break ;
+    case Q_LINEAR_2:
+      qd = IEEE32_linear_restore_2(f, np, qe, q) ;
+      break ;
+    case Q_FAKE_LOG_1:
+      qd = IEEE32_fakelog_restore_1(f, np, qe, q) ;
+      break ;
+    default:
+      fprintf(stderr, "unrecognized quantizer : %d\n", r.type) ;
+      return 0 ;
+  }
   if(qd.state != RESTORED) {
 //     fprintf(stderr, "bad state after restore : %d\n", qd.state) ;
     return 0 ;
   }
-//   return 128 + count_bits(q, np) ;
-  return 128 + count_encoded_bits(q, ni, ni, nj) ;
+  return count_encoded_bits(q, ni, ni, nj) ;
+}
+
+static int32_t quantize_block(void *f, int ni, int nj, void *q, q_rules r){
+  int nbits_tot = 0 ;
+  int np = ni * nj ;
+
+  switch(r.type)
+  {
+    case Q_LINEAR_0:
+      qe = IEEE32_linear_quantize_0(f, np, r, q, NULL, NULL) ;
+      break ;
+    case Q_LINEAR_1:
+      qe = IEEE32_linear_quantize_1(f, np, r, q, NULL, NULL) ;
+      break ;
+    case Q_LINEAR_2:
+      qe = IEEE32_linear_quantize_2(f, np, r, q, NULL, NULL) ;
+      break ;
+    case Q_FAKE_LOG_1:
+      qe = IEEE32_fakelog_quantize_1(f, np, r, q, NULL, NULL) ;
+      break ;
+    default:
+      fprintf(stderr, "unrecognized quantizer : %d\n", r.type) ;
+      return -1 ;
+  }
+
+  if(qe.state != QUANTIZED){
+//     fprintf(stderr, "bad state after quantize : %d\n", qe.state) ;
+    return -1 ;
+  }
+  return count_encoded_bits(q, ni, ni, nj) ;
 }
 
 static float update_abs_err(float maxabserr, float *ref, float *new, int np){
@@ -748,20 +799,30 @@ static float max_float(float *f, int n){
   return max ;
 }
 
+static int diff_count(void *f1, void *f2, int n){
+  int i, diff = 0 ;
+  int32_t *p1 = (int32_t *) f1 ;
+  int32_t *p2 = (int32_t *) f2 ;
+  for(i=0 ; i<n ; i++) diff = diff + ((p1[i] != p2[i]) ? 1 : 0) ;
+  return diff ;
+}
+
 int compress_2d_field(float *f, int ni, int nj, q_rules r){
   int nbits_tot = 0 ;
-  int i0, j0, i1, j1, i, j, base, nbi, nbj, iblk, tot_bits, k, enc_bits, tbits, tot_pbits ;
+  int i0, j0, i1, j1, i, j, base, nbi, nbj, iblk, tot_bits, k, enc_bits, dec_bits, tbits, tot_pbits ;
   int blocki = 64, blockj = 64 ;
   float   fblk[blocki * blockj] ;  // float block
   int32_t qblk[blocki * blockj] ;  // quantized block
   float   rblk[blocki * blockj] ;  // restored block
   int32_t pblk[blocki * blockj] ;  // predicted block
+  int32_t ublk[blocki * blockj] ;  // unpredicted block
+  int32_t eblk[blocki * blockj] ;  // encoded block
+  int32_t dblk[blocki * blockj] ;  // decoded block
   float abserr, maxabserr = 0.0f ;
   float relerr, maxrelerr = 0.0f ;
-  float gblk[ni*nj] ;
-  float g[ni*nj] ;
   float referr ;
-  int32_t fq[ni*nj] ;
+  float gblk[ni*nj], g[ni*nj] ;    // global arrays
+  int32_t fq[ni*nj] ;              // globally quantized array
 
   nbi = (ni + blocki - 1) / blocki ;
   nbj = (nj + blockj - 1) / blockj ;
@@ -778,7 +839,8 @@ int compress_2d_field(float *f, int ni, int nj, q_rules r){
   fprintf(stderr, "ref = %f, nbi = %d, nbj = %d\n", r.ref, nbi, nbj) ;
   for(i=0 ; i<ni*nj ; i++) g[i] = 999.0f ;
 //   tot_bits = quantize_block(f, ni, nj, fq, r, g) ;
-  enc_bits = quantize_block(f, ni, nj, fq, r, g) ;
+  enc_bits =   quantize_block(f, ni, nj, fq, r) ;
+  if(enc_bits != dequantize_block(g, ni, nj, fq, r)) exit(1) ;
 //   enc_bits = count_encoded_bits(fq, ni, ni, nj) ;
 //   tot_bits = count_bits(fq, ni*nj) ;
 //   enc_bits = count_bits_of_max(fq, ni*nj) ;
@@ -802,22 +864,40 @@ int compress_2d_field(float *f, int ni, int nj, q_rules r){
       nbp = (j1-j0) * (i1-i0) ;
 
       get_word_block(f + base, fblk, i1 - i0, ni, j1 - j0) ;     // get block
-      qbts[iblk] = quantize_block(fblk, (i1-i0), (j1-j0), qblk, r, rblk) ;   // quantize/restore according to rules
-      qbts_p[iblk] = qbts[iblk] * 1.0f / nbp ;                   // bits per point
-      if(qbts[iblk] == 0) {
+      qbts[iblk] = quantize_block(fblk, (i1-i0), (j1-j0), qblk, r) ;   // quantize according to rules
+      put_word_block(g    + base, fblk, i1 - i0, ni, j1 - j0) ;  // put original block into g
+      if(qbts[iblk] < 0) {
         fprintf(stderr, "error while quantizing or restoring\n") ;
         exit(1) ;                              // error while quantizing or restoring
       }
-      put_word_block(gblk + base, rblk, i1 - i0, ni, j1 - j0) ;  // put restored block into gblk
-      put_word_block(g    + base, fblk, i1 - i0, ni, j1 - j0) ;  // put original block into g
+      tot_bits += qbts[iblk] ;                 // cumulative total
+      tot_bits += 128 ;                        // add block header overhead
 
-      tot_bits += qbts[iblk] ;
+      pbts[iblk] = predict_block(qblk, (i1 - i0), (j1-j0), pblk) ;        // apply predictor (Lorenzo)
+
+      encode_block(pblk, (i1 - i0), (j1-j0), eblk) ;                      // encode predicted block
+      decode_block(dblk, (i1 - i0), (j1-j0), eblk) ;                      // decode to restore predicted block
+      int ndiff = diff_count(pblk, dblk, (i1 - i0)*(j1-j0)) ;              // check that encode/decode was lossless
+
+      dec_bits = unpredict_block(ublk, (i1 - i0), (j1-j0), pblk) ;        // unpredict block
+      if(diff_count(qblk, ublk, (i1 - i0)*(j1-j0)) != 0){                 // check that we get back the original block
+        fprintf(stderr, "predict/unpredict mismatch\n") ;
+        exit(1) ;
+      }
+      if(qbts[iblk] != dec_bits){
+        fprintf(stderr, "bit count mismatch after unpredict, expected %d, got %d\n", qbts[iblk]-128, dec_bits) ;
+        exit(1) ;
+      }
+
+      if(qbts[iblk] != dequantize_block(rblk, (i1-i0), (j1-j0), ublk, r)) exit(1) ;  // dequantize unpredicted block
+      put_word_block(gblk + base, rblk, i1 - i0, ni, j1 - j0) ;  // put restored block into gblk
+
+      qbts_p[iblk] = qbts[iblk] * 1.0f / nbp ;                   // bits per point
 //       enc_bits += count_encoded_bits(qblk, i1 - i0, i1 - i0, j1 - j0) ;
       abserr = update_abs_err(0.0f, fblk, rblk, nbp) ;
       maxabserr = (abserr > maxabserr) ? abserr : maxabserr ;
       if(abserr > r.ref && r.ref > 0.0f) oddities++ ;                            // absolute error should not be larger than reference
 
-      pbts[iblk] = predict_block(qblk, (i1 - i0), (j1-j0), pblk) ;        // apply predictor (Lorenzo)
 //       ebts[iblk] = encode_block(qblk, ni, nj) ;                           // pseudo encoder (discard output stream)
       base += blocki ;
       iblk++ ;
@@ -837,8 +917,10 @@ int compress_2d_field(float *f, int ni, int nj, q_rules r){
           tot_bits, tot_bits * 1.0f / ni / nj, maxabserr, r.ref, oddities) ;
 //           tot_bits, tot_bits * 1.0f / ni / nj, maxabserr, r.ref, oddities) ;
   evaluate_abs_diff(f, gblk, ni*nj, "blocked f VS gblk") ;
-  fprintf(stderr, "gain(<0 = loss) through prediction = %4.2f, before = %d, after = %d\n",
-          (predict_nbits_avant - predict_nbits_apres) * 1.0f / (ni*nj) , predict_nbits_avant, predict_nbits_apres) ;
+  fprintf(stderr, "gain(<0 = loss) through prediction = %5.2f, before = %5.2f, after = %5.2f\n",
+          (predict_nbits_avant - predict_nbits_apres) * 1.0f / (ni*nj) , 
+          predict_nbits_avant * 1.0f / ni / nj,
+          predict_nbits_apres * 1.0f / ni / nj) ;
 //   evaluate_abs_diff(f, g   , ni*nj, "blocked f VS g   ") ;
 //   for(j0=0 ; j0<nj ; j0+=blockj){
 //     for(i0=0 ; i0<ni ; i0+=blocki){
@@ -887,7 +969,7 @@ static q_rules make_rules(char *nomvar){
   }else if(code == code_var("TD", 2)){
     r = (q_rules) { .ref = .01f, .type = Q_LINEAR_2 } ;
   }else if(code == code_var("ES", 2)){
-    r = (q_rules) { .ref = .01f, .type = Q_LINEAR_1 } ;
+    r = (q_rules) { .ref = .01f, .type = Q_LINEAR_2 } ;
   }else if(code == code_var("HU", 2)){
     r = (q_rules) { .type = Q_FAKE_LOG_1, .rng10 = 4, .mbits = 10 } ;
   }else if(code == code_var("UU", 2)){
@@ -907,7 +989,7 @@ static q_rules make_rules(char *nomvar){
     r = (q_rules) { .ref = .005f, .type = Q_LINEAR_0 } ;
 //     r = (q_rules) { .nbits = 9, .type = Q_LINEAR_0 } ;
   }else if(code == code_var("ZZ", 2)){
-    r = (q_rules) { .ref = .002f, .type = Q_LINEAR_1 } ;
+    r = (q_rules) { .ref = .002f, .type = Q_LINEAR_1 } ;  // problems with Q_LINEAR_0, max error too large
   }else{
   }
   r.state = TO_QUANTIZE ;
@@ -1014,7 +1096,7 @@ int main(int argc, char **argv){
           case 2:  // fake log quantizer test
 //             test_log_quantizer(buf, dims[0], dims[1], &e, vn) ;
             break;
-          case 3:
+          case 3:  // compression test
             q_r = make_rules(nomvar) ;
             print_rules(q_r, nomvar) ;
             compress_2d_field(buf, dims[0], dims[1], q_r) ;

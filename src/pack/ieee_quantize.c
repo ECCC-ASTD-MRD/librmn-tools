@@ -644,6 +644,7 @@ error:
 }
 
 // ========================================== linear quantizer type 0 ==========================================
+// lots of max error issues with this quantizer, should probably be removed
 
 // restore 1 IEEE float from type 0 quantized value
 // inline function used by IEEE32_linear_restore_0
@@ -770,17 +771,19 @@ static uint64_t IEEE32_quantize_linear_0(void * restrict f, int32_t ni, uint64_t
   uint32_t *qo = (uint32_t *) qs ;
   ieee32_props h64 ;
   int i0, i, ni7 ;
-  uint32_t pos_neg, maskn, masksign, offset, sign, round ;
-  int32_t scount, nbits ;
+  uint32_t pos_neg, offset, sign, round ;
+  int32_t scount ;
 
   h64.u   = u64 ;                           // all properties
-  nbits   = h64.p.nbts ;                    // number of bits needed for quantized results
   scount  = h64.p.shft ;                    // shift count
   offset  = h64.p.bias >> scount ;          // offset from smallest absolute value
   round   = scount ? 1 << (scount-1) : 0 ;  // rounding term
   pos_neg = (h64.p.allp || h64.p.allm) ? 0 : 1 ;   // not same sign for all values
-  maskn = RMASK31(nbits) ;                  // largest allowed value for quantized results
-  masksign = RMASK31(31) ;                  // sign bit is 0, all others are 1
+  int32_t nbits   = h64.p.nbts ;            // number of bits needed for quantized results
+  uint32_t masksign = RMASK31(31) ;         // sign bit is 0, all others are 1
+#if defined(CLIP_TO_NBITS)
+  uint32_t maskn = RMASK31(nbits) ;         // largest allowed value for quantized results
+#endif
 
   if(h64.p.cnst){
     if(pos_neg){  // if mixed signs, store sign bit
@@ -909,23 +912,17 @@ q_decode IEEE32_linear_restore_1(void * restrict f, int ni, q_encode desc, void 
   if(desc.type  != Q_LINEAR_1)   goto error ;  // wrong quantizer
   if(desc.state != QUANTIZED)    goto error ;  // must be quantized data
 
-  if(desc.cnst == 1) {
+  if(desc.cnst == 1) {                         // constant field, special case
     for(i=0 ; i<ni ; i++) fo[i] = desc.offset.f ;
     goto end ;
   }
 
-//   h64.u  = u64 ;
-  allp = desc.allp ;
-//   allp  = h64.q.allp ;               // no neggative values
-  allm = desc.allm ;
-//   allm  = h64.q.allm ;               // all negative values
+  allp = desc.allp ;                     // no neggative values
+  allm = desc.allm ;                     // all negative values
   pos_neg = (allp || allm) ? 0 : 1 ;
   bias.u = desc.offset.u ;
-//   bias.u = h64.q.bias ;
   offset = bias.f ;
-  exp = desc.exp0 ;                   // get exponent
-//   exp = h64.q.efac ;                    // get exponent
-  exp -= 127 ;                          // remove bias
+  exp = desc.exp0 - 127 ;                // get exponent, remove IEEE bias
 // fprintf(stderr, "ni = %d, nbits = %d, exp = %d(%d), bias = %f\n", ni, h64.q.nbts, exp, h64.q.efac, bias.f);
   if(exp > -127 && exp < 127){           // "civilized" exponent for largest value
     m1.i = (127 - exp) ;                 // inverse of factor used for quantization
@@ -936,7 +933,7 @@ q_decode IEEE32_linear_restore_1(void * restrict f, int ni, q_encode desc, void 
   }
 // fprintf(stderr, "fac32 = %f, offset = %f, pos_neg = %d\n", fac32, offset, pos_neg);
   ni7 = (ni & 7) ; ni7 = (ni7 == 0) ? 8 : ni7 ;
-  if(pos_neg){
+  if(pos_neg){                            // we have both negative and non negative values
 #if defined(__x86_64__) && defined(__AVX2__)
 // useful with some compilers that have difficulties vectorizing the code
     if(ni > 7 && q != f){          // ni is assumed to be at least 8, does not work "inplace"
@@ -955,18 +952,16 @@ q_decode IEEE32_linear_restore_1(void * restrict f, int ni, q_encode desc, void 
         _mm256_storeu_ps(fo + i, vf) ;                  // store restored floats
       }
       goto end ;
-//       qr.r.npts = ni ;
-//       return qr.r ;
     }
 #endif
     for(i=0 ; i<ni ; i++){
       tf = qi[i] ;
       sg = (qi[i] < 0) ;              // save sign
-      tf = sg ? -tf : tf ;            // absolute value
-      tf = tf * fac32 + offset ;      // restore
+      tf = sg ? -tf : tf ;            // absolute value of quantized value
+      tf = tf * fac32 + offset ;      // restore float value from quantized value
       fo[i] = sg ? -tf : tf ;         // restore sign
     }
-  }else{
+  }else{                                  // all values have the same sign
 #if defined(__x86_64__) && defined(__AVX2__)
 // useful with some compilers that have difficulties vectorizing the code
     if(ni > 7 && q != f){          // ni is assumed to be at least 8, does not work "inplace"
@@ -983,14 +978,12 @@ q_decode IEEE32_linear_restore_1(void * restrict f, int ni, q_encode desc, void 
         _mm256_storeu_ps(fo + i, vf) ;                  // store restored floats
       }
       goto end ;
-//       qr.r.npts = ni ;
-//       return qr.r ;
     }
 #endif
     for(i=0 ; i<ni ; i++){
       tf = qi[i] ;
-      tf = tf * fac32 + offset ;      // restore
-      fo[i] = allm ? -tf : tf ;       // restore sign if all negative
+      tf = tf * fac32 + offset ;      // restore float value from quantized value
+      fo[i] = allm ? -tf : tf ;       // negate if all values are negative
     }
   }
 
@@ -1005,26 +998,12 @@ error:
   return q_desc_0.r ;
 }
 
-// evaluate the discretization quantum as a function of nbits (type 0)
-FloatPair IEEE32_linear_quantum_1(uint64_t u64, int nbits){
-//   ieee32_props h64 ;
-//   uint64_t allp, allm, pos_neg ;
-  FloatPair result = {0.0f, 0.0f } ;
-//   AnyType32 maxa, mina ;
-
-//   h64.u = u64 ;
-//   allm = h64.l.allm ;            // extract all useful values from u64
-//   allp = h64.l.allp ;
-//   maxa.u = h64.l.maxa ;
-//   mina.u = h64.l.mina ;
-//   pos_neg = (allp || allm) ? 0 : 1 ;      // we have both positive and negative values
-
-  return result ;
-}
-// quantize IEEE floats using information from IEEE32_linear_prep_1
+// quantize IEEE floats using information from IEEE32_linear_prep
 // qs   [OUT]  32 bit integer array that will receive the quantized result
 // f     [IN]  32 bit IEEE float array, data to be quantized
-// u64   [IN]  metadata information describing quantization (from IEEE32_linear_prep_1)
+// u64   [IN]  metadata information describing quantization (from IEEE32_linear_prep)
+// return u64 unaltered
+//
 // quantized output is a set of unsigned integers, needing at most nbts or nbts+1 bits
 // if all values to be quantized have the same sign, allp/allm flags are used (nbts bits)
 // if mixed signs, sign/magnitude storage is used, the sign is stored as the LSB (nbts+1 bits)
@@ -1035,7 +1014,6 @@ static uint64_t IEEE32_quantize_linear_1(void * restrict f, int npts, uint64_t u
   uint32_t allm, allp, pos_neg, sg ;
   AnyType32 s, b ;
   int i, nbts ;
-//   int32_t maxq, maxm ;
   float fa ;
   int ia ;
 
@@ -1051,8 +1029,6 @@ static uint64_t IEEE32_quantize_linear_1(void * restrict f, int npts, uint64_t u
   int32_t maxq = RMASK31(nbts) ;
   int32_t maxm = -maxq ;
 #endif
-
-//   if(npts > 7) return IEEE32_quantize_linear_1_SIMD(ff, u64, qo, npts, pos_neg, maxq, s.f, b.f) ;
 
 //      fprintf(stderr, "nbits = %d(%d), maxq = %d, offset = %f, factor = %f\n", h64.q.nbts, nbts, maxq, b.f, s.f) ;
   if(pos_neg){                         // mix of negative and non negative values
@@ -1078,8 +1054,7 @@ static uint64_t IEEE32_quantize_linear_1(void * restrict f, int npts, uint64_t u
       qo[i] = ia ;
     }
   }
-  // we might want to return the quantized values range q(maxs) - q(mins)
-//   maxmin_qo = (uint32_t)minqo ; maxmin_qo = (maxmin_qo << 32) | ((uint32_t)maxqo & 0xFFFFFFFF) ;
+
   return u64 ;
 }
 
@@ -1102,24 +1077,24 @@ q_encode IEEE32_linear_quantize_1(void * restrict f, int np, q_rules rules, void
   if(rules.type  != Q_LINEAR_1)    goto error ;     // wrong quantizer
   if(rules.state != TO_QUANTIZE)   goto error ;     // invalid state
 
-  if(limits == NULL){                               // not coming from outside
+  if(limits == NULL){                               // not coming from caller
     l32 = IEEE32_extrema(f, np) ;                   // get data extrema and properties
     limits = &l32 ;
   }
 
   hint = IEEE32_linear_prep(limits, np, nbits, maxerr, u64, Q_MODE_LINEAR_1) ;   // get quantization parameters for type 1
-  if(hint == Q_MODE_CONSTANT){
+  if(hint == Q_MODE_CONSTANT){            // constant field
     uint32_t *fu = (uint32_t *) f ;
     uint32_t *qu = (uint32_t *) q ;
     for(i=0 ; i<np ; i++) qu[i] = 0 ;     // not really necessary, but consistent
-    q_out.nbits    = 0 ;
+    q_out.nbits    = 0 ;                  // values needed by the associated restore function
     q_out.cnst     = 1 ;
     q_out.offset.u = fu[0] ;
   }else{
-    h64.u = IEEE32_quantize_linear_1(f, np, u64[1], q) ;          // actual quantization (type 1)
-    q_out.offset.u = h64.q.bias ;
+    h64.u = IEEE32_quantize_linear_1(f, np, u64[1], q) ; // actual quantization (type 1)
+    q_out.offset.u = h64.q.bias ;                        // values needed by the associated restore function
     q_out.exp0     = h64.q.efac ;
-    q_out.cnst     = h64.q.cnst ;
+    q_out.cnst     = 0 ;
     q_out.allp     = h64.q.allp ;
     q_out.allm     = h64.q.allm ;
     q_out.nbits    = h64.q.nbts ;
@@ -1135,8 +1110,8 @@ error:
 
 // ========================================== linear quantizer type 2 ==========================================
 // quantization algorithm : normalize mantissa according to exponent of largest absolute value
-//                          the hidden 1 of IEE encoding is accounted for
-//                          a bias is removed (quantized result for lowest value)
+//                          the hidden 1 of IEEE encoding is accounted for
+//                          a bias is removed (quantization result for lowest value)
 
 // restore 1 IEEE float from type 2 quantized value
 // inline function used by IEEE32_linear_restore_2
@@ -1209,7 +1184,6 @@ static inline int32_t IEEE32_F2Q_linear_2(int32_t Src, int32_t MaxExp, int32_t S
   Mantis = Mantis >> Shift2;                 // force to fit within nbits bits
 #if defined(CLIP_TO_NBITS)
   Mantis = (Mantis > Mask) ? Mask : Mantis ; // clip to avoid exceeding all nbits bits set
-//   if (Mantis > Mask) Mantis = Mask;
 #endif
   return Mantis ;
 }
@@ -1255,7 +1229,7 @@ static uint64_t IEEE32_quantize_linear_2(void * restrict f, int32_t npts, uint64
 // nbits  [IN] : number of bits to use for quantization (0 means compute it internally)
 // errmax [IN] : maximum absolute error target (if >= 0, use it to adjust nbits)
 // qs    [OUT] : quantized values (signed integers)
-// return value returned by IEEE32_quantize_linear_2
+// return value driven by return value of IEEE32_quantize_linear_2
 // uint64_t IEEE32_linear_quantize_2(void * restrict f, int np, int nbits, float maxerr, void * restrict qs, special_value *s){
 q_encode IEEE32_linear_quantize_2(void * restrict f, int np, q_rules rules, void * restrict qs, limits_w32 *limits, special_value *s){
   ieee32_props h64 ;
@@ -1269,7 +1243,7 @@ q_encode IEEE32_linear_quantize_2(void * restrict f, int np, q_rules rules, void
   if(rules.type  != Q_LINEAR_2)    goto error ;     // wrong quantizer
   if(rules.state != TO_QUANTIZE)   goto error ;     // invalid state
 
-  if(limits == NULL){                               // not coming from outside
+  if(limits == NULL){                               // not coming from caller
     l32 = IEEE32_extrema(f, np) ;                   // get data extrema and properties
     limits = &l32 ;
   }
@@ -1279,13 +1253,14 @@ q_encode IEEE32_linear_quantize_2(void * restrict f, int np, q_rules rules, void
     uint32_t *fu = (uint32_t *) f ;
     uint32_t *qu = (uint32_t *) qs ;
     for(i=0 ; i<np ; i++) qu[i] = 0 ;     // not really necessary, but consistent
-    q_out.nbits    = 0 ;
+    q_out.nbits    = 0 ;                  // values needed by associated restore function
     q_out.cnst     = 1 ;
     q_out.offset.u = fu[0] ;
   }else{
-    h64.u = IEEE32_quantize_linear_2(f, np, u64[2], qs) ;          // actual quantization (type 2)
-    q_out.offset.u = h64.r.bias ;
+    h64.u = IEEE32_quantize_linear_2(f, np, u64[2], qs) ;  // actual quantization (type 2)
+    q_out.offset.u = h64.r.bias ;                          // values needed by associated restore function
     q_out.exp0     = h64.r.expm ;
+    q_out.cnst     = 0 ;
     q_out.mbits    = h64.r.shft ;
     q_out.nbits    = h64.r.nbts ;
   }
@@ -1303,8 +1278,8 @@ error:
 // u64  [IN] : 64 bit value representing an ieee32_r struct (from IEEE32_linear_quantize_2)
 // np   [IN] : number of values (used for consistency check)
 // f   [OUT] : restored float array
-// return number of restored values. if there is a mismatch, return - expected number of values
-// int IEEE32_linear_restore_2(void * restrict q, uint64_t u64, int np, void * restrict f){
+// return number of restored values in output descriptor
+// return null descriptor if there is an error
 q_decode IEEE32_linear_restore_2(void * restrict f, int np, q_encode desc, void * restrict q){
   int32_t *qu = (int32_t *) q ;
   float *dest = (float *)f;
@@ -1332,7 +1307,7 @@ q_decode IEEE32_linear_restore_2(void * restrict f, int np, q_encode desc, void 
 #if defined(__x86_64__) && defined(__AVX2__)
 
   int ni7 = (np & 7) ;
-  // call the scalar version for the first ni7 points, call the SIMD version for the rest
+  // call the inline scalar version for the first ni7 points, call the SIMD version for the rest
   for(i=0 ; i<ni7 ; i++) dest[i] = IEEE32_Q2F_linear_2(qu[i], offset, maxExp, shift2) ;
   IEEE32_Q2F_linear_2_SIMD(dest + ni7, qu + ni7, offset, maxExp, shift2, np - ni7) ;
 
@@ -1342,11 +1317,13 @@ q_decode IEEE32_linear_restore_2(void * restrict f, int np, q_encode desc, void 
     dest[i] = IEEE32_Q2F_linear_2(qu[i], offset, maxExp, shift2) ;  // use inline function
   }
 #endif
+
 end:
   q_out.q = desc ;
   q_out.r.state = RESTORED ;
   q_out.r.npts = np ;
   return q_out.r ;
+
 error:
   debug_exit("IEEE32_linear_restore_2") ;
   return q_desc_0.r ;
