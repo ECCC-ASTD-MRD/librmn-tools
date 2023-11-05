@@ -36,30 +36,33 @@
 //          encd = 00    each value  : nbts+1 bits
 //          encd = 01    small value : 0bit , (nbts+1)/2 bits
 //                       other value : 1bit , nbts+1 bits
-//          encd = 10    zero value  : 0bit
-//                       other value : 1bit , nbts+1 bits
-//          encd = 11    all values are identical (possibly 0) (nbts+1 or 0 bits)
+//          encd = 10    zero value  : first bit=0
+//                       other value : first bit=1 , nbts+1 bits
+//          encd = 11    all values are identical (possibly 0) (nbts+1 bits) (0 bits if sign == 00)
 //
 //          sign = 00    every value is 0
 //          sign = 01    every value is NON negative (short ZigZag without sign)
 //          sign = 10    every value is negative (short ZigZag without sign)
 //          sign = 11    mixed value signs (full ZigZag)
 //
-// zero tile (sign == 00, encd = 11, nbts = 0, min0 = 0)
+// zero tile : sign == 00, encd = 11, nbts = 0 (don't really care), min0 = 0 (don't really care)
 // +-----------+
 // |   header  |
 // +-----------+
 // <- 16 bits ->
 //
-// constant tile (sign = 11, encd = 11, min0 = 0)
+// constant tile : sign = 11, encd = 11, min0 = 0 (don't really care)
 // +-----------+-----------------+
 // |   header  |     token 1     |
 // +-----------+-----------------+
 // <- 16 bits -x- nbts + 1 bits ->
 //
-// ZigZag description
-//        value >= 0 :    value << 1
+// full ZigZag description          (used when all values have mixed signs)
+//        value >= 0 :   value << 1
 //        value  < 0 : ~(value << 1)
+// short ZigZag description         (used when all values have the same sign)
+//        value >= 0 :   value
+//        value  < 0 :  ~value
 // values are normally stored in full ZigZag form, sign is LSB
 // if all values are negative or all values are non negative, 
 // the sign bit is omitted and value or ~value is stored

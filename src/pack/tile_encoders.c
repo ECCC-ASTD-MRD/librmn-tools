@@ -205,6 +205,8 @@ static uint64_t encode_tile_properties_c(void *f, int ni, int lni, int nj, uint3
   mask1 = ~mask1 ;
 
   nshort = nzero = nshort1 = 0 ;
+// can cut it short here if NO ENCODING will be forced, 
+// if() { nshort = bshort = nsaved = 0 ; goto end ; }
   for(i=0 ; i<nij ; i++){
     if(tile[i] == 0)           nzero++ ;      // zero value
     if((tile[i] & mask0) == 0) nshort++ ;     // value needing nbits0   bits or less
@@ -234,6 +236,8 @@ fprintf(stderr, "DEBUG: (tile_properties_c) nshort = %3d, bshort = %2d, bsaved =
   }else{
     p.t.h.encd = (p.t.bshort == 0) ? 2 : 1 ;  // 0 , 1//full or 0//short , 1//full encoding
   }
+
+end:
 fprintf(stderr, "DEBUG: (tile_properties_c) nshort = %3d, bshort = %2d, bsaved = %5d, encoding = %d\n", p.t.nshort, p.t.bshort, nref - ntot, p.t.h.encd) ;
   return p.u64 ;
 //   return encode_tile_scheme(p.u64) ;          // determine appropriate encoding scheme
@@ -519,7 +523,8 @@ uint64_t encode_tile_properties(void *f, int ni, int lni, int nj, uint32_t tile[
   p.t.h.nbts = nbits - 1 ;          // store nbits in header
   p.t.h.encd = 0 ;                  // by default, no encoding
   vz0 = _mm256_xor_si256(v0, v0) ;  // vector of zeros
-
+// can cut it short here if NO ENCODING will be forced, 
+// if() { nshort = bshort = nsaved = 0 ; goto end ; }
   vz = _mm256_cmpeq_epi32(v0, vz0) ;                         // count zero values
   vz = _mm256_add_epi32(vz, _mm256_cmpeq_epi32(v1, vz0)) ;
   vz = _mm256_add_epi32(vz, _mm256_cmpeq_epi32(v2, vz0)) ;
