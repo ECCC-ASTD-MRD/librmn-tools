@@ -18,6 +18,7 @@
 #include <rmn/eval_diff.h>
 #include <rmn/timers.h>
 #include <rmn/lorenzo.h>
+#include <rmn/tile_encoders.h>
 
 #define NTIMES 100000
 
@@ -807,9 +808,14 @@ static int diff_count(void *f1, void *f2, int n){
   return diff ;
 }
 
+typedef struct{
+  uint32_t stripe_len ;
+  uint32_t block_len[] ;
+} stripe_map ;
+
 int compress_2d_field(float *f, int ni, int nj, q_rules r){
   int nbits_tot = 0 ;
-  int i0, j0, i1, j1, i, j, base, nbi, nbj, iblk, tot_bits, k, enc_bits, dec_bits, tbits, tot_pbits ;
+  int i0, j0, i1, j1, i, j, base, iblk, tot_bits, k, enc_bits, dec_bits, tbits, tot_pbits ;
   int blocki = 64, blockj = 64 ;
   float   fblk[blocki * blockj] ;  // float block
   int32_t qblk[blocki * blockj] ;  // quantized block
@@ -824,12 +830,22 @@ int compress_2d_field(float *f, int ni, int nj, q_rules r){
   float gblk[ni*nj], g[ni*nj] ;    // global arrays
   int32_t fq[ni*nj] ;              // globally quantized array
 
-  nbi = (ni + blocki - 1) / blocki ;
+  uint32_t nbi, nbj, nbi2 ;
+  nbi = (ni + blocki - 1) / blocki ; nbi2 = (nbi + 1) >> 1 ;
   nbj = (nj + blockj - 1) / blockj ;
   int32_t qbts[nbi * nbj] ;        // bits used by quantizer
   float qbts_p[nbi * nbj] ;        // bits/point used by quantizer
   int32_t pbts[nbi * nbj] ;        // bits used by predictor
   int32_t ebts[nbi * nbj] ;        // bits used by encoder
+// variable length array in structure not supported by aocc
+//   struct{
+//     uint32_t stripe_len ;
+//     uint32_t block_len[nbi2] ;
+//   } dmap[nbj] ;
+//   for(j=0 ; j<nbj ; j++){
+//     dmap[j].stripe_len = 0 ;
+//     for(i=0 ; i<nbi2 ; i++) dmap[j].block_len[i] = 0 ;
+//   }
 
   for(i=0 ; i<nbi*nbj ; i++){
     qbts[i] = 0 ;
@@ -859,6 +875,9 @@ int compress_2d_field(float *f, int ni, int nj, q_rules r){
   for(j0=0, bj=0 ; j0<nj ; j0+=blockj, bj++){
     j1 = j0 + blockj ; j1 = (j1 > nj) ? nj : j1 ;
     base = j0 * ni ;
+    // uint32_t packed[ni * blockj]    // worst possible case
+    // stripe_map map ;
+    // BeStreamInit(&stream0, packed_, sizeof(packed_), 0) ;  // packed_ has to be large enough for a stripe (ni * blockj)
     for(i0=0, bi=0 ; i0<ni ; i0+=blocki, bi++){
       i1 = i0 + blocki ; i1 = (i1 > ni) ? ni : i1 ;
       nbp = (j1-j0) * (i1-i0) ;
@@ -875,7 +894,11 @@ int compress_2d_field(float *f, int ni, int nj, q_rules r){
 
       pbts[iblk] = predict_block(qblk, (i1 - i0), (j1-j0), pblk) ;        // apply predictor (Lorenzo)
 
+      // align stream to 32 bit boundary (primitive to do so needed in bi_endian_pack.c or bi_endian_pack.h)
+      // loop over tiles
+      //   nbtot = encode_tile(tile3, ti, lti, tj, &stream0, temp) ;  // temp == space for largest tile (64)
       encode_block(pblk, (i1 - i0), (j1-j0), eblk) ;                      // encode predicted block
+
       decode_block(dblk, (i1 - i0), (j1-j0), eblk) ;                      // decode to restore predicted block
       int ndiff = diff_count(pblk, dblk, (i1 - i0)*(j1-j0)) ;              // check that encode/decode was lossless
 
