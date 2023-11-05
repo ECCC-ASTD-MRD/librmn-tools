@@ -318,4 +318,23 @@ int  BeStreamXtractM(bitstream *p, uint32_t *w32, int *nbits, int *n){
   STREAM_SET_XTRACT_STATE(*p, accum, xtract, stream) ;
   return nw ;
 }
+// same as above, but using EZ macros
+int  BeStreamXtractM_(bitstream *p, uint32_t *w32, int *nbits, int *n){
+  int i, nw = 0 ;
+
+  if(p->xtract < 0) return 0;      // ERROR: not in extract mode
+  if( ! STREAM_IS_BIG_ENDIAN(*p) ) return 0 ; // wrong endianness
+
+  EZ_GET_XTRACT_VARS(*p)
+  while(n[0] > 0 ){     // loop until end of list (non positive value)
+    nw += n[0] ;
+    for(i=0 ; i<n[0] ; i++){
+      BE64_EZ_GET_NBITS(w32[i], nbits[0]) ;
+    }
+    nbits++ ;
+    n++ ;       // next pair
+  }
+  EZ_SET_XTRACT_VARS(*p)
+  return nw ;
+}
 
