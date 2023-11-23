@@ -119,7 +119,7 @@ int main(int argc, char **argv){
   bsize = StreamCopy(pstream, buffer, sizeof(buffer)) ;      // copy original stream data into local buffer
   TEE_FPRINTF(stderr,2, "copied %ld bits from original stream\n", bsize) ;
   TEE_FPRINTF(stderr,2, "\n") ;
-  BeStreamInit(&(STREAM1), buffer, sizeof(buffer), BIT_XTRACT_MODE) ;      // initialize new stream using local buffer
+  BeStreamInit(&(STREAM1), buffer, sizeof(buffer), BIT_XTRACT_ONLY) ;      // initialize new stream using local buffer
   pstream = &(STREAM1) ;
   StreamSetFilledBits(pstream, ntot) ;                       // set number of valid bits in stream
   print_stream_params(*pstream, "before extraction", NULL) ;

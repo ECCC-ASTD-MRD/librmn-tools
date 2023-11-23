@@ -19,7 +19,7 @@
 #define INDEX2D_C(array, col, lrow, row) ((array) + (col) + (row)*(lrow))
 
 /*
-                         a field is subdivided into chunks
+                         a FIELD is subdivided into CHUNKS
                          (basic chunk size = 256 x 64)
                          (last chunk along a dimension may be shorter)
        <------ 256 ----->                                  <--- <= 256 ----->
@@ -42,7 +42,7 @@
      v +----------------+----------------------------------+----------------+ v
        <------ 256 ----->                                  <--- <= 256 ----->
 
-         each chunk is then subdivided into quantization/prediction blocks
+         each CHUNK is then subdivided into quantization/prediction BLOCKS
          (basic block size = 64 x 64)
          (last block along a dimension may be shorter)
        <------ 64 ------>                                  <--- <= 64 ------>
@@ -65,7 +65,7 @@
      v +----------------+----------------------------------+----------------+ v
        <------ 64 ------>                                  <--- <= 64 ------>
 
-                  each block is then subdivided into encoding tiles
+                  each BLOCK is then subdivided into encoding TILES
                   (basic block size = 8 x 8)
                   (last block along a dimension may be shorter)
        <------- 8 ------>                                  <---- <= 8 ------>
@@ -116,14 +116,22 @@
 */
 /*
 
-  data map (map of chunk positions in data stream) (sizes and offsets in 32 bit units)
+  DATA MAP (map of chunk positions in data stream) (sizes and offsets in 32 bit units)
+           (see typedef data_map in compress_data.h)
+  alternative 1
   data map size = (NCI * NCJ) * 2 + 2 (in 32 bit units)
   +-------+-------+--------------+----------------+     +--------------+----------------+
   |  NCI  |  NCJ  | Chunk size 1 | Chunk offset 1 | ... | Chunk size n | Chunk offset n |
   +-------+-------+--------------+----------------+     +--------------+----------------+
   <--32b--x--32b--x-----32b------x------32b------->     <-----32b------x------32b------->
+  alternative 2 (smaller size, no 8GB limit on offsets)
+  data map size = (NCI * NCJ) + 2 (in 32 bit units)
+  +-------+-------+--------------+     +--------------+
+  |  NCI  |  NCJ  | Chunk size 1 | ... | Chunk size n |
+  +-------+-------+--------------+     +--------------+
+  <--32b--x--32b--x-----32b------x     <-----32b------x
 
-  field layout (chunks are 32 bit aligned in data stream)
+  FIELD layout (field header and chunk sizes are multiples of 32 bits)
                  <-------- Chunk size 1 --------->     <-------- Chunk size n --------->
   +--------------+----------------+--------------+     +----------------+--------------+
   | Field Header | Chunk Header 1 | Chunk Data 1 | ... | Chunk Header n | Chunk Data n |
@@ -131,23 +139,25 @@
                  ^                                     ^
                  | Chunk offset 1                      | Chunk offset n
 
-  chunk layout (PAD : 0 -> 31 bits)
-  +--------------+----------------+--------------+     +----------------+--------------+-----+
-  | Chunk Header | Block Header 1 | Block Data 1 | ... | Block Header n | Block Data n | PAD |
-  +--------------+----------------+--------------+     +----------------+--------------+-----+
-  <--- 32 bits --x------------------------------- Chunk data -------------------------------->
+  CHUNK layout (PAD : 0 -> 31 bits) (blocks are 32 bit aligned in data stream) (CL is a multiple of 32 bits)
+  +--------------+----------------+--------------+-------+     +----------------+--------------+-------+
+  | Chunk Header | Block Header 1 | Block Data 1 | PAD 1 | ... | Block Header n | Block Data n | PAD n |
+  +--------------+----------------+--------------+-------+     +----------------+--------------+-------+
+  <--- CL bits --x----------------------------------- Chunk data -------------------------------------->
+  <-------------------------------------------------- Chunk size -------------------------------------->
 
-  quantization block layout
-  +--------------+---------------+-------------+     +---------------+-------------+
-  | Block Header | Tile Header 1 | Tile Data 1 | ... | Tile Header n | Tile Data n |
-  +--------------+---------------+-------------+     +---------------+-------------+
-  <--- 96 bits --x-------------------------- Block data --------------------------->
+  quantization/prediction BLOCK layout (block size is a multiple of 32 bits)
+  +--------------+---------------+-------------+     +---------------+-------------+-----+
+  | Block Header | Tile Header 1 | Tile Data 1 | ... | Tile Header n | Tile Data n | PAD |
+  +--------------+---------------+-------------+     +---------------+-------------+-----+
+  <--- BL bits --x-------------------------- Block data --------------------------------->
+  <----------------------------------------- Block size --------------------------------->
 
-  encoding tile layout
+  encoding TILE layout (unaligned bit stream)
   +-------------+-----------+
   | Tile Header | Tile Data |
   +-------------+-----------+
-  <-- 16 bits -->
+  <-- TL bits -->
   (see tile_encoders.h for encoding tile layout)
 */
 

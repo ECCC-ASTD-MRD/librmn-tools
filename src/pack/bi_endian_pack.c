@@ -321,6 +321,7 @@ int  BeStreamXtractM(bitstream *p, uint32_t *w32, int *nbits, int *n){
 // same as above, but using EZ macros
 int  BeStreamXtractM_(bitstream *p, uint32_t *w32, int *nbits, int *n){
   int i, nw = 0 ;
+  EZ_DCL_XTRACT_VARS ;
 
   if(p->xtract < 0) return 0;      // ERROR: not in extract mode
   if( ! STREAM_IS_BIG_ENDIAN(*p) ) return 0 ; // wrong endianness

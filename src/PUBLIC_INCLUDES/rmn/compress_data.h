@@ -44,11 +44,12 @@ typedef struct {
 typedef struct{        // BLK_I x BLK_J quantization block header (96 bits) (3 x 32 bits)
   // common part
   struct{
-    uint32_t npti:8 ,  // first dimension (1->BLK_I)
-             nptj:8 ,  // second dimension (1->BLK_J)
+    uint32_t npti:8 ,  // first dimension of block (1->BLK_I)
+             nptj:8 ,  // second dimension of block (1->BLK_J)
              qtyp:3 ,  // quantization type (q0/q1/qe/...)
              pred:2 ,  // predictor type
-             resv:11;  // reserved
+             bmap:8 ,  // bitmap length in 16 bit units (for special values)
+             resv:3;   // reserved
   } bh ;
   // quantizer dependent part
   union{
@@ -57,13 +58,15 @@ typedef struct{        // BLK_I x BLK_J quantization block header (96 bits) (3 x
     ieee32_p qe ;      // pseudo log quantization
   } q ;
 } block_base ;
-typedef struct{
-  block_base bh ;      // header
-  uint32_t u[3] ;      // (3 x 32 bits)
+
+typedef union{
+  block_base bh ;                                       // base header
+  uint32_t u[(sizeof(block_base)+3)/sizeof(uint32_t)] ; // (n x 32 bits)
+//   uint32_t u[3] ;      // (3 x 32 bits)
 }block_header ;
 
-// CHUNK_I MUST BE a multiple of BLK_I
-// CHUNK_J MUST BE a multiple of BLK_J
+// CHUNK_I MUST BE a multiple of BLK_I (128 0r 256 ?)
+// CHUNK_J MUST BE a multiple of BLK_J (128 or 64 ?)
 #define CHUNK_I 128
 #define CHUNK_J 128
 typedef struct{                // CHUNK_I x CHUNK_J data chunk
@@ -72,22 +75,28 @@ typedef struct{                // CHUNK_I x CHUNK_J data chunk
 } chunk_header ;
 
 typedef struct{                // compression parameters
-  float   max_float_error ;    // largest absolute error (float)
-  int32_t max_int_error ;      // largest absolute error (integer)
-  int32_t max_bits ;           // max number of bits to be used by quantizer
-  int32_t dtype ;              // data type
-  int32_t quantizer ;          // quantizer type (linear/log)
+  union{
+    float   f ;                // largest absolute error (float)
+    int32_t i ;                // largest absolute error (integer)
+  } max_error ;
+  int32_t nbits:  6 ,          // max number of bits to be used by quantizer
+          dtype:  3 ,          // data type (int32/int16/int8/float/double)
+          qtype:  3 ,          // quantizer type (linear/log)
+          resv : 20 ;          // provision for max rel error, exponent range, ...
 } compress_rules ;
 
 typedef struct{
   uint32_t npti ;              // first dimension of full data array
   uint32_t nptj ;              // second dimension of full data array
   compress_rules r ;           // compression rules ;
+  // need to add :
+  // nb_of_special_values   // 0 means no special values
+  // special_values[]       // list of 32 bit special values (used when data is restored)
 } field_header ;
 
 typedef struct{
   uint32_t size ;              // compressed chunk size (in 32 bit units)
-  uint32_t offset ;            // compressed chunk offset (in 32 bit units)
+  uint32_t offset ;            // compressed chunk offset (in 32 bit units) (offset might be omitted)
 } chunk_item ;
 
 typedef struct{                // 2D nci x ncj chunk array
