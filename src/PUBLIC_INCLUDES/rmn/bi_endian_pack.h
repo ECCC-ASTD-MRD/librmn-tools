@@ -129,12 +129,14 @@ CT_ASSERT(sizeof(bitstream_state) == 40) ;
 #define MAKE_SIGNED_64(w64, nbits) { w64 <<= (64 - (nbits)) ; w64 >>= (64 - (nbits)) ; }
 
 // stream insert/extract mode (0 or 3 would mean insert or extract)
-// extract mode
-#define BIT_XTRACT_ONLY  1
-// insert mode
-#define BIT_INSERT_ONLY  2
+// extract mode only
+#define BIT_XTRACT_ONLY   1
+// insert mode only
+#define BIT_INSERT_ONLY   2
+// both insert and extract mode
+#define BIT_INSERT_XTRACT 4
 // full initialization mode
-#define BIT_FULL_INIT    4
+#define BIT_FULL_INIT     8
 
 // endianness
 #define STREAM_BE 1
@@ -252,6 +254,10 @@ static int64_t StreamCopy(bitstream *stream, void *mem, size_t size){
   uint64_t StReAm_acc_x ; \
   int32_t  StReAm_xtract ; \
   uint32_t *StReAm_out ;
+#define EZ_NEW_XTRACT_VARS(s) \
+  uint64_t StReAm_acc_x  = (s).acc_x ; \
+  int32_t  StReAm_xtract = (s).xtract ; \
+  uint32_t *StReAm_out   = (s).out ;
 #define EZ_GET_XTRACT_VARS(s) \
   StReAm_acc_x  = (s).acc_x ; \
   StReAm_xtract = (s).xtract ; \
@@ -266,6 +272,10 @@ static int64_t StreamCopy(bitstream *stream, void *mem, size_t size){
   uint64_t StReAm_acc_i ; \
   int32_t  StReAm_insert ; \
   uint32_t *StReAm_in ;
+#define EZ_NEW_INSERT_VARS(s)\
+  uint64_t StReAm_acc_i  = (s).acc_i ; \
+  int32_t  StReAm_insert = (s).insert ; \
+  uint32_t *StReAm_in    = (s).in ;
 #define EZ_GET_INSERT_VARS(s)\
   StReAm_acc_i  = (s).acc_i ; \
   StReAm_insert = (s).insert ; \
@@ -507,6 +517,7 @@ STATIC inline void  StreamInit(bitstream *p, void *mem, size_t size, int mode){
   if(mode & BIT_FULL_INIT){
     *p = null_bitstream ;    // perform a full (re)initialization
   }
+  if(mode & BIT_INSERT_XTRACT) mode = mode & (~BIT_INSERT_ONLY) & (~BIT_XTRACT_ONLY) ;
 
   if( (p->first != NULL) && (p->in != NULL) && (p->out != NULL) && (p->limit != NULL) && (p->valid == 0xCAFEFADEu) ){
     buf = p->first ;        // existing and valid stream, already has a buffer, set buf to first
@@ -703,11 +714,6 @@ STATIC inline void  LeStreamFlush(bitstream *p){
   p->insert = 0 ;
 }
 
-// push any data left in insertion accumulator into stream witout updating control info
-STATIC inline void  LeStreamPush(bitstream *p){
-  if(p->insert > 0) LE64_PUSH(p->acc_i, p->insert, p->in) ;
-}
-
 // flush stream being written into if any data left in insertion accumulator
 STATIC inline void  BeStreamFlush(bitstream *p){
   if(p->insert > 0) BE64_INSERT_FINAL(p->acc_i, p->insert, p->in) ;
@@ -715,9 +721,26 @@ STATIC inline void  BeStreamFlush(bitstream *p){
   p->insert = 0 ;
 }
 
+// flush stream being written into if any data left in insertion accumulator
+STATIC inline void  StreamFlush(bitstream *p){
+  if(STREAM_IS_BIG_ENDIAN(*p))    BeStreamFlush(p) ;
+  if(STREAM_IS_LITTLE_ENDIAN(*p)) LeStreamFlush(p) ;
+}
+
+// push any data left in insertion accumulator into stream witout updating control info
+STATIC inline void  LeStreamPush(bitstream *p){
+  if(p->insert > 0) LE64_PUSH(p->acc_i, p->insert, p->in) ;
+}
+
 // push any data left in insertion accumulator into stream witout updating control info
 STATIC inline void  BeStreamPush(bitstream *p){
   if(p->insert > 0)  BE64_PUSH(p->acc_i, p->insert, p->in) ;
+}
+
+// push any data left in insertion accumulator into stream witout updating control info
+STATIC inline void  StreamPush(bitstream *p){
+  if(STREAM_IS_BIG_ENDIAN(*p))    BeStreamPush(p) ;
+  if(STREAM_IS_LITTLE_ENDIAN(*p)) LeStreamPush(p) ;
 }
 
 // rewind Little Endian stream to read it from the beginning (make sure at least 32 bits are extractable)
@@ -739,17 +762,15 @@ STATIC inline void  BeStreamRewind(bitstream *p){
   p->out = p->first + 1 ;        // point to next stream item
 }
 
+STATIC inline void StreamRewind(bitstream *p){
+  if(STREAM_IS_BIG_ENDIAN(*p))    BeStreamRewind(p) ;
+  if(STREAM_IS_LITTLE_ENDIAN(*p)) LeStreamRewind(p) ;
+}
+
 // take a peek at future extraction
 STATIC inline uint32_t LeStreamPeek(bitstream *p, int nbits){
   uint32_t w32 ;
   LE64_PEEK_NBITS(p->acc_x, p->xtract, w32, nbits) ;
-  return w32 ;
-}
-
-// take a peek at future extraction
-STATIC inline int32_t LeStreamPeekSigned(bitstream *p, int nbits){
-  int32_t w32 ;
-  LE64_PEEK_NBITS((int64_t) p->acc_x, p->xtract, w32, nbits) ;
   return w32 ;
 }
 
@@ -760,7 +781,14 @@ STATIC inline uint32_t BeStreamPeek(bitstream *p, int nbits){
   return w32 ;
 }
 
-// take a peek at future extraction
+// take a peek at future extraction (signed)
+STATIC inline int32_t LeStreamPeekSigned(bitstream *p, int nbits){
+  int32_t w32 ;
+  LE64_PEEK_NBITS((int64_t) p->acc_x, p->xtract, w32, nbits) ;
+  return w32 ;
+}
+
+// take a peek at future extraction (signed)
 STATIC inline int32_t BeStreamPeekSigned(bitstream *p, int nbits){
   int32_t w32 ;
   BE64_PEEK_NBITS((int64_t) p->acc_x, p->xtract, w32, nbits) ;
@@ -790,6 +818,20 @@ int  BeStreamXtract(bitstream *p, uint32_t *w32, int nbits, int n);
 int  BeStreamXtractSigned(bitstream *p, int32_t *w32, int nbits, int n);
 // extract multiple values from list (unsigned)
 int  BeStreamXtractM(bitstream *p, uint32_t *w32, int *nbits, int *n);
+
+// reset both read and write pointers to beginning of stream (according to insert/xtract only flags)
+STATIC inline void  StreamRewrite(bitstream *p){
+  if(p->insert >= 0){      // insertion allowed
+    p->in     = p->first ;
+    if(STREAM_IS_BIG_ENDIAN(*p))    BE64_STREAM_INSERT_BEGIN(*p) ;
+    if(STREAM_IS_LITTLE_ENDIAN(*p)) LE64_STREAM_INSERT_BEGIN(*p) ;
+  }
+  if(p->xtract >= 0){      // extrasction allowed
+    p->out    = p->first ;
+    if(STREAM_IS_BIG_ENDIAN(*p))    BE64_STREAM_XTRACT_BEGIN(*p) ;
+    if(STREAM_IS_LITTLE_ENDIAN(*p)) LE64_STREAM_XTRACT_BEGIN(*p) ;
+  }
+}
 
 // STATIC inline void  LeStreamReset(bitstream *p, uint32_t *buffer){
 //   p->accum = 0 ;

@@ -69,16 +69,19 @@ static void print_stream_params(bitstream s, char *msg, char *expected_mode){
 uint32_t test_ez_macros(int nvalues){
   bitstream s = null_bitstream ;
   size_t nbytes = nvalues * sizeof(uint32_t) ;
-  BeStreamInit(&s, NULL, (size_t) nbytes, BIT_INSERT_ONLY) ;    // set stream in insert only mode
-  EZ_DCL_INSERT_VARS ;
-  EZ_GET_INSERT_VARS(s) ;
+//   EZ_DCL_INSERT_VARS ;
+//   EZ_DCL_XTRACT_VARS ;
+//   BeStreamInit(&s, NULL, (size_t) nbytes, BIT_INSERT_ONLY) ;    // set stream in insert only mode
+  BeStreamInit(&s, NULL, (size_t) nbytes, BIT_INSERT_XTRACT) ;    // initialize stream in insert or extract mode
+  EZ_NEW_INSERT_VARS(s) ;
   int i ;
   uint32_t nbits, mask, w32 ;
-#if 0
+  int pass = 1 ;
+
   TEE_FPRINTF(stderr,2, "=============== EZ macros test ===============") ;
 
   nbits = 4 ; mask = 0xF ;
-  print_stream_params(s, "state before insertion", "W") ;
+  print_stream_params(s, "state before insertion", "RW") ;
   for(i=0 ; i<nvalues ; i++){
     if(i == mask){
       nbits += 1 ;
@@ -86,7 +89,7 @@ uint32_t test_ez_macros(int nvalues){
       mask |= 0x1 ;
       BE64_EZ_INSERT_ALIGN ;
       EZ_SET_INSERT_VARS(s) ;
-      print_stream_params(s, " INSERT align", "W") ;
+      print_stream_params(s, " INSERT align", "RW") ;
     }else{
       BE64_EZ_PUT_NBITS(i, nbits) ;
     }
@@ -94,20 +97,22 @@ uint32_t test_ez_macros(int nvalues){
   BE64_EZ_INSERT_ALIGN ;
   BE64_EZ_INSERT_FINAL ;
   EZ_SET_INSERT_VARS(s) ;
-  print_stream_params(s, "state after insertion", "W") ;
+  print_stream_params(s, "state after insertion", "RW") ;
   size_t stream_bits = StreamStrictAvailableBits(&s) ;
   fprintf(stderr, "bits available in stream = %5ld\n\n", stream_bits) ;
 
-  BeStreamInit(&s, NULL, (size_t) 0, BIT_XTRACT_ONLY) ;    // set stream in extract only mode
-  print_stream_params(s, "state before extraction", "R") ;
+//   BeStreamInit(&s, NULL, (size_t) 0, BIT_XTRACT_ONLY) ;    // set stream in extract only mode
+  print_stream_params(s, "state before extraction", "RW") ;
   fprintf(stderr, "bits available after init          = %5ld\n", StreamStrictAvailableBits(&s)) ;
   StreamSetFilledBits(&s, stream_bits) ;
   fprintf(stderr, "bits available after SetFilledBits = %5ld\n", StreamStrictAvailableBits(&s)) ;
 
-  nbits = 4 ; mask = 0xF ;
-  EZ_DCL_XTRACT_VARS ;
-  EZ_GET_XTRACT_VARS(s) ;
+  EZ_NEW_XTRACT_VARS(s) ;
   BE64_EZ_XTRACT_BEGIN ;
+read_again:
+  fprintf(stderr, "read pass %d\n", pass) ;
+  nbits = 4 ; mask = 0xF ;
+//   EZ_GET_XTRACT_VARS(s) ;
   for(i=0 ; i<nvalues ; i++){
     if(i == mask){
       nbits +=1 ;
@@ -115,7 +120,7 @@ uint32_t test_ez_macros(int nvalues){
       mask |= 0x1 ;
       BE64_EZ_XTRACT_ALIGN ;
       EZ_SET_XTRACT_VARS(s) ;
-      print_stream_params(s, "after EXTRACT align", "R") ;
+      print_stream_params(s, "after EXTRACT align", "RW") ;
     }else{
       BE64_EZ_GET_NBITS(w32, nbits) ;
       if(i != w32){
@@ -126,8 +131,16 @@ uint32_t test_ez_macros(int nvalues){
   }
   BE64_EZ_XTRACT_ALIGN ;
   EZ_SET_XTRACT_VARS(s) ;
-  print_stream_params(s, "final state extract", "R") ;
-#endif
+  print_stream_params(s, "final state extract", "RW") ;
+
+  if(pass == 1) {
+    pass++ ;
+    StreamRewind(&s) ;
+    EZ_GET_XTRACT_VARS(s) ;
+    print_stream_params(s, "state after rewind", "RW") ;
+    goto read_again ;
+  }
+
   return 0 ;
 }
 
