@@ -108,10 +108,10 @@ uint32_t test_ez_macros(int nvalues){
   fprintf(stderr, "bits available after SetFilledBits = %5ld\n", StreamStrictAvailableBits(&s)) ;
 
   EZ_NEW_XTRACT_VARS(s) ;
-  BE64_EZ_XTRACT_BEGIN ;
 read_again:
   fprintf(stderr, "read pass %d\n", pass) ;
   nbits = 4 ; mask = 0xF ;
+  BE64_EZ_XTRACT_BEGIN ;
 //   EZ_GET_XTRACT_VARS(s) ;
   for(i=0 ; i<nvalues ; i++){
     if(i == mask){

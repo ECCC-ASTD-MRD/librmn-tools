@@ -743,23 +743,24 @@ STATIC inline void  StreamPush(bitstream *p){
   if(STREAM_IS_LITTLE_ENDIAN(*p)) LeStreamPush(p) ;
 }
 
-// rewind Little Endian stream to read it from the beginning (make sure at least 32 bits are extractable)
+// rewind a Little Endian stream to read it from the beginning
 STATIC inline void  LeStreamRewind(bitstream *p){
 //   if(p->insert > 0) LeStreamFlush(p) ;   // something left in insert accumulator ?
   if(p->insert > 0) LeStreamPush(p) ;   // something left in insert accumulator ?
-  p->acc_x = *(p->first) ;       // fill extraction accumulator from stream, extraction position at LSB
-  p->xtract = 32 ;               // 32 bits are available, do not touch insert control info
-  p->out = p->first + 1 ;        // point to next stream item
+  if(p->xtract >= 0){
+    p->out = p->first ;
+//     LE64_XTRACT_BEGIN(p->acc_x, p->xtract, p->out) ; // prime the pump
+  }
 }
 
-// rewind Big Endian stream to read it from the beginning (make sure at least 32 bits are extractable)
+// rewind a Big Endian stream to read it from the beginning
 STATIC inline void  BeStreamRewind(bitstream *p){
 //   if(p->insert > 0) BeStreamFlush(p) ;   // something left in insert accumulator ?
   if(p->insert > 0) BeStreamPush(p) ;   // something left in insert accumulator ?
-  p->acc_x = *(p->first) ;       // fill extraction accumulator from stream
-  p->acc_x <<= 32 ;              // extraction position at MSB
-  p->xtract = 32 ;               // 32 bits are available, do not touch insert control info
-  p->out = p->first + 1 ;        // point to next stream item
+  if(p->xtract >= 0){
+    p->out = p->first ;
+//     BE64_XTRACT_BEGIN(p->acc_x, p->xtract, p->out) ; // prime the pump
+  }
 }
 
 STATIC inline void StreamRewind(bitstream *p){
