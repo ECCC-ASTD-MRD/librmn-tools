@@ -67,6 +67,7 @@
 // compile time assertions
 #include <rmn/ct_assert.h>
 
+// MAKE_SIGNED_32 is defined in this file and acts as double include detection
 #if ! defined(MAKE_SIGNED_32)
 
 #if ! defined(STATIC)
@@ -102,25 +103,14 @@ typedef struct{
            valid:32 ; // signature marker
 //   uint32_t buf[] ;    // flexible array (meaningful only if full == 1)
 } bitstream ;
-CT_ASSERT(sizeof(bitstream) == 64) ;
-CT_ASSERT(sizeof(uint64_t) == 8) ;
-CT_ASSERT(sizeof(uint32_t *) == 8) ;
+CT_ASSERT(sizeof(bitstream) == 64) ;   // 8 64 bit elements
+CT_ASSERT(sizeof(uint64_t) == 8) ;     // this better be true !
+CT_ASSERT(sizeof(void *) == 8) ;       // enforce 64 bit pointers
 
+// all fields set to 0, makes for a fast initialization xxx = null_bitstream
 static bitstream null_bitstream = { .acc_i = 0, .acc_x = 0 , .insert = 0 , .xtract = 0, 
                                     .first = NULL, .in = NULL, .out = NULL, .limit = NULL,
                                     .full = 0, .part = 0, .user = 0, .endian = 0, .spare = 0, .valid = 0 } ;
-
-// bit stream state for possible save/restore operations
-typedef struct{
-  uint64_t  acc_i ;   // 64 bit unsigned bit accumulator for insertion
-  uint64_t  acc_x ;   // 64 bit unsigned bit accumulator for extraction
-  uint32_t *first ;   // pointer to start of stream data storage (used for consistency check)
-  int32_t   in ;      // insertion offset (-1 if invalid) (bitstream.in - first)
-  int32_t   out ;     // extraction offset (-1 if invalid) (bitstream.out - first)
-  int32_t   insert ;  // # of bits used in accumulator (-1 <= insert <= 64) (-1 if invalid)
-  int32_t   xtract ;  // # of bits extractable from accumulator (-1 <= xtract <= 64) (-1 if invalid)
-} bitstream_state ;
-CT_ASSERT(sizeof(bitstream_state) == 40) ;
 
 // convert the nbits rightmost bits to a 2s complement signed number
 // for this macro to produce meaningful results, w32 MUST BE int32_t (32 bit signed int)
@@ -143,7 +133,7 @@ CT_ASSERT(sizeof(bitstream_state) == 40) ;
 #define STREAM_IS_BIG_ENDIAN(s) ( (s).endian == STREAM_BE )
 #define STREAM_IS_LITTLE_ENDIAN(s) ( (s).endian == STREAM_LE )
 
-// ===============================================================================================
+// =========================== utility functions and macros ======================
 // is stream valid ?
 // s [IN] : pointer to a bit stream struct
 static int StreamIsValid(bitstream *s){
@@ -165,7 +155,80 @@ static int StreamEndianness(bitstream *stream){
   return endian ;
 }
 
+// size of stream buffer (in bits)
+#define STREAM_BUFFER_SIZE(s) ( ((s).limit - (s).first) * 8l * sizeof(uint32_t) )
+
+// address of stream buffer
+#define STREAM_BUFFER_ADDRESS(s) (s).first
+
+// bits used in accumulator (trustable if stream in insertion mode)
+#define STREAM_ACCUM_BITS_USED(s) ((s).insert)
+// bits used in stream (trustable if stream in insertion mode)
+#define STREAM_BITS_USED(s) ((s).insert + ((s).in - (s).out) * 8l * sizeof(uint32_t))
+// bits left to fill in stream (trustable if stream in insertion mode)
+#define STREAM_BITS_EMPTY(s) ( ((s).limit - (s).in) * 8l * sizeof(uint32_t) - (s).insert)
+
+// bits available in accumulator (trustable if stream in extract mode)
+#define STREAM_ACCUM_BITS_AVAIL(s) ((s).xtract)
+// bits available in stream (trustable if stream in extract mode)
+#define STREAM_BITS_AVAIL(s) ((s).xtract + ((s).in - (s).out) * 8l * sizeof(uint32_t) )
+
+// number of bits available for extraction
+STATIC inline size_t StreamAvailableBits(bitstream *p){
+//   if(p->xtract < 0) return -1 ;             // extraction not allowed
+  int32_t in_xtract = (p->xtract < 0) ? 0 : p->xtract ;
+  return (p->in - p->out)*32 + ((p->insert < 0) ? 0 :p->insert ) + in_xtract ;  // stream + accumulators contents
+}
+STATIC inline size_t StreamStrictAvailableBits(bitstream *p){
+//   if(p->xtract < 0) return -1 ;             // extraction not allowed
+  int32_t in_xtract = (p->xtract < 0) ? 0 : p->xtract ;
+  return (p->in - p->out)*32 + in_xtract ;              // stream + extract accumulator contents
+}
+
+// number of bits available for insertion
+STATIC inline size_t StreamAvailableSpace(bitstream *p){
+  if(p->insert < 0) return -1 ;   // insertion not allowd
+  return (p->limit - p->in)*32 - p->insert ;
+}
+// true if stream is in read (extract) mode
+// possibly false for a NEWLY INITIALIZED stream
+#define STREAM_XTRACT_MODE(s) ((s).xtract >= 0)
+// true if stream is in write (insert) mode
+// possibly false for a NEWLY INITIALIZED (empty) stream
+#define STREAM_INSERT_MODE(s) ((s).insert >= 0)
+
+// get stream mode as a string
+STATIC inline char *StreamMode(bitstream p){
+  if( STREAM_INSERT_MODE(p) && STREAM_XTRACT_MODE(p)) return("RW") ;
+  if( STREAM_XTRACT_MODE(p) ) return "R" ;
+  if( STREAM_INSERT_MODE(p) ) return "W" ;
+  return("Unknown") ;
+}
+// get stream mode as a code
+STATIC inline int StreamModeCode(bitstream p){
+  uint32_t mode = 0 ;
+//   if(p.insert >= 0) mode |= BIT_INSERT ;
+//   if(p.xtract >= 0) mode |= BIT_XTRACT ;
+//   if( p.insert >= 0 && p.xtract >= 0) return 0 ;       // both insert and extract operations allowed
+  if( STREAM_XTRACT_MODE(p) ) mode |= BIT_XTRACT ;
+  if( STREAM_INSERT_MODE(p) ) mode |= BIT_INSERT ;
+  return mode ? mode : -1 ;                               // return -1 if neither extract nor insert is set
+}
+//
+
 // =======================  stream state save/restore  =======================
+//
+// bit stream state for save/restore operations
+typedef struct{
+  uint64_t  acc_i ;   // 64 bit unsigned bit accumulator for insertion
+  uint64_t  acc_x ;   // 64 bit unsigned bit accumulator for extraction
+  uint32_t *first ;   // pointer to start of stream data storage (used for consistency check)
+  int32_t   in ;      // insertion offset (-1 if invalid) (bitstream.in - first)
+  int32_t   out ;     // extraction offset (-1 if invalid) (bitstream.out - first)
+  int32_t   insert ;  // # of bits used in accumulator (-1 <= insert <= 64) (-1 if invalid)
+  int32_t   xtract ;  // # of bits extractable from accumulator (-1 <= xtract <= 64) (-1 if invalid)
+} bitstream_state ;
+CT_ASSERT(sizeof(bitstream_state) == 40) ;
 //
 // save the current bit stream state in a bitstream_state structure
 // stream  [IN] : pointer to a bit stream struct
@@ -233,8 +296,8 @@ error:
   return 1 ;
 }
 
-// ===============================================================================================
-// preamble/postamble for EZ macros , transfer stream field to/from local variable
+// ========================== EZ macros preamble/postamble ===========================
+// transfer stream field to/from local variable
 // stream field xx <-> local variable RtReAm_xx
 
 // EZ variables for extraction
@@ -281,7 +344,7 @@ error:
   (s).insert = StReAm_insert ; \
   (s).in     = StReAm_in ;
 //
-// ===============================================================================================
+// ================================ insertion/extraction macros ===============================
 // macro arguments description
 // accum  [INOUT] : 64 bit accumulator (normally acc_i or acc_x)
 // insert [INOUT] : # of bits used in accumulator (0 <= insert <= 64)
@@ -459,72 +522,8 @@ error:
 // #define BE64_EZ_XTRACT_ALIGN     { uint32_t tbits = StReAm_xtract ; tbits &= 31 ; StReAm_acc_x <<= tbits ; StReAm_xtract -= tbits ; }
 // #define BE64_STREAM_XTRACT_ALIGN { uint32_t tbits = (s).xtract ; tbits &= 31 ; (s).acc_x <<= tbits ; (s).xtract -= tbits ; }
 //
-// ===============================================================================================
-// true if stream is in read (extract) mode
-// possibly false for a NEWLY INITIALIZED stream
-#define STREAM_XTRACT_MODE(s) ((s).xtract >= 0)
-// true if stream is in write (insert) mode
-// possibly false for a NEWLY INITIALIZED (empty) stream
-#define STREAM_INSERT_MODE(s) ((s).insert >= 0)
-//
-// get stream mode as a string
-STATIC inline char *StreamMode(bitstream p){
-  if( STREAM_INSERT_MODE(p) && STREAM_XTRACT_MODE(p)) return("RW") ;
-  if( STREAM_XTRACT_MODE(p) ) return "R" ;
-  if( STREAM_INSERT_MODE(p) ) return "W" ;
-  return("Unknown") ;
-}
-// get stream mode as a code
-STATIC inline int StreamModeCode(bitstream p){
-  uint32_t mode = 0 ;
-//   if(p.insert >= 0) mode |= BIT_INSERT ;
-//   if(p.xtract >= 0) mode |= BIT_XTRACT ;
-//   if( p.insert >= 0 && p.xtract >= 0) return 0 ;       // both insert and extract operations allowed
-  if( STREAM_XTRACT_MODE(p) ) mode |= BIT_XTRACT ;
-  if( STREAM_INSERT_MODE(p) ) mode |= BIT_INSERT ;
-  return mode ? mode : -1 ;                               // return -1 if neither extract nor insert is set
-}
-//
-// ===============================================================================================
-// bits used in accumulator (trustable if stream in insertion mode)
-#define STREAM_ACCUM_BITS_USED(s) ((s).insert)
-// bits used in stream (trustable if stream in insertion mode)
-#define STREAM_BITS_USED(s) ((s).insert + ((s).in - (s).out) * 8l * sizeof(uint32_t))
-// bits left to fill in stream (trustable if stream in insertion mode)
-#define STREAM_BITS_EMPTY(s) ( ((s).limit - (s).in) * 8l * sizeof(uint32_t) - (s).insert)
-
-// bits available in accumulator (trustable if stream in extract mode)
-#define STREAM_ACCUM_BITS_AVAIL(s) ((s).xtract)
-// bits available in stream (trustable if stream in extract mode)
-#define STREAM_BITS_AVAIL(s) ((s).xtract + ((s).in - (s).out) * 8l * sizeof(uint32_t) )
-
-// number of bits available for extraction
-STATIC inline size_t StreamAvailableBits(bitstream *p){
-//   if(p->xtract < 0) return -1 ;             // extraction not allowed
-  int32_t in_xtract = (p->xtract < 0) ? 0 : p->xtract ;
-  return (p->in - p->out)*32 + ((p->insert < 0) ? 0 :p->insert ) + in_xtract ;  // stream + accumulators contents
-}
-STATIC inline size_t StreamStrictAvailableBits(bitstream *p){
-//   if(p->xtract < 0) return -1 ;             // extraction not allowed
-  int32_t in_xtract = (p->xtract < 0) ? 0 : p->xtract ;
-  return (p->in - p->out)*32 + in_xtract ;              // stream + extract accumulator contents
-}
-
-// number of bits available for insertion
-STATIC inline size_t StreamAvailableSpace(bitstream *p){
-  if(p->insert < 0) return -1 ;   // insertion not allowd
-  return (p->limit - p->in)*32 - p->insert ;
-}
-
-// ===============================================================================================
-// size of stream buffer (in bits)
-#define STREAM_BUFFER_SIZE(s) ( ((s).limit - (s).first) * 8l * sizeof(uint32_t) )
-
-// address of stream buffer
-#define STREAM_BUFFER_ADDRESS(s) (s).first
-
 #if 0
-// these macros have been transferred to bi_endian_pack.c
+// these macros have been moved to bi_endian_pack.c
 // ===============================================================================================
 // declare state variables (unsigned)
 #define STREAM_DCL_STATE_VARS(acc, ind, ptr) uint64_t acc ; int32_t ind  ; uint32_t *ptr
@@ -612,19 +611,21 @@ fprintf(stderr, "StreamCreate : size = %ld, mode = %d\n", size*8, mode) ;
   buf = (char *) p ;
   buf += sizeof(bitstream) ;
   StreamInit(p, buf, size, mode | BIT_FULL_INIT) ;                 // fully initialize bit stream structure
-  p->full = 1 ;                                                    // mark whole struct allocated
+  p->full = 1 ;                                                    // mark whole struct as allocated
   return p ;
 }
 
 // fully allocate and initialize a LittleEndian stream
 static bitstream *LeStreamCreate(size_t size, int mode){
   bitstream *p = StreamCreate(size, mode) ;
+  p->endian = STREAM_LE ;
   return p ;
 }
 
 // fully allocate and initialize a BigEndian stream
 static bitstream *BeStreamCreate(size_t size, int mode){
   bitstream *p = StreamCreate(size, mode) ;
+  p->endian = STREAM_BE ;
   return p ;
 }
 
