@@ -646,8 +646,9 @@ constant:
 // if not enough room in stream, return a negative error reflecting the number of extra bits needed
 // TODO: npti, nptj or npij ?
 int32_t encode_contiguous(uint64_t tp64, bitstream *s, uint32_t tile[64]){
-  STREAM_DCL_STATE_VARS(accum, insert, stream) ;
-  STREAM_GET_INSERT_STATE(*s, accum, insert, stream) ;
+//   STREAM_DCL_STATE_VARS(accum, insert, stream) ;
+//   STREAM_GET_INSERT_STATE(*s, accum, insert, stream) ;
+  EZ_NEW_INSERT_VARS(*s) ;
   uint32_t avail ;
   tile_properties p ;
   int nij, nbits, nbits0, nbitsi, nbtot, i ;
@@ -688,11 +689,13 @@ int32_t encode_contiguous(uint64_t tp64, bitstream *s, uint32_t tile[64]){
 // fprintf(stderr, ", nbits_full = %4d, nbits_zero = %4d, nbits_short = %4d, mask0 = %8.8x\n", nbits_full, nbits_zero, nbits_short, mask0) ;
   w32 = p.u16[3] ;               // tile header
 fprintf(stderr, "DEBUG: (encode_contiguous) encd = %d, nbits0 = %d, header = %8.8x\n", p.t.h.encd, nbits0, w32) ;
-  BE64_PUT_NBITS(accum, insert, w32, 16, stream) ;       // insert header into packed stream
+//   BE64_PUT_NBITS(accum, insert, w32, 16, stream) ;       // insert header into packed stream
+  BE64_EZ_PUT_NBITS(w32, 16) ;
   nbtot = 16 ;
   if(p.t.h.encd == 1){
     w32 = nbits0 ;
-    BE64_PUT_NBITS(accum, insert, w32,  5, stream) ;     // insert size of short tokens for encoding mode 1
+//     BE64_PUT_NBITS(accum, insert, w32,  5, stream) ;     // insert size of short tokens for encoding mode 1
+    BE64_EZ_PUT_NBITS(w32, 5) ;
     nbtot += 5 ;
   }
   if(p.t.h.encd == 3) goto constant ;
@@ -700,8 +703,10 @@ fprintf(stderr, "DEBUG: (encode_contiguous) encd = %d, nbits0 = %d, header = %8.
   // will have to insert both number of bits and value
   if(p.t.h.min0){                                        // store nbitsm -1 into bit stream
     nbitsm = 32 - lzcnt_32(min) ;
-    BE64_PUT_NBITS(accum, insert, nbitsm-1, 5, stream) ; // insert number of bits -1 for min value (5 bits)
-    BE64_PUT_NBITS(accum, insert, min, nbitsm, stream) ; // insert minimum value (nbitsm bits)
+//     BE64_PUT_NBITS(accum, insert, nbitsm-1, 5, stream) ; // insert number of bits -1 for min value (5 bits)
+    BE64_EZ_PUT_NBITS(nbitsm-1, 5) ;
+//     BE64_PUT_NBITS(accum, insert, min, nbitsm, stream) ; // insert minimum value (nbitsm bits)
+    BE64_EZ_PUT_NBITS(min, nbitsm) ;
     nbtot += (nbitsm+5) ;
   }
   // 3 mutually exclusive alternatives (case 3 handled before)
@@ -710,7 +715,8 @@ fprintf(stderr, "DEBUG: (encode_contiguous) encd = %d, nbits0 = %d, header = %8.
   case 0 :                                                      // no special encoding
     for(i=0 ; i<nij ; i++){
       w32 = tile[i] - min ;
-      BE64_PUT_NBITS(accum, insert, w32, nbits, stream) ;   // insert nbits bits into stream
+//       BE64_PUT_NBITS(accum, insert, w32, nbits, stream) ;   // insert nbits bits into stream
+      BE64_EZ_PUT_NBITS(w32, nbits) ;
       nbtot += nbits ;
     }
     break ;
@@ -724,7 +730,8 @@ fprintf(stderr, "DEBUG: (encode_contiguous) encd = %d, nbits0 = %d, header = %8.
         w32 |= mask1 ;                                          // add 1 bit to identify "full" value
       }
       nbtot += nbitsi ;
-      BE64_PUT_NBITS(accum, insert, w32,  nbitsi, stream) ;     // insert nbitsi bits into stream
+//       BE64_PUT_NBITS(accum, insert, w32,  nbitsi, stream) ;     // insert nbitsi bits into stream
+      BE64_EZ_PUT_NBITS(w32, nbitsi) ;
     }
     break ;
   case 2 :                                                      // 0 , 1//full encoding
@@ -737,14 +744,17 @@ fprintf(stderr, "DEBUG: (encode_contiguous) encd = %d, nbits0 = %d, header = %8.
         w32 |= mask1 ;                                          // add 1 bit to identify "full" value
       }
       nbtot += nbitsi ;
-      BE64_PUT_NBITS(accum, insert, w32,  nbitsi, stream) ;     // insert nbitsi bits into stream
+//       BE64_PUT_NBITS(accum, insert, w32,  nbitsi, stream) ;     // insert nbitsi bits into stream
+      BE64_EZ_PUT_NBITS(w32, nbitsi) ;
     }
     break ;
   }
 
 end:
-  BE64_PUSH(accum, insert, stream) ;
-  STREAM_SET_INSERT_STATE(*s, accum, insert, stream) ;
+//   BE64_PUSH(accum, insert, stream) ;
+  BE64_EZ_PUSH ;
+//   STREAM_SET_INSERT_STATE(*s, accum, insert, stream) ;
+  EZ_SET_INSERT_VARS(*s) ;
   return nbtot ;
 
 error:
@@ -752,7 +762,8 @@ error:
 
 constant:
   if(min != 0) {
-    BE64_PUT_NBITS(accum, insert, min,  nbits, stream) ;     // insert nbits bits into stream
+//     BE64_PUT_NBITS(accum, insert, min,  nbits, stream) ;     // insert nbits bits into stream
+    BE64_EZ_PUT_NBITS(min, nbits) ;
     nbtot += nbits ;
   }
   goto end ;
@@ -832,11 +843,16 @@ int32_t decode_tile(void *f, int *ni, int lni, int *nj, bitstream *s){
   int32_t iw32 ;
   int i, i0, j, nbits, nij, nbits0, nbtot, nbitsi, nbitsm ;
   uint32_t min ;
-  STREAM_DCL_STATE_VARS(accum, xtract, stream) ;
-  STREAM_GET_XTRACT_STATE(*s, accum, xtract, stream) ;
 
-  if( (f == NULL) || (stream == NULL) ) goto error ;
-  BE64_GET_NBITS(accum, xtract, w32, 16, stream) ;
+  if((f == NULL) || (s == NULL)) goto error ;
+  if( ! StreamIsValid(s) ) goto error ;
+//   STREAM_DCL_STATE_VARS(accum, xtract, stream) ;
+//   STREAM_GET_XTRACT_STATE(*s, accum, xtract, stream) ;
+  EZ_NEW_XTRACT_VARS(*s) ;
+
+//   if( (f == NULL) || (stream == NULL) ) goto error ;
+//   BE64_GET_NBITS(accum, xtract, w32, 16, stream) ;
+  BE64_EZ_GET_NBITS(w32, 16)
   nbtot = 16 ;
   th.s = w32 ;
   *ni = th.h.npti+1 ;              // first dimension of tile
@@ -847,7 +863,8 @@ int32_t decode_tile(void *f, int *ni, int lni, int *nj, bitstream *s){
   nbits0 = 0 ;
 fprintf(stderr, "DEBUG: (decode_tile) header = %8.8x, nbits = %2d\n", w32, nbits) ;
   if(th.h.encd == 1) { // GET 5 bits giving the length of the short tokens if 0//short 1//nbits encoding
-    BE64_GET_NBITS(accum, xtract, nbits0, 5, stream) ;
+//     BE64_GET_NBITS(accum, xtract, nbits0, 5, stream) ;
+    BE64_EZ_GET_NBITS(nbits0, 5)
 fprintf(stderr, "DEBUG: (decode_tile) short token length = %2d\n", nbits0) ;
     nbtot += 5 ;
   }
@@ -856,9 +873,11 @@ fprintf(stderr, "DEBUG: (decode_tile) short token length = %2d\n", nbits0) ;
   min = 0 ;
   // will have to get both number of bits and value (get nbits -1 from bit stream)
   if(th.h.min0){                   // get min value if there is one
-    BE64_GET_NBITS(accum, xtract, nbitsm, 5, stream) ;      // number of bits for min value
+//     BE64_GET_NBITS(accum, xtract, nbitsm, 5, stream) ;      // number of bits for min value
+    BE64_EZ_GET_NBITS(nbitsm, 5)
     nbitsm++ ;                                              // restore nbitsm
-    BE64_GET_NBITS(accum, xtract, min, nbitsm, stream) ;    // min value
+//     BE64_GET_NBITS(accum, xtract, min, nbitsm, stream) ;    // min value
+    BE64_EZ_GET_NBITS(min, nbitsm)
     nbtot += (nbitsm+5) ;
   }else{
     nbitsm = 0 ;
@@ -868,12 +887,15 @@ fprintf(stderr, "DEBUG: (decode_tile) short token length = %2d\n", nbits0) ;
   {
   case 1 :                                                 // 0//short , 1//full encoding
     for(i=0 ; i<nij ; i++){
-      BE64_GET_NBITS(accum, xtract, w32, 1, stream) ;        // get 1 bit
+//       BE64_GET_NBITS(accum, xtract, w32, 1, stream) ;        // get 1 bit
+      BE64_EZ_GET_NBITS(w32, 1)
       if(w32 != 0){
-        BE64_GET_NBITS(accum, xtract, w32, nbits, stream) ;  // get nbits bits
+//         BE64_GET_NBITS(accum, xtract, w32, nbits, stream) ;  // get nbits bits
+        BE64_EZ_GET_NBITS(w32, nbits)
         nbitsi = nbits + 1 ;
       }else{
-        BE64_GET_NBITS(accum, xtract, w32, nbits0, stream) ; // get nbits0 bits
+//         BE64_GET_NBITS(accum, xtract, w32, nbits0, stream) ; // get nbits0 bits
+        BE64_EZ_GET_NBITS(w32, nbits0)
         nbitsi = nbits0 + 1 ;
       }
       nbtot += nbitsi ;
@@ -882,9 +904,11 @@ fprintf(stderr, "DEBUG: (decode_tile) short token length = %2d\n", nbits0) ;
     break ;
   case 2 :                                                 // 0 , 1//full encoding
     for(i=0 ; i<nij ; i++){
-      BE64_GET_NBITS(accum, xtract, w32, 1, stream) ;        // get 1 bit
+//       BE64_GET_NBITS(accum, xtract, w32, 1, stream) ;        // get 1 bit
+      BE64_EZ_GET_NBITS(w32, 1)
       if(w32 != 0){
-        BE64_GET_NBITS(accum, xtract, w32, nbits, stream) ;  // get nbits bits
+//         BE64_GET_NBITS(accum, xtract, w32, nbits, stream) ;  // get nbits bits
+        BE64_EZ_GET_NBITS(w32, nbits)
         nbitsi = nbits + 1 ;
       }else{
         nbitsi = 1 ;
@@ -895,7 +919,8 @@ fprintf(stderr, "DEBUG: (decode_tile) short token length = %2d\n", nbits0) ;
     break ;
   case 0 :                                                 // no encoding
     for(i=0 ; i<nij ; i++){
-      BE64_GET_NBITS(accum, xtract, w32, nbits, stream) ;
+//       BE64_GET_NBITS(accum, xtract, w32, nbits, stream) ;
+      BE64_EZ_GET_NBITS(w32, nbits)
       fe[i] = w32 + min ;
       nbtot += nbits ;
     }
@@ -938,7 +963,8 @@ fprintf(stderr, " TILE     : bits = %4d, ni = %2d, nj = %2d, nbits = %2d, encodi
         nbtot, *ni, *nj, nbits, th.h.encd, th.h.sign, th.h.min0, min, nbitsm) ;
 
 end:
-  STREAM_SET_XTRACT_STATE(*s, accum, xtract, stream) ;
+//   STREAM_SET_XTRACT_STATE(*s, accum, xtract, stream) ;
+  EZ_SET_XTRACT_VARS(*s) ;
   return nbtot ;
 
 error:
@@ -948,7 +974,8 @@ fprintf(stderr, "ERROR: (decode_tile)\n");
 constant:
   iw32 = 0 ;
   if(th.h.sign == 3){
-    BE64_GET_NBITS(accum, xtract, w32, nbits, stream) ;          // extract nbits bits
+//     BE64_GET_NBITS(accum, xtract, w32, nbits, stream) ;          // extract nbits bits
+    BE64_EZ_GET_NBITS(w32, nbits)
     nbtot += nbits ;
     iw32 = from_zigzag_32(w32) ;
   }

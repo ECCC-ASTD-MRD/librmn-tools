@@ -165,7 +165,9 @@ static int StreamEndianness(bitstream *stream){
   return endian ;
 }
 
-// save bit stream state
+// =======================  stream state save/restore  =======================
+//
+// save the current bit stream state in a bitstream_state structure
 // stream  [IN] : pointer to a bit stream struct
 // state  [OUT] : pointer to a bit stream state struct
 static int StreamSaveState(bitstream *stream, bitstream_state *state){
@@ -178,15 +180,21 @@ static int StreamSaveState(bitstream *stream, bitstream_state *state){
   state->insert = stream->insert ;
   state->xtract = stream->xtract ;
   return 0 ;
+
 error:
+  state->in     = -1 ;     // make sure returned state is invalid
+  state->out    = -1 ;
+  state->insert = -1 ;
+  state->xtract = -1 ;
+  state->first  = NULL ;
 fprintf(stderr, "error in save state\n");
   return 1 ;
 }
 
-// restore bit stream state
+// restore a bit stream state from the state saved with StreamSaveState
 // stream [OUT] : pointer to a bit stream struct
 // state   [IN] : pointer to a bit stream state struct
-// mode    [IN} : 0, BIT_XTRACT_ONLY, BIT_INSERT_ONLY (which mode state(s) to restore)
+// mode    [IN} : 0, BIT_XTRACT, BIT_INSERT (which mode state(s) to restore)
 //                0 restore BOTH insert and extract states
 static int StreamRestoreState(bitstream *stream, bitstream_state *state, int mode){
 // char *msg ;
@@ -225,61 +233,49 @@ error:
   return 1 ;
 }
 
-// copy contents of stream buffer to array mem from beginning up to in pointer
-// stream [IN] : pointer to bit stream struct
-// mem   [OUT] : where to copy
-// size   [IN] : size of mem array in bytes
-// return original size of valid info from stream in bits (-1 in case of error)
-static int64_t StreamCopy(bitstream *stream, void *mem, size_t size){
-  size_t nbtot, nborig ;
-
-  if(! StreamIsValid(stream)) return -1 ;                       // invalid stream
-  if(stream->in - stream->first == 0) return 0 ;                // empty stream
-  nbtot = (stream->in - stream->first) * 8 * sizeof(uint32_t) ; // size in bits
-  if(stream->insert > 0) nbtot += stream->insert ;              // add contents of accumulator
-  nborig = nbtot ;
-  nbtot = ((nbtot + 31) / 32) * 32 ;                            // round to multiple of 32 bits
-  nbtot /= 8 ;                                                  // convert to bytes
-  if(nbtot > size) return -1 ;                                  // insufficient space
-  if(mem != memmove(mem, stream->first, nbtot)) return -1 ;     // error copying
-  return nborig ;
-}
-
 // ===============================================================================================
 // preamble/postamble for EZ macros , transfer stream field to/from local variable
 // stream field xx <-> local variable RtReAm_xx
 
 // EZ variables for extraction
+// simple declaration of extraction variables
 #define EZ_DCL_XTRACT_VARS \
   uint64_t StReAm_acc_x ; \
   int32_t  StReAm_xtract ; \
   uint32_t *StReAm_out ;
+// declare extraction variables and set them to value from stream
 #define EZ_NEW_XTRACT_VARS(s) \
   uint64_t StReAm_acc_x  = (s).acc_x ; \
   int32_t  StReAm_xtract = (s).xtract ; \
   uint32_t *StReAm_out   = (s).out ;
+// get extraction variable values from stream
 #define EZ_GET_XTRACT_VARS(s) \
   StReAm_acc_x  = (s).acc_x ; \
   StReAm_xtract = (s).xtract ; \
   StReAm_out    = (s).out ;
+// update stream with current extraction variable values
 #define EZ_SET_XTRACT_VARS(s) \
   (s).acc_x  = StReAm_acc_x ; \
   (s).xtract = StReAm_xtract ; \
   (s).out    = StReAm_out ;
 
 // EZ variables for insertion
+// simple declaration of insertion variables
 #define EZ_DCL_INSERT_VARS \
   uint64_t StReAm_acc_i ; \
   int32_t  StReAm_insert ; \
   uint32_t *StReAm_in ;
+// declare insertion variables and set them to value from stream
 #define EZ_NEW_INSERT_VARS(s)\
   uint64_t StReAm_acc_i  = (s).acc_i ; \
   int32_t  StReAm_insert = (s).insert ; \
   uint32_t *StReAm_in    = (s).in ;
+// get insertion variable values from stream
 #define EZ_GET_INSERT_VARS(s)\
   StReAm_acc_i  = (s).acc_i ; \
   StReAm_insert = (s).insert ; \
   StReAm_in     = (s).in ;
+// update stream with current insertion variable values
 #define EZ_SET_INSERT_VARS(s) \
   (s).acc_i  = StReAm_acc_i ; \
   (s).insert = StReAm_insert ; \
@@ -297,6 +293,9 @@ static int64_t StreamCopy(bitstream *stream, void *mem, size_t size){
 //
 // N.B. : if w32 and accum are "signed" variables, extraction will produce a "signed" result
 //        if w32 and accum are "unsigned" variables, extraction will produce an "unsigned" result
+// the EZ and STREAM macros use implicit accum/xtract/xtract/stream arguments
+// EZ macros     : StReAm_acc_i/StReAm_acc_x, StReAm_insert/StReAm_xtract, StReAm_in/StReAm_out variables
+// STREAM macros : acc_i/acc_x, insert/xtract, in/out fields from bitstream struct
 // ===============================================================================================
 // little endian (LE) style (right to left) bit stream packing
 // insertion at top (most significant part) of accum
@@ -304,36 +303,40 @@ static int64_t StreamCopy(bitstream *stream, void *mem, size_t size){
 // ===============================================================================================
 // initialize stream for insertion
 #define LE64_INSERT_BEGIN(accum, insert) { accum = 0 ; insert = 0 ; }
-#define LE64_EZ_INSERT_BEGIN { LE64_INSERT_BEGIN(StReAm_acc_i, StReAm_insert) }
-#define LE64_STREAM_INSERT_BEGIN(s) { LE64_INSERT_BEGIN((s).acc_i, (s).insert) }
+#define LE64_EZ_INSERT_BEGIN        { LE64_INSERT_BEGIN(StReAm_acc_i, StReAm_insert) }
+#define LE64_STREAM_INSERT_BEGIN(s) { LE64_INSERT_BEGIN((s).acc_i,    (s).insert) }
 // insert the lower nbits bits from w32 into accum, update insert, accum
 #define LE64_INSERT_NBITS(accum, insert, w32, nbits) \
         { uint32_t mask = ~0 ; mask >>= (32-(nbits)) ; uint64_t w64 = (w32) & mask ; accum |= (w64 << insert) ; insert += (nbits) ; }
-#define LE64_EZ_INSERT_NBITS(w32, nbits) LE64_INSERT_NBITS(StReAm_acc_i, StReAm_insert, w32, nbits)
-#define LE64_STREAM_INSERT_NBITS(s, w32, nbits) LE64_INSERT_NBITS((s).acc_i, (s).insert, w32, nbits)
+#define LE64_EZ_INSERT_NBITS(w32, nbits)        LE64_INSERT_NBITS(StReAm_acc_i, StReAm_insert, w32, nbits)
+#define LE64_STREAM_INSERT_NBITS(s, w32, nbits) LE64_INSERT_NBITS((s).acc_i,    (s).insert,    w32, nbits)
 // check that 32 bits can be safely inserted into accum
 // if not possible, store lower 32 bits of accum into stream, update accum, insert, stream
 #define LE64_INSERT_CHECK(accum, insert, stream) \
         { if(insert > 32) { *stream = accum ; stream++ ; insert -= 32 ; accum >>= 32 ; } ; }
-#define LE64_EZ_INSERT_CHECK LE64_INSERT_CHECK(StReAm_acc_i, StReAm_insert, StReAm_in)
-#define LE64_STREAM_INSERT_CHECK(s) LE64_INSERT_CHECK((s).acc_i, (s).insert, (s).in)
+#define LE64_EZ_INSERT_CHECK        LE64_INSERT_CHECK(StReAm_acc_i, StReAm_insert, StReAm_in)
+#define LE64_STREAM_INSERT_CHECK(s) LE64_INSERT_CHECK((s).acc_i,    (s).insert,    (s).in)
 // push data to stream without fully updating control info (stream, insert)
 #define LE64_PUSH(accum, insert, stream) \
         { LE64_INSERT_CHECK(accum, insert, stream) ; { if(insert > 0) { *stream = accum ; } ; } }
+#define LE64_EZ_PUSH     LE64_PUSH(StReAm_acc_i, StReAm_insert, StReAm_in)
+#define LE64_STREAM_PUSH LE64_PUSH((s).acc_i,    (s).insert,    (s).in)
 // store any residual data from accum into stream, update accum, insert, stream
 #define LE64_INSERT_FINAL(accum, insert, stream) \
         { LE64_INSERT_CHECK(accum, insert, stream) ; { if(insert > 0) { *stream = accum ; stream++ ; insert = 0 ; } ; } }
-#define LE64_EZ_INSERT_FINAL LE64_INSERT_FINAL(StReAm_acc_i, StReAm_insert, StReAm_in)
-#define LE64_STREAM_INSERT_FINAL(s) LE64_INSERT_FINAL((s).acc_i, (s).insert, (s).in)
+#define LE64_EZ_INSERT_FINAL        LE64_INSERT_FINAL(StReAm_acc_i, StReAm_insert, StReAm_in)
+#define LE64_STREAM_INSERT_FINAL(s) LE64_INSERT_FINAL((s).acc_i,    (s).insert,    (s).in)
 // combined INSERT_CHECK and INSERT_NBITS, update accum, insert, stream
 #define LE64_PUT_NBITS(accum, insert, w32, nbits, stream) \
         { LE64_INSERT_CHECK(accum, insert, stream) ; LE64_INSERT_NBITS(accum, insert, w32, nbits) ; }
-#define LE64_EZ_PUT_NBITS(w32, nbits) LE64_PUT_NBITS(StReAm_acc_i, StReAm_insert, w32, nbits, StReAm_in)
-#define LE64_STREAM_PUT_NBITS(s, w32, nbits) LE64_PUT_NBITS((s).acc_i, (s).insert, w32, nbits, (s).in)
+#define LE64_EZ_PUT_NBITS(w32, nbits)        LE64_PUT_NBITS(StReAm_acc_i, StReAm_insert, w32, nbits, StReAm_in)
+#define LE64_STREAM_PUT_NBITS(s, w32, nbits) LE64_PUT_NBITS((s).acc_i,    (s).insert,    w32, nbits, (s).in)
 // align insertion point to a 32 bit boundary
 #define LE64_INSERT_ALIGN(insert) { uint32_t tbits = 64 - insert ;  tbits &= 31 ; insert += tbits ; }
-#define LE64_EZ_INSERT_ALIGN { uint32_t tbits = 64 - StReAm_insert ; tbits &= 31 ; StReAm_insert += tbits ; }
-#define LE64_STREAM_INSERT_ALIGN(s) { uint32_t tbits = 64 - StReAm_insert ; tbits &= 31 ; (s).insert += tbits ; }
+#define LE64_EZ_INSERT_ALIGN        LE64_INSERT_ALIGN(StReAm_insert)
+#define LE64_STREAM_INSERT_ALIGN(s) LE64_INSERT_ALIGN((s).insert)
+// #define LE64_EZ_INSERT_ALIGN        { uint32_t tbits = 64 - StReAm_insert ; tbits &= 31 ; StReAm_insert += tbits ; }
+// #define LE64_STREAM_INSERT_ALIGN(s) { uint32_t tbits = 64 - StReAm_insert ; tbits &= 31 ; (s).insert += tbits ; }
 //
 // N.B. : if w32 and accum are signed variables, the extract will produce a "signed" result
 //        if w32 and accum are unsigned variables, the extract will produce an "unsigned" result
@@ -343,108 +346,118 @@ static int64_t StreamCopy(bitstream *stream, void *mem, size_t size){
 #define LE64_STREAM_XTRACT_BEGIN(s) { LE64_XTRACT_BEGIN((s).acc_x, (s).xtract, (s).out) ; }
 // take a peek at nbits bits from accum into w32
 #define LE64_PEEK_NBITS(accum, xtract, w32, nbits) { w32 = (accum << (64-nbits)) >> (64-nbits) ; }
-#define LE64_EZ_PEEK_NBITS(w32, nbits) LE64_PEEK_NBITS(StReAm_acc_x, StReAm_xtract, w32, nbits)
-#define LE64_STREAM_PEEK_NBITS(s, w32, nbits) LE64_PEEK_NBITS((s).acc_x, (s).xtract, w32, nbits)
-#define LE64_STREAM_PEEK_NBITS_S(s, w32, nbits) LE64_PEEK_NBITS((int64_t) (s).acc_x, (s).xtract, w32, nbits)
+#define LE64_EZ_PEEK_NBITS(w32, nbits)          LE64_PEEK_NBITS(StReAm_acc_x, StReAm_xtract, w32, nbits)
+#define LE64_STREAM_PEEK_NBITS(s, w32, nbits)   LE64_PEEK_NBITS((s).acc_x,    (s).xtract,    w32, nbits)
+#define LE64_EZ_PEEK_NBITS_S(w32, nbits)        LE64_PEEK_NBITS((int64_t) StReAm_acc_x, StReAm_xtract, w32, nbits)
+#define LE64_STREAM_PEEK_NBITS_S(s, w32, nbits) LE64_PEEK_NBITS((int64_t) (s).acc_x,    (s).xtract,    w32, nbits)
 // extract nbits bits into w32 from accum, update xtract, accum
 #define LE64_XTRACT_NBITS(accum, xtract, w32, nbits) \
         { w32 = (accum << (64-nbits)) >> (64-nbits) ; accum >>= nbits ; xtract -= (nbits) ;}
-#define LE64_EZ_XTRACT_NBITS(w32, nbits) LE64_XTRACT_NBITS(StReAm_acc_x, StReAm_xtract, w32, nbits)
-#define LE64_STREAM_XTRACT_NBITS(s, w32, nbits) LE64_XTRACT_NBITS((s).acc_x, (s).xtract, w32, nbits)
+#define LE64_EZ_XTRACT_NBITS(w32, nbits)        LE64_XTRACT_NBITS(StReAm_acc_x, StReAm_xtract, w32, nbits)
+#define LE64_STREAM_XTRACT_NBITS(s, w32, nbits) LE64_XTRACT_NBITS((s).acc_x,    (s).xtract,    w32, nbits)
 // check that 32 bits can be safely extracted from accum
 // if not possible, get extra 32 bits into accum from stresm, update accum, xtract, stream
 #define LE64_XTRACT_CHECK(accum, xtract, stream) \
         { if(xtract < 32) { uint64_t w64 = *(stream) ; accum |= (w64 << xtract) ; (stream)++ ; xtract += 32 ; } ; }
-#define LE64_EZ_XTRACT_CHECK LE64_XTRACT_CHECK(StReAm_acc_x, StReAm_xtract, StReAm_out)
-#define LE64_STREAM_XTRACT_CHECK(s) LE64_XTRACT_CHECK((s).acc_x, (s).xtract, (s).out)
+#define LE64_EZ_XTRACT_CHECK        LE64_XTRACT_CHECK(StReAm_acc_x, StReAm_xtract, StReAm_out)
+#define LE64_STREAM_XTRACT_CHECK(s) LE64_XTRACT_CHECK((s).acc_x,    (s).xtract,    (s).out)
 // finalize extraction, update accum, xtract
 #define LE64_XTRACT_FINAL(accum, xtract) \
         { accum = 0 ; xtract = 0 ; }
-#define LE64_EZ_XTRACT_FINAL LE64_XTRACT_FINAL(StReAm_acc_x, StReAm_xtract)
-#define LE64_STREAM_XTRACT_FINAL(s) LE64_XTRACT_FINAL((s).acc_x, (s).xtract)
+#define LE64_EZ_XTRACT_FINAL        LE64_XTRACT_FINAL(StReAm_acc_x, StReAm_xtract)
+#define LE64_STREAM_XTRACT_FINAL(s) LE64_XTRACT_FINAL((s).acc_x,    (s).xtract)
 // combined XTRACT_CHECK and XTRACT_NBITS, update accum, xtract, stream
 #define LE64_GET_NBITS(accum, xtract, w32, nbits, stream) \
         { LE64_XTRACT_CHECK(accum, xtract, stream) ; LE64_XTRACT_NBITS(accum, xtract, w32, nbits) ; }
-#define LE64_EZ_GET_NBITS(w32, nbits) LE64_GET_NBITS(StReAm_acc_x, StReAm_xtract, w32, nbits, StReAm_out)
-#define LE64_STREAM_GET_NBITS(s, w32, nbits) LE64_GET_NBITS((s).acc_x, (s).xtract, w32, nbits, (s).out)
+#define LE64_EZ_GET_NBITS(w32, nbits)        LE64_GET_NBITS(StReAm_acc_x, StReAm_xtract, w32, nbits, StReAm_out)
+#define LE64_STREAM_GET_NBITS(s, w32, nbits) LE64_GET_NBITS((s).acc_x,    (s).xtract,    w32, nbits, (s).out)
 // align extraction point to a 32 bit boundary
 #define LE64_XTRACT_ALIGN(accum, xtract) { uint32_t tbits = xtract ; tbits &= 31 ; accum >>= tbits ; xtract -= tbits ; }
-#define LE64_EZ_XTRACT_ALIGN { uint32_t tbits = StReAm_xtract ; tbits &= 31 ; StReAm_acc_x >>= tbits ; StReAm_xtract -= tbits ; }
-#define LE64_STREAM_XTRACT_ALIGN { uint32_t tbits = (s).xtract ; tbits &= 31 ; (s).acc_x >>= tbits ; (s).xtract -= tbits ; }
+#define LE64_EZ_XTRACT_ALIGN     LE64_XTRACT_ALIGN(StReAm_acc_x, StReAm_xtract)
+#define LE64_STREAM_XTRACT_ALIGN LE64_XTRACT_ALIGN((s).acc_x,    (s).xtract)
+// #define LE64_EZ_XTRACT_ALIGN { uint32_t tbits = StReAm_xtract ; tbits &= 31 ; StReAm_acc_x >>= tbits ; StReAm_xtract -= tbits ; }
+// #define LE64_STREAM_XTRACT_ALIGN { uint32_t tbits = (s).xtract ; tbits &= 31 ; (s).acc_x >>= tbits ; (s).xtract -= tbits ; }
 //
 // ===============================================================================================
 // big endian (BE) style (left to right) bit stream packing
-// insertion at bottom (least significant part) of accum
-// extraction from the top (most significant part) of accum
+// insertion at bottom (least significant part) of accumulator after accumulator shifted left
+// extraction from the top (most significant part) of accumulator then shift accumulator left
 // ===============================================================================================
 // initialize stream for insertion
 #define BE64_INSERT_BEGIN(accum, insert) { accum = 0 ; insert = 0 ; }
-#define BE64_EZ_INSERT_BEGIN { BE64_INSERT_BEGIN(StReAm_acc_i, StReAm_insert) ; }
-#define BE64_STREAM_INSERT_BEGIN(s) { BE64_INSERT_BEGIN((s).acc_i, (s).insert) ; }
+#define BE64_EZ_INSERT_BEGIN        { BE64_INSERT_BEGIN(StReAm_acc_i, StReAm_insert) ; }
+#define BE64_STREAM_INSERT_BEGIN(s) { BE64_INSERT_BEGIN((s).acc_i,    (s).insert) ; }
 // insert the lower nbits bits from w32 into accum, update insert, accum
 #define BE64_INSERT_NBITS(accum, insert, w32, nbits) \
         {  uint32_t mask = ~0 ; mask >>= (32-(nbits)) ; accum <<= (nbits) ; insert += (nbits) ; accum |= ((w32) & mask) ; }
-#define BE64_EZ_INSERT_NBITS(w32, nbits) BE64_INSERT_NBITS(StReAm_acc_i, StReAm_insert, w32, nbits)
-#define BE64_STREAM_INSERT_NBITS(s, w32, nbits) BE64_INSERT_NBITS((s).acc_i, (s).insert, w32, nbits)
+#define BE64_EZ_INSERT_NBITS(w32, nbits)        BE64_INSERT_NBITS(StReAm_acc_i, StReAm_insert, w32, nbits)
+#define BE64_STREAM_INSERT_NBITS(s, w32, nbits) BE64_INSERT_NBITS((s).acc_i,    (s).insert,    w32, nbits)
 // check that 32 bits can be safely inserted into accum
 // if not possible, store lower 32 bits of accum into stream, update accum, insert, stream
 #define BE64_INSERT_CHECK(accum, insert, stream) \
         { if(insert > 32) { insert -= 32 ; *(stream) = accum >> insert ; (stream)++ ; } ; }
-#define BE64_EZ_INSERT_CHECK BE64_INSERT_CHECK(StReAm_acc_i, StReAm_insert, StReAm_in)
-#define BE64_STREAM_INSERT_CHECK(s) BE64_INSERT_CHECK((s).acc_i, (s).insert, (s).in)
+#define BE64_EZ_INSERT_CHECK        BE64_INSERT_CHECK(StReAm_acc_i, StReAm_insert, StReAm_in)
+#define BE64_STREAM_INSERT_CHECK(s) BE64_INSERT_CHECK((s).acc_i,    (s).insert,    (s).in)
 // push data to stream without fully updating control info (stream, insert)
 #define BE64_PUSH(accum, insert, stream) \
         { BE64_INSERT_CHECK(accum, insert, stream) ; if(insert > 0) { *stream = accum << (32 - insert) ; } }
+#define BE64_EZ_PUSH        BE64_PUSH(StReAm_acc_i, StReAm_insert, StReAm_in)
+#define BE64_STREAM_PUSH(s) BE64_PUSH((s).acc_i,    (s).insert,    (s).in)
 // store any residual data from accum into stream, update accum, insert, stream
 #define BE64_INSERT_FINAL(accum, insert, stream) \
         { BE64_INSERT_CHECK(accum, insert, stream) ; if(insert > 0) { *stream = accum << (32 - insert) ; stream++ ; insert = 0 ; } }
-#define BE64_EZ_INSERT_FINAL BE64_INSERT_FINAL(StReAm_acc_i, StReAm_insert, StReAm_in)
-#define BE64_STREAM_INSERT_FINAL(s) BE64_INSERT_FINAL((s).acc_i, (s).insert, (s).in)
+#define BE64_EZ_INSERT_FINAL        BE64_INSERT_FINAL(StReAm_acc_i, StReAm_insert, StReAm_in)
+#define BE64_STREAM_INSERT_FINAL(s) BE64_INSERT_FINAL((s).acc_i,    (s).insert,    (s).in)
 // combined INSERT_CHECK and INSERT_NBITS, update accum, insert, stream
 #define BE64_PUT_NBITS(accum, insert, w32, nbits, stream) \
         { BE64_INSERT_CHECK(accum, insert, stream) ; BE64_INSERT_NBITS(accum, insert, w32, nbits) ; }
-#define BE64_EZ_PUT_NBITS(w32, nbits) BE64_PUT_NBITS(StReAm_acc_i, StReAm_insert, w32, nbits, StReAm_in)
-#define BE64_STREAM_PUT_NBITS(s, w32, nbits) BE64_PUT_NBITS((s).acc_i, (s).insert, w32, nbits, (s).in)
+#define BE64_EZ_PUT_NBITS(w32, nbits)        BE64_PUT_NBITS(StReAm_acc_i, StReAm_insert, w32, nbits, StReAm_in)
+#define BE64_STREAM_PUT_NBITS(s, w32, nbits) BE64_PUT_NBITS((s).acc_i,    (s).insert,    w32, nbits, (s).in)
 // align insertion point to a 32 bit boundary
 #define BE64_INSERT_ALIGN(accum, insert) { uint32_t tbits = 64 - insert ; tbits &= 31 ; insert += tbits ; accum <<= tbits ; }
-#define BE64_EZ_INSERT_ALIGN { uint32_t tbits = 64 - StReAm_insert ; tbits &= 31 ; StReAm_insert += tbits ; StReAm_acc_i <<= tbits ; }
-#define BE64_STREAM_INSERT_ALIGN(s) { uint32_t tbits = 64 - StReAm_insert ; tbits &= 31 ; (s).insert += tbits ; (s).acc_i <<= tbits ; }
+#define BE64_EZ_INSERT_ALIGN        BE64_INSERT_ALIGN(StReAm_acc_i, StReAm_insert)
+#define BE64_STREAM_INSERT_ALIGN(s) BE64_INSERT_ALIGN((s).acc_i,    (s).insert)
+// #define BE64_EZ_INSERT_ALIGN        { uint32_t tbits = 64 - StReAm_insert ; tbits &= 31 ; StReAm_insert += tbits ; StReAm_acc_i <<= tbits ; }
+// #define BE64_STREAM_INSERT_ALIGN(s) { uint32_t tbits = 64 - StReAm_insert ; tbits &= 31 ; (s).insert += tbits ; (s).acc_i <<= tbits ; }
 //
 // N.B. : if w32 and accum are signed variables, the extract will produce a "signed" result
 //        if w32 and accum are unsigned variables, the extract will produce an "unsigned" result
 // initialize stream for extraction
 #define BE64_XTRACT_BEGIN(accum, xtract, stream) { uint32_t t = *(stream) ; accum = t ; accum <<= 32 ; (stream)++ ; xtract = 32 ; }
-#define BE64_EZ_XTRACT_BEGIN { BE64_XTRACT_BEGIN(StReAm_acc_x, StReAm_xtract, StReAm_out) ; }
-#define BE64_STREAM_XTRACT_BEGIN(s) { BE64_XTRACT_BEGIN((s).acc_x, (s).xtract, (s).out) ; }
+#define BE64_EZ_XTRACT_BEGIN        { BE64_XTRACT_BEGIN(StReAm_acc_x, StReAm_xtract, StReAm_out) ; }
+#define BE64_STREAM_XTRACT_BEGIN(s) { BE64_XTRACT_BEGIN((s).acc_x,    (s).xtract,    (s).out) ; }
 // take a peek at nbits bits from accum into w32
 #define BE64_PEEK_NBITS(accum, xtract, w32, nbits) { w32 = accum >> (64 - (nbits)) ; }
-#define BE64_EZ_PEEK_NBITS(w32, nbits) BE64_PEEK_NBITS(StReAm_acc_x, StReAm_xtract, w32, nbits)
-#define BE64_STREAM_PEEK_NBITS(s, w32, nbits) BE64_PEEK_NBITS((s).acc_x, (s).xtract, w32, nbits)
-#define BE64_STREAM_PEEK_NBITS_S(s, w32, nbits) BE64_PEEK_NBITS((int64_t) (s).acc_x, (s).xtract, w32, nbits)
+#define BE64_EZ_PEEK_NBITS(w32, nbits)          BE64_PEEK_NBITS(StReAm_acc_x, StReAm_xtract, w32, nbits)
+#define BE64_STREAM_PEEK_NBITS(s, w32, nbits)   BE64_PEEK_NBITS((s).acc_x,    (s).xtract,    w32, nbits)
+#define BE64_EZ_PEEK_NBITS_S(w32, nbits)        BE64_PEEK_NBITS((int64_t) StReAm_acc_x, StReAm_xtract, w32, nbits)
+#define BE64_STREAM_PEEK_NBITS_S(s, w32, nbits) BE64_PEEK_NBITS((int64_t) (s).acc_x,    (s).xtract,    w32, nbits)
 // extract nbits bits into w32 from accum, update xtract, accum
 #define BE64_XTRACT_NBITS(accum, xtract, w32, nbits) \
         { w32 = accum >> (64 - (nbits)) ; accum <<= (nbits) ; xtract -= (nbits) ; }
-#define BE64_EZ_XTRACT_NBITS(w32, nbits) BE64_XTRACT_NBITS(StReAm_acc_x, StReAm_xtract, w32, nbits)
-#define BE64_STREAM_XTRACT_NBITS(s, w32, nbits) BE64_XTRACT_NBITS((s).acc_x, (s).xtract, w32, nbits)
+#define BE64_EZ_XTRACT_NBITS(w32, nbits)        BE64_XTRACT_NBITS(StReAm_acc_x, StReAm_xtract, w32, nbits)
+#define BE64_STREAM_XTRACT_NBITS(s, w32, nbits) BE64_XTRACT_NBITS((s).acc_x,    (s).xtract,    w32, nbits)
 // check that 32 bits can be safely extracted from accum
 // if not possible, get extra 32 bits into accum from stresm, update accum, xtract, stream
 #define BE64_XTRACT_CHECK(accum, xtract, stream) \
         { if(xtract < 32) { accum >>= (32-xtract) ; accum |= *(stream) ; accum <<= (32-xtract) ; xtract += 32 ; (stream)++ ; } ; }
-#define BE64_EZ_XTRACT_CHECK BE64_XTRACT_CHECK(StReAm_acc_x, StReAm_xtract, StReAm_out)
-#define BE64_STREAM_XTRACT_CHECK(s) BE64_XTRACT_CHECK((s).acc_x, (s).xtract, (s).out)
+#define BE64_EZ_XTRACT_CHECK        BE64_XTRACT_CHECK(StReAm_acc_x, StReAm_xtract, StReAm_out)
+#define BE64_STREAM_XTRACT_CHECK(s) BE64_XTRACT_CHECK((s).acc_x,    (s).xtract,    (s).out)
 // finalize extraction, update accum, xtract
 #define BE64_XTRACT_FINAL(accum, xtract) { accum = 0 ; xtract = 0 ; }
-#define BE64_EZ_XTRACT_FINAL(s) BE64_XTRACT_FINAL(StReAm_acc_x, StReAm_xtract)
-#define BE64_STREAM_XTRACT_FINAL(s) BE64_XTRACT_FINAL((s).acc_x, (s).xtract)
+#define BE64_EZ_XTRACT_FINAL(s)     BE64_XTRACT_FINAL(StReAm_acc_x, StReAm_xtract)
+#define BE64_STREAM_XTRACT_FINAL(s) BE64_XTRACT_FINAL((s).acc_x,    (s).xtract)
 // combined XTRACT_CHECK and XTRACT_NBITS, update accum, xtract, stream
 #define BE64_GET_NBITS(accum, xtract, w32, nbits, stream) \
         { BE64_XTRACT_CHECK(accum, xtract, stream) ; BE64_XTRACT_NBITS(accum, xtract, w32, nbits) ; }
-#define BE64_EZ_GET_NBITS(w32, nbits) BE64_GET_NBITS(StReAm_acc_x, StReAm_xtract, w32, nbits, StReAm_out)
-#define BE64_STREAM_GET_NBITS(s, w32, nbits) BE64_GET_NBITS((s).acc_x, (s).xtract, w32, nbits, (s).out)
+#define BE64_EZ_GET_NBITS(w32, nbits)        BE64_GET_NBITS(StReAm_acc_x, StReAm_xtract, w32, nbits, StReAm_out)
+#define BE64_STREAM_GET_NBITS(s, w32, nbits) BE64_GET_NBITS((s).acc_x,    (s).xtract,    w32, nbits, (s).out)
 // align extraction point to a 32 bit boundary
 #define BE64_XTRACT_ALIGN(accum, xtract) { uint32_t tbits = xtract ; tbits &= 31 ; accum <<= tbits ; xtract -= tbits ; }
-#define BE64_EZ_XTRACT_ALIGN { uint32_t tbits = StReAm_xtract ; tbits &= 31 ; StReAm_acc_x <<= tbits ; StReAm_xtract -= tbits ; }
-#define BE64_STREAM_XTRACT_ALIGN { uint32_t tbits = (s).xtract ; tbits &= 31 ; (s).acc_x <<= tbits ; (s).xtract -= tbits ; }
+#define BE64_EZ_XTRACT_ALIGN     BE64_XTRACT_ALIGN(StReAm_acc_x, StReAm_xtract)
+#define BE64_STREAM_XTRACT_ALIGN BE64_XTRACT_ALIGN((s).acc_x,    (s).xtract)
+// #define BE64_EZ_XTRACT_ALIGN     { uint32_t tbits = StReAm_xtract ; tbits &= 31 ; StReAm_acc_x <<= tbits ; StReAm_xtract -= tbits ; }
+// #define BE64_STREAM_XTRACT_ALIGN { uint32_t tbits = (s).xtract ; tbits &= 31 ; (s).acc_x <<= tbits ; (s).xtract -= tbits ; }
 //
 // ===============================================================================================
 // true if stream is in read (extract) mode
@@ -508,8 +521,10 @@ STATIC inline size_t StreamAvailableSpace(bitstream *p){
 #define STREAM_BUFFER_SIZE(s) ( ((s).limit - (s).first) * 8l * sizeof(uint32_t) )
 
 // address of stream buffer
-#define STREAM_BUFFER_POINTER(s) (s).first
+#define STREAM_BUFFER_ADDRESS(s) (s).first
 
+#if 0
+// these macros have been transferred to bi_endian_pack.c
 // ===============================================================================================
 // declare state variables (unsigned)
 #define STREAM_DCL_STATE_VARS(acc, ind, ptr) uint64_t acc ; int32_t ind  ; uint32_t *ptr
@@ -525,8 +540,9 @@ STATIC inline size_t StreamAvailableSpace(bitstream *p){
 #define STREAM_SET_XTRACT_STATE(s, acc, ind, ptr) (s).acc_x = acc ; (s).xtract = ind ; (s).out = ptr
 // get stream extraction state (signed)
 #define STREAM_GET_XTRACT_STATE_S(s, acc, ind, ptr) acc = (int64_t)(s).acc_x ; ind = (s).xtract ; ptr = (s).out
-
-// =======================  stream initialize  =======================
+#endif
+// =======================  stream initialization  =======================
+//
 // generic bit stream (re)initializer
 // p    [OUT] : pointer to an existing bitstream structure (structure will be updated)
 // mem   [IN] : pointer to memory (if NULL, allocate memory for bit stream)
@@ -581,7 +597,8 @@ STATIC inline void  BeStreamInit(bitstream *p, uint32_t *buffer, size_t size, in
   StreamInit(p, buffer, size, mode) ;   // call generic stream init
 }
 
-// =======================  stream create (new stream)  =======================
+// =======================  stream creation (new stream)  =======================
+//
 // allocate a new bit stream struct and initialize it
 // size [IN] : see StreamInit
 // mode [IN] : see StreamInit
@@ -611,7 +628,8 @@ static bitstream *BeStreamCreate(size_t size, int mode){
   return p ;
 }
 
-// =======================  stream size  =======================
+// =======================  stream size management =======================
+//
 // resize a stream
 // p    [OUT] : pointer to a bitstream structure
 // size  [IN] : size of the memory area (user supplied or auto allocated)
@@ -657,26 +675,24 @@ static int StreamSetFilledBits(bitstream *stream, size_t pos){
 // size [IN] : number of bytes available for extraction (should be a multiple of 4)
 STATIC inline int  StreamSetFilledBytes(bitstream *p, size_t size){
   return StreamSetFilledBits(p, size * 8) ;
-//   if(p->first == NULL)              return 1 ;     // no valid buffer
-//   if(size < sizeof(uint32_t))       return 1 ;     // less that 32 bits
-//   size /= sizeof(uint32_t) ;                       // potential truncation to 32 bit alignment
-//   if(size > (p->limit - p->first) ) return -1 ;    // buffer not large enough
-//   p->in = p->first + size ;                        // mark buffer as filled up to p->in
-//   return 0 ;
 }
 
-// =======================  stream duplicate  =======================
+// =======================  stream duplication  =======================
+//
 // duplicate a bit stream structure
 // sdst [OUT] : pointer to a bit stream (destination)
 // ssrc  [IN] : pointer to a bit stream (source)
 static void StreamDup(bitstream *sdst, bitstream *ssrc){
-  memcpy(sdst, ssrc, sizeof(bitstream)) ;    // image copy of the bitstream struct
+//   memcpy(sdst, ssrc, sizeof(bitstream)) ;    // image copy of the bitstream struct
+  *sdst = *ssrc ;
   sdst->full = 0 ;                           // not fully allocated with malloc
   sdst->part = 0 ;                           // cannot allow a free, this is not the original copy
   sdst->user = 1 ;                           // treat as if it were user allocated memory
 }
 
-// free a bit stream structure allocated memory if possible
+// =======================  stream destuction  =======================
+//
+// free a bit stream structure (and allocated memory if possible)
 // s [OUT] : pointer to a bit stream struct
 // return : 0 if a free was performed, 1 if not
 // N.B. s may no longer be valid at exit
@@ -700,18 +716,6 @@ static int StreamFree(bitstream *s){
   s->insert = s->xtract = s->acc_i = s->acc_x = 0 ;  // mark accumulators as empty
   return status ;
 }
-
-// set rightmost nbits bits to 1, others to 0
-// STATIC inline uint32_t RMask(uint32_t nbits){
-//   uint32_t mask = ~0 ;
-//   return  ( (nbits == 0) ? 0 : ( mask >> (32 - nbits)) ) ;
-// }
-
-// set leftmost nbits bits to 1, others to 0
-// STATIC inline uint32_t LMask(uint32_t nbits){
-//   uint32_t mask = ~0 ;
-//   return  ( (nbits == 0) ? 0 : ( mask << (32 - nbits)) ) ;
-// }
 
 // =======================  stream flush (insertion mode)  =======================
 // flush stream being written into if any data left in insertion accumulator
@@ -798,32 +802,59 @@ STATIC inline void  StreamReset(bitstream *p){
 }
 
 // =======================  stream peek (extraction mode) =======================
-// take a peek at future extraction
+//
+// take a peek at future extracted data
 STATIC inline uint32_t LeStreamPeek(bitstream *p, int nbits){
   uint32_t w32 ;
   LE64_PEEK_NBITS(p->acc_x, p->xtract, w32, nbits) ;
   return w32 ;
 }
 
-// take a peek at future extraction
+// take a peek at future extracted data
 STATIC inline uint32_t BeStreamPeek(bitstream *p, int nbits){
   uint32_t w32 ;
   BE64_PEEK_NBITS(p->acc_x, p->xtract, w32, nbits) ;
   return w32 ;
 }
 
-// take a peek at future extraction (signed)
+// take a peek at future extracted data (signed)
 STATIC inline int32_t LeStreamPeekSigned(bitstream *p, int nbits){
   int32_t w32 ;
   LE64_PEEK_NBITS((int64_t) p->acc_x, p->xtract, w32, nbits) ;
   return w32 ;
 }
 
-// take a peek at future extraction (signed)
+// take a peek at future extracted data (signed)
 STATIC inline int32_t BeStreamPeekSigned(bitstream *p, int nbits){
   int32_t w32 ;
   BE64_PEEK_NBITS((int64_t) p->acc_x, p->xtract, w32, nbits) ;
   return w32 ;
+}
+
+// =======================  stream data access  =======================
+//
+// copy stream data into array mem (from beginning up to in pointer and data in accumulator if any)
+// stream [IN] : pointer to bit stream struct
+// mem   [OUT] : where to copy
+// size   [IN] : size of mem array in bytes
+// return original size of valid info from stream in bits (-1 in case of error)
+static int64_t StreamDataCopy(bitstream *stream, void *mem, size_t size){
+  size_t nbtot, nborig ;
+
+  if(! StreamIsValid(stream))         return -1 ;               // invalid stream
+
+  nbtot = (stream->in - stream->first) * 8 * sizeof(uint32_t) ; // size in bits
+  if(stream->insert > 0) {
+    StreamFlush(stream) ;
+    nbtot += stream->insert ;                                   // add contents of accumulator
+  }
+  if(nbtot == 0) return 0 ;                                     // no data in stream
+  nborig = nbtot ;
+  nbtot = ((nbtot + 31) / 32) * 32 ;                            // round to multiple of 32 bits
+  nbtot /= 8 ;                                                  // convert to bytes
+  if(nbtot > size) return -1 ;                                  // insufficient space
+  if(mem != memmove(mem, stream->first, nbtot)) return -1 ;     // error copying
+  return nborig ;
 }
 
 // =======================  prototypes for bi_endian_pack.c =======================

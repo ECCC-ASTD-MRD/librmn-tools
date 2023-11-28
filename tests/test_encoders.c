@@ -196,7 +196,7 @@ CT_ASSERT(2 == sizeof(uint16_t))
 
   // no need to rewind stream0 in this case
   for(i=0 ; i< sizeof(packed1)/4 ; i++) packed1[i] = 0 ;
-  ncopy = StreamCopy(&stream0, packed1, sizeof(packed1)) ;    // copy stream0 data into packed1
+  ncopy = StreamDataCopy(&stream0, packed1, sizeof(packed1)) ;    // copy stream0 data into packed1
   BeStreamInit(&stream1, packed1, sizeof(packed1), 0) ;       // initialize stream1 (RW) using packed1
   StreamSetFilledBits(&stream1, nbtot) ;                      // set available number of bits
   print_stream_params(stream1, "Init stream1", "RW") ;
@@ -259,7 +259,7 @@ return 0 ;
   TEE_FPRINTF(stderr,2,"========== decoding from copy ==========\n");
   for(i=0 ; i< sizeof(packed1)/4 ; i++) packed1[i] = 0 ;
   print_stream_params(stream0, "Source stream0", "RW") ;
-  ncopy = StreamCopy(&stream0, packed1, sizeof(packed1)) ;         // transfer stream0 buffer to packed1
+  ncopy = StreamDataCopy(&stream0, packed1, sizeof(packed1)) ;         // transfer stream0 buffer to packed1
   TEE_FPRINTF(stderr,2, "%ld(%ld) bits copied into stream1 buffer\n", ncopy, ((ncopy+31)/32)*32) ;
   BeStreamInit(&stream1, packed1, sizeof(packed1), 0) ;            // force read-write stream1 mode using packed1
   StreamSetFilledBits(&stream1, nbtot) ;

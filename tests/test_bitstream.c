@@ -83,8 +83,9 @@ int main(int argc, char **argv){
   BeStreamInit(pstream, NULL, ssize, 0) ;                  // create a bit stream (1024 bits initially)
   print_stream_params(STREAM0, "1024 bit stream", NULL) ;
 
-  STREAM_DCL_STATE_VARS(acci, insert, in) ;                // declare insertion control values from stream struct
-  STREAM_GET_INSERT_STATE(*pstream, acci, insert, in) ;    // get insertion control values from stream struct
+//   STREAM_DCL_STATE_VARS(acci, insert, in) ;                // declare insertion control values from stream struct
+//   STREAM_GET_INSERT_STATE(*pstream, acci, insert, in) ;    // get insertion control values from stream struct
+  EZ_NEW_INSERT_VARS(*pstream) ;                             // declare and get insertion control values from stream
 
   ntot = 0 ;
   for(i0 = 0 ; i0 < 48 ; i0 += 12){
@@ -93,16 +94,20 @@ int main(int argc, char **argv){
       w32 = to_zigzag_32(value) ;
       nbits = 32 - lzcnt_32(w32) ;
       ntot += nbits ;
-      BE64_PUT_NBITS(acci, insert, w32, nbits, in) ;         // insert nbits into stream
+//       BE64_PUT_NBITS(acci, insert, w32, nbits, in) ;         // insert nbits into stream
+      BE64_EZ_PUT_NBITS(w32, nbits) ;
       TEE_FPRINTF(stderr,2, ".");
     }
-    BE64_PUSH(acci, insert, in) ;                            // push accumulator contents into buffer
-    STREAM_SET_INSERT_STATE(*pstream, acci, insert, in) ;    // update insertion control values in stream struct
+//     BE64_PUSH(acci, insert, in) ;                            // push accumulator contents into buffer
+    BE64_EZ_PUSH ;
+//     STREAM_SET_INSERT_STATE(*pstream, acci, insert, in) ;    // update insertion control values in stream struct
+    EZ_SET_INSERT_VARS(*pstream) ;
     TEE_FPRINTF(stderr,2, " inserted %d bits, ", ntot) ;
     print_stream_params(*pstream, "after insertion", NULL) ;
     ssize += 128 ;                                           // add 1024 bits to stream size
     StreamResize(pstream, NULL, ssize) ;                     // resize stream
-    STREAM_GET_INSERT_STATE(*pstream, acci, insert, in) ;    // get updated insertion control values from stream struct
+//     STREAM_GET_INSERT_STATE(*pstream, acci, insert, in) ;    // get updated insertion control values from stream struct
+    EZ_GET_INSERT_VARS(*pstream) ;
     TEE_FPRINTF(stderr,2, "(buffer size + 128 bytes) ") ;
     print_stream_params(*pstream, "after resize", NULL) ;
   }
@@ -110,21 +115,25 @@ int main(int argc, char **argv){
 #if 0
   BE64_STREAM_INSERT_FINAL(*pstream) ;
 #else
-  BE64_INSERT_FINAL(acci, insert, in) ;                      // flush accumulator into stream
-  STREAM_SET_INSERT_STATE(*pstream, acci, insert, in) ;      // store insertion control values into stream struct
+//   BE64_INSERT_FINAL(acci, insert, in) ;                      // flush accumulator into stream
+  BE64_EZ_INSERT_FINAL ;
+//   STREAM_SET_INSERT_STATE(*pstream, acci, insert, in) ;      // store insertion control values into stream struct
+  EZ_SET_INSERT_VARS(*pstream) ;
 #endif
   print_stream_params(*pstream, "after insertions finalize", NULL) ;
   TEE_FPRINTF(stderr,2, "\n") ;
 
-  bsize = StreamCopy(pstream, buffer, sizeof(buffer)) ;      // copy original stream data into local buffer
+  bsize = StreamDataCopy(pstream, buffer, sizeof(buffer)) ;      // copy original stream data into local buffer
   TEE_FPRINTF(stderr,2, "copied %ld bits from original stream\n", bsize) ;
   TEE_FPRINTF(stderr,2, "\n") ;
-  BeStreamInit(&(STREAM1), buffer, sizeof(buffer), BIT_XTRACT) ;      // initialize new stream using local buffer
+
+  BeStreamInit(&(STREAM1), buffer, sizeof(buffer), BIT_XTRACT) ;      // initialize a new stream using local buffer
   pstream = &(STREAM1) ;
   StreamSetFilledBits(pstream, ntot) ;                       // set number of valid bits in stream
   print_stream_params(*pstream, "before extraction", NULL) ;
-  STREAM_DCL_STATE_VARS(acco, xtract, out) ;                 // declare insertion control values from stream struct
-  STREAM_GET_XTRACT_STATE(*pstream, acco, xtract, out) ;     // get extraction control values from stream struct
+//   STREAM_DCL_STATE_VARS(acco, xtract, out) ;                 // declare insertion control values from stream struct
+//   STREAM_GET_XTRACT_STATE(*pstream, acco, xtract, out) ;     // get extraction control values from stream struct
+  EZ_NEW_XTRACT_VARS(*pstream) ;
   ntot = 0 ;
   errors = 0 ;
   for(i0 = 0 ; i0 < 48 ; i0 += 12){
@@ -133,11 +142,13 @@ int main(int argc, char **argv){
       w32 = to_zigzag_32(value) ;
       nbits = 32 - lzcnt_32(w32) ;
       ntot += nbits ;
-      BE64_GET_NBITS(acco, xtract, w32, nbits, out) ;        // get nbits from stream
+//       BE64_GET_NBITS(acco, xtract, w32, nbits, out) ;        // get nbits from stream
+      BE64_EZ_GET_NBITS(w32, nbits) ;
       if(value != from_zigzag_32(w32)) errors++ ;            // check that we get the expected value
       TEE_FPRINTF(stderr,2, ".");
     }
-    STREAM_SET_XTRACT_STATE(*pstream, acco, xtract, out) ;   // update extraction control values into stream struct
+//     STREAM_SET_XTRACT_STATE(*pstream, acco, xtract, out) ;   // update extraction control values into stream struct
+    EZ_SET_XTRACT_VARS(*pstream) ;
     TEE_FPRINTF(stderr,2, " extracted %d bits, ", ntot) ;
     print_stream_params(*pstream, "after extraction", NULL) ;
   }

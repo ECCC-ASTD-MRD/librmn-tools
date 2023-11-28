@@ -25,6 +25,22 @@
 #define STATIC extern
 #include <rmn/bi_endian_pack.h>
 
+// ===============================================================================================
+// declare state variables (unsigned)
+#define STREAM_DCL_STATE_VARS(acc, ind, ptr) uint64_t acc ; int32_t ind  ; uint32_t *ptr
+// declare state variables (signed)
+#define STREAM_DCL_STATE_VARS_S(acc, ind, ptr) int64_t acc ; int32_t ind  ; uint32_t *ptr
+
+// get/set stream insertion state
+#define STREAM_GET_INSERT_STATE(s, acc, ind, ptr) acc = (s).acc_i ; ind = (s).insert ; ptr = (s).in
+#define STREAM_SET_INSERT_STATE(s, acc, ind, ptr) (s).acc_i = acc ; (s).insert = ind ; (s).in = ptr
+
+// get/set stream extraction state (unsigned)
+#define STREAM_GET_XTRACT_STATE(s, acc, ind, ptr) acc = (s).acc_x ; ind = (s).xtract ; ptr = (s).out
+#define STREAM_SET_XTRACT_STATE(s, acc, ind, ptr) (s).acc_x = acc ; (s).xtract = ind ; (s).out = ptr
+// get stream extraction state (signed)
+#define STREAM_GET_XTRACT_STATE_S(s, acc, ind, ptr) acc = (int64_t)(s).acc_x ; ind = (s).xtract ; ptr = (s).out
+
 // little endian style insertion of values into a bit stream
 // p     : stream                                [INOUT]
 // w32   : array of values to insert             [IN]
@@ -216,6 +232,7 @@ int  BeStreamXtractSigned(bitstream *p, int32_t *w32, int nbits, int n){
 // n     : number of values to insert            [IN]
 // n[i], nbits[i] is an associated (nbits , n) pair
 // n[i] <= 0 marks the end of the pair list
+// returned value : total number of values inserted
 int  LeStreamInsertM(bitstream *p, uint32_t *w32, int *nbits, int *n){
   int i, nw = 0 ;
   STREAM_DCL_STATE_VARS(accum, insert, stream) ;
@@ -229,8 +246,8 @@ int  LeStreamInsertM(bitstream *p, uint32_t *w32, int *nbits, int *n){
     for(i=0 ; i<n[0] ; i++){
       LE64_PUT_NBITS(accum, insert, w32[i], nbits[0], stream) ;
     }
-    nbits++ ;
-    n++ ;       // next pair
+    nbits++ ;           // next pair
+    n++ ;
   }
   if(n[0] == -1) LE64_INSERT_FINAL(accum, insert, stream) ;
   STREAM_SET_INSERT_STATE(*p, accum, insert, stream) ;
@@ -244,6 +261,7 @@ int  LeStreamInsertM(bitstream *p, uint32_t *w32, int *nbits, int *n){
 // n     : number of values to insert            [IN]
 // n[i], nbits[i] is an associated (nbits , n) pair
 // n[i] <= 0 marks the end of the pair list
+// returned value : total number of values inserted
 int  BeStreamInsertM(bitstream *p, uint32_t *w32, int *nbits, int *n){
   int i, nw = 0 ;
   STREAM_DCL_STATE_VARS(accum, insert, stream) ;
@@ -257,8 +275,8 @@ int  BeStreamInsertM(bitstream *p, uint32_t *w32, int *nbits, int *n){
     for(i=0 ; i<n[0] ; i++){
       BE64_PUT_NBITS(accum, insert, w32[i], nbits[0], stream) ;
     }
-    nbits++ ;
-    n++ ;       // next pair
+    nbits++ ;           // next pair
+    n++ ;
   }
   if(n[0] == -1) BE64_INSERT_FINAL(accum, insert, stream) ;
   STREAM_SET_INSERT_STATE(*p, accum, insert, stream) ;
@@ -285,8 +303,8 @@ int  LeStreamXtractM(bitstream *p, uint32_t *w32, int *nbits, int *n){
     for(i=0 ; i<n[0] ; i++){
       LE64_GET_NBITS(accum, xtract, w32[i], nbits[0], stream) ;
     }
-    nbits++ ;
-    n++ ;       // next pair
+    nbits++ ;           // next pair
+    n++ ;
   }
   STREAM_SET_XTRACT_STATE(*p, accum, xtract, stream) ;
   return nw ;
@@ -312,14 +330,14 @@ int  BeStreamXtractM(bitstream *p, uint32_t *w32, int *nbits, int *n){
     for(i=0 ; i<n[0] ; i++){
       BE64_GET_NBITS(accum, xtract, w32[i], nbits[0], stream) ;
     }
-    nbits++ ;
-    n++ ;       // next pair
+    nbits++ ;           // next pair
+    n++ ;
   }
   STREAM_SET_XTRACT_STATE(*p, accum, xtract, stream) ;
   return nw ;
 }
 // same as above, but using EZ macros
-int  BeStreamXtractM_(bitstream *p, uint32_t *w32, int *nbits, int *n){
+int  EzBeStreamXtractM(bitstream *p, uint32_t *w32, int *nbits, int *n){
   int i, nw = 0 ;
   EZ_DCL_XTRACT_VARS ;
 
@@ -332,8 +350,8 @@ int  BeStreamXtractM_(bitstream *p, uint32_t *w32, int *nbits, int *n){
     for(i=0 ; i<n[0] ; i++){
       BE64_EZ_GET_NBITS(w32[i], nbits[0]) ;
     }
-    nbits++ ;
-    n++ ;       // next pair
+    nbits++ ;           // next pair
+    n++ ;
   }
   EZ_SET_XTRACT_VARS(*p)
   return nw ;
