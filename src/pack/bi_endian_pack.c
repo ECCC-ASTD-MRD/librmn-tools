@@ -26,7 +26,7 @@
 #include <rmn/bi_endian_pack.h>
 
 #if 0
-// deprecated macros
+// deprecated macros, formerly in bi_endian_pack.h
 // ===============================================================================================
 // declare state variables (unsigned)
 #define STREAM_DCL_STATE_VARS(acc, ind, ptr) uint64_t acc ; int32_t ind  ; uint32_t *ptr
@@ -390,6 +390,6 @@ int  BeStreamXtractM(bitstream *p, uint32_t *w32, int *nbits, int *n){
     n++ ;
   }
 //   STREAM_SET_XTRACT_STATE(*p, accum, xtract, stream) ;
-  EZ_SET_XTRACT_VARS(*p)
+  EZ_SET_XTRACT_VARS(*p) ;
   return nw ;
 }

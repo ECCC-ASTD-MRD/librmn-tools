@@ -155,8 +155,8 @@ static int StreamEndianness(bitstream *stream){
   return endian ;
 }
 
-// size of stream buffer (in bits)
-#define STREAM_BUFFER_SIZE(s) ( ((s).limit - (s).first) * 8l * sizeof(uint32_t) )
+// size of stream buffer (in bytes)
+#define STREAM_BUFFER_BYTES(s) ( ((s).limit - (s).first) * sizeof(uint32_t) )
 
 // address of stream buffer
 #define STREAM_BUFFER_ADDRESS(s) (s).first
@@ -260,18 +260,18 @@ fprintf(stderr, "error in save state\n");
 // mode    [IN} : 0, BIT_XTRACT, BIT_INSERT (which mode state(s) to restore)
 //                0 restore BOTH insert and extract states
 static int StreamRestoreState(bitstream *stream, bitstream_state *state, int mode){
-// char *msg ;
-// msg = "invalid stream" ;
+  char *msg ;
+  msg = "invalid stream" ;
   if(! StreamIsValid(stream)) goto error ;                            // invalid stream
   if(mode == 0) mode = BIT_XTRACT | BIT_INSERT ;
-// msg = "first mismatch" ;
+  msg = "first mismatch" ;
   if(state->first != stream->first) goto error ;                      // state does not belong to this stream
   if(mode & BIT_XTRACT){                                              // restore extract state (out)
-// msg = "out too large" ;
+    msg = "out too large" ;
     if(state->out > (stream->limit - stream->first) ) goto error ;    // potential buffer overrrun
-// msg = "stream not in extract mode" ;
+    msg = "stream not in extract mode" ;
     if(stream->xtract < 0) goto error ;                               // stream not in extract mode
-// msg = "no extract state" ;
+    msg = "no extract state" ;
     if(state->xtract < 0) goto error ;                                // extract state not valid
     stream->out = stream->first + state->out ;                        // restore extraction pointer
     stream->acc_x  = state->acc_x ;                                   // restore accumulator and bit count
@@ -279,11 +279,11 @@ static int StreamRestoreState(bitstream *stream, bitstream_state *state, int mod
 // fprintf(stderr, "restored extract state\n");
   }
   if(mode & BIT_INSERT){                                              // restore insert state (in)
-// msg = "in too large" ;
+  msg = "in too large" ;
     if(state->in > (stream->limit - stream->first) ) goto error ;     // potential buffer overrrun
-// msg = "stream not in insert mode" ;
+    msg = "stream not in insert mode" ;
     if(stream->insert < 0) goto error ;                               // stream not in insert mode
-// msg = "no insert state" ;
+    msg = "no insert state" ;
     if(state->insert < 0) goto error ;                                // insert state not valid
     stream->in = stream->first + state->in ;                          // restore insertion pointer
     stream->acc_i  = state->acc_i ;                                   // restore accumulator and bit count
