@@ -139,6 +139,7 @@ static uint64_t constant_tile_scheme(uint64_t p64){
 // called by encode_tile_properties for non 8x8 tiles or if SIMD functions are not available
 // TODO: process nj = 1, 1 <= ni <= 64, lni = dont't care (should be == ni) correctly
 // TODO: npti, nptj or npij ?
+// PURE C code, no SIMD primitives used
 static uint64_t encode_tile_properties_c(void *f, int ni, int lni, int nj, uint32_t tile[64]){
   uint32_t *block = (uint32_t *)f ;
   uint32_t pos, neg;

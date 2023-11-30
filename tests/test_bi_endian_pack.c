@@ -43,7 +43,11 @@ static int32_t verify_restore(void *f1, void *f2, int n, uint32_t mask){
   int i ;
   for(i=0 ; i<n ; i++){
     if((w1[i] & mask) != (w2[i] & mask)) errors++ ;
+    if(errors > 0 && errors < 4){
+      TEE_FPRINTF(stderr,2, "verify_restore [%d], got %8.8x (%8d), expected %8.8x (%8d)\n", i, w2[i] & mask, w2[i] & mask, w1[i] & mask, w1[i] & mask) ;
+    }
   }
+  if(errors) exit(1) ;
   return errors ;
 }
 
@@ -190,6 +194,7 @@ int main(int argc, char **argv){
   size_t bufsiz = sizeof(buf) ;
   uint32_t peek_u, peek_u2 ;
   int32_t peek_i, peek_i2 ;
+  int errors ;
 
   start_of_test("test_bi_endian_pack C");
   freq = cycles_counter_freq() ;
@@ -202,15 +207,17 @@ int main(int argc, char **argv){
 // return 0 ;
   TEE_FPRINTF(stderr,2, "=============== functional and syntax test ===============\n") ;
 
-  for(i=0 ; i<NPTS ; i++) unpacked[i] = i + 16 ;
-  for(i=0 ; i<NPTS   ; i+=2) unpacked_signed[i] = -unpacked[i] ;
-  for(i=1 ; i<NPTS-1 ; i+=2) unpacked_signed[i] =  unpacked[i] ;
+  for(i=0 ; i<NPTS ; i++)  unpacked[i] = i + 16 ;
+  for(i=0 ; i<NPTS ; i+=2) unpacked_signed[i] = i / 2 ;
+  for(i=1 ; i<NPTS ; i+=2) unpacked_signed[i] = -(unpacked_signed[i-1]+1)  ;
+//   for(i=0 ; i<NPTS   ; i+=2) unpacked_signed[i] = -unpacked[i] ;
+//   for(i=1 ; i<NPTS-1 ; i+=2) unpacked_signed[i] =  unpacked[i] ;
   TEE_FPRINTF(stderr,2, "original(u)  : ") ;
   for(i=0 ; i<NPTS2 ; i++) TEE_FPRINTF(stderr,2, "%8.8x ", unpacked[i]); TEE_FPRINTF(stderr,2, "\n") ;
   TEE_FPRINTF(stderr,2, "original(s)  : ") ;
   for(i=0 ; i<NPTS2 ; i++) TEE_FPRINTF(stderr,2, "%8.8x ", unpacked_signed[i]); TEE_FPRINTF(stderr,2, "\n") ;
   TEE_FPRINTF(stderr,2, "\n") ;
-
+// return 0 ;
 // ========================== functional and syntax test ==========================
   nbits = 12 ;
   TEE_FPRINTF(stderr,2, "packing %d items, using %d bits : %d bits total\n", NPTS, nbits, nbits*NPTS) ;
@@ -240,7 +247,13 @@ int main(int argc, char **argv){
   TEE_FPRINTF(stderr,2, "peekle(u) = %8.8x %8.8x\n", peek_u, peek_u2) ;
   for(i=0 ; i<NPTS ; i++) restored[i] = 0xFFFFFFFFu ;
   LeStreamXtract(&ple, restored, nbits, NPTS) ;
-  TEE_FPRINTF(stderr,2, "restoredle %2d bits: ", nbits) ; for(i=0 ; i<NPTS2 ; i++) TEE_FPRINTF(stderr,2, "%8.8x ", restored[i]); TEE_FPRINTF(stderr,2, "\n") ;
+  errors = verify_restore(unpacked, restored, NPTS/2, 0xFFFFFFFFu) ;
+  TEE_FPRINTF(stderr,2, "LeStreamXtract %2d bits: ", nbits) ; 
+  for(i=0 ; i<NPTS2 ; i++) TEE_FPRINTF(stderr,2, "%8.8x ", restored[i]); TEE_FPRINTF(stderr,2, ", errors = %d\n", errors) ;
+  if(errors > 0) {
+    TEE_FPRINTF(stderr,2, "LeStreamXtract %2d bits signed : , errors = %d\n", nbits, errors) ;
+    goto error ;
+  }
 
   TEE_FPRINTF(stderr,2, "\n") ;
   // insert in Big Endian mode (unsigned)
@@ -267,13 +280,20 @@ int main(int argc, char **argv){
   TEE_FPRINTF(stderr,2, "peekbe(u) = %8.8x %8.8x\n", peek_u, peek_u2) ;
   for(i=0 ; i<NPTS ; i++) restored[i] = 0xFFFFFFFFu ;
   BeStreamXtract(&pbe, restored, nbits, NPTS) ;
-  TEE_FPRINTF(stderr,2, "restoredbe %2d bits: ", nbits) ; for(i=0 ; i<NPTS2 ; i++) TEE_FPRINTF(stderr,2, "%8.8x ", restored[i]); TEE_FPRINTF(stderr,2, "\n") ;
+  errors = verify_restore(unpacked, restored, NPTS/2, 0xFFFFFFFFu) ;
+  TEE_FPRINTF(stderr,2, "BeStreamXtract %2d bits: ", nbits) ; 
+  for(i=0 ; i<NPTS2 ; i++) TEE_FPRINTF(stderr,2, "%8.8x ", restored[i]); TEE_FPRINTF(stderr,2, ", errors = %d\n", errors) ;
+  if(errors > 0) {
+    TEE_FPRINTF(stderr,2, "BeStreamXtract %2d bits : , errors = %d\n", nbits, errors) ;
+    goto error ;
+  }
   TEE_FPRINTF(stderr,2, "\n") ;
 
   // insert in Little Endian mode (signed)
   LeStreamInit(&ple, packedle, sizeof(packedle), BIT_INSERT) ;
   LeStreamInsert(&ple, (void *) unpacked_signed, nbits, -NPTS) ;
-  TEE_FPRINTF(stderr,2, "packedle %2d bits: ", nbits) ; for(i=7 ; i>=0 ; i--) TEE_FPRINTF(stderr,2, "%8.8x ", packedle[i]); TEE_FPRINTF(stderr,2, "\n") ;
+  TEE_FPRINTF(stderr,2, "packedle %2d bits: ", nbits) ; 
+  for(i=7 ; i>=0 ; i--) TEE_FPRINTF(stderr,2, "%8.8x ", packedle[i]); TEE_FPRINTF(stderr,2, "\n") ;
   // rewind and extract in Little Endian mode (signed)
   if(0) LeStreamInit(&ple, packedle, sizeof(packedle), BIT_XTRACT) ;  // not necessary, syntax check
   LeStreamRewind(&ple, 1) ;                               // this should force extract (read) mode
@@ -282,7 +302,14 @@ int main(int argc, char **argv){
   TEE_FPRINTF(stderr,2, "peekle(s) = %8.8x %8.8x\n", peek_i, peek_i2) ;
   for(i=0 ; i<NPTS ; i++) signed_restored[i] = 0xFFFFFFFFu ;
   LeStreamXtractSigned(&ple, signed_restored, nbits, NPTS) ;
-  TEE_FPRINTF(stderr,2, "restoredle %2d bits: ", nbits) ; for(i=0 ; i<NPTS2 ; i++) TEE_FPRINTF(stderr,2, "%8.8x ", signed_restored[i]); TEE_FPRINTF(stderr,2, "\n") ;
+  errors = verify_restore(unpacked_signed, signed_restored, NPTS/2, 0xFFFFFFFFu) ;
+  TEE_FPRINTF(stderr,2, "LeStreamXtractSigned %2d bits: ", nbits) ; 
+  for(i=0 ; i<NPTS2 ; i++) TEE_FPRINTF(stderr,2, "%8.8x ", signed_restored[i]); TEE_FPRINTF(stderr,2, ", errors = %d\n", errors) ;
+  if(errors > 0) {
+    TEE_FPRINTF(stderr,2, "LeStreamXtract %2d bits signed : , errors = %d\n", nbits, errors) ;
+    goto error ;
+  }
+  TEE_FPRINTF(stderr,2, "\n") ;
 
   // insert in Big Endian mode (signed)
   BeStreamInit(&pbe, packedbe, sizeof(packedbe), BIT_INSERT) ;
@@ -296,9 +323,15 @@ int main(int argc, char **argv){
   TEE_FPRINTF(stderr,2, "peekbe(s) = %8.8x %8.8x\n", peek_i, peek_i2) ;
   for(i=0 ; i<NPTS ; i++) signed_restored[i] = 0xFFFFFFFFu ;
   BeStreamXtractSigned(&pbe, signed_restored, nbits, NPTS) ;
-  TEE_FPRINTF(stderr,2, "restoredbe %2d bits: ", nbits) ; for(i=0 ; i<NPTS2 ; i++) TEE_FPRINTF(stderr,2, "%8.8x ", signed_restored[i]); TEE_FPRINTF(stderr,2, "\n") ;
+  errors = verify_restore(unpacked_signed, signed_restored, NPTS/2, 0xFFFFFFFFu) ;
+  TEE_FPRINTF(stderr,2, "BeStreamXtractSigned %2d bits: ", nbits) ; 
+  for(i=0 ; i<NPTS2 ; i++) TEE_FPRINTF(stderr,2, "%8.8x ", signed_restored[i]); TEE_FPRINTF(stderr,2, ", errors = %d\n", errors) ;
+  if(errors > 0) {
+    TEE_FPRINTF(stderr,2, "BeStreamXtractSigned %2d bits signed : , errors = %d\n", nbits, errors) ;
+    goto error ;
+  }
   TEE_FPRINTF(stderr,2, "\n") ;
-
+return 0 ;
 // ==================================================== control info tests ====================================================
   TEE_FPRINTF(stderr,2, "=============== control info tests ===============\n") ;
 // use allocated bitstream structs
@@ -428,4 +461,9 @@ int main(int argc, char **argv){
   TEE_FPRINTF(stderr,2, "StreamFree(&ple2) : ") ; if(StreamFree(&ple2)) { exit(1) ; } else TEE_FPRINTF(stderr,2, "Success\n") ;
   TEE_FPRINTF(stderr,2, "StreamFree(pple)  : ") ; if(StreamFree(pple))  { exit(1) ; } else TEE_FPRINTF(stderr,2, "Success\n") ;
   TEE_FPRINTF(stderr,2, "StreamFree(ppbe)  : ") ; if(StreamFree(ppbe))  { exit(1) ; } else TEE_FPRINTF(stderr,2, "Success\n") ;
+
+  return 0 ;
+
+error:
+  return 1 ;
 }

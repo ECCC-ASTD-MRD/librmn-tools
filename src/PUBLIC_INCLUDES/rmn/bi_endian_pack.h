@@ -648,26 +648,26 @@ STATIC inline size_t StreamResize(bitstream *p, void *mem, size_t size){
   if(mem == NULL) return 0 ;                                            // failed to allocate memory
 
   old_size = sizeof(int32_t) * (p->limit - p->first) ;                  // size of current buffer
-  memmove(mem, p->first, old_size)  ;                                   // copy old buffer into new
+  memmove(mem, p->first, old_size)  ;                                   // copy old (p->first) buffer into new (mem)
   in  = p->in - p->first ;                                              // relative position of in pointer
   out = p->out - p->first ;                                             // relative position of out pointer
   if(p->part) free(p->first) ;                                          // previous buffer was "malloced"
-  if(mem == NULL) p->part = 1 ;                                         // flag buffer as "malloced"
-  p->first = (uint32_t *) mem ;                                         // new first pointer
-  p->in    = p->first + in ;                                            // new in pointer
-  p->out   = p->first + out ;                                           // new out pointer
-  p->limit = p->first + size / sizeof(int32_t) ;                        // new limit pointer
+  p->part = (mem != NULL) ? 1 : 0 ;                                     // flag buffer as "malloced"
+  p->first = (uint32_t *) mem ;                                         // updated first pointer
+  p->in    = p->first + in ;                                            // updated in pointer
+  p->out   = p->first + out ;                                           // updated out pointer
+  p->limit = p->first + size / sizeof(int32_t) ;                        // updated limit pointer
   return size ;
 }
 
 // this function will be useful to make an already filled stream ready for extraction
 // stream  [IN] : pointer to a bit stream struct
-// pos     [IN] : number of valid bits for extraction
+// pos     [IN] : number of valid bits for extraction from stream buffer
 static int StreamSetFilledBits(bitstream *stream, size_t pos){
   if(! StreamIsValid(stream)) return 1 ;                    // invalid stream
-  pos = (pos+7) / 8 ;                                       // round up as bytes
+  pos = (pos + 7) / 8 ;                                     // round up as bytes
   pos = (pos + sizeof(uint32_t) - 1) / sizeof(uint32_t) ;   // round up as 32 bit words
-  if(pos > (stream->limit - stream->first) ) return 1 ;     // potential buffer overrrun
+  if(pos > (stream->limit - stream->first) ) return 1 ;     // check for potential buffer overrrun
   stream->in = stream->first + pos ;                        // mark stream as filled up to stream->in
   return 0 ;
 }
@@ -835,27 +835,30 @@ STATIC inline int32_t BeStreamPeekSigned(bitstream *p, int nbits){
 // =======================  stream data access  =======================
 //
 // copy stream data into array mem (from beginning up to in pointer and data in accumulator if any)
+// the original stream control info remains untouched (up to 2 32 bit items may get added to its buffer)
 // stream [IN] : pointer to bit stream struct
 // mem   [OUT] : where to copy
 // size   [IN] : size of mem array in bytes
 // return original size of valid info from stream in bits (-1 in case of error)
 static int64_t StreamDataCopy(bitstream *stream, void *mem, size_t size){
   size_t nbtot, nborig ;
+  bitstream temp ;    // temporary struct used during the copy process
 
   if(! StreamIsValid(stream))         return -1 ;               // invalid stream
+  temp = *stream ;                                              // copy stream struct to avoid altering original
 
-  nbtot = (stream->in - stream->first) * 8 * sizeof(uint32_t) ; // size in bits
-  if(stream->insert > 0) {
-    StreamFlush(stream) ;
-    nbtot += stream->insert ;                                   // add contents of accumulator
+  // precise number of used bits in stream buffer
+  nborig = (temp.in - temp.first) * 8 * sizeof(uint32_t) + ((temp.insert > 0) ? temp.insert : 0) ;
+  if(temp.insert > 0) {                                         // flush contents of accumulator into buffer
+    StreamFlush(&temp) ;
   }
-  if(nbtot == 0) return 0 ;                                     // no data in stream
-  nborig = nbtot ;
-  nbtot = ((nbtot + 31) / 32) * 32 ;                            // round to multiple of 32 bits
-  nbtot /= 8 ;                                                  // convert to bytes
+  nbtot = (temp.in - temp.first) * sizeof(uint32_t) ;           // size in bytes when nothing is left in acumulator
+  if(nbtot == 0) return 0 ;                                     // there was no data in stream
+//   nbtot = ((nbtot + 31) / 32) * 32 ;                            // round to a multiple of 32 bits
+//   nbtot /= 8 ;                                                  // convert to bytes
   if(nbtot > size) return -1 ;                                  // insufficient space
-  if(mem != memmove(mem, stream->first, nbtot)) return -1 ;     // error copying
-  return nborig ;
+  if(mem != memmove(mem, temp.first, nbtot)) return -1 ;        // error copying
+  return nborig ;                                               // return unrounded result
 }
 
 // =======================  prototypes for bi_endian_pack.c =======================

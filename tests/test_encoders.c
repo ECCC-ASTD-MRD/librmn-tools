@@ -39,15 +39,17 @@ static void print_stream_data(bitstream s, char *msg){
 }
 
 static void print_stream_params(bitstream s, char *msg, char *expected_mode){
-  TEE_FPRINTF(stderr,2, "%s: filled = %d(%d), free= %d, first/in/out = %p/%p/%p [%ld], insert/xtract = %d/%d, in = %ld, out = %ld \n",
+  TEE_FPRINTF(stderr,2, "%s: filled = %d(%d), free= %d, first/in/out = %p/%p/%p [%ld], insert/xtract = %d/%d, in = %ld, out = %ld",
     msg, StreamAvailableBits(&s), StreamStrictAvailableBits(&s), StreamAvailableSpace(&s), 
     s.first, s.out, s.in, s.in-s.out, s.insert, s.xtract, s.in-s.first, s.out-s.first ) ;
   if(expected_mode){
-    TEE_FPRINTF(stderr,2, "stream mode = %s(%d) (%s expected)\n", StreamMode(s), StreamModeCode(s), expected_mode) ;
+    TEE_FPRINTF(stderr,2, ", mode = %s(%d) (%s expected)\n", StreamMode(s), StreamModeCode(s), expected_mode) ;
     if(strcmp(StreamMode(s), expected_mode) != 0) { 
-      TEE_FPRINTF(stderr,2, "Bad mode, exiting\n") ;
+      TEE_FPRINTF(stderr,2, "\nBad mode, exiting\n") ;
       exit(1) ;
     }
+  }else{
+    fprintf(stderr, ", mode = %s(%d)\n", StreamMode(s), StreamModeCode(s)) ;
   }
 }
 
@@ -194,17 +196,35 @@ CT_ASSERT(2 == sizeof(uint16_t))
   print_stream_params(stream0, "encoded stream0", "RW") ;
   print_stream_data(stream0, "stream0") ;
 
+  for(i=0 ; i<64 ; i++) tile0[i] = 0x55555555 ;
+  ni = nj = 0 ;
+  nbtot = decode_tile(tile0, &ni, 8, &nj, &stream0) ;         // decode tile from stream0 into tile0
+  TEE_FPRINTF(stderr,2, "ni = %d, nj = %d, ", ni, nj) ;
+  errors = compare_tile(tile0, tile3, ni, ni, nj) ;
+  if(errors > 0) {
+    print_tile(tile0, ni, ni, nj, "restored tile") ;
+    goto error ;
+  }else{
+    TEE_FPRINTF(stderr,2, "stream0 -> tile0 : SUCCESS\n\n");
+  }
+
   // no need to rewind stream0 in this case
   for(i=0 ; i< sizeof(packed1)/4 ; i++) packed1[i] = 0 ;
-  ncopy = StreamDataCopy(&stream0, packed1, sizeof(packed1)) ;    // copy stream0 data into packed1
+  ncopy=StreamDataCopy(&stream0, packed1, sizeof(packed1)) ;  // copy stream0 data into packed1
+  TEE_FPRINTF(stderr,2,"copied %ld bits from stream0\n", ncopy);
   BeStreamInit(&stream1, packed1, sizeof(packed1), 0) ;       // initialize stream1 (RW) using packed1
-  StreamSetFilledBits(&stream1, nbtot) ;                      // set available number of bits
+  StreamSetFilledBits(&stream1, nbtot) ;                      // set available number of bits to nb of useful bits
   print_stream_params(stream1, "Init stream1", "RW") ;
   print_stream_data(stream1, "stream1") ;
   nbtot = decode_tile(tile0, &ni, 8, &nj, &stream1) ;         // decode tile from stream1 into tile0
   TEE_FPRINTF(stderr,2, "ni = %d, nj = %d\n", ni, nj) ;
   errors = compare_tile(tile0, tile3, ni, ni, nj) ;
-  if(errors > 0) print_tile(tile0, ni, ni, nj, "restored tile") ;
+  if(errors > 0) {
+    print_tile(tile0, ni, ni, nj, "restored tile") ;
+    goto error ;
+  }else{
+    TEE_FPRINTF(stderr,2, "stream0 -> stream1 -> tile0 : SUCCESS\n\n");
+  }
   TEE_FPRINTF(stderr,2,"\n");
 // return 0 ;
   TEE_FPRINTF(stderr,2,"========== multi tile encode / decode ==========\n");
