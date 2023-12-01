@@ -13,27 +13,12 @@
 //
 
 #include <stdio.h>
+#include <rmn/print_bitstream.h>
 #include <rmn/tile_encoders.h>
 
 #include <with_simd.h>
 
 #define NB0 (2)
-
-// internal use for debug purposes
-static void print_stream_params(bitstream s, char *msg, char *expected_mode){
-  fprintf(stderr, "%s: used = %d(%d), free= %d, first/in/out = %p/%p/%p [%ld], insert/xtract = %d/%d, in = %ld, out = %ld, ",
-    msg, StreamAvailableBits(&s), StreamStrictAvailableBits(&s), StreamAvailableSpace(&s), 
-    s.first, s.out, s.in, s.in-s.out, s.insert, s.xtract, s.in-s.first, s.out-s.first ) ;
-  if(expected_mode){
-    fprintf(stderr, "mode = %s(%d) (%s expected)\n", StreamMode(s), StreamModeCode(s), expected_mode) ;
-    if(strcmp(StreamMode(s), expected_mode) != 0) { 
-      fprintf(stderr, "Wrong mode, exiting\n") ;
-      exit(1) ;
-    }
-  }else{
-    fprintf(stderr, "mode = %s(%d)\n", StreamMode(s), StreamModeCode(s)) ;
-  }
-}
 
 // print tile properties as set by encode_tile_properties
 // p64 [IN] : blind token containing tile properties 

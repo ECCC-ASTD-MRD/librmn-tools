@@ -23,8 +23,10 @@
 #include <rmn/timers.h>
 #include <rmn/bits.h>
 #include <rmn/bi_endian_pack.h>
+#include <rmn/print_bitstream.h>
 #include <rmn/tee_print.h>
 #include <rmn/test_helpers.h>
+#include <rmn/eval_diff.h>
 
 #if !defined(NPTS)
 #define NPTS 4096
@@ -35,41 +37,6 @@
 
 // #define NTIMES 100
 #define NTIMES 1
-
-static int32_t verify_restore(void *f1, void *f2, int n, uint32_t mask){
-  uint32_t *w1 = (uint32_t *) f1 ;
-  uint32_t *w2 = (uint32_t *) f2 ;
-  int errors = 0 ;
-  int i ;
-  for(i=0 ; i<n ; i++){
-    if((w1[i] & mask) != (w2[i] & mask)) errors++ ;
-    if(errors > 0 && errors < 4){
-      TEE_FPRINTF(stderr,2, "verify_restore [%d], got %8.8x (%8d), expected %8.8x (%8d)\n", i, w2[i] & mask, w2[i] & mask, w1[i] & mask, w1[i] & mask) ;
-    }
-  }
-  if(errors) exit(1) ;
-  return errors ;
-}
-
-static void print_stream_params(bitstream s, char *msg, char *expected_mode){
-  int32_t available = StreamAvailableBits(&s) ;
-  int32_t strict_available = StreamStrictAvailableBits(&s) ;
-  int32_t space_available = StreamAvailableSpace(&s) ;
-  available = (available < 0) ? 0 : available ;
-  strict_available = (strict_available < 0) ? 0 : strict_available ;
-  TEE_FPRINTF(stderr,2, "%s: filled = %d(%d), free= %d, first/in/out/limit = %p/%ld/%ld/%ld [%ld], insert/xtract = %d/%d",
-    msg, available, strict_available, space_available, 
-    s.first, s.in-s.first, s.out-s.first, s.limit-s.first, s.in-s.out, s.insert, s.xtract ) ;
-  TEE_FPRINTF(stderr,2, ", full/part/user = %d/%d/%d", s.full, s.part, s.user) ;
-  if(expected_mode){
-    TEE_FPRINTF(stderr,2, ", Mode = %s(%d) (%s expected)", StreamMode(s), StreamModeCode(s), expected_mode) ;
-    if(strcmp(StreamMode(s), expected_mode) != 0) { 
-      TEE_FPRINTF(stderr,2, "\nBad mode, exiting\n") ;
-      exit(1) ;
-    }
-  }
-  TEE_FPRINTF(stderr,2, "\n") ;
-}
 
 // pass 1 : build bit stream, read it
 // pass 2 : rewind bit stream, read it again
@@ -247,7 +214,7 @@ int main(int argc, char **argv){
   TEE_FPRINTF(stderr,2, "peekle(u) = %8.8x %8.8x\n", peek_u, peek_u2) ;
   for(i=0 ; i<NPTS ; i++) restored[i] = 0xFFFFFFFFu ;
   LeStreamXtract(&ple, restored, nbits, NPTS) ;
-  errors = verify_restore(unpacked, restored, NPTS/2, 0xFFFFFFFFu) ;
+  errors = array_compare_masked(unpacked, restored, NPTS/2, 0xFFFFFFFFu) ;
   TEE_FPRINTF(stderr,2, "LeStreamXtract %2d bits: ", nbits) ; 
   for(i=0 ; i<NPTS2 ; i++) TEE_FPRINTF(stderr,2, "%8.8x ", restored[i]); TEE_FPRINTF(stderr,2, ", errors = %d\n", errors) ;
   if(errors > 0) {
@@ -280,7 +247,7 @@ int main(int argc, char **argv){
   TEE_FPRINTF(stderr,2, "peekbe(u) = %8.8x %8.8x\n", peek_u, peek_u2) ;
   for(i=0 ; i<NPTS ; i++) restored[i] = 0xFFFFFFFFu ;
   BeStreamXtract(&pbe, restored, nbits, NPTS) ;
-  errors = verify_restore(unpacked, restored, NPTS/2, 0xFFFFFFFFu) ;
+  errors = array_compare_masked(unpacked, restored, NPTS/2, 0xFFFFFFFFu) ;
   TEE_FPRINTF(stderr,2, "BeStreamXtract %2d bits: ", nbits) ; 
   for(i=0 ; i<NPTS2 ; i++) TEE_FPRINTF(stderr,2, "%8.8x ", restored[i]); TEE_FPRINTF(stderr,2, ", errors = %d\n", errors) ;
   if(errors > 0) {
@@ -302,7 +269,7 @@ int main(int argc, char **argv){
   TEE_FPRINTF(stderr,2, "peekle(s) = %8.8x %8.8x\n", peek_i, peek_i2) ;
   for(i=0 ; i<NPTS ; i++) signed_restored[i] = 0xFFFFFFFFu ;
   LeStreamXtractSigned(&ple, signed_restored, nbits, NPTS) ;
-  errors = verify_restore(unpacked_signed, signed_restored, NPTS/2, 0xFFFFFFFFu) ;
+  errors = array_compare_masked(unpacked_signed, signed_restored, NPTS/2, 0xFFFFFFFFu) ;
   TEE_FPRINTF(stderr,2, "LeStreamXtractSigned %2d bits: ", nbits) ; 
   for(i=0 ; i<NPTS2 ; i++) TEE_FPRINTF(stderr,2, "%8.8x ", signed_restored[i]); TEE_FPRINTF(stderr,2, ", errors = %d\n", errors) ;
   if(errors > 0) {
@@ -323,7 +290,7 @@ int main(int argc, char **argv){
   TEE_FPRINTF(stderr,2, "peekbe(s) = %8.8x %8.8x\n", peek_i, peek_i2) ;
   for(i=0 ; i<NPTS ; i++) signed_restored[i] = 0xFFFFFFFFu ;
   BeStreamXtractSigned(&pbe, signed_restored, nbits, NPTS) ;
-  errors = verify_restore(unpacked_signed, signed_restored, NPTS/2, 0xFFFFFFFFu) ;
+  errors = array_compare_masked(unpacked_signed, signed_restored, NPTS/2, 0xFFFFFFFFu) ;
   TEE_FPRINTF(stderr,2, "BeStreamXtractSigned %2d bits: ", nbits) ; 
   for(i=0 ; i<NPTS2 ; i++) TEE_FPRINTF(stderr,2, "%8.8x ", signed_restored[i]); TEE_FPRINTF(stderr,2, ", errors = %d\n", errors) ;
   if(errors > 0) {
@@ -331,7 +298,7 @@ int main(int argc, char **argv){
     goto error ;
   }
   TEE_FPRINTF(stderr,2, "\n") ;
-return 0 ;
+
 // ==================================================== control info tests ====================================================
   TEE_FPRINTF(stderr,2, "=============== control info tests ===============\n") ;
 // use allocated bitstream structs
@@ -347,7 +314,7 @@ return 0 ;
   LeStreamInsert(pple, unpacked, nbits, NPTS) ; /* with push */     print_stream_params(*pple, "after insert Le Stream (*pple)", "W") ;
   if(StreamAvailableBits(pple) != NPTS * nbits) exit(1) ;           TEE_FPRINTF(stderr,2, "StreamAvailableBits = %d, Success.\n", NPTS * nbits) ;
   LeStreamRewind(pple, 1) ;                                         print_stream_params(*pple, "after rewind Le Stream (*pple)", "RW") ;
-  
+
   LeStreamXtract(pple, restored, nbits, NPTS) ;                     print_stream_params(*pple, "after xtract Le Stream (*pple)", "RW") ;
   if(StreamAvailableBits(pple) != 0) exit(1) ;                      TEE_FPRINTF(stderr,2, "StreamAvailableBits = %d, Success.\n", 0) ;
 
@@ -361,14 +328,14 @@ return 0 ;
   LeStreamXtract(ppbe, restored, nbits, NPTS) ;                     print_stream_params(*ppbe, "after xtract Le Stream (*ppbe)", "RW") ;
   if(StreamAvailableBits(ppbe) != 0) exit(1) ;                      TEE_FPRINTF(stderr,2, "StreamAvailableBits = %d, Success.\n", 0) ;
 
-  StreamDup(&ple1, &ple) ;  TEE_FPRINTF(stderr,2, "\n") ;
-  print_stream_params(ple,  "Duplicate Le Stream (ple)", "RW") ;
+  StreamDup(&ple1, &ple) ;  TEE_FPRINTF(stderr,2, "\n") ;           // duplicate stream ple, result in ple1
+  print_stream_params(ple,  "Duplicate Le Stream (ple )", "RW") ;
   print_stream_params(ple1, "Duplicate Le Stream (ple1)", "RW") ;
-  StreamDup(&ple1, pple) ;
+  StreamDup(&ple1, pple) ;                                          // duplicate stream *pple, result in ple1
   print_stream_params(*pple,  "Duplicate Le Stream (*pple)", "RW") ;
-  print_stream_params(ple1,   "Duplicate Le Stream (ple1)", "RW") ;
+  print_stream_params(ple1,   "Duplicate Le Stream ( ple1)", "RW") ;
   LeStreamInit(&ple2, NULL, sizeof(packedle), BIT_INSERT) ;         print_stream_params(ple2, "Init Le Stream (ple2)", "W") ;
-
+return 0 ;
 // ==================================================== timing tests ====================================================
   TEE_FPRINTF(stderr,2, "\n==================================================== timing tests ====================================================\n") ;
   TEE_FPRINTF(stderr,2, "\n%6d items,               insert                            extract (unsigned)                       extract (signed)\n", NPTS) ;
@@ -395,7 +362,7 @@ return 0 ;
     LeStreamRewind(pple, 1) ;
     LeStreamXtract(pple, restored, nbits, NPTS) ;
     mask = RMASK32(nbits) ;
-    errorsle = verify_restore(restored, unpacked, NPTS, mask) ;
+    errorsle = array_compare_masked(restored, unpacked, NPTS, mask) ;
 //     TIME_LOOP(tmin, tmax, tavg, NTIMES, NPTS, buf, bufsiz, \
 //     LeStreamInit(pple, packedle, sizeof(packedle), BIT_XTRACT_ONLY) ; LeStreamXtract(pple, restored, nbits, NPTS) ) ;
     TIME_LOOP(tmin, tmax, tavg, NTIMES, NPTS, buf, bufsiz, \
@@ -408,7 +375,7 @@ return 0 ;
     BeStreamRewind(ppbe, 1) ;
     BeStreamXtract(ppbe, restored, nbits, NPTS) ;
     mask = RMASK32(nbits) ;
-    errorsbe = verify_restore(restored, unpacked, NPTS, mask) ;
+    errorsbe = array_compare_masked(restored, unpacked, NPTS, mask) ;
 //     TIME_LOOP(tmin, tmax, tavg, NTIMES, NPTS, buf, bufsiz, \
 //     BeStreamInit(ppbe, packedbe, sizeof(packedbe), BIT_XTRACT_ONLY) ; BeStreamXtract(ppbe, restored, nbits, NPTS) ) ;
     TIME_LOOP(tmin, tmax, tavg, NTIMES, NPTS, buf, bufsiz, \
@@ -422,7 +389,7 @@ return 0 ;
 //     LeStreamInit(pple, packedle, sizeof(packedle), BIT_XTRACT_ONLY) ;
     LeStreamRewind(pple, 1) ;
     LeStreamXtractSigned(pple, signed_restored, nbits, NPTS) ;
-    errorsles = verify_restore(signed_restored, unpacked_signed, NPTS, mask) ;
+    errorsles = array_compare_masked(signed_restored, unpacked_signed, NPTS, mask) ;
 //     TIME_LOOP(tmin, tmax, tavg, NTIMES, NPTS, buf, bufsiz, \
 //     LeStreamInit(pple, packedle, sizeof(packedle), BIT_XTRACT_ONLY) ; LeStreamXtractSigned(pple, signed_restored, nbits, NPTS) ) ;
     TIME_LOOP(tmin, tmax, tavg, NTIMES, NPTS, buf, bufsiz, \
@@ -436,7 +403,7 @@ return 0 ;
 //     BeStreamInit(ppbe, packedbe, sizeof(packedbe), BIT_XTRACT_ONLY) ;
     BeStreamRewind(ppbe, 1) ;
     BeStreamXtractSigned(ppbe, signed_restored, nbits, NPTS) ;
-    errorsbes = verify_restore(signed_restored, unpacked_signed, NPTS, mask) ;
+    errorsbes = array_compare_masked(signed_restored, unpacked_signed, NPTS, mask) ;
 //     TIME_LOOP(tmin, tmax, tavg, NTIMES, NPTS, buf, bufsiz, \
 //     BeStreamInit(ppbe, packedbe, sizeof(packedbe), BIT_XTRACT_ONLY) ; BeStreamXtractSigned(ppbe, signed_restored, nbits, NPTS) ) ;
     TIME_LOOP(tmin, tmax, tavg, NTIMES, NPTS, buf, bufsiz, \

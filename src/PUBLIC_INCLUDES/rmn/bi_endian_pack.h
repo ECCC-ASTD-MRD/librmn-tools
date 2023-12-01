@@ -59,6 +59,10 @@
 //   [L|B]E64_GET_NBITS(accumulator, xtract, uint32, nbits, stream)
 //   [L|B]E64_STREAM_GET_NBITS(stream, uint32, nbits)
 //
+
+// MAKE_SIGNED_32 is defined in this file and acts as double include detection
+#if ! defined(MAKE_SIGNED_32)
+
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
@@ -66,9 +70,6 @@
 
 // compile time assertions
 #include <rmn/ct_assert.h>
-
-// MAKE_SIGNED_32 is defined in this file and acts as double include detection
-#if ! defined(MAKE_SIGNED_32)
 
 #if ! defined(STATIC)
 #define STATIC static

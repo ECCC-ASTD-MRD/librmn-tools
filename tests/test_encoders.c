@@ -15,43 +15,9 @@
 #include <rmn/tee_print.h>
 #include <rmn/test_helpers.h>
 
+#include <rmn/print_bitstream.h>
+
 #define INDEX(col, lrow, row) ( (col) + (row)*(lrow) )
-
-static void print_stream_data(bitstream s, char *msg){
-  uint32_t *in = s.in ;
-  uint32_t *first = s.first ;
-  uint32_t *cur = first ;
-
-  TEE_FPRINTF(stderr,2, "%s : ", msg) ;
-  TEE_FPRINTF(stderr,2, "accum = %16.16lx", s.acc_i << (64 - s.insert)) ;
-  TEE_FPRINTF(stderr,2, ", guard = %8.8x, data =", *cur) ;
-  while(cur <= in){
-    if(in - cur == 0 && s.insert == 0) break ;                // last element not used
-    if(in - cur == 2 && s.insert != 0) {cur++ ; continue ; }  // last element used
-    if(cur-first < 3 || in-cur < 3) {
-      TEE_FPRINTF(stderr,2, " %8.8x", *cur) ;
-    }else{
-      TEE_FPRINTF(stderr,2, ".") ;
-    }
-    cur++ ;
-  }
-  TEE_FPRINTF(stderr,2, "\n") ;
-}
-
-static void print_stream_params(bitstream s, char *msg, char *expected_mode){
-  TEE_FPRINTF(stderr,2, "%s: filled = %d(%d), free= %d, first/in/out = %p/%p/%p [%ld], insert/xtract = %d/%d, in = %ld, out = %ld",
-    msg, StreamAvailableBits(&s), StreamStrictAvailableBits(&s), StreamAvailableSpace(&s), 
-    s.first, s.out, s.in, s.in-s.out, s.insert, s.xtract, s.in-s.first, s.out-s.first ) ;
-  if(expected_mode){
-    TEE_FPRINTF(stderr,2, ", mode = %s(%d) (%s expected)\n", StreamMode(s), StreamModeCode(s), expected_mode) ;
-    if(strcmp(StreamMode(s), expected_mode) != 0) { 
-      TEE_FPRINTF(stderr,2, "\nBad mode, exiting\n") ;
-      exit(1) ;
-    }
-  }else{
-    fprintf(stderr, ", mode = %s(%d)\n", StreamMode(s), StreamModeCode(s)) ;
-  }
-}
 
 static int compare_tile(int32_t *ref, int32_t *tile, int ni, int lni, int nj){
   int i, j, ij, errors ;

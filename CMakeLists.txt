@@ -260,6 +260,7 @@ set(PROJECT_H_FILES
   src/PUBLIC_INCLUDES/rmn/tools_types.h
   src/PUBLIC_INCLUDES/rmn/pack_macros.h
   src/PUBLIC_INCLUDES/rmn/bi_endian_pack.h
+  src/PUBLIC_INCLUDES/rmn/print_bitstream.h
   src/PUBLIC_INCLUDES/rmn/bits.h
   src/PUBLIC_INCLUDES/rmn/pixmaps.h
   src/PUBLIC_INCLUDES/rmn/compress_expand.h
