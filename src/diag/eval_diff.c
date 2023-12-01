@@ -14,6 +14,7 @@
 
 #include <rmn/misc_operators.h>
 #include <rmn/eval_diff.h>
+#include <rmn/tee_print.h>
 
 // update error statistics structure with differences between arrays fref and fnew
 // fref   : reference float array
@@ -52,7 +53,7 @@ int update_error_stats(float *fref, float *fnew, int nd, error_stats *e){
   return nd ;
 }
 
-// produce difference statistics between 2 full arrays
+// produce difference statistics between 2 full float arrays
 // fref   : reference float array
 // fnew   : array for which difference analysis is performed
 // nr     ; number of useful elements in a row
@@ -68,4 +69,25 @@ int float_array_differences(float *fref, float *fnew, int nr, int lref, int lnew
     fnew += lnew ;                              // next row
   }
   return 0 ;
+}
+
+// compare 2 word (32 bit) arrays using a mask
+// return number of non matching items
+// f1   [IN]   address of "reference" array
+// f2   [IN] : address of array compared to "reference" array
+// mask [IN] : comparison mask, where bits are 0 in mask, the differences f1 vs f2 are ignored
+// n    [IN] : number of items to compare
+int32_t array_compare_masked(void *f1, void *f2, int n, uint32_t mask){
+  uint32_t *w1 = (uint32_t *) f1 ;
+  uint32_t *w2 = (uint32_t *) f2 ;
+  int errors = 0 ;
+  int i ;
+  for(i=0 ; i<n ; i++){
+    if((w1[i] & mask) != (w2[i] & mask)) errors++ ;
+    if(errors > 0 && errors < 4){
+      TEE_FPRINTF(stderr,2, "compare_masked [%d], got %8.8x (%8d), expected %8.8x (%8d)\n", i, w2[i] & mask, w2[i] & mask, w1[i] & mask, w1[i] & mask) ;
+    }
+  }
+  if(errors) exit(1) ;
+  return errors ;
 }

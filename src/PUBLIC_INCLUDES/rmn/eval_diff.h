@@ -26,5 +26,6 @@ typedef struct{
 
 int update_error_stats(float *fref, float *fnew, int nd, error_stats *e);
 int float_array_differences(float *fref, float *fnew, int nr, int lref, int lnew, int nj, error_stats *e);
+int32_t array_compare_masked(void *f1, void *f2, int n, uint32_t mask);
 
 #endif
