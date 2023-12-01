@@ -31,7 +31,7 @@ void print_tile_properties(uint64_t p64){
   int nij, nbits, nbts0, nbitss, nb0, nbi ;
 
   p.u64 = p64 ;
-  nij = (p.t.h.npti+1)*(p.t.h.nptj+1) ;
+  nij = p.t.h.npij + 1 ;    // (p.t.h.npti+1)*(p.t.h.nptj+1) ;
   nbi = p.t.h.nbts + 1 ;
   nbits = nij * nbi ;
 //   nb0 = (nbi + NB0) >> 1 ;
@@ -41,8 +41,10 @@ void print_tile_properties(uint64_t p64){
 //           nbi, nb0, p.t.h.sign, p.t.h.encd, p.t.h.npti+1, p.t.h.nptj+1, p.t.h.min0, p.t.min, p.t.nzero, p.t.nshort, nbits, nbts0, nbitss) ;
   nb0 = p.t.bshort ;   // number of bits for short tokens ( 0 -> nbi )
   nbitss = (nij - p.t.nshort)*(nbi + 1) + p.t.nshort * (nb0 + 1) ;
+//   fprintf(stderr, "(t_p) nbits = %d(%d), sign = %d, encoding = %d, %d x %d, min0 = %d, min = %8.8x, bshort = %3d, nshort = %3d, bits = %d/%d\n",
+//           nbi, nb0, p.t.h.sign, p.t.h.encd, p.t.h.npti+1, p.t.h.nptj+1, p.t.h.min0, p.t.min, p.t.bshort, p.t.nshort, nbits, nbitss) ;
   fprintf(stderr, "(t_p) nbits = %d(%d), sign = %d, encoding = %d, %d x %d, min0 = %d, min = %8.8x, bshort = %3d, nshort = %3d, bits = %d/%d\n",
-          nbi, nb0, p.t.h.sign, p.t.h.encd, p.t.h.npti+1, p.t.h.nptj+1, p.t.h.min0, p.t.min, p.t.bshort, p.t.nshort, nbits, nbitss) ;
+          nbi, nb0, p.t.h.sign, p.t.h.encd, p.t.h.npij+1, 1, p.t.h.min0, p.t.min, p.t.bshort, p.t.nshort, nbits, nbitss) ;
 }
 
 // set encoding scheme deemed appropriate given tile properties
@@ -58,16 +60,14 @@ static uint64_t encode_tile_scheme(uint64_t p64){
 
   p.u64 = p64 ;
 fprintf(stderr, "DEBUG: encd = %d, nshort = %3d, bshort = %2d, nbits = %2d\n", p.t.h.encd, p.t.nshort, p.t.bshort, p.t.h.nbts + 1) ;
-  nij    = (p.t.h.npti + 1) * (p.t.h.nptj + 1) ;                         // number of points
+  nij    = p.t.h.npij + 1 ;      //  (p.t.h.npti + 1) * (p.t.h.nptj + 1) ;                         // number of points
   nbits = p.t.h.nbts + 1 ;
 //   nbits0 = (nbits + NB0) >> 1 ;  // number of bits for "short" values
-//   nzero  = p.t.nzero ;
   nshort = p.t.nshort ;
   nbits0 = p.t.bshort ;   // number of bits for short tokens ( 0 -> nbits )
 
   nbits_full  = nij * nbits ;                                            // all tokens at full length
 //   nbits_zero  = nzero + (nij - nzero) * (nbits + 1) ;                    // nzero tokens at length 1, others nbits + 1
-//   nbits_short = nshort * (nbits0 + 1) + (nij - nshort) * (nbits + 1) ;   // short tokens tokens nbits0 + 1, others nbits + 1
   nbits_short = nshort * (nbits0 + 1) + (nij - nshort) * (nbits + 1) ;   // short tokens tokens nbits0 + 1, others nbits + 1
 
   nbits_temp = nbits_full ;
@@ -76,13 +76,11 @@ fprintf(stderr, "DEBUG: encd = %d, nshort = %3d, bshort = %2d, nbits = %2d\n", p
 //   if(nbits_zero < nbits_temp){            // encoding 2 better ?
 //     nbits_temp = nbits_zero ;
 //     p.t.h.encd = 2 ;                      // use 0 , 1//nbits encoding
-//     p.t.nzero = nzero ;                   // "0" tokens used
 //   }
   if(nbits_short < nbits_temp){           // encoding 1 better ?
     p.t.h.encd = nbits0 ? 1 : 2 ;         // use 0//nbits0 , 1//nbits (1) OR  0 , 1//nbits (2) encoding
     p.t.nshort = nshort ;                 // "short" tokens used
     p.t.bshort = nbits0 ;                 // number of bits for short tokens
-//     p.t.nzero = 0 ;                       // no "0" token
   }
 // fprintf(stderr, "normal tile, min = %8.8x (%d x %d)\n", p.t.min, p.t.h.npti+1, p.t.h.nptj+1) ;
 fprintf(stderr, "DEBUG: encd = %d, nshort = %3d, bshort = %2d\n", p.t.h.encd, p.t.nshort, p.t.bshort) ;
@@ -138,8 +136,9 @@ static uint64_t encode_tile_properties_c(void *f, int ni, int lni, int nj, uint3
   p.u64 = 0 ;
   // TODO: ERROR if ni * nj > 64 or <= 0
   // TODO: fix code if nj == 1, 1 <= ni <= 64
-  p.t.h.npti = ni - 1 ;
-  p.t.h.nptj = nj - 1;
+//   p.t.h.npti = ni - 1 ;
+//   p.t.h.nptj = nj - 1;
+  p.t.h.npij = ni * nj - 1 ;
   i0 = 0 ;
   nij = ni * nj ;
   for(j=0 ; j<nj ; j++){                     // gather tile from array f
@@ -403,14 +402,15 @@ uint64_t encode_tile_properties(void *f, int ni, int lni, int nj, uint32_t tile[
   if(nij != 64) return encode_tile_properties_c(f, ni, lni, nj, tile) ; // not a full 8x8 tile
 
   p.u64 = 0 ;
-  if(ni > 8){   // 1D tile
-    nij = nij - 1 ;
-    p.t.h.npti = nij & 0x7 ;
-    p.t.h.nptj = nij >> 3 ;
-  }else{
-    p.t.h.npti = ni - 1 ;
-    p.t.h.nptj = nj - 1;
-  }
+  p.t.h.npij = nij - 1 ;
+//   if(ni > 8){   // 1D tile
+//     nij = nij - 1 ;
+//     p.t.h.npti = nij & 0x7 ;
+//     p.t.h.nptj = nij >> 3 ;
+//   }else{
+//     p.t.h.npti = ni - 1 ;
+//     p.t.h.nptj = nj - 1;
+//   }
 
   v0 = _mm256_loadu_si256((__m256i *)(block)) ; block += lni ;  // load 8 x 8 values from original array
   v1 = _mm256_loadu_si256((__m256i *)(block)) ; block += lni ;
@@ -630,129 +630,114 @@ constant:
 // tp64 [IN] : properties from encode_tile_properties
 // s   [OUT] : bit stream
 // tile [IN] : pre extracted tile (1->64 values)
-// return total number of bits added to bit stream
+// return total number of bits inserted into bit stream
 // if not enough room in stream, return a negative error reflecting the number of extra bits needed
 // TODO: npti, nptj or npij ?
 int32_t encode_contiguous(uint64_t tp64, bitstream *s, uint32_t tile[64]){
-//   STREAM_DCL_STATE_VARS(accum, insert, stream) ;
-//   STREAM_GET_INSERT_STATE(*s, accum, insert, stream) ;
   EZ_NEW_INSERT_VARS(*s) ;
   uint32_t avail ;
   tile_properties p ;
   int nij, nbits, nbits0, nbitsi, nbtot, i ;
   uint32_t min, w32, mask0, mask1, nbitsm ;
-//   uint32_t nzero, nshort, needed ;
   uint32_t nshort, needed ;
 
   p.u64 = tp64 ;
 // print_tile_properties(tp64) ;
-  nij    = (p.t.h.npti + 1) * (p.t.h.nptj + 1) ;          // number of points
-  nbtot = -1 ;                                            // precondition for error
+  nij   = p.t.h.npij + 1 ;                              // number of points
+  nbtot = -1 ;                                          // precondition for error
   if(nij < 1 || nij > 64) goto error ;
   min    = p.t.min ;
-//   nzero  = p.t.nzero ;
   nshort = p.t.nshort ;
   nbits = p.t.h.nbts + 1 ;
-//   nbits0 = (nbits + NB0) >> 1 ;  // number of bits for "short" values
-  nbits0 = p.t.bshort ;
+  nbits0 = p.t.bshort ;                                 // number of bits for "short" values
 
-  // evaluate how many bits we may need for encoding
-//   needed = 16 ;                                           // header
-  needed = nbits0 ? 21 : 16 ;                             // header + 5 bits for nbits0 if not 0
-  if(p.t.h.min0) needed += (5 + 32 - lzcnt_32(min)) ;     // in case min is used
-  if(p.t.h.encd == 3) nij = 1 ;
-//   needed = needed + nbits0 * nshort + nbits * (nij - nzero - nshort) ;
-  needed = needed + nbits0 * nshort + nbits * (nij - nshort) ;
-  if(p.t.h.encd) needed += nij ;                          // one extra bit per value for encoding if used
-  avail = STREAM_BITS_EMPTY(*s) ;                         // free bits in stream
+  // evaluate how many bits we will need for encoding
+  needed = nbits0 ? 21 : 16 ;                           // header + 5 bits for nbits0 if nbits0 is not 0
+  if(p.t.h.min0) needed += (5 + 32 - lzcnt_32(min)) ;   // if minimum value is used
+  if(p.t.h.encd == 3) nij = 1 ;                         // constant tile, only one value is used
+  needed = needed + 
+           nbits0 * nshort +                            // "short" tokens
+           nbits * (nij - nshort) ;                     // full tokens
+  if(p.t.h.encd) needed += nij ;                        // one extra bit per value for short/full encoding if necessary
+  avail = STREAM_BITS_EMPTY(*s) ;                       // free bits in stream
 //   fprintf(stderr, "worst case %d bits, %d free\n", needed, avail) ;
   nbtot = (avail - needed - 1) ;
-  if(avail < needed) goto error ; 
+  if(avail < needed) goto error ;                       // ERROR, not enough space to encode
 
-  mask0 = RMASK31(nbits0) ;      // value & mask0 will be 0 if nbits0 or less bits are needed
-  mask0 = ~mask0 ;               // keep only the upper bits
-  mask1 = 1 << nbits ;           // full token flag
+  mask0 = RMASK31(nbits0) ;                             // value & mask0 will be 0 if nbits0 or less bits are needed
+  mask0 = ~mask0 ;                                      // keep only the upper bits
+  mask1 = 1 << nbits ;                                  // full token flag
 
 // fprintf(stderr, "(e_c) nbits = %d(%d), sign = %d, encoding = %d, nshort = %2d, nzero = %2d", nbits, nbits0, p.t.h.sign, p.t.h.encd, nshort, nzero) ;
 // fprintf(stderr, ", nbits_full = %4d, nbits_zero = %4d, nbits_short = %4d, mask0 = %8.8x\n", nbits_full, nbits_zero, nbits_short, mask0) ;
   w32 = p.u16[3] ;               // tile header
 fprintf(stderr, "DEBUG: (encode_contiguous) encd = %d, nbits0 = %d, header = %8.8x\n", p.t.h.encd, nbits0, w32) ;
-//   BE64_PUT_NBITS(accum, insert, w32, 16, stream) ;       // insert header into packed stream
-  BE64_EZ_PUT_NBITS(w32, 16) ;
+  BE64_EZ_PUT_NBITS(w32, 16) ;                          // insert header into packed stream
   nbtot = 16 ;
   if(p.t.h.encd == 1){
     w32 = nbits0 ;
-//     BE64_PUT_NBITS(accum, insert, w32,  5, stream) ;     // insert size of short tokens for encoding mode 1
-    BE64_EZ_PUT_NBITS(w32, 5) ;
+    BE64_EZ_PUT_NBITS(w32, 5) ;                         // insert size of short tokens for encoding mode 1
     nbtot += 5 ;
   }
-  if(p.t.h.encd == 3) goto constant ;
+  if(p.t.h.encd == 3) goto constant ;                   // special case for constant tile
 
   // will have to insert both number of bits and value
-  if(p.t.h.min0){                                        // store nbitsm -1 into bit stream
+  if(p.t.h.min0){                                       // store nbitsm -1 into bit stream
     nbitsm = 32 - lzcnt_32(min) ;
-//     BE64_PUT_NBITS(accum, insert, nbitsm-1, 5, stream) ; // insert number of bits -1 for min value (5 bits)
-    BE64_EZ_PUT_NBITS(nbitsm-1, 5) ;
-//     BE64_PUT_NBITS(accum, insert, min, nbitsm, stream) ; // insert minimum value (nbitsm bits)
-    BE64_EZ_PUT_NBITS(min, nbitsm) ;
-    nbtot += (nbitsm+5) ;
+    BE64_EZ_PUT_NBITS(nbitsm-1, 5) ;                    // insert number of bits -1 for min value (5 bits)
+    BE64_EZ_PUT_NBITS(min, nbitsm) ;                    // insert minimum value (nbitsm bits)
+    nbtot += (nbitsm+5) ;                               // update bits inserted count
   }
   // 3 mutually exclusive alternatives (case 3 handled before)
   switch(p.t.h.encd)
   {
-  case 0 :                                                      // no special encoding
+  case 0 :                                              // no special encoding
     for(i=0 ; i<nij ; i++){
       w32 = tile[i] - min ;
-//       BE64_PUT_NBITS(accum, insert, w32, nbits, stream) ;   // insert nbits bits into stream
-      BE64_EZ_PUT_NBITS(w32, nbits) ;
-      nbtot += nbits ;
+      BE64_EZ_PUT_NBITS(w32, nbits) ;                   // insert nbits bits into stream
+      nbtot += nbits ;                                  // update bits inserted count
     }
     break ;
-  case 1 :                                                      // 0//short , 1//full encoding
+  case 1 :                                              // 0//short , 1//full encoding
     for(i=0 ; i<nij ; i++){
       w32 = tile[i] - min ;
-      if((w32 & mask0) == 0){                                   // value uses nbits0 bits or less
-        nbitsi = nbits0+1 ;                                     // nbits0+1 bits
+      if((w32 & mask0) == 0){                           // value uses nbits0 bits or less
+        nbitsi = nbits0+1 ;                             // nbits0+1 bits
       }else{
-        nbitsi = nbits+1 ;                                      // nbits+1 bits
-        w32 |= mask1 ;                                          // add 1 bit to identify "full" value
+        nbitsi = nbits+1 ;                              // nbits+1 bits
+        w32 |= mask1 ;                                  // add 1 bit to identify "full" value
       }
-      nbtot += nbitsi ;
-//       BE64_PUT_NBITS(accum, insert, w32,  nbitsi, stream) ;     // insert nbitsi bits into stream
-      BE64_EZ_PUT_NBITS(w32, nbitsi) ;
+      nbtot += nbitsi ;                                 // update bits inserted count
+      BE64_EZ_PUT_NBITS(w32, nbitsi) ;                  // insert nbitsi bits into stream
     }
     break ;
-  case 2 :                                                      // 0 , 1//full encoding
+  case 2 :                                              // 0 , 1//full encoding
     for(i=0 ; i<nij ; i++){
       w32 = tile[i] - min ;
-      if(w32 == 0){                                             // value is zero
-        nbitsi = 1 ;                                            // 1 bit
+      if(w32 == 0){                                     // value is zero
+        nbitsi = 1 ;                                    // 1 bit
       }else{
-        nbitsi = nbits+1 ;                                      // nbits+1 bits
-        w32 |= mask1 ;                                          // add 1 bit to identify "full" value
+        nbitsi = nbits+1 ;                              // nbits+1 bits
+        w32 |= mask1 ;                                  // add 1 bit to identify "full" value
       }
-      nbtot += nbitsi ;
-//       BE64_PUT_NBITS(accum, insert, w32,  nbitsi, stream) ;     // insert nbitsi bits into stream
-      BE64_EZ_PUT_NBITS(w32, nbitsi) ;
+      nbtot += nbitsi ;                                 // update bits inserted count
+      BE64_EZ_PUT_NBITS(w32, nbitsi) ;                  // insert nbitsi bits into stream
     }
     break ;
   }
 
 end:
-//   BE64_PUSH(accum, insert, stream) ;
-  BE64_EZ_PUSH ;
-//   STREAM_SET_INSERT_STATE(*s, accum, insert, stream) ;
-  EZ_SET_INSERT_VARS(*s) ;
-  return nbtot ;
+  BE64_EZ_PUSH ;                                        // push accumulator into bit stream
+  EZ_SET_INSERT_VARS(*s) ;                              // update bit stream insertion variables from local variables
+  return nbtot ;                                        // return total number of bits inserted
 
 error:
   return nbtot ;
 
 constant:
   if(min != 0) {
-//     BE64_PUT_NBITS(accum, insert, min,  nbits, stream) ;     // insert nbits bits into stream
-    BE64_EZ_PUT_NBITS(min, nbits) ;
-    nbtot += nbits ;
+    BE64_EZ_PUT_NBITS(min, nbits) ;                     // insert nbits bits into stream
+    nbtot += nbits ;                                    // update bits inserted count
   }
   goto end ;
 }
@@ -822,7 +807,8 @@ int32_t encode_as_tiles(void *f, int ni, int lni, int nj, bitstream *s){
 // s  [INOUT] : bit stream
 // return the number of bits extracted from the bit stream
 // TODO: npti, nptj or npij ?
-int32_t decode_tile(void *f, int *ni, int lni, int *nj, bitstream *s){
+// int32_t decode_tile(void *f, int *ni, int lni, int *nj, bitstream *s){
+int32_t decode_tile(void *f, int ni, int lni, int nj, int *nptsij, bitstream *s){
   int32_t *fi = (int32_t *) f ;
 //   uint32_t *fu = (uint32_t *) f ;
   uint32_t fe[64] ;
@@ -834,126 +820,110 @@ int32_t decode_tile(void *f, int *ni, int lni, int *nj, bitstream *s){
 
   if((f == NULL) || (s == NULL)) goto error ;
   if( ! StreamIsValid(s) ) goto error ;
-//   STREAM_DCL_STATE_VARS(accum, xtract, stream) ;
-//   STREAM_GET_XTRACT_STATE(*s, accum, xtract, stream) ;
-  EZ_NEW_XTRACT_VARS(*s) ;
+  EZ_NEW_XTRACT_VARS(*s) ;            // declare and get extraction control variables from bit stream
 
-//   if( (f == NULL) || (stream == NULL) ) goto error ;
-//   BE64_GET_NBITS(accum, xtract, w32, 16, stream) ;
-  BE64_EZ_GET_NBITS(w32, 16)
+  BE64_EZ_GET_NBITS(w32, 16)          // get tile header
   nbtot = 16 ;
-  th.s = w32 ;
-  *ni = th.h.npti+1 ;              // first dimension of tile
-  *nj = th.h.nptj+1 ;              // second dimension of tile
-  nij = (*ni) * (*nj) ;
+  th.s = w32 ;                        // tile header
+  nij = th.h.npij + 1 ;               //  number of values in tile
+  *nptsij = nij ;                     // send number of values found to caller
+  if(ni * nj != nij) goto error ;     // dimension mismatch, this tile should contain ni * nj values
   nbits = th.h.nbts + 1 ;
-  nbits0 = (nbits + NB0) >> 1 ;    // number of bits for "short" values
-  nbits0 = 0 ;
-fprintf(stderr, "DEBUG: (decode_tile) header = %8.8x, nbits = %2d\n", w32, nbits) ;
-  if(th.h.encd == 1) { // GET 5 bits giving the length of the short tokens if 0//short 1//nbits encoding
-//     BE64_GET_NBITS(accum, xtract, nbits0, 5, stream) ;
+//   nbits0 = (nbits + NB0) >> 1 ;
+  nbits0 = 0 ;                        // number of bits for "short" values
+fprintf(stderr, "DEBUG: (decode_tile) header = %8.8x, nbits = %2d, ni = %d, nj = %d, nij = %d\n", w32, nbits, ni, nj, nij) ;
+  // GET the 5 bits giving the length of the short tokens if 0//short 1//nbits encoding is used
+  if(th.h.encd == 1) {
     BE64_EZ_GET_NBITS(nbits0, 5)
 fprintf(stderr, "DEBUG: (decode_tile) short token length = %2d\n", nbits0) ;
-    nbtot += 5 ;
+    nbtot += 5 ;                      // update number of bits extracted
   }
-  if(th.h.encd == 3) goto constant ;
+  if(th.h.encd == 3) goto constant ;  // constant tile
 
-  min = 0 ;
+  min = 0 ;                           // default value (min not used)
   // will have to get both number of bits and value (get nbits -1 from bit stream)
-  if(th.h.min0){                   // get min value if there is one
-//     BE64_GET_NBITS(accum, xtract, nbitsm, 5, stream) ;      // number of bits for min value
-    BE64_EZ_GET_NBITS(nbitsm, 5)
-    nbitsm++ ;                                              // restore nbitsm
-//     BE64_GET_NBITS(accum, xtract, min, nbitsm, stream) ;    // min value
-    BE64_EZ_GET_NBITS(min, nbitsm)
-    nbtot += (nbitsm+5) ;
+  if(th.h.min0){                      // get min value if there is one
+    BE64_EZ_GET_NBITS(nbitsm, 5)      // number of bits for min value
+    nbitsm++ ;                        // restore nbitsm
+    BE64_EZ_GET_NBITS(min, nbitsm)    // min value
+    nbtot += (nbitsm+5) ;             // update number of bits extracted
   }else{
-    nbitsm = 0 ;
+    nbitsm = 0 ;                      // min value is not used
   }
 
   switch(th.h.encd)
   {
-  case 1 :                                                 // 0//short , 1//full encoding
+  case 1 :                               // 0//short , 1//full encoding
     for(i=0 ; i<nij ; i++){
-//       BE64_GET_NBITS(accum, xtract, w32, 1, stream) ;        // get 1 bit
-      BE64_EZ_GET_NBITS(w32, 1)
-      if(w32 != 0){
-//         BE64_GET_NBITS(accum, xtract, w32, nbits, stream) ;  // get nbits bits
-        BE64_EZ_GET_NBITS(w32, nbits)
+      BE64_EZ_GET_NBITS(w32, 1)          // get 1 bit
+      if(w32 != 0){                      // full token
+        BE64_EZ_GET_NBITS(w32, nbits) ;  // get nbits bits
         nbitsi = nbits + 1 ;
-      }else{
-//         BE64_GET_NBITS(accum, xtract, w32, nbits0, stream) ; // get nbits0 bits
-        BE64_EZ_GET_NBITS(w32, nbits0)
+      }else{                             // short token
+        BE64_EZ_GET_NBITS(w32, nbits0) ; // get nbits0 bits
         nbitsi = nbits0 + 1 ;
       }
-      nbtot += nbitsi ;
-      fe[i] = w32 + min ;
+      nbtot += nbitsi ;                  // update number of bits extracted
+      fe[i] = w32 + min ;                // add min to decoded value
     }
     break ;
-  case 2 :                                                 // 0 , 1//full encoding
+  case 2 :                               // 0 , 1//full encoding
     for(i=0 ; i<nij ; i++){
-//       BE64_GET_NBITS(accum, xtract, w32, 1, stream) ;        // get 1 bit
-      BE64_EZ_GET_NBITS(w32, 1)
-      if(w32 != 0){
-//         BE64_GET_NBITS(accum, xtract, w32, nbits, stream) ;  // get nbits bits
-        BE64_EZ_GET_NBITS(w32, nbits)
+      BE64_EZ_GET_NBITS(w32, 1) ;        // get 1 bit
+      if(w32 != 0){                      // full token
+        BE64_EZ_GET_NBITS(w32, nbits) ;  // get nbits bits
         nbitsi = nbits + 1 ;
-      }else{
+      }else{                             // short token
         nbitsi = 1 ;
       }
-      nbtot += nbitsi ;
-      fe[i] = w32 + min ;
+      nbtot += nbitsi ;                  // update number of bits extracted
+      fe[i] = w32 + min ;                // add min to decoded value
     }
     break ;
-  case 0 :                                                 // no encoding
+  case 0 :                               // no short/full encoding
     for(i=0 ; i<nij ; i++){
-//       BE64_GET_NBITS(accum, xtract, w32, nbits, stream) ;
-      BE64_EZ_GET_NBITS(w32, nbits)
-      fe[i] = w32 + min ;
-      nbtot += nbits ;
+      BE64_EZ_GET_NBITS(w32, nbits) ;    // get nbits bits
+      fe[i] = w32 + min ;                // add min to decoded value
+      nbtot += nbits ;                   // update number of bits extracted
     }
     break ;
   }
 
   i0 = 0 ;
-  if(th.h.sign == 1){    // all values >= 0
-    for(j=0 ; j<*nj ; j++){
-      for(i=0 ; i<*ni ; i++){
-        fi[i] = fe[i0+i] ;     // ZigZag O.K. if non negative
+  if(th.h.sign == 1){                    // all values >= 0
+    for(j=0 ; j<nj ; j++){
+      for(i=0 ; i<ni ; i++){
+        fi[i] = fe[i0+i] ;               // ZigZag O.K. if non negative
       }
       fi += lni ;
-      i0 += *ni ;
+      i0 += ni ;
     }
-//     for(i=0 ; i<nij ; i++){ fi[i] = fe[i] + min ; }
   }
-  if(th.h.sign == 2){    // all values < 0
-    for(j=0 ; j<*nj ; j++){
-      for(i=0 ; i<*ni ; i++){
-        fi[i] = ~(fe[i0+i]) ;  // undo right shifted ZigZag
+  if(th.h.sign == 2){                    // all values < 0
+    for(j=0 ; j<nj ; j++){
+      for(i=0 ; i<ni ; i++){
+        fi[i] = ~(fe[i0+i]) ;            // undo right shifted ZigZag
       }
       fi += lni ;
-      i0 += *ni ;
+      i0 += ni ;
     }
-//     for(i=0 ; i<nij ; i++){ fi[i] = ~(fe[i] + min) ; }  // undo right shifted ZigZag
   }
-  if(th.h.sign == 3){    // ZigZag
-    for(j=0 ; j<*nj ; j++){
-      for(i=0 ; i<*ni ; i++){
-        fi[i] = from_zigzag_32((fe[i0+i])) ;  // restore from ZigZag
+  if(th.h.sign == 3){                    // full ZigZag
+    for(j=0 ; j<nj ; j++){
+      for(i=0 ; i<ni ; i++){             // restore from ZigZag
+        fi[i] = from_zigzag_32((fe[i0+i])) ;
       }
       fi += lni ;
-      i0 += *ni ;
+      i0 += ni ;
     }
-//     for(i=0 ; i<nij ; i++){ fi[i] = from_zigzag_32((fe[i]+min)) ; }  // restore from ZigZag
   }
 fprintf(stderr, "DEBUG: (decode_tile) nbtot = %2d\n", nbtot) ;
 fprintf(stderr, " TILE     : bits = %4d, ni = %2d, nj = %2d, nbits = %2d, encoding = %d, sign = %d, min0 = %d, min   = %8.8x, nbitsm = %2d\n", 
-        nbtot, *ni, *nj, nbits, th.h.encd, th.h.sign, th.h.min0, min, nbitsm) ;
+        nbtot, ni, nj, nbits, th.h.encd, th.h.sign, th.h.min0, min, nbitsm) ;
 
 end:
-//   STREAM_SET_XTRACT_STATE(*s, accum, xtract, stream) ;
-  EZ_SET_XTRACT_VARS(*s) ;
-  return nbtot ;
+  EZ_SET_XTRACT_VARS(*s) ;               // update bit stream extraction info from local variables
+  return nbtot ;                         // return total number of bits extracted from stream
 
 error:
 fprintf(stderr, "ERROR: (decode_tile)\n");
@@ -962,19 +932,18 @@ fprintf(stderr, "ERROR: (decode_tile)\n");
 constant:
   iw32 = 0 ;
   if(th.h.sign == 3){
-//     BE64_GET_NBITS(accum, xtract, w32, nbits, stream) ;          // extract nbits bits
-    BE64_EZ_GET_NBITS(w32, nbits)
-    nbtot += nbits ;
-    iw32 = from_zigzag_32(w32) ;
+    BE64_EZ_GET_NBITS(w32, nbits) ;      // extract nbits bits
+    nbtot += nbits ;                     // update number of bits extracted
+    iw32 = from_zigzag_32(w32) ;         // restore from ZigZag
   }
 fprintf(stderr, " CONSTANT : bits = %4d, ni = %2d, nj = %2d, nbits = %2d, encoding = %d, sign = %d, min0 = %d, value = %8.8x, nij = %2d\n", 
-        nbtot, *ni, *nj, nbits, th.h.encd, th.h.sign, th.h.min0, iw32, nij) ;
-  for(j=0 ; j<*nj ; j++){
-    for(i=0 ; i<*ni ; i++){
-      fi[i] = iw32 ;  // restore from ZigZag
+        nbtot, ni, nj, nbits, th.h.encd, th.h.sign, th.h.min0, iw32, nij) ;
+  for(j=0 ; j<nj ; j++){
+    for(i=0 ; i<ni ; i++){
+      fi[i] = iw32 ;                     // store constant value into destination array
     }
     fi += lni ;
-    i0 += *ni ;
+    i0 += ni ;
   }
   goto end ;
 }
@@ -988,10 +957,7 @@ fprintf(stderr, " CONSTANT : bits = %4d, ni = %2d, nj = %2d, nbits = %2d, encodi
 // return the total number of bits extracted from the bit stream (-1 in case of error)
 int32_t decode_as_tiles(void *f, int ni, int lni, int nj, bitstream *s){
   int32_t *fi = (int32_t *) f ;
-  int ni0, nj0, nit, njt, i0, j0, indexi, indexj, nbtile, nbtot ;
-#if 0
-  bitstream_state state ;
-#endif
+  int ni0, nj0, nit, njt, i0, j0, indexi, indexj, nbtile, nbtot, nptsij ;
 
   indexj = 0 ;
   for(j0 = 0 ; j0 < nj ; j0 += 8){
@@ -999,25 +965,16 @@ int32_t decode_as_tiles(void *f, int ni, int lni, int nj, bitstream *s){
     for(i0 = 0 ; i0 < ni ; i0 += 8){
       indexi = i0 ;
       ni0 = ((ni - i0) > 8) ? 8 : (ni - i0) ;
-//       print_stream_params(*s, "before tile decode", NULL) ;
-//       fprintf(stderr,"tile (%3d,%3d) -> (%3d,%3d) [%d x %d] [%4d,%4d]\n", i0, j0, i0+ni0-1, j0+nj0-1, ni0, nj0, indexi, indexj) ;
-#if 0
-StreamSaveState(s, &state) ;
-print_stream_params(*s, "after save state", NULL) ;
-nbtile = decode_tile(fi+indexi+indexj, &nit, lni, &njt, s) ;
-print_stream_params(*s, "before restore state", NULL) ;
-StreamRestoreState(s, &state, 0) ;
-print_stream_params(*s, "after restore state", NULL) ;
-#endif
-      nbtile = decode_tile(fi+indexi+indexj, &nit, lni, &njt, s) ;
-//       fprintf(stderr,"nit = %d, njt = %d, nbtile = %d\n", nit, njt, nbtile) ;
-      if(ni0 != nit || nj0 != njt) return -1 ;        // decoding error
-      nbtot += nbtile ;
-//       print_stream_params(*s, "after tile decode", NULL) ;
-//       fprintf(stderr,"\n");
-      if(nit != ni0 || njt != nj0) return 1 ;
+
+      nbtile = decode_tile(fi+indexi+indexj, ni0, lni, nj0, &nptsij, s) ;
+      if(nptsij != ni0 * nj0) {
+        fprintf(stderr,"decode_as_tiles : i0 = %d, j0 = %d, nbtile = %d, nij = %d, expecting %d\n", i0, j0, nbtile, nptsij, ni0 * nj0) ;
+        return -1 ;        // decoding error
+      }
+
+      nbtot += nbtile ;    // add to total bits extracted from stream
     }
     indexj += lni*8 ;
   }
-  return nbtot ;
+  return nbtot ;           // return total number of bits extracted from stream
 }

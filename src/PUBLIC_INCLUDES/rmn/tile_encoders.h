@@ -72,19 +72,31 @@
 // for a 2D tile, ni = npti + 1, nj = nptj + 1
 // if both npti == 7 and nptj == 7, it does not matter, we have a full 64 value block
 // TODO: npti, nptj or npij ?
-typedef struct{
+typedef struct{          // 2 D tile
   uint16_t nbts: 5,      // number of bits per token - 1
            sign: 2,      // 00 all == 0, 01 all >= 0, 10 all < 0, 11 ZigZag
            encd: 2,      // encoding ( 00: none, 01: 0//short , 1//full, 10: 0 , 1//full, 11: constant tile
-           npti: 3,      // first dimension (npti = ni - 1) (0 <= ni <= 8)
-           nptj: 3,      // second dimension (nptj = nj - 1) (0 <= nj <= 8)
+           npij: 6,      // dimension (npij = n - 1) (0 <= npij <= 64)
+//            npti: 3,      // first dimension (npti = ni - 1) (0 <= ni <= 8)
+//            nptj: 3,      // second dimension (nptj = nj - 1) (0 <= nj <= 8)
            min0: 1;      // 1 : minimum value is used as offset, 0 : minimum not used
 }tile_head ;             // header with bit fields
 CT_ASSERT(2 == sizeof(tile_head))
 
+typedef struct{          // 1 D tile
+  uint16_t nbts: 5,      // number of bits per token - 1
+           sign: 2,      // 00 all == 0, 01 all >= 0, 10 all < 0, 11 ZigZag
+           encd: 2,      // encoding ( 00: none, 01: 0//short , 1//full, 10: 0 , 1//full, 11: constant tile
+           npij: 6,      // dimension (npij = n - 1) (0 <= npij <= 64)
+           min0: 1;      // 1 : minimum value is used as offset, 0 : minimum not used
+}tile_head_1d ;             // header with bit fields
+CT_ASSERT(2 == sizeof(tile_head_1d))
+
 typedef struct{          // 1-8 x 1-8 encoded tile header (16 bits)
   union{
     tile_head h ;
+    tile_head h2 ;
+    tile_head_1d h1 ;
     uint16_t s ;         // allows to grab everything as one piece
   } ;
 } tile_header ;
@@ -115,7 +127,8 @@ int32_t encode_tile(void *field, int ni, int lni, int nj, bitstream *stream, uin
 int32_t encode_contiguous(uint64_t tp64, bitstream *stream, uint32_t tile[64]);
 int32_t encode_as_tiles(void *field, int ni, int lni, int nj, bitstream *stream);
 
-int32_t decode_tile(void *field, int *ni, int lni, int *nj, bitstream *stream);
+// int32_t decode_tile(void *field, int *ni, int lni, int *nj, bitstream *stream);
+int32_t decode_tile(void *field, int ni, int lni, int nj, int *nptsij, bitstream *stream);
 int32_t decode_as_tiles(void *field, int ni, int lni, int nj, bitstream *stream);
 
 #endif

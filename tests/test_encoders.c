@@ -81,7 +81,7 @@ int main(int argc, char **argv){
   int32_t chunk_o[NPTSJ*NPTSLNI+64] ;
   uint32_t packed0[NPTSJ*NPTSLNI+64] ;
   uint32_t packed1[NPTSJ*NPTSLNI+64] ;
-  int i, j, ij, ni, nj, errors ;
+  int i, j, ij, ni, nj, nij, errors ;
   bitstream stream0, stream1  ;
   int32_t nbtot ;
   size_t ncopy ;
@@ -179,9 +179,9 @@ CT_ASSERT(2 == sizeof(uint16_t))
   print_stream_data(stream0, "stream0") ;
 
   for(i=0 ; i<64 ; i++) tile0[i] = 0x55555555 ;
-  ni = nj = 0 ;
-  nbtot = decode_tile(tile0, &ni, 8, &nj, &stream0) ;         // decode tile from stream0 into tile0
-  TEE_FPRINTF(stderr,2, "ni = %d, nj = %d, ", ni, nj) ;
+  ni = nj = 8 ;
+  nbtot = decode_tile(tile0, ni, 8, nj, &nij, &stream0) ;         // decode tile from stream0 into tile0
+  TEE_FPRINTF(stderr,2, "ni = %d, nj = %d, nij = %d, ", ni, nj, nij) ;
   errors = compare_tile(tile0, tile3, ni, ni, nj) ;
   if(errors > 0) {
     print_tile(tile0, ni, ni, nj, "restored tile") ;
@@ -189,7 +189,7 @@ CT_ASSERT(2 == sizeof(uint16_t))
   }else{
     TEE_FPRINTF(stderr,2, "stream0 -> tile0 : SUCCESS\n\n");
   }
-
+// return 0 ;
   // no need to rewind stream0 in this case
   for(i=0 ; i< sizeof(packed1)/4 ; i++) packed1[i] = 0 ;
   ncopy=StreamDataCopy(&stream0, packed1, sizeof(packed1)) ;  // copy stream0 data into packed1
@@ -198,8 +198,8 @@ CT_ASSERT(2 == sizeof(uint16_t))
   StreamSetFilledBits(&stream1, nbtot) ;                      // set available number of bits to nb of useful bits
   print_stream_params(stream1, "Init stream1", "RW") ;
   print_stream_data(stream1, "stream1") ;
-  nbtot = decode_tile(tile0, &ni, 8, &nj, &stream1) ;         // decode tile from stream1 into tile0
-  TEE_FPRINTF(stderr,2, "ni = %d, nj = %d\n", ni, nj) ;
+  nbtot = decode_tile(tile0, ni, 8, nj, &nij, &stream1) ;         // decode tile from stream1 into tile0
+  TEE_FPRINTF(stderr,2, "ni = %d, nj = %d, nij = %d, ", ni, nj, nij) ;
   errors = compare_tile(tile0, tile3, ni, ni, nj) ;
   if(errors > 0) {
     print_tile(tile0, ni, ni, nj, "restored tile") ;
@@ -257,7 +257,7 @@ CT_ASSERT(2 == sizeof(uint16_t))
 //   }
 //   TEE_FPRINTF(stderr,2,"\n");
   compare_tile(chunk_i, chunk_o, NPTSI, NPTSLNI, NPTSJ) ;
-return 0 ;
+// return 0 ;
   TEE_FPRINTF(stderr,2,"========== decoding from copy ==========\n");
   for(i=0 ; i< sizeof(packed1)/4 ; i++) packed1[i] = 0 ;
   print_stream_params(stream0, "Source stream0", "RW") ;
@@ -281,6 +281,9 @@ return 0 ;
 //   TEE_FPRINTF(stderr,2,"\n");
 
   errors = compare_tile(chunk_i, chunk_o, NPTSI, NPTSLNI, NPTSJ) ;
+  if(errors == 0){
+    TEE_FPRINTF(stderr,2, "compare chunk_i, chunk_o : SUCCESS\n") ;
+  }
 
   int32_t pop[4] ;
   int32_t ref[4] = { 2, 4, 8, 16 } ;
