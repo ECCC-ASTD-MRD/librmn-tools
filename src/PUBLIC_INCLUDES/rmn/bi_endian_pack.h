@@ -12,7 +12,7 @@
 // Lesser General Public License for more details .
 //
 // Author:
-//     M. Valin,   Recherche en Prevision Numerique, 2022
+//     M. Valin,   Recherche en Prevision Numerique, 2022-2023
 //
 // set of macros and functions to manage insertion/extraction into/from a bit stream
 //

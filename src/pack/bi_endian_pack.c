@@ -12,7 +12,7 @@
 // Lesser General Public License for more details.
 //
 // Author:
-//     M. Valin,   Recherche en Prevision Numerique, 2022
+//     M. Valin,   Recherche en Prevision Numerique, 2022-2023
 //
 // set of functions to help manage insertion/extraction of integers into/from a bit stream
 // the bit stream is a sequence of unsigned 32 bit integers

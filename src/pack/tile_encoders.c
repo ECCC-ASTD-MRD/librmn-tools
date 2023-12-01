@@ -11,7 +11,9 @@
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
 // Library General Public License for more details.
 //
-
+// Author:
+//     M. Valin,   Recherche en Prevision Numerique, 2022
+//
 #include <stdio.h>
 #include <rmn/print_bitstream.h>
 #include <rmn/tile_encoders.h>
