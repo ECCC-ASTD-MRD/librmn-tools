@@ -20,22 +20,22 @@
 #include <rmn/bi_endian_pack.h>
 
 // encoded tile layout :
-//                   min0 == 0
-// +-----------+-----------------+          +-----------------+
-// |   header  |     token 1     | ........ |     token n     |
-// +-----------+-----------------+          +-----------------+
-// <- 16 bits ->
 //
-//                   min0 == 1
-// +-----------+----------+-----------------+-----------------+          +-----------------+
-// |   header  |   nbmi   |     minimum     |     token 1     | ........ |     token n     |
-// +-----------+----------+-----------------+-----------------+          +-----------------+
-// <- 16 bits -x- 5 bits -x- nbmi + 1 bits ->
+//             <------ optional fields -------------->
+// +-----------+--------+----------+-----------------+-----------------+          +-----------------+
+// |   header  | bshort |   nbmi   |     minimum     |     token 1     | ........ |     token n     |
+// +-----------+--------+----------+-----------------+-----------------+          +-----------------+
+// <- 16 bits ->        <------ nbmi + 5 bits ------->
+//             <-5 bits->
 //
-// token encoding : 
+// 16 bit header description :
+//          nbts         number of bits per token - 1 (0-31)
+//          npij         number of values -1 in tile (0-63)
+//          min0 = 0     no minimum value removed
+//          min0 = 1     minimum value (offset) removed from tile values
 //          encd = 00    each value  : nbts+1 bits
-//          encd = 01    small value : 0bit , (nbts+1)/2 bits
-//                       other value : 1bit , nbts+1 bits
+//          encd = 01    short value : first bit=0 , bshort bits
+//                       other value : first bit=1 , nbts+1 bits
 //          encd = 10    zero value  : first bit=0
 //                       other value : first bit=1 , nbts+1 bits
 //          encd = 11    all values are identical (possibly 0) (nbts+1 bits) (0 bits if sign == 00)
@@ -44,6 +44,9 @@
 //          sign = 01    every value is NON negative (short ZigZag without sign)
 //          sign = 10    every value is negative (short ZigZag without sign)
 //          sign = 11    mixed value signs (full ZigZag)
+//
+// the bshort part is only used when encd = 1 to indicate the number of nits for "short" values
+// the nbmi/minimum part is only used when min0 = 0 in header (minimum value subtracted)
 //
 // zero tile : sign == 00, encd = 11, nbts = 0 (don't really care), min0 = 0 (don't really care)
 // +-----------+
@@ -55,7 +58,8 @@
 // +-----------+-----------------+
 // |   header  |     token 1     |
 // +-----------+-----------------+
-// <- 16 bits -x- nbts + 1 bits ->
+// <- 16 bits ->
+//             <- nbts + 1 bits ->
 //
 // full ZigZag description          (used when all values have mixed signs)
 //        value >= 0 :   value << 1
@@ -68,10 +72,6 @@
 // the sign bit is omitted and value or ~value is stored
 //
 // header for an encoded tile (16 bits)
-// for a 1D tile, npti and nptj are to be interpreted as ni = 1 + npti + 8 * nptj, nj = 1
-// for a 2D tile, ni = npti + 1, nj = nptj + 1
-// if both npti == 7 and nptj == 7, it does not matter, we have a full 64 value block
-// TODO: npti, nptj or npij ?
 typedef struct{          // 2 D tile
   uint16_t nbts: 5,      // number of bits per token - 1
            sign: 2,      // 00 all == 0, 01 all >= 0, 10 all < 0, 11 ZigZag
@@ -83,20 +83,9 @@ typedef struct{          // 2 D tile
 }tile_head ;             // header with bit fields
 CT_ASSERT(2 == sizeof(tile_head))
 
-typedef struct{          // 1 D tile
-  uint16_t nbts: 5,      // number of bits per token - 1
-           sign: 2,      // 00 all == 0, 01 all >= 0, 10 all < 0, 11 ZigZag
-           encd: 2,      // encoding ( 00: none, 01: 0//short , 1//full, 10: 0 , 1//full, 11: constant tile
-           npij: 6,      // dimension (npij = n - 1) (0 <= npij <= 64)
-           min0: 1;      // 1 : minimum value is used as offset, 0 : minimum not used
-}tile_head_1d ;             // header with bit fields
-CT_ASSERT(2 == sizeof(tile_head_1d))
-
 typedef struct{          // 1-8 x 1-8 encoded tile header (16 bits)
   union{
     tile_head h ;
-    tile_head h2 ;
-    tile_head_1d h1 ;
     uint16_t s ;         // allows to grab everything as one piece
   } ;
 } tile_header ;

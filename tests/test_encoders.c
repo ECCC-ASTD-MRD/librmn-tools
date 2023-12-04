@@ -217,6 +217,10 @@ CT_ASSERT(2 == sizeof(uint16_t))
       chunk_o[ij] = -1 ;
       if(i<8 && j<8) chunk_i[ij] = 0 ;             // lower left tile
       if(i>7 && j>7) chunk_i[ij] = 0x00001234 ;    // upper right tile
+      if(i>7 && j>7) chunk_i[ij] = -chunk_i[ij] ;  // upper right tile
+//       if(i>7 && j>7) chunk_i[ij] = 0xFFFF6543 ;    // upper right tile
+      if(i>7 && i<10 && j<8) chunk_i[ij] = -7 ;    // first 2 columns of lower right tile
+      if(i<2 && j>7) chunk_i[ij] = 0 ;             // first 2 columns of upper left tile
     }
   }
   TEE_FPRINTF(stderr,2,"Original data\n") ;
@@ -238,10 +242,10 @@ CT_ASSERT(2 == sizeof(uint16_t))
 
   TEE_FPRINTF(stderr,2,"========== encoding tiles ==========\n");
   nbtot = encode_as_tiles(chunk_i, NPTSI, NPTSLNI, NPTSJ, &stream0) ;
-  TEE_FPRINTF(stderr,2, "needed %d bits (%4.1f/value)\n\n", nbtot, nbtot*1.0/(NPTSI*NPTSJ)) ;
+  TEE_FPRINTF(stderr,2, "needed %d bits (%4.1f/value)\n", nbtot, nbtot*1.0/(NPTSI*NPTSJ)) ;
   print_stream_params(stream0, "encoded_tiles stream0", "RW") ;
   TEE_FPRINTF(stderr,2, "\n") ;
-
+// return 0 ;
   TEE_FPRINTF(stderr,2,"========== decoding from original stream ==========\n");
 
   nbtot = decode_as_tiles(chunk_o, NPTSI, NPTSLNI, NPTSJ, &stream0);
@@ -285,10 +289,11 @@ CT_ASSERT(2 == sizeof(uint16_t))
     TEE_FPRINTF(stderr,2, "compare chunk_i, chunk_o : SUCCESS\n") ;
   }
 
+  TEE_FPRINTF(stderr,2,"========== tile properties/population test ==========\n");
   int32_t pop[4] ;
   int32_t ref[4] = { 2, 4, 8, 16 } ;
 
-  tp.u64 = encode_tile_properties(tile1, 8, 8, 8, temp) ;
+  tp.u64 = encode_tile_properties(tile1, 8, 8, 8, temp) ; // gather tile
   for(j=7 ; j>=0 ; j--){
     for(i=0 ; i<8 ; i++){
       ij = i + 8 * j ;
@@ -297,10 +302,12 @@ CT_ASSERT(2 == sizeof(uint16_t))
     TEE_FPRINTF(stderr,2,"\n");
   }
   fprintf(stderr, "bshort = %d, nshort = %d, bits = %d, encd = %d\n", tp.t.bshort, tp.t.nshort, tp.t.h.nbts, tp.t.h.encd);
-  ref[0] = 1 ; ref[1] = 1 << 6 ; ref[2] = 1 << 5 ; ref[3] = 1 << 7 ;
+  ref[0] = 1 ; ref[2] = 1 << 6 ; ref[2] = 1 << 5 ; ref[3] = 1 << 7 ;
+  fprintf(stderr, "ref        = %4d %4d %4d %4d\n", ref[0], ref[1], ref[2], ref[3]);
   tile_population(temp, 64, pop, ref) ;
-  fprintf(stderr, "pop = %d %d %d %d\n", pop[0], pop[1], pop[2], pop[3]);
+  fprintf(stderr, "pop (<ref) = %4d %4d %4d %4d\n", pop[0], pop[1], pop[2], pop[3]);
 
+  TEE_FPRINTF(stderr,2,"========== population timing test ==========\n");
 //   TIME_LOOP_EZ(1000, 64, tp.u64 = encode_tile_properties(tile1, 8, 8, 8, temp)) ;
 //   fprintf(stderr, "encode_tile_properties : %s, zero = %d, short = %d, bits = %d\n\n", timer_msg, tp.t.nzero, tp.t.nshort, tp.t.h.nbts);
 //

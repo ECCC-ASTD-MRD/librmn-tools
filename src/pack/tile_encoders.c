@@ -234,20 +234,20 @@ constant:
   return constant_tile_scheme(p.u64) ;        // setup for constant values
 }
 
-// tile [IN] : array of 64 x 32 bit elements to be compared with 4 reference values
+// tile [IN] : array of 64 x 32 bit values to be compared with 4 reference values
 // pop [OUT] : 4 element array to receive population counts
 // ref  [IN] : 4 element array containing reference values
 // pop[i] will receive the number of values in tile < ref[i]
 // NOTE: the AVX2 version is a way faster than the dumb vanilla C version
 //       the chunked by 8 C version is 1.3 - 3 x slower than the AVX2 version with most compilers
 //       and much slower (up to 10x) with some others
+// the comparison is performed in SIGNED mode
 static void tile_population_64(int32_t *tile, int32_t pop[4], int32_t ref[4]){
 #if defined(__x86_64__) && defined(__AVX2__) && defined(WITH_SIMD)
   __m256i v0, v1, v2, v3, v4, v5, v6, v7 ;
   __m256i t0, t1, s0, s1 ;
   __m128i i0, i1 ;
-// int i ;
-// for(i=0 ; i<10 ; i++){  // loop for timings
+
   v0 = _mm256_loadu_si256((__m256i *)(tile+ 0)) ;   // load 8 x 8 values from tile
   v1 = _mm256_loadu_si256((__m256i *)(tile+ 8)) ;
   v2 = _mm256_loadu_si256((__m256i *)(tile+16)) ;
@@ -296,12 +296,10 @@ static void tile_population_64(int32_t *tile, int32_t pop[4], int32_t ref[4]){
   i1 = _mm_add_epi32(i1, _mm_shuffle_epi32(i1, 0b01010101)) ;
   _mm_storeu_si32(pop+2, i0) ; pop[2] = -pop[2] ;
   _mm_storeu_si32(pop+3, i1) ; pop[3] = -pop[3] ;
-// }
+
 #else
   int i0, i, ns0[8], ns1[8], ns2[8], ns3[8] ;
-// int32_t *tile0 = tile, irep ;
-// for(irep=0 ; irep<10 ; irep++){  // loop for timings
-//   tile = tile0 ;
+
   for(i=0 ; i<8 ; i++) {
     ns0[i] = ns1[i] = ns2[i] = ns3[i] = 0 ;
   }
@@ -321,7 +319,7 @@ static void tile_population_64(int32_t *tile, int32_t pop[4], int32_t ref[4]){
     pop[2] += ns2[i] ;
     pop[3] += ns3[i] ;
   }
-// }
+
 #endif
 }
 
@@ -330,10 +328,11 @@ static void tile_population_64(int32_t *tile, int32_t pop[4], int32_t ref[4]){
 // pop [OUT] : 4 element array to receive population counts
 // ref  [IN] : 4 element array containing reference values
 // pop[i] will receive the number of values in tile < ref[i]
+// this function handles n != 64, calls tile_population_64 if n == 64
 void tile_population(int32_t *tile, int n, int32_t pop[4], int32_t ref[4]){
   int i0, i, ns0[8], ns1[8], ns2[8], ns3[8] ;
 
-  if(n == 64){  // full 8x8 tile
+  if(n == 64){  // full tile (64 values)
     tile_population_64(tile, pop, ref) ;
     return ;
   }
@@ -481,7 +480,7 @@ uint64_t encode_tile_properties(void *f, int ni, int lni, int nj, uint32_t tile[
   }
   nbits = 32 - lzcnt_32(max) ;
 //   if( (32 - (lzcnt_32(max-min)) < nbits) || 1 ){   // we gain one bit if subtracting the minimum value
-  if( (32 - (lzcnt_32(max-min)) < nbits) ){   // we gain one bit if subtracting the minimum value
+  if( (32 - (lzcnt_32(max-min)) < nbits) ){   // we gain at least one bit if subtracting the minimum value
     max = max - min ;
     v0 = _mm256_sub_epi32(v0, vmin) ; // subtract min from max and vo -> v7
     v1 = _mm256_sub_epi32(v1, vmin) ;
@@ -511,7 +510,7 @@ uint64_t encode_tile_properties(void *f, int ni, int lni, int nj, uint32_t tile[
   p.t.h.nbts = nbits - 1 ;          // store nbits in header
   p.t.h.encd = 0 ;                  // by default, no encoding
   vz0 = _mm256_xor_si256(v0, v0) ;  // vector of zeros
-// can cut it short here if NO ENCODING will be forced, 
+// we can cut it short here if NO ENCODING is requested, 
 // if() { nshort = bshort = nsaved = 0 ; goto end ; }
   vz = _mm256_cmpeq_epi32(v0, vz0) ;                         // count zero values
   vz = _mm256_add_epi32(vz, _mm256_cmpeq_epi32(v1, vz0)) ;
@@ -526,20 +525,18 @@ uint64_t encode_tile_properties(void *f, int ni, int lni, int nj, uint32_t tile[
   v128 = _mm_add_epi32(v128,  _mm_shuffle_epi32(v128, 0b01010101) ) ; // [0,1,2,3] [1,1,1,1] (could also use 128 bit shift by 4)
   nzero = _mm_cvtsi128_si32(v128) ;  // nzero is always <= 0
   nsaved = nbits * nzero + 64 ;      // bits saved (the more negative, the better)
-  nshort = nzero ; bshort = 0 ;      // zerro length tokens
+  nshort = nzero ; bshort = 0 ;      // zero length tokens
 
   uint32_t ref[4], kount ;
-  int32_t bsaved ;
+  int32_t bsaved = nsaved ;
 
-// fprintf(stderr, "DEBUG: nshort = %3d, bshort = %2d, nsaved = %5d\n", -nshort, bshort, nsaved) ;
   nbits0 = (nbits + NB0) >> 1 ;     // number of bits for "short" values
+// fprintf(stderr, "DEBUG-1: kount = %3d, bshort = %2d, bsaved = %5d, nsaved = %5d, ref = %8.8x, bits = %d(%d)\n", -nshort, bshort, bsaved, nsaved, 0, nbits0, nbits) ;
   ref[0] = (1 << nbits0) ;          // will look for ref[0] > value  (nbits0)
   ref[1] = ref[0] >> 1 ;            // will look for ref[1] > value  (nbits0 - 1)
   ref[2] = ref[0] << 1 ;            // will look for ref[2] > value  (nbits0 + 1)
   ref[3] = ref[1] >> 1 ;            // will look for ref[2] > value  (nbits0 - 2)
-// fprintf(stderr, "DEBUG: ref = %8.8x %8.8x %8.8x %8.8x \n", ref[0], ref[1], ref[2], ref[3]);
-//   ref[0] = RMASK31(nbits0) ;        // value & ~ref[0] will be 0 if nbits0 or less bits are needed
-//   ref[0] = ~ref[0] ;                // keep only the upper bits
+
   vm0 = _mm256_set1_epi32(ref[0]) ; // vector of ref[0] (reflects nbits0)
   vm1 = _mm256_set1_epi32(ref[1]);  // vector of ref[1] (reflects nbits0 - 1)
   // count values < mask[01]
@@ -557,7 +554,7 @@ uint64_t encode_tile_properties(void *f, int ni, int lni, int nj, uint32_t tile[
   v128 = _mm_add_epi32(v128,  _mm_shuffle_epi32(v128, 0b01010101) ) ; // [0,1,2,3] [1,1,1,1] (could also use 128 bit shift by 4)
   kount = _mm_cvtsi128_si32(v128) ;               // kount is always <= 0
   bsaved = (nbits - nbits0    ) * kount + 69 ;    // bits saved (the more negative, the better)
-// fprintf(stderr, "DEBUG: kount = %3d, bshort = %2d, bsaved = %5d, nsaved = %5d\n", -kount, nbits0, bsaved, nsaved) ;
+// fprintf(stderr, "DEBUG-2: kount = %3d, bshort = %2d, bsaved = %5d, nsaved = %5d, ref = %8.8x\n", -kount, nbits0, bsaved, nsaved, ref[0]) ;
   if(bsaved < nsaved){ nshort = kount ; nsaved = bsaved ; bshort = nbits0 ; /*fprintf(stderr, "DEBUG: bshort = %d\n", bshort)*/ ; }
 
   v128 = _mm_add_epi32(_mm256_extractf128_si256 (vz, 0) ,  _mm256_extractf128_si256 (vz, 1)) ;
@@ -565,7 +562,7 @@ uint64_t encode_tile_properties(void *f, int ni, int lni, int nj, uint32_t tile[
   v128 = _mm_add_epi32(v128,  _mm_shuffle_epi32(v128, 0b01010101) ) ; // [0,1,2,3] [1,1,1,1] (could also use 128 bit shift by 4)
   kount = _mm_cvtsi128_si32(v128) ;               // kount is always <= 0
   bsaved = (nbits - nbits0 + 1) * kount + 69 ;    // bits saved (the more negative, the better)
-// fprintf(stderr, "DEBUG: kount = %3d, bshort = %2d, bsaved = %5d, nsaved = %5d\n", -kount, nbits0-1, bsaved, nsaved) ;
+// fprintf(stderr, "DEBUG-3: kount = %3d, bshort = %2d, bsaved = %5d, nsaved = %5d, ref = %8.8x\n", -kount, nbits0-1, bsaved, nsaved, ref[1]) ;
   if(bsaved < nsaved){ nshort = kount ; nsaved = bsaved ; bshort = nbits0-1 ; /*fprintf(stderr, "DEBUG: bshort = %d\n", bshort)*/ ; }
 
   if(nbits < 8) goto end ;
@@ -587,7 +584,7 @@ uint64_t encode_tile_properties(void *f, int ni, int lni, int nj, uint32_t tile[
   v128 = _mm_add_epi32(v128,  _mm_shuffle_epi32(v128, 0b01010101) ) ; // [0,1,2,3] [1,1,1,1] (could also use 128 bit shift by 4)
   kount = _mm_cvtsi128_si32(v128) ;               // kount is always <= 0
   bsaved = (nbits - nbits0 - 1) * kount + 69 ;    // bits saved (the more negative, the better)
-// fprintf(stderr, "DEBUG: kount = %3d, bshort = %2d, bsaved = %5d, nsaved = %5d\n", -kount, nbits0+1, bsaved, nsaved) ;
+// fprintf(stderr, "DEBUG-4: kount = %3d, bshort = %2d, bsaved = %5d, nsaved = %5d, ref = %8.8x\n", -kount, nbits0+1, bsaved, nsaved, ref[2]) ;
   if(bsaved < nsaved){ nshort = kount ; nsaved = bsaved ; bshort = nbits0+1 ; /*fprintf(stderr, "DEBUG: bshort = %d\n", bshort)*/ ; }
 
   v128 = _mm_add_epi32(_mm256_extractf128_si256 (vz, 0) ,  _mm256_extractf128_si256 (vz, 1)) ;
@@ -595,7 +592,7 @@ uint64_t encode_tile_properties(void *f, int ni, int lni, int nj, uint32_t tile[
   v128 = _mm_add_epi32(v128,  _mm_shuffle_epi32(v128, 0b01010101) ) ; // [0,1,2,3] [1,1,1,1] (could also use 128 bit shift by 4)
   kount = _mm_cvtsi128_si32(v128) ;               // kount is always <= 0
   bsaved = (nbits - nbits0 + 2) * kount + 69 ;    // bits saved (the more negative, the better)
-// fprintf(stderr, "DEBUG: kount = %3d, bshort = %2d, bsaved = %5d, nsaved = %5d\n", -kount, nbits0-2, bsaved, nsaved) ;
+// fprintf(stderr, "DEBUG-5: kount = %3d, bshort = %2d, bsaved = %5d, nsaved = %5d, ref = %8.8x\n", -kount, nbits0-2, bsaved, nsaved, ref[3]) ;
   if(bsaved < nsaved){ nshort = kount ; nsaved = bsaved ; bshort = nbits0-2 ; /*fprintf(stderr, "DEBUG: bshort = %d\n", bshort)*/ ; }
 
 end:
@@ -609,7 +606,7 @@ end:
     p.t.h.encd = (bshort == 0) ? 2 : 1 ;      // 0 , 1//full or 0//short , 1//full encoding
   }
 
-fprintf(stderr, "DEBUG: (tile_properties) nshort = %3d, bshort = %2d, bsaved = %5d, encoding = %d\n", p.t.nshort, p.t.bshort, nsaved, p.t.h.encd) ;
+// fprintf(stderr, "DEBUG: (tile_properties) nshort = %3d, bshort = %2d, bsaved = %5d, encoding = %d\n", p.t.nshort, p.t.bshort, nsaved, p.t.h.encd) ;
   return p.u64 ;
 //   return encode_tile_scheme(p.u64) ;
 
@@ -671,7 +668,7 @@ int32_t encode_contiguous(uint64_t tp64, bitstream *s, uint32_t tile[64]){
 // fprintf(stderr, "(e_c) nbits = %d(%d), sign = %d, encoding = %d, nshort = %2d, nzero = %2d", nbits, nbits0, p.t.h.sign, p.t.h.encd, nshort, nzero) ;
 // fprintf(stderr, ", nbits_full = %4d, nbits_zero = %4d, nbits_short = %4d, mask0 = %8.8x\n", nbits_full, nbits_zero, nbits_short, mask0) ;
   w32 = p.u16[3] ;               // tile header
-fprintf(stderr, "DEBUG: (encode_contiguous) encd = %d, nbits0 = %d, header = %8.8x\n", p.t.h.encd, nbits0, w32) ;
+// fprintf(stderr, "DEBUG: (encode_contiguous) encd = %d, nbits0 = %d, header = %8.8x\n", p.t.h.encd, nbits0, w32) ;
   BE64_EZ_PUT_NBITS(w32, 16) ;                          // insert header into packed stream
   nbtot = 16 ;
   if(p.t.h.encd == 1){
@@ -760,8 +757,8 @@ int32_t encode_tile(void *f, int ni, int lni, int nj, bitstream *s, uint32_t til
 //   print_stream_params(*s, "before tile encode", NULL) ;
   used = encode_contiguous(tp64, s, tile) ;               // encode extracted tile into bit stream
   tp.u64 = tp64 ;
-  fprintf(stderr, "needed bits = %4d, nbits = %2d, encoding = %d, sign = %d, min0 = %d, value = %8.8x\n", 
-          used, tp.t.h.nbts+1, tp.t.h.encd, tp.t.h.sign, tp.t.h.min0, tp.t.min) ;
+//   fprintf(stderr, "needed bits = %4d, nbits = %2d, encoding = %d, sign = %d, min0 = %d, value = %8.8x\n\n", 
+//           used, tp.t.h.nbts+1, tp.t.h.encd, tp.t.h.sign, tp.t.h.min0, tp.t.min) ;
 //   print_stream_params(*s, "after  tile encode", NULL) ;
 //   fprintf(stderr, "\n");
   return used ;                                           // will be negative if encode_contiguous failed
@@ -829,13 +826,12 @@ int32_t decode_tile(void *f, int ni, int lni, int nj, int *nptsij, bitstream *s)
   *nptsij = nij ;                     // send number of values found to caller
   if(ni * nj != nij) goto error ;     // dimension mismatch, this tile should contain ni * nj values
   nbits = th.h.nbts + 1 ;
-//   nbits0 = (nbits + NB0) >> 1 ;
   nbits0 = 0 ;                        // number of bits for "short" values
-fprintf(stderr, "DEBUG: (decode_tile) header = %8.8x, nbits = %2d, ni = %d, nj = %d, nij = %d\n", w32, nbits, ni, nj, nij) ;
+// fprintf(stderr, "DEBUG: (decode_tile) header = %8.8x, nbits = %2d, ni = %d, nj = %d, nij = %d\n", w32, nbits, ni, nj, nij) ;
   // GET the 5 bits giving the length of the short tokens if 0//short 1//nbits encoding is used
   if(th.h.encd == 1) {
     BE64_EZ_GET_NBITS(nbits0, 5)
-fprintf(stderr, "DEBUG: (decode_tile) short token length = %2d\n", nbits0) ;
+// fprintf(stderr, "DEBUG: (decode_tile) short token length = %2d\n", nbits0) ;
     nbtot += 5 ;                      // update number of bits extracted
   }
   if(th.h.encd == 3) goto constant ;  // constant tile
@@ -917,9 +913,9 @@ fprintf(stderr, "DEBUG: (decode_tile) short token length = %2d\n", nbits0) ;
       i0 += ni ;
     }
   }
-fprintf(stderr, "DEBUG: (decode_tile) nbtot = %2d\n", nbtot) ;
-fprintf(stderr, " TILE     : bits = %4d, ni = %2d, nj = %2d, nbits = %2d, encoding = %d, sign = %d, min0 = %d, min   = %8.8x, nbitsm = %2d\n", 
-        nbtot, ni, nj, nbits, th.h.encd, th.h.sign, th.h.min0, min, nbitsm) ;
+// fprintf(stderr, "DEBUG: (decode_tile) nbtot = %2d\n", nbtot) ;
+// fprintf(stderr, " TILE     : bits = %4d, ni = %2d, nj = %2d, nbits = %2d, encoding = %d, sign = %d, min0 = %d, min   = %8.8x, nbitsm = %2d\n", 
+//         nbtot, ni, nj, nbits, th.h.encd, th.h.sign, th.h.min0, min, nbitsm) ;
 
 end:
   EZ_SET_XTRACT_VARS(*s) ;               // update bit stream extraction info from local variables
@@ -936,8 +932,8 @@ constant:
     nbtot += nbits ;                     // update number of bits extracted
     iw32 = from_zigzag_32(w32) ;         // restore from ZigZag
   }
-fprintf(stderr, " CONSTANT : bits = %4d, ni = %2d, nj = %2d, nbits = %2d, encoding = %d, sign = %d, min0 = %d, value = %8.8x, nij = %2d\n", 
-        nbtot, ni, nj, nbits, th.h.encd, th.h.sign, th.h.min0, iw32, nij) ;
+// fprintf(stderr, " CONSTANT : bits = %4d, ni = %2d, nj = %2d, nbits = %2d, encoding = %d, sign = %d, min0 = %d, value = %8.8x, nij = %2d\n", 
+//         nbtot, ni, nj, nbits, th.h.encd, th.h.sign, th.h.min0, iw32, nij) ;
   for(j=0 ; j<nj ; j++){
     for(i=0 ; i<ni ; i++){
       fi[i] = iw32 ;                     // store constant value into destination array
