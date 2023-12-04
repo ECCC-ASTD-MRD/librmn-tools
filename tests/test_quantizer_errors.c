@@ -920,7 +920,8 @@ int compress_2d_field(float *f, int ni, int nj, q_rules r){
         fprintf(stderr, "ERROR: nbits1 = %d, nbits2 = %d, ndiff = %d, i0 = %d, j0 = %d, nbpi = %d, nbpj= %d\n", nbits1, nbits2, ndiff, i0, j0, nbpi, nbpj) ;
         exit(1) ;
       }
-      BeStreamInit(&bstream, NULL, ni*nj*sizeof(int32_t), BIT_INSERT | BIT_XTRACT) ;
+      StreamReset(&bstream) ;
+//       BeStreamInit(&bstream, NULL, ni*nj*sizeof(int32_t), BIT_INSERT | BIT_XTRACT) ;
 
       dec_bits = unpredict_block(ublk, nbpi, nbpj, pblk) ;        // unpredict block
       if(diff_count(qblk, ublk, nbpi*nbpj) != 0){                 // check that we get back the original block

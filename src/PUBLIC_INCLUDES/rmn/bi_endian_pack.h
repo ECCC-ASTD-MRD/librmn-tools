@@ -793,13 +793,17 @@ STATIC inline void StreamRewind(bitstream *p, int force_read){
 STATIC inline void  StreamReset(bitstream *p){
   if(p->insert >= 0){      // insertion allowed
     p->in     = p->first ;
-    if(STREAM_IS_BIG_ENDIAN(*p))    BE64_STREAM_INSERT_BEGIN(*p) ;
-    if(STREAM_IS_LITTLE_ENDIAN(*p)) LE64_STREAM_INSERT_BEGIN(*p) ;
+    p->acc_i  = 0 ;
+    p->insert = 0 ;
+//     if(STREAM_IS_BIG_ENDIAN(*p))    BE64_STREAM_INSERT_BEGIN(*p) ;
+//     if(STREAM_IS_LITTLE_ENDIAN(*p)) LE64_STREAM_INSERT_BEGIN(*p) ;
   }
   if(p->xtract >= 0){      // extraction allowed
     p->out    = p->first ;
-    if(STREAM_IS_BIG_ENDIAN(*p))    BE64_STREAM_XTRACT_BEGIN(*p) ;
-    if(STREAM_IS_LITTLE_ENDIAN(*p)) LE64_STREAM_XTRACT_BEGIN(*p) ;
+    p->acc_x  = 0 ;
+    p->xtract = 0 ;
+//     if(STREAM_IS_BIG_ENDIAN(*p))    BE64_STREAM_XTRACT_BEGIN(*p) ;
+//     if(STREAM_IS_LITTLE_ENDIAN(*p)) LE64_STREAM_XTRACT_BEGIN(*p) ;
   }
 }
 
