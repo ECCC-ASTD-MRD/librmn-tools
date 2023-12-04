@@ -19,6 +19,7 @@
 #include <rmn/timers.h>
 #include <rmn/lorenzo.h>
 #include <rmn/tile_encoders.h>
+#include <rmn/print_bitstream.h>
 
 #define NTIMES 100000
 
@@ -614,15 +615,15 @@ static int index_ij(int i, int j, int ni, q_rules r){
   return (i + j * ni) ;
 }
 
-static int32_t decode_block(void *decoded, int ni, int nj, void *encoded){
+static int32_t decode_block(void *decoded, int ni, int nj, bitstream *encoded){
   int nbits_tot = 0 ;
-
+  nbits_tot = decode_as_tiles(decoded, ni, ni, nj, encoded) ;
   return nbits_tot ;
 }
 
-static int32_t encode_block(void *decoded, int ni, int nj, void *encoded){
+static int32_t encode_block(void *decoded, int ni, int nj, bitstream *encoded){
   int nbits_tot = 0 ;
-
+  nbits_tot = encode_as_tiles(decoded, ni, ni, nj, encoded) ;
   return nbits_tot ;
 }
 
@@ -868,9 +869,14 @@ int compress_2d_field(float *f, int ni, int nj, q_rules r){
 // goto end ;
   iblk = 0 ;                       // block number
   int oddities = 0 ;
-  int nbp, bi, bj ;
+  int nbp, nbpi, nbpj, bi, bj ;
+  int nbits1, nbits2, ndiff ;
   tot_pbits = tot_bits = enc_bits = 0 ;
   predict_nbits_apres = predict_nbits_avant = 0 ;
+
+  bitstream bstream ;
+  BeStreamInit(&bstream, NULL, ni*nj*sizeof(int32_t), BIT_INSERT | BIT_XTRACT | BIT_FULL_INIT) ;
+  print_stream_params(bstream, "Init bstream", "RW") ;
 
   for(j0=0, bj=0 ; j0<nj ; j0+=blockj, bj++){
     j1 = j0 + blockj ; j1 = (j1 > nj) ? nj : j1 ;
@@ -880,30 +886,44 @@ int compress_2d_field(float *f, int ni, int nj, q_rules r){
     // BeStreamInit(&stream0, packed_, sizeof(packed_), 0) ;  // packed_ has to be large enough for a stripe (ni * blockj)
     for(i0=0, bi=0 ; i0<ni ; i0+=blocki, bi++){
       i1 = i0 + blocki ; i1 = (i1 > ni) ? ni : i1 ;
-      nbp = (j1-j0) * (i1-i0) ;
+      nbpi = i1 - i0 ;
+      nbpj = j1 - j0 ;
+      nbp = nbpj * nbpi ;
 
-      get_word_block(f + base, fblk, i1 - i0, ni, j1 - j0) ;     // get block
-      qbts[iblk] = quantize_block(fblk, (i1-i0), (j1-j0), qblk, r) ;   // quantize according to rules
-      put_word_block(g    + base, fblk, i1 - i0, ni, j1 - j0) ;  // put original block into g
+      get_word_block(f + base, fblk, nbpi, ni, nbpj) ;           // get block
+      qbts[iblk] = quantize_block(fblk, nbpi, nbpj, qblk, r) ;   // quantize according to rules
+      put_word_block(g    + base, fblk, nbpi, ni, nbpj) ;        // put original block into g
       if(qbts[iblk] < 0) {
         fprintf(stderr, "error while quantizing or restoring\n") ;
-        exit(1) ;                              // error while quantizing or restoring
+        exit(1) ;                                                // error while quantizing or restoring
       }
-      tot_bits += qbts[iblk] ;                 // cumulative total
-      tot_bits += 128 ;                        // add block header overhead
+      tot_bits += qbts[iblk] ;                                   // cumulative total
+      tot_bits += 128 ;                                          // add block header overhead
 
-      pbts[iblk] = predict_block(qblk, (i1 - i0), (j1-j0), pblk) ;        // apply predictor (Lorenzo)
+      pbts[iblk] = predict_block(qblk, nbpi, nbpj, pblk) ;        // apply predictor (Lorenzo)
+
+//       BeStreamInit(&s, packed0, sizeof(packed0), 0)
+//       int32_t encode_as_tiles(void *f, int ni, int lni, int nj, bitstream *s)
+//       int32_t decode_as_tiles(void *f, int ni, int lni, int nj, bitstream *s)
+//       static int StreamFree(bitstream *s)
 
       // align stream to 32 bit boundary (primitive to do so needed in bi_endian_pack.c or bi_endian_pack.h)
       // loop over tiles
       //   nbtot = encode_tile(tile3, ti, lti, tj, &stream0, temp) ;  // temp == space for largest tile (64)
-      encode_block(pblk, (i1 - i0), (j1-j0), eblk) ;                      // encode predicted block
+      nbits1 = encode_block(pblk, nbpi, nbpj, &bstream) ;                      // encode predicted block
+//       print_stream_params(bstream, "after encode", "RW") ;
+//       LeStreamRewind(&bstream, 0) ;
+      nbits2 = decode_block(dblk, nbpi, nbpj, &bstream) ;                      // decode to restore predicted block
+//       print_stream_params(bstream, "after decode", "RW") ;
+      ndiff = diff_count(pblk, dblk, nbpi*nbpj) ;              // check that encode/decode was lossless
+      if(ndiff != 0 || nbits2 != nbits1){
+        fprintf(stderr, "ERROR: nbits1 = %d, nbits2 = %d, ndiff = %d, i0 = %d, j0 = %d, nbpi = %d, nbpj= %d\n", nbits1, nbits2, ndiff, i0, j0, nbpi, nbpj) ;
+        exit(1) ;
+      }
+      BeStreamInit(&bstream, NULL, ni*nj*sizeof(int32_t), BIT_INSERT | BIT_XTRACT) ;
 
-      decode_block(dblk, (i1 - i0), (j1-j0), eblk) ;                      // decode to restore predicted block
-      int ndiff = diff_count(pblk, dblk, (i1 - i0)*(j1-j0)) ;              // check that encode/decode was lossless
-
-      dec_bits = unpredict_block(ublk, (i1 - i0), (j1-j0), pblk) ;        // unpredict block
-      if(diff_count(qblk, ublk, (i1 - i0)*(j1-j0)) != 0){                 // check that we get back the original block
+      dec_bits = unpredict_block(ublk, nbpi, nbpj, pblk) ;        // unpredict block
+      if(diff_count(qblk, ublk, nbpi*nbpj) != 0){                 // check that we get back the original block
         fprintf(stderr, "predict/unpredict mismatch\n") ;
         exit(1) ;
       }
@@ -912,11 +932,11 @@ int compress_2d_field(float *f, int ni, int nj, q_rules r){
         exit(1) ;
       }
 
-      if(qbts[iblk] != dequantize_block(rblk, (i1-i0), (j1-j0), ublk, r)) exit(1) ;  // dequantize unpredicted block
-      put_word_block(gblk + base, rblk, i1 - i0, ni, j1 - j0) ;  // put restored block into gblk
+      if(qbts[iblk] != dequantize_block(rblk, nbpi, nbpj, ublk, r)) exit(1) ;  // dequantize unpredicted block
+      put_word_block(gblk + base, rblk, nbpi, ni, nbpj) ;  // put restored block into gblk
 
       qbts_p[iblk] = qbts[iblk] * 1.0f / nbp ;                   // bits per point
-//       enc_bits += count_encoded_bits(qblk, i1 - i0, i1 - i0, j1 - j0) ;
+//       enc_bits += count_encoded_bits(qblk, nbpi, nbpi, nbpj) ;
       abserr = update_abs_err(0.0f, fblk, rblk, nbp) ;
       maxabserr = (abserr > maxabserr) ? abserr : maxabserr ;
       if(abserr > r.ref && r.ref > 0.0f) oddities++ ;                            // absolute error should not be larger than reference

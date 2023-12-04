@@ -43,8 +43,8 @@ void print_tile_properties(uint64_t p64){
   nbitss = (nij - p.t.nshort)*(nbi + 1) + p.t.nshort * (nb0 + 1) ;
 //   fprintf(stderr, "(t_p) nbits = %d(%d), sign = %d, encoding = %d, %d x %d, min0 = %d, min = %8.8x, bshort = %3d, nshort = %3d, bits = %d/%d\n",
 //           nbi, nb0, p.t.h.sign, p.t.h.encd, p.t.h.npti+1, p.t.h.nptj+1, p.t.h.min0, p.t.min, p.t.bshort, p.t.nshort, nbits, nbitss) ;
-  fprintf(stderr, "(t_p) nbits = %d(%d), sign = %d, encoding = %d, %d x %d, min0 = %d, min = %8.8x, bshort = %3d, nshort = %3d, bits = %d/%d\n",
-          nbi, nb0, p.t.h.sign, p.t.h.encd, p.t.h.npij+1, 1, p.t.h.min0, p.t.min, p.t.bshort, p.t.nshort, nbits, nbitss) ;
+  fprintf(stderr, "(t_p) nbits = %d(%d), sign = %d, encoding = %d, n = %d, min0 = %d, min = %8.8x, bshort = %3d, nshort = %3d, bits = %d/%d\n",
+          nbi, nb0, p.t.h.sign, p.t.h.encd, p.t.h.npij+1, p.t.h.min0, p.t.min, p.t.bshort, p.t.nshort, nbits, nbitss) ;
 }
 
 // set encoding scheme deemed appropriate given tile properties
@@ -203,16 +203,16 @@ static uint64_t encode_tile_properties_c(void *f, int ni, int lni, int nj, uint3
   p.t.nshort = nzero ;
   ntot = nzero + (nij - nzero) * (nbits + 1) ;
   nref = nbits * nij ;
-fprintf(stderr, "DEBUG: (tile_properties_c) nshort = %3d, bshort = %2d, bsaved = %5d\n", p.t.nshort, p.t.bshort, nref - ntot) ;
+// fprintf(stderr, "DEBUG: (tile_properties_c) nshort = %3d, bshort = %2d, bsaved = %5d\n", p.t.nshort, p.t.bshort, nref - ntot) ;
   nnew = 5 + nshort * (nbits0 + 1) + (nij - nshort) * (nbits + 1) ;
-fprintf(stderr, "DEBUG: (tile_properties_c) nshort = %3d, bshort = %2d, bsaved = %5d\n", nshort, nbits0, nref - nnew) ;
+// fprintf(stderr, "DEBUG: (tile_properties_c) nshort = %3d, bshort = %2d, bsaved = %5d\n", nshort, nbits0, nref - nnew) ;
   if(ntot > nnew){
     p.t.bshort = nbits0 ;
     p.t.nshort = nshort ;
     ntot = nnew ;
   }
   nnew = 5 + nshort1 * (nbits0) + (nij - nshort1) * (nbits + 1) ;
-fprintf(stderr, "DEBUG: (tile_properties_c) nshort = %3d, bshort = %2d, bsaved = %5d\n", nshort1, nbits0-1, nref - nnew) ;
+// fprintf(stderr, "DEBUG: (tile_properties_c) nshort = %3d, bshort = %2d, bsaved = %5d\n", nshort1, nbits0-1, nref - nnew) ;
   if(ntot > nnew){
     p.t.bshort = nbits0 - 1 ;
     p.t.nshort = nshort1 ;
@@ -225,7 +225,7 @@ fprintf(stderr, "DEBUG: (tile_properties_c) nshort = %3d, bshort = %2d, bsaved =
   }
 
 end:
-fprintf(stderr, "DEBUG: (tile_properties_c) nshort = %3d, bshort = %2d, bsaved = %5d, encoding = %d\n", p.t.nshort, p.t.bshort, nref - ntot, p.t.h.encd) ;
+// fprintf(stderr, "DEBUG: (tile_properties_c) nshort = %3d, bshort = %2d, bsaved = %5d, encoding = %d\n", p.t.nshort, p.t.bshort, nref - ntot, p.t.h.encd) ;
   return p.u64 ;
 //   return encode_tile_scheme(p.u64) ;          // determine appropriate encoding scheme
 
@@ -639,6 +639,7 @@ int32_t encode_contiguous(uint64_t tp64, bitstream *s, uint32_t tile[64]){
   uint32_t nshort, needed ;
 
   p.u64 = tp64 ;
+// fprintf(stderr, "encode header = %4.4x\n", p.u16[3]);
 // print_tile_properties(tp64) ;
   nij   = p.t.h.npij + 1 ;                              // number of points
   nbtot = -1 ;                                          // precondition for error
@@ -814,16 +815,23 @@ int32_t decode_tile(void *f, int ni, int lni, int nj, int *nptsij, bitstream *s)
   int32_t iw32 ;
   int i, i0, j, nbits, nij, nbits0, nbtot, nbitsi, nbitsm ;
   uint32_t min ;
+  int error_code = 0 ;
 
+  error_code = 1 ;
   if((f == NULL) || (s == NULL)) goto error ;
+
+// fprintf(stderr, "DEBUG: (decode_tile) test valid\n");
+// print_stream_params(*s, "(decode_tile)", NULL) ;
+  error_code = 2 ;
   if( ! StreamIsValid(s) ) goto error ;
   EZ_NEW_XTRACT_VARS(*s) ;            // declare and get extraction control variables from bit stream
-
   BE64_EZ_GET_NBITS(w32, 16)          // get tile header
+// fprintf(stderr, "DEBUG: (decode_tile) header = %8.8x, nbits = %2d, ni = %d, nj = %d, nij = %d\n", w32, nbits, ni, nj, nij) ;
   nbtot = 16 ;
   th.s = w32 ;                        // tile header
   nij = th.h.npij + 1 ;               //  number of values in tile
   *nptsij = nij ;                     // send number of values found to caller
+  error_code = 3 ;
   if(ni * nj != nij) goto error ;     // dimension mismatch, this tile should contain ni * nj values
   nbits = th.h.nbts + 1 ;
   nbits0 = 0 ;                        // number of bits for "short" values
@@ -922,7 +930,8 @@ end:
   return nbtot ;                         // return total number of bits extracted from stream
 
 error:
-fprintf(stderr, "ERROR: (decode_tile)\n");
+fprintf(stderr, "ERROR: (decode_tile) header = %8.8x, nbits = %2d, ni = %d, nj = %d, nij = %d\n", w32, nbits, ni, nj, nij) ;
+fprintf(stderr, "ERROR: (decode_tile), code = %d, nij = %d, ni = %d, nj = %d\n", error_code, nij, ni, nj);
   return -1 ;
 
 constant:
@@ -955,13 +964,14 @@ int32_t decode_as_tiles(void *f, int ni, int lni, int nj, bitstream *s){
   int32_t *fi = (int32_t *) f ;
   int ni0, nj0, nit, njt, i0, j0, indexi, indexj, nbtile, nbtot, nptsij ;
 
+  nbtot  = 0 ;
   indexj = 0 ;
   for(j0 = 0 ; j0 < nj ; j0 += 8){
     nj0 = ((nj - j0) > 8) ? 8 : (nj - j0) ;
     for(i0 = 0 ; i0 < ni ; i0 += 8){
       indexi = i0 ;
       ni0 = ((ni - i0) > 8) ? 8 : (ni - i0) ;
-
+// fprintf(stderr,"decoding tile at (%d,%d)\n", i0, j0) ;
       nbtile = decode_tile(fi+indexi+indexj, ni0, lni, nj0, &nptsij, s) ;
       if(nptsij != ni0 * nj0) {
         fprintf(stderr,"decode_as_tiles : i0 = %d, j0 = %d, nbtile = %d, nij = %d, expecting %d\n", i0, j0, nbtile, nptsij, ni0 * nj0) ;

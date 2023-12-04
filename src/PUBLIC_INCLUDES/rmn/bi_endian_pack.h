@@ -587,14 +587,14 @@ STATIC inline void  StreamInit(bitstream *p, void *mem, size_t size, int mode){
 
 // initialize a LittleEndian stream
 STATIC inline void  LeStreamInit(bitstream *p, uint32_t *buffer, size_t size, int mode){
-  p->endian = STREAM_LE ;
   StreamInit(p, buffer, size, mode) ;   // call generic stream init
+  p->endian = STREAM_LE ;
 }
 
 // initialize a BigEndian stream
 STATIC inline void  BeStreamInit(bitstream *p, uint32_t *buffer, size_t size, int mode){
-  p->endian = STREAM_BE ;
   StreamInit(p, buffer, size, mode) ;   // call generic stream init
+  p->endian = STREAM_BE ;
 }
 
 // =======================  stream creation (new stream)  =======================
