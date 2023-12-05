@@ -45,6 +45,7 @@
          each CHUNK is then subdivided into quantization/prediction BLOCKS
          (basic block size = 64 x 64)
          (last block along a dimension may be shorter)
+       HUGE chunk (or field with only a single chunk)
        <------ 64 ------>                                  <--- <= 64 ------>
      ^ +----------------+----------------------------------+----------------+ ^
      | |                |                                  |                | |
@@ -65,9 +66,33 @@
      v +----------------+----------------------------------+----------------+ v
        <------ 64 ------>                                  <--- <= 64 ------>
 
+       FULL chunk along J
+     ^ +----------------+----------------------------------+----------------+ ^
+     | |                |                                  |                | |
+    64 |   block(0)     |                                  |   block(nbi)   |64
+     | |                |                                  |                | |
+     v +----------------+----------------------------------+----------------+ v
+       <------ 64 ------>                                  <--- <= 64 ------>
+
+       SHORT chunk along J
+     ^ +----------------+----------------------------------+----------------+ ^
+     | |                |                                  |                | |
+ <= 64 |   block(0)     |                                  |   block(nbi)   |<= 64
+     | |                |                                  |                | |
+     v +----------------+----------------------------------+----------------+ v
+       <------ 64 ------>                                  <--- <= 64 ------>
+
+       SHORT chunk along I and J
+     ^ +----------------+ ^
+     | |                | |
+ <= 64 |   block(0)     |<= 64
+     | |                | |
+     v +----------------+ v
+       <--- <= 64 ------>
+
                   each BLOCK is then subdivided into encoding TILES
-                  (basic block size = 8 x 8)
-                  (last block along a dimension may be shorter)
+                  (basic tile size = 8 x 8)
+                  (last tile along a dimension may be shorter)
        <------- 8 ------>                                  <---- <= 8 ------>
      ^ +----------------+----------------------------------+----------------+ ^
      | |                |                                  |                | |
@@ -146,7 +171,7 @@
   <--- CL bits --x----------------------------------- Chunk data -------------------------------------->
   <-------------------------------------------------- Chunk size -------------------------------------->
 
-  quantization/prediction BLOCK layout (block size is a multiple of 32 bits)
+  quantization/prediction BLOCK layout (block size is a multiple of 32 bits) (expected blocks : 64 x 64)
   +--------------+---------------+-------------+     +---------------+-------------+-----+
   | Block Header | Tile Header 1 | Tile Data 1 | ... | Tile Header n | Tile Data n | PAD |
   +--------------+---------------+-------------+     +---------------+-------------+-----+
