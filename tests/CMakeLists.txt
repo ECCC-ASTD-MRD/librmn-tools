@@ -160,6 +160,7 @@ add_project_test(test_ieeequantize test_ieeequantize.c NODIAG)
 add_project_test(test_logquantize test_logquantize.c NODIAG)
 add_project_test(test_encoders test_encoders.c NODIAG)
 add_project_test(test_bitstream test_bitstream.c NODIAG)
+add_project_test(test_entropy test_entropy.c NODIAG)
 add_project_test(test_data_info_c test_data_info.c NODIAG)
 add_project_test(test_data_info_f test_data_info.F90 LINK_LIBS "rmn::rmn" DL)
 

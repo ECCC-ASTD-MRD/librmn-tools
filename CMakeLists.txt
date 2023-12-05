@@ -227,6 +227,7 @@ set(PROJECT_C_FILES
   src/diag/data_info.c
   src/diag/c_record_io.c
   src/diag/eval_diff.c
+  src/diag/entropy.c
   src/plugins/plugin_code.c
 )
 set(PROJECT_PLUGIN_FILES 
@@ -283,6 +284,7 @@ set(PROJECT_H_FILES
   src/PUBLIC_INCLUDES/rmn/misc_operators.h
   src/PUBLIC_INCLUDES/rmn/data_info.h
   src/PUBLIC_INCLUDES/rmn/eval_diff.h
+  src/PUBLIC_INCLUDES/rmn/entropy.h
 )
 
 set(PROJECT_INCLUDES
