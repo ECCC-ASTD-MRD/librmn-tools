@@ -285,6 +285,8 @@ set(PROJECT_H_FILES
   src/PUBLIC_INCLUDES/rmn/data_info.h
   src/PUBLIC_INCLUDES/rmn/eval_diff.h
   src/PUBLIC_INCLUDES/rmn/entropy.h
+  src/PUBLIC_INCLUDES/rmn/x86-simd.h
+  src/PUBLIC_INCLUDES/rmn/fastapprox.h
 )
 
 set(PROJECT_INCLUDES

@@ -15,6 +15,7 @@
 //
 
 #include <stdio.h>
+#include <math.h>
 #include <rmn/entropy.h>
 #include <rmn/entropy.h>
 #include <rmn/tee_print.h>
@@ -24,6 +25,7 @@
 
 int main(int argc, char **argv){
   int data[NPTS] ;
+  float dlog[NPTS], diff[NPTS], dataf[NPTS] ;
   int i, np ;
   entropy_table *etab ;
   float entropy ;
@@ -37,6 +39,20 @@ int main(int argc, char **argv){
 //     data[i] = (i < NPTS/4) ? 15 : 1 ;
 //     data[i] = (i < NPTS/2) ? 15 : 1 ;
     data[i] = i & 0x1E ;
+  }
+  data[1] = 1 ;
+  for(i=0 ; i<NPTS ; i++) dataf[i] = data[i] ;
+
+  for(i=0 ; i<NPTS ; i++) {
+    dlog[i] = FasterLog2(dataf[i]) ;
+//     dlog[i] = FastLog2(dataf[i]) ;
+  }
+  for(i=0 ; i<NPTS ; i++) {
+    diff[i] = dataf[i] - FasterPow2(dlog[i]) ;
+//     diff[i] = dataf[i] - FastPow2(dlog[i]) ;
+  }
+  for(i=1 ; i<NPTS ; i+=2) {     // fprintf(stderr, "%3.1f ",diff[i] * 1000.0f) ; fprintf(stderr, "\n") ;
+    fprintf(stderr, " %3d %10.3E %10.3E %10.3E %10.3E %10.3E\n", data[i], log2(dataf[i]), dlog[i], 1.0f - log2(dataf[i]) / dlog[i], diff[i], diff[i]/dataf[i]) ;
   }
 
   for(i=0 ; i < NPTS ; i++) {

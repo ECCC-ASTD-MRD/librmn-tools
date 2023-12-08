@@ -63,6 +63,7 @@ int32_t UpdateEntropyTable(entropy_table *etab, void *pdata, int ndata)
   uint32_t mask = etab->mask ;
   uint32_t *pop = etab->pop ;
   uint32_t npop = etab->npop ;
+  uint32_t nrej = etab->nrej ;
   uint32_t size = etab->size ;
   uint32_t *data = (uint32_t *) pdata ;
 
@@ -73,9 +74,12 @@ int32_t UpdateEntropyTable(entropy_table *etab, void *pdata, int ndata)
       npop++ ;                // bump global count
       nval++ ;                // bump number of data values processed
       pop[token]++ ;          // bump appropriate table entry
+    }else{
+      nrej++ ;                // bump reject count
     }
   }
   etab->npop = npop ;         // update global population count
+  etab->nrej = nrej ;         // update global reject count
   return nval ;               // return number of data values processed
 error:
   return -1 ;
@@ -84,6 +88,7 @@ error:
 // compute entropy in bits/value using entropy table
 // etab [IN] pointer to entropy table
 // return computed entropy from table contents
+// N.B. rejected values will not be accounted for
 float ComputeEntropy(entropy_table *etab)
 {
   int i;
@@ -93,12 +98,41 @@ float ComputeEntropy(entropy_table *etab)
 
   // sum of P * log2(P) where P is the probability of tab[i]
   for(i=0 ; i<etab->size ; i++) { 
-    if(tab[i] != 0){
+//     if(tab[i] != 0){
       temp = k * tab[i] ;                      // probability of tab[i]
-//       sum -= ( temp * VeryFastLog2(temp) ) ;   // P * log2(P)
+//       sum -= ( temp * FasterLog2(temp) ) ;   // P * log2(P)
       sum -= ( temp * FastLog2(temp) ) ;       // P * log2(P)
-    }
+//     }
   } ;
 
   return sum;
 }
+
+#if defined(__AVX2__)
+float VComputeEntropy(entropy_table *etab)
+{
+  int i;
+  uint32_t *tab = etab->pop ;
+  float k = 1.0f / etab->npop ;
+  float sum = 0.0 ;
+//   vm8f vsum = { v8sfl (0.0f) };
+  vm8f *ptab ;
+  v8sf temp, vsum ;
+
+  vsum = (v8sf) v256zero((v8si) vsum) ;             // set vsum to 0
+  // sum of P * log2(P) where P is the probability of tab[i]
+  for(i=0 ; i<etab->size-7 ; i+=8) { 
+    ptab = (vm8f *) (tab + i) ;
+    temp = ptab->v256 * k ;                         // probability of tab[i]
+    vsum = vsum - ( temp * V8FastLog2(temp) ) ;     // P * log2(P)
+  } ;
+  sum = v256sumf(vsum ) ;
+  for(  ; i<etab->size ; i++) {
+    float t ;
+    t = k * tab[i] ;
+    sum -= ( t * FastLog2(t) ) ;
+  }
+
+  return sum;
+}
+#endif

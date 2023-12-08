@@ -902,11 +902,6 @@ int compress_2d_field(float *f, int ni, int nj, q_rules r){
 
       pbts[iblk] = predict_block(qblk, nbpi, nbpj, pblk) ;        // apply predictor (Lorenzo)
 
-//       BeStreamInit(&s, packed0, sizeof(packed0), 0)
-//       int32_t encode_as_tiles(void *f, int ni, int lni, int nj, bitstream *s)
-//       int32_t decode_as_tiles(void *f, int ni, int lni, int nj, bitstream *s)
-//       static int StreamFree(bitstream *s)
-
       // align stream to 32 bit boundary (primitive to do so needed in bi_endian_pack.c or bi_endian_pack.h)
       // loop over tiles
       //   nbtot = encode_tile(tile3, ti, lti, tj, &stream0, temp) ;  // temp == space for largest tile (64)
