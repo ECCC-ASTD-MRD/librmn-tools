@@ -118,12 +118,13 @@ float VComputeEntropy(entropy_table *etab)
 //   vm8f vsum = { v8sfl (0.0f) };
   vm8f *ptab ;
   v8sf temp, vsum ;
+  vm8f vk = { v8sfl (k) };
 
   vsum = (v8sf) v256zero((v8si) vsum) ;             // set vsum to 0
   // sum of P * log2(P) where P is the probability of tab[i]
   for(i=0 ; i<etab->size-7 ; i+=8) { 
     ptab = (vm8f *) (tab + i) ;
-    temp = ptab->v256 * k ;                         // probability of tab[i]
+    temp = ptab->v256 * vk.v256 ;                   // probability of tab[i]
     vsum = vsum - ( temp * V8FastLog2(temp) ) ;     // P * log2(P)
   } ;
   sum = v256sumf(vsum ) ;
