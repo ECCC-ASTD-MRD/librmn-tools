@@ -56,8 +56,7 @@
 
 #include <rmn/x86-simd.h>
 #include <stdint.h>
-static inline float 
-FastLog2 (float x)
+static inline float FastLog2 (float x)
 {
   union { float f; uint32_t i; } vx = { x };
   union { uint32_t i; float f; } mx = { (vx.i & 0x007FFFFF) | 0x3f000000 };
@@ -69,14 +68,12 @@ FastLog2 (float x)
            - 1.72587999f / (0.3520887068f + mx.f);
 }
 
-static inline float
-FastLog (float x)
+static inline float FastLog (float x)
 {
   return 0.69314718f * FastLog2 (x);
 }
 
-static inline float 
-FasterLog2 (float x)
+static inline float  FasterLog2 (float x)
 {
   union { float f; uint32_t i; } vx = { x };
   float y = vx.i;
@@ -84,8 +81,7 @@ FasterLog2 (float x)
   return y - 126.94269504f;
 }
 
-static inline float
-FasterLog (float x)
+static inline float FasterLog (float x)
 {
 //  return 0.69314718f * FasterLog2 (x);
 
@@ -98,10 +94,10 @@ FasterLog (float x)
 #if defined(__AVX2__)
 
 // constant vectors used by 128 bit (SSE2|3|4) and 256 bit (AVX2) functions
-static vm8f c_124_22551499 = { v8sfl (124.22551499f) };
-static vm8f c_1_498030302  = { v8sfl (1.498030302f)  };
-static vm8f c_1_725877999  = { v8sfl (1.72587999f)   };
-static vm8f c_0_3520087068 = { v8sfl (0.3520887068f) };
+static v48mf c_124_22551499 = { v8sfl (124.22551499f) };
+static v48mf c_1_498030302  = { v8sfl (1.498030302f)  };
+static v48mf c_1_725877999  = { v8sfl (1.72587999f)   };
+static v48mf c_0_3520087068 = { v8sfl (0.3520887068f) };
 
 static inline v4sf V4FastLog2 (v4sf x)
 {
@@ -139,8 +135,7 @@ static inline v8sf V8FastLog (v8sf x)
 
 #endif   // __AVX2__
 
-static inline float
-FastPow2 (float p)
+static inline float FastPow2 (float p)
 {
   float offset = (p < 0) ? 1.0f : 0.0f;
   float clipp = (p < -126) ? -126.0f : p;
@@ -151,27 +146,82 @@ FastPow2 (float p)
   return v.f;
 }
 
-static inline float
-FastExp (float p)
+static inline float FastExp (float p)
 {
   return FastPow2 (1.442695040f * p);
 }
 
-static inline float
-FasterPow2 (float p)
+static inline float FasterPow2 (float p)
 {
   float clipp = (p < -126) ? -126.0f : p;
   union { uint32_t i; float f; } v = { (uint32_t) ( (1 << 23) * (clipp + 126.94269504f) ) };
   return v.f;
 }
 
-static inline float
-FasterExp (float p)
+static inline float FasterExp (float p)
 {
   return FasterPow2 (1.442695040f * p);
 }
 
 #if defined(__AVX2__)
+
+#define _mm256_cmplt_ps(a, b) _mm256_cmp_ps(a, b, _CMP_LT_OQ)
+
+static v48mf c_121_2740838 = { v8sfl (121.2740575f) } ;
+static v48mf c_27_7280233  = { v8sfl (27.7280233f)  } ;
+static v48mf c_4_84252568  = { v8sfl (4.84252568f)  } ;
+static v48mf c_1_49012907  = { v8sfl (1.49012907f)  } ;
+
+static inline v4sf vfastpow2 (const v4sf p)
+{
+  v4sf ltzero = _mm_cmplt_ps (p, v4sfl (0.0f));
+  v4sf offset = _mm_and_ps (ltzero, v4sfl (1.0f));
+  v4sf lt126  = _mm_cmplt_ps (p, v4sfl (-126.0f));
+  v4sf clipp  = _mm_or_ps (_mm_andnot_ps (lt126, p), _mm_and_ps (lt126, v4sfl (-126.0f)));
+  v4si w = v4sf_to_v4si (clipp);
+  v4sf z = clipp - v4si_to_v4sf (w) + offset;
+
+  union { v4si i; v4sf f; } v = {
+    v4sf_to_v4si (
+      v4sfl (1 << 23) * 
+      (clipp + c_121_2740838.v128[0] + c_27_7280233.v128[0] / (c_4_84252568.v128[0] - z) - c_1_49012907.v128[0] * z)
+    )
+  };
+
+  return v.f;
+}
+
+static inline v4sf vfastexp (const v4sf p)
+{
+  const v4sf c_invlog_2 = v4sfl (1.442695040f);
+
+  return vfastpow2 (c_invlog_2 * p);
+}
+
+static inline v4sf vfasterpow2 (const v4sf p)
+{
+  const v4sf c_126_94269504 = v4sfl (126.94269504f);
+  v4sf lt126 = _mm_cmplt_ps (p, v4sfl (-126.0f));
+  v4sf clipp = _mm_or_ps (_mm_andnot_ps (lt126, p), _mm_and_ps (lt126, v4sfl (-126.0f)));
+  union { v4si i; v4sf f; } v = { v4sf_to_v4si (v4sfl (1 << 23) * (clipp + c_126_94269504)) };
+  return v.f;
+}
+
+static inline v4sf vfasterexp (const v4sf p)
+{
+  const v4sf c_invlog_2 = v4sfl (1.442695040f);
+
+  return vfasterpow2 (c_invlog_2 * p);
+}
+
+static inline v8sf V8FasterPow2 (const v8sf p)
+{
+  const v8sf c_126_94269504 = v8sfl (126.94269504f);
+  v8sf lt126 = _mm256_cmplt_ps (p, v8sfl (-126.0f));
+  v8sf clipp = _mm256_or_ps (_mm256_andnot_ps (lt126, p), _mm256_and_ps (lt126, v8sfl (-126.0f)));
+  union { v8si i; v8sf f; } v = { v8sf_to_v8si (v8sfl (1 << 23) * (clipp + c_126_94269504)) };
+  return v.f;
+}
 
 #endif   // __AVX2__
 
