@@ -119,7 +119,7 @@ float VComputeEntropy(entropy_table *etab)
   v8sf temp, vsum ;
   v8sf vk ;
 
-  vk = v8sfl(k) ;                                   // promote k to 8 element float vector
+  vk = v8sfl1(k) ;                                   // promote k to 8 element float vector
   vsum = (v8sf) v8zero(vsum) ;                    // set vsum to 0
   // sum of P * log2(P) where P is the probability of tab[i]
   for(i=0 ; i<etab->size-7 ; i+=8) { 

@@ -94,17 +94,17 @@ static inline float FasterLog (float x)
 #if defined(__AVX2__)
 
 // constant vectors used by 128 bit (SSE2|3|4) and 256 bit (AVX2) functions
-static v48mf c_124_22551499 = { v8sfl (124.22551499f) };
-static v48mf c_1_498030302  = { v8sfl (1.498030302f)  };
-static v48mf c_1_725877999  = { v8sfl (1.72587999f)   };
-static v48mf c_0_3520087068 = { v8sfl (0.3520887068f) };
+static v48mf c_124_22551499 = { v8sfl1 (124.22551499f) };
+static v48mf c_1_498030302  = { v8sfl1 (1.498030302f)  };
+static v48mf c_1_725877999  = { v8sfl1 (1.72587999f)   };
+static v48mf c_0_3520087068 = { v8sfl1 (0.3520887068f) };
 
 static inline v4sf V4FastLog2 (v4sf x)
 {
   union { v4sf f; v4si i; } vx = { x };
-  union { v4si i; v4sf f; } mx; mx.i = (vx.i & v4sil (0x007FFFFF)) | v4sil (0x3f000000);
+  union { v4si i; v4sf f; } mx; mx.i = (vx.i & v4sil1 (0x007FFFFF)) | v4sil1 (0x3f000000);
   v4sf y = v4si_to_v4sf (vx.i);
-  y *= v4sfl (1.1920928955078125e-7f);
+  y *= v4sfl1 (1.1920928955078125e-7f);
   return y - c_124_22551499.v128[0]
            - c_1_498030302.v128[0] * mx.f 
            - c_1_725877999.v128[0] / (c_0_3520087068.v128[0] + mx.f);
@@ -113,9 +113,9 @@ static inline v4sf V4FastLog2 (v4sf x)
 static inline v8sf V8FastLog2 (v8sf x)
 {
   union { v8sf f; v8si i; } vx = { x };
-  union { v8si i; v8sf f; } mx; mx.i = (vx.i & v8sil(0x007FFFFF)) | v8sil(0x3f000000);
+  union { v8si i; v8sf f; } mx; mx.i = (vx.i & v8sil1(0x007FFFFF)) | v8sil1(0x3f000000);
   v8sf y = v8si_to_v8sf (vx.i);
-  y *= v8sfl (1.1920928955078125e-7f);
+  y *= v8sfl1 (1.1920928955078125e-7f);
   return y - c_124_22551499.v256
            - c_1_498030302.v256 * mx.f 
            - c_1_725877999.v256 / (c_0_3520087068.v256 + mx.f);
@@ -123,13 +123,13 @@ static inline v8sf V8FastLog2 (v8sf x)
 
 static inline v4sf V4FastLog (v4sf x)
 {
-  const v4sf c_0_69314718 = v4sfl (0.69314718f);
+  const v4sf c_0_69314718 = v4sfl1 (0.69314718f);
   return c_0_69314718 * V4FastLog2 (x);
 }
 
 static inline v8sf V8FastLog (v8sf x)
 {
-  const v8sf c_0_69314718 = v8sfl (0.69314718f);
+  const v8sf c_0_69314718 = v8sfl1 (0.69314718f);
   return c_0_69314718 * V8FastLog2 (x);
 }
 
@@ -167,23 +167,23 @@ static inline float FasterExp (float p)
 
 #define _mm256_cmplt_ps(a, b) _mm256_cmp_ps(a, b, _CMP_LT_OQ)
 
-static v48mf c_121_2740838 = { v8sfl (121.2740575f) } ;
-static v48mf c_27_7280233  = { v8sfl (27.7280233f)  } ;
-static v48mf c_4_84252568  = { v8sfl (4.84252568f)  } ;
-static v48mf c_1_49012907  = { v8sfl (1.49012907f)  } ;
+static v48mf c_121_2740838 = { v8sfl1 (121.2740575f) } ;
+static v48mf c_27_7280233  = { v8sfl1 (27.7280233f)  } ;
+static v48mf c_4_84252568  = { v8sfl1 (4.84252568f)  } ;
+static v48mf c_1_49012907  = { v8sfl1 (1.49012907f)  } ;
 
 static inline v4sf vfastpow2 (const v4sf p)
 {
-  v4sf ltzero = _mm_cmplt_ps (p, v4sfl (0.0f));
-  v4sf offset = _mm_and_ps (ltzero, v4sfl (1.0f));
-  v4sf lt126  = _mm_cmplt_ps (p, v4sfl (-126.0f));
-  v4sf clipp  = _mm_or_ps (_mm_andnot_ps (lt126, p), _mm_and_ps (lt126, v4sfl (-126.0f)));
+  v4sf ltzero = _mm_cmplt_ps (p, v4sfl1 (0.0f));
+  v4sf offset = _mm_and_ps (ltzero, v4sfl1 (1.0f));
+  v4sf lt126  = _mm_cmplt_ps (p, v4sfl1 (-126.0f));
+  v4sf clipp  = _mm_or_ps (_mm_andnot_ps (lt126, p), _mm_and_ps (lt126, v4sfl1 (-126.0f)));
   v4si w = v4sf_to_v4si (clipp);
   v4sf z = clipp - v4si_to_v4sf (w) + offset;
 
   union { v4si i; v4sf f; } v = {
     v4sf_to_v4si (
-      v4sfl (1 << 23) * 
+      v4sfl1 (1 << 23) * 
       (clipp + c_121_2740838.v128[0] + c_27_7280233.v128[0] / (c_4_84252568.v128[0] - z) - c_1_49012907.v128[0] * z)
     )
   };
@@ -193,33 +193,33 @@ static inline v4sf vfastpow2 (const v4sf p)
 
 static inline v4sf vfastexp (const v4sf p)
 {
-  const v4sf c_invlog_2 = v4sfl (1.442695040f);
+  const v4sf c_invlog_2 = v4sfl1 (1.442695040f);
 
   return vfastpow2 (c_invlog_2 * p);
 }
 
 static inline v4sf vfasterpow2 (const v4sf p)
 {
-  const v4sf c_126_94269504 = v4sfl (126.94269504f);
-  v4sf lt126 = _mm_cmplt_ps (p, v4sfl (-126.0f));
-  v4sf clipp = _mm_or_ps (_mm_andnot_ps (lt126, p), _mm_and_ps (lt126, v4sfl (-126.0f)));
-  union { v4si i; v4sf f; } v = { v4sf_to_v4si (v4sfl (1 << 23) * (clipp + c_126_94269504)) };
+  const v4sf c_126_94269504 = v4sfl1 (126.94269504f);
+  v4sf lt126 = _mm_cmplt_ps (p, v4sfl1 (-126.0f));
+  v4sf clipp = _mm_or_ps (_mm_andnot_ps (lt126, p), _mm_and_ps (lt126, v4sfl1 (-126.0f)));
+  union { v4si i; v4sf f; } v = { v4sf_to_v4si (v4sfl1 (1 << 23) * (clipp + c_126_94269504)) };
   return v.f;
 }
 
 static inline v4sf vfasterexp (const v4sf p)
 {
-  const v4sf c_invlog_2 = v4sfl (1.442695040f);
+  const v4sf c_invlog_2 = v4sfl1 (1.442695040f);
 
   return vfasterpow2 (c_invlog_2 * p);
 }
 
 static inline v8sf V8FasterPow2 (const v8sf p)
 {
-  const v8sf c_126_94269504 = v8sfl (126.94269504f);
-  v8sf lt126 = _mm256_cmplt_ps (p, v8sfl (-126.0f));
-  v8sf clipp = _mm256_or_ps (_mm256_andnot_ps (lt126, p), _mm256_and_ps (lt126, v8sfl (-126.0f)));
-  union { v8si i; v8sf f; } v = { v8sf_to_v8si (v8sfl (1 << 23) * (clipp + c_126_94269504)) };
+  const v8sf c_126_94269504 = v8sfl1 (126.94269504f);
+  v8sf lt126 = _mm256_cmplt_ps (p, v8sfl1 (-126.0f));
+  v8sf clipp = _mm256_or_ps (_mm256_andnot_ps (lt126, p), _mm256_and_ps (lt126, v8sfl1 (-126.0f)));
+  union { v8si i; v8sf f; } v = { v8sf_to_v8si (v8sfl1 (1 << 23) * (clipp + c_126_94269504)) };
   return v.f;
 }
 
