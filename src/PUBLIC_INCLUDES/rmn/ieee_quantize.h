@@ -20,6 +20,7 @@
 #define IEEE_QUANTIZE_INCLUDES
 
 #include <stdint.h>
+#include <stdio.h>
 #include <rmn/data_info.h>
 #include <rmn/ct_assert.h>
 
