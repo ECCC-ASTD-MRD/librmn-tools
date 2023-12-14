@@ -221,6 +221,7 @@ set(PROJECT_C_FILES
   src/pack/serialized_functions.c
   src/pack/pixmaps.c
   src/pack/compress_expand.c
+  src/pack/pack_filters.c
   src/diag/tee_print.c
   src/diag/test_helpers.c
   src/diag/misc_analyze.c
@@ -287,6 +288,7 @@ set(PROJECT_H_FILES
   src/PUBLIC_INCLUDES/rmn/entropy.h
   src/PUBLIC_INCLUDES/rmn/x86-simd.h
   src/PUBLIC_INCLUDES/rmn/fastapprox.h
+  src/PUBLIC_INCLUDES/rmn/pack_filters.h
 )
 
 set(PROJECT_INCLUDES
