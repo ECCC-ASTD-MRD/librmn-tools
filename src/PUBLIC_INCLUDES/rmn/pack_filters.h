@@ -37,15 +37,6 @@ typedef uint64_t pack_flags ;
 #define PIPE_DATA_SIZE(dims) ( (((dims)[0] >> 16) == 0) ? 4 : ((dims)[0] >> 16) )
 #define PIPE_DATA_NDIMS(dims)  ((dims)[0] & 0x7)
 
-// #define FFLAG_NI(x) (((x) & 0xFFF) << 12)
-// #define FPACK_NI(f) (((f) >> 12) & 0xFFF)
-// 
-// #define FFLAG_NJ(x) (((x) & 0xFFF))
-// #define FPACK_NJ(f) (((f)      ) & 0xFFF)
-// 
-// #define FFLAG_ID(x) (((x) & 0x0FF) << 24)
-// #define FPACK_ID(f) (((f) >> 24) & 0x0FF)
-
 typedef struct{
   size_t used ;            // number of bytes used in buffer
   size_t max_size ;        // buffer maximum size in bytes
@@ -53,18 +44,9 @@ typedef struct{
   uint32_t flags ;         // usage flags for buffer
 } pipe_buffer ;
 
-// typedef struct{
-//   uint32_t id    : 8 ,     // filter ID (for consistency checks)
-//            nmeta :24 ;     // number of values in meta[]
-//   uint32_t resv  : 8 ,     // reserved, should be 0
-//            size  :24 ;     // max size of meta[]
-//   AnyType32  meta[]  ;     // any 32 bit type, likely .f, .i, .u
-// } pack_meta ;
-// CT_ASSERT(sizeof(pack_meta) == sizeof(uint64_t))
-
 // first element of metadata for ALL filters
 // id    : filter ID
-// size  : max size allowed in 32 bit units
+// size  : size of the struct in 32 bit units (includes 32 bit prolog)
 // used  : used space in 32 bit units
 // flags : local flags for this filter
 #define FILTER_PROLOG uint32_t id:8, size:8, used:8, flags:8 ;
@@ -73,35 +55,50 @@ typedef struct{
 #define FILTER_SIZE_OK(name) (sizeof(filter_001)/sizeof(uint32_t)*sizeof(uint32_t) == sizeof(filter_001))
 
 typedef struct{             // generic filter metadata
-  FILTER_PROLOG ;
-  AnyType32 meta[] ;
-} filter_meta ;
+  FILTER_PROLOG ;           // used for meta_out in forward mode
+  AnyType32 meta[] ;        // and meta_in in reverse mode
+} filter_meta ;             // type used by the filter API
 
-typedef struct{
-  int nfilters ;
-  filter_meta *meta[] ;
+// set filter metadata to null values (only keep id and size as they are)
+static inline void filter_reset(filter_meta *m){
+  int i ;
+  m->used = m->flags = 0 ;
+  for(i=0 ; i< (m->size - 1) ; i++) m->meta[i].u = 0 ;
+}
+
+typedef struct{             // input metadata for all the pipe filters to be run
+  int nfilters ;            // number of filters
+  filter_meta *meta[] ;     // pointers to the metadata for the filters
 } filter_list ;
 
-typedef struct{             // id = 001, linear quantizer
+// ----------------- id = 000, null filter (last filter) -----------------
+typedef struct{
+  FILTER_PROLOG ;
+} filter_000 ;
+static filter_000 filter_000_null = {.size = 1, .id = 0, .used = 0, .flags = 0 } ;
+
+// ----------------- id = 001, linear quantizer -----------------
+typedef struct{
   FILTER_PROLOG ;
   float    ref ;
   uint32_t nbits : 5 ;
 } filter_001 ;
-static filter_001 filter_001_null = {.size = sizeof(filter_001)/sizeof(uint32_t), .id = 1, .used = 0, .ref = 0.0f, .nbits = 0 } ;
+static filter_001 filter_001_null = {.size = sizeof(filter_001)/sizeof(uint32_t), .id = 1, .used = 0, .flags = 0, .ref = 0.0f, .nbits = 0 } ;
 CT_ASSERT(FILTER_SIZE_OK(filter_001))
-
-typedef struct{             // id = 254, scale and offset test filter
+// ----------------- id = 254, scale and offset filter -----------------
+typedef struct{
   FILTER_PROLOG ;
   int32_t factor ;
   int32_t offset ;
 } filter_254 ;
-static filter_254 filter_254_null = {.size = sizeof(filter_254)/sizeof(uint32_t), .id = 254, .used = 0, .factor = 1, .offset = 0 } ;
+static filter_254 filter_254_null = {.size = sizeof(filter_254)/sizeof(uint32_t), .id = 254, .used = 0, .flags = 0, .factor = 0, .offset = 0 } ;
 CT_ASSERT(FILTER_SIZE_OK(filter_254))
+// ----------------- end of filter metadata definitions -----------------
 
-#define BASE_META_SIZE (sizeof(pack_meta)/sizeof(uint32_t))
+#define BASE_META_SIZE (sizeof(filter_meta)/sizeof(uint32_t))
 // to allocate space for NM meta elements : uint32_t xxx[BASE_META_SIZE + NM]
 //                                          yyy = malloc((sizeof(uint32_t) * (BASE_META_SIZE + NM))
-// then use (pack_meta) xxx or (pack_meta *) yyy as argument to filters
+// then use (filter_meta) xxx or (filter_meta *) yyy as argument to filters
 
 // flags     [IN] : flags passed to filter
 // dims      [IN] : dimensions for array in buffer. (some filters will consider data as 1D anyway)

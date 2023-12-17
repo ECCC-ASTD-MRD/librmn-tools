@@ -21,6 +21,10 @@
 #define MAX_FILTERS     256
 #define MAX_FILTER_NAME  16
 
+// macros for internal use
+#define PUSH_BITS(acc, data, nbits)    { acc <<= (nbits) ; acc |= (data) ; }
+#define POP_BITS(acc, data, nbits)     { data = (acc) >> ((8 * sizeof(acc)) - (nbits)) ; acc <<= ((8 * sizeof(acc)) - (nbits)) ; }
+
 typedef struct{
   pipe_filter_pointer fn ;
   char name[MAX_FILTER_NAME] ;
@@ -43,46 +47,57 @@ end:
 }
 
 // test filter id = 254, scale data and add offset
-// with FFLAG_VALIDATE, the only needed arguments are flags and meta_in, all other arguments should be NULL
+// with FFLAG_VALIDATE, the only needed arguments are flags and meta_in, all other arguments could be NULL
 ssize_t pipe_filter_254(uint32_t flags, int *dims, filter_meta *meta_in, pipe_buffer *buf, filter_meta *meta_out){
   int nval, i, errors ;
   ssize_t nbytes ;
   int32_t *data = (int32_t *) buf->buffer ;
 
+  if(meta_in == NULL)          goto error ;
   if(meta_in->id != 254)       goto error ;   // wrong ID
-  if(flags & FFLAG_VALIDATE){                 // validate input flags for eventual call with FFLAG_FORWARD mode
+  switch(flags & (FFLAG_VALIDATE | FFLAG_FORWARD | FFLAG_REVERSE)) {
 
-    if(meta_in->size < 2)       errors++ ;
-    if(meta_in->used != 2)      errors++ ;
-    if(meta_in->meta[0].i == 0 && meta_in->meta[1].i == 0) errors++ ;
-    nbytes = -errors ;
-    goto end ;
+    case FFLAG_VALIDATE:                      // validate input flags for eventual call with FFLAG_FORWARD mode
+      if(meta_in->size <  3)   errors++ ;
+      if(meta_in->used != 3)   errors++ ;
+      if(meta_in->meta[0].i == 0 && meta_in->meta[1].i == 0) errors++ ;   // cannot be both 0
+      nbytes = errors ? -errors : 3 ;         // if no errors, return length needed for meta_out
+      break ;
 
-  }else if(flags & FFLAG_REVERSE){            // inverse filter
+    case FFLAG_REVERSE:                       // inverse filter
+      if(meta_in->size <  3)   goto error ;   // not enough space in meta_in
+      if(meta_in->used != 3)   goto error ;   // wrong metadata values count
+      nval = buffer_dimension(dims) ;         // get data dimensions
+      nbytes = nval * sizeof(uint32_t) ;
+      int32_t factor = meta_in->meta[0].i ;   // get metadata prepared during the forward filter pass
+      int32_t offset = meta_in->meta[1].i ;
+      for(i=0 ; i<nval ; i++) data[i] = (data[i] - offset) / factor ;
+      break ;
 
-    if(meta_in->size < 2)       goto error ;  // not enough space in meta_in
-    if(meta_in->used != 2)      goto error ;  // wrong metadata values count
-    nval = buffer_dimension(dims) ;
-    nbytes = nval * sizeof(uint32_t) ;
-    for(i=0 ; i<nval ; i++) data[i] = (data[i] - meta_in->meta[1].i) / meta_in->meta[0].i ;
+    case FFLAG_FORWARD:                       // forward filter
+      // cast meta_in to actual metadata for this filter
+      filter_254 *meta = (filter_254 *) meta_in ;
+      if(meta->used != 3)      goto error ;   // wrong length
+      if(meta->size <  3)      goto error ;   // meta_out too small
+      nval = buffer_dimension(dims) ;
+      // execute filter
+      for(i=0 ; i<nval ; i++) data[i] = data[i] * meta->factor + meta->offset ;
+      // prepare metadata for reverse filter
+      meta_out->id    = 254 ;
+      meta_out->used  = 3 ;
+      meta_out->flags = 0 ;
+      meta_out->meta[0].i = meta->factor ;
+      meta_out->meta[1].i = meta->offset ;
+      // number of used bytes in data buffer
+      nbytes = nval * sizeof(uint32_t) ;
+      break ;
 
-  }else if(flags & FFLAG_FORWARD){             // forward filter
-
-    if(meta_in->used != 2)       goto error ;  // wrong length
-    if(meta_out->size < 2)       goto error ;  // too small
-    nval = buffer_dimension(dims) ;
-    for(i=0 ; i<nval ; i++) data[i] = data[i] * meta_in->meta[0].i + meta_in->meta[1].i ;
-    meta_out->id    = 254 ;
-    meta_out->used = 2 ;
-    meta_out->meta[0].u = meta_in->meta[0].i ;
-    meta_out->meta[1].u = meta_in->meta[1].i ;
-    nbytes = nval * sizeof(uint32_t) ;
-
-  }else{
-    goto error ; // ERROR, filter is called neither in the forward nor in the reverse direction
+    default:
+      goto error ; // ERROR, filter was called with none of the needed flags
   }
-end:
+
   return nbytes ;
+
 error :
   return (nbytes = -1) ;
 }
