@@ -1101,7 +1101,7 @@ int main(int argc, char **argv){
       }
       if(ca == 'v') {
         nomvar = argv[i] + 2 ; codevar = code_var(nomvar, strlen(nomvar)) ;
-        fprintf(stderr, "variable = '%s'[%d], code = %8.8x, ", nomvar, strlen(nomvar), codevar) ;
+        fprintf(stderr, "variable = '%s'[%lu], code = %8.8x, ", nomvar, strlen(nomvar), codevar) ;
       }
       continue ;
     }

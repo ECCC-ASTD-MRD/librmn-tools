@@ -511,7 +511,7 @@ error:
 //      invariant after 1st quantization,  cyclical quantize->restore->quantize->restore ...
 q_encode IEEE32_fakelog_quantize_1(void * restrict f, int ni, q_rules rules, void * restrict q, limits_w32 *limits, special_value *s){
   uint32_t *fu = (uint32_t *) f ;
-  int32_t *qo = (uint32_t *) q ;
+  int32_t *qo = (int32_t *) q ;
   q_desc q64 = { .u = 0 } ;  // set invalid output state, all components set to 0
   uint32_t allp, allm, pos_neg, maxa, mina, round = 0 ;
   int32_t emin, ebits, erange, shift, offset ;
@@ -650,6 +650,7 @@ error:
 // restore 1 IEEE float from type 0 quantized value
 // inline function used by IEEE32_linear_restore_0
 static inline int32_t IEEE32_Q2F_linear_0(int32_t q, int32_t offset, int32_t scount, int32_t allp, int32_t allm){
+  return 0 ; // temporary to avoid warnings
 }
 
 // restore floating point numbers quantized with IEEE32_linear_quantize_0
@@ -884,6 +885,7 @@ end:
 error:
   debug_exit("IEEE32_linear_quantize_0") ;
   q_out          = q_desc_0.q ;   // blank slate
+  return q_out ;
 }
 
 // ========================================== linear quantizer type 1 ==========================================
@@ -1107,6 +1109,7 @@ q_encode IEEE32_linear_quantize_1(void * restrict f, int np, q_rules rules, void
 error:
   debug_exit("IEEE32_linear_quantize_1") ;
   q_out          = q_desc_0.q ;     // blank state
+  return q_out ;
 }
 
 // ========================================== linear quantizer type 2 ==========================================
@@ -1272,6 +1275,7 @@ q_encode IEEE32_linear_quantize_2(void * restrict f, int np, q_rules rules, void
 
 error:
   debug_exit("IEEE32_linear_quantize_2") ;
+  return q_out ;
 }
 
 // type 2 inverse linear quantizer (restores IEEE 32 bit floats))

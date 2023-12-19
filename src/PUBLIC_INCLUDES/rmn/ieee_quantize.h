@@ -191,10 +191,11 @@ typedef q_encode (*quantizer_fnptr)(void * restrict f, int ni, q_rules rules, vo
 static quantizer_function linear_quantizer_init ;
 static q_encode linear_quantizer_init(void * restrict f, int ni, q_rules rules, void * restrict q, limits_w32 *limits, special_value *s){
   q_desc qr ;
-  qr.u = q_desc_0.u ;
-  qr.f = rules ;
-  qr = (q_desc) {.u = q_desc_0.u } ;  // compound literal
-  qr = (q_desc) {.q.state = rules.state, .f.ref = rules.ref } ;
+// syntax checks, commented out to eliminate warnings
+//   qr.u = q_desc_0.u ;
+//   qr.f = rules ;
+//   qr = (q_desc) {.u = q_desc_0.u } ;  // compound literal
+//   qr = (q_desc) {.q.state = rules.state, .f.ref = rules.ref } ;
   qr = q_desc_0 ;
   return qr.q ;
 }
