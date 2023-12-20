@@ -15,20 +15,24 @@
 //     M. Valin,   Recherche en Prevision Numerique, 2023
 //
 
+#if ! defined(PIPE_FORWARD)
+
 #include <stdint.h>
 #include <unistd.h>
+#include <stdlib.h>
 
 #include <rmn/ieee_quantize.h>
 #include <rmn/tools_types.h>
 #include <rmn/ct_assert.h>
 
 typedef uint64_t pack_flags ;
-#define FFLAG_FORWARD     1
-#define FFLAG_REVERSE     2
-#define FFLAG_INPLACE     4
-#define FFLAG_REALLOC     8
-#define FFLAG_NOFREE     16
-#define FFLAG_VALIDATE   32
+#define PIPE_FORWARD     1
+#define PIPE_REVERSE     2
+#define PIPE_INPLACE     4
+#define PIPE_REALLOC     8
+#define PIPE_NOFREE     16
+#define PIPE_VALIDATE   32
+#define PIPE_FWDSIZES   64
 
 #define PIPE_DATA_08     (1 << 16)
 #define PIPE_DATA_16     (2 << 16)
@@ -43,13 +47,14 @@ typedef struct{
   void *buffer ;           // pointer to storage for buffer
   uint32_t flags ;         // usage flags for buffer
 } pipe_buffer ;
+pipe_buffer pipe_buffer_null = { .used = 0, .max_size = 0, .buffer = NULL, .flags = 0 } ;
 
 // first element of metadata for ALL filters
 // id    : filter ID
 // size  : size of the struct in 32 bit units (includes 32 bit prolog)
 // used  : used space in 32 bit units
 // flags : local flags for this filter
-#define FILTER_PROLOG uint32_t id:8, size:8, used:8, flags:8 ;
+#define FILTER_PROLOG uint32_t id:8, size:10, used:10, flags:4 ;
 
 // check that size of filter struct is a multiple of 32 bits
 #define FILTER_SIZE_OK(name) (sizeof(filter_001)/sizeof(uint32_t)*sizeof(uint32_t) == sizeof(filter_001))
@@ -66,10 +71,12 @@ static inline void filter_reset(filter_meta *m){
   for(i=0 ; i< (m->size - 1) ; i++) m->meta[i].u = 0 ;
 }
 
-typedef struct{             // input metadata for all the pipe filters to be run
-  int nfilters ;            // number of filters
-  filter_meta *meta[] ;     // pointers to the metadata for the filters
-} filter_list ;
+// typedef struct{             // input metadata for all the pipe filters to be run
+//   int nfilters ;            // number of filters
+//   filter_meta *meta[] ;     // pointers to the metadata for the filters
+// } filter_list ;
+
+typedef filter_meta *filter_list[] ;  // input metadata for all the pipe filters to be run
 
 // ----------------- id = 000, null filter (last filter) -----------------
 typedef struct{
@@ -96,26 +103,46 @@ CT_ASSERT(FILTER_SIZE_OK(filter_254))
 // ----------------- end of filter metadata definitions -----------------
 
 #define BASE_META_SIZE (sizeof(filter_meta)/sizeof(uint32_t))
+#define ALLOC_META(nmeta) (filter_meta *)malloc( sizeof(filter_meta) + (nmeta) * sizeof(AnyType32) )
 // to allocate space for NM meta elements : uint32_t xxx[BASE_META_SIZE + NM]
 //                                          yyy = malloc((sizeof(uint32_t) * (BASE_META_SIZE + NM))
 // then use (filter_meta) xxx or (filter_meta *) yyy as argument to filters
 
-// flags     [IN] : flags passed to filter
-// dims      [IN] : dimensions for array in buffer. (some filters will consider data as 1D anyway)
+// flags     [IN] : flags passed to filter (controls filter behaviour)
+// dims      [IN] : dimensions of array in buffer. (some filters will consider data as 1D anyway)
+//                  and indicator of data element sizes
 //                  dims[0] : number of dimensions + DATA_08|DATA_16|DATA_32|DATA_64
 //                  dims[1->dims[0]] : dimensions
-// buffer    [IN] : input data to filter
+//                  not used with PIPE_VALIDATE
+// buffer    [IN] : input data to filter (used used by PIPE_FORWARD and PIPE_REVERSE)
 //                  buffer->used      : number of valid bytes in buffer->buffer
 //                  buffer->max_size  : available storage size in buffer->buffer
-//          [OUT] : output from filter, same address as before if operation done in place
+//          [OUT] : output from filter, same address as before if operation can be performed in place
 //                  buffer->used     : number of valid bytes in buffer->buffer
 //                  buffer->max_size : available storage size in buffer->buffer
-// meta_in   [IN] : parameters passed to filter
-// meta_out [OUT] : (REVERSE direction) ignored
-//          [OUT] : (FORWARD direction) parameters that must be passed for the REVERSE call
-// the function returns the size of its data output in bytes
+// meta_in   [IN] : parameters passed to filter (not used if PIPE_FWDSIZES)
+// meta_out [OUT]
+//         PIPE_VALIDATE : not used
+//         PIPE_FWDSIZES : meta_out->size = needed size of meta_out for FORWARD call
+//         PIPE_REVERSE  : not used
+//         PIPE_FORWARD  : future meta_in for the REVERSE call
+// the function returns
+//         PIPE_VALIDATE : needed size for meta_out(32 bit units), negative value in case of error(s)
+//         PIPE_FWDSIZES : "worst case" size of filter output
+//         PIPE_FORWARD  : size data output in bytes
+//         PIPE_REVERSE  : size data output in bytes
 typedef ssize_t pipe_filter(uint32_t flags, int *dims, filter_meta *meta_in, pipe_buffer *buffer, filter_meta *meta_out) ;
 typedef pipe_filter *pipe_filter_pointer ;
 
 pipe_filter pipe_filter_001 ;
 pipe_filter pipe_filter_254 ;
+
+ssize_t filter_validate(filter_meta *meta_in);
+int filter_is_defined(int id);
+int filter_register(int id, char *name, pipe_filter_pointer fn);
+void pipe_filter_init(void);
+pipe_filter_pointer pipe_filter_address(int id);
+char *pipe_filter_name(int id);
+ssize_t run_pipe_filters(int flags, int *dims, void *data, filter_list list, pipe_buffer *buffer);
+
+#endif // ! defined(PIPE_FORWARD)

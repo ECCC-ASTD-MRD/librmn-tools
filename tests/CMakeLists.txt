@@ -165,5 +165,6 @@ add_project_test(test_data_info_c test_data_info.c NODIAG)
 add_project_test(test_data_info_f test_data_info.F90 LINK_LIBS "rmn::rmn" DL)
 
 add_project_test(test_bits test_bits.F90 DL)
+add_project_test(test_pipe_filters test_pipe_filters.c)
 add_project_test(test_pixmaps test_pixmaps.c NODIAG)
 add_project_test(test_compress_expand test_compress_expand.c NODIAG)
