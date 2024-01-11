@@ -63,7 +63,7 @@ static void print_stream_params(bitstream s, char *msg, char *expected_mode){
   TEE_FPRINTF(stderr,2, "%s: filled = %d(%d), free= %d, first/in/out/limit [in - out] = %p/%ld/%ld/%ld [%ld], insert/xtract = %d/%d",
     msg, available, strict_available, space_available, 
     s.first, s.in-s.first, s.out-s.first, s.limit-s.first, s.in-s.out, s.insert, s.xtract ) ;
-  TEE_FPRINTF(stderr,2, ", full/part/user = %d/%d/%d", s.full, s.part, s.user) ;
+  TEE_FPRINTF(stderr,2, ", full/alloc/user = %d/%d/%d", s.full, s.alloc, s.user) ;
   TEE_FPRINTF(stderr,2, ", |%8.8x|%d|", s.valid, s.endian) ;
   if(expected_mode){
     TEE_FPRINTF(stderr,2, ", Mode = %s(%d) (%s expected)", StreamMode(s), StreamModeCode(s), expected_mode) ;

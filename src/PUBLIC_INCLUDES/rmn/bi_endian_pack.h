@@ -76,12 +76,36 @@
 #define STATIC_DEFINED_HERE
 #endif
 
+CT_ASSERT(sizeof(uint64_t) == 8) ;     // this better be true !
+CT_ASSERT(sizeof(void *) == 8) ;       // enforce 64 bit pointers
+
 // simple data buffer structure with capacity and fill level
 typedef struct{
   int32_t size ;      // max data size in 32 bit units (max 16G - 4 bytes)
   int32_t next ;      // next insertion point in buf (0 in empty bucket)
   uint32_t buf[] ;    // data buffer
 } bitbucket ;
+
+// word (32 bit) stream descriptor
+// number of words in buffer : in - out (available for extraction)
+// space available in buffer : limit - in (available for insertion)
+// if alloc == 1, a call to realloc is O.K., limit must be adjusted
+// initial state : in = out = 0
+typedef struct{
+  uint32_t *buf ;     // pointer to start of stream data storage
+  uint32_t limit ;    // buffer size
+  uint32_t in ;       // insertion position
+  uint32_t out ;      // extraction position
+  uint32_t full:  1 , // the whole struct was allocated with malloc (realloc is possible)
+           alloc: 1 , // buffer allocated with malloc (realloc is possible)
+           user:  1 , // buffer was user supplied (realloc is NOT possible)
+           spare: 5 , // spare bits
+           valid:24 ; // signature marker
+} wordstream ;
+CT_ASSERT(sizeof(wordstream) == 24) ;   // 3 64 bit elements
+
+static wordstream null_wordstream = { .buf = NULL, .limit = 0, .in = 0, .out = 0,
+                                      .full = 0, .alloc = 0, .user = 0, .spare = 0, .valid = 0 } ;
 
 // bit stream descriptor. both insert / extract may be positive
 // in insertion only mode, xtract would be -1
@@ -96,22 +120,20 @@ typedef struct{
   uint32_t *in ;      // pointer into packed stream (insert mode)
   uint32_t *out ;     // pointer into packed stream (extract mode)
   uint32_t *limit ;   // pointer to end of stream data storage (1 byte beyond stream buffer end)
-  uint64_t full:  1 , // struct and buffer were allocated together with malloc (buf[] is usable)
-           part:  1 , // buffer allocated with malloc (buf[] is NOT usable)
-           user:  1 , // buffer is user supplied (buf[] is NOT usable)
+  uint64_t full:  1 , // the whole struct was allocated with malloc
+           alloc: 1 , // buffer allocated with malloc
+           user:  1 , // buffer was user supplied
            endian:2 , // 01 : Big Endian stream, 10 : Little Endian stream, 00/11 : invalid
            spare:27 , // spare bits
            valid:32 ; // signature marker
 //   uint32_t buf[] ;    // flexible array (meaningful only if full == 1)
 } bitstream ;
 CT_ASSERT(sizeof(bitstream) == 64) ;   // 8 64 bit elements
-CT_ASSERT(sizeof(uint64_t) == 8) ;     // this better be true !
-CT_ASSERT(sizeof(void *) == 8) ;       // enforce 64 bit pointers
 
 // all fields set to 0, makes for a fast initialization xxx = null_bitstream
 static bitstream null_bitstream = { .acc_i = 0, .acc_x = 0 , .insert = 0 , .xtract = 0, 
                                     .first = NULL, .in = NULL, .out = NULL, .limit = NULL,
-                                    .full = 0, .part = 0, .user = 0, .endian = 0, .spare = 0, .valid = 0 } ;
+                                    .full = 0, .alloc = 0, .user = 0, .endian = 0, .spare = 0, .valid = 0 } ;
 
 // convert the nbits rightmost bits to a 2s complement signed number
 // for this macro to produce meaningful results, w32 MUST BE int32_t (32 bit signed int)
@@ -562,11 +584,11 @@ STATIC inline void  StreamInit(bitstream *p, void *mem, size_t size, int mode){
   }else{                    // not an existing stream, perform a full initialization
     if(buf == NULL){
       p->user   = 0 ;                          // not user supplied space
-      p->part   = 1 ;                          // auto allocated space (can be freed if resizing)
+      p->alloc  = 1 ;                          // auto allocated space (can be freed if resizing)
       buf    = (uint32_t *) malloc(size) ;     // allocate space to accomodate up to size bytes
     }else{
       p->user   = 1 ;                          // user supplied space
-      p->part   = 0 ;                          // not auto allocated space
+      p->alloc  = 0 ;                          // not auto allocated space
     }
     p->full   = 0 ;                            // malloc not for both struct and buffer
     p->spare  = 0 ;
@@ -603,8 +625,8 @@ STATIC inline void  BeStreamInit(bitstream *p, uint32_t *buffer, size_t size, in
 // size [IN] : see StreamInit
 // mode [IN] : see StreamInit
 // return a pointer to the created struct
-// p->full will be set, p->part will be 0
-// p->part can en up as 1 if a resize is performed at a later time
+// p->full will be set, p->alloc will be 0
+// p->alloc can end up as 1 if a resize is performed at a later time
 static bitstream *StreamCreate(size_t size, int mode){
   char *buf ;
   bitstream *p = (bitstream *) malloc(size + sizeof(bitstream)) ;  // allocate size + overhead
@@ -652,8 +674,8 @@ STATIC inline size_t StreamResize(bitstream *p, void *mem, size_t size){
   memmove(mem, p->first, old_size)  ;                                   // copy old (p->first) buffer into new (mem)
   in  = p->in - p->first ;                                              // relative position of in pointer
   out = p->out - p->first ;                                             // relative position of out pointer
-  if(p->part) free(p->first) ;                                          // previous buffer was "malloced"
-  p->part = (mem != NULL) ? 1 : 0 ;                                     // flag buffer as "malloced"
+  if(p->alloc) free(p->first) ;                                         // previous buffer was "malloced"
+  p->alloc = (mem != NULL) ? 1 : 0 ;                                    // flag buffer as "malloced"
   p->first = (uint32_t *) mem ;                                         // updated first pointer
   p->in    = p->first + in ;                                            // updated in pointer
   p->out   = p->first + out ;                                           // updated out pointer
@@ -687,9 +709,9 @@ STATIC inline int  StreamSetFilledBytes(bitstream *p, size_t size){
 static void StreamDup(bitstream *sdst, bitstream *ssrc){
 //   memcpy(sdst, ssrc, sizeof(bitstream)) ;    // image copy of the bitstream struct
   *sdst = *ssrc ;
-  sdst->full = 0 ;                           // not fully allocated with malloc
-  sdst->part = 0 ;                           // cannot allow a free, this is not the original copy
-  sdst->user = 1 ;                           // treat as if it were user allocated memory
+  sdst->full  = 0 ;                             // not fully allocated with malloc
+  sdst->alloc = 0 ;                             // cannot allow a free, this is not the original copy
+  sdst->user  = 1 ;                             // treat as if it were user allocated memory
 }
 
 // =======================  stream destuction  =======================
@@ -702,15 +724,15 @@ static int StreamFree(bitstream *s){
   int status = 1 ;
   if(s->full){       // struct and buffer
     fprintf(stderr, "auto allocated bit stream (%p) freed\n", s) ;
-    if(s->part) free(s->first) ;   // a resize operation has been performed
+    if(s->alloc) free(s->first) ;   // a resize operation has been performed
     free(s) ;
     return 0 ;
   }
-  if(s->part){       // buffer was allocated with malloc
+  if(s->alloc){       // buffer was allocated with malloc
     fprintf(stderr, "auto allocated bit stream buffer (%p) freed\n", s->first) ;
     free(s->first) ;
     s->first = s->in = s->out = s->limit = NULL ;   // nullify data pointers
-    s->user = s->full = s->part = 0 ;
+    s->user = s->full = s->alloc = 0 ;
     status = 0 ;
   }else{
     fprintf(stderr, "not owner of buffer, no free done (%p)\n", s->first);

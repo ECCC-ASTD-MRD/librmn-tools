@@ -76,6 +76,7 @@ static inline uint32_t *sse_expand_replace_32(uint32_t *s, uint32_t *d, uint32_t
   for(i=0 ; i<2 ; i++){                                            // explicit unroll by 4
       mask0 = mask >> 28 ; mask <<= 4 ; pop0 = popcnt_32(mask0) ;  // get 4 bit mask0 for this slice
       vt0 = _mm_loadu_si128((__m128i *)s) ; s += pop0 ;            // load items from source (compressed) array
+//       vt0 = _mm_maskload_epi32((int const *)s, ~vs0) ;             // load using ~vs0 as a mask to avoid load beyond array
       vs0 = _mm_loadu_si128((__m128i *)(exptab + mask0)) ;         // load permutation for this mask0
       vf0 = _mm_loadu_si128((__m128i *)d) ;                        // load items from destination (expanded) array
       vb0 = _mm_srai_epi32(vs0, 31) ;                              // 1s where keep, 0s where new from source
@@ -162,6 +163,7 @@ static inline uint32_t * sse_expand_fill_32(uint32_t *s, uint32_t *d, uint32_t m
     uint32_t mask0, pop0 ;
     mask0 = mask >> 28 ; mask <<= 4 ; pop0 = popcnt_32(mask0) ;  // get 4 bit mask0 for this slice
     vt0 = _mm_loadu_si128((__m128i *)s) ; s += pop0 ;            // load items from source (compressed) array
+//     vt0 = _mm_maskload_epi32((int const *)s, ~vs0) ;             // load using ~vs0 as a mask to avoid load beyond array
     vs0 = _mm_loadu_si128((__m128i *)(exptab + mask0)) ;         // load permutation for this mask0
     vb0 = _mm_srai_epi32(vs0, 31) ;                              // 1s where fill, 0s where new from source
     vt0 = _mm_shuffle_epi8(vt0, vs0) ;                           // shufffle to get source items in proper position
@@ -245,6 +247,7 @@ static inline uint32_t *sse_compress_32(uint32_t *s, uint32_t *d, uint32_t mask)
     vt0 = _mm_shuffle_epi8(vt0, vs0) ;                     // shufffle to get source items in proper position
     pop0 = popcnt_32(mask0) ;                              // number of useful items that will be stored
     _mm_storeu_si128((__m128i *)d, vt0) ; d += pop0 ;      // store into destination
+//     _mm_maskmoveu_si128(vt0, ~vs0, (char *)d) ;            // mask store, using ~vs0 as mask
     mask0 = mask >> 28 ; mask <<= 4 ;
     vt0 = _mm_loadu_si128((__m128i *)s) ;  s += 4 ;
     vs0 = _mm_loadu_si128((__m128i *)(cmptab + mask0)) ;
