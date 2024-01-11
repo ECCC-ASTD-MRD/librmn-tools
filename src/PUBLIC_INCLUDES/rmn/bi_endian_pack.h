@@ -89,20 +89,20 @@ typedef struct{
 // word (32 bit) stream descriptor
 // number of words in buffer : in - out (available for extraction)
 // space available in buffer : limit - in (available for insertion)
-// if alloc == 1, a call to realloc is O.K., limit must be adjusted
+// if alloc == 1, a call to realloc is O.K., limit must be adjusted, in and out are unchanged
 // initial state : in = out = 0
 typedef struct{
   uint32_t *buf ;     // pointer to start of stream data storage
   uint32_t limit ;    // buffer size
-  uint32_t in ;       // insertion position
-  uint32_t out ;      // extraction position
+  uint32_t in ;       // insertion position (0 initially)
+  uint32_t out ;      // extraction position (0 initially)
   uint32_t full:  1 , // the whole struct was allocated with malloc (realloc is possible)
            alloc: 1 , // buffer allocated with malloc (realloc is possible)
            user:  1 , // buffer was user supplied (realloc is NOT possible)
            spare: 5 , // spare bits
            valid:24 ; // signature marker
 } wordstream ;
-CT_ASSERT(sizeof(wordstream) == 24) ;   // 3 64 bit elements
+CT_ASSERT(sizeof(wordstream) == 24) ;   // 3 64 bit elements (1 x 64 bits + 4x 32 bits)
 
 static wordstream null_wordstream = { .buf = NULL, .limit = 0, .in = 0, .out = 0,
                                       .full = 0, .alloc = 0, .user = 0, .spare = 0, .valid = 0 } ;
@@ -367,7 +367,43 @@ error:
   (s).insert = StReAm_insert ; \
   (s).in     = StReAm_in ;
 //
-// ================================ insertion/extraction macros ===============================
+// ================================ word insertion/extraction macros ===============================
+//
+// macro arguments description
+// stream [INOUT] : word stream (type wordstream)
+// wout     [OUT] : 32 bit unsigned integer
+// word      [IN] : 32 bit unsigned integer
+// size      [IN] : 32 bit unsigned integer
+#define WORD_STREAM_INIT(stream)         (stream) = null_wordstream
+#define WORD_STREAM_REWIND(stream)       (stream).out = 0
+#define WORD_STREAM_REWRITE(stream)      (stream).in  = 0
+#define WORD_STREAM_RESET(stream)        (stream).in  = (stream).out = 0
+#define WORD_STREAM_INSERT(stream, word) { (stream).in = (word) ; (stream).in++ ; }
+#define WORD_STREAM_XTRACT(stream, wout) { (word) = (stream).out ; (stream).out++ ; }
+#define WORD_STREAM_EMPTY(stream)        (((stream).in - (stream).out) == 0 )
+#define WORD_STREAM_FULL(stream)         (((stream).limit - (stream).in) == 0 )
+#define WORD_STREAM_FILLED(stream)       ((stream).in - (stream).out)
+#define WORD_STREAM_FREE(stream)         ((stream).limit - (stream).in)
+static int word_stream_resize(wordstream *stream, uint32_t size){
+  int status = -1 ;
+  if(stream->alloc == 1){       // check that buffer was "malloc(ed)"
+    if(size > stream->limit){   // requested size > actual size, reallocate a bigger buffer
+      size_t newsize = size * sizeof(uint32_t) ;
+      void *ptr = realloc(stream->buf, newsize) ;
+      if(ptr != NULL){
+        status = 0 ;
+        stream->buf = (uint32_t *) ptr ;
+        stream->limit = size ;
+      }
+    }else{
+      status = 0 ;              // size not increased, no need to reallocate
+    }
+  }
+  return status ;
+}
+#define WORD_STREAM_RESIZE(stream, size) word_stream_resize(stream, size)
+//
+// ================================ bit insertion/extraction macros ===============================
 // macro arguments description
 // accum  [INOUT] : 64 bit accumulator (normally acc_i or acc_x)
 // insert [INOUT] : # of bits used in accumulator (0 <= insert <= 64)
