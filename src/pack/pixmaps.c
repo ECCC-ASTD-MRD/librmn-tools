@@ -376,7 +376,7 @@ int pixmap_restore_be_01(void *array, rmn_pixmap *bmp, uint32_t plug, int n){
 // 0 -+---------+- 1 -+---------+- 1 -+---------+- start of stream of 1s
 //    ^         |     ^         |     ^         |
 //    +--- 0 ---+     +--- 0 ---+     +--- 0 ---+  (0, set of 0s, 1, set of 0s, 1, set of 0s)
-// 1      NG       0       3       0       1       (weight, 12 or 8)
+// 1      NG       0       3       0       1       (weight, NG = 12 or 8)
 //
 // simple encoding for a stream of 1s ( starts with 1, ends before next 0)
 // 1 -+---------+- start of stream of 0s
@@ -401,7 +401,7 @@ int pixmap_restore_be_01(void *array, rmn_pixmap *bmp, uint32_t plug, int n){
 // 1 -+---------+- 0 -+---------+- 0 -+---------+- start of stream of 1s
 //    ^         |     ^         |     ^         |
 //    +--- 1 ---+     +--- 1 ---+     +--- 1 ---+  (single 1, set of 1s, 0, set of 1s, 0, set of 1s)
-// 1      NG       0       3       0       1       (weight, 12 or 8)
+// 1      NG       0       3       0       1       (weight, NG = 12 or 8)
 //
 // TODO : make sure that we are not overflowing the storage if the encoded stream
 //        becomes longer than the original stream (EMIT macros)
