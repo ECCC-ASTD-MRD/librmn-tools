@@ -76,6 +76,11 @@
 #define STATIC_DEFINED_HERE
 #endif
 
+// same as sizeof() but value is in 32 bit units
+#define W32_SIZEOF(what) (sizeof(what) >> 2)
+// same as sizeof() but value is in 64 bit units
+#define W64_SIZEOF(what) (sizeof(what) >> 3)
+
 CT_ASSERT(sizeof(uint64_t) == 8) ;     // this better be true !
 CT_ASSERT(sizeof(void *) == 8) ;       // enforce 64 bit pointers
 
@@ -92,20 +97,19 @@ typedef struct{
 // if alloc == 1, a call to realloc is O.K., limit must be adjusted, in and out are unchanged
 // initial state : in = out = 0
 // the fields from the following struct should only be accessed through the appropriate macros
-// WORD_STREAM_IN, etc ...
+// W32_STREAM_IN, etc ...
 typedef struct{
   uint32_t *buf ;     // pointer to start of stream data storage
   uint32_t limit ;    // buffer size
   uint32_t in ;       // insertion position (0 initially)
   uint32_t out ;      // extraction position (0 initially)
-  uint32_t alloc: 1 , // buffer allocated with malloc (realloc is possible)
-           spare: 7 , // spare bits
-           valid:24 ; // signature marker
+  uint32_t valid:31 , // signature marker
+           alloc: 1 ; // buffer allocated with malloc (realloc is possible)
 } wordstream ;
 CT_ASSERT(sizeof(wordstream) == 24) ;   // 3 64 bit elements (1 x 64 bits + 4x 32 bits)
 
 static wordstream null_wordstream = { .buf = NULL, .limit = 0, .in = 0, .out = 0,
-                                      .alloc = 0, .spare = 0, .valid = 0 } ;
+                                      .valid = 0, .alloc = 0 } ;
 
 // bit stream descriptor. both insert / extract may be positive
 // in insertion only mode, xtract would be -1
@@ -209,7 +213,7 @@ STATIC inline size_t StreamStrictAvailableBits(bitstream *p){
 }
 
 // number of bits available for insertion
-STATIC inline size_t StreamAvailableSpace(bitstream *p){
+STATIC inline ssize_t StreamAvailableSpace(bitstream *p){
   if(p->insert < 0) return -1 ;   // insertion not allowd
   return (p->limit - p->in)*32 - p->insert ;
 }
@@ -229,7 +233,7 @@ STATIC inline char *StreamMode(bitstream p){
 }
 // get stream mode as a code
 STATIC inline int StreamModeCode(bitstream p){
-  uint32_t mode = 0 ;
+  int32_t mode = 0 ;
 //   if(p.insert >= 0) mode |= BIT_INSERT ;
 //   if(p.xtract >= 0) mode |= BIT_XTRACT ;
 //   if( p.insert >= 0 && p.xtract >= 0) return 0 ;       // both insert and extract operations allowed
@@ -369,83 +373,86 @@ error:
 //
 // ================================ word insertion/extraction macros into/from wordstream ===============================
 //
+#define W32_STREAM_MARKER    0x7654BEE5
+//
 // macro arguments description
 // stream [INOUT] : word stream (type wordstream)
 // wout     [OUT] : 32 bit unsigned integer
 // word      [IN] : 32 bit unsigned integer
 // size      [IN] : 32 bit unsigned integer
-#define WORD_STREAM_IN(stream)           ((stream).in)
-#define WORD_STREAM_OUT(stream)          ((stream).out)
-#define WORD_STREAM_SIZE(stream)         ((stream).limit)
-#define WORD_STREAM_BUFFER(stream)       ((stream).buf)
+#define W32_STREAM_IN(stream)           ((stream).in)
+#define W32_STREAM_OUT(stream)          ((stream).out)
+#define W32_STREAM_SIZE(stream)         ((stream).limit)
+#define W32_STREAM_BUFFER(stream)       ((stream).buf)
 
-#define WORD_STREAM_EMPTY(stream)        ((WORD_STREAM_IN(stream) - WORD_STREAM_OUT(stream)) == 0 )
-#define WORD_STREAM_FULL(stream)         ((WORD_STREAM_SIZE(stream) - WORD_STREAM_IN(stream)) == 0 )
-#define WORD_STREAM_FILLED(stream)       (WORD_STREAM_IN(stream) - WORD_STREAM_OUT(stream))
-#define WORD_STREAM_AVAILABLE(stream)    (WORD_STREAM_SIZE(stream) - WORD_STREAM_IN(stream))
-#define WORD_STREAM_VALID(stream)        ((WORD_STREAM_BUFFER(stream) != NULL) && ((stream).valid == 0xBEFADA))
+#define W32_STREAM_EMPTY(stream)        ((W32_STREAM_IN(stream) - W32_STREAM_OUT(stream)) == 0 )
+#define W32_STREAM_FULL(stream)         ((W32_STREAM_SIZE(stream) - W32_STREAM_IN(stream)) == 0 )
+#define W32_STREAM_FILLED(stream)       (W32_STREAM_IN(stream) - W32_STREAM_OUT(stream))
+#define W32_STREAM_AVAILABLE(stream)    (W32_STREAM_SIZE(stream) - W32_STREAM_IN(stream))
+#define W32_STREAM_VALID(stream)        ((W32_STREAM_BUFFER(stream) != NULL) && ((stream).valid == W32_STREAM_MARKER))
 
-#define WORD_STREAM_INIT(stream)         (stream) = null_wordstream ;
+#define W32_STREAM_INIT(stream)         (stream) = null_wordstream ; // nullify stream
 
-static uint32_t *word_stream_create(wordstream *stream, void *mem, uint32_t size){
-  if(WORD_STREAM_VALID(*stream)) return NULL ;   // existing valid stream
-  WORD_STREAM_INIT(*stream) ;
-  WORD_STREAM_BUFFER(*stream) = (mem == NULL) ? (uint32_t *) malloc(sizeof(uint32_t) * size) : mem ;
-  if(WORD_STREAM_BUFFER(*stream) != NULL) {
-    stream->valid = 0xBEFADA ;
-    stream->alloc = (mem == NULL) ? 1 : 0 ;
+static uint32_t *w32_stream_create(wordstream *stream, void *mem, uint32_t size, uint32_t in){
+  if(W32_STREAM_VALID(*stream)) return NULL ;   // existing valid stream
+  W32_STREAM_INIT(*stream) ;
+  W32_STREAM_BUFFER(*stream) = (mem == NULL) ? (uint32_t *) malloc(sizeof(uint32_t) * size) : mem ;
+  if(W32_STREAM_BUFFER(*stream) != NULL) {
+    stream->valid = W32_STREAM_MARKER ;                    // mark stream as valid
+    stream->alloc = (mem == NULL) ? 1 : 0 ;                 // malleoc(ed) if mem == NULL
+    if(mem != NULL) stream->in = (in < size) ? in : size ;  // stream already filled up to in
   }
-  return WORD_STREAM_BUFFER(*stream) ;
+  return W32_STREAM_BUFFER(*stream) ;
 }
 
-#define WORD_STREAM_REREAD(stream)       (stream).out = 0
-#define WORD_STREAM_REWRITE(stream)      (stream).in  = 0
-#define WORD_STREAM_RESET(stream)        (stream).in  = (stream).out = 0
+#define W32_STREAM_REREAD(stream)       (stream).out = 0
+#define W32_STREAM_REWRITE(stream)      (stream).in  = 0
+#define W32_STREAM_RESET(stream)        (stream).in  = (stream).out = 0
 
-#define WORD_STREAM_INSERT(stream, word) { (stream).in = (word) ; (stream).in++ ; }
+#define W32_STREAM_INSERT1(stream, word) { (stream).in = (word) ; (stream).in++ ; }
 // insert multiple words into a word stream
 // return number of words inserted (-1 in case of error)
-static int word_stream_insert_words(wordstream *stream, uint32_t *words, uint32_t nwords){
+static int w32_stream_insert(wordstream *stream, uint32_t *words, uint32_t nwords){
   int status = -1 ;
-  if(WORD_STREAM_AVAILABLE(*stream) <= nwords){
+  if(W32_STREAM_AVAILABLE(*stream) <= nwords){
     status = nwords ;
     while(nwords > 0){
-      WORD_STREAM_INSERT(*stream, *words) ;
+      W32_STREAM_INSERT1(*stream, *words) ;
       nwords-- ; words++ ;
     }
   }
   return status ;
 }
-#define WORD_STREAM_NEXT_VALUE(stream)  WORD_STREAM_BUFFER(stream)[WORD_STREAM_OUT(stream)]
+#define W32_STREAM_NEXT_VALUE(stream)  W32_STREAM_BUFFER(stream)[W32_STREAM_OUT(stream)]
 // get next available word, do not advance out index
 // return zero if word stream is empty
-static uint32_t word_stream_peek(wordstream *stream){
-  return (WORD_STREAM_EMPTY(*stream)) ? 0 : WORD_STREAM_NEXT_VALUE(*stream) ;
+static uint32_t w32_stream_peek(wordstream *stream){
+  return (W32_STREAM_EMPTY(*stream)) ? 0 : W32_STREAM_NEXT_VALUE(*stream) ;
 }
-#define WORD_STREAM_XTRACT(stream, wout) { (wout) = (stream).out ; (stream).out++ ; }
+#define W32_STREAM_XTRACT1(stream, wout) { (wout) = (stream).out ; (stream).out++ ; }
 // extract multiple words from a word stream
 // return number of words extracted (-1 in case of error)
-static int word_stream_xtract_words(wordstream *stream, uint32_t *words, uint32_t nwords){
+static int w32_stream_xtract(wordstream *stream, uint32_t *words, uint32_t nwords){
   int status = -1 ;
-  if(WORD_STREAM_FILLED(*stream) >= nwords){
+  if(W32_STREAM_FILLED(*stream) >= nwords){
     status = nwords ;
     while(nwords > 0){
-      WORD_STREAM_XTRACT(*stream, *words) ;
+      W32_STREAM_XTRACT1(*stream, *words) ;
       nwords-- ; words++ ;
     }
   }
   return status ;
 }
-static int word_stream_resize(wordstream *stream, uint32_t size){
+static int w32_stream_resize(wordstream *stream, uint32_t size){
   int status = -1 ;
   if(stream->alloc == 1){       // check that buffer was "malloc(ed)"
-    if(size > WORD_STREAM_SIZE(*stream)){   // requested size > actual size, reallocate a bigger buffer
+    if(size > W32_STREAM_SIZE(*stream)){   // requested size > actual size, reallocate a bigger buffer
       size_t newsize = size * sizeof(uint32_t) ;
       void *ptr = realloc(stream->buf, newsize) ;
       if(ptr != NULL){
         status = 0 ;
-        WORD_STREAM_BUFFER(*stream) = (uint32_t *) ptr ;
-        WORD_STREAM_SIZE(*stream) = size ;
+        W32_STREAM_BUFFER(*stream) = (uint32_t *) ptr ;
+        W32_STREAM_SIZE(*stream) = size ;
       }
     }else{
       status = 0 ;              // size not increased, no need to reallocate
@@ -453,7 +460,6 @@ static int word_stream_resize(wordstream *stream, uint32_t size){
   }
   return status ;
 }
-#define WORD_STREAM_RESIZE(stream, size) word_stream_resize(stream, size)
 //
 // ================================ bit insertion/extraction macros into/from bitstream ===============================
 // macro arguments description

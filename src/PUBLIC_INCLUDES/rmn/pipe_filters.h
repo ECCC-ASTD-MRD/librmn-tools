@@ -23,14 +23,15 @@
 
 #include <rmn/ieee_quantize.h>
 #include <rmn/tools_types.h>
+#include <rmn/bi_endian_pack.h>
 #include <rmn/ct_assert.h>
 
 typedef uint64_t pack_flags ;
 #define PIPE_FORWARD     1
 #define PIPE_REVERSE     2
 #define PIPE_INPLACE     4
-#define PIPE_REALLOC     8
-#define PIPE_NOFREE     16
+#define PIPE_REALLOC     8     /* realloc() can be used for buffer */
+#define PIPE_NOFREE     16     /* buffer cannot be "freed" */
 #define PIPE_VALIDATE   32
 #define PIPE_FWDSIZES   64
 
@@ -131,7 +132,8 @@ CT_ASSERT(FILTER_SIZE_OK(filter_254))
 //         PIPE_FWDSIZES : "worst case" size of filter output
 //         PIPE_FORWARD  : size data output in bytes
 //         PIPE_REVERSE  : size data output in bytes
-typedef ssize_t pipe_filter(uint32_t flags, int *dims, filter_meta *meta_in, pipe_buffer *buffer, filter_meta *meta_out) ;
+typedef ssize_t old_pipe_filter(uint32_t flags, int *dims, filter_meta *meta_in, pipe_buffer *buffer, filter_meta *meta_out) ;
+typedef ssize_t pipe_filter(uint32_t flags, int *dims, filter_meta *meta_in, pipe_buffer *buffer, wordstream *meta_out) ;
 typedef pipe_filter *pipe_filter_pointer ;
 
 pipe_filter pipe_filter_001 ;

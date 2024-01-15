@@ -49,10 +49,11 @@ end:
 // test filter id = 254, scale data and add offset
 // with PIPE_VALIDATE, the only needed arguments are flags and meta_in, all other arguments could be NULL
 // with PIPE_FWDSIZES, flags, dims, meta_in, meta_out are used, all other arguments could be NULL
-ssize_t pipe_filter_254(uint32_t flags, int *dims, filter_meta *meta_in, pipe_buffer *buf, filter_meta *meta_out){
+ssize_t pipe_filter_254(uint32_t flags, int *dims, filter_meta *meta_in, pipe_buffer *buf, wordstream *stream_out){
   int nval, i, errors, esize ;
   ssize_t nbytes ;
   int32_t *data ;
+  filter_meta meta_out ;
 
   if(buf != NULL) data = (int32_t *) buf->buffer ;
 // fprintf(stderr, "entering pipe_filter_254, flags = %8.8x\n", flags);
@@ -61,10 +62,10 @@ ssize_t pipe_filter_254(uint32_t flags, int *dims, filter_meta *meta_in, pipe_bu
   switch(flags & (PIPE_VALIDATE | PIPE_FORWARD | PIPE_REVERSE | PIPE_FWDSIZES)) {  // mutually exclusive flags
 
     case PIPE_FWDSIZES:                      // get worst case estimates of meta_out and buffer sizes (PIPE_FORWARD mode)
-      meta_out->size = 3 ;                   // "worst case" meta_out size in 32 bit units
+//       meta_out.size = 3 ;                   // "worst case" meta_out size in 32 bit units
       nbytes = buffer_dimension(dims) ;      // get data dimensions
       nbytes *= PIPE_DATA_SIZE(dims) ;       // will return "worst case" size of output data in bytes
-// fprintf(stderr, "pipe_filter_254 PIPE_FWDSIZES size = %d, nbytes = %ld\n", meta_out->size, nbytes) ;
+// fprintf(stderr, "pipe_filter_254 PIPE_FWDSIZES size = %d, nbytes = %ld\n", meta_out.size, nbytes) ;
       break ;
 
     case PIPE_VALIDATE:                      // validate input flags for eventual call in PIPE_FORWARD mode
@@ -93,18 +94,17 @@ fprintf(stderr, "pipe_filter_254 PIPE_FORWARD\n") ;
       filter_254 *meta = (filter_254 *) meta_in ;
       if(meta->used != 2)      goto error ;   // wrong length
 fprintf(stderr, "                used O.K.\n") ;
-      if(meta_out->size <  2)   goto error ;   // meta_out too small
+//       if(meta_out.size <  2)   goto error ;   // meta_out too small
 fprintf(stderr, "                size O.K.\n") ;
       // execute filter
       for(i=0 ; i<nval ; i++) data[i] = data[i] * meta->factor + meta->offset ;
       // prepare metadata for reverse filter
-      meta_out->id    = 254 ;
-      meta_out->used  = 3 ;
-      meta_out->flags = 0 ;
-      PUSH_BITS(meta_out->meta[0].i, meta->factor, 32) ;
-//       meta_out->meta[0].i = meta->factor ;
-      PUSH_BITS(meta_out->meta[1].i, meta->offset, 32) ;
-//       meta_out->meta[1].i = meta->offset ;
+      meta_out.id    = 254 ;
+      meta_out.used  = 3 ;
+      meta_out.flags = 0 ;
+      w32_stream_insert(stream_out, (uint32_t *)(&meta_out), W32_SIZEOF(meta_out)) ;
+//       PUSH_BITS(meta_out.meta[0].i, meta->factor, 32) ;
+//       PUSH_BITS(meta_out.meta[1].i, meta->offset, 32) ;
       // number of used bytes in data buffer
       nbytes = nval * sizeof(uint32_t) ;
       break ;
@@ -123,7 +123,7 @@ error :
 }
 
 // test filter id = 253, delta filter
-ssize_t pipe_filter_253(uint32_t flags, int *dims, filter_meta *meta_in, pipe_buffer *buf, filter_meta *meta_out){
+ssize_t pipe_filter_253(uint32_t flags, int *dims, filter_meta *meta_in, pipe_buffer *buf, wordstream *stream_out){
   ssize_t nbytes ;
 error :
   return (nbytes = -1) ;
@@ -135,16 +135,16 @@ ssize_t pack_filter_253(pack_flags flags, pack_meta *meta_in, pipe_buffer *buf_i
   if(FPACK_ID(flags) != 254)     goto error ;  // bad ID
   if(flags & PIPE_REVERSE){                   // inverse filter
     if(meta_in->id != 253)       goto error ;  // bad ID
-    if(meta_out->size < 2)       goto error ;  // not enough space in meta_out
-    if(meta_out->id != 253)      errors++ ;
-    if(meta_out->nmeta != 1)     errors++ ;
-    if(meta_out->meta[0].u != 3) errors++ ;
+    if(meta_out.size < 2)       goto error ;  // not enough space in meta_out
+    if(meta_out.id != 253)      errors++ ;
+    if(meta_out.nmeta != 1)     errors++ ;
+    if(meta_out.meta[0].u != 3) errors++ ;
     if(errors > 0)               goto error ;
   }else if(flags & PIPE_FORWARD){             // forward filter
-    if(meta_out->size < 2)       goto error ;  // not enough space in meta_out
-    meta_out->id    = 253 ;
-    meta_out->nmeta = 1 ;
-    meta_out->meta[0].u = 3 ;
+    if(meta_out.size < 2)       goto error ;  // not enough space in meta_out
+    meta_out.id    = 253 ;
+    meta_out.nmeta = 1 ;
+    meta_out.meta[0].u = 3 ;
   }else{
     goto error ; // ERROR, filter is called neither in the forward nor in the reverse direction
   }
@@ -171,8 +171,8 @@ ssize_t pack_filter_001(pack_flags flags, pack_meta *meta_in, pipe_buffer *buf_i
     // we can now call the quantizer inverse operation (restore)
     // call un-quantizer(buf, nval, q_encode desc, buf)
     // the operation will work in place
-    meta_out->meta[0].u = (qdesc.u >> 32) ;           // using q_decode (optional)
-    meta_out->meta[1].u = (qdesc.u & 0xFFFFFFFFu) ;
+    meta_out.meta[0].u = (qdesc.u >> 32) ;           // using q_decode (optional)
+    meta_out.meta[1].u = (qdesc.u & 0xFFFFFFFFu) ;
 
   }else if(flags & PIPE_FORWARD){                              // forward filter, quantize data using rules from meta_in
 
@@ -182,13 +182,13 @@ ssize_t pack_filter_001(pack_flags flags, pack_meta *meta_in, pipe_buffer *buf_i
     qtype = meta_in->meta[2].u ;      // get quantizer type
     if(nbits == 0 && ref == 0.0f) goto error ;    // cannot be both set to 0
     if(qtype > 2)                 goto error ;    // invalid quantizer type
-    if(meta_out->nmeta < 2)       goto error ;    // not enough space in meta_out
-    meta_out->id = 001 ;
+    if(meta_out.nmeta < 2)       goto error ;    // not enough space in meta_out
+    meta_out.id = 001 ;
     // the operation will work in place
     // call quantizer(*buf, nval, q_rules rules, *buf, limits_w32 *limits, NULL)
     // get qdesc from the quantizer qdesc.q / qdesc.u
-    meta_out->meta[0].u = (qdesc.u >> 32) ;
-    meta_out->meta[1].u = (qdesc.u & 0xFFFFFFFFu) ;
+    meta_out.meta[0].u = (qdesc.u >> 32) ;
+    meta_out.meta[1].u = (qdesc.u & 0xFFFFFFFFu) ;
 
   }else{
     goto error ; // ERROR, filter is called neither in the forward nor in the reverse direction
@@ -279,6 +279,7 @@ ssize_t run_pipe_filters(int flags, int *dims, void *data, filter_list list, pip
   ssize_t outsize, status ;
   filter_meta meta_out ;
   filter_meta *m_out ;
+  wordstream stream_out ;
 
   pbuf.buffer = data ;
   pbuf.max_size = pbuf.used = ndata * dsize ;
@@ -291,11 +292,11 @@ fprintf(stderr, "run_pipe_filters : dsize = %d, ndims = %d, ndata = %d, used = %
 fprintf(stderr, "run_pipe_filters : filter %p, id = %d, address = %p(%p)\n", meta, id, fn, fn2) ;
     status  = (*fn)(PIPE_VALIDATE, NULL, list[i], NULL, NULL) ;
 fprintf(stderr, "                   meta out size = %ld\n", status) ;
-    outsize = (*fn)(PIPE_FWDSIZES, dims, list[i], NULL, &meta_out) ;
+    outsize = (*fn)(PIPE_FWDSIZES, dims, list[i], NULL, NULL) ;
 fprintf(stderr, "                   meta out size = %d, outsize = %ld\n", meta_out.size, outsize) ;
     m_out = ALLOC_META(meta_out.size) ;
     m_out->size = meta_out.size ;
-    outsize = (*fn) (flags, dims, list[i], &pbuf, m_out) ;
+    outsize = (*fn) (flags, dims, list[i], &pbuf, &stream_out) ;
 fprintf(stderr, "                   meta out size = %d, outsize = %ld\n", m_out->size, outsize) ;
   }
   return 0 ;
