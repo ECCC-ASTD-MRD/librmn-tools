@@ -23,8 +23,6 @@
 
 // same as sizeof() but value is in 32 bit units
 #define W32_SIZEOF(what) (sizeof(what) >> 2)
-// same as sizeof() but value is in 64 bit units
-// #define W64_SIZEOF(what) (sizeof(what) >> 3)
 
 // word (32 bit) stream descriptor
 // number of words in buffer : in - out (available for extraction)
@@ -44,8 +42,15 @@ typedef struct{
 } wordstream ;
 CT_ASSERT(sizeof(wordstream) == 24) ;   // 3 64 bit elements (1 x 64 bits + 4x 32 bits)
 
-static wordstream null_wordstream = { .buf = NULL, .limit = 0, .in = 0, .out = 0,
-                                      .valid = 0, .alloc = 0 } ;
+static wordstream null_wordstream = { .buf = NULL, .limit = 0, .in = 0, .out = 0, .valid = 0, .alloc = 0 } ;
+
+typedef struct{
+  uint32_t *buf ;     // start of stream data storage (used for consistency check)
+  uint32_t in ;       // insertion position (0 initially)
+  uint32_t out ;      // extraction position (0 initially)
+} wordstream_state ;
+CT_ASSERT(sizeof(wordstream_state) == 16) ;   // 2 64 bit elements (1 x 64 bits + 2x 32 bits)
+
 //
 // ================================ word insertion/extraction macros into/from wordstream ===============================
 //
@@ -160,6 +165,42 @@ static int w32_stream_resize(wordstream *stream, uint32_t size){
     }else{
       status = 0 ;              // size not increased, no need to reallocate
     }
+  }
+  return status ;
+}
+
+// =======================  word stream state save/restore  =======================
+//
+// save current state of a word stream
+// stream  [IN] : pointer to a valid wordstream struct
+// state  [OUT] : pointer to a wordstream_state struct
+// return 0 if O.K., 1 if error
+static int WStreamSaveState(wordstream *stream, wordstream_state *state){
+  int status = 1 ;
+  if(W32_STREAM_VALID(*stream)){
+    state->buf = stream->buf ;
+    state->in  = stream->in ;
+    state->out = stream->out ;
+    status = 0 ;
+  }
+  return status ;
+}
+
+#define W32_STREAM_R    1
+#define W32_STREAM_W    2
+#define W32_STREAM_RW   3
+// restore state of a word stream from a saved state
+// stream [OUT] : pointer to a valid wordstream struct
+// state   [IN] : pointer to a wordstream_state struct
+// mode    [IN] : restore in, out, or both
+// return 0 if O.K., 1 if error
+static int WStreamRestoreState(wordstream *stream, wordstream_state *state, int mode){
+  int status = 1 ;
+  if(stream->buf == state->buf){     // consistency check
+    if(mode == 0) mode = W32_STREAM_RW ;
+    if(W32_STREAM_W & mode) stream->in  = state->in ;
+    if(W32_STREAM_R & mode) stream->out = state->out ;
+    status = 0 ;
   }
   return status ;
 }

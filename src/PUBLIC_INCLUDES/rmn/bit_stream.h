@@ -21,6 +21,7 @@
 #if !defined(STREAM_ENDIANNESS)
 
 #include <rmn/ct_assert.h>
+// big and little endian macros
 #include <rmn/bit_pack_macros.h>
 
 #if ! defined(STATIC)

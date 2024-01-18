@@ -14,7 +14,7 @@
 // Author:
 //     M. Valin,   Recherche en Prevision Numerique, 2022-2023
 //
-// set of macros and functions to manage insertion/extraction into/from a bit stream
+// set of macros and functions to manage insertion/extraction into/from a bit stream or a word stream
 
 // MAKE_SIGNED_32 is defined in this file and acts as double include detection
 #if ! defined(MAKE_SIGNED_32)
@@ -26,8 +26,61 @@
 
 // compile time assertions
 #include <rmn/ct_assert.h>
+// word stream macros and functions
 #include <rmn/word_stream.h>
+// bit stream macros and functions
 #include <rmn/bit_stream.h>
+//
+// EZ macros use an implicit stream (see EZ macros preamble/postamble further down)
+// initialize stream for insertion
+//   [L|B]E64_STREAM_INSERT_BEGIN(stream)
+//   [L|B]E64_EZ_INSERT_BEGIN
+// insert the lower nbits bits from uint32 into accumulator, update counter, accumulator
+//   [L|B]E64_STREAM_INSERT_NBITS(stream, uint32, nbits)
+//   [L|B]E64_EZ_INSERT_NBITS(uint32, nbits)
+// check that 32 bits can be safely inserted into accumulator
+// if not possible, store lower 32 bits of accumulator into stream, update accumulator, counter, stream
+//   [L|B]E64_STREAM_INSERT_CHECK(stream)
+//   [L|B]E64_EZ_INSERT_CHECK
+// push data to stream without fully updating accumulator, stream, counter
+//   [L|B]E64_STREAM_PUSH(stream)
+//   [L|B]E64_EZ_PUSH
+// store any residual data from accumulator into stream, update accumulator, counter, stream
+//   [L|B]E64_STREAM_INSERT_FINAL(stream)
+//   [L|B]E64_EZ_INSERT_FINAL
+// combined INSERT_CHECK and INSERT_NBITS, update accumulator, counter, stream
+//   [L|B]E64_STREAM_PUT_NBITS(stream, uint32, nbits)
+//   [L|B]E64_EZ_PUT_NBITS(uint32, nbits)
+// align insertion point to a 32 bit boundary
+//   [L|B]E64_STREAM_INSERT_ALIGN(stream)
+//   [L|B]E64_EZ_INSERT_ALIGN
+//
+// N.B. : if uint32 and accumulator are signed variables, the extract will produce a "signed" result
+//        if uint32 and accumulator are unsigned variables, the extract will produce an "unsigned" result
+// initialize stream for extraction
+//   [L|B]E64_STREAM_XTRACT_BEGIN(stream)
+//   [L|B]E64_EZ_XTRACT_BEGIN
+// take a peek at nbits bits from accumulator into uint32
+//   [L|B]E64_STREAM_PEEK_NBITS(stream, uint32, nbits)
+//   [L|B]E64_STREAM_PEEK_NBITS_S(stream, uint32, nbits)
+//   [L|B]E64_EZ_PEEK_NBITS(uint32, nbits)
+//   [L|B]E64_EZ_PEEK_NBITS_S(uint32, nbits)
+// extract nbits bits into uint32 from accumulator, update xtract, accumulator
+//   [L|B]E64_STREAM_XTRACT_NBITS(stream, uint32, nbits)
+//   [L|B]E64_EZ_XTRACT_NBITS(uint32, nbits)
+// check that 32 bits can be safely extracted from accumulator
+// if not possible, get extra 32 bits into accumulator from stream, update accumulator, xtract, stream
+//   [L|B]E64_STREAM_XTRACT_CHECK(stream)
+//   [L|B]E64_EZ_XTRACT_CHECK
+// finalize extraction, update accumulator, xtract
+//   [L|B]E64_STREAM_XTRACT_FINAL(stream)
+//   [L|B]E64_EZ_XTRACT_FINAL
+// combined XTRACT_CHECK and XTRACT_NBITS, update accumulator, xtract, stream
+//   [L|B]E64_STREAM_GET_NBITS(stream, uint32, nbits)
+//   [L|B]E64_EZ_GET_NBITS(uint32, nbits)
+// align extraction point to a 32 bit boundary
+//   [L|B]E64_STREAM_XTRACT_ALIGN(stream)
+//   [L|B]E64_EZ_XTRACT_ALIGN
 
 #if ! defined(STATIC)
 #define STATIC static
@@ -129,7 +182,7 @@ typedef struct{
 #define LE64_STREAM_INSERT_CHECK(s) LE64_INSERT_CHECK((s).acc_i,    (s).insert,    (s).in)
 // push data to stream without fully updating control info (stream, insert)
 #define LE64_EZ_PUSH     LE64_PUSH(StReAm_acc_i, StReAm_insert, StReAm_in)
-#define LE64_STREAM_PUSH LE64_PUSH((s).acc_i,    (s).insert,    (s).in)
+#define LE64_STREAM_PUSH(s) LE64_PUSH((s).acc_i,    (s).insert,    (s).in)
 // store any residual data from accum into stream, update accum, insert, stream
 #define LE64_EZ_INSERT_FINAL        LE64_INSERT_FINAL(StReAm_acc_i, StReAm_insert, StReAm_in)
 #define LE64_STREAM_INSERT_FINAL(s) LE64_INSERT_FINAL((s).acc_i,    (s).insert,    (s).in)
@@ -166,8 +219,8 @@ typedef struct{
 #define LE64_EZ_GET_NBITS(w32, nbits)        LE64_GET_NBITS(StReAm_acc_x, StReAm_xtract, w32, nbits, StReAm_out)
 #define LE64_STREAM_GET_NBITS(s, w32, nbits) LE64_GET_NBITS((s).acc_x,    (s).xtract,    w32, nbits, (s).out)
 // align extraction point to a 32 bit boundary
-#define LE64_EZ_XTRACT_ALIGN     LE64_XTRACT_ALIGN(StReAm_acc_x, StReAm_xtract)
-#define LE64_STREAM_XTRACT_ALIGN LE64_XTRACT_ALIGN((s).acc_x,    (s).xtract)
+#define LE64_EZ_XTRACT_ALIGN        LE64_XTRACT_ALIGN(StReAm_acc_x, StReAm_xtract)
+#define LE64_STREAM_XTRACT_ALIGN(s) LE64_XTRACT_ALIGN((s).acc_x,    (s).xtract)
 // #define LE64_EZ_XTRACT_ALIGN { uint32_t tbits = StReAm_xtract ; tbits &= 31 ; StReAm_acc_x >>= tbits ; StReAm_xtract -= tbits ; }
 // #define LE64_STREAM_XTRACT_ALIGN { uint32_t tbits = (s).xtract ; tbits &= 31 ; (s).acc_x >>= tbits ; (s).xtract -= tbits ; }
 //
@@ -225,8 +278,8 @@ typedef struct{
 #define BE64_EZ_GET_NBITS(w32, nbits)        BE64_GET_NBITS(StReAm_acc_x, StReAm_xtract, w32, nbits, StReAm_out)
 #define BE64_STREAM_GET_NBITS(s, w32, nbits) BE64_GET_NBITS((s).acc_x,    (s).xtract,    w32, nbits, (s).out)
 // align extraction point to a 32 bit boundary
-#define BE64_EZ_XTRACT_ALIGN     BE64_XTRACT_ALIGN(StReAm_acc_x, StReAm_xtract)
-#define BE64_STREAM_XTRACT_ALIGN BE64_XTRACT_ALIGN((s).acc_x,    (s).xtract)
+#define BE64_EZ_XTRACT_ALIGN        BE64_XTRACT_ALIGN(StReAm_acc_x, StReAm_xtract)
+#define BE64_STREAM_XTRACT_ALIGN(s) BE64_XTRACT_ALIGN((s).acc_x,    (s).xtract)
 // #define BE64_EZ_XTRACT_ALIGN     { uint32_t tbits = StReAm_xtract ; tbits &= 31 ; StReAm_acc_x <<= tbits ; StReAm_xtract -= tbits ; }
 // #define BE64_STREAM_XTRACT_ALIGN { uint32_t tbits = (s).xtract ; tbits &= 31 ; (s).acc_x <<= tbits ; (s).xtract -= tbits ; }
 //
