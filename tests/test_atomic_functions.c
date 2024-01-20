@@ -14,14 +14,17 @@ int32_t bcnt = NREP*NTHREADS ;
 
 void *adding(void *input)
 {
-  int status = -1 ;
+  int status = -1, bcnt_ ;
+  int64_t nwait ;
   for(int i=0; i<NREP; i++)
   {
     acnt++;                                       // atomic C variable
     cnt++;                                        // ordinary add to ordinary variable (race condition)
     status = atomic_add_and_test_32(&bcnt, -1);   // atomic functions from rmn/atomic_functions.h
   }
-  fprintf(stderr,"thread id = %lx, bcnt = %d, status = %d\n", pthread_self(), bcnt, status);
+  bcnt_ = bcnt;
+  nwait = spin_until(&bcnt, 0, UNTIL_EQ);
+  fprintf(stderr,"thread id = %lx, bcnt = %6d, status = %d, wait = %ldK\n", pthread_self(), bcnt_, status, nwait>>10);
   pthread_exit(NULL);
 }
 
