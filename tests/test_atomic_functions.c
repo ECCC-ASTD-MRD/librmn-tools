@@ -25,7 +25,7 @@
 #define NREP 10000
 
 static  _Atomic int acnt;
-static  int cnt, dummy;
+static  int xcnt, dummy;
 static  int32_t bcnt = NREP*NTHREADS ;
 static  pthread_t tid[NTHREADS];
 
@@ -44,11 +44,13 @@ void *adding(void *in)
   int thread_no = thread_index(self);
   int startvalue = bcnt;
 
-  if(thread_no) for(i=0 ; i<(NTHREADS-thread_no)*100000 ; i++) dummy++ ;
+  if(thread_no) 
+    for(i=0 ; i<(NTHREADS-thread_no)*100000 ; i++) 
+      dummy++ ;                                   // spin for some time (earlier threads spin more)
   for(i=0; i<NREP; i++)
   {
     acnt++;                                       // atomic C variable
-    cnt++;                                        // ordinary add to ordinary variable (race condition)
+    xcnt++;                                       // ordinary add to ordinary variable (race condition)
     status = atomic_add_and_test_32(&bcnt, -1);   // atomic functions from rmn/atomic_functions.h
     status2 = atomic_add_and_test_32(input, -1);
   }
@@ -62,31 +64,28 @@ void *adding(void *in)
 
 int main(int argc, char **argv)
 {
-  int i ;
+  int i, success;
   int32_t pcnt = NREP*NTHREADS ;
   void *arguments;
 
   tid[0] = pthread_self() ;                 // thread 0 is the main thread
 
-  arguments = &pcnt;
+  arguments = &pcnt;                        // argument list for called thread
   for(i=1; i<NTHREADS; i++)                 // create and start extra threads
     pthread_create(&tid[i],NULL,adding,arguments);
-  adding(arguments);                            // thread 0 joins the compute fray
+  adding(arguments);                        // thread 0 joins the compute fray
 
   for(i=1; i<NTHREADS; i++)                 // wait for extra threads to terminate
     pthread_join(tid[i],NULL);
 
   printf("the value of acnt is %7d, expecting %d\n", acnt, NREP*NTHREADS);
-  printf("the value of bcnt is %7d, expecting %d\n", bcnt, 0);
-  printf("the value of pcnt is %7d, expecting %d\n", pcnt, 0);
-  printf("the value of cnt  is %7d, expecting %d\n" , cnt, NREP*NTHREADS);
+  printf("the value of bcnt is %7d, expecting %d\n", bcnt,             0);
+  printf("the value of pcnt is %7d, expecting %d\n", pcnt,             0);
+  printf("the value of xcnt is %7d, expecting %d\n", xcnt, NREP*NTHREADS);
   printf("the value of dummy is %d\n", dummy);
-  if(acnt == NREP*NTHREADS && bcnt == 0 && pcnt == 0) {
-    fprintf(stderr,"SUCCESS\n");
-    return 0;
-  }else{
-    fprintf(stderr,"FAILURE\n");
-    return 1;
-  }
+
+  success = (acnt == NREP*NTHREADS && bcnt == 0 && pcnt == 0);
+  fprintf(stderr,"%s\n", success ? "SUCCESS" : "FAILURE") ;
+  return (success ? 0 : 1);
 }
 
