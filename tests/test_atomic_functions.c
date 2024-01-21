@@ -15,8 +15,11 @@
 //     M. Valin,   Recherche en Prevision Numerique, 2024
 //
 #include <stdio.h>
-#include <stdatomic.h>
+#include <stdlib.h>
 #include <pthread.h>
+// C atomic definitions
+#include <stdatomic.h>
+// RPN atomic functions
 #include <rmn/atomic_functions.h>
 
 #if !defined(NTHREADS)
@@ -27,7 +30,9 @@
 static  _Atomic int acnt;
 static  int xcnt, dummy;
 static  int32_t bcnt = NREP*NTHREADS ;
-static  pthread_t tid[NTHREADS];
+static  int32_t pcnt = NREP*NTHREADS ;
+static  pthread_t tid[NTHREADS] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+static  void *arguments = &pcnt;                  // argument list for called thread
 
 int thread_index(pthread_t thread_id){
   int i;
@@ -44,15 +49,23 @@ void *adding(void *in)
   int thread_no = thread_index(self);
   int startvalue = bcnt;
 
-  if(thread_no) 
-    for(i=0 ; i<(NTHREADS-thread_no)*100000 ; i++) 
-      dummy++ ;                                   // spin for some time (earlier threads spin more)
+  // launch next thread unless enough extra threads (NTHREADS-1) have been launched
+  if(thread_no < NTHREADS-1){
+//     fprintf(stderr,"thread %2d launching thread %2d\n",thread_no, thread_no+1);
+    pthread_create(&tid[thread_no+1],NULL,adding,arguments);
+  }else if(thread_no < 0){
+    fprintf(stderr,"ERROR: bad thread ordinal = %2d (thread id = %ld)\n", thread_no, self);
+    exit(1);
+  }
+
+  for(i=0 ; i<(NTHREADS-thread_no)*5000 ; i++)
+    atomic_add_and_test_32(&dummy, i);            // spin for some time (earlier threads spin more)
   for(i=0; i<NREP; i++)
   {
     acnt++;                                       // atomic C variable
     xcnt++;                                       // ordinary add to ordinary variable (race condition)
     status = atomic_add_and_test_32(&bcnt, -1);   // atomic functions from rmn/atomic_functions.h
-    status2 = atomic_add_and_test_32(input, -1);
+    status2 = atomic_add_and_test_32(input, -1);  // atomic functions from rmn/atomic_functions.h
   }
   bcnt_ = bcnt;
   nwait = spin_until(&bcnt, 0, UNTIL_EQ);
@@ -65,15 +78,9 @@ void *adding(void *in)
 int main(int argc, char **argv)
 {
   int i, success;
-  int32_t pcnt = NREP*NTHREADS ;
-  void *arguments;
 
   tid[0] = pthread_self() ;                 // thread 0 is the main thread
-
-  arguments = &pcnt;                        // argument list for called thread
-  for(i=1; i<NTHREADS; i++)                 // create and start extra threads
-    pthread_create(&tid[i],NULL,adding,arguments);
-  adding(arguments);                        // thread 0 joins the compute fray
+  adding(arguments);                        // thread 0 will get extra threads launched
 
   for(i=1; i<NTHREADS; i++)                 // wait for extra threads to terminate
     pthread_join(tid[i],NULL);
@@ -82,7 +89,7 @@ int main(int argc, char **argv)
   printf("the value of bcnt is %7d, expecting %d\n", bcnt,             0);
   printf("the value of pcnt is %7d, expecting %d\n", pcnt,             0);
   printf("the value of xcnt is %7d, expecting %d\n", xcnt, NREP*NTHREADS);
-  printf("the value of dummy is %d\n", dummy);
+  printf("the value of dummy is %8.8x\n", dummy);
 
   success = (acnt == NREP*NTHREADS && bcnt == 0 && pcnt == 0);
   fprintf(stderr,"%s\n", success ? "SUCCESS" : "FAILURE") ;
