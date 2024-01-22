@@ -63,10 +63,10 @@ static uint64_t spin_until(int32_t volatile *what, int32_t value, int32_t cond){
         return c ;}
 
 // atomic_add_and_test_64/32/16/8(int64/32/16/8_t *what, int64/32/16/8_t n)  add n to *what
-OPER_AND_TEST(atomic_add_and_test_64, "add %2,%0 ;", int64_t)
-OPER_AND_TEST(atomic_add_and_test_32, "add %2,%0 ;", int32_t)
-OPER_AND_TEST(atomic_add_and_test_16, "add %2,%0 ;", int16_t)
-OPER_AND_TEST(atomic_add_and_test_8,  "add %2,%0 ;", int8_t )
+OPER_AND_TEST(atomic_add_and_test_64, "addq %2,%0 ;", int64_t)
+OPER_AND_TEST(atomic_add_and_test_32, "addl %2,%0 ;", int32_t)
+OPER_AND_TEST(atomic_add_and_test_16, "addw %2,%0 ;", int16_t)
+OPER_AND_TEST(atomic_add_and_test_8,  "addb %2,%0 ;", int8_t )
 
 // atomic_and_and_test_64/32/16/8(int64/32/16/8_t *what, int64/32/16/8_t n)  and n to *what
 OPER_AND_TEST(atomic_and_and_test_64, "and %2,%0 ;", int64_t)
@@ -88,7 +88,7 @@ FETCH_AND_ADD(atomic_fetch_and_add_8 , int8_t)
 // atomic_compare_and_swap_64/32/16/8(int64/32/16/8_t *thevalue, int64/32/16/8_t expected,int64/32/16/8_t  newvalue)
 // if(*thevalue == expected) *thevalue = newvalue
 // return original value of *thevalue
-#define COMPARE_AND_SWAP(name, kind) EXTERN int name(kind *thevalue, kind expected, kind newvalue) {kind prev; \
+#define COMPARE_AND_SWAP(name, kind) EXTERN kind name(kind *thevalue, kind expected, kind newvalue) {kind prev; \
         asm volatile("lock;cmpxchg %1, %2;" : "=a"(prev) : "q"(newvalue), "m"(*thevalue), "a"(expected) : "memory"); \
         return prev == expected;}
 
