@@ -55,7 +55,7 @@ pipe_buffer pipe_buffer_null = { .used = 0, .max_size = 0, .buffer = NULL, .flag
 // size  : size of the struct in 32 bit units (includes 32 bit prolog)
 // used  : used space in 32 bit units
 // flags : local flags for this filter
-#define FILTER_PROLOG uint32_t id:8, size:10, used:10, flags:4 ;
+#define FILTER_PROLOG uint32_t id:8, size:10, used:10, flags:4
 
 // check that size of filter struct is a multiple of 32 bits
 #define FILTER_SIZE_OK(name) (sizeof(filter_001)/sizeof(uint32_t)*sizeof(uint32_t) == sizeof(filter_001))

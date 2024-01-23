@@ -29,6 +29,8 @@
 #define STATIC_DEFINED_HERE
 #endif
 
+static int stream_debug_mode = 0 ;
+
 // bit stream descriptor. both insert / extract may be positive
 // in insertion only mode, xtract would be -1
 // in extraction only mode, insert would be -1
@@ -231,7 +233,7 @@ static int StreamRestoreState(bitstream *stream, bitstream_state *state, int mod
   }
   return 0 ;                                                          // no error
 error:
-// fprintf(stderr, "error (%s) in restore state\n", msg);
+  if(stream_debug_mode > 1) fprintf(stderr, "error (%s) in restore state\n", msg);
   return 1 ;
 }
 // =======================  stream initialization  =======================

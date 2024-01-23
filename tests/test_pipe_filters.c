@@ -46,6 +46,7 @@ int main(int argc, char **argv){
 
   fprintf(stderr, "data address = %p\n", data) ;
   psize = run_pipe_filters(PIPE_FORWARD, dims, data, filters, &pbuf) ;
+  fprintf(stderr, "psize = %ld\n", psize);
   for(i = 0 ; i < NPTSJ*NPTSI ; i++) fprintf(stderr, "%6d ", data[i]) ; fprintf(stderr, "\n") ;
 //   ssize_t run_pipe_filters(int flags, int *dims, void *data, filter_list list, pipe_buffer *buffer);
 }

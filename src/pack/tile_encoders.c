@@ -28,7 +28,7 @@
 // TODO: npti, nptj or npij ?
 void print_tile_properties(uint64_t p64){
   tile_properties p ;
-  int nij, nbits, nbts0, nbitss, nb0, nbi ;
+  int nij, nbits, nbitss, nb0, nbi ;
 
   p.u64 = p64 ;
   nij = p.t.h.npij + 1 ;    // (p.t.h.npti+1)*(p.t.h.nptj+1) ;
@@ -47,6 +47,7 @@ void print_tile_properties(uint64_t p64){
           nbi, nb0, p.t.h.sign, p.t.h.encd, p.t.h.npij+1, p.t.h.min0, p.t.min, p.t.bshort, p.t.nshort, nbits, nbitss) ;
 }
 
+#if 0
 // set encoding scheme deemed appropriate given tile properties
 // p64 [IN] : tile parameter structure as an "opaque" 64 bit value
 // the function returns a tile parameter structure as an "opaque" 64 bit value
@@ -56,7 +57,7 @@ void print_tile_properties(uint64_t p64){
 static uint64_t encode_tile_scheme(uint64_t p64){
   tile_properties p ;
 //   int nbits_temp, nbits_full, nbits_zero, nbits_short, nij, nbits, nbits0, nzero, nshort ;
-  int nbits_temp, nbits_full, nbits_zero, nbits_short, nij, nbits, nbits0, nshort ;
+  int nbits_temp, nbits_full, nbits_short, nij, nbits, nbits0, nshort ;
 
   p.u64 = p64 ;
 fprintf(stderr, "DEBUG: encd = %d, nshort = %3d, bshort = %2d, nbits = %2d\n", p.t.h.encd, p.t.nshort, p.t.bshort, p.t.h.nbts + 1) ;
@@ -86,6 +87,7 @@ fprintf(stderr, "DEBUG: encd = %d, nshort = %3d, bshort = %2d, nbits = %2d\n", p
 fprintf(stderr, "DEBUG: encd = %d, nshort = %3d, bshort = %2d\n", p.t.h.encd, p.t.nshort, p.t.bshort) ;
   return p.u64 ;
 }
+#endif
 
 // set information appropriate to a constant valued tile
 // p64 [IN] : tile parameter structure as an "opaque" 64 bit value
@@ -224,7 +226,7 @@ static uint64_t encode_tile_properties_c(void *f, int ni, int lni, int nj, uint3
     p.t.h.encd = (p.t.bshort == 0) ? 2 : 1 ;  // 0 , 1//full or 0//short , 1//full encoding
   }
 
-end:
+// end:
 // fprintf(stderr, "DEBUG: (tile_properties_c) nshort = %3d, bshort = %2d, bsaved = %5d, encoding = %d\n", p.t.nshort, p.t.bshort, nref - ntot, p.t.h.encd) ;
   return p.u64 ;
 //   return encode_tile_scheme(p.u64) ;          // determine appropriate encoding scheme
@@ -399,6 +401,7 @@ uint64_t encode_tile_properties(void *f, int ni, int lni, int nj, uint32_t tile[
   __m256i v0, v1, v2, v3, v4, v5, v6, v7 ;
   __m256i vp, vn, vz, vs, vm0, vm1, vmax, vmin, vz0 ;
   __m128i v128 ;
+  int32_t bsaved = 0 ;
 
 //   if(ni != 8 || nj != 8) return encode_tile_properties_c(f, ni, lni, nj, tile) ; // not a full 8x8 tile
   if(nij <= 0 || nij > 64) return 0xFFFFFFFFFFFFFFFFlu ;                // invalid tile dimensions
@@ -532,7 +535,7 @@ uint64_t encode_tile_properties(void *f, int ni, int lni, int nj, uint32_t tile[
   nshort = nzero ; bshort = 0 ;      // zero length tokens
 
   uint32_t ref[4], kount ;
-  int32_t bsaved = nsaved ;
+  bsaved = nsaved ;
 
   nbits0 = (nbits + NB0) >> 1 ;     // number of bits for "short" values
 // fprintf(stderr, "DEBUG-1: kount = %3d, bshort = %2d, bsaved = %5d, nsaved = %5d, ref = %8.8x, bits = %d(%d)\n", -nshort, bshort, bsaved, nsaved, 0, nbits0, nbits) ;
@@ -756,12 +759,12 @@ constant:
 int32_t encode_tile(void *f, int ni, int lni, int nj, bitstream *s, uint32_t tile[64]){
   uint64_t tp64 ;
   int32_t used ;
-  tile_properties tp ;
+//   tile_properties tp ;
 
   tp64 = encode_tile_properties(f, ni, lni, nj, tile) ;   // extract tile, compute data properties
 //   print_stream_params(*s, "before tile encode", NULL) ;
   used = encode_contiguous(tp64, s, tile) ;               // encode extracted tile into bit stream
-  tp.u64 = tp64 ;
+//   tp.u64 = tp64 ;
 //   fprintf(stderr, "needed bits = %4d, nbits = %2d, encoding = %d, sign = %d, min0 = %d, value = %8.8x\n\n", 
 //           used, tp.t.h.nbts+1, tp.t.h.encd, tp.t.h.sign, tp.t.h.min0, tp.t.min) ;
 //   print_stream_params(*s, "after  tile encode", NULL) ;
@@ -820,6 +823,7 @@ int32_t decode_tile(void *f, int ni, int lni, int nj, int *nptsij, bitstream *s)
   int i, i0, j, nbits, nij, nbits0, nbtot, nbitsi, nbitsm ;
   uint32_t min ;
   int error_code = 0 ;
+  EZ_DCL_XTRACT_VARS ;
 
   error_code = 1 ;
   if((f == NULL) || (s == NULL)) goto error ;
@@ -828,7 +832,7 @@ int32_t decode_tile(void *f, int ni, int lni, int nj, int *nptsij, bitstream *s)
 // print_stream_params(*s, "(decode_tile)", NULL) ;
   error_code = 2 ;
   if( ! StreamIsValid(s) ) goto error ;
-  EZ_NEW_XTRACT_VARS(*s) ;            // declare and get extraction control variables from bit stream
+  EZ_GET_XTRACT_VARS(*s) ;            // get extraction control variables from bit stream
   BE64_EZ_GET_NBITS(w32, 16)          // get tile header
 // fprintf(stderr, "DEBUG: (decode_tile) header = %8.8x, nbits = %2d, ni = %d, nj = %d, nij = %d\n", w32, nbits, ni, nj, nij) ;
   nbtot = 16 ;
@@ -966,7 +970,7 @@ constant:
 // return the total number of bits extracted from the bit stream (-1 in case of error)
 int32_t decode_as_tiles(void *f, int ni, int lni, int nj, bitstream *s){
   int32_t *fi = (int32_t *) f ;
-  int ni0, nj0, nit, njt, i0, j0, indexi, indexj, nbtile, nbtot, nptsij ;
+  int ni0, nj0, i0, j0, indexi, indexj, nbtile, nbtot, nptsij ;
 
   nbtot  = 0 ;
   indexj = 0 ;
