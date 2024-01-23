@@ -242,7 +242,9 @@ constant:
 //       the chunked by 8 C version is 1.3 - 3 x slower than the AVX2 version with most compilers
 //       and much slower (up to 10x) with some others
 // the comparison is performed in SIGNED mode
-static void tile_population_64(int32_t *tile, int32_t pop[4], int32_t ref[4]){
+static void tile_population_64(void *tile_in, int32_t pop[4], void *ref_in){
+  int32_t *tile = (int32_t *) tile_in ;
+  int32_t *ref = (int32_t *) ref_in ;
 #if defined(__x86_64__) && defined(__AVX2__) && defined(WITH_SIMD)
   __m256i v0, v1, v2, v3, v4, v5, v6, v7 ;
   __m256i t0, t1, s0, s1 ;
@@ -329,7 +331,9 @@ static void tile_population_64(int32_t *tile, int32_t pop[4], int32_t ref[4]){
 // ref  [IN] : 4 element array containing reference values
 // pop[i] will receive the number of values in tile < ref[i]
 // this function handles n != 64, calls tile_population_64 if n == 64
-void tile_population(int32_t *tile, int n, int32_t pop[4], int32_t ref[4]){
+void tile_population(void *tile_in, int n, int32_t pop[4], void *ref_in){
+  int32_t *tile = (int32_t *) tile_in ;
+  int32_t *ref = (int32_t *) ref_in ;
   int i0, i, ns0[8], ns1[8], ns2[8], ns3[8] ;
 
   if(n == 64){  // full tile (64 values)

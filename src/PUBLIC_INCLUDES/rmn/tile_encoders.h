@@ -108,7 +108,7 @@ typedef union{
 CT_ASSERT(8 == sizeof(tile_properties))
 
 // uint64_t encode_tile_scheme(uint64_t p64);
-void tile_population(int32_t *tile, int n, int32_t pop[4], int32_t ref[4]);
+void tile_population(void *tile, int n, int32_t pop[4], void *ref);
 uint64_t encode_tile_properties(void *field, int ni, int lni, int nj, uint32_t tile[64]);
 void print_tile_properties(uint64_t p64);
 
