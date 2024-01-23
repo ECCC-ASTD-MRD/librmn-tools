@@ -89,7 +89,7 @@ FETCH_AND_ADD(atomic_fetch_and_add_8 , int8_t)
 // if(*thevalue == expected) *thevalue = newvalue
 // return original value of *thevalue
 #define COMPARE_AND_SWAP(name, kind) EXTERN kind name(kind *thevalue, kind expected, kind newvalue) {kind prev; \
-        asm volatile("lock;cmpxchg %1, %2;" : "=a"(prev) : "q"(newvalue), "m"(*thevalue), "a"(expected) : "memory"); \
+        asm volatile("lock; cmpxchg %1, %2;" : "=a"(prev) : "q"(newvalue), "m"(*thevalue), "a"(expected) : "memory"); \
         return prev == expected;}
 
 COMPARE_AND_SWAP(atomic_compare_and_swap_64, uint64_t)
