@@ -102,7 +102,7 @@ fprintf(stderr, "                size O.K.\n") ;
       meta_out.id    = 254 ;
       meta_out.used  = 3 ;
       meta_out.flags = 0 ;
-      w32_stream_insert(stream_out, (uint32_t *)(&meta_out), W32_SIZEOF(meta_out)) ;
+      ws32_insert(stream_out, (uint32_t *)(&meta_out), W32_SIZEOF(meta_out)) ;
 //       PUSH_BITS(meta_out.meta[0].i, meta->factor, 32) ;
 //       PUSH_BITS(meta_out.meta[1].i, meta->offset, 32) ;
       // number of used bytes in data buffer
