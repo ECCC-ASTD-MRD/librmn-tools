@@ -24,7 +24,8 @@
 #include <rmn/ct_assert.h>
 
 // same as sizeof() but value is in 32 bit units
-#define W32_SIZEOF(what) (sizeof(what) >> 2)
+#define W32_SIZEOF(item) (sizeof(item) >> 2)
+CT_ASSERT(W32_SIZEOF(uint32_t) == 1) ;   // 1 x 32 bit item
 
 // word (32 bit) stream descriptor
 // number of words in buffer : in - out (available for extraction)
@@ -46,21 +47,10 @@ CT_ASSERT(sizeof(wordstream) == 24) ;   // 3 64 bit elements (1 x 64 bits + 4x 3
 
 static wordstream null_wordstream = { .buf = NULL, .limit = 0, .in = 0, .out = 0, .valid = 0, .alloc = 0 } ;
 
-typedef struct{
-//   uint32_t *buf ;     // start of stream data storage (used for consistency check)
-  uint32_t in ;       // insertion index (0 initially)
-  uint32_t out ;      // extraction index (0 initially)
-} wordstream_state ;
-// CT_ASSERT(sizeof(wordstream_state) == 16) ;   // 2 64 bit elements (1 x 64 bits + 2x 32 bits)
-CT_ASSERT(sizeof(wordstream_state) == 8) ;   // 2 32 bit elements
-
-#define WS32_STATE_IN(state)           ((state).in)
-#define WS32_STATE_OUT(state)          ((state).out)
-// #define W32_STATE_BUFFER(state)       ((state).buf)
-
 //
 // ================================ word insertion/extraction macros into/from wordstream ===============================
 //
+// 29 bit signature in wordstream struct
 #define WS32_MARKER    0x1234BEE5
 //
 // macro arguments description
@@ -198,6 +188,15 @@ static int ws32_resize(wordstream *stream, uint32_t size){
 }
 
 // =======================  word stream state save/restore  =======================
+// state of a word stream
+typedef struct{
+  uint32_t in ;       // insertion index (0 initially)
+  uint32_t out ;      // extraction index (0 initially)
+} wordstream_state ;
+CT_ASSERT(sizeof(wordstream_state) == 8) ;   // 2 32 bit elements
+
+#define WS32_STATE_IN(wordstate)           ((wordstate).in)
+#define WS32_STATE_OUT(wordstate)          ((wordstate).out)
 //
 // save current state of a word stream
 // stream  [IN] : pointer to a valid wordstream struct
@@ -206,9 +205,8 @@ static int ws32_resize(wordstream *stream, uint32_t size){
 static int WStreamSaveState(wordstream *stream, wordstream_state *state){
   int status = -1 ;
   if(WS32_MARKER_VALID(*stream)){
-//     state->buf = stream->buf ;
-    state->in  = stream->in ;
-    state->out = stream->out ;
+    WS32_STATE_IN(*state)  = WS32_IN(*stream) ;
+    WS32_STATE_OUT(*state) = WS32_OUT(*stream) ;
     status = 0 ;
   }
   return status ;
