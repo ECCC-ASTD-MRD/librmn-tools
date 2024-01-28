@@ -23,7 +23,7 @@
 
 #include <rmn/ieee_quantize.h>
 #include <rmn/tools_types.h>
-#include <rmn/bi_endian_pack.h>
+#include <rmn/word_stream.h>
 #include <rmn/ct_assert.h>
 
 typedef uint64_t pack_flags ;
@@ -39,6 +39,7 @@ typedef uint64_t pack_flags ;
 #define PIPE_DATA_16     (2 << 16)
 #define PIPE_DATA_32     (4 << 16)
 #define PIPE_DATA_64     (8 << 16)
+// size of pipe data elements in bytes
 #define PIPE_DATA_SIZE(dims) ( (((dims)[0] >> 16) == 0) ? 4 : ((dims)[0] >> 16) )
 #define PIPE_DATA_NDIMS(dims)  ((dims)[0] & 0x7)
 
@@ -55,10 +56,10 @@ pipe_buffer pipe_buffer_null = { .used = 0, .max_size = 0, .buffer = NULL, .flag
 // size  : size of the struct in 32 bit units (includes 32 bit prolog)
 // used  : used space in 32 bit units
 // flags : local flags for this filter
-#define FILTER_PROLOG uint32_t id:8, size:10, used:10, flags:4
+#define FILTER_PROLOG uint32_t id:8, flags:2, size:22
 
 // check that size of filter struct is a multiple of 32 bits
-#define FILTER_SIZE_OK(name) (sizeof(filter_001)/sizeof(uint32_t)*sizeof(uint32_t) == sizeof(filter_001))
+#define FILTER_SIZE_OK(name) (W32_SIZEOF(filter_001)*sizeof(uint32_t) == sizeof(filter_001))
 
 typedef struct{             // generic filter metadata
   FILTER_PROLOG ;           // used for meta_out in forward mode
@@ -68,7 +69,7 @@ typedef struct{             // generic filter metadata
 // set filter metadata to null values (only keep id and size as they are)
 static inline void filter_reset(filter_meta *m){
   int i ;
-  m->used = m->flags = 0 ;
+  m->flags = 0 ;
   for(i=0 ; i< (m->size - 1) ; i++) m->meta[i].u = 0 ;
 }
 
@@ -83,7 +84,7 @@ typedef filter_meta *filter_list[] ;  // input metadata for all the pipe filters
 typedef struct{
   FILTER_PROLOG ;
 } filter_000 ;
-static filter_000 filter_000_null = {.size = 1, .id = 0, .used = 0, .flags = 0 } ;
+static filter_000 filter_000_null = {.size = W32_SIZEOF(filter_000), .id = 0, .flags = 0 } ;
 
 // ----------------- id = 001, linear quantizer -----------------
 typedef struct{
@@ -91,7 +92,7 @@ typedef struct{
   float    ref ;
   uint32_t nbits : 5 ;
 } filter_001 ;
-static filter_001 filter_001_null = {.size = sizeof(filter_001)/sizeof(uint32_t), .id = 1, .used = 0, .flags = 0, .ref = 0.0f, .nbits = 0 } ;
+static filter_001 filter_001_null = {.size = W32_SIZEOF(filter_001), .id = 1, .flags = 0, .ref = 0.0f, .nbits = 0 } ;
 CT_ASSERT(FILTER_SIZE_OK(filter_001))
 // ----------------- id = 254, scale and offset filter -----------------
 typedef struct{
@@ -99,11 +100,11 @@ typedef struct{
   int32_t factor ;
   int32_t offset ;
 } filter_254 ;
-static filter_254 filter_254_null = {.size = sizeof(filter_254)/sizeof(uint32_t), .id = 254, .used = 0, .flags = 0, .factor = 0, .offset = 0 } ;
+static filter_254 filter_254_null = {.size = W32_SIZEOF(filter_254), .id = 254, .flags = 0, .factor = 0, .offset = 0 } ;
 CT_ASSERT(FILTER_SIZE_OK(filter_254))
 // ----------------- end of filter metadata definitions -----------------
 
-#define BASE_META_SIZE (sizeof(filter_meta)/sizeof(uint32_t))
+#define BASE_META_SIZE (W32_SIZEOF(filter_meta))
 #define ALLOC_META(nmeta) (filter_meta *)malloc( sizeof(filter_meta) + (nmeta) * sizeof(AnyType32) )
 // to allocate space for NM meta elements : uint32_t xxx[BASE_META_SIZE + NM]
 //                                          yyy = malloc((sizeof(uint32_t) * (BASE_META_SIZE + NM))

@@ -38,8 +38,8 @@ int main(int argc, char **argv){
   i = filter_register(254, "demo254", pipe_filter_254) ;  // change name of filter 254
   fprintf(stderr, "filter_register demo254 status = %d, name = '%s', address = %p\n", i, pipe_filter_name(254), pipe_filter_address(254)) ;
 
-  filter1.used = 2 ; filter1.factor = 2 ; filter1.offset = 100 ;
-  filter2.used = 2 ; filter2.factor = 2 ; filter2.offset = 1000 ;
+  filter1.factor = 2 ; filter1.offset = 100 ;
+  filter2.factor = 2 ; filter2.offset = 1000 ;
 
   for(i = 0 ; i < NPTSJ*NPTSI ; i++) data[i] = i ;
   for(i = 0 ; i < NPTSJ*NPTSI ; i++) fprintf(stderr, "%6d ", data[i]) ; fprintf(stderr, "\n") ;
