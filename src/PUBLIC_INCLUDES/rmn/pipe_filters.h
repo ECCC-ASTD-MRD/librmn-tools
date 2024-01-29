@@ -51,6 +51,26 @@ typedef struct{
 } pipe_buffer ;
 pipe_buffer pipe_buffer_null = { .used = 0, .max_size = 0, .buffer = NULL, .flags = 0 } ;
 
+// translate dims[] into number of values
+static int filter_data_values(int *dims){
+  int nval = 0 ;
+  int i ;
+  int ndims = PIPE_DATA_NDIMS(dims) ;
+  if((ndims > 5) || (ndims < 0)) goto end ;
+  nval = 1 ;
+  for(i=0 ; i<ndims ; i++){
+    nval *= dims[i+1] ;
+  }
+end:
+  return nval ;
+}
+#define FILTER_CONCAT2(str1,str2) str1 ## str2
+#define FILTER_CONCAT3(str1,str2,str3) str1 ## str2 ## str3
+#define FILTER_TYPE(id) FILTER_CONCAT2(filter_ , id)
+#define FILTER_FUNCTION(id) FILTER_CONCAT2(pipe_filter_ , id)
+#define FILTER_NULL(id) FILTER_CONCAT3(filter_ , id , _null)
+#define FILTER_BASE(fid) .size = W32_SIZEOF(FILTER_TYPE(fid)), .id = fid, .flags = 0
+
 // first element of metadata for ALL filters
 // id    : filter ID
 // size  : size of the struct in 32 bit units (includes 32 bit prolog)
@@ -59,7 +79,7 @@ pipe_buffer pipe_buffer_null = { .used = 0, .max_size = 0, .buffer = NULL, .flag
 #define FILTER_PROLOG uint32_t id:8, flags:2, size:22
 
 // check that size of filter struct is a multiple of 32 bits
-#define FILTER_SIZE_OK(name) (W32_SIZEOF(filter_001)*sizeof(uint32_t) == sizeof(filter_001))
+#define FILTER_SIZE_OK(name) (W32_SIZEOF(name)*sizeof(uint32_t) == sizeof(name))
 
 typedef struct{             // generic filter metadata
   FILTER_PROLOG ;           // used for meta_out in forward mode
@@ -83,25 +103,26 @@ typedef filter_meta *filter_list[] ;  // input metadata for all the pipe filters
 // ----------------- id = 000, null filter (last filter) -----------------
 typedef struct{
   FILTER_PROLOG ;
-} filter_000 ;
-static filter_000 filter_000_null = {.size = W32_SIZEOF(filter_000), .id = 0, .flags = 0 } ;
+} FILTER_TYPE(000) ;
+static FILTER_TYPE(000) FILTER_NULL(000) = {FILTER_BASE(000) } ;
+CT_ASSERT(FILTER_SIZE_OK(FILTER_TYPE(000)))
 
 // ----------------- id = 001, linear quantizer -----------------
 typedef struct{
   FILTER_PROLOG ;
   float    ref ;
   uint32_t nbits : 5 ;
-} filter_001 ;
-static filter_001 filter_001_null = {.size = W32_SIZEOF(filter_001), .id = 1, .flags = 0, .ref = 0.0f, .nbits = 0 } ;
-CT_ASSERT(FILTER_SIZE_OK(filter_001))
+} FILTER_TYPE(001) ;
+static FILTER_TYPE(001) filter_001_null = {FILTER_BASE(001), .ref = 0.0f, .nbits = 0 } ;
+CT_ASSERT(FILTER_SIZE_OK(FILTER_TYPE(001)))
 // ----------------- id = 254, scale and offset filter -----------------
 typedef struct{
   FILTER_PROLOG ;
   int32_t factor ;
   int32_t offset ;
-} filter_254 ;
-static filter_254 filter_254_null = {.size = W32_SIZEOF(filter_254), .id = 254, .flags = 0, .factor = 0, .offset = 0 } ;
-CT_ASSERT(FILTER_SIZE_OK(filter_254))
+} FILTER_TYPE(254) ;
+static FILTER_TYPE(254) filter_254_null = {FILTER_BASE(254), .factor = 0, .offset = 0 } ;
+CT_ASSERT(FILTER_SIZE_OK(FILTER_TYPE(254)))
 // ----------------- end of filter metadata definitions -----------------
 
 #define BASE_META_SIZE (W32_SIZEOF(filter_meta))
@@ -137,8 +158,9 @@ typedef ssize_t old_pipe_filter(uint32_t flags, int *dims, filter_meta *meta_in,
 typedef ssize_t pipe_filter(uint32_t flags, int *dims, filter_meta *meta_in, pipe_buffer *buffer, wordstream *meta_out) ;
 typedef pipe_filter *pipe_filter_pointer ;
 
-pipe_filter pipe_filter_001 ;
-pipe_filter pipe_filter_254 ;
+pipe_filter FILTER_FUNCTION(000) ;
+pipe_filter FILTER_FUNCTION(001) ;
+pipe_filter FILTER_FUNCTION(254) ;
 
 ssize_t filter_validate(filter_meta *meta_in);
 int filter_is_defined(int id);
