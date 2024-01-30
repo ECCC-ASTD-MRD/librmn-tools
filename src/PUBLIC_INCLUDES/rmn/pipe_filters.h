@@ -33,7 +33,7 @@ typedef uint64_t pack_flags ;
 #define PIPE_REALLOC     8     /* realloc() can be used for buffer */
 #define PIPE_NOFREE     16     /* buffer cannot be "freed" */
 #define PIPE_VALIDATE   32
-#define PIPE_FWDSIZES   64
+#define PIPE_FWDSIZE    64
 
 #define PIPE_DATA_08     (1 << 16)
 #define PIPE_DATA_16     (2 << 16)
@@ -107,14 +107,14 @@ typedef struct{
 static FILTER_TYPE(000) FILTER_NULL(000) = {FILTER_BASE(000) } ;
 CT_ASSERT(FILTER_SIZE_OK(FILTER_TYPE(000)))
 
-// ----------------- id = 001, linear quantizer -----------------
+// ----------------- id = 100, linear quantizer -----------------
 typedef struct{
   FILTER_PROLOG ;
   float    ref ;
   uint32_t nbits : 5 ;
-} FILTER_TYPE(001) ;
-static FILTER_TYPE(001) filter_001_null = {FILTER_BASE(001), .ref = 0.0f, .nbits = 0 } ;
-CT_ASSERT(FILTER_SIZE_OK(FILTER_TYPE(001)))
+} FILTER_TYPE(100) ;
+static FILTER_TYPE(100) filter_100_null = {FILTER_BASE(100), .ref = 0.0f, .nbits = 0 } ;
+CT_ASSERT(FILTER_SIZE_OK(FILTER_TYPE(100)))
 // ----------------- id = 254, scale and offset filter -----------------
 typedef struct{
   FILTER_PROLOG ;
@@ -151,9 +151,9 @@ CT_ASSERT(FILTER_SIZE_OK(FILTER_TYPE(254)))
 //         PIPE_FORWARD  : future meta_in for the REVERSE call
 // the function returns
 //         PIPE_VALIDATE : needed size for meta_out(32 bit units), negative value in case of error(s)
-//         PIPE_FWDSIZES : "worst case" size of filter output
-//         PIPE_FORWARD  : size data output in bytes
-//         PIPE_REVERSE  : size data output in bytes
+//         PIPE_FWDSIZES : "worst case" size of filter output, negative value in case of error(s)
+//         PIPE_FORWARD  : size of data output in bytes, negative value in case of error(s)
+//         PIPE_REVERSE  : size of data output in bytes, negative value in case of error(s)
 typedef ssize_t old_pipe_filter(uint32_t flags, int *dims, filter_meta *meta_in, pipe_buffer *buffer, filter_meta *meta_out) ;
 typedef ssize_t pipe_filter(uint32_t flags, int *dims, filter_meta *meta_in, pipe_buffer *buffer, wordstream *meta_out) ;
 typedef pipe_filter *pipe_filter_pointer ;

@@ -21,10 +21,6 @@
 #define MAX_FILTERS     256
 #define MAX_FILTER_TYPE  16
 
-// macros for internal use
-// #define PUSH_BITS(acc, data, nbits)    { acc = (uint64_t)(acc) << (nbits) ; acc = (acc) | (data) ; }
-// #define POP_BITS(acc, data, nbits)     { data = (acc) >> ((8 * sizeof(acc)) - (nbits)) ; acc <<= ((8 * sizeof(acc)) - (nbits)) ; }
-
 typedef struct{
   pipe_filter_pointer fn ;
   char name[MAX_FILTER_TYPE] ;
@@ -32,51 +28,36 @@ typedef struct{
 
 static filter_table_element filter_table[MAX_FILTERS] ;
 
-// translate dims[] into number of values
-// static int buffer_dimension(int *dims){
-//   int nval = 0 ;
-//   int i ;
-//   int ndims = PIPE_DATA_NDIMS(dims) ;
-//   if((ndims > 5) || (ndims < 0)) goto end ;
-//   nval = 1 ;
-//   for(i=0 ; i<ndims ; i++){
-//     nval *= dims[i+1] ;
-//   }
-// end:
-//   return nval ;
-// }
-
 // ----------------- id = 000, template filter -----------------
 
 // dummy filter, can be used as a template for new filters
 // 000 MUST be replaced by a 3 digit integer between 001 and 254
 #define ID 000
+// PIPE_VALIDATE and PIPE_FWDSIZE : flags, dims, meta_in are used, all other arguments may be NULL
 ssize_t FILTER_FUNCTION(ID)(uint32_t flags, int *dims, filter_meta *meta_in, pipe_buffer *buf, wordstream *stream_out){
   // the definition of FILTER_TYPE(ID) (filter_xxx) will come from pipe_filters.h or an appropriate include file
-  ssize_t nbytes = 0 ;
+  ssize_t nbytes = 0, nval ;
   int errors = 0 ;
-  // used as m_out in forward mode
-  // used as m_inv for the reverse filter
-  typedef struct{
+  typedef struct{    // used as m_out in forward mode, used as m_inv for the reverse filter
     FILTER_PROLOG ;
     // add specific components here
   } filter_inverse ;
-  filter_inverse *m_inv ;
+  filter_inverse *m_inv, m_out ;
 
   if(meta_in == NULL)          goto error ;   // outright error
   if(meta_in->id != ID)        goto error ;   // wrong ID
 
-  switch(flags & (PIPE_VALIDATE | PIPE_FWDSIZES | PIPE_FORWARD | PIPE_REVERSE)) {  // mutually exclusive flags
+  switch(flags & (PIPE_VALIDATE | PIPE_FWDSIZE | PIPE_FORWARD | PIPE_REVERSE)) {  // mutually exclusive flags
 
-    case PIPE_FWDSIZES:                        // get worst case estimates of meta_out and buffer sizes for PIPE_FORWARD mode
+    case PIPE_FWDSIZE:                        // get worst case estimate for output data in PIPE_FORWARD mode
     case PIPE_REVERSE:                         // inverse filter
       m_inv = (filter_inverse *) meta_in ;
-      if(flags & PIPE_FWDSIZES) {              // get worst case estimates for meta_out and stream_out
+      if(flags & PIPE_FWDSIZE) {              // get worst case size estimate for output data
         // insert appropriate code here
         goto end ;
       }
       if(m_inv->size < W32_SIZEOF(filter_inverse)) errors++ ;       // wrong size
-      // validate contents of m_inv, set nbytes to negative value if errors are detected
+      // validate contents of m_inv, increment errors if errors are detected
       //
       if(errors)           goto error ;
       //
@@ -86,24 +67,26 @@ ssize_t FILTER_FUNCTION(ID)(uint32_t flags, int *dims, filter_meta *meta_in, pip
 
     case PIPE_VALIDATE:                            // validate input to forward filter
     case PIPE_FORWARD:                             // forward filter
-      nbytes = 0 ;
       FILTER_TYPE(ID) *m_fwd = (FILTER_TYPE(ID) *) meta_in ;        // cast meta_in to input metadata type for this filter
       if(m_fwd->size < W32_SIZEOF(FILTER_TYPE(ID))) errors++ ;      // wrong size
       //
-      // check that meta_in is valid, set nbytes to negative value if errors are detected
+      // check that meta_in is valid, increment errors if errors are detected
       //
       if(errors)           goto error ;
 
-      if(flags & PIPE_VALIDATE) goto end ;   // validation call
+      if(flags & PIPE_VALIDATE) {              // validation call
+        nbytes = W32_SIZEOF(filter_inverse) ;  // worst case size size of output metadata for inverse filter
+        goto end ;
+      }
       //
       // insert appropriate filter code here
       //
-      filter_inverse m_out ;  // output metadata
-      m_inv = &m_out ;
+      m_inv = &m_out ;    // output metadata (may have to use malloc() if not fixed size structure)
       *m_inv = (filter_inverse) {.size = W32_SIZEOF(filter_inverse), .id = ID, .flags = 0 } ;
       // prepare metadata for inverse filter
       //
       ws32_insert(stream_out, (uint32_t *)(m_inv), W32_SIZEOF(filter_inverse)) ; // insert into stream_out
+      // set nbytes to output size
       break ;
 
     default:
@@ -115,42 +98,115 @@ end:
 
 error :
   errors = (errors > 0) ? errors : 1 ;
-  nbytes = -errors ;
-  goto end ;
+  return -errors ;
 }
 #undef ID
 
+// ----------------- id = 100, linear quantizer -----------------
+
+#define ID 100
+// PIPE_VALIDATE and PIPE_FWDSIZE : flags, dims, meta_in are used, all other arguments may be NULL
+ssize_t FILTER_FUNCTION(ID)(uint32_t flags, int *dims, filter_meta *meta_in, pipe_buffer *buf, wordstream *stream_out){
+  // the definition of FILTER_TYPE(ID) (filter_xxx) will come from pipe_filters.h or an appropriate include file
+  ssize_t nbytes = 0, nval ;
+  int errors = 0 ;
+  typedef struct{    // used as m_out in forward mode, used as m_inv for the reverse filter
+    FILTER_PROLOG ;
+    // add specific components here
+  } filter_inverse ;
+  filter_inverse *m_inv, m_out ;
+
+  if(meta_in == NULL)          goto error ;   // outright error
+  if(meta_in->id != ID)        goto error ;   // wrong ID
+
+  switch(flags & (PIPE_VALIDATE | PIPE_FWDSIZE | PIPE_FORWARD | PIPE_REVERSE)) {  // mutually exclusive flags
+
+    case PIPE_FWDSIZE:                        // get worst case estimate for output data in PIPE_FORWARD mode
+    case PIPE_REVERSE:                         // inverse filter
+      m_inv = (filter_inverse *) meta_in ;
+      if(flags & PIPE_FWDSIZE) {              // get worst case size estimate for output data
+        // insert appropriate code here
+        nbytes = filter_data_values(dims) * sizeof(uint32_t) ;
+        goto end ;
+      }
+      if(m_inv->size < W32_SIZEOF(filter_inverse)) errors++ ;       // wrong size
+      // validate contents of m_inv, increment errors if errors are detected
+      //
+      if(errors)           goto error ;
+      //
+      // insert appropriate inverse filter code here
+      //
+      break ;
+
+    case PIPE_VALIDATE:                            // validate input to forward filter
+    case PIPE_FORWARD:                             // forward filter
+      FILTER_TYPE(ID) *m_fwd = (FILTER_TYPE(ID) *) meta_in ;        // cast meta_in to input metadata type for this filter
+      if(m_fwd->size < W32_SIZEOF(FILTER_TYPE(ID))) errors++ ;      // wrong size
+      //
+      // check that meta_in is valid, increment errors if errors are detected
+      //
+      if(errors)           goto error ;
+
+      if(flags & PIPE_VALIDATE) {              // validation call
+        nbytes = W32_SIZEOF(filter_inverse) ;  // worst case size size of output metadata for inverse filter
+        goto end ;
+      }
+      //
+      // insert appropriate filter code here
+      //
+      m_inv = &m_out ;    // output metadata (may have to use malloc() if not fixed size structure)
+      *m_inv = (filter_inverse) {.size = W32_SIZEOF(filter_inverse), .id = ID, .flags = 0 } ;
+      // prepare metadata for inverse filter
+      //
+      ws32_insert(stream_out, (uint32_t *)(m_inv), W32_SIZEOF(filter_inverse)) ; // insert into stream_out
+      // set nbytes to output size
+      break ;
+
+    default:
+      goto error ; // invalid flag combination or none of the needed flags
+  }
+
+end:
+  return nbytes ;
+
+error :
+  errors = (errors > 0) ? errors : 1 ;
+  return -errors ;
+}
+#undef ID
+
+// ----------------- id = 254, test filter (scale and offset) -----------------
+
 // test filter id = 254, scale data and add offset
 // with PIPE_VALIDATE, the only needed arguments are flags and meta_in, all other arguments could be NULL
-// with PIPE_FWDSIZES, flags, dims, meta_in, meta_out are used, all other arguments could be NULL
+// with PIPE_FWDSIZE, flags, dims, meta_in, meta_out are used, all other arguments could be NULL
 #define ID 254
 ssize_t FILTER_FUNCTION(ID)(uint32_t flags, int *dims, filter_meta *meta_in, pipe_buffer *buf, wordstream *stream_out){
-  ssize_t nbytes ;
-  int errors = 0 ;
-  // used as m_out in forward mode
-  // used as m_inv for the reverse filter
-  typedef struct{
+  ssize_t nbytes = 0 ;
+  int errors = 0, nval ;
+  typedef struct{    // used as m_out in forward mode, used as m_inv for the reverse filter
     FILTER_PROLOG ;
     // add relevant components here
     int32_t factor ;
     int32_t offset ;
   } filter_inverse ;
-  filter_inverse *m_inv ;
+  filter_inverse *m_inv, m_out ;
 
   if(meta_in == NULL)          goto error ;   // outright error
   if(meta_in->id != ID)        goto error ;   // wrong ID
 
-  switch(flags & (PIPE_VALIDATE | PIPE_FWDSIZES | PIPE_FORWARD | PIPE_REVERSE)) {  // mutually exclusive flags
+  switch(flags & (PIPE_VALIDATE | PIPE_FWDSIZE | PIPE_FORWARD | PIPE_REVERSE)) {  // mutually exclusive flags
 
-    case PIPE_FWDSIZES:                        // get worst case estimates of meta_out and buffer sizes for PIPE_FORWARD mode
+    case PIPE_FWDSIZE:                        // get worst case estimate for output data in PIPE_FORWARD mode
     case PIPE_REVERSE:                         // inverse filter
       m_inv = (filter_inverse *) meta_in ;
-      if(flags & PIPE_FWDSIZES) {              // get worst case estimates for meta_out and stream_out
+      if(flags & PIPE_FWDSIZE) {              // get worst case estimate for output data
         // insert appropriate code here
+        nbytes = filter_data_values(dims) * sizeof(uint32_t) ;
         goto end ;
       }
       if(m_inv->size < W32_SIZEOF(filter_inverse)) errors++ ;       // wrong size
-      // validate contents of m_inv, set nbytes to negative value if errors are detected
+      // validate contents of m_inv, increment errors if errors are detected
       if((m_inv->offset == 0) && (m_inv->factor == 0)) errors++ ;   // MUST NOT be both 0
       //
       if(errors)           goto error ;
@@ -158,7 +214,7 @@ ssize_t FILTER_FUNCTION(ID)(uint32_t flags, int *dims, filter_meta *meta_in, pip
       // insert appropriate inverse filter code here
       {
         int i ;
-        int32_t nval = filter_data_values(dims) ;       // get data size
+        nval = filter_data_values(dims) ;       // get data size
         int32_t *data = (int32_t *) buf->buffer ;
         for(i=0 ; i<nval ; i++) data[i] = (data[i] - m_inv->offset) / m_inv->factor ;
       }
@@ -167,32 +223,35 @@ ssize_t FILTER_FUNCTION(ID)(uint32_t flags, int *dims, filter_meta *meta_in, pip
 
     case PIPE_VALIDATE:                            // validate input to forward filter
     case PIPE_FORWARD:                             // forward filter
-      nbytes = 0 ;
       FILTER_TYPE(ID) *m_fwd = (FILTER_TYPE(ID) *) meta_in ; // cast meta_in to input metadata type for this filter
       if(m_fwd->size < W32_SIZEOF(FILTER_TYPE(ID))) errors++ ;      // wrong size
       //
-      // check that meta_in is valid, set nbytes to negative value if errors are detected
+      // check that meta_in is valid, increment errors if errors are detected
       if((m_fwd->factor == 0) && (m_fwd->factor == 0)) errors++ ;   // MUST NOT be both 0
       if(errors)           goto error ;
 
-      if(flags & PIPE_VALIDATE) goto end ;   // validation call
+      if(flags & PIPE_VALIDATE) {              // validation call
+        nbytes = W32_SIZEOF(filter_inverse) ;  // worst case size size of output metadata for inverse filter
+        goto end ;
+      }
       //
       // insert appropriate filter code here
       {
         int i ;
-        int32_t nval = filter_data_values(dims) ;       // get data size
+        nval = filter_data_values(dims) ;       // get data size
         int32_t *data = (int32_t *) buf->buffer ;
         for(i=0 ; i<nval ; i++) data[i] = data[i] * m_fwd->factor + m_fwd->offset ;
       }
       //
-      filter_inverse m_out ;  // output metadata
-      m_inv = &m_out ;
+      m_inv = &m_out ;    // output metadata
       *m_inv = (filter_inverse) {.size = W32_SIZEOF(filter_inverse), .id = ID, .flags = 0 } ;
       // prepare metadata for inverse filter
       m_out.factor = m_fwd->factor ;
       m_out.offset = m_fwd->factor ;
       //
       ws32_insert(stream_out, (uint32_t *)(m_inv), W32_SIZEOF(filter_inverse)) ; // insert into stream_out
+      // set nbytes to output size
+      nbytes = filter_data_values(dims) * sizeof(uint32_t) ;
       break ;
 
     default:
@@ -204,101 +263,9 @@ end:
 
 error :
   errors = (errors > 0) ? errors : 1 ;
-  nbytes = -errors ;
-  goto end ;
+  return -errors ;
 }
 #undef ID
-
-// test filter id = 254, scale data and add offset
-// with PIPE_VALIDATE, the only needed arguments are flags and meta_in, all other arguments could be NULL
-// with PIPE_FWDSIZES, flags, dims, meta_in, meta_out are used, all other arguments could be NULL
-ssize_t pipe_filter_254_old(uint32_t flags, int *dims, filter_meta *meta_in, pipe_buffer *buf, wordstream *stream_out){
-  int nval, i, esize, errors = 0 ;
-  ssize_t nbytes = 0 ;
-  int32_t *data ;
-  struct meta{
-    FILTER_PROLOG ;           // used for meta_out in forward mode
-    int32_t factor ;
-    int32_t offset ;
-  } *m_out, meta_out ;             // type used by the filter API
-
-  if(buf != NULL) data = (int32_t *) buf->buffer ;
-// fprintf(stderr, "entering pipe_filter_254, flags = %8.8x\n", flags);
-  if(meta_in == NULL)          goto error ;
-  if(meta_in->id != 254)       goto error ;   // wrong ID
-  switch(flags & (PIPE_VALIDATE | PIPE_FORWARD | PIPE_REVERSE | PIPE_FWDSIZES)) {  // mutually exclusive flags
-
-    case PIPE_FWDSIZES:                      // get worst case estimates of meta_out and buffer sizes (PIPE_FORWARD mode)
-      nbytes = filter_data_values(dims) ;      // get data dimensions
-      nbytes *= PIPE_DATA_SIZE(dims) ;       // will return "worst case" size of output data in bytes
-// fprintf(stderr, "pipe_filter_254 PIPE_FWDSIZES size = %d, nbytes = %ld\n", meta_out.size, nbytes) ;
-      break ;
-
-    case PIPE_VALIDATE:                      // validate input flags for eventual call in PIPE_FORWARD mode
-      if(meta_in->size <  3)   errors++ ;
-      if(meta_in->meta[0].i == 0 && meta_in->meta[1].i == 0) errors++ ;   // cannot be both 0
-      nbytes = errors ? -errors : 3 ;         // if no errors, return length needed for meta_out
-// fprintf(stderr, "pipe_filter_254 PIPE_VALIDATE errors = %d, nbytes = %ld\n", errors, nbytes) ;
-      break ;
-
-    // NOTE: PIPE_REVERSE with meta_in, buf, or stream_out == NULL could indicate PIPE_FWDSIZES
-    case PIPE_REVERSE:                       // inverse filter
-      m_out = (struct meta *) meta_in ;
-fprintf(stderr, "pipe_filter_254 PIPE_REVERSE\n") ;
-      if(m_out->size <  3)   goto error ;   // not enough space for metadata
-      nval = filter_data_values(dims) ;         // get data size
-      nbytes = nval * sizeof(uint32_t) ;
-      int32_t factor = m_out->factor ;   // get metadata prepared during the forward filter pass
-      int32_t offset = m_out->offset ;
-      for(i=0 ; i<nval ; i++) data[i] = (data[i] - offset) / factor ;
-      break ;
-
-    // NOTE: PIPE_FORWARD with buf == NULL or stream_out == NULL could indicate PIPE_VALIDATE
-    case PIPE_FORWARD:                       // forward filter
-fprintf(stderr, "pipe_filter_254 PIPE_FORWARD\n") ;
-      if(buf == NULL || stream_out == NULL){   // validation call
-        if(meta_in->size <  3)   nbytes-- ;
-        if(meta_in->meta[0].i == 0 && meta_in->meta[1].i == 0) nbytes-- ;   // cannot be both 0
-        if(nbytes != 0) goto end ;
-      }
-      nval = filter_data_values(dims) ;         // get data size
-      // TODO: check that data element size is 4 bytes
-      // cast meta_in to actual metadata type for this filter
-      filter_254 *meta = (filter_254 *) meta_in ;
-      // execute filter
-      for(i=0 ; i<nval ; i++) data[i] = data[i] * meta->factor + meta->offset ;
-      // prepare metadata for reverse filter
-      meta_out.id    = 254 ;
-      meta_out.flags = 0 ;
-      meta_out.size  = 3 ;
-      meta_out.factor = meta->factor ;
-      meta_out.offset = meta->offset ;
-      // TODO check that there is space in stream_out for insertion
-      ws32_insert(stream_out, (uint32_t *)(&meta_out), W32_SIZEOF(meta_out)) ;
-      // number of used bytes in data buffer
-      nbytes = nval * sizeof(uint32_t) ;
-      break ;
-
-    default:
-fprintf(stderr, "pipe_filter_254 invalid flags\n") ;
-      goto error ; // invalid flag combination or none of the needed flags
-  }
-
-end:
-// fprintf(stderr, "pipe_filter_254 exiting, nbytes = %ld\n", nbytes) ;
-  return nbytes ;
-
-error :
-// fprintf(stderr, "pipe_filter_254 ERROR, nbytes = %ld\n", nbytes) ;
-  return (nbytes = -1) ;
-}
-
-// test filter id = 253, delta filter
-ssize_t pipe_filter_253(uint32_t flags, int *dims, filter_meta *meta_in, pipe_buffer *buf, wordstream *stream_out){
-  ssize_t nbytes ;
-error :
-  return (nbytes = -1) ;
-}
 
 #if 0
 ssize_t pack_filter_253(pack_flags flags, pack_meta *meta_in, pipe_buffer *buf_in, pack_meta *meta_out, pipe_buffer *buf_out){
@@ -461,9 +428,11 @@ fprintf(stderr, "run_pipe_filters : dsize = %d, ndims = %d, ndata = %d, used = %
     pipe_filter_pointer fn = pipe_filter_address(id) ;
     pipe_filter_pointer fn2 = pipe_filter_254 ;
 fprintf(stderr, "run_pipe_filters : filter %p, id = %d, address = %p(%p)\n", meta, id, fn, fn2) ;
+
     status  = (*fn)(PIPE_VALIDATE, NULL, list[i], NULL, NULL) ;
 fprintf(stderr, "                   meta out size = %ld\n", status) ;
-    outsize = (*fn)(PIPE_FWDSIZES, dims, list[i], NULL, NULL) ;
+
+    outsize = (*fn)(PIPE_FWDSIZE, dims, list[i], NULL, NULL) ;
 fprintf(stderr, "                   meta out size = %d, outsize = %ld\n", meta_out.size, outsize) ;
     m_out = ALLOC_META(meta_out.size) ;
     m_out->size = meta_out.size ;
