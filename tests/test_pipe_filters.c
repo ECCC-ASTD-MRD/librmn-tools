@@ -31,11 +31,14 @@ int main(int argc, char **argv){
   int i ;
   int dims[] = { 2, NPTSI, NPTSJ } ;
   ssize_t psize ;
-  pipe_buffer pbuf = pipe_buffer_null ;
+  wordstream stream_out ;
+  array_descriptor ad = array_null ;
+
+  ws32_create(&stream_out, NULL, 4096, 0, WS32_CAN_REALLOC) ;
 
   start_of_test("C pipe filters test") ;
-  pipe_filter_init() ;                                    // initialize filter table
-  i = filter_register(254, "demo254", pipe_filter_254) ;  // change name of filter 254
+  pipe_filters_init() ;                                   // initialize filter table
+  i = pipe_filter_register(254, "demo254", pipe_filter_254) ;  // change name of filter 254
   fprintf(stderr, "filter_register demo254 status = %d, name = '%s', address = %p\n", i, pipe_filter_name(254), pipe_filter_address(254)) ;
 
   filter1.factor = 2 ; filter1.offset = 100 ;
@@ -45,8 +48,13 @@ int main(int argc, char **argv){
   for(i = 0 ; i < NPTSJ*NPTSI ; i++) fprintf(stderr, "%6d ", data[i]) ; fprintf(stderr, "\n") ;
 
   fprintf(stderr, "data address = %p\n", data) ;
-  psize = run_pipe_filters(PIPE_FORWARD, dims, data, filters, &pbuf) ;
+
+  ad = (array_descriptor) { .nbytes = 4, .adim.ndims = 2, .data = data, .adim.nx[0] = NPTSI, .adim.nx[1] = NPTSJ } ;
+  psize = run_pipe_filters(PIPE_FORWARD, &ad, filters, &stream_out) ;
   fprintf(stderr, "psize = %ld\n", psize);
   for(i = 0 ; i < NPTSJ*NPTSI ; i++) fprintf(stderr, "%6d ", data[i]) ; fprintf(stderr, "\n") ;
+
+  fprintf(stderr, "words filled in stream_out = %d\n", WS32_FILLED(stream_out)) ;
+  for(i = 0 ; i < NPTSJ*NPTSI+4 ; i++) fprintf(stderr, "%6d ", stream_out.buf[i+6]) ; fprintf(stderr, "\n") ;
 //   ssize_t run_pipe_filters(int flags, int *dims, void *data, filter_list list, pipe_buffer *buffer);
 }

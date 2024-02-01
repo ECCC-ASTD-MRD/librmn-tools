@@ -35,13 +35,49 @@ typedef uint64_t pack_flags ;
 #define PIPE_VALIDATE   32
 #define PIPE_FWDSIZE    64
 
-#define PIPE_DATA_08     (1 << 16)
-#define PIPE_DATA_16     (2 << 16)
-#define PIPE_DATA_32     (4 << 16)
-#define PIPE_DATA_64     (8 << 16)
-// size of pipe data elements in bytes
-#define PIPE_DATA_SIZE(dims) ( (((dims)[0] >> 16) == 0) ? 4 : ((dims)[0] >> 16) )
-#define PIPE_DATA_NDIMS(dims)  ((dims)[0] & 0x7)
+// #define PIPE_DATA_08     (1 << 16)
+// #define PIPE_DATA_16     (2 << 16)
+// #define PIPE_DATA_32     (4 << 16)
+// #define PIPE_DATA_64     (8 << 16)
+// // size of pipe data elements in bytes
+// #define PIPE_DATA_SIZE(dims) ( (((dims)[0] >> 16) == 0) ? 4 : ((dims)[0] >> 16) )
+
+#define ARRAY_DESCRIPTOR_MAXDIMS 5
+// typedef struct{
+//   int32_t nbytes ;
+//   int32_t ndims ;
+//   int32_t nx[ARRAY_DESCRIPTOR_MAXDIMS] ;
+// } array_descriptor_dimensions ;
+typedef struct{
+  int32_t ndims ;
+  int32_t nx[ARRAY_DESCRIPTOR_MAXDIMS] ;
+} array_dimensions ;
+typedef struct{
+  void *data ;
+  int32_t nbytes ;
+  union{
+    int32_t dims[ARRAY_DESCRIPTOR_MAXDIMS+1] ;
+    array_dimensions adim ;
+  };
+} array_descriptor ;
+array_descriptor array_null = { .data = NULL, .dims = {[0 ... ARRAY_DESCRIPTOR_MAXDIMS] = 0 } } ;
+
+#define PIPE_DATA_NDIMS(dims)  ((dims)[0])
+#define PIPE_DATA_SIZE(dims)   ((dims)[1])
+
+static int pipe_data_values(array_descriptor *ad){
+  int nval = 1, i, ndims = ad->adim.ndims ;
+  if(ndims < 0 || ndims > ARRAY_DESCRIPTOR_MAXDIMS) return -1 ;
+  for(i=0 ; i<ndims ; i++) nval *= ad->adim.nx[i] ;
+  return nval ;
+}
+
+static int pipe_data_size(array_descriptor *ad){
+  int nval = 1, i, ndims = ad->adim.ndims ;
+  if(ndims < 0 || ndims > ARRAY_DESCRIPTOR_MAXDIMS) return -1 ;
+  for(i=0 ; i<ndims ; i++) nval *= ad->adim.nx[i] ;
+  return nval * ad->nbytes ;
+}
 
 typedef struct{
   size_t used ;            // number of bytes used in buffer
@@ -50,6 +86,25 @@ typedef struct{
   uint32_t flags ;         // usage flags for buffer
 } pipe_buffer ;
 pipe_buffer pipe_buffer_null = { .used = 0, .max_size = 0, .buffer = NULL, .flags = 0 } ;
+
+static size_t pipe_buffer_bytes_used(pipe_buffer *p){
+  return p->used / sizeof(uint32_t) ;
+}
+
+static size_t pipe_buffer_bytes_free(pipe_buffer *p){
+  return (p->max_size - p->used) / sizeof(uint32_t) ;
+}
+
+static size_t pipe_buffer_words_used(pipe_buffer *p){
+  return p->used / sizeof(uint32_t) ;
+}
+static size_t pipe_buffer_words_free(pipe_buffer *p){
+  return (p->max_size - p->used) / sizeof(uint32_t) ;
+}
+
+static void *pipe_buffer_data(pipe_buffer *p){
+  return p->buffer ;
+}
 
 // translate dims[] into number of values
 static int filter_data_values(int *dims){
@@ -76,7 +131,12 @@ end:
 // size  : size of the struct in 32 bit units (includes 32 bit prolog)
 // used  : used space in 32 bit units
 // flags : local flags for this filter
+#if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
 #define FILTER_PROLOG uint32_t id:8, flags:2, size:22
+#endif
+#if __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
+#define FILTER_PROLOG uint32_t size:22, flags:2, id:8
+#endif
 
 // check that size of filter struct is a multiple of 32 bits
 #define FILTER_SIZE_OK(name) (W32_SIZEOF(name)*sizeof(uint32_t) == sizeof(name))
@@ -103,9 +163,16 @@ typedef filter_meta *filter_list[] ;  // input metadata for all the pipe filters
 // ----------------- id = 000, null filter (last filter) -----------------
 typedef struct{
   FILTER_PROLOG ;
+  array_dimensions adim ;
 } FILTER_TYPE(000) ;
 static FILTER_TYPE(000) FILTER_NULL(000) = {FILTER_BASE(000) } ;
 CT_ASSERT(FILTER_SIZE_OK(FILTER_TYPE(000)))
+
+typedef struct{
+  FILTER_PROLOG ;
+  int32_t meta[W32_SIZEOF(filter_000)] ;
+} FILTER_TYPE(255) ;
+static FILTER_TYPE(255) filter_255_null = {FILTER_BASE(255) } ;
 
 // ----------------- id = 100, linear quantizer -----------------
 typedef struct{
@@ -154,7 +221,6 @@ CT_ASSERT(FILTER_SIZE_OK(FILTER_TYPE(254)))
 //         PIPE_FWDSIZES : "worst case" size of filter output, negative value in case of error(s)
 //         PIPE_FORWARD  : size of data output in bytes, negative value in case of error(s)
 //         PIPE_REVERSE  : size of data output in bytes, negative value in case of error(s)
-typedef ssize_t old_pipe_filter(uint32_t flags, int *dims, filter_meta *meta_in, pipe_buffer *buffer, filter_meta *meta_out) ;
 typedef ssize_t pipe_filter(uint32_t flags, int *dims, filter_meta *meta_in, pipe_buffer *buffer, wordstream *meta_out) ;
 typedef pipe_filter *pipe_filter_pointer ;
 
@@ -162,12 +228,14 @@ pipe_filter FILTER_FUNCTION(000) ;
 pipe_filter FILTER_FUNCTION(001) ;
 pipe_filter FILTER_FUNCTION(254) ;
 
-ssize_t filter_validate(filter_meta *meta_in);
-int filter_is_defined(int id);
-int filter_register(int id, char *name, pipe_filter_pointer fn);
-void pipe_filter_init(void);
+ssize_t pipe_filter_validate(filter_meta *meta_in);
+int pipe_filter_is_defined(int id);
+int pipe_filter_register(int id, char *name, pipe_filter_pointer fn);
+void pipe_filters_init(void);
 pipe_filter_pointer pipe_filter_address(int id);
 char *pipe_filter_name(int id);
-ssize_t run_pipe_filters(int flags, int *dims, void *data, filter_list list, pipe_buffer *buffer);
+
+ssize_t run_pipe_filters(int flags, array_descriptor *data_in, filter_list list, wordstream *meta_out);
+// ssize_t run_pipe_filters_(int flags, int *dims, void *data, filter_list list, wordstream *meta_out, pipe_buffer *buffer);
 
 #endif // ! defined(PIPE_FORWARD)

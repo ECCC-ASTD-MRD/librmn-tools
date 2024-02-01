@@ -36,13 +36,14 @@ static filter_table_element filter_table[MAX_FILTERS] ;
 // PIPE_VALIDATE and PIPE_FWDSIZE : flags, dims, meta_in are used, all other arguments may be NULL
 ssize_t FILTER_FUNCTION(ID)(uint32_t flags, int *dims, filter_meta *meta_in, pipe_buffer *buf, wordstream *stream_out){
   // the definition of FILTER_TYPE(ID) (filter_xxx) will come from pipe_filters.h or an appropriate include file
-  ssize_t nbytes = 0, nval ;
+  ssize_t nbytes = 0 ;
   int errors = 0 ;
   typedef struct{    // used as m_out in forward mode, used as m_inv for the reverse filter
     FILTER_PROLOG ;
     // add specific components here
   } filter_inverse ;
   filter_inverse *m_inv, m_out ;
+  FILTER_TYPE(ID) *m_fwd ;
 
   if(meta_in == NULL)          goto error ;   // outright error
   if(meta_in->id != ID)        goto error ;   // wrong ID
@@ -67,7 +68,7 @@ ssize_t FILTER_FUNCTION(ID)(uint32_t flags, int *dims, filter_meta *meta_in, pip
 
     case PIPE_VALIDATE:                            // validate input to forward filter
     case PIPE_FORWARD:                             // forward filter
-      FILTER_TYPE(ID) *m_fwd = (FILTER_TYPE(ID) *) meta_in ;        // cast meta_in to input metadata type for this filter
+      m_fwd = (FILTER_TYPE(ID) *) meta_in ;        // cast meta_in to input metadata type for this filter
       if(m_fwd->size < W32_SIZEOF(FILTER_TYPE(ID))) errors++ ;      // wrong size
       //
       // check that meta_in is valid, increment errors if errors are detected
@@ -115,6 +116,7 @@ ssize_t FILTER_FUNCTION(ID)(uint32_t flags, int *dims, filter_meta *meta_in, pip
     // add specific components here
   } filter_inverse ;
   filter_inverse *m_inv, m_out ;
+  FILTER_TYPE(ID) *m_fwd ;
 
   if(meta_in == NULL)          goto error ;   // outright error
   if(meta_in->id != ID)        goto error ;   // wrong ID
@@ -140,7 +142,7 @@ ssize_t FILTER_FUNCTION(ID)(uint32_t flags, int *dims, filter_meta *meta_in, pip
 
     case PIPE_VALIDATE:                            // validate input to forward filter
     case PIPE_FORWARD:                             // forward filter
-      FILTER_TYPE(ID) *m_fwd = (FILTER_TYPE(ID) *) meta_in ;        // cast meta_in to input metadata type for this filter
+      m_fwd = (FILTER_TYPE(ID) *) meta_in ;        // cast meta_in to input metadata type for this filter
       if(m_fwd->size < W32_SIZEOF(FILTER_TYPE(ID))) errors++ ;      // wrong size
       //
       // check that meta_in is valid, increment errors if errors are detected
@@ -191,6 +193,7 @@ ssize_t FILTER_FUNCTION(ID)(uint32_t flags, int *dims, filter_meta *meta_in, pip
     int32_t offset ;
   } filter_inverse ;
   filter_inverse *m_inv, m_out ;
+  FILTER_TYPE(ID) *m_fwd ;
 
   if(meta_in == NULL)          goto error ;   // outright error
   if(meta_in->id != ID)        goto error ;   // wrong ID
@@ -223,7 +226,7 @@ ssize_t FILTER_FUNCTION(ID)(uint32_t flags, int *dims, filter_meta *meta_in, pip
 
     case PIPE_VALIDATE:                            // validate input to forward filter
     case PIPE_FORWARD:                             // forward filter
-      FILTER_TYPE(ID) *m_fwd = (FILTER_TYPE(ID) *) meta_in ; // cast meta_in to input metadata type for this filter
+      m_fwd = (FILTER_TYPE(ID) *) meta_in ; // cast meta_in to input metadata type for this filter
       if(m_fwd->size < W32_SIZEOF(FILTER_TYPE(ID))) errors++ ;      // wrong size
       //
       // check that meta_in is valid, increment errors if errors are detected
@@ -341,7 +344,7 @@ error :
 // validate meta_in, return 0 if valid, negative number if errors
 // meta_in [IN] : filter input metadata to validate
 // function returns -1 in case of error, non negative value from filter if O.K.
-ssize_t filter_validate(filter_meta *meta_in){
+ssize_t pipe_filter_validate(filter_meta *meta_in){
   uint32_t id = meta_in->id ;
   if(id > (MAX_FILTERS -1))       goto error ;      // invalid ID
   if(filter_table[id].fn == NULL) goto error ;      // undefined filter ID
@@ -366,7 +369,7 @@ char *pipe_filter_name(int id){
 
 // id [IN] : id to check for validity
 // return 0 if filter with ID is defined, -1 if invalid ID, 1 if filter is not defined
-int filter_is_defined(int id){
+int pipe_filter_is_defined(int id){
   if(id > MAX_FILTERS-1) return -1 ;               // invalid id
   return (filter_table[id].fn == NULL) ? 1 : 0 ;   // 0 if defined, 1 if not
 }
@@ -375,7 +378,7 @@ int filter_is_defined(int id){
 // id     [IN] : id for this pipe filter (0 < ID < MAX_FILTERS)
 // name   [IN] : name of pipe filter (ta most MAX_FILTER_TYPE characters)
 // fn     [IN] : address of pipe filter function
-int filter_register(int id, char *name, pipe_filter_pointer fn){
+int pipe_filter_register(int id, char *name, pipe_filter_pointer fn){
 fprintf(stderr, "filter_register : '%s' at %p\n", name, fn) ;
   if(id >= MAX_FILTERS || id <= 0) return -1 ;                             // bad id
   if(filter_table[id].fn != 0 && filter_table[id].fn != fn) return -1 ;    // id already in use for another function
@@ -391,54 +394,74 @@ int filter_list_valid(filter_list list){
   int i ;
 
   for(i=0 ; list[i] != NULL ; i++){                    // loop until NULL terminator
-    if(filter_validate(list[i]) != 0) return -(i+1) ;  // error at filter i
+    if(pipe_filter_validate(list[i]) != 0) return -(i+1) ;  // error at filter i
   }
   return i - 1 ;                                       // number of valid filters
 }
 
-void pipe_filter_init(void){
-  filter_register(254, "test254", pipe_filter_254) ;
+void pipe_filters_init(void){
+  pipe_filter_register(254, "test254", pipe_filter_254) ;
 //   pack_filter_register(254, "test253", pack_filter_253) ;
 //   pack_filter_register(001, "linear1", pack_filter_001) ;
 }
 
 // ssize_t pipe_filter_253(uint32_t flags, int *dims, filter_meta *meta_in, pipe_buffer *buf, filter_meta *meta_out)
 // run a filter cascade on input data
-// flags   [IN] : flags for the cascade
-// dims    [IN] : dimensions of input data (input data is assumed to be 32 bit)
-// list    [IN] : list of filters to be run
-// buffer [OUT] : cascade result
-ssize_t run_pipe_filters(int flags, int *dims, void *data, filter_list list, pipe_buffer *buffer){
+// flags       [IN] : flags for the cascade
+// dims        [IN] : dimensions of input data (input data is assumed to be 32 bit)
+// data        [IN] : input data (forward mode)
+//            [OUT] : output data (reverse mode)
+// list        [IN] : list of filters to be run
+// stream_out [OUT] : cascade result in forward mode
+// ssize_t run_pipe_filters_(int flags, int *dims, void *data, filter_list list, wordstream *stream_out, pipe_buffer *buffer){
+ssize_t run_pipe_filters(int flags, array_descriptor *data_in, filter_list list, wordstream *stream_out){
   int i ;
-  int dsize = PIPE_DATA_SIZE(dims) ;
-  int ndata = filter_data_values(dims) ;
-  int ndims = PIPE_DATA_NDIMS(dims) ;
+  int dsize = data_in->nbytes ; ;
+  int ndata = pipe_data_values(data_in) ;
+  int ndims = data_in->adim.ndims ;
   pipe_buffer pbuf ;
   ssize_t outsize, status ;
   filter_meta meta_out ;
   filter_meta *m_out ;
-  wordstream stream_out ;
+  filter_000 meta_000 ;
+  meta_000.adim = data_in->adim ;
+  int32_t *dims = (int32_t *) (&(meta_000.adim)) ;
+  filter_255 meta_end = filter_255_null ;
 
-  pbuf.buffer = data ;
+//   pbuf.buffer = data_in->data ;
   pbuf.max_size = pbuf.used = ndata * dsize ;
-fprintf(stderr, "run_pipe_filters : dsize = %d, ndims = %d, ndata = %d, used = %ld, address = %p\n\n", dsize, ndims, ndata, pbuf.max_size, pbuf.buffer) ;
+  pbuf.buffer = malloc(pbuf.max_size) ;
+  memcpy(pbuf.buffer, data_in->data, pbuf.max_size) ;
+      fprintf(stderr, "run_pipe_filters : dsize = %d, ndims = %d, ndata = %d, used = %ld, address = %p\n\n", 
+              dsize, ndims, ndata, pbuf.max_size, pbuf.buffer) ;
   for(i=0 ; list[i] != NULL ; i++){
     filter_meta *meta = list[i] ;
     int id = meta->id ;
     pipe_filter_pointer fn = pipe_filter_address(id) ;
     pipe_filter_pointer fn2 = pipe_filter_254 ;
-fprintf(stderr, "run_pipe_filters : filter %p, id = %d, address = %p(%p)\n", meta, id, fn, fn2) ;
+        fprintf(stderr, "run_pipe_filters : filter %p, id = %d, address = %p(%p)\n", meta, id, fn, fn2) ;
 
     status  = (*fn)(PIPE_VALIDATE, NULL, list[i], NULL, NULL) ;
-fprintf(stderr, "                   meta out size = %ld\n", status) ;
+        fprintf(stderr, "                   meta out size = %ld\n", status) ;
 
     outsize = (*fn)(PIPE_FWDSIZE, dims, list[i], NULL, NULL) ;
-fprintf(stderr, "                   meta out size = %d, outsize = %ld\n", meta_out.size, outsize) ;
+      fprintf(stderr, "                   meta out size = %d, outsize = %ld\n", meta_out.size, outsize) ;
     m_out = ALLOC_META(meta_out.size) ;
     m_out->size = meta_out.size ;
-    outsize = (*fn) (flags, dims, list[i], &pbuf, &stream_out) ;
-fprintf(stderr, "                   meta out size = %d, outsize = %ld\n", m_out->size, outsize) ;
+    outsize = (*fn) (flags, dims, list[i], &pbuf, stream_out) ;
+        fprintf(stderr, "                   meta out size = %d, outsize = %ld\n", m_out->size, outsize) ;
   }
+  meta_end.size = W32_SIZEOF(filter_meta)+ndims+1 ;
+  for(i=0 ; i<ndims+1 ; i++) meta_end.meta[i] = dims[i] ;
+  ws32_insert(stream_out, &meta_end, meta_end.size) ;
+//     fprintf(stderr, " ndims = %d, ", dims[0]) ;
+//     for(i=0 ; i<dims[0] ; i++) fprintf(stderr, " %d", dims[i+1]) ;
+//     fprintf(stderr, "\n output = ");
+//     int32_t *dbuf = (int32_t *)pbuf.buffer ;
+//     for(i=0 ; i<pipe_buffer_words_used(&pbuf) ; i++) fprintf(stderr, "%d ", dbuf[i]) ;
+//     fprintf(stderr, "\n");
+  ws32_insert(stream_out, pbuf.buffer, pipe_buffer_words_used(&pbuf)) ;
+//   memcpy(data_in->data, pbuf.buffer, pbuf.used) ;
   return 0 ;
 }
 

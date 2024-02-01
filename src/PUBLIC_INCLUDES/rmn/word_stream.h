@@ -87,7 +87,7 @@ static wordstream null_wordstream = { .buf = NULL, .limit = 0, .in = 0, .out = 0
 // mem       [IN] : memory address (if NULL, use malloc)
 // nwds      [IN] : number of 32 bit words that the stream has to be able to contain
 // in        [IN] : if mem is not NULL, set insertion index at position in (ignored otherwise)
-// options   [IN] : 0 = no options possible options : WS32_CAN_REALLOC
+// options   [IN] : 0 = no options, possible options : WS32_CAN_REALLOC
 // return the address of the wordstream buffer (NULL in case of error)
 static uint32_t *ws32_create(wordstream *stream, void *mem, uint32_t nwds, uint32_t in, uint32_t options){
   if(WS32_MARKER_VALID(*stream)) return NULL ;        // existing stream
