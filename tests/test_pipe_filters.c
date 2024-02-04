@@ -33,10 +33,30 @@ int main(int argc, char **argv){
   ssize_t psize ;
   wordstream stream_out ;
   array_descriptor ad = array_null ;
+  array_dimensions ad1, ad2 ;
+  filter_dim fdim ;
+  uint32_t fsize ;
 
   ws32_create(&stream_out, NULL, 4096, 0, WS32_CAN_REALLOC) ;
 
   start_of_test("C pipe filters test") ;
+
+  // test dimension encoding / decoding
+  for(i=1 ; i<=ARRAY_DESCRIPTOR_MAXDIMS ; i++){
+    ad1 = ad2 = array_dimensions_null ;
+    ad1.ndims = i ;
+    int j ;
+    for(j=0 ; j<i ; j++) ad1.nx[j] = 9 - j ;
+    fsize = filter_dimensions_encode(&ad1, (filter_meta *)(&fdim)) ;
+    fprintf(stderr, "encoded dimensions: fsize = %1d", fsize) ;
+    fprintf(stderr, ", ndim = %1d", ad1.ndims) ;
+    for(j=0 ; j<ad1.ndims ; j++) fprintf(stderr, ",%2d", ad1.nx[j]) ; fprintf(stderr, "\n");
+    filter_dimensions_decode(&ad2, (filter_meta *)(&fdim)) ;
+    fprintf(stderr, "decoded dimensions:          ") ;
+    fprintf(stderr, ", ndim = %1d", ad2.ndims) ;
+    for(j=0 ; j<ARRAY_DESCRIPTOR_MAXDIMS ; j++) fprintf(stderr, ",%2d", ad2.nx[j]) ; fprintf(stderr, "\n");
+  }
+
   pipe_filters_init() ;                                   // initialize filter table
   i = pipe_filter_register(254, "demo254", pipe_filter_254) ;  // change name of filter 254
   fprintf(stderr, "filter_register demo254 status = %d, name = '%s', address = %p\n", i, pipe_filter_name(254), pipe_filter_address(254)) ;
@@ -49,12 +69,14 @@ int main(int argc, char **argv){
 
   fprintf(stderr, "data address = %p\n", data) ;
 
-  ad = (array_descriptor) { .nbytes = 4, .adim.ndims = 2, .data = data, .adim.nx[0] = NPTSI, .adim.nx[1] = NPTSJ } ;
+  ad = (array_descriptor) { .adim.esize = 4, .adim.ndims = 2, .data = data, .adim.nx[0] = NPTSI, .adim.nx[1] = NPTSJ } ;
   psize = run_pipe_filters(PIPE_FORWARD, &ad, filters, &stream_out) ;
   fprintf(stderr, "psize = %ld\n", psize);
   for(i = 0 ; i < NPTSJ*NPTSI ; i++) fprintf(stderr, "%6d ", data[i]) ; fprintf(stderr, "\n") ;
 
   fprintf(stderr, "words filled in stream_out = %d\n", WS32_FILLED(stream_out)) ;
-  for(i = 0 ; i < NPTSJ*NPTSI+4 ; i++) fprintf(stderr, "%6d ", stream_out.buf[i+6]) ; fprintf(stderr, "\n") ;
+  for(i = 0 ; i < 10 ; i++) fprintf(stderr, "%8.8x ", stream_out.buf[i]) ;
+  fprintf(stderr, "\n");
+  for(i = 0 ; i < NPTSJ*NPTSI ; i++) fprintf(stderr, "%6d ", stream_out.buf[i+10]) ; fprintf(stderr, "\n") ;
 //   ssize_t run_pipe_filters(int flags, int *dims, void *data, filter_list list, pipe_buffer *buffer);
 }

@@ -33,8 +33,8 @@ static filter_table_element filter_table[MAX_FILTERS] ;
 // dummy filter, can be used as a template for new filters
 // 000 MUST be replaced by a 3 digit integer between 001 and 254
 #define ID 000
-// PIPE_VALIDATE and PIPE_FWDSIZE : flags, dims, meta_in are used, all other arguments may be NULL
-ssize_t FILTER_FUNCTION(ID)(uint32_t flags, int *dims, filter_meta *meta_in, pipe_buffer *buf, wordstream *stream_out){
+// PIPE_VALIDATE and PIPE_FWDSIZE : flags, ad, meta_in are used, buf and stream_out may be NULL
+ssize_t FILTER_FUNCTION(ID)(uint32_t flags, array_dimensions *ad, filter_meta *meta_in, pipe_buffer *buf, wordstream *stream_out){
   // the definition of FILTER_TYPE(ID) (filter_xxx) will come from pipe_filters.h or an appropriate include file
   ssize_t nbytes = 0 ;
   int errors = 0 ;
@@ -106,8 +106,8 @@ error :
 // ----------------- id = 100, linear quantizer -----------------
 
 #define ID 100
-// PIPE_VALIDATE and PIPE_FWDSIZE : flags, dims, meta_in are used, all other arguments may be NULL
-ssize_t FILTER_FUNCTION(ID)(uint32_t flags, int *dims, filter_meta *meta_in, pipe_buffer *buf, wordstream *stream_out){
+// PIPE_VALIDATE and PIPE_FWDSIZE : flags, ad, meta_in are used, all other arguments may be NULL
+ssize_t FILTER_FUNCTION(ID)(uint32_t flags, array_dimensions *ad, filter_meta *meta_in, pipe_buffer *buf, wordstream *stream_out){
   // the definition of FILTER_TYPE(ID) (filter_xxx) will come from pipe_filters.h or an appropriate include file
   ssize_t nbytes = 0, nval ;
   int errors = 0 ;
@@ -128,7 +128,7 @@ ssize_t FILTER_FUNCTION(ID)(uint32_t flags, int *dims, filter_meta *meta_in, pip
       m_inv = (filter_inverse *) meta_in ;
       if(flags & PIPE_FWDSIZE) {              // get worst case size estimate for output data
         // insert appropriate code here
-        nbytes = filter_data_values(dims) * sizeof(uint32_t) ;
+        nbytes = filter_data_values(ad) * sizeof(int32_t) ;
         goto end ;
       }
       if(m_inv->size < W32_SIZEOF(filter_inverse)) errors++ ;       // wrong size
@@ -181,9 +181,9 @@ error :
 
 // test filter id = 254, scale data and add offset
 // with PIPE_VALIDATE, the only needed arguments are flags and meta_in, all other arguments could be NULL
-// with PIPE_FWDSIZE, flags, dims, meta_in, meta_out are used, all other arguments could be NULL
+// with PIPE_FWDSIZE, flags, ad, meta_in, meta_out are used, all other arguments could be NULL
 #define ID 254
-ssize_t FILTER_FUNCTION(ID)(uint32_t flags, int *dims, filter_meta *meta_in, pipe_buffer *buf, wordstream *stream_out){
+ssize_t FILTER_FUNCTION(ID)(uint32_t flags, array_dimensions *ad, filter_meta *meta_in, pipe_buffer *buf, wordstream *stream_out){
   ssize_t nbytes = 0 ;
   int errors = 0, nval ;
   typedef struct{    // used as m_out in forward mode, used as m_inv for the reverse filter
@@ -205,7 +205,7 @@ ssize_t FILTER_FUNCTION(ID)(uint32_t flags, int *dims, filter_meta *meta_in, pip
       m_inv = (filter_inverse *) meta_in ;
       if(flags & PIPE_FWDSIZE) {              // get worst case estimate for output data
         // insert appropriate code here
-        nbytes = filter_data_values(dims) * sizeof(uint32_t) ;
+        nbytes = filter_data_values(ad) * sizeof(int32_t) ;
         goto end ;
       }
       if(m_inv->size < W32_SIZEOF(filter_inverse)) errors++ ;       // wrong size
@@ -217,7 +217,7 @@ ssize_t FILTER_FUNCTION(ID)(uint32_t flags, int *dims, filter_meta *meta_in, pip
       // insert appropriate inverse filter code here
       {
         int i ;
-        nval = filter_data_values(dims) ;       // get data size
+        nval = filter_data_values(ad) ;       // get data size
         int32_t *data = (int32_t *) buf->buffer ;
         for(i=0 ; i<nval ; i++) data[i] = (data[i] - m_inv->offset) / m_inv->factor ;
       }
@@ -241,7 +241,7 @@ ssize_t FILTER_FUNCTION(ID)(uint32_t flags, int *dims, filter_meta *meta_in, pip
       // insert appropriate filter code here
       {
         int i ;
-        nval = filter_data_values(dims) ;       // get data size
+        nval = filter_data_values(ad) ;       // get data size
         int32_t *data = (int32_t *) buf->buffer ;
         for(i=0 ; i<nval ; i++) data[i] = data[i] * m_fwd->factor + m_fwd->offset ;
       }
@@ -249,12 +249,12 @@ ssize_t FILTER_FUNCTION(ID)(uint32_t flags, int *dims, filter_meta *meta_in, pip
       m_inv = &m_out ;    // output metadata
       *m_inv = (filter_inverse) {.size = W32_SIZEOF(filter_inverse), .id = ID, .flags = 0 } ;
       // prepare metadata for inverse filter
-      m_out.factor = m_fwd->factor ;
-      m_out.offset = m_fwd->factor ;
+      m_inv->factor = m_fwd->factor ;
+      m_inv->offset = m_fwd->offset ;
       //
       ws32_insert(stream_out, (uint32_t *)(m_inv), W32_SIZEOF(filter_inverse)) ; // insert into stream_out
       // set nbytes to output size
-      nbytes = filter_data_values(dims) * sizeof(uint32_t) ;
+      nbytes = filter_data_values(ad) * sizeof(uint32_t) ;
       break ;
 
     default:
@@ -405,6 +405,58 @@ void pipe_filters_init(void){
 //   pack_filter_register(001, "linear1", pack_filter_001) ;
 }
 
+// encode dimensions into a filter_meta struct
+int32_t filter_dimensions_encode(array_dimensions *ad, filter_meta *fm){
+  uint32_t i, ndims = ad->ndims, esize = ad->esize ;
+  uint32_t maxdim = ad->nx[0] ;
+
+  for(i=1 ; i<ndims ; i++) maxdim = (ad->nx[i] > maxdim) ? ad->nx[i] : maxdim ;  // largest dimension
+  if(maxdim < 256) {                     // 8 bits per value (ndims + 1 values)
+    fm->size = 1 + ((ndims+1+3) >> 2) ;  // size will be 2 or 3
+    fm->flags = 1 ;
+    fm->meta[0] = (ad->nx[0] << 24) | (ad->nx[1] << 16) | (ad->nx[2] << 8) | esize << 4 | ndims ;
+    if(ndims > 3) fm->meta[1] = (ad->nx[3] << 24) | (ad->nx[4] << 16) ;
+  }else if(maxdim < 65536){              // 16 bits per value (ndims + 1 values)
+    fm->size = 1 + ((ndims+1+1) >> 1) ;  // size will be 2, 3, or 4
+    fm->flags = 2 ;
+    fm->meta[0] = (ad->nx[0] << 16) | esize << 4 | ndims ;
+    if(ndims > 1) fm->meta[1] = (ad->nx[1] << 16) | ad->nx[2] ;
+    if(ndims > 3) fm->meta[2] = (ad->nx[3] << 16) | ad->nx[4] ;
+  }else{                                 // 32 bits per value
+    fm->size = 1 + ndims + 1 ;           // size will be 3, 4, 5, 6, or 7
+    fm->flags = 3 ;
+    fm->meta[0] =  esize << 4 | ndims ;
+    for(i=0 ; i<ndims ; i++) fm->meta[i+1] = ad->nx[i] ;
+  }
+// fprintf(stderr,"filter_dimensions_encode ndims %d flags %d", ndims, fm->flags);
+// for(i=0 ; i<fm->size-1 ; i++) fprintf(stderr," %8.8x", fm->meta[i]); fprintf(stderr,"\n") ;
+  return fm->size ;
+}
+
+// decode dimensions from a filter_meta struct
+void filter_dimensions_decode(array_dimensions *ad, filter_meta *fm){
+  uint32_t i, ndims, esize ;
+
+  *ad = array_dimensions_null ;
+  ndims = fm->meta[0] & 0xF ;
+  esize = (fm->meta[0] >> 4) & 0xF ;
+//   fprintf(stderr,"filter_dimensions_decode ndims %d flags %d", ndims, fm->flags);
+//   for(i=0 ; i<fm->size-1 ; i++) fprintf(stderr," %8.8x", fm->meta[i]); fprintf(stderr,"\n") ;
+  if(fm->flags == 1){
+    ad->nx[0] = fm->meta[0] >> 24 ; ad->nx[1] = (fm->meta[0] >> 16) & 0xFF ; ad->nx[2] = (fm->meta[0] >> 8) & 0xFF ; 
+    if(ndims > 3) { ad->nx[3] = fm->meta[1] >> 24 ; ad->nx[4] = (fm->meta[1] >> 16) & 0xFF ; }
+  }else if(fm->flags == 2){
+    ad->nx[0] = fm->meta[0] >> 16 ;
+    if(ndims > 1) {ad->nx[1] = fm->meta[1] >> 16 ; ad->nx[2] = fm->meta[1] & 0xFFFF ; } ;
+    if(ndims > 3) {ad->nx[3] = fm->meta[2] >> 16 ; ad->nx[4] = fm->meta[2] & 0xFFFF ; } ;
+  }else if(fm->flags == 3){
+    for(i=0 ; i<ndims ; i++) ad->nx[i] = fm->meta[i+1] ;
+  }
+  ad->ndims = ndims ;
+  ad->esize = esize ;
+  for(i=ndims ; i<ARRAY_DESCRIPTOR_MAXDIMS ; i++) ad->nx[i] = 1 ;
+}
+
 // ssize_t pipe_filter_253(uint32_t flags, int *dims, filter_meta *meta_in, pipe_buffer *buf, filter_meta *meta_out)
 // run a filter cascade on input data
 // flags       [IN] : flags for the cascade
@@ -412,56 +464,60 @@ void pipe_filters_init(void){
 // data        [IN] : input data (forward mode)
 //            [OUT] : output data (reverse mode)
 // list        [IN] : list of filters to be run
-// stream_out [OUT] : cascade result in forward mode
-// ssize_t run_pipe_filters_(int flags, int *dims, void *data, filter_list list, wordstream *stream_out, pipe_buffer *buffer){
-ssize_t run_pipe_filters(int flags, array_descriptor *data_in, filter_list list, wordstream *stream_out){
+// stream     [OUT] : cascade result in forward mode
+//             [IN] : input to reverse filter in reverse mode
+ssize_t run_pipe_filters(int flags, array_descriptor *data_in, filter_list list, wordstream *stream){
   int i ;
-  int dsize = data_in->nbytes ; ;
-  int ndata = pipe_data_values(data_in) ;
+  int esize = data_in->adim.esize ;
+  int ndata = array_data_values(data_in) ;
   int ndims = data_in->adim.ndims ;
   pipe_buffer pbuf ;
-  ssize_t outsize, status ;
-  filter_meta meta_out ;
+  ssize_t outsize, status, m_outsize ;
   filter_meta *m_out ;
   filter_000 meta_000 ;
   meta_000.adim = data_in->adim ;
-  int32_t *dims = (int32_t *) (&(meta_000.adim)) ;
-  filter_255 meta_end = filter_255_null ;
+  array_dimensions *dims = &(meta_000.adim) ;
+  struct{
+    FILTER_PROLOG ;
+    int32_t meta[ARRAY_DESCRIPTOR_MAXDIMS] ;
+  } meta_end = {.id = 0 , .size = 1, .flags = 0, .meta = {[0 ... ARRAY_DESCRIPTOR_MAXDIMS - 1] = 0 } } ;
 
-//   pbuf.buffer = data_in->data ;
-  pbuf.max_size = pbuf.used = ndata * dsize ;
-  pbuf.buffer = malloc(pbuf.max_size) ;
-  memcpy(pbuf.buffer, data_in->data, pbuf.max_size) ;
-      fprintf(stderr, "run_pipe_filters : dsize = %d, ndims = %d, ndata = %d, used = %ld, address = %p\n\n", 
-              dsize, ndims, ndata, pbuf.max_size, pbuf.buffer) ;
-  for(i=0 ; list[i] != NULL ; i++){
-    filter_meta *meta = list[i] ;
-    int id = meta->id ;
-    pipe_filter_pointer fn = pipe_filter_address(id) ;
-    pipe_filter_pointer fn2 = pipe_filter_254 ;
-        fprintf(stderr, "run_pipe_filters : filter %p, id = %d, address = %p(%p)\n", meta, id, fn, fn2) ;
+  if(flags & PIPE_FORWARD){
+    pbuf.max_size = pbuf.used = ndata * esize ;
+    pbuf.buffer = malloc(pbuf.max_size) ;
+    memcpy(pbuf.buffer, data_in->data, pbuf.max_size) ;
+        fprintf(stderr, "run_pipe_filters : esize = %d, ndims = %d, ndata = %d, used = %ld, address = %p\n\n", 
+                esize, ndims, ndata, pbuf.max_size, pbuf.buffer) ;
+    for(i=0 ; list[i] != NULL ; i++){
+      filter_meta *meta = list[i] ;
+      int id = meta->id ;
+      pipe_filter_pointer fn = pipe_filter_address(id) ;
+      pipe_filter_pointer fn2 = pipe_filter_254 ;
+          fprintf(stderr, "run_pipe_filters : filter %p, id = %d, address = %p(%p)\n", meta, id, fn, fn2) ;
 
-    status  = (*fn)(PIPE_VALIDATE, NULL, list[i], NULL, NULL) ;
-        fprintf(stderr, "                   meta out size = %ld\n", status) ;
+      m_outsize = (*fn)(PIPE_VALIDATE, NULL, list[i], NULL, NULL) ;
+      m_out = ALLOC_META(m_outsize) ;
+      m_out->size = m_outsize ;
 
-    outsize = (*fn)(PIPE_FWDSIZE, dims, list[i], NULL, NULL) ;
-      fprintf(stderr, "                   meta out size = %d, outsize = %ld\n", meta_out.size, outsize) ;
-    m_out = ALLOC_META(meta_out.size) ;
-    m_out->size = meta_out.size ;
-    outsize = (*fn) (flags, dims, list[i], &pbuf, stream_out) ;
-        fprintf(stderr, "                   meta out size = %d, outsize = %ld\n", m_out->size, outsize) ;
+      outsize = (*fn)(PIPE_FWDSIZE, dims, list[i], NULL, NULL) ;
+      outsize = (*fn) (flags, dims, list[i], &pbuf, stream) ;
+          fprintf(stderr, "                   meta out size = %d, outsize = %ld\n", m_out->size, outsize) ;
+    }
+    // build last filter (id = 000) that contains input dimensions to last filter
+    // flags = 0 : 1 to 4 dimensions , each <= 255 (.size = 2)
+    // flags = 1 :
+    int flags ;
+    filter_dimensions_encode((array_dimensions *)dims, (filter_meta *)(&meta_end)) ;
+    // insert last filter metadata into wordstream
+    ws32_insert(stream, &meta_end, meta_end.size) ;
+    // insert final data filter output into wordstream
+    ws32_insert(stream, pbuf.buffer, pipe_buffer_words_used(&pbuf)) ;
+  }else if(flags & PIPE_REVERSE){
+    // build filter table and apply it in reverse order
+    int id ;
+    filter_dimensions_decode((array_dimensions *)dims, (filter_meta *)(&meta_end)) ;
   }
-  meta_end.size = W32_SIZEOF(filter_meta)+ndims+1 ;
-  for(i=0 ; i<ndims+1 ; i++) meta_end.meta[i] = dims[i] ;
-  ws32_insert(stream_out, &meta_end, meta_end.size) ;
-//     fprintf(stderr, " ndims = %d, ", dims[0]) ;
-//     for(i=0 ; i<dims[0] ; i++) fprintf(stderr, " %d", dims[i+1]) ;
-//     fprintf(stderr, "\n output = ");
-//     int32_t *dbuf = (int32_t *)pbuf.buffer ;
-//     for(i=0 ; i<pipe_buffer_words_used(&pbuf) ; i++) fprintf(stderr, "%d ", dbuf[i]) ;
-//     fprintf(stderr, "\n");
-  ws32_insert(stream_out, pbuf.buffer, pipe_buffer_words_used(&pbuf)) ;
-//   memcpy(data_in->data, pbuf.buffer, pbuf.used) ;
+
   return 0 ;
 }
 
