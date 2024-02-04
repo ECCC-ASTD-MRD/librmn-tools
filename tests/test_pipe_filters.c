@@ -27,12 +27,13 @@ int main(int argc, char **argv){
   filter_254 filter1 = filter_254_null ;
   filter_254 filter2 = filter_254_null ;
   filter_list filters = { (filter_meta *) &filter1, (filter_meta *) &filter2, NULL } ;
-  int32_t data[NPTSJ*NPTSI] ;
+  int32_t data_i[NPTSJ*NPTSI] ;
+  int32_t data_o[NPTSJ*NPTSI] ;
   int i ;
   int dims[] = { 2, NPTSI, NPTSJ } ;
   ssize_t psize ;
   wordstream stream_out ;
-  array_descriptor ad = array_null ;
+  array_descriptor adi = array_null, ado = array_null ;
   array_dimensions ad1, ad2 ;
   filter_dim fdim ;
   uint32_t fsize ;
@@ -62,21 +63,28 @@ int main(int argc, char **argv){
   fprintf(stderr, "filter_register demo254 status = %d, name = '%s', address = %p\n", i, pipe_filter_name(254), pipe_filter_address(254)) ;
 
   filter1.factor = 2 ; filter1.offset = 100 ;
-  filter2.factor = 2 ; filter2.offset = 1000 ;
+  filter2.factor = 3 ; filter2.offset = 1000 ;
 
-  for(i = 0 ; i < NPTSJ*NPTSI ; i++) data[i] = i ;
-  for(i = 0 ; i < NPTSJ*NPTSI ; i++) fprintf(stderr, "%6d ", data[i]) ; fprintf(stderr, "\n") ;
+  for(i = 0 ; i < NPTSJ*NPTSI ; i++) data_i[i] = i ;
+  for(i = 0 ; i < NPTSJ*NPTSI ; i++) fprintf(stderr, "%6d ", data_i[i]) ; fprintf(stderr, "\n") ;
 
-  fprintf(stderr, "data address = %p\n", data) ;
+  fprintf(stderr, "data_i address = %p\n", data_i) ;
 
-  ad = (array_descriptor) { .adim.esize = 4, .adim.ndims = 2, .data = data, .adim.nx[0] = NPTSI, .adim.nx[1] = NPTSJ } ;
-  psize = run_pipe_filters(PIPE_FORWARD, &ad, filters, &stream_out) ;
+  adi = (array_descriptor) { .adim.esize = 4, .adim.ndims = 2, .data = data_i, .adim.nx[0] = NPTSI, .adim.nx[1] = NPTSJ } ;
+  psize = run_pipe_filters(PIPE_FORWARD, &adi, filters, &stream_out) ;
   fprintf(stderr, "psize = %ld\n", psize);
-  for(i = 0 ; i < NPTSJ*NPTSI ; i++) fprintf(stderr, "%6d ", data[i]) ; fprintf(stderr, "\n") ;
+  for(i = 0 ; i < NPTSJ*NPTSI ; i++) fprintf(stderr, "%6d ", data_i[i]) ; fprintf(stderr, "\n") ;
 
   fprintf(stderr, "words filled in stream_out = %d\n", WS32_FILLED(stream_out)) ;
   for(i = 0 ; i < 10 ; i++) fprintf(stderr, "%8.8x ", stream_out.buf[i]) ;
   fprintf(stderr, "\n");
-  for(i = 0 ; i < NPTSJ*NPTSI ; i++) fprintf(stderr, "%6d ", stream_out.buf[i+10]) ; fprintf(stderr, "\n") ;
-//   ssize_t run_pipe_filters(int flags, int *dims, void *data, filter_list list, pipe_buffer *buffer);
+  for(i = 0 ; i < NPTSJ*NPTSI ; i++) fprintf(stderr, "%6d ", stream_out.buf[i+8]) ; fprintf(stderr, "\n") ;
+//   ssize_t run_pipe_filters(int flags, int *dims, void *data_i, filter_list list, pipe_buffer *buffer);
+
+  WS32_REREAD(stream_out) ;
+  // description of what is expected to come out of the reverse filter chain
+  ado = (array_descriptor) { .adim.esize = 4, .adim.ndims = 2, .data = data_o, .adim.nx[0] = NPTSI, .adim.nx[1] = NPTSJ } ;
+  for(i = 0 ; i < NPTSJ*NPTSI ; i++) data_o[i] = stream_out.buf[i+8] ;
+  run_pipe_filters(PIPE_REVERSE, &ado, filters, &stream_out) ;
+  for(i = 0 ; i < NPTSJ*NPTSI ; i++) fprintf(stderr, "%6d ", data_o[i]) ; fprintf(stderr, "\n") ;
 }

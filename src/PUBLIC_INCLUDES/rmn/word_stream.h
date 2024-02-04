@@ -75,11 +75,11 @@ static wordstream null_wordstream = { .buf = NULL, .limit = 0, .in = 0, .out = 0
 // marker validity check
 #define WS32_MARKER_VALID(stream) ((stream).valid == WS32_MARKER)
 // full validity check
-#define WS32_VALID(stream) ( (WS32_MARKER_VALID(stream))                      && \
-                                   (WS32_BUFFER(stream) != NULL)                    && \
-                                   (WS32_OUT(stream)    <= WS32_IN(stream))   && \
-                                   (WS32_IN(stream)     <  WS32_SIZE(stream)) && \
-                                   (WS32_OUT(stream)    <  WS32_SIZE(stream)) )
+#define WS32_VALID(stream) ( (WS32_MARKER_VALID(stream))                 && \
+                              (WS32_BUFFER(stream) != NULL)              && \
+                              (WS32_OUT(stream)    <= WS32_IN(stream))   && \
+                              (WS32_IN(stream)     <  WS32_SIZE(stream)) && \
+                              (WS32_OUT(stream)    <  WS32_SIZE(stream)) )
 
 #define WS32_CAN_REALLOC     1
 // create a word stream
@@ -164,6 +164,26 @@ static int ws32_xtract(wordstream *stream, void *words, uint32_t nwords){
 //     fprintf(stderr, "in = %d, out = %d, limit = %d\n", WS32_IN(*stream), WS32_OUT(*stream), WS32_SIZE(*stream));
   }
   return status ;
+}
+// skip a number of  32 bit words, advance out index
+// stream [IN] : pointer to a wordstream struct
+// nwords [IN] : number of 32 bit elements to skip in word stream
+// return number of words skipped (-1 in case of error)
+static int ws32_skip(wordstream *stream, uint32_t nwords){
+  int status = -1 ;
+  if(WS32_MARKER_VALID(*stream)) {            // check that stream is valid
+    if(stream->out + nwords < stream->in ){   // check that we are not skipping beyond insertion point
+      stream->out += nwords ;
+      status = nwords ;
+    }
+  }
+  return status ;
+}
+// get the address of the current extraction point in stream
+// stream [IN] : pointer to a wordstream struct
+static uint32_t *ws32_data(wordstream *stream){
+  if(WS32_MARKER_VALID(*stream)) return &(stream->buf[stream->out]) ;
+  return NULL ;
 }
 // resize the buffer of a wordstream
 // stream [INOUT] : pointer to a valid wordstream struct
