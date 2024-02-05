@@ -74,6 +74,18 @@ OPER_AND_TEST(atomic_and_and_test_32, "and %2,%0 ;", int32_t)
 OPER_AND_TEST(atomic_and_and_test_16, "and %2,%0 ;", int16_t)
 OPER_AND_TEST(atomic_and_and_test_8,  "and %2,%0 ;", int8_t)
 
+// atomic_or_and_test_64/32/16/8(int64/32/16/8_t *what, int64/32/16/8_t n)  or n to *what
+OPER_AND_TEST(atomic_or_and_test_64, "or %2,%0 ;", int64_t)
+OPER_AND_TEST(atomic_or_and_test_32, "or %2,%0 ;", int32_t)
+OPER_AND_TEST(atomic_or_and_test_16, "or %2,%0 ;", int16_t)
+OPER_AND_TEST(atomic_or_and_test_8,  "or %2,%0 ;", int8_t)
+
+// atomic_xor_and_test_64/32/16/8(int64/32/16/8_t *what, int64/32/16/8_t n)  xor n to *what
+OPER_AND_TEST(atomic_xor_and_test_64, "xor %2,%0 ;", int64_t)
+OPER_AND_TEST(atomic_xor_and_test_32, "xor %2,%0 ;", int32_t)
+OPER_AND_TEST(atomic_xor_and_test_16, "xor %2,%0 ;", int16_t)
+OPER_AND_TEST(atomic_xor_and_test_8,  "xor %2,%0 ;", int8_t)
+
 // atomic_fetch_and_add_64/32/16/8(int64/32/16/8_t *ptr, int64/32/16/8_t value)
 // get *ptr, add value to *ptr, return original value
 #define FETCH_AND_ADD(name, kind) EXTERN kind name(kind *ptr, kind value){ kind previous; \
