@@ -67,19 +67,19 @@ static int array_data_size(array_descriptor *ad){
 }
 
 typedef struct{
+  void *buffer ;           // pointer to storage for buffer
   size_t used ;            // number of bytes used in buffer
   size_t max_size ;        // buffer maximum size in bytes
-  void *buffer ;           // pointer to storage for buffer
   uint32_t flags ;         // usage flags for buffer
 } pipe_buffer ;
 pipe_buffer pipe_buffer_null = { .used = 0, .max_size = 0, .buffer = NULL, .flags = 0 } ;
 
 static size_t pipe_buffer_bytes_used(pipe_buffer *p){
-  return p->used / sizeof(uint32_t) ;
+  return p->used ;
 }
 
 static size_t pipe_buffer_bytes_free(pipe_buffer *p){
-  return (p->max_size - p->used) / sizeof(uint32_t) ;
+  return (p->max_size - p->used) ;
 }
 
 static size_t pipe_buffer_words_used(pipe_buffer *p){
