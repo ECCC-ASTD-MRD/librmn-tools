@@ -172,7 +172,7 @@ static int ws32_xtract(wordstream *stream, void *words, uint32_t nwords){
 static int ws32_skip(wordstream *stream, uint32_t nwords){
   int status = -1 ;
   if(WS32_MARKER_VALID(*stream)) {            // check that stream is valid
-    if(stream->out + nwords < stream->in ){   // check that we are not skipping beyond insertion point
+    if(stream->out + nwords <= stream->in ){   // check that we are not skipping beyond insertion point
       stream->out += nwords ;
       status = nwords ;
     }
