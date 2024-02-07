@@ -19,6 +19,7 @@
 #define TEE_PRINT_DEFINED
 
 #include <stdio.h>
+#include <stdint.h>
 
 // print_diag is a WEAK entry point that can be overriden by a user supplied function
 void print_diag(FILE *f, char *what, int level) ;
