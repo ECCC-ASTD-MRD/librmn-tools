@@ -15,10 +15,16 @@
 //
 
 #include <stdio.h>
-#include <rmn/pipe_filters.h>
-#include <rmn/pipe_filters.h>
+
+// double inclusion of include files is deliberate to test against double inclusion
 #include <rmn/tee_print.h>
 #include <rmn/test_helpers.h>
+#include <rmn/pipe_filters.h>
+#include <rmn/pipe_filters.h>
+#include <rmn/filter_000.h>
+#include <rmn/filter_000.h>
+#include <rmn/filter_254.h>
+#include <rmn/filter_254.h>
 
 #define NPTSI 3
 #define NPTSJ 4
@@ -30,7 +36,8 @@ int main(int argc, char **argv){
   int32_t data_ref[NPTSJ*NPTSI] ;
   int32_t data_i[NPTSJ*NPTSI] ;
   int32_t data_o[NPTSJ*NPTSI] ;
-  int i, j, k, errors, status, nmeta, nmetao ;
+  int i, j, k, errors, status ;
+  ssize_t nmeta, nmetao ;
   int dims[] = { 2, NPTSI, NPTSJ } ;
   ssize_t psize ;
   wordstream stream_out ;
@@ -38,6 +45,13 @@ int main(int argc, char **argv){
   array_dimensions ad1, ad2 ;
   filter_dim fdim ;
   uint32_t fsize ;
+  // syntax test for 009 (possible octal confusion)
+  typedef struct{
+    FILTER_PROLOG ;
+    array_dimensions adim ;
+  } FILTER_TYPE(009) ;
+  static FILTER_TYPE(009) FILTER_NULL(009) = {FILTER_BASE(009) } ;
+  filter_009 dummy = filter_009_null ;
 
   ws32_create(&stream_out, NULL, 4096, 0, WS32_CAN_REALLOC) ;
 
@@ -68,11 +82,14 @@ int main(int argc, char **argv){
   }
   fprintf(stderr, "SUCCESS\n") ;
 
-  fprintf(stderr, "============================ pipe filters (in place)  ============================\n");
+  fprintf(stderr, "============================ register pipe filters  ============================\n");
   pipe_filters_init() ;                                   // initialize filter table
   i = pipe_filter_register(254, "demo254", pipe_filter_254) ;  // change name of filter 254
   fprintf(stderr, "filter_register demo254 status = %d, name = '%s', address = %p\n", i, pipe_filter_name(254), pipe_filter_address(254)) ;
 
+  fprintf(stderr, "============================ pipe filters (in place)  ============================\n");
+
+  WS32_RESET(stream_out) ;                     // set stream in and out indexes to beginning of buffer
   filter1.factor = 2 ; filter1.offset = 100 ;
   filter2.factor = 3 ; filter2.offset = 1000 ;
 
@@ -101,7 +118,7 @@ int main(int argc, char **argv){
   nmetao = run_pipe_filters(PIPE_REVERSE|PIPE_INPLACE, &adi, filters, &stream_out) ;
   fprintf(stderr, "reverse filters metadata read = %ld\n", nmetao);
   if(nmetao != nmeta){
-    fprintf(stderr, "ERROR: metadata length mismatch, expected %d, got %d\n", nmeta, nmetao) ;
+    fprintf(stderr, "ERROR: metadata length mismatch, expected %ld, got %ld\n", nmeta, nmetao) ;
     exit(1) ;
   }
   fprintf(stderr, "restored : ") ;
@@ -114,7 +131,7 @@ int main(int argc, char **argv){
 
   fprintf(stderr, "============================ pipe filters (not in place)  ============================\n");
 
-  WS32_RESET(stream_out) ;                     // reset stream in and out indexes to beginning of buffer
+  WS32_RESET(stream_out) ;                     // set stream in and out indexes to beginning of buffer
   filter1.factor = 2 ; filter1.offset = 100 ;
   filter2.factor = 3 ; filter2.offset = 1000 ;
 
@@ -143,7 +160,7 @@ int main(int argc, char **argv){
   nmetao = run_pipe_filters(PIPE_REVERSE, &adi, filters, &stream_out) ;
   fprintf(stderr, "reverse filters metadata read = %ld\n", nmetao);
   if(nmetao != nmeta){
-    fprintf(stderr, "ERROR: metadata length mismatch, expected %d, got %d\n", nmeta, nmetao) ;
+    fprintf(stderr, "ERROR: metadata length mismatch, expected %ld, got %ld\n", nmeta, nmetao) ;
     exit(1) ;
   }
   fprintf(stderr, "restored : ") ;
