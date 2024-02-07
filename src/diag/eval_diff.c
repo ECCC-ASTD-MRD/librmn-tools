@@ -12,6 +12,7 @@
 // Library General Public License for more details.
 //
 
+#include <stdlib.h>
 #include <rmn/misc_operators.h>
 #include <rmn/eval_diff.h>
 #include <rmn/tee_print.h>
