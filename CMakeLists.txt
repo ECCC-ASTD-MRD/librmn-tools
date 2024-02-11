@@ -223,6 +223,7 @@ set(PROJECT_C_FILES
   src/pack/compress_expand.c
   src/pack/pipe_filters.c
   src/pack/filter_000.c
+  src/pack/filter_001.c
   src/pack/filter_100.c
   src/pack/filter_254.c
   src/diag/tee_print.c
@@ -298,6 +299,7 @@ set(PROJECT_H_FILES
   src/PUBLIC_INCLUDES/rmn/pipe_filters.h
   src/PUBLIC_INCLUDES/rmn/filter_base.h
   src/PUBLIC_INCLUDES/rmn/filter_000.h
+  src/PUBLIC_INCLUDES/rmn/filter_001.h
   src/PUBLIC_INCLUDES/rmn/filter_100.h
   src/PUBLIC_INCLUDES/rmn/filter_254.h
 )

@@ -97,38 +97,43 @@ int filter_list_valid(const filter_list list){
 
 // initialize table with known filters
 void pipe_filters_init(void){
-  pipe_filter_register(254, "test254", pipe_filter_254) ;
-  pipe_filter_register(100, "lin_quantizer", pipe_filter_100) ;
+  pipe_filter FILTER_FUNCTION(000) ;
+  pipe_filter FILTER_FUNCTION(001) ;
+  pipe_filter FILTER_FUNCTION(100) ;
+  pipe_filter FILTER_FUNCTION(254) ;
   pipe_filter_register(000, "dummy filter", pipe_filter_000) ;
+  pipe_filter_register(001, "array prop", pipe_filter_000) ;
+  pipe_filter_register(100, "lin_quantizer", pipe_filter_100) ;
+  pipe_filter_register(254, "test254", pipe_filter_254) ;
 //   pack_filter_register(254, "test253", pack_filter_253) ;
 //   pack_filter_register(001, "linear1", pack_filter_001) ;
 }
 
 // encode dimensions into a filter_meta struct
-// ad    [IN] : pointer to array dimension struct (see pipe_filters.h)
+// ap    [IN] : pointer to array dimension struct (see pipe_filters.h)
 // fm   [OUT] : pointer to filter (id = 0) metadata with encoded dimensions
-int32_t filter_dimensions_encode(const array_dimensions *ad, filter_meta *fm){
-  uint32_t i, ndims = ad->ndims, esize = ad->esize ;
-  uint32_t maxdim = ad->nx[0] ;
+int32_t filter_dimensions_encode(const array_properties *ap, filter_meta *fm){
+  uint32_t i, ndims = ap->ndims, esize = ap->esize ;
+  uint32_t maxdim = ap->nx[0] ;
 
   fm->id = 0 ;
-  for(i=1 ; i<ndims ; i++) maxdim = (ad->nx[i] > maxdim) ? ad->nx[i] : maxdim ;  // largest dimension
+  for(i=1 ; i<ndims ; i++) maxdim = (ap->nx[i] > maxdim) ? ap->nx[i] : maxdim ;  // largest dimension
   if(maxdim < 256) {                     // 8 bits per value (ndims + 1 values)
     fm->size = 1 + ((ndims+1+3) >> 2) ;  // size will be 2 or 3
     fm->flags = 1 ;
-    fm->meta[0] = (ad->nx[0] << 24) | (ad->nx[1] << 16) | (ad->nx[2] << 8) | esize << 4 | ndims ;
-    if(ndims > 3) fm->meta[1] = (ad->nx[3] << 24) | (ad->nx[4] << 16) ;
+    fm->meta[0] = (ap->nx[0] << 24) | (ap->nx[1] << 16) | (ap->nx[2] << 8) | esize << 4 | ndims ;
+    if(ndims > 3) fm->meta[1] = (ap->nx[3] << 24) | (ap->nx[4] << 16) ;
   }else if(maxdim < 65536){              // 16 bits per value (ndims + 1 values)
     fm->size = 1 + ((ndims+1+1) >> 1) ;  // size will be 2, 3, or 4
     fm->flags = 2 ;
-    fm->meta[0] = (ad->nx[0] << 16) | esize << 4 | ndims ;
-    if(ndims > 1) fm->meta[1] = (ad->nx[1] << 16) | ad->nx[2] ;
-    if(ndims > 3) fm->meta[2] = (ad->nx[3] << 16) | ad->nx[4] ;
+    fm->meta[0] = (ap->nx[0] << 16) | esize << 4 | ndims ;
+    if(ndims > 1) fm->meta[1] = (ap->nx[1] << 16) | ap->nx[2] ;
+    if(ndims > 3) fm->meta[2] = (ap->nx[3] << 16) | ap->nx[4] ;
   }else{                                 // 32 bits per value
     fm->size = 1 + ndims + 1 ;           // size will be 3, 4, 5, 6, or 7
     fm->flags = 3 ;
     fm->meta[0] =  esize << 4 | ndims ;
-    for(i=0 ; i<ndims ; i++) fm->meta[i+1] = ad->nx[i] ;
+    for(i=0 ; i<ndims ; i++) fm->meta[i+1] = ap->nx[i] ;
   }
 // fprintf(stderr,"filter_dimensions_encode ndims %d flags %d", ndims, fm->flags);
 // for(i=0 ; i<fm->size-1 ; i++) fprintf(stderr," %8.8x", fm->meta[i]); fprintf(stderr,"\n") ;
@@ -136,37 +141,37 @@ int32_t filter_dimensions_encode(const array_dimensions *ad, filter_meta *fm){
 }
 
 // decode dimensions from a filter_meta struct
-// ad   [OUT] : pointer to array dimension struct (see pipe_filters.h)
+// ap   [OUT] : pointer to array dimension struct (see pipe_filters.h)
 // fm    [IN] : pointer to filter (id = 0) metadata with encoded dimensions
-int32_t filter_dimensions_decode(array_dimensions *ad, const filter_meta *fm){
+int32_t filter_dimensions_decode(array_properties *ap, const filter_meta *fm){
   uint32_t i, ndims, esize ;
 
   if(fm->id != 0) return 0 ;      // ERROR, filter id MUST be 0
-  *ad = array_dimensions_null ;
+  *ap = array_properties_null ;
   ndims = fm->meta[0] & 0xF ;
   esize = (fm->meta[0] >> 4) & 0xF ;
 //   fprintf(stderr,"filter_dimensions_decode ndims %d flags %d", ndims, fm->flags);
 //   for(i=0 ; i<fm->size-1 ; i++) fprintf(stderr," %8.8x", fm->meta[i]); fprintf(stderr,"\n") ;
   if(fm->flags == 1){
-    ad->nx[0] = fm->meta[0] >> 24 ; ad->nx[1] = (fm->meta[0] >> 16) & 0xFF ; ad->nx[2] = (fm->meta[0] >> 8) & 0xFF ; 
-    if(ndims > 3) { ad->nx[3] = fm->meta[1] >> 24 ; ad->nx[4] = (fm->meta[1] >> 16) & 0xFF ; }
+    ap->nx[0] = fm->meta[0] >> 24 ; ap->nx[1] = (fm->meta[0] >> 16) & 0xFF ; ap->nx[2] = (fm->meta[0] >> 8) & 0xFF ; 
+    if(ndims > 3) { ap->nx[3] = fm->meta[1] >> 24 ; ap->nx[4] = (fm->meta[1] >> 16) & 0xFF ; }
   }else if(fm->flags == 2){
-    ad->nx[0] = fm->meta[0] >> 16 ;
-    if(ndims > 1) {ad->nx[1] = fm->meta[1] >> 16 ; ad->nx[2] = fm->meta[1] & 0xFFFF ; } ;
-    if(ndims > 3) {ad->nx[3] = fm->meta[2] >> 16 ; ad->nx[4] = fm->meta[2] & 0xFFFF ; } ;
+    ap->nx[0] = fm->meta[0] >> 16 ;
+    if(ndims > 1) {ap->nx[1] = fm->meta[1] >> 16 ; ap->nx[2] = fm->meta[1] & 0xFFFF ; } ;
+    if(ndims > 3) {ap->nx[3] = fm->meta[2] >> 16 ; ap->nx[4] = fm->meta[2] & 0xFFFF ; } ;
   }else if(fm->flags == 3){
-    for(i=0 ; i<ndims ; i++) ad->nx[i] = fm->meta[i+1] ;
+    for(i=0 ; i<ndims ; i++) ap->nx[i] = fm->meta[i+1] ;
   }
-  ad->ndims = ndims ;
-  ad->esize = esize ;
-  for(i=ndims ; i<ARRAY_DESCRIPTOR_MAXDIMS ; i++) ad->nx[i] = 1 ;
+  ap->ndims = ndims ;
+  ap->esize = esize ;
+  for(i=ndims ; i<ARRAY_DESCRIPTOR_MAXDIMS ; i++) ap->nx[i] = 1 ;
   return fm->size ;
 }
 
-// ssize_t pipe_filter(uint32_t flags, array_dimensions *ad, filter_meta *meta_in, pipe_buffer *buffer, wordstream *meta_out)
+// ssize_t pipe_filter(uint32_t flags, array_properties *ap, filter_meta *meta_in, pipe_buffer *buffer, wordstream *meta_out)
 // run a filter cascade on input data
 // flags       [IN] : flags for the cascade
-// ad          [IN] : dimensions of input data
+// ap          [IN] : dimensions of input data
 // data        [IN] : input data (forward mode)
 //            [OUT] : output data (reverse mode)
 // list        [IN] : list of filters to be run
@@ -175,8 +180,8 @@ int32_t filter_dimensions_decode(array_dimensions *ad, const filter_meta *fm){
 ssize_t run_pipe_filters(int flags, array_descriptor *data_in, const filter_list list, wordstream *stream){
   int i ;
   int esize = data_in->adim.esize ;
-  array_dimensions dim = data_in->adim ;
-  array_dimensions *pdim = &dim ;
+  array_properties dim = data_in->adim ;
+  array_properties *pdim = &dim ;
   pipe_buffer pbuf ;
   int32_t status = 0 ;
   uint32_t pop_stream ;
@@ -216,8 +221,8 @@ ssize_t run_pipe_filters(int flags, array_descriptor *data_in, const filter_list
         }
       }
     }
-    // ad last filter (id = 000) that will contain input dimensions to last filter
-    filter_dimensions_encode((array_dimensions *)pdim, (filter_meta *)(&meta_end)) ;
+    // ap last filter (id = 000) that will contain input dimensions to last filter
+    filter_dimensions_encode((array_properties *)pdim, (filter_meta *)(&meta_end)) ;
     ws32_insert(stream, &meta_end, meta_end.size) ;                      // insert last filter metadata into wordstream
     status = WS32_IN(*stream) - pop_stream ;                             // length of added metadata
 
@@ -228,7 +233,7 @@ ssize_t run_pipe_filters(int flags, array_descriptor *data_in, const filter_list
     int fnumber = 0 ;
     filter_meta *m_rev ;
     filter_meta *filters[MAX_FILTER_CHAIN] ;
-    array_dimensions out_dims ;
+    array_properties out_dims ;
 
     pop_stream = WS32_OUT(*stream) ;                // start of metadata part of the stream
     for(i=0 ; i<MAX_FILTER_CHAIN ; i++){            // get metadata 

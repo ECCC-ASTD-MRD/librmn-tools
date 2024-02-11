@@ -23,10 +23,10 @@
 
 // test filter id = 254, scale data and add offset
 // with PIPE_VALIDATE, the only needed arguments are flags and meta_in, all other arguments could be NULL
-// with PIPE_FWDSIZE, flags, ad, meta_in, stream_out are used, all other arguments could be NULL
-// with PIPE_REVERSE, flags, ad, meta_in, buf are used, stream_out is not used
+// with PIPE_FWDSIZE, flags, ap, meta_in, stream_out are used, all other arguments could be NULL
+// with PIPE_REVERSE, flags, ap, meta_in, buf are used, stream_out is not used
 #define ID 254
-ssize_t FILTER_FUNCTION(ID)(uint32_t flags, array_dimensions *ad, const filter_meta *meta_in, pipe_buffer *buf, wordstream *stream_out){
+ssize_t FILTER_FUNCTION(ID)(uint32_t flags, array_properties *ap, const filter_meta *meta_in, pipe_buffer *buf, wordstream *stream_out){
   ssize_t nbytes = 0 ;
   int errors = 0, nval, i ;
   typedef struct{    // used as m_out in forward mode, used as m_inv for the reverse filter
@@ -48,7 +48,7 @@ ssize_t FILTER_FUNCTION(ID)(uint32_t flags, array_dimensions *ad, const filter_m
       m_inv = (filter_inverse *) meta_in ;
       if(flags & PIPE_FWDSIZE) {              // get worst case estimate for output data
         // insert appropriate code here
-        nbytes = filter_data_values(ad) * sizeof(int32_t) ;
+        nbytes = filter_data_values(ap) * sizeof(uint32_t) ;
         goto end ;
       }
       if(m_inv->size < W32_SIZEOF(filter_inverse)) errors++ ;       // wrong size
@@ -58,9 +58,9 @@ ssize_t FILTER_FUNCTION(ID)(uint32_t flags, array_dimensions *ad, const filter_m
       if(errors)           goto error ;
       // insert appropriate inverse filter code here, check buf->used and buf->max_size
       {
-        nval = filter_data_values(ad) ;                   // get number of data values
+        nval = filter_data_values(ap) ;                   // get number of data values
         int32_t *data = (int32_t *) buf->buffer ;
-        if(filter_data_bytes(ad) != buf->used) {          // dimension mismatch
+        if(filter_data_bytes(ap) != buf->used) {          // dimension mismatch
           errors = 1 ; goto error ;
         }
         for(i=0 ; i<nval ; i++) data[i] = (data[i] - m_inv->offset) / m_inv->factor ;
@@ -82,9 +82,9 @@ ssize_t FILTER_FUNCTION(ID)(uint32_t flags, array_dimensions *ad, const filter_m
       }
       // insert appropriate filter code here, check buf->used and buf->max_size
       {
-        nval = filter_data_values(ad) ;                   // get number of data values
+        nval = filter_data_values(ap) ;                   // get number of data values
         int32_t *data = (int32_t *) buf->buffer ;
-        if(filter_data_bytes(ad) != buf->used) {          // dimension mismatch
+        if(filter_data_bytes(ap) != buf->used) {          // dimension mismatch
           errors = 1 ; goto error ;
         }
         for(i=0 ; i<nval ; i++) data[i] = data[i] * m_fwd->factor + m_fwd->offset ;
@@ -96,7 +96,7 @@ ssize_t FILTER_FUNCTION(ID)(uint32_t flags, array_dimensions *ad, const filter_m
       m_inv->offset = m_fwd->offset ;
       //
       ws32_insert(stream_out, (uint32_t *)(m_inv), W32_SIZEOF(filter_inverse)) ; // insert into stream_out
-      nbytes = filter_data_values(ad) * sizeof(uint32_t) ;      // set nbytes to output size
+      nbytes = filter_data_values(ap) * sizeof(uint32_t) ;      // set nbytes to output size
       break ;
 
     default:

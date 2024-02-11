@@ -23,6 +23,7 @@
 #define FILTER_100
 
 #include <rmn/filter_base.h>
+#include <rmn/pipe_filters.h>
 
 typedef struct{
   FILTER_PROLOG ;
@@ -31,5 +32,6 @@ typedef struct{
 } FILTER_TYPE(100) ;
 static FILTER_TYPE(100) filter_100_null = {FILTER_BASE(100), .ref = 0.0f, .nbits = 0 } ;
 CT_ASSERT(FILTER_SIZE_OK(FILTER_TYPE(100)))
+pipe_filter FILTER_FUNCTION(100) ;  // linear quantizer for IEEE 32 bit floats
 
 #endif

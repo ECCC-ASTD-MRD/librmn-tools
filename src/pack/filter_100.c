@@ -24,7 +24,7 @@
 
 #define ID 100
 // PIPE_VALIDATE and PIPE_FWDSIZE : flags, ad, meta_in are used, all other arguments may be NULL
-ssize_t FILTER_FUNCTION(ID)(uint32_t flags, array_dimensions *ad, const filter_meta *meta_in, pipe_buffer *buf, wordstream *stream_out){
+ssize_t FILTER_FUNCTION(ID)(uint32_t flags, array_properties *ad, const filter_meta *meta_in, pipe_buffer *buf, wordstream *stream_out){
   // the definition of FILTER_TYPE(ID) (filter_xxx) will come from pipe_filters.h or an appropriate include file
   ssize_t nbytes = 0 ;
   int errors = 0 ;

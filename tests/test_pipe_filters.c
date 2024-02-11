@@ -17,10 +17,8 @@
 #include <stdio.h>
 
 // double inclusion of include files is deliberate to test against double inclusion
-#include <rmn/tee_print.h>
+// #include <rmn/tee_print.h>
 #include <rmn/test_helpers.h>
-#include <rmn/pipe_filters.h>
-#include <rmn/pipe_filters.h>
 #include <rmn/filter_000.h>
 #include <rmn/filter_000.h>
 #include <rmn/filter_254.h>
@@ -42,13 +40,13 @@ int main(int argc, char **argv){
   ssize_t psize ;
   wordstream stream_out ;
   array_descriptor adi = array_null, ado = array_null ;
-  array_dimensions ad1, ad2 ;
+  array_properties ad1, ad2 ;
   filter_dim fdim ;
   uint32_t fsize ;
   // syntax test for 009 (possible octal confusion)
   typedef struct{
     FILTER_PROLOG ;
-    array_dimensions adim ;
+    array_properties adim ;
   } FILTER_TYPE(009) ;
   static FILTER_TYPE(009) FILTER_NULL(009) = {FILTER_BASE(009) } ;
   filter_009 dummy = filter_009_null ;
@@ -62,7 +60,7 @@ int main(int argc, char **argv){
   int factor = 1 ;
   for(j=0 ; j<3 ; j++){
     for(i=1 ; i<=ARRAY_DESCRIPTOR_MAXDIMS ; i++){
-      ad1 = ad2 = array_dimensions_null ;
+      ad1 = ad2 = array_properties_null ;
       ad1.ndims = i ;
       int j ;
       for(j=0 ; j<i ; j++) ad1.nx[j] = (9 - j) * factor ;

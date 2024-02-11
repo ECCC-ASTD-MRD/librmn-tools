@@ -23,6 +23,7 @@
 #define FILTER_254
 
 #include <rmn/filter_base.h>
+#include <rmn/pipe_filters.h>
 
 typedef struct{
   FILTER_PROLOG ;
@@ -31,5 +32,6 @@ typedef struct{
 } FILTER_TYPE(254) ;
 static FILTER_TYPE(254) filter_254_null = {FILTER_BASE(254), .factor = 0, .offset = 0 } ;
 CT_ASSERT(FILTER_SIZE_OK(FILTER_TYPE(254)))
+pipe_filter FILTER_FUNCTION(254) ;  // test filter (scale and offset)
 
 #endif
