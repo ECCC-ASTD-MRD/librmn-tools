@@ -30,26 +30,25 @@
 int main(int argc, char **argv){
   filter_254 filter1 = filter_254_null ;
   filter_254 filter2 = filter_254_null ;
-  filter_list filters = { (filter_meta *) &filter1, (filter_meta *) &filter2, NULL } ;
+  filter_254 filter3 = filter_254_null ;
+  filter_list filters = { (filter_meta *) &filter1, (filter_meta *) &filter2, (filter_meta *) &filter3, NULL } ;
   int32_t data_ref[NPTSJ*NPTSI] ;
   int32_t data_i[NPTSJ*NPTSI] ;
-  int32_t data_o[NPTSJ*NPTSI] ;
-  int i, j, k, errors, status ;
+//   int32_t data_o[NPTSJ*NPTSI] ;
+  int i, j, k, errors ;
   ssize_t nmeta, nmetao ;
-  int dims[] = { 2, NPTSI, NPTSJ } ;
-  ssize_t psize ;
   wordstream stream_out ;
-  array_descriptor adi = array_null, ado = array_null ;
+  array_descriptor adi = array_null ; //, ado = array_null ;
   array_properties ad1, ad2 ;
   filter_dim fdim ;
   uint32_t fsize ;
   // syntax test for 009 (possible octal confusion)
-  typedef struct{
-    FILTER_PROLOG ;
-    array_properties adim ;
-  } FILTER_TYPE(009) ;
-  static FILTER_TYPE(009) FILTER_NULL(009) = {FILTER_BASE(009) } ;
-  filter_009 dummy = filter_009_null ;
+//   typedef struct{
+//     FILTER_PROLOG ;
+//     array_properties ap ;
+//   } FILTER_TYPE(009) ;
+//   static FILTER_TYPE(009) FILTER_NULL(009) = {FILTER_BASE(009) } ;
+//   filter_009 dummy = filter_009_null ;
 
   ws32_create(&stream_out, NULL, 4096, 0, WS32_CAN_REALLOC) ;
 
@@ -59,7 +58,7 @@ int main(int argc, char **argv){
   // test dimension encoding / decoding
   int factor = 1 ;
   for(j=0 ; j<3 ; j++){
-    for(i=1 ; i<=ARRAY_DESCRIPTOR_MAXDIMS ; i++){
+    for(i=1 ; i<=MAX_ARRAY_DIMENSIONS ; i++){
       ad1 = ad2 = array_properties_null ;
       ad1.ndims = i ;
       int j ;
@@ -67,7 +66,7 @@ int main(int argc, char **argv){
       fsize = filter_dimensions_encode(&ad1, (filter_meta *)(&fdim)) ;
       filter_dimensions_decode(&ad2, (filter_meta *)(&fdim)) ;
       errors = 0 ;
-      for(k=0 ; k<ARRAY_DESCRIPTOR_MAXDIMS ; k++) errors += (ad2.nx[k] != ad1.nx[k]) ;
+      for(k=0 ; k<MAX_ARRAY_DIMENSIONS ; k++) errors += (ad2.nx[k] != ad1.nx[k]) ;
 
       fprintf(stderr, "encoded dimensions: fsize = %1d, flags = %d ", fsize, fdim.flags) ;
       fprintf(stderr, ", ndim = %1d", ad1.ndims) ;
@@ -90,6 +89,7 @@ int main(int argc, char **argv){
   WS32_RESET(stream_out) ;                     // set stream in and out indexes to beginning of buffer
   filter1.factor = 2 ; filter1.offset = 100 ;
   filter2.factor = 3 ; filter2.offset = 1000 ;
+  filter3.factor = 1 ; filter3.offset = 0 ;    // essentially a copy
 
   for(i = 0 ; i < NPTSJ*NPTSI ; i++) data_ref[i] = i ;
   for(i = 0 ; i < NPTSJ*NPTSI ; i++) data_i[i] = data_ref[i] ;
@@ -97,7 +97,7 @@ int main(int argc, char **argv){
   for(i = 0 ; i < NPTSJ*NPTSI ; i++) fprintf(stderr, "%6d ", data_ref[i]) ; fprintf(stderr, "\n") ;
 
   // metadata will be in stream_out, "filtered" data will be in data_i[]
-  adi = (array_descriptor) { .adim.esize = 4, .adim.ndims = 2, .data = data_i, .adim.nx[0] = NPTSI, .adim.nx[1] = NPTSJ } ;
+  adi = (array_descriptor) { .ap.esize = 4, .ap.ndims = 2, .data = data_i, .ap.nx[0] = NPTSI, .ap.nx[1] = NPTSJ } ;
   nmeta = run_pipe_filters(PIPE_FORWARD|PIPE_INPLACE, &adi, filters, &stream_out) ;
   fprintf(stderr, "forward filters metadata length = %ld\n", nmeta);
   fprintf(stderr, "filtered : ") ;
@@ -111,8 +111,8 @@ int main(int argc, char **argv){
 
   WS32_REREAD(stream_out) ;
   // description of what is expected to come out of the reverse filter chain
-  ado = (array_descriptor) { .adim.esize = 4, .adim.ndims = 2, .data = data_o, .adim.nx[0] = NPTSI, .adim.nx[1] = NPTSJ } ;
-  for(i = 0 ; i < NPTSJ*NPTSI ; i++) data_o[i] = stream_out.buf[i+8] ;
+//   ado = (array_descriptor) { .ap.esize = 4, .ap.ndims = 2, .data = data_o, .ap.nx[0] = NPTSI, .ap.nx[1] = NPTSJ } ;
+//   for(i = 0 ; i < NPTSJ*NPTSI ; i++) data_o[i] = stream_out.buf[i+8] ;
   nmetao = run_pipe_filters(PIPE_REVERSE|PIPE_INPLACE, &adi, filters, &stream_out) ;
   fprintf(stderr, "reverse filters metadata read = %ld\n", nmetao);
   if(nmetao != nmeta){
@@ -139,7 +139,7 @@ int main(int argc, char **argv){
   for(i = 0 ; i < NPTSJ*NPTSI ; i++) fprintf(stderr, "%6d ", data_ref[i]) ; fprintf(stderr, "\n") ;
 
   // metadata will be in stream_out, "filtered" data will be in stream_put, after metadata
-  adi = (array_descriptor) { .adim.esize = 4, .adim.ndims = 2, .data = data_i, .adim.nx[0] = NPTSI, .adim.nx[1] = NPTSJ } ;
+  adi = (array_descriptor) { .ap.esize = 4, .ap.ndims = 2, .data = data_i, .ap.nx[0] = NPTSI, .ap.nx[1] = NPTSJ } ;
   nmeta = run_pipe_filters(PIPE_FORWARD, &adi, filters, &stream_out) ;
   fprintf(stderr, "forward filters metadata length = %ld\n", nmeta);
   fprintf(stderr, "filtered : ") ;
@@ -153,8 +153,8 @@ int main(int argc, char **argv){
 
   WS32_REREAD(stream_out) ;
   // description of what is expected to come out of the reverse filter chain
-  ado = (array_descriptor) { .adim.esize = 4, .adim.ndims = 2, .data = data_o, .adim.nx[0] = NPTSI, .adim.nx[1] = NPTSJ } ;
-  for(i = 0 ; i < NPTSJ*NPTSI ; i++) data_o[i] = stream_out.buf[i+8] ;
+//   ado = (array_descriptor) { .ap.esize = 4, .ap.ndims = 2, .data = data_o, .ap.nx[0] = NPTSI, .ap.nx[1] = NPTSJ } ;
+//   for(i = 0 ; i < NPTSJ*NPTSI ; i++) data_o[i] = stream_out.buf[i+8] ;
   nmetao = run_pipe_filters(PIPE_REVERSE, &adi, filters, &stream_out) ;
   fprintf(stderr, "reverse filters metadata read = %ld\n", nmetao);
   if(nmetao != nmeta){

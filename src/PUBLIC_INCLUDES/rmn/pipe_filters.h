@@ -40,53 +40,57 @@
 #define PIPE_DATA_UNSIGNED  2
 #define PIPE_DATA_FLOAT     4
 
-#define ARRAY_DESCRIPTOR_MAXDIMS 5
+#define MAX_ARRAY_DIMENSIONS 5
 typedef union{
   uint32_t u ;
   int32_t  i ;
   float    f ;
 } i_u_f;
 
-#define ARRAY_PROPERTIES_SIZE (ARRAY_DESCRIPTOR_MAXDIMS + MAX_ARRAY_PROPERTIES + 2)
+#define PROP_VERSION      1
+#define PROP_MIN_MAX      1
+
+#define ARRAY_PROPERTIES_SIZE (MAX_ARRAY_DIMENSIONS + MAX_ARRAY_PROPERTIES + 3 + 2)
 #define MAX_ARRAY_PROPERTIES 8
+// N.B. arrays are stored Fortran style, 1st dimension varying first
 typedef struct{
   uint32_t ndims:8,    // number of dimensions
            esize:8,    // element size (1/2/4)
            etype:8,    // element type (signed/unsigned/float)
-           nprop:8,    // number of used properties *(prop[])
+           nprop:8,    // number of used properties (prop[])
            version:8,  // version
            ptype:8,    // property type (allows to know what is in prop[n])
            fid:8,      // id of last filter that modified properties
-           spare:8 ;
-  uint32_t nx[ARRAY_DESCRIPTOR_MAXDIMS] ;
+           spare:8,
+           tilex:16,   // tiling block size along 1st dimension
+           tiley:16;   // tiling block size along 2nd dimension
+  uint32_t nx[MAX_ARRAY_DIMENSIONS] ;
   i_u_f    prop[MAX_ARRAY_PROPERTIES] ;
-//   i_u_f    smax ;   // signed maximum
-//   i_u_f    smin ;   // signed minimum
-//   i_u_f    zmin ;   // smallest non zero absolute value
+  uint32_t *extra ;    // normally NULL, pointer to extended information
 } array_properties ;
 CT_ASSERT(ARRAY_PROPERTIES_SIZE == W32_SIZEOF(array_properties))
 
 static array_properties array_properties_null = 
-       { .ndims = 0, .esize = 0, .etype = 0, .nprop = 0, .nx = {[0 ... ARRAY_DESCRIPTOR_MAXDIMS-1] = 1 } } ;
+       { .ndims = 0, .esize = 0, .etype = 0, .nprop = 0, .nx = {[0 ... MAX_ARRAY_DIMENSIONS-1] = 1 } } ;
 
 typedef struct{
   void *data ;
   union{
     uint32_t props[W32_SIZEOF(array_properties)] ;
-    array_properties adim ;
+    array_properties ap ;
   };
 } array_descriptor ;
 static array_descriptor array_null = { .data = NULL, .props = {[0 ... ARRAY_PROPERTIES_SIZE-1] = 0 } } ;
 
 static int array_data_values(array_descriptor *ap){
-  int nval = 1, i, ndims = ap->adim.ndims ;
-  if(ndims < 0 || ndims > ARRAY_DESCRIPTOR_MAXDIMS) return -1 ;
-  for(i=0 ; i<ndims ; i++) nval *= ap->adim.nx[i] ;
+  int nval = 1, i, ndims = ap->ap.ndims ;
+  if(ndims < 0 || ndims > MAX_ARRAY_DIMENSIONS) return -1 ;
+  for(i=0 ; i<ndims ; i++) nval *= ap->ap.nx[i] ;
   return nval ;
 }
 
 static int array_data_size(array_descriptor *ap){
-  return array_data_values(ap) * ap->adim.esize ;
+  return array_data_values(ap) * ap->ap.esize ;
 }
 
 typedef struct{
@@ -154,7 +158,7 @@ typedef filter_meta *filter_list[] ;  // input metadata for all the pipe filters
 
 typedef  struct{   // max size for encoding dimensions
     FILTER_PROLOG ;
-    uint32_t v[ARRAY_DESCRIPTOR_MAXDIMS+2] ;
+    uint32_t v[MAX_ARRAY_DIMENSIONS+2] ;
   } filter_dim ;
 
 #define BASE_META_SIZE (W32_SIZEOF(filter_meta))
@@ -202,6 +206,6 @@ pipe_filter_pointer pipe_filter_address(int id);
 char *pipe_filter_name(int id);
 
 ssize_t run_pipe_filters(int flags, array_descriptor *data_in, const filter_list list, wordstream *stream);
-// ssize_t run_pipe_filters_(int flags, int *dims, void *data, filter_list list, wordstream *meta_out, pipe_buffer *buffer);
+ssize_t tiled_fwd_pipe_filters(int flags, array_descriptor *data_in, const filter_list list, wordstream *stream);
 
 #endif // ! defined(PIPE_FORWARD)

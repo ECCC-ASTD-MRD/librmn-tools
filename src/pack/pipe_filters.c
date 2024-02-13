@@ -18,6 +18,7 @@
 #include <string.h>
 
 #include <rmn/pipe_filters.h>
+#include <rmn/misc_operators.h>
 
 // maximum number of filter IDs
 #define MAX_FILTERS         256
@@ -164,7 +165,7 @@ int32_t filter_dimensions_decode(array_properties *ap, const filter_meta *fm){
   }
   ap->ndims = ndims ;
   ap->esize = esize ;
-  for(i=ndims ; i<ARRAY_DESCRIPTOR_MAXDIMS ; i++) ap->nx[i] = 1 ;
+  for(i=ndims ; i<MAX_ARRAY_DIMENSIONS ; i++) ap->nx[i] = 1 ;
   return fm->size ;
 }
 
@@ -179,8 +180,8 @@ int32_t filter_dimensions_decode(array_properties *ap, const filter_meta *fm){
 //             [IN] : input to reverse filter in reverse mode
 ssize_t run_pipe_filters(int flags, array_descriptor *data_in, const filter_list list, wordstream *stream){
   int i ;
-  int esize = data_in->adim.esize ;
-  array_properties dim = data_in->adim ;
+  int esize = data_in->ap.esize ;
+  array_properties dim = data_in->ap ;
   array_properties *pdim = &dim ;
   pipe_buffer pbuf ;
   int32_t status = 0 ;
@@ -193,8 +194,8 @@ ssize_t run_pipe_filters(int flags, array_descriptor *data_in, const filter_list
     filter_meta *m_out ;
     struct{
       FILTER_PROLOG ;
-      int32_t meta[ARRAY_DESCRIPTOR_MAXDIMS] ;
-    } meta_end = {.id = 0 , .size = 1, .flags = 0, .meta = {[0 ... ARRAY_DESCRIPTOR_MAXDIMS - 1] = 0 } } ;
+      int32_t meta[MAX_ARRAY_DIMENSIONS] ;
+    } meta_end = {.id = 0 , .size = 1, .flags = 0, .meta = {[0 ... MAX_ARRAY_DIMENSIONS - 1] = 0 } } ;
 
     pop_stream = WS32_IN(*stream) ;                         // start of what will be metadata part of the stream
     pbuf.max_size = pbuf.used = ndata * esize ;             // input (and possibly output) data dimension
@@ -212,6 +213,7 @@ ssize_t run_pipe_filters(int flags, array_descriptor *data_in, const filter_list
       m_outsize = (*fn)(PIPE_VALIDATE, NULL, list[i], NULL, NULL) ;
       m_out = ALLOC_META(m_outsize) ;
       m_out->size = m_outsize ;
+      fprintf(stderr, "applying forward filter no %d  %8.8x %8.8x\n", list[i]->id, list[i]->meta[0], list[i]->meta[1]) ;
       if((*fn)(flags, pdim, list[i], &pbuf, stream) <= 0){
         fprintf(stderr, "run_pipe_filters : ERROR in forward filter\n") ;
         if(! in_place) {
@@ -260,7 +262,7 @@ ssize_t run_pipe_filters(int flags, array_descriptor *data_in, const filter_list
       m_rev = filters[fnumber-1] ;
       fnumber-- ;
       pipe_filter_pointer fnr = pipe_filter_address(m_rev->id) ;
-//       fprintf(stderr, "applying reverse filter no %d  %8.8x %8.8x\n", m_rev->id, m_rev->meta[0], m_rev->meta[1]) ;
+      fprintf(stderr, "applying reverse filter no %d  %8.8x %8.8x\n", m_rev->id, m_rev->meta[0], m_rev->meta[1]) ;
       (*fnr) (flags, &out_dims, m_rev, &pbuf, NULL) ;  // call filter using run_pipe_filters flags
     }
     if(! in_place) memcpy(data_in->data, pbuf.buffer, pbuf.used) ;
@@ -269,3 +271,69 @@ end:
   return status ;
 }
 
+// ssize_t run_pipe_filters(int flags, array_descriptor *data_in, const filter_list list, wordstream *stream)
+ssize_t tiled_fwd_pipe_filters(int flags, array_descriptor *data_in, const filter_list list, wordstream *stream){
+  uint32_t blki  = data_in->ap.tilex ;        // tile size along 1st dimension
+  uint32_t blkj  = data_in->ap.tiley ;        // tile size along 2nd dimension
+  uint32_t *array = (uint32_t *) data_in->data ;  // base address of global array
+  uint32_t ndims = data_in->ap.ndims ;        // number of dimensions of global array
+  int status ;
+  ssize_t nbytes = 0 ;
+
+  // if more than 2D,
+  // do we want to tile using 1st dimension and product of other dimensions ?
+  // or do we want a loop over other dimensions ?
+  if(ndims == 2 && blki != 0 && blkj != 0){   // 2D data to be tiled for processing
+    uint32_t tile[blki*blkj] ;
+    array_descriptor ad = *data_in ;          // import information from global array
+    int gni = ad.ap.nx[0] ;                   // 1st dimension of global array
+    int gnj = ad.ap.nx[1] ;                   // 2nd dimension of global array
+    int nblki = (gni + blki -1) / blki ;      // number of tiles along each dimension
+    int nblkj = (gnj + blkj -1) / blkj ;
+    // get current insertion address in stream (will be address of data map)
+    uint32_t *str0 = (uint32_t *) WS32_BUFFER(*stream) ;
+    uint32_t *map = str0 ;
+    // allocate space for data map in stream (skip) (nblki * nblkj tiles)
+    uint32_t mapsize = nblkj * (nblki + 1) ;  // row size + size of nblki tiles for each row of tiles
+    status = ws32_skip(stream, mapsize) ;
+    if(status < 0) goto error ;
+
+    int i0, j0, tni, tnj ;
+    for(j0=0 ; j0<gnj ; j0+=blkj){                   // loop over tile rows
+      uint32_t rowsize = 0, *row = map ;
+      uint32_t *tile_base = array ;                  // lower left corner of first tile in current row
+      map ++ ;                                       // skip row size (will be filled later)
+      tnj = (j0+blkj <= gnj) ? blkj : gnj-j0 ;       // tile dimension along j
+      for(i0=0 ; i0 < gni ; i0+=blki){               // loop over row of tiles
+        tni = (i0+blki <= gni) ? blki : gni-i0 ;     // tile dimension  along i
+        ad.data = tile ;                             // point array descriptor to local tile
+        ad.ap.nx[0] = tni ; ad.ap.nx[1] = tnj ;      // tile dimensions
+        // collect local tile from global array ( array[i0:i0+tni-1,j0:j0+tnj-1] -> tile[tni,tnj] )
+        status = get_word_block(tile_base, tile, tni, gni, tnj) ;
+        if(status) goto error ;
+        tile_base += tni ;    // lower left corner of next tile
+        // get current position in stream
+        uint32_t istart = WS32_IN(*stream) ;
+        // call filter chain with tile of dimensions (in-i0) , (jn-j0)
+        status = run_pipe_filters(PIPE_FORWARD, &ad, list, stream) ;
+        if(status < 0) goto error ;
+        // length = current position in stream - remembered position
+        uint32_t tile_size = WS32_IN(*stream) - istart ;
+        // insert tile size in data map
+        *map = tile_size ;
+        rowsize += tile_size ;  // add tile size to size of the row of tiles
+        map ++ ;
+      }
+      *row = rowsize ;
+      row = row + nblki + 1 ;  // next row in map
+      array += gni * blkj ;     // point to next row of blocks
+    }
+    // find number of bytes added to stream
+    nbytes = ((uint32_t *) WS32_BUFFER(*stream)) - str0 ;
+    nbytes *= sizeof(uint32_t) ;
+  }else{    // not 2D tiled data
+  }
+  return nbytes ;
+error:
+  return -1 ;
+}
