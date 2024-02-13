@@ -16,7 +16,6 @@
 //
 #include <string.h>
 
-#include <rmn/pipe_filters.h>
 #include <rmn/filter_100.h>
 
 

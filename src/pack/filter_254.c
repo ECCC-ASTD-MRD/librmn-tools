@@ -16,7 +16,6 @@
 //
 #include <string.h>
 
-#include <rmn/pipe_filters.h>
 #include <rmn/filter_254.h>
 
 // ----------------- id = 254, test filter (scale and offset) -----------------

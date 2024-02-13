@@ -16,7 +16,6 @@
 //
 #include <string.h>
 
-#include <rmn/pipe_filters.h>
 #include <rmn/filter_000.h>
 
 // a filter id of 000 is used as the last element of a filter chain
