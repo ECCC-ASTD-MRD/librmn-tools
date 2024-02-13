@@ -168,13 +168,15 @@ static int ws32_xtract(wordstream *stream, void *words, uint32_t nwords){
 // skip a number of  32 bit words, advance out index
 // stream [IN] : pointer to a wordstream struct
 // nwords [IN] : number of 32 bit elements to skip in word stream
-// return number of words skipped (-1 in case of error)
+// return number of words skipped (-1 or -2  in case of error)
 static int ws32_skip(wordstream *stream, uint32_t nwords){
   int status = -1 ;
-  if(WS32_MARKER_VALID(*stream)) {            // check that stream is valid
+  if(WS32_MARKER_VALID(*stream)) {             // check that stream is valid
     if(stream->out + nwords <= stream->in ){   // check that we are not skipping beyond insertion point
       stream->out += nwords ;
       status = nwords ;
+    }else{
+      status = -2 ;
     }
   }
   return status ;
@@ -187,24 +189,34 @@ static uint32_t *ws32_data(wordstream *stream){
 }
 // resize the buffer of a wordstream
 // stream [INOUT] : pointer to a valid wordstream struct
+// size32    [IN] : desired size of stream (in 32 bit words)
 // return 0 if resize successful (or not needed)
 // return -1 in case of resize error
-static int ws32_resize(wordstream *stream, uint32_t size){
+static int ws32_resize(wordstream *stream, uint32_t size32){
   int status = -1 ;
-  if(stream->alloc == 1){       // check that buffer was "malloc(ed)" and can be "realloc(ed)"
-    if(size > WS32_SIZE(*stream)){   // requested size > actual size, reallocate a bigger buffer
-      size_t newsize = size * sizeof(uint32_t) ;
+  if(stream->alloc == 1){              // check that buffer was "malloc(ed)" and can be "realloc(ed)"
+    if(size32 > WS32_SIZE(*stream)){   // requested size > actual size, reallocate a bigger buffer
+      size_t newsize = size32 * sizeof(uint32_t) ;
       void *ptr = realloc(stream->buf, newsize) ;
       if(ptr != NULL){
         status = 0 ;
         WS32_BUFFER(*stream) = (uint32_t *) ptr ;
-        WS32_SIZE(*stream)   = size ;
+        WS32_SIZE(*stream)   = size32 ;
       }
     }else{
       status = 0 ;              // size not increased, no need to reallocate
     }
   }
   return status ;
+}
+
+// increase the size of a stream by a number of 32 bit words
+// stream [INOUT] : pointer to a valid wordstream struct
+// extra     [IN] : number of 32 bit words to be added to stream storage
+// return 0 if resize successful (or not needed)
+// return -1 in case of resize error
+static int ws32_extend(wordstream *stream, uint32_t extra){
+  return ws32_resize(stream, WS32_SIZE(*stream) + extra) ;
 }
 
 // =======================  word stream state save/restore  =======================
