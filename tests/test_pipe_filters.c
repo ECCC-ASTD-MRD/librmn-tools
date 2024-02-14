@@ -23,6 +23,7 @@
 #include <rmn/filter_000.h>
 #include <rmn/filter_254.h>
 #include <rmn/filter_254.h>
+#include <rmn/filter_255.h>
 
 #define NPTSI 3
 #define NPTSJ 4
@@ -31,7 +32,13 @@ int main(int argc, char **argv){
   filter_254 filter1 = filter_254_null ;
   filter_254 filter2 = filter_254_null ;
   filter_254 filter3 = filter_254_null ;
-  filter_list filters = { (filter_meta *) &filter1, (filter_meta *) &filter2, (filter_meta *) &filter3, NULL } ;
+  filter_255 filter4 = filter_255_null ;
+  filter4.flags = 1 ; filter4.opt[0] = 0xBEBEFADA ; filter4.opt[1] = 0xDEADBEEF ;
+  filter_list filters = { (filter_meta *) &filter1, 
+                          (filter_meta *) &filter2, 
+                          (filter_meta *) &filter3, 
+                          (filter_meta *) &filter4, 
+                          NULL } ;
   int32_t data_ref[NPTSJ*NPTSI] ;
   int32_t data_i[NPTSJ*NPTSI] ;
 //   int32_t data_o[NPTSJ*NPTSI] ;
@@ -83,6 +90,8 @@ int main(int argc, char **argv){
   pipe_filters_init() ;                                   // initialize filter table
   i = pipe_filter_register(254, "demo254", pipe_filter_254) ;  // change name of filter 254
   fprintf(stderr, "filter_register demo254 status = %d, name = '%s', address = %p\n", i, pipe_filter_name(254), pipe_filter_address(254)) ;
+  i = pipe_filter_register(255, "demo255", pipe_filter_255) ;  // change name of filter 255
+  fprintf(stderr, "filter_register demo255 status = %d, name = '%s', address = %p\n", i, pipe_filter_name(255), pipe_filter_address(255)) ;
 
   fprintf(stderr, "============================ pipe filters (in place)  ============================\n");
 

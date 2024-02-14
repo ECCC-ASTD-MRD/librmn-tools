@@ -18,7 +18,7 @@
 // filter specific include file template
 
 #if ! defined(FILTER_255)
-#define FILTER_255
+#define FILTER_255 2
 
 // basic macros and definitions
 #include <rmn/filter_base.h>
@@ -27,7 +27,7 @@
 // ----------------- id = 255 filter template -----------------
 typedef struct{
   FILTER_PROLOG ;
-  array_properties adim ;
+  uint32_t opt[FILTER_255] ;
 } FILTER_TYPE(255) ;
 static FILTER_TYPE(255) FILTER_NULL(255) = {FILTER_BASE(255) } ;
 CT_ASSERT(FILTER_SIZE_OK(FILTER_TYPE(255)))

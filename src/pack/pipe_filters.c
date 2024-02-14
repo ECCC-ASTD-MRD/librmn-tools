@@ -102,6 +102,7 @@ void pipe_filters_init(void){
   pipe_filter FILTER_FUNCTION(001) ;
   pipe_filter FILTER_FUNCTION(100) ;
   pipe_filter FILTER_FUNCTION(254) ;
+  pipe_filter FILTER_FUNCTION(255) ;
   pipe_filter_register(000, "dummy filter", pipe_filter_000) ;
   pipe_filter_register(001, "array prop", pipe_filter_000) ;
   pipe_filter_register(100, "lin_quantizer", pipe_filter_100) ;
@@ -213,7 +214,9 @@ ssize_t run_pipe_filters(int flags, array_descriptor *data_in, const filter_list
       m_outsize = (*fn)(PIPE_VALIDATE, NULL, list[i], NULL, NULL) ;
       m_out = ALLOC_META(m_outsize) ;
       m_out->size = m_outsize ;
-      fprintf(stderr, "applying forward filter no %d  %8.8x %8.8x\n", list[i]->id, list[i]->meta[0], list[i]->meta[1]) ;
+      int lsize = list[i]->size-1 ;
+      fprintf(stderr, "applying forward filter no %d(%d)  %8.8x %8.8x\n", 
+                       list[i]->id, lsize, (lsize > 0) ? list[i]->meta[0] : 0, (lsize > 1) ? list[i]->meta[1] : 0) ;
       if((*fn)(flags, pdim, list[i], &pbuf, stream) <= 0){
         fprintf(stderr, "run_pipe_filters : ERROR in forward filter\n") ;
         if(! in_place) {
@@ -262,7 +265,9 @@ ssize_t run_pipe_filters(int flags, array_descriptor *data_in, const filter_list
       m_rev = filters[fnumber-1] ;
       fnumber-- ;
       pipe_filter_pointer fnr = pipe_filter_address(m_rev->id) ;
-      fprintf(stderr, "applying reverse filter no %d  %8.8x %8.8x\n", m_rev->id, m_rev->meta[0], m_rev->meta[1]) ;
+      int lsize = m_rev->size-1 ;
+      fprintf(stderr, "applying reverse filter no %d(%d)  %8.8x %8.8x\n", 
+                      m_rev->id, lsize, (lsize > 0) ? m_rev->meta[0] : 0, (lsize > 1) ? m_rev->meta[1] : 0) ;
       (*fnr) (flags, &out_dims, m_rev, &pbuf, NULL) ;  // call filter using run_pipe_filters flags
     }
     if(! in_place) memcpy(data_in->data, pbuf.buffer, pbuf.used) ;

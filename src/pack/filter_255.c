@@ -14,15 +14,15 @@
 // Author:
 //     M. Valin,   Recherche en Prevision Numerique, 2024
 //
-#include <string.h>
+#include <stdio.h>
 
 #include <rmn/filter_255.h>
 
 // ----------------- id = 255, diagnostic filter -----------------
 
 #define ID 255
-// PIPE_VALIDATE and PIPE_FWDSIZE : flags, ad, meta_in are used, buf and stream_out may be NULL
-ssize_t FILTER_FUNCTION(ID)(uint32_t flags, array_properties *ad, const filter_meta *meta_in, pipe_buffer *buf, wordstream *stream_out){
+// PIPE_VALIDATE and PIPE_FWDSIZE : flags, ap, meta_in are used, buf and stream_out may be NULL
+ssize_t FILTER_FUNCTION(ID)(uint32_t flags, array_properties *ap, const filter_meta *meta_in, pipe_buffer *buf, wordstream *stream_out){
   // the definition of FILTER_TYPE(ID) (filter_xxx) will come from filter_xxx.h or the appropriate include file
   ssize_t nbytes = 0 ;
   int errors = 0 ;
@@ -43,6 +43,7 @@ ssize_t FILTER_FUNCTION(ID)(uint32_t flags, array_properties *ad, const filter_m
       m_inv = (filter_inverse *) meta_in ;
       if(flags & PIPE_FWDSIZE) {              // get worst case size estimate for output data
         // insert appropriate code here
+        nbytes = filter_data_values(ap) * sizeof(uint32_t) ; // (size of incoming data)
         goto end ;
       }
       if(m_inv->size < W32_SIZEOF(filter_inverse)) errors++ ;       // wrong size
@@ -51,7 +52,21 @@ ssize_t FILTER_FUNCTION(ID)(uint32_t flags, array_properties *ad, const filter_m
       if(errors)           goto error ;
       //
       // insert appropriate inverse filter code here
-      //
+      switch(meta_in->flags) {
+        case 3:
+          break ;
+        case 2:
+          break ;
+        case 1:
+          fprintf(stderr, "%d dimensions, %d-%d-%d-%d-%d, tile(%d,%d)\n",
+                  ap->ndims,ap->nx[0],ap->nx[1],ap->nx[2],ap->nx[3],ap->nx[4],ap->tilex,ap->tiley);
+          break ;
+        case 0:    // NO-OP
+          break ;
+        default:   // flags has 2 bits, can't happen
+          break ;
+      }
+      // quasi NO-OP for now
       break ;
 
     case PIPE_VALIDATE:                            // validate input to forward filter
@@ -70,12 +85,28 @@ ssize_t FILTER_FUNCTION(ID)(uint32_t flags, array_properties *ad, const filter_m
       //
       // insert appropriate filter code here
       //
+      switch(meta_in->flags) {
+        case 3:
+          break ;
+        case 2:
+          break ;
+        case 1:    // print incoming array base properties
+          fprintf(stderr, "%d dimensions, %d-%d-%d-%d-%d, tile(%d,%d)\n",
+                  ap->ndims,ap->nx[0],ap->nx[1],ap->nx[2],ap->nx[3],ap->nx[4],ap->tilex,ap->tiley);
+          break ;
+        case 0:    // NO-OP
+          break ;
+        default:   // flags has 2 bits, can't happen
+          break ;
+      }
       m_inv = &m_out ;    // output metadata (may have to use malloc() if not fixed size structure)
       *m_inv = (filter_inverse) {.size = W32_SIZEOF(filter_inverse), .id = ID, .flags = 0 } ;
       // prepare metadata for inverse filter
+      m_inv->flags = meta_in->flags ;   // for new, just pass flags to inverse filter
       //
       ws32_insert(stream_out, (uint32_t *)(m_inv), W32_SIZEOF(filter_inverse)) ; // insert into stream_out
       // set nbytes to output size
+      nbytes = filter_data_values(ap) * sizeof(uint32_t) ;      // set nbytes to output size
       break ;
 
     default:
