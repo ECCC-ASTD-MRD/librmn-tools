@@ -38,7 +38,7 @@
 
 #define PIPE_DATA_SIGNED    1
 #define PIPE_DATA_UNSIGNED  2
-#define PIPE_DATA_FLOAT     4
+#define PIPE_DATA_FP        4
 
 #define MAX_ARRAY_DIMENSIONS 5
 typedef union{
@@ -54,16 +54,16 @@ typedef union{
 #define MAX_ARRAY_PROPERTIES 8
 // N.B. arrays are stored Fortran style, 1st dimension varying first
 typedef struct{
-  uint32_t ndims:8,    // number of dimensions
-           esize:8,    // element size (1/2/4)
-           etype:8,    // element type (signed/unsigned/float)
-           nprop:8,    // number of used properties (prop[])
-           version:8,  // version
-           ptype:8,    // property type (allows to know what is in prop[n])
-           fid:8,      // id of last filter that modified properties
-           spare:8,
-           tilex:16,   // tiling block size along 1st dimension
-           tiley:16;   // tiling block size along 2nd dimension
+  uint32_t  version:8,  // structure version
+            ndims:8,    // number of dimensions
+            esize:8,    // array element size (1/2/4)
+            etype:8,    // element type (signed/unsigned/float)
+            nprop:8,    // number of used properties (prop[])
+            ptype:8,    // property type (allows to know what is in prop[n])
+            fid:8,      // id of last filter that modified properties
+            spare:8,
+            tilex:16,   // tiling block size along 1st dimension
+            tiley:16;   // tiling block size along 2nd dimension
   uint32_t nx[MAX_ARRAY_DIMENSIONS] ;
   i_u_f    prop[MAX_ARRAY_PROPERTIES] ;
   uint32_t *extra ;    // normally NULL, pointer to extended information
@@ -71,7 +71,7 @@ typedef struct{
 CT_ASSERT(ARRAY_PROPERTIES_SIZE == W32_SIZEOF(array_properties))
 
 static array_properties array_properties_null = 
-       { .ndims = 0, .esize = 0, .etype = 0, .nprop = 0, .nx = {[0 ... MAX_ARRAY_DIMENSIONS-1] = 1 } } ;
+       { .version = 1, .ndims = 0, .esize = 0, .etype = 0, .nprop = 0, .nx = {[0 ... MAX_ARRAY_DIMENSIONS-1] = 1 } } ;
 
 typedef struct{
   void *data ;

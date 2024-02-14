@@ -85,7 +85,7 @@ ssize_t FILTER_FUNCTION(ID)(uint32_t flags, array_properties *ap, const filter_m
           ap->prop[1].u = l32.u.maxa ;
           ap->prop[0].u = l32.u.min0 ;
           break ;
-        case PIPE_DATA_FLOAT:
+        case PIPE_DATA_FP:
           l32 = IEEE32_extrema(buf->buffer, filter_data_values(ap)) ;
           ap->nprop = 3 ;
           ap->prop[0].f = l32.f.mins ;
