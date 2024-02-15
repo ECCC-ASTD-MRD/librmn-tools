@@ -89,9 +89,9 @@ int main(int argc, char **argv){
   fprintf(stderr, "============================ register pipe filters  ============================\n");
   pipe_filters_init() ;                                   // initialize filter table
   i = pipe_filter_register(254, "demo254", pipe_filter_254) ;  // change name of filter 254
-  fprintf(stderr, "filter_register demo254 status = %d, name = '%s', address = %p\n", i, pipe_filter_name(254), pipe_filter_address(254)) ;
+  fprintf(stderr, "registered demo254 status = %d, name = '%s', address = %p\n", i, pipe_filter_name(254), pipe_filter_address(254)) ;
   i = pipe_filter_register(255, "demo255", pipe_filter_255) ;  // change name of filter 255
-  fprintf(stderr, "filter_register demo255 status = %d, name = '%s', address = %p\n", i, pipe_filter_name(255), pipe_filter_address(255)) ;
+  fprintf(stderr, "registered demo255 status = %d, name = '%s', address = %p\n", i, pipe_filter_name(255), pipe_filter_address(255)) ;
 
   fprintf(stderr, "============================ pipe filters (in place)  ============================\n");
 

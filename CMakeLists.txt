@@ -299,6 +299,7 @@ set(PROJECT_H_FILES
   src/PUBLIC_INCLUDES/rmn/fastapprox.h
   src/PUBLIC_INCLUDES/rmn/pipe_filters.h
   src/PUBLIC_INCLUDES/rmn/filter_base.h
+  src/PUBLIC_INCLUDES/rmn/filter_all.h
   src/PUBLIC_INCLUDES/rmn/filter_000.h
   src/PUBLIC_INCLUDES/rmn/filter_001.h
   src/PUBLIC_INCLUDES/rmn/filter_100.h

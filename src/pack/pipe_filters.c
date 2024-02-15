@@ -18,6 +18,9 @@
 #include <string.h>
 
 #include <rmn/pipe_filters.h>
+// all possible filters
+#include <rmn/filter_all.h>
+
 #include <rmn/misc_operators.h>
 
 // maximum number of filter IDs
@@ -25,7 +28,7 @@
 // maximum length of a filter chain
 #define MAX_FILTER_CHAIN     32
 // maximum length of a filter name (including the terminating null character)
-#define MAX_NAME_LENGTH      16
+#define MAX_NAME_LENGTH      32
 
 typedef struct{
   pipe_filter_pointer fn ;       // address of filter function
@@ -75,7 +78,11 @@ int pipe_filter_is_defined(int id){
 // fn     [IN] : address of pipe filter function
 // return 0 if successful, -1 otherwise
 int pipe_filter_register(int id, char *name, pipe_filter_pointer fn){
-fprintf(stderr, "filter_register : '%s' at %p\n", name, fn) ;
+  if(fn == NULL) {
+    fprintf(stderr, "WARNING: undefined filter '%s', id = %d\n", name, id) ;
+    return 1 ;
+  }
+fprintf(stderr, "filter_register(%3d) : '%32s' at %p\n", id, name, fn) ;
   if(id >= MAX_FILTERS || id <= 0) return -1 ;                             // bad id
   if(filter_table[id].fn != 0 && filter_table[id].fn != fn) return -1 ;    // id already in use for another function
   filter_table[id].fn = fn ;                                               // filter function address
@@ -98,17 +105,13 @@ int filter_list_valid(const filter_list list){
 
 // initialize table with known filters
 void pipe_filters_init(void){
-  pipe_filter FILTER_FUNCTION(000) ;
-  pipe_filter FILTER_FUNCTION(001) ;
-  pipe_filter FILTER_FUNCTION(100) ;
-  pipe_filter FILTER_FUNCTION(254) ;
-  pipe_filter FILTER_FUNCTION(255) ;
-  pipe_filter_register(000, "dummy filter", pipe_filter_000) ;
-  pipe_filter_register(001, "array prop", pipe_filter_000) ;
-  pipe_filter_register(100, "lin_quantizer", pipe_filter_100) ;
-  pipe_filter_register(254, "test254", pipe_filter_254) ;
-//   pack_filter_register(254, "test253", pack_filter_253) ;
-//   pack_filter_register(001, "linear1", pack_filter_001) ;
+  pipe_filter_register(000, "dimensions",       pipe_filter_000) ;
+  pipe_filter_register(001, "array properties", pipe_filter_001) ;
+  pipe_filter_register(100, "linear quantizer", pipe_filter_100) ;
+  pipe_filter_register(252, "unknown",          pipe_filter_252) ;  // testing weak external support
+  pipe_filter_register(253, "unknown",          pipe_filter_253) ;  // testing weak external support
+  pipe_filter_register(254, "integer saxpy",    pipe_filter_254) ;
+  pipe_filter_register(255, "diagnostics",      pipe_filter_255) ;
 }
 
 // encode dimensions into a filter_meta struct

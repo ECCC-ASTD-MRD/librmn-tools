@@ -104,7 +104,8 @@ ssize_t FILTER_FUNCTION(ID)(uint32_t flags, array_properties *ap, const filter_m
       // prepare metadata for inverse filter
       m_inv->flags = meta_in->flags ;   // for new, just pass flags to inverse filter
       //
-      ws32_insert(stream_out, (uint32_t *)(m_inv), W32_SIZEOF(filter_inverse)) ; // insert into stream_out
+      uint32_t temp = *((uint32_t *)(m_inv)) ;      // sleigh of hand because of gcc problem
+      ws32_insert(stream_out, &temp, W32_SIZEOF(filter_inverse)) ; // insert into stream_out
       // set nbytes to output size
       nbytes = filter_data_values(ap) * sizeof(uint32_t) ;      // set nbytes to output size
       break ;

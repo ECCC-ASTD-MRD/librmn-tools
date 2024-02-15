@@ -208,4 +208,6 @@ char *pipe_filter_name(int id);
 ssize_t run_pipe_filters(int flags, array_descriptor *data_in, const filter_list list, wordstream *stream);
 ssize_t tiled_fwd_pipe_filters(int flags, array_descriptor *data_in, const filter_list list, wordstream *stream);
 
+// #include <rmn/filter_all.h>
+
 #endif // ! defined(PIPE_FORWARD)
