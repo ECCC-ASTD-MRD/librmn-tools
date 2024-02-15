@@ -29,6 +29,7 @@ ssize_t FILTER_FUNCTION(ID)(uint32_t flags, array_properties *ap, const filter_m
   typedef struct{    // used as m_out in forward mode, used as m_inv for the reverse filter
     FILTER_PROLOG ;
     // add specific components here
+    uint32_t dummy[] ;
   } filter_inverse ;
   filter_inverse *m_inv, m_out ;
   FILTER_TYPE(ID) *m_fwd ;
@@ -99,13 +100,9 @@ ssize_t FILTER_FUNCTION(ID)(uint32_t flags, array_properties *ap, const filter_m
         default:   // flags has 2 bits, can't happen
           break ;
       }
-      m_inv = &m_out ;    // output metadata (may have to use malloc() if not fixed size structure)
-      *m_inv = (filter_inverse) {.size = W32_SIZEOF(filter_inverse), .id = ID, .flags = 0 } ;
       // prepare metadata for inverse filter
-      m_inv->flags = meta_in->flags ;   // for new, just pass flags to inverse filter
-      //
-      uint32_t temp = *((uint32_t *)(m_inv)) ;      // sleigh of hand because of gcc problem
-      ws32_insert(stream_out, &temp, W32_SIZEOF(filter_inverse)) ; // insert into stream_out
+      m_out = (filter_inverse) {.size = W32_SIZEOF(filter_inverse), .id = ID, .flags = meta_in->flags } ;
+      ws32_insert(stream_out, &m_out, W32_SIZEOF(filter_inverse)) ; // insert into stream_out
       // set nbytes to output size
       nbytes = filter_data_values(ap) * sizeof(uint32_t) ;      // set nbytes to output size
       break ;
