@@ -248,7 +248,7 @@ ssize_t run_pipe_filters(int flags, array_descriptor *data_in, const filter_list
       m_rev = (filter_meta *) ws32_data(stream) ;   // pointer to reverse filter metadata
 //           fprintf(stderr, "filter id = %d, filter size = %d, filter flags = %d [ %8.8x %8.8x]\n", 
 //                   m_rev->id, m_rev->size, m_rev->flags, m_rev->meta[0], m_rev->meta[1]) ;
-      ws32_skip(stream, m_rev->size) ;              // skip filter metadata
+      ws32_skip_out(stream, m_rev->size) ;          // skip filter metadata
       status = WS32_OUT(*stream) - pop_stream ;     // update length of skipped metadata
       if(m_rev->id == 0) break ;                    // last filter in filter chain
       filters[fnumber++] = m_rev ;                  // insert into filter list
@@ -292,6 +292,7 @@ ssize_t tiled_fwd_pipe_filters(int flags, array_descriptor *data_in, const filte
   // do we want to tile using 1st dimension and product of other dimensions ?
   // or do we want a loop over other dimensions ?
   if(ndims == 2 && blki != 0 && blkj != 0){   // 2D data to be tiled for processing
+
     uint32_t tile[blki*blkj] ;
     array_descriptor ad = *data_in ;          // import information from global array
     int gni = ad.ap.nx[0] ;                   // 1st dimension of global array
@@ -303,9 +304,9 @@ ssize_t tiled_fwd_pipe_filters(int flags, array_descriptor *data_in, const filte
     uint32_t *map = str0 ;
     // allocate space for data map in stream (skip) (nblki * nblkj tiles)
     uint32_t mapsize = nblkj * (nblki + 1) ;  // row size + size of nblki tiles for each row of tiles
-    status = ws32_skip(stream, mapsize) ;
+    status = ws32_skip_in(stream, mapsize) ;
+fprintf(stderr,"entering tiled_fwd_pipe_filters, gni = %d, gnj = %d, mapsize = %d, status = %d\n", gni, gnj, mapsize, status);
     if(status < 0) goto error ;
-
     int i0, j0, tni, tnj ;
     for(j0=0 ; j0<gnj ; j0+=blkj){                   // loop over tile rows
       uint32_t rowsize = 0, *row = map ;
@@ -318,11 +319,12 @@ ssize_t tiled_fwd_pipe_filters(int flags, array_descriptor *data_in, const filte
         ad.ap.nx[0] = tni ; ad.ap.nx[1] = tnj ;      // tile dimensions
         // collect local tile from global array ( array[i0:i0+tni-1,j0:j0+tnj-1] -> tile[tni,tnj] )
         status = get_word_block(tile_base, tile, tni, gni, tnj) ;
-        if(status) goto error ;
+        if(status < 0) goto error ;
         tile_base += tni ;    // lower left corner of next tile
         // get current position in stream
         uint32_t istart = WS32_IN(*stream) ;
         // call filter chain with tile of dimensions (in-i0) , (jn-j0)
+fprintf(stderr,"i0 = %d, j0 = %d\n", i0, j0);
         status = run_pipe_filters(PIPE_FORWARD, &ad, list, stream) ;
         if(status < 0) goto error ;
         // length = current position in stream - remembered position

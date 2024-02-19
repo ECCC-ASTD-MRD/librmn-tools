@@ -26,12 +26,7 @@ ssize_t FILTER_FUNCTION(ID)(uint32_t flags, array_properties *ap, const filter_m
   // the definition of FILTER_TYPE(ID) (filter_xxx) will come from filter_xxx.h or the appropriate include file
   ssize_t nbytes = 0 ;
   int errors = 0 ;
-  typedef struct{    // used as m_out in forward mode, used as m_inv for the reverse filter
-    FILTER_PROLOG ;
-    // add specific components here
-    uint32_t dummy[] ;
-  } filter_inverse ;
-  filter_inverse *m_inv, m_out ;
+  filter_meta m_out ;
   FILTER_TYPE(ID) *m_fwd ;
 
   if(meta_in == NULL)          goto error ;   // outright error
@@ -41,14 +36,13 @@ ssize_t FILTER_FUNCTION(ID)(uint32_t flags, array_properties *ap, const filter_m
 
     case PIPE_FWDSIZE:                        // get worst case estimate for output data in PIPE_FORWARD mode
     case PIPE_REVERSE:                         // inverse filter
-      m_inv = (filter_inverse *) meta_in ;
       if(flags & PIPE_FWDSIZE) {              // get worst case size estimate for output data
         // insert appropriate code here
         nbytes = filter_data_values(ap) * sizeof(uint32_t) ; // (size of incoming data)
         goto end ;
       }
-      if(m_inv->size < W32_SIZEOF(filter_inverse)) errors++ ;       // wrong size
-      // validate contents of m_inv, increment errors if errors are detected
+      if(meta_in->size != W32_SIZEOF(filter_meta)) errors++ ;       // wrong size
+      // validate contents of meta_in, increment errors if errors are detected
       //
       if(errors)           goto error ;
       //
@@ -73,14 +67,14 @@ ssize_t FILTER_FUNCTION(ID)(uint32_t flags, array_properties *ap, const filter_m
     case PIPE_VALIDATE:                            // validate input to forward filter
     case PIPE_FORWARD:                             // forward filter
       m_fwd = (FILTER_TYPE(ID) *) meta_in ;        // cast meta_in to input metadata type for this filter
-      if(m_fwd->size < W32_SIZEOF(FILTER_TYPE(ID))) errors++ ;      // wrong size
+      if(m_fwd->size != W32_SIZEOF(FILTER_TYPE(ID))) errors++ ;      // wrong size
       //
       // check that meta_in is valid, increment errors if errors are detected
       //
       if(errors)           goto error ;
 
       if(flags & PIPE_VALIDATE) {              // validation call
-        nbytes = W32_SIZEOF(filter_inverse) ;  // worst case size size of output metadata for inverse filter
+        nbytes = W32_SIZEOF(filter_meta) ;  // worst case size size of output metadata for inverse filter
         goto end ;
       }
       //
@@ -101,8 +95,8 @@ ssize_t FILTER_FUNCTION(ID)(uint32_t flags, array_properties *ap, const filter_m
           break ;
       }
       // prepare metadata for inverse filter
-      m_out = (filter_inverse) {.size = W32_SIZEOF(filter_inverse), .id = ID, .flags = meta_in->flags } ;
-      ws32_insert(stream_out, &m_out, W32_SIZEOF(filter_inverse)) ; // insert into stream_out
+      m_out = (filter_meta) {.size = W32_SIZEOF(filter_meta), .id = ID, .flags = meta_in->flags } ;
+      ws32_insert(stream_out, &m_out, W32_SIZEOF(filter_meta)) ; // insert into stream_out
       // set nbytes to output size
       nbytes = filter_data_values(ap) * sizeof(uint32_t) ;      // set nbytes to output size
       break ;

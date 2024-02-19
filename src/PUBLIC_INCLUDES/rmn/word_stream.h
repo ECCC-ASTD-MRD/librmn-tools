@@ -169,11 +169,27 @@ static int ws32_xtract(wordstream *stream, void *words, uint32_t nwords){
 // stream [IN] : pointer to a wordstream struct
 // nwords [IN] : number of 32 bit elements to skip in word stream
 // return number of words skipped (-1 or -2  in case of error)
-static int ws32_skip(wordstream *stream, uint32_t nwords){
+static int ws32_skip_out(wordstream *stream, uint32_t nwords){
   int status = -1 ;
   if(WS32_MARKER_VALID(*stream)) {             // check that stream is valid
     if(stream->out + nwords <= stream->in ){   // check that we are not skipping beyond insertion point
       stream->out += nwords ;
+      status = nwords ;
+    }else{
+      status = -2 ;
+    }
+  }
+  return status ;
+}
+// skip a number of  32 bit words, advance in index
+// stream [IN] : pointer to a wordstream struct
+// nwords [IN] : number of 32 bit elements to skip in word stream
+// return number of words skipped (-1 or -2  in case of error)
+static int ws32_skip_in(wordstream *stream, uint32_t nwords){
+  int status = -1 ;
+  if(WS32_MARKER_VALID(*stream)) {             // check that stream is valid
+    if(stream->in + nwords <= stream->limit ){   // check that we are not skipping beyond insertion point
+      stream->in += nwords ;
       status = nwords ;
     }else{
       status = -2 ;

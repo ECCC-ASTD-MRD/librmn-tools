@@ -15,6 +15,7 @@
 //
 
 #include <stdio.h>
+#include <stdlib.h>
 
 // double inclusion of include files is deliberate to test against double inclusion
 // #include <rmn/tee_print.h>
@@ -28,7 +29,7 @@
 #define NPTSI 3
 #define NPTSJ 4
 
-int main(int argc, char **argv){
+int test_1(char *msg){
   filter_254 filter1 = filter_254_null ;
   filter_254 filter2 = filter_254_null ;
   filter_254 filter3 = filter_254_null ;
@@ -58,8 +59,6 @@ int main(int argc, char **argv){
 //   filter_009 dummy = filter_009_null ;
 
   ws32_create(&stream_out, NULL, 4096, 0, WS32_CAN_REALLOC) ;
-
-  start_of_test("C pipe filters test") ;
 
   fprintf(stderr, "============================ dimension encoding / decoding ============================\n");
   // test dimension encoding / decoding
@@ -176,6 +175,74 @@ int main(int argc, char **argv){
   for(i=0 ; i<NPTSJ*NPTSI ; i++) errors += (data_i[i] != data_ref[i]) ;
   fprintf(stderr,", errors = %d\n", errors) ;
   if(errors) exit(1) ;
-  fprintf(stderr, "SUCCESS\n") ;
+  fprintf(stderr, "============================ %s : SUCCESS ============================\n\n", msg) ;
+  return 0 ;
+}
+
+#define NI  15
+#define NJ  13
+
+int test_2(char *msg){
+  filter_255 filter1 = filter_255_null ;
+  filter1.flags = 1 ; filter1.opt[0] = 0xBEBEFADA ; filter1.opt[1] = 0xDEADBEEF ;
+  filter_list filters = { (filter_meta *) &filter1, 
+                          NULL } ;
+  uint32_t array[NJ][NI] ;
+  int i, j ;
+  wordstream stream_2 ;
+  ssize_t status ;
+  array_descriptor adi = array_null ; //, ado = array_null ;
+
+  // create word stream
+  ws32_create(&stream_2, NULL, 4096, 0, WS32_CAN_REALLOC) ;
+
+  fprintf(stderr, "============================ register pipe filters  ============================\n");
+  pipe_filters_init() ;                                   // initialize filter table
+  i = pipe_filter_register(255, "diag255", pipe_filter_255) ;  // change name of filter 255
+  fprintf(stderr, "registered diag255 status = %d, name = '%s', address = %p\n", i, pipe_filter_name(255), pipe_filter_address(255)) ;
+
+  for(j=0 ; j<NJ ; j++){
+    for(i=0 ; i<NI ; i++){
+      array[j][i] = i*1000 + j ;
+    }
+  }
+  adi.data = array ;
+  adi.ap.tilex = adi.ap.tiley = 8 ;
+  adi.ap.ndims = 2 ; adi.ap.nx[0] = NI ; adi.ap.nx[1] = NJ ;
+  adi.ap.esize = 4 ; adi.ap.etype = PIPE_DATA_UNSIGNED ;
+  status = tiled_fwd_pipe_filters(0, &adi, filters, &stream_2) ;
+
+  fprintf(stderr, "============================ %s : SUCCESS ============================\n\n", msg) ;
+}
+
+int test_3(char *msg){
+  fprintf(stderr, "============================ %s : SUCCESS ============================\n\n", msg) ;
+}
+
+int main(int argc, char **argv){
+  int to_test = 0 ;
+
+  start_of_test("C pipe filters test") ;
+
+  if(argc == 1) return test_1((*argv)+1) ;
+  while(argc > 1){
+    argc-- ;
+    argv++ ;
+    char *msg = (*argv)+1 ;
+    to_test = atoi(argv[0]) ;
+    switch(to_test){
+      case 1:
+        test_1(msg) ;
+        break;
+      case 2:
+        test_2(msg) ;
+        break;
+      case 3:
+        test_3(msg) ;
+        break;
+      default:
+        fprintf(stderr, "WARNING: unknown test %d\n", to_test) ;
+    }
+  }
   return 0 ;
 }
