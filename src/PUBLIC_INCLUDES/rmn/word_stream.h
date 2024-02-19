@@ -62,6 +62,8 @@ static wordstream null_wordstream = { .buf = NULL, .limit = 0, .in = 0, .out = 0
 #define WS32_OUT(stream)          ((stream).out)
 #define WS32_SIZE(stream)         ((stream).limit)
 #define WS32_BUFFER(stream)       ((stream).buf)
+#define WS32_BUFFER_IN(stream)    ((stream).buf + (stream).in)
+#define WS32_BUFFER_OUT(stream)   ((stream).buf + (stream).out)
 
 // stream status (valid/empty/full)
 #define WS32_EMPTY(stream)        ((WS32_IN(stream)   - WS32_OUT(stream)) == 0 )

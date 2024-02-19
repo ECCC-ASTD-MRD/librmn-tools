@@ -53,8 +53,8 @@ ssize_t FILTER_FUNCTION(ID)(uint32_t flags, array_properties *ap, const filter_m
         case 2:
           break ;
         case 1:
-          fprintf(stderr, "%d dimensions, %d-%d-%d-%d-%d, tile(%d,%d)\n",
-                  ap->ndims,ap->nx[0],ap->nx[1],ap->nx[2],ap->nx[3],ap->nx[4],ap->tilex,ap->tiley);
+          fprintf(stderr, "%d dimensions, %d-%d-%d-%d-%d, tiling[%dx%d] from[%d,%d]\n",
+                  ap->ndims,ap->nx[0],ap->nx[1],ap->nx[2],ap->nx[3],ap->nx[4],ap->tilex,ap->tiley,ap->n0[0],ap->n0[1]);
           break ;
         case 0:    // NO-OP
           break ;
@@ -86,17 +86,18 @@ ssize_t FILTER_FUNCTION(ID)(uint32_t flags, array_properties *ap, const filter_m
         case 2:
           break ;
         case 1:    // print incoming array base properties
-          fprintf(stderr, "%d dimensions, %d-%d-%d-%d-%d, tile(%d,%d)\n",
-                  ap->ndims,ap->nx[0],ap->nx[1],ap->nx[2],ap->nx[3],ap->nx[4],ap->tilex,ap->tiley);
+          fprintf(stderr, "%d dimensions, %d-%d-%d-%d-%d, tiling[%dx%d] from[%d,%d] to[%d,%d]\n",
+                  ap->ndims,ap->nx[0],ap->nx[1],ap->nx[2],ap->nx[3],ap->nx[4],ap->tilex,ap->tiley,
+                  ap->n0[0],ap->n0[1],ap->n0[0]+ap->nx[0]-1,ap->n0[1]+ap->nx[1]-1);
           break ;
         case 0:    // NO-OP
           break ;
         default:   // flags has 2 bits, can't happen
           break ;
       }
-      // prepare metadata for inverse filter
-      m_out = (filter_meta) {.size = W32_SIZEOF(filter_meta), .id = ID, .flags = meta_in->flags } ;
-      ws32_insert(stream_out, &m_out, W32_SIZEOF(filter_meta)) ; // insert into stream_out
+      // normally metadata for inverse filter
+//       m_out = (filter_meta) {.size = W32_SIZEOF(filter_meta), .id = ID, .flags = meta_in->flags } ;
+//       ws32_insert(stream_out, &m_out, W32_SIZEOF(filter_meta)) ; // insert into stream_out
       // set nbytes to output size
       nbytes = filter_data_values(ap) * sizeof(uint32_t) ;      // set nbytes to output size
       break ;

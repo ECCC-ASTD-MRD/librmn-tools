@@ -50,7 +50,7 @@ typedef union{
 #define PROP_VERSION      1
 #define PROP_MIN_MAX      1
 
-#define ARRAY_PROPERTIES_SIZE (MAX_ARRAY_DIMENSIONS + MAX_ARRAY_PROPERTIES + 3 + 2)
+#define ARRAY_PROPERTIES_SIZE (MAX_ARRAY_DIMENSIONS + 2 + MAX_ARRAY_PROPERTIES + 3 + 2)
 #define MAX_ARRAY_PROPERTIES 8
 // N.B. arrays are stored Fortran style, 1st dimension varying first
 typedef struct{
@@ -65,6 +65,7 @@ typedef struct{
             tilex:16,   // tiling block size along 1st dimension
             tiley:16;   // tiling block size along 2nd dimension
   uint32_t nx[MAX_ARRAY_DIMENSIONS] ;
+  uint32_t n0[2] ;      // tile start along 1st and 2nd dimension
   i_u_f    prop[MAX_ARRAY_PROPERTIES] ;
   uint32_t *extra ;    // normally NULL, pointer to extended information
 } array_properties ;

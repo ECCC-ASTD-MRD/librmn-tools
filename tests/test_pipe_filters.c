@@ -188,9 +188,10 @@ int test_2(char *msg){
   filter_list filters = { (filter_meta *) &filter1, 
                           NULL } ;
   uint32_t array[NJ][NI] ;
+  uint32_t *map;
   int i, j ;
   wordstream stream_2 ;
-  ssize_t status ;
+  ssize_t nbytes ;
   array_descriptor adi = array_null ; //, ado = array_null ;
 
   // create word stream
@@ -210,7 +211,14 @@ int test_2(char *msg){
   adi.ap.tilex = adi.ap.tiley = 8 ;
   adi.ap.ndims = 2 ; adi.ap.nx[0] = NI ; adi.ap.nx[1] = NJ ;
   adi.ap.esize = 4 ; adi.ap.etype = PIPE_DATA_UNSIGNED ;
-  status = tiled_fwd_pipe_filters(0, &adi, filters, &stream_2) ;
+  nbytes = tiled_fwd_pipe_filters(0, &adi, filters, &stream_2) ;
+  fprintf(stderr, "bytes added = %ld\n", nbytes) ;
+  WS32_REREAD(stream_2) ;
+  map = WS32_BUFFER_OUT(stream_2) ;
+  fprintf(stderr, "data map \n") ;
+  fprintf(stderr, "%10d%10d%10d", map[0], map[1], map[2]) ;
+  fprintf(stderr, "%10d%10d%10d", map[3], map[4], map[5]) ;
+  fprintf(stderr, "\n");
 
   fprintf(stderr, "============================ %s : SUCCESS ============================\n\n", msg) ;
 }
