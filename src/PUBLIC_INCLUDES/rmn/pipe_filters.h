@@ -38,7 +38,9 @@
 
 #define PIPE_DATA_SIGNED    1
 #define PIPE_DATA_UNSIGNED  2
-#define PIPE_DATA_FP        4
+#define PIPE_DATA_FP        3
+#define PIPE_DATA_DOUBLE    4
+static char *ptype[] = {"unknown", "int", "uint", "float", "double"} ;
 
 #define MAX_ARRAY_DIMENSIONS 5
 typedef union{
@@ -169,7 +171,7 @@ typedef  struct{   // max size for encoding dimensions
 // then use (filter_meta) xxx or (filter_meta *) yyy as argument to filters
 
 // flags     [IN] : flags passed to filter (controls filter behaviour)
-// dims      [IN] : dimensions and data element size of array in buffer.
+// ap        [IN] : dimensions, data element size, extra properties, ...  of array in buffer.
 //                  (some filters will consider data as 1D anyway)
 //                  not used with PIPE_VALIDATE
 //          [OUT] : some filters may need to alter the data dimensions
@@ -181,7 +183,7 @@ typedef  struct{   // max size for encoding dimensions
 //                  buffer->used     : number of valid bytes in buffer->buffer
 //                  buffer->max_size : available storage size in buffer->buffer
 // meta_in   [IN] : parameters passed to filter
-// meta_out [OUT]
+// meta_out [OUT] :
 //         PIPE_VALIDATE : not used
 //         PIPE_FWDSIZE  : meta_out->size = needed size of meta_out for FORWARD call
 //         PIPE_REVERSE  : not used
@@ -208,6 +210,7 @@ char *pipe_filter_name(int id);
 
 ssize_t run_pipe_filters(int flags, array_descriptor *data_in, const filter_list list, wordstream *stream);
 ssize_t tiled_fwd_pipe_filters(int flags, array_descriptor *data_in, const filter_list list, wordstream *stream);
+ssize_t tiled_rev_pipe_filters(int flags, array_descriptor *data_out, wordstream *stream);
 
 // #include <rmn/filter_all.h>
 

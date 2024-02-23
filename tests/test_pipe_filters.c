@@ -187,12 +187,13 @@ int test_2(char *msg){
   filter1.flags = 1 ; filter1.opt[0] = 0xBEBEFADA ; filter1.opt[1] = 0xDEADBEEF ;
   filter_list filters = { (filter_meta *) &filter1, 
                           NULL } ;
-  uint32_t array[NJ][NI] ;
+  uint32_t array_in[NJ][NI] ;
+  uint32_t array_out[NJ][NI] ;
   uint32_t *map;
   int i, j ;
   wordstream stream_2 ;
   ssize_t nbytes ;
-  array_descriptor adi = array_null ; //, ado = array_null ;
+  array_descriptor adi = array_null , ado = array_null ;
 
   // create word stream
   ws32_create(&stream_2, NULL, 4096, 0, WS32_CAN_REALLOC) ;
@@ -204,10 +205,12 @@ int test_2(char *msg){
 
   for(j=0 ; j<NJ ; j++){
     for(i=0 ; i<NI ; i++){
-      array[j][i] = i*1000 + j ;
+      array_in[j][i] = i*1000 + j ;
+      array_out[j][i] = -1 ;
     }
   }
-  adi.data = array ;
+  fprintf(stderr, "\n============================ forward ============================\n") ;
+  adi.data = array_in ;
   adi.ap.tilex = adi.ap.tiley = 8 ;
   adi.ap.ndims = 2 ; adi.ap.nx[0] = NI ; adi.ap.nx[1] = NJ ;
   adi.ap.esize = 4 ; adi.ap.etype = PIPE_DATA_UNSIGNED ;
@@ -215,16 +218,26 @@ int test_2(char *msg){
   fprintf(stderr, "bytes added = %ld\n", nbytes) ;
   WS32_REREAD(stream_2) ;
   map = WS32_BUFFER_OUT(stream_2) ;
-  fprintf(stderr, "data map \n") ;
-  fprintf(stderr, "%10d%10d%10d", map[0], map[1], map[2]) ;
-  fprintf(stderr, "%10d%10d%10d", map[3], map[4], map[5]) ;
-  fprintf(stderr, "\n");
+  uint32_t map2 = map[2] & 0xFFFF, map3 = map[3] & 0xFFFF ;
+  uint32_t nblki = (map[0]+map[2]-1)/map[2] , nblkj = (map[1]+map[3]-1)/map[3] ;
+  fprintf(stderr, "array [%d x %d], blocks [%d x %d], data map [%d,%d]", map[0], map[1], map2, map3, nblki, nblkj) ;
+  map += 4 ;
+  for(i=0 ; i<nblkj ; i++) fprintf(stderr, "%10d", map[i]) ; // fprintf(stderr, "\n") ;
+  map += nblkj ;
+  for(i=0 ; i<nblki*nblkj ; i++) fprintf(stderr, "%10d", map[i]) ; fprintf(stderr, "\n") ;
+
+  fprintf(stderr, "\n============================ reverse ============================\n") ;
+  ado = adi ;
+  ado.data = array_out ;
+  nbytes = tiled_rev_pipe_filters(0, &ado, &stream_2) ;
 
   fprintf(stderr, "============================ %s : SUCCESS ============================\n\n", msg) ;
+  return 0 ;
 }
 
 int test_3(char *msg){
   fprintf(stderr, "============================ %s : SUCCESS ============================\n\n", msg) ;
+  return 0 ;
 }
 
 int main(int argc, char **argv){
