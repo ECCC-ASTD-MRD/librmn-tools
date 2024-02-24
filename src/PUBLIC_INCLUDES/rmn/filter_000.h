@@ -27,7 +27,7 @@
 // ----------------- id = 000 filter template -----------------
 typedef struct{
   FILTER_PROLOG ;
-  array_properties adim ;
+  array_descriptor adim ;
 } FILTER_TYPE(000) ;
 static FILTER_TYPE(000) FILTER_NULL(000) = {FILTER_BASE(000) } ;
 CT_ASSERT(FILTER_SIZE_OK(FILTER_TYPE(000)))

@@ -46,8 +46,8 @@ int test_1(char *msg){
   int i, j, k, errors ;
   ssize_t nmeta, nmetao ;
   wordstream stream_out ;
-  array_descriptor adi = array_null ; //, ado = array_null ;
-  array_properties ad1, ad2 ;
+  array_descriptor adi = array_descriptor_null ; //, ado = array_null ;
+  array_descriptor ad1, ad2 ;
   filter_dim fdim ;
   uint32_t fsize ;
   // syntax test for 009 (possible octal confusion)
@@ -65,7 +65,7 @@ int test_1(char *msg){
   int factor = 1 ;
   for(j=0 ; j<3 ; j++){
     for(i=1 ; i<=MAX_ARRAY_DIMENSIONS ; i++){
-      ad1 = ad2 = array_properties_null ;
+      ad1 = ad2 = array_descriptor_null ;
       ad1.ndims = i ;
       int j ;
       for(j=0 ; j<i ; j++) ad1.nx[j] = (9 - j) * factor ;
@@ -105,7 +105,7 @@ int test_1(char *msg){
   for(i = 0 ; i < NPTSJ*NPTSI ; i++) fprintf(stderr, "%6d ", data_ref[i]) ; fprintf(stderr, "\n") ;
 
   // metadata will be in stream_out, "filtered" data will be in data_i[]
-  adi = (array_descriptor) { .ap.esize = 4, .ap.ndims = 2, .data = data_i, .ap.nx[0] = NPTSI, .ap.nx[1] = NPTSJ } ;
+  adi = (array_descriptor) { .esize = 4, .ndims = 2, .data = data_i, .nx[0] = NPTSI, .nx[1] = NPTSJ } ;
   nmeta = run_pipe_filters(PIPE_FORWARD|PIPE_INPLACE, &adi, filters, &stream_out) ;
   fprintf(stderr, "forward filters metadata length = %ld\n", nmeta);
   fprintf(stderr, "filtered : ") ;
@@ -119,7 +119,7 @@ int test_1(char *msg){
 
   WS32_REREAD(stream_out) ;
   // description of what is expected to come out of the reverse filter chain
-//   ado = (array_descriptor) { .ap.esize = 4, .ap.ndims = 2, .data = data_o, .ap.nx[0] = NPTSI, .ap.nx[1] = NPTSJ } ;
+//   ado = (array_descriptor) { .esize = 4, .ndims = 2, .data = data_o, .nx[0] = NPTSI, .nx[1] = NPTSJ } ;
 //   for(i = 0 ; i < NPTSJ*NPTSI ; i++) data_o[i] = stream_out.buf[i+8] ;
   nmetao = run_pipe_filters(PIPE_REVERSE|PIPE_INPLACE, &adi, filters, &stream_out) ;
   fprintf(stderr, "reverse filters metadata read = %ld\n", nmetao);
@@ -147,7 +147,7 @@ int test_1(char *msg){
   for(i = 0 ; i < NPTSJ*NPTSI ; i++) fprintf(stderr, "%6d ", data_ref[i]) ; fprintf(stderr, "\n") ;
 
   // metadata will be in stream_out, "filtered" data will be in stream_put, after metadata
-  adi = (array_descriptor) { .ap.esize = 4, .ap.ndims = 2, .data = data_i, .ap.nx[0] = NPTSI, .ap.nx[1] = NPTSJ } ;
+  adi = (array_descriptor) { .esize = 4, .ndims = 2, .data = data_i, .nx[0] = NPTSI, .nx[1] = NPTSJ } ;
   nmeta = run_pipe_filters(PIPE_FORWARD, &adi, filters, &stream_out) ;
   fprintf(stderr, "forward filters metadata length = %ld\n", nmeta);
   fprintf(stderr, "filtered : ") ;
@@ -161,7 +161,7 @@ int test_1(char *msg){
 
   WS32_REREAD(stream_out) ;
   // description of what is expected to come out of the reverse filter chain
-//   ado = (array_descriptor) { .ap.esize = 4, .ap.ndims = 2, .data = data_o, .ap.nx[0] = NPTSI, .ap.nx[1] = NPTSJ } ;
+//   ado = (array_descriptor) { .esize = 4, .ndims = 2, .data = data_o, .nx[0] = NPTSI, .nx[1] = NPTSJ } ;
 //   for(i = 0 ; i < NPTSJ*NPTSI ; i++) data_o[i] = stream_out.buf[i+8] ;
   nmetao = run_pipe_filters(PIPE_REVERSE, &adi, filters, &stream_out) ;
   fprintf(stderr, "reverse filters metadata read = %ld\n", nmetao);
@@ -193,7 +193,7 @@ int test_2(char *msg){
   int i, j ;
   wordstream stream_2 ;
   ssize_t nbytes ;
-  array_descriptor adi = array_null , ado = array_null ;
+  array_descriptor adi = array_descriptor_null , ado = array_descriptor_null ;
 
   // create word stream
   ws32_create(&stream_2, NULL, 4096, 0, WS32_CAN_REALLOC) ;
@@ -211,9 +211,9 @@ int test_2(char *msg){
   }
   fprintf(stderr, "\n============================ forward ============================\n") ;
   adi.data = array_in ;
-  adi.ap.tilex = adi.ap.tiley = 8 ;
-  adi.ap.ndims = 2 ; adi.ap.nx[0] = NI ; adi.ap.nx[1] = NJ ;
-  adi.ap.esize = 4 ; adi.ap.etype = PIPE_DATA_UNSIGNED ;
+  adi.tilex = adi.tiley = 8 ;
+  adi.ndims = 2 ; adi.nx[0] = NI ; adi.nx[1] = NJ ;
+  adi.esize = 4 ; adi.etype = PIPE_DATA_UNSIGNED ;
   nbytes = tiled_fwd_pipe_filters(0, &adi, filters, &stream_2) ;
   fprintf(stderr, "bytes added = %ld\n", nbytes) ;
   WS32_REREAD(stream_2) ;

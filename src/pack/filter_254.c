@@ -25,7 +25,7 @@
 // with PIPE_FWDSIZE, flags, ap, meta_in, stream_out are used, all other arguments could be NULL
 // with PIPE_REVERSE, flags, ap, meta_in, buf are used, stream_out is not used
 #define ID 254
-ssize_t FILTER_FUNCTION(ID)(uint32_t flags, array_properties *ap, const filter_meta *meta_in, pipe_buffer *buf, wordstream *stream_out){
+ssize_t FILTER_FUNCTION(ID)(uint32_t flags, array_descriptor *ap, const filter_meta *meta_in, pipe_buffer *buf, wordstream *stream_out){
   ssize_t nbytes = 0 ;
   int errors = 0, nval, i ;
   typedef struct{    // used as m_out in forward mode, used as m_inv for the reverse filter

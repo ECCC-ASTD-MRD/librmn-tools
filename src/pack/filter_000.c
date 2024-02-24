@@ -27,7 +27,7 @@
 // 000 MUST be replaced by an integer between 001 and 254
 #define ID 000
 // PIPE_VALIDATE and PIPE_FWDSIZE : flags, ap, meta_in are used, buf and stream_out may be NULL
-ssize_t FILTER_FUNCTION(ID)(uint32_t flags, array_properties *ap, const filter_meta *meta_in, pipe_buffer *buf, wordstream *stream_out){
+ssize_t FILTER_FUNCTION(ID)(uint32_t flags, array_descriptor *ap, const filter_meta *meta_in, pipe_buffer *buf, wordstream *stream_out){
   // the definition of FILTER_TYPE(ID) (filter_xxx) will come from filter_xxx.h or the appropriate include file
   ssize_t nbytes = 0 ;
   int errors = 0 ;

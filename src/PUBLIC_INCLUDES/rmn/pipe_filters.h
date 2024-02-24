@@ -47,15 +47,15 @@ typedef union{
   uint32_t u ;
   int32_t  i ;
   float    f ;
-} i_u_f;
+} p_iuf;
 
 #define PROP_VERSION      1
 #define PROP_MIN_MAX      1
 
-#define ARRAY_PROPERTIES_SIZE (MAX_ARRAY_DIMENSIONS + 2 + MAX_ARRAY_PROPERTIES + 3 + 2)
 #define MAX_ARRAY_PROPERTIES 8
 // N.B. arrays are stored Fortran style, 1st dimension varying first
 typedef struct{
+  void *data ;
   uint32_t  version:8,  // structure version
             ndims:8,    // number of dimensions
             esize:8,    // array element size (1/2/4)
@@ -68,41 +68,46 @@ typedef struct{
             tiley:16;   // tiling block size along 2nd dimension
   uint32_t nx[MAX_ARRAY_DIMENSIONS] ;
   uint32_t n0[2] ;      // tile start along 1st and 2nd dimension
-  i_u_f    prop[MAX_ARRAY_PROPERTIES] ;
+  p_iuf    prop[MAX_ARRAY_PROPERTIES] ;
   uint32_t *extra ;    // normally NULL, pointer to extended information
-} array_properties ;
-CT_ASSERT(ARRAY_PROPERTIES_SIZE == W32_SIZEOF(array_properties))
-
-static array_properties array_properties_null = 
-       { .version = 1, .ndims = 0, .esize = 0, .etype = 0, .nprop = 0, .nx = {[0 ... MAX_ARRAY_DIMENSIONS-1] = 1 } } ;
-
-typedef struct{
-  void *data ;
-  union{
-    uint32_t props[W32_SIZEOF(array_properties)] ;
-    array_properties ap ;
-  };
 } array_descriptor ;
-static array_descriptor array_null = { .data = NULL, .props = {[0 ... ARRAY_PROPERTIES_SIZE-1] = 0 } } ;
+static array_descriptor array_descriptor_null = {.data = NULL, .version = 3, .nx = {[0 ... MAX_ARRAY_DIMENSIONS-1] = 1 } } ;
 
 static int array_data_values(array_descriptor *ap){
-  int nval = 1, i, ndims = ap->ap.ndims ;
+  int nval = 1, i, ndims = ap->ndims ;
   if(ndims < 0 || ndims > MAX_ARRAY_DIMENSIONS) return -1 ;
-  for(i=0 ; i<ndims ; i++) nval *= ap->ap.nx[i] ;
+  for(i=0 ; i<ndims ; i++) nval *= ap->nx[i] ;
   return nval ;
 }
 
 static int array_data_size(array_descriptor *ap){
-  return array_data_values(ap) * ap->ap.esize ;
+  return array_data_values(ap) * ap->esize ;
 }
+
+// NOTE : may need a flag to indicate it can be freed/realloced/just_replaced_with_another_value
+typedef   union{
+  struct{
+    uint32_t u32 ;
+  } ;
+  struct{
+    uint32_t no_realloc  :1,
+              can_realloc :1,
+              can_replace :1,
+              can_free    :1,
+              no_free     :1,
+              owner       :1,
+              spare       :26 ;
+  } ;
+  }p_b_flags ;
+CT_ASSERT(sizeof(p_b_flags) == sizeof(uint32_t))
 
 typedef struct{
   void *buffer ;           // pointer to storage for buffer
   size_t used ;            // number of bytes used in buffer
   size_t max_size ;        // buffer maximum size in bytes
-  uint32_t flags ;         // usage flags for buffer
+  p_b_flags flags ;
 } pipe_buffer ;
-static pipe_buffer pipe_buffer_null = { .used = 0, .max_size = 0, .buffer = NULL, .flags = 0 } ;
+static pipe_buffer pipe_buffer_null = { .used = 0, .max_size = 0, .buffer = NULL, .flags.u32 = 0 } ;
 
 static size_t pipe_buffer_bytes_used(pipe_buffer *p){
   return p->used ;
@@ -125,7 +130,7 @@ static void *pipe_buffer_data(pipe_buffer *p){
 
 // translate array dimensions into number of values
 // ap  [IN] : pointer to array dimensions struct
-static int filter_data_values(const array_properties *ap){
+static int filter_data_values(const array_descriptor *ap){
   int nval = 0 ;
   int i ;
   int ndims = ap->ndims ;
@@ -140,7 +145,7 @@ end:
 
 // translate array dimensions into number of bytes
 // ap  [IN] : pointer to array dimensions struct
-static int filter_data_bytes(const array_properties *ap){
+static int filter_data_bytes(const array_descriptor *ap){
   return filter_data_values(ap) * ap->esize ;
 }
 
@@ -194,12 +199,12 @@ typedef  struct{   // max size for encoding dimensions
 //         PIPE_FORWARD  : size of data output in bytes, negative value in case of error(s)
 //         PIPE_REVERSE  : size of data output in bytes, negative value in case of error(s)
 
-typedef ssize_t pipe_filter(uint32_t flags, array_properties *ap, const filter_meta *meta_in, pipe_buffer *buffer, wordstream *meta_out) ;
+typedef ssize_t pipe_filter(uint32_t flags, array_descriptor *ap, const filter_meta *meta_in, pipe_buffer *buffer, wordstream *meta_out) ;
 typedef pipe_filter *pipe_filter_pointer ;
 
 // encode/decode array dimensions <-> filter struct (expected to contain ONLY dimension information)
-int32_t filter_dimensions_encode(const array_properties *ap, filter_meta *fm);
-int32_t filter_dimensions_decode(array_properties *ap, const filter_meta *fm);
+int32_t filter_dimensions_encode(const array_descriptor *ap, filter_meta *fm);
+int32_t filter_dimensions_decode(array_descriptor *ap, const filter_meta *fm);
 
 ssize_t pipe_filter_validate(filter_meta *meta_in);
 int pipe_filter_is_defined(int id);
