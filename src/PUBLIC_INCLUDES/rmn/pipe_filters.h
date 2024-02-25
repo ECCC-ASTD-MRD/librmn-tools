@@ -56,7 +56,7 @@ typedef union{
 // N.B. arrays are stored Fortran style, 1st dimension varying first
 typedef struct{
   void *data ;
-  uint32_t  version:8,  // structure version
+  uint32_t  version:8,  // structure version marker
             ndims:8,    // number of dimensions
             esize:8,    // array element size (1/2/4)
             etype:8,    // element type (signed/unsigned/float)
@@ -71,7 +71,8 @@ typedef struct{
   p_iuf    prop[MAX_ARRAY_PROPERTIES] ;
   uint32_t *extra ;    // normally NULL, pointer to extended information
 } array_descriptor ;
-static array_descriptor array_descriptor_null = {.data = NULL, .version = 3, .nx = {[0 ... MAX_ARRAY_DIMENSIONS-1] = 1 } } ;
+static array_descriptor array_descriptor_null = {.data = NULL, .version = 0, .nx = {[0 ... MAX_ARRAY_DIMENSIONS-1] = 0 } } ;
+static array_descriptor array_descriptor_base = {.data = NULL, .version = PROP_VERSION, .nx = {[0 ... MAX_ARRAY_DIMENSIONS-1] = 1 } } ;
 
 static int array_data_values(array_descriptor *ap){
   int nval = 1, i, ndims = ap->ndims ;
@@ -90,13 +91,14 @@ typedef   union{
     uint32_t u32 ;
   } ;
   struct{
-    uint32_t no_realloc  :1,
-              can_realloc :1,
-              can_replace :1,
-              can_free    :1,
-              no_free     :1,
-              owner       :1,
-              spare       :26 ;
+    uint32_t no_realloc  :1,    // the buffer address may be "realloc(ed)"
+             can_realloc :1,    // NO realloc permitted
+             no_replace  :1,    // the buffer address may NOT be replaced
+             can_replace :1,    // the buffer address may be replaced (no call to free() )
+             no_free     :1,    // free() must NOT be called
+             can_free    :1,    // if no longer useful, free() may be called to free the memory used by buffer
+             owner       :1,    // the pipe buffer "owns" the address (it allocated it)
+             spare       :25 ;
   } ;
   }p_b_flags ;
 CT_ASSERT(sizeof(p_b_flags) == sizeof(uint32_t))
@@ -149,6 +151,8 @@ static int filter_data_bytes(const array_descriptor *ap){
   return filter_data_values(ap) * ap->esize ;
 }
 
+typedef filter_meta *filter_list[] ;  // list of input metadata pointers for a filter pipe (NULL terminated list)
+
 // set filter metadata to null values (only keep id and size unchanged)
 // m [IN] : pointer to generic metadata struct
 static inline void filter_reset(filter_meta *m){
@@ -156,13 +160,6 @@ static inline void filter_reset(filter_meta *m){
   m->flags = 0 ;                                        // set flags to 0
   for(i=0 ; i< (m->size - 1) ; i++) m->meta[i] = 0 ;    // set metadata array to 0
 }
-
-// typedef struct{             // input metadata for all the pipe filters to be run
-//   int nfilters ;            // number of filters
-//   filter_meta *meta[] ;     // pointers to the metadata for the filters
-// } filter_list ;
-
-typedef filter_meta *filter_list[] ;  // input metadata for all the pipe filters to be run
 
 typedef  struct{   // max size for encoding dimensions
     FILTER_PROLOG ;
@@ -176,12 +173,13 @@ typedef  struct{   // max size for encoding dimensions
 // then use (filter_meta) xxx or (filter_meta *) yyy as argument to filters
 
 // flags     [IN] : flags passed to filter (controls filter behaviour)
-// ap        [IN] : dimensions, data element size, extra properties, ...  of array in buffer.
+// ad        [IN] : dimensions, data element size, extra properties, ...  of array in buffer.
 //                  (some filters will consider data as 1D anyway)
 //                  not used with PIPE_VALIDATE
+//                  the data field IS NOT USED ( NULL is a recommended value)
 //          [OUT] : some filters may need to alter the data dimensions
-//                  the inbound dimensions must then be stored in meta_out for the reverse filter
-// buffer    [IN] : input data to filter (used used by PIPE_FORWARD and PIPE_REVERSE)
+//                  the inbound dimensions that will be used by the reverse filter must then be stored in meta_out
+// buffer    [IN] : input data to filter (used by PIPE_FORWARD and PIPE_REVERSE)
 //                  buffer->used      : number of valid bytes in buffer->buffer
 //                  buffer->max_size  : available storage size in buffer->buffer
 //          [OUT] : output from filter, same address as before if operation can be performed in place
@@ -202,6 +200,9 @@ typedef  struct{   // max size for encoding dimensions
 typedef ssize_t pipe_filter(uint32_t flags, array_descriptor *ap, const filter_meta *meta_in, pipe_buffer *buffer, wordstream *meta_out) ;
 typedef pipe_filter *pipe_filter_pointer ;
 
+// encode/decode array dimensions <-> unsigned integer array
+int32_t decode_dimensions(array_descriptor *ap, const uint32_t w32[3]);
+int32_t encode_dimensions(const array_descriptor *ap, uint32_t w32[3]);
 // encode/decode array dimensions <-> filter struct (expected to contain ONLY dimension information)
 int32_t filter_dimensions_encode(const array_descriptor *ap, filter_meta *fm);
 int32_t filter_dimensions_decode(array_descriptor *ap, const filter_meta *fm);

@@ -106,13 +106,106 @@ int filter_list_valid(const filter_list list){
 
 // initialize table with known filters
 void pipe_filters_init(void){
-  pipe_filter_register(000, "dimensions",       pipe_filter_000) ;
-  pipe_filter_register(001, "array properties", pipe_filter_001) ;
-  pipe_filter_register(100, "linear quantizer", pipe_filter_100) ;
-  pipe_filter_register(252, "unknown",          pipe_filter_252) ;  // testing weak external support
-  pipe_filter_register(253, "unknown",          pipe_filter_253) ;  // testing weak external support
-  pipe_filter_register(254, "integer saxpy",    pipe_filter_254) ;
-  pipe_filter_register(255, "diagnostics",      pipe_filter_255) ;
+  pipe_filter_register(000, "dimensions",        pipe_filter_000) ;
+  pipe_filter_register(001, "array properties",  pipe_filter_001) ;
+  pipe_filter_register(100, "linear quantizer",  pipe_filter_100) ;
+  pipe_filter_register(101, "lorenzo predictor", pipe_filter_101) ;
+  pipe_filter_register(110, "simple packer",     pipe_filter_110) ;
+  pipe_filter_register(252, "unknown",           pipe_filter_252) ;  // testing weak external support
+  pipe_filter_register(253, "unknown",           pipe_filter_253) ;  // testing weak external support
+  pipe_filter_register(254, "integer saxpy",     pipe_filter_254) ;
+  pipe_filter_register(255, "diagnostics",       pipe_filter_255) ;
+}
+
+int32_t decode_dimensions(array_descriptor *ap, const uint32_t w32[3]){
+  uint32_t i, ndims = w32[0] >> 29 ;       // top 3 bits
+  uint32_t nb0 = (w32[0] >> 24) & 0x1F ;   // next 5 bits
+  uint32_t w = w32[0] & 0xFFFFFF ;         // lower 24 bits
+
+  if(ndims > 5) return 0 ;
+  ap->ndims = ndims ;
+  if(nb0 > 15){      // 24 or 32 bits needed for dimensions
+    for(i=1 ; i<ndims ; i++) ap->nx[i] = w32[i] ;
+  }else{             // 16, 12, 10, 8, 6 bits needed for dimensions
+    switch (ndims) {
+      case 1:        // one uint32_t
+        ap->nx[0] = w ;
+        break;
+      case 2:        // one uint32_t if 12 bits or less, two if 16 bits
+        if(nb0 < 12) { ap->nx[0] = w & 0xFFF  ; ap->nx[1] = w >> 12 ; }
+        else         { ap->nx[0] = w & 0xFFFF ; ap->nx[1] = w32[1] ; }
+        break;
+      case 3:        // one uint32_t if 8 bits or less, two if 10/12/16 bits
+        if(nb0 <  8) { ap->nx[0] = w & 0xFF ; ap->nx[1] = (w >> 8) & 0xFF ; ap->nx[2] = (w >> 16) & 0xFF ; }
+        else         { ap->nx[0] = w & 0xFFFF ; ap->nx[1] = w32[1] & 0xFFFF ; ap->nx[2] = (w32[1] >> 16) & 0xFFFF ; }
+        break;
+      case 4:        // one uint32_t if 6 bits or less, two if 12 bits or less, three if 16 bits
+        if(nb0 <  6)      { ap->nx[0] = w & 0x3F ; ap->nx[1] = (w >> 6) & 0x3F ; ap->nx[2] = (w >> 12) & 0x3F ; ap->nx[3] = (w >> 18) & 0x3F ; }
+        else if(nb0 < 12) { ap->nx[0] = w & 0xFFF ;  ap->nx[1] = w >> 12 ; ap->nx[2] = w32[1] & 0xFFF ; ap->nx[3] = (w32[1] >> 12) & 0xFFF ; }
+        else              { ap->nx[0] = w & 0xFFFF ; ap->nx[1] = w32[1] & 0xFFFF ; ap->nx[2] = (w32[1] >> 16) & 0xFFFF ; ap->nx[3] = w32[2] & 0xFFFF ; }
+        break;
+      case 5:        // two uint32_t if 10 bits or less, three if 12 or 16 bits
+        if(nb0 < 10) { ap->nx[0] = w & 0x3FF ; ap->nx[1] = (w >> 10) & 0x3FF ; 
+                       ap->nx[2] = w32[1] & 0x3FF ; ap->nx[3] = (w32[1] >> 10) & 0x3FF ; ap->nx[4] = (w32[1] >> 20) & 0x3FF ; }
+        else         { ap->nx[0] = w & 0xFFFF ; ap->nx[1] = w32[1] & 0xFFFF ; ap->nx[2] = (w32[1] >> 16) & 0xFFFF ; 
+                       ap->nx[3] = w32[2] & 0xFFFF ;ap->nx[4] = (w32[2] >> 16) & 0xFFFF ; }
+        break;
+      default:
+        break;
+    }
+  }
+  return ndims ;
+}
+
+// pack dimensions from array_descriptor into unsigned integer array w32 (max 3 uint32_t elements)
+// return number of uint32_t needed (0 in case of error)
+// used by filters that alter incoming dimensions (saved for the reverse filter)
+int32_t encode_dimensions(const array_descriptor *ap, uint32_t w32[3]){
+  uint32_t i, ndims = ap->ndims ;
+  uint32_t maxdim = ap->nx[0], nb0, nw ;
+
+  // w32[0] = ndims:3, nb0:5, data:24
+  if(ndims > 5) return 0 ;
+  w32[0] = ndims << 29 ;
+  for(i=1 ; i<ndims ; i++) maxdim = (ap->nx[i] > maxdim) ? ap->nx[i] : maxdim ;  // largest dimension
+  if(maxdim < 64)            nb0 =  5 ;
+  else if(maxdim <      256) nb0 =  7 ;
+  else if(maxdim <     1024) nb0 =  9 ;
+  else if(maxdim <     4096) nb0 = 11 ;
+  else if(maxdim <    65536) nb0 = 15 ;
+  else if(maxdim < 16777216) nb0 = 23 ;
+  else                       nb0 = 31 ;
+  if(nb0 > 15){      // 24 or 32 bits needed for dimensions
+    for(i=1 ; i<ndims ; i++) w32[i] = ap->nx[i] ;
+    nw = 1 + ndims ;
+  }else{             // 16, 12, 10, 8, 6 bits needed for dimensions
+    switch (ndims) {
+      case 1:        // one uint32_t
+        w32[0] |= ap->nx[0] ; nw = 1 ;
+        break;
+      case 2:        // one uint32_t if 12 bits or less (24), two if 16 bits (16, 16)
+        if(nb0 < 12) { w32[0] |= ( ap->nx[0] | (ap->nx[1] << 12) ) ; nw = 1 ; }
+        else         { w32[0] |= ap->nx[0] ; w32[1]  = ap->nx[1]   ; nw = 2 ; }
+        break;
+      case 3:        // one uint32_t if 8 bits or less (24) , two if 10/12/16 bits (16, 32)
+        if(nb0 <  8) { w32[0] |= ( ap->nx[0] | (ap->nx[1] << 8) | (ap->nx[2] << 16) ) ; nw = 1 ; }  // 3 x 8 per uint32_t
+        else         { w32[0] |= ap->nx[0] ; w32[1]  = ap->nx[1] | (ap->nx[2] << 16) ; nw = 2 ; }   // 1, 2 x 16 per uint32_t
+        break;
+      case 4:        // one uint32_t if 6 bits or less (24), two if 12 bits or less (24, 24), 3 if 16 bits (16, 32, 16)
+        if(nb0 <  6)      { w32[0] |= ( ap->nx[0] | (ap->nx[1] << 6) | (ap->nx[2] << 12) | (ap->nx[3] << 18) ) ; }   // 4 x 6 per uint32_t
+        else if(nb0 < 12) { w32[0] |= ( ap->nx[0] | (ap->nx[1] << 12) ) ; w32[1] = ap->nx[2] | (ap->nx[3] << 12) ; nw = 2 ; }   // 2,2 x 12 per uint32_t
+        else              { w32[0] |= ap->nx[0] ; w32[1] = ap->nx[1] | (ap->nx[2] << 16) ; w32[2] = ap->nx[3] ; nw = 3 ; }   // 1,2,1 x 16 per uint32_t
+        break;
+      case 5:        // two uint32_t if 10 bits or less (20, 30), three if 12 or 16 bits (16, 32, 32)
+        if(nb0 < 10) { w32[0] |= ( ap->nx[0] | (ap->nx[1] << 10) ) ; w32[1] = ap->nx[2] | (ap->nx[3] << 10) | (ap->nx[4] << 20) ; nw = 2 ; }  // 2,3 x 10 per uint32_t
+        else         { w32[0] |= ap->nx[0] ; w32[1] = ap->nx[1] | (ap->nx[2] << 16) ; w32[2] = ap->nx[3] | (ap->nx[4] << 16) ; nw = 3 ; }  // 1,2,2 x 16 per uint32_t
+        break;
+      default:
+        break;
+    }
+  }
+  w32[0] |= ((nb0-1) << 24) ;
+  return nw ;
 }
 
 // encode dimensions into a filter_meta struct
@@ -153,7 +246,7 @@ int32_t filter_dimensions_decode(array_descriptor *ap, const filter_meta *fm){
   uint32_t i, ndims, esize ;
 
   if(fm->id != 0) return 0 ;      // ERROR, filter id MUST be 0
-  *ap = array_descriptor_null ;
+  *ap = array_descriptor_base ;   // set version number to software version
   ndims = fm->meta[0] & 0xF ;
   esize = (fm->meta[0] >> 4) & 0xF ;
 //   fprintf(stderr,"filter_dimensions_decode ndims %d flags %d", ndims, fm->flags);
