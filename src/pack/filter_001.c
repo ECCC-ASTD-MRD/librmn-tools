@@ -15,6 +15,7 @@
 //     M. Valin,   Recherche en Prevision Numerique, 2024
 //
 #include <string.h>
+#include <stdio.h>
 
 #include <rmn/filter_001.h>
 #include <rmn/data_info.h>
@@ -98,7 +99,7 @@ ssize_t FILTER_FUNCTION(ID)(uint32_t flags, array_descriptor *ap, const filter_m
       // no metadata for inverse filter
       // nothing to insert into stream_out, there should be no reverse call
       // set nbytes to output size
-      nbytes = 0 ;
+      nbytes = filter_data_values(ap) * sizeof(int32_t) ;
       break ;
 
     default:
@@ -106,6 +107,7 @@ ssize_t FILTER_FUNCTION(ID)(uint32_t flags, array_descriptor *ap, const filter_m
   }
 
 end:
+if(ap)fprintf(stderr, "filter 001 : forward etype = %d, esize = %d, nbytes = %ld\n", ap->etype, ap->esize, nbytes);
   return nbytes ;
 
 error :

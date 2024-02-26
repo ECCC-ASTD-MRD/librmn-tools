@@ -296,7 +296,7 @@ ssize_t run_pipe_filters(int flags, array_descriptor *data_in, const filter_list
       int lsize = list[i]->size-1 ;
       fprintf(stderr, "applying forward filter no %d(%d)  %8.8x %8.8x\n", 
                        list[i]->id, lsize, (lsize > 0) ? list[i]->meta[0] : 0, (lsize > 1) ? list[i]->meta[1] : 0) ;
-      if((*fn)(flags, pdim, list[i], &pbuf, stream) <= 0){
+      if((*fn)(flags, pdim, list[i], &pbuf, stream) < 0){
         fprintf(stderr, "run_pipe_filters : ERROR in forward filter\n") ;
         if(! in_place) {
           free(pbuf.buffer) ;

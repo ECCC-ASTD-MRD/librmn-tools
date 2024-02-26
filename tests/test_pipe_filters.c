@@ -285,9 +285,11 @@ int test_3(char *msg){
 #define NPTSJ 13
 int test_4(char *msg){
   uint32_t fullsize[NPTSI*NPTSJ], reduced[NPTSI*NPTSJ] ;
+  filter_001 filter0 = filter_001_null ;
   filter_110 filter1 = filter_110_null ;
   filter_255 filter2 = filter_255_null ;
   filter_list filters = {
+                        (filter_meta *) &filter0,
                         (filter_meta *) &filter2,
                         (filter_meta *) &filter1,
                         (filter_meta *) &filter2,
