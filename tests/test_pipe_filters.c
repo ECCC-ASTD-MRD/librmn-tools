@@ -22,12 +22,21 @@
 #include <rmn/test_helpers.h>
 #include <rmn/filter_000.h>
 #include <rmn/filter_000.h>
+#include <rmn/filter_001.h>
+#include <rmn/filter_001.h>
+#include <rmn/filter_110.h>
+#include <rmn/filter_110.h>
 #include <rmn/filter_254.h>
 #include <rmn/filter_254.h>
 #include <rmn/filter_255.h>
 
 #define NPTSI 3
 #define NPTSJ 4
+
+int test_0(char *msg){
+  fprintf(stderr, "============================ register pipe filters  ============================\n");
+  pipe_filters_init() ;                                   // initialize filter table
+}
 
 int test_1(char *msg){
   filter_254 filter1 = filter_254_null ;
@@ -270,6 +279,40 @@ int test_3(char *msg){
   return 0 ;
 }
 
+#undef NPTSI
+#undef NPTSJ
+#define NPTSI 15
+#define NPTSJ 13
+int test_4(char *msg){
+  uint32_t fullsize[NPTSI*NPTSJ], reduced[NPTSI*NPTSJ] ;
+  filter_110 filter1 = filter_110_null ;
+  filter_255 filter2 = filter_255_null ;
+  filter_list filters = {
+                        (filter_meta *) &filter2,
+                        (filter_meta *) &filter1,
+                        (filter_meta *) &filter2,
+                        NULL
+                        } ;
+  int i, npts = NPTSI * NPTSJ ;
+  ssize_t nmeta ;
+
+  fprintf(stderr, "============================ dimension reduction test  ============================\n");
+  pipe_filters_init() ;                                   // initialize filter table
+
+  for(i=0 ; i<npts ; i++) { fullsize[i] = i ; reduced[i] = 0 ; }
+  // create word stream
+  wordstream stream_0 ;
+  void *ptr = ws32_create(&stream_0, NULL, npts, 0, WS32_CAN_REALLOC) ;
+  fprintf(stderr, "word stream buffer address %p\n", ptr) ;
+  if(ptr == NULL) exit(1) ;
+
+  // metadata will be in stream_out, "filtered" data will be in data_i[]
+  array_descriptor adi = { .esize = 4, .etype = PIPE_DATA_UNSIGNED, .ndims = 2, .data = fullsize, .nx[0] = NPTSI, .nx[1] = NPTSJ } ;
+  filter2.flags = 1 ;
+  nmeta = run_pipe_filters(PIPE_FORWARD|PIPE_INPLACE, &adi, filters, &stream_0) ;
+  fprintf(stderr, "forward filters metadata length = %ld\n", nmeta);
+}
+
 int main(int argc, char **argv){
   int to_test = 0 ;
 
@@ -282,6 +325,9 @@ int main(int argc, char **argv){
     char *msg = (*argv)+1 ;
     to_test = atoi(argv[0]) ;
     switch(to_test){
+      case 0:
+        test_0(msg) ;
+        break;
       case 1:
         test_1(msg) ;
         break;
@@ -290,6 +336,9 @@ int main(int argc, char **argv){
         break;
       case 3:
         test_3(msg) ;
+        break;
+      case 4:
+        test_4(msg) ;
         break;
       default:
         fprintf(stderr, "WARNING: unknown test %d\n", to_test) ;

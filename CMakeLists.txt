@@ -225,6 +225,7 @@ set(PROJECT_C_FILES
   src/pack/filter_000.c
   src/pack/filter_001.c
   src/pack/filter_100.c
+  src/pack/filter_110.c
   src/pack/filter_254.c
   src/pack/filter_255.c
   src/diag/tee_print.c
@@ -303,6 +304,7 @@ set(PROJECT_H_FILES
   src/PUBLIC_INCLUDES/rmn/filter_000.h
   src/PUBLIC_INCLUDES/rmn/filter_001.h
   src/PUBLIC_INCLUDES/rmn/filter_100.h
+  src/PUBLIC_INCLUDES/rmn/filter_110.h
   src/PUBLIC_INCLUDES/rmn/filter_254.h
   src/PUBLIC_INCLUDES/rmn/filter_255.h
 )

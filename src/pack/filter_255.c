@@ -87,9 +87,9 @@ ssize_t FILTER_FUNCTION(ID)(uint32_t flags, array_descriptor *ap, const filter_m
         case 2:    // NO-OP for now
           break ;
         case 1:    // print incoming array base properties
-          fprintf(stderr, "%d dimensions, %d-%d-%d-%d-%d, tiling[%dx%d] from[%d,%d] to[%d,%d]\n",
+          fprintf(stderr, "%d dimensions, %d-%d-%d-%d-%d, tiling[%dx%d] from[%d,%d] to[%d,%d], esize = %d\n",
                   ap->ndims,ap->nx[0],ap->nx[1],ap->nx[2],ap->nx[3],ap->nx[4],ap->tilex,ap->tiley,
-                  ap->n0[0],ap->n0[1],ap->n0[0]+ap->nx[0]-1,ap->n0[1]+ap->nx[1]-1);
+                  ap->n0[0],ap->n0[1],ap->n0[0]+ap->nx[0]-1,ap->n0[1]+ap->nx[1]-1, ap->esize);
           fprintf(stderr, "corners = %9.9d,%9.9d\n", data[0], data[ap->nx[0]*ap->nx[1]-1] ) ;
           break ;
         case 0:    // NO-OP
