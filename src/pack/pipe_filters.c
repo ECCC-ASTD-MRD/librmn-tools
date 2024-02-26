@@ -233,29 +233,6 @@ int32_t filter_dimensions_encode(const array_descriptor *ap, filter_meta *fm){
   if(esize == 8) fm->flags = 3 ;   // 64 bits
   fm->size = 1 + encode_dimensions(ap, fm->meta) ;
   return fm->size ;
-#if 0
-  for(i=1 ; i<ndims ; i++) maxdim = (ap->nx[i] > maxdim) ? ap->nx[i] : maxdim ;  // largest dimension
-  if(maxdim < 256) {                     // 8 bits per value (ndims + 1 values)
-    fm->size = 1 + ((ndims+1+3) >> 2) ;  // size will be 2 or 3
-    fm->flags = 1 ;
-    fm->meta[0] = (ap->nx[0] << 24) | (ap->nx[1] << 16) | (ap->nx[2] << 8) | esize << 4 | ndims ;
-    if(ndims > 3) fm->meta[1] = (ap->nx[3] << 24) | (ap->nx[4] << 16) ;
-  }else if(maxdim < 65536){              // 16 bits per value (ndims + 1 values)
-    fm->size = 1 + ((ndims+1+1) >> 1) ;  // size will be 2, 3, or 4
-    fm->flags = 2 ;
-    fm->meta[0] = (ap->nx[0] << 16) | esize << 4 | ndims ;
-    if(ndims > 1) fm->meta[1] = (ap->nx[1] << 16) | ap->nx[2] ;
-    if(ndims > 3) fm->meta[2] = (ap->nx[3] << 16) | ap->nx[4] ;
-  }else{                                 // 32 bits per value
-    fm->size = 1 + ndims + 1 ;           // size will be 3, 4, 5, 6, or 7
-    fm->flags = 3 ;
-    fm->meta[0] =  esize << 4 | ndims ;
-    for(i=0 ; i<ndims ; i++) fm->meta[i+1] = ap->nx[i] ;
-  }
-// fprintf(stderr,"filter_dimensions_encode ndims %d flags %d", ndims, fm->flags);
-// for(i=0 ; i<fm->size-1 ; i++) fprintf(stderr," %8.8x", fm->meta[i]); fprintf(stderr,"\n") ;
-  return fm->size ;
-#endif
 }
 
 // decode dimensions from a filter_meta struct
@@ -270,28 +247,6 @@ int32_t filter_dimensions_decode(array_descriptor *ap, const filter_meta *fm){
   ap->esize = elist[fm->flags] ;     // get esize from flags
   ndims = decode_dimensions(ap, fm->meta) ;
   return ndims ;
-#if 0
-  if(fm->id != 0) return 0 ;      // ERROR, filter id MUST be 0
-  *ap = array_descriptor_base ;   // set version number to software version
-  ndims = fm->meta[0] & 0xF ;
-  esize = (fm->meta[0] >> 4) & 0xF ;
-//   fprintf(stderr,"filter_dimensions_decode ndims %d flags %d", ndims, fm->flags);
-//   for(i=0 ; i<fm->size-1 ; i++) fprintf(stderr," %8.8x", fm->meta[i]); fprintf(stderr,"\n") ;
-  if(fm->flags == 1){
-    ap->nx[0] = fm->meta[0] >> 24 ; ap->nx[1] = (fm->meta[0] >> 16) & 0xFF ; ap->nx[2] = (fm->meta[0] >> 8) & 0xFF ; 
-    if(ndims > 3) { ap->nx[3] = fm->meta[1] >> 24 ; ap->nx[4] = (fm->meta[1] >> 16) & 0xFF ; }
-  }else if(fm->flags == 2){
-    ap->nx[0] = fm->meta[0] >> 16 ;
-    if(ndims > 1) {ap->nx[1] = fm->meta[1] >> 16 ; ap->nx[2] = fm->meta[1] & 0xFFFF ; } ;
-    if(ndims > 3) {ap->nx[3] = fm->meta[2] >> 16 ; ap->nx[4] = fm->meta[2] & 0xFFFF ; } ;
-  }else if(fm->flags == 3){
-    for(i=0 ; i<ndims ; i++) ap->nx[i] = fm->meta[i+1] ;
-  }
-  ap->ndims = ndims ;
-  ap->esize = esize ;
-  for(i=ndims ; i<MAX_ARRAY_DIMENSIONS ; i++) ap->nx[i] = 1 ;
-  return fm->size ;
-#endif
 }
 
 // ssize_t pipe_filter(uint32_t flags, array_descriptor *ap, filter_meta *meta_in, pipe_buffer *buffer, wordstream *meta_out)
