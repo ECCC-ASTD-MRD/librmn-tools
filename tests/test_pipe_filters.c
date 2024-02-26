@@ -62,25 +62,28 @@ int test_1(char *msg){
 
   fprintf(stderr, "============================ dimension encoding / decoding ============================\n");
   // test dimension encoding / decoding
-  int factor = 1 ;
-  for(j=0 ; j<3 ; j++){
+  uint32_t listdim[7] = { 63, 255, 1023, 4095, 65535, 16777215, 16777216 } ;
+  for(j=0 ; j<7 ; j++){
     for(i=1 ; i<=MAX_ARRAY_DIMENSIONS ; i++){
       ad1 = ad2 = array_descriptor_null ;
       ad1.ndims = i ;
-      int j ;
-      for(j=0 ; j<i ; j++) ad1.nx[j] = (9 - j) * factor ;
+      for(k=0 ; k<ad1.ndims ; k++) ad1.nx[k] = listdim[j] - k ;
       fsize = filter_dimensions_encode(&ad1, (filter_meta *)(&fdim)) ;
       filter_dimensions_decode(&ad2, (filter_meta *)(&fdim)) ;
       errors = 0 ;
-      for(k=0 ; k<MAX_ARRAY_DIMENSIONS ; k++) errors += (ad2.nx[k] != ad1.nx[k]) ;
+      for(k=0 ; k<ad1.ndims ; k++) {
+        if(ad2.nx[k] != ad1.nx[k]){
+          errors ++ ;
+          fprintf(stderr, "ndims = %d, fsize = %d, dimension %d, expecting %9d, got %9d\n", ad1.ndims, fsize, k+1, ad1.nx[k], ad2.nx[k]) ;
+        }
+      }
 
       fprintf(stderr, "encoded dimensions: fsize = %1d, flags = %d ", fsize, fdim.flags) ;
       fprintf(stderr, ", ndim = %1d", ad1.ndims) ;
-      for(j=0 ; j<ad1.ndims ; j++) fprintf(stderr, ",%2d", ad1.nx[j]) ;
+      for(k=0 ; k<ad1.ndims ; k++) fprintf(stderr, ",%2d", ad1.nx[k]) ;
       fprintf(stderr, ", errors = %d\n", errors);
       if(errors) exit(1) ;
     }
-    factor *= 256 ;
     fprintf(stderr, "\n") ;
   }
   fprintf(stderr, "SUCCESS\n") ;
@@ -236,6 +239,33 @@ int test_2(char *msg){
 }
 
 int test_3(char *msg){
+  array_descriptor adi = array_descriptor_null, ado ;
+  uint32_t w32[6], nw32 ;
+  uint32_t dimref[7] = { 63, 255, 1023, 4095, 65535, 16777215, 16777216 } ;
+  int i, j, k, errors ;
+
+  fprintf(stderr, "============================ encode/decode dimensions  ============================\n");
+  for(i=1 ; i<=5 ; i++){
+    adi.ndims = i ;
+    for(k=0 ; k<7 ; k++){
+      for(j=0 ; j<adi.ndims ; j++) {
+        adi.nx[j] = dimref[k] - adi.ndims + j + 1 ;
+      }
+      nw32 = encode_dimensions(&adi, w32) ;
+      fprintf(stderr, "nw32 = %d, ndims = %d, dimmax = %9d", nw32, adi.ndims, adi.nx[adi.ndims-1]) ;
+      for(j=0 ; j<5 ; j++) ado.nx[j] = 0 ;
+      nw32 = decode_dimensions(&ado, w32) ;
+      errors = 0 ;
+      for(j=0 ; j<adi.ndims ; j++) {
+        if(adi.nx[j] != ado.nx[j]) {
+          errors++ ;
+          fprintf(stderr, ", dimension %d, expecting %9d, got %9d", j, adi.nx[j], ado.nx[j]) ;
+        }
+      }
+      fprintf(stderr, ", errors = %d", errors) ;
+      fprintf(stderr, "\n");
+    }
+  }
   fprintf(stderr, "============================ %s : SUCCESS ============================\n\n", msg) ;
   return 0 ;
 }

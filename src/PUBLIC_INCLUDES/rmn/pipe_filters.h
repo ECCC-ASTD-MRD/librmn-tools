@@ -201,8 +201,8 @@ typedef ssize_t pipe_filter(uint32_t flags, array_descriptor *ap, const filter_m
 typedef pipe_filter *pipe_filter_pointer ;
 
 // encode/decode array dimensions <-> unsigned integer array
-int32_t decode_dimensions(array_descriptor *ap, const uint32_t w32[3]);
-int32_t encode_dimensions(const array_descriptor *ap, uint32_t w32[3]);
+int32_t decode_dimensions(array_descriptor *ap, const uint32_t w32[MAX_ARRAY_DIMENSIONS+1]);
+int32_t encode_dimensions(const array_descriptor *ap, uint32_t w32[MAX_ARRAY_DIMENSIONS+1]);
 // encode/decode array dimensions <-> filter struct (expected to contain ONLY dimension information)
 int32_t filter_dimensions_encode(const array_descriptor *ap, filter_meta *fm);
 int32_t filter_dimensions_decode(array_descriptor *ap, const filter_meta *fm);

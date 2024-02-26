@@ -117,15 +117,22 @@ void pipe_filters_init(void){
   pipe_filter_register(255, "diagnostics",       pipe_filter_255) ;
 }
 
-int32_t decode_dimensions(array_descriptor *ap, const uint32_t w32[3]){
+// decode dimensions encoded in w32, copy them into array_descriptor
+// return number of dimensions, 0 in case of error
+// ap   [OUT] : array descriptor
+// w32   [IN] : encoded dimensions
+int32_t decode_dimensions(array_descriptor *ap, const uint32_t w32[MAX_ARRAY_DIMENSIONS+1]){
   uint32_t i, ndims = w32[0] >> 29 ;       // top 3 bits
   uint32_t nb0 = (w32[0] >> 24) & 0x1F ;   // next 5 bits
   uint32_t w = w32[0] & 0xFFFFFF ;         // lower 24 bits
 
   if(ndims > 5) return 0 ;
+
   ap->ndims = ndims ;
   if(nb0 > 15){      // 24 or 32 bits needed for dimensions
-    for(i=1 ; i<ndims ; i++) ap->nx[i] = w32[i] ;
+    int offset = (nb0 > 24) ? 1 : 0 ;
+    ap->nx[0] = (offset == 0) ? w32[0] & 0xFFFFFF : w32[1] ;
+    for(i=1 ; i<ndims ; i++) ap->nx[i] = w32[i+offset] ;
   }else{             // 16, 12, 10, 8, 6 bits needed for dimensions
     switch (ndims) {
       case 1:        // one uint32_t
@@ -157,16 +164,18 @@ int32_t decode_dimensions(array_descriptor *ap, const uint32_t w32[3]){
   return ndims ;
 }
 
-// pack dimensions from array_descriptor into unsigned integer array w32 (max 3 uint32_t elements)
+// encode dimensions from array_descriptor into unsigned integer array w32 (max MAX_ARRAY_DIMENSIONS+1 uint32_t elements)
 // return number of uint32_t needed (0 in case of error)
 // used by filters that alter incoming dimensions (saved for the reverse filter)
-int32_t encode_dimensions(const array_descriptor *ap, uint32_t w32[3]){
+// ap   [IN] : array descriptor (the function uses only dimensions and number of dimensions)
+// w32 [OUT] : unsigned integer array (up to MAX_ARRAY_DIMENSIONS+1 elements are used)
+int32_t encode_dimensions(const array_descriptor *ap, uint32_t w32[MAX_ARRAY_DIMENSIONS+1]){
   uint32_t i, ndims = ap->ndims ;
-  uint32_t maxdim = ap->nx[0], nb0, nw ;
+  uint32_t maxdim = ap->nx[0], nb0, nw = 0, w0 ;
 
   // w32[0] = ndims:3, nb0:5, data:24
-  if(ndims > 5) return 0 ;
-  w32[0] = ndims << 29 ;
+  if(ndims > MAX_ARRAY_DIMENSIONS) return 0 ;
+
   for(i=1 ; i<ndims ; i++) maxdim = (ap->nx[i] > maxdim) ? ap->nx[i] : maxdim ;  // largest dimension
   if(maxdim < 64)            nb0 =  5 ;
   else if(maxdim <      256) nb0 =  7 ;
@@ -175,36 +184,39 @@ int32_t encode_dimensions(const array_descriptor *ap, uint32_t w32[3]){
   else if(maxdim <    65536) nb0 = 15 ;
   else if(maxdim < 16777216) nb0 = 23 ;
   else                       nb0 = 31 ;
+  w0 = (ndims << 29) | ((nb0-1) << 24) ;
+  w32[0] = 0 ;
   if(nb0 > 15){      // 24 or 32 bits needed for dimensions
-    for(i=1 ; i<ndims ; i++) w32[i] = ap->nx[i] ;
-    nw = 1 + ndims ;
+    int offset = (nb0 > 24) ? 1 : 0 ;
+    for(i=0 ; i<ndims ; i++) w32[i+offset] = ap->nx[i] ;
+    nw = offset + ndims ;
   }else{             // 16, 12, 10, 8, 6 bits needed for dimensions
     switch (ndims) {
       case 1:        // one uint32_t
-        w32[0] |= ap->nx[0] ; nw = 1 ;
+        w32[0] = ap->nx[0] ; nw = 1 ;
         break;
       case 2:        // one uint32_t if 12 bits or less (24), two if 16 bits (16, 16)
-        if(nb0 < 12) { w32[0] |= ( ap->nx[0] | (ap->nx[1] << 12) ) ; nw = 1 ; }
-        else         { w32[0] |= ap->nx[0] ; w32[1]  = ap->nx[1]   ; nw = 2 ; }
+        if(nb0 < 12) { w32[0] = ( ap->nx[0] | (ap->nx[1] << 12) ) ; nw = 1 ; }
+        else         { w32[0] = ap->nx[0] ; w32[1]  = ap->nx[1]   ; nw = 2 ; }
         break;
       case 3:        // one uint32_t if 8 bits or less (24) , two if 10/12/16 bits (16, 32)
-        if(nb0 <  8) { w32[0] |= ( ap->nx[0] | (ap->nx[1] << 8) | (ap->nx[2] << 16) ) ; nw = 1 ; }  // 3 x 8 per uint32_t
-        else         { w32[0] |= ap->nx[0] ; w32[1]  = ap->nx[1] | (ap->nx[2] << 16) ; nw = 2 ; }   // 1, 2 x 16 per uint32_t
+        if(nb0 <  8) { w32[0] = ( ap->nx[0] | (ap->nx[1] << 8) | (ap->nx[2] << 16) ) ; nw = 1 ; }  // 3 x 8 per uint32_t
+        else         { w32[0] = ap->nx[0] ; w32[1]  = ap->nx[1] | (ap->nx[2] << 16) ; nw = 2 ; }   // 1, 2 x 16 per uint32_t
         break;
       case 4:        // one uint32_t if 6 bits or less (24), two if 12 bits or less (24, 24), 3 if 16 bits (16, 32, 16)
-        if(nb0 <  6)      { w32[0] |= ( ap->nx[0] | (ap->nx[1] << 6) | (ap->nx[2] << 12) | (ap->nx[3] << 18) ) ; }   // 4 x 6 per uint32_t
-        else if(nb0 < 12) { w32[0] |= ( ap->nx[0] | (ap->nx[1] << 12) ) ; w32[1] = ap->nx[2] | (ap->nx[3] << 12) ; nw = 2 ; }   // 2,2 x 12 per uint32_t
-        else              { w32[0] |= ap->nx[0] ; w32[1] = ap->nx[1] | (ap->nx[2] << 16) ; w32[2] = ap->nx[3] ; nw = 3 ; }   // 1,2,1 x 16 per uint32_t
+        if(nb0 <  6)      { w32[0] = ( ap->nx[0] | (ap->nx[1] << 6) | (ap->nx[2] << 12) | (ap->nx[3] << 18) ) ;  nw = 1 ; }   // 4 x 6 per uint32_t
+        else if(nb0 < 12) { w32[0] = ( ap->nx[0] | (ap->nx[1] << 12) ) ; w32[1] = ap->nx[2] | (ap->nx[3] << 12) ; nw = 2 ; }   // 2,2 x 12 per uint32_t
+        else              { w32[0] = ap->nx[0] ; w32[1] = ap->nx[1] | (ap->nx[2] << 16) ; w32[2] = ap->nx[3] ; nw = 3 ; }   // 1,2,1 x 16 per uint32_t
         break;
       case 5:        // two uint32_t if 10 bits or less (20, 30), three if 12 or 16 bits (16, 32, 32)
-        if(nb0 < 10) { w32[0] |= ( ap->nx[0] | (ap->nx[1] << 10) ) ; w32[1] = ap->nx[2] | (ap->nx[3] << 10) | (ap->nx[4] << 20) ; nw = 2 ; }  // 2,3 x 10 per uint32_t
-        else         { w32[0] |= ap->nx[0] ; w32[1] = ap->nx[1] | (ap->nx[2] << 16) ; w32[2] = ap->nx[3] | (ap->nx[4] << 16) ; nw = 3 ; }  // 1,2,2 x 16 per uint32_t
+        if(nb0 < 10) { w32[0] = ( ap->nx[0] | (ap->nx[1] << 10) ) ; w32[1] = ap->nx[2] | (ap->nx[3] << 10) | (ap->nx[4] << 20) ; nw = 2 ; }  // 2,3 x 10 per uint32_t
+        else         { w32[0] = ap->nx[0] ; w32[1] = ap->nx[1] | (ap->nx[2] << 16) ; w32[2] = ap->nx[3] | (ap->nx[4] << 16) ; nw = 3 ; }  // 1,2,2 x 16 per uint32_t
         break;
       default:
         break;
     }
   }
-  w32[0] |= ((nb0-1) << 24) ;
+  w32[0] |= w0 ;
   return nw ;
 }
 
@@ -212,10 +224,16 @@ int32_t encode_dimensions(const array_descriptor *ap, uint32_t w32[3]){
 // ap    [IN] : pointer to array dimension struct (see pipe_filters.h)
 // fm   [OUT] : pointer to filter (id = 0) metadata with encoded dimensions
 int32_t filter_dimensions_encode(const array_descriptor *ap, filter_meta *fm){
-  uint32_t i, ndims = ap->ndims, esize = ap->esize ;
-  uint32_t maxdim = ap->nx[0] ;
+  uint32_t esize = ap->esize ;
 
-  fm->id = 0 ;
+  fm->id = 0 ;                     // set filter id to 0
+  fm->flags = 0 ;                  // encode esize into flags
+  if(esize == 2) fm->flags = 1 ;   // 16 bits
+  if(esize == 4) fm->flags = 2 ;   // 32 bits
+  if(esize == 8) fm->flags = 3 ;   // 64 bits
+  fm->size = 1 + encode_dimensions(ap, fm->meta) ;
+  return fm->size ;
+#if 0
   for(i=1 ; i<ndims ; i++) maxdim = (ap->nx[i] > maxdim) ? ap->nx[i] : maxdim ;  // largest dimension
   if(maxdim < 256) {                     // 8 bits per value (ndims + 1 values)
     fm->size = 1 + ((ndims+1+3) >> 2) ;  // size will be 2 or 3
@@ -237,14 +255,22 @@ int32_t filter_dimensions_encode(const array_descriptor *ap, filter_meta *fm){
 // fprintf(stderr,"filter_dimensions_encode ndims %d flags %d", ndims, fm->flags);
 // for(i=0 ; i<fm->size-1 ; i++) fprintf(stderr," %8.8x", fm->meta[i]); fprintf(stderr,"\n") ;
   return fm->size ;
+#endif
 }
 
 // decode dimensions from a filter_meta struct
 // ap   [OUT] : pointer to array dimension struct (see pipe_filters.h)
 // fm    [IN] : pointer to filter (id = 0) metadata with encoded dimensions
 int32_t filter_dimensions_decode(array_descriptor *ap, const filter_meta *fm){
-  uint32_t i, ndims, esize ;
+  uint32_t ndims ;
+  uint32_t elist[4] = { 1, 2, 4, 8 } ;
 
+  if(fm->id != 0) return 0 ;         // ERROR, filter id MUST be 0
+  *ap = array_descriptor_base ;
+  ap->esize = elist[fm->flags] ;     // get esize from flags
+  ndims = decode_dimensions(ap, fm->meta) ;
+  return ndims ;
+#if 0
   if(fm->id != 0) return 0 ;      // ERROR, filter id MUST be 0
   *ap = array_descriptor_base ;   // set version number to software version
   ndims = fm->meta[0] & 0xF ;
@@ -265,6 +291,7 @@ int32_t filter_dimensions_decode(array_descriptor *ap, const filter_meta *fm){
   ap->esize = esize ;
   for(i=ndims ; i<MAX_ARRAY_DIMENSIONS ; i++) ap->nx[i] = 1 ;
   return fm->size ;
+#endif
 }
 
 // ssize_t pipe_filter(uint32_t flags, array_descriptor *ap, filter_meta *meta_in, pipe_buffer *buffer, wordstream *meta_out)
@@ -292,7 +319,7 @@ ssize_t run_pipe_filters(int flags, array_descriptor *data_in, const filter_list
     filter_meta *m_out ;
     struct{
       FILTER_PROLOG ;
-      int32_t meta[MAX_ARRAY_DIMENSIONS] ;
+      int32_t meta[MAX_ARRAY_DIMENSIONS+1] ;
     } meta_end = {.id = 0 , .size = 1, .flags = 0, .meta = {[0 ... MAX_ARRAY_DIMENSIONS - 1] = 0 } } ;
 
     pop_stream = WS32_IN(*stream) ;                         // start of what will be metadata part of the stream
@@ -380,7 +407,6 @@ ssize_t tiled_fwd_pipe_filters(int flags, array_descriptor *data_in, const filte
   uint32_t blkj  = ad.tiley ;              // tile size along 2nd dimension
   uint32_t *array = (uint32_t *) ad.data ;    // base address of global array
   uint32_t ndims = ad.ndims ;              // number of dimensions of global array
-  int nadded ;
   ssize_t nbytes = 0 ;
 
   // if more than 2D,
@@ -403,7 +429,7 @@ ssize_t tiled_fwd_pipe_filters(int flags, array_descriptor *data_in, const filte
     uint32_t *rmap = str0 + 4, *tmap = rmap + nblkj ;
     // allocate (skip) space for data map in stream (nblkj rows + nblki * nblkj tiles)
     uint32_t mapsize = nblkj * (nblki + 1) ;
-    if( (nadded = ws32_skip_in(stream, mapsize)) < 0) goto error ;
+    if( ws32_skip_in(stream, mapsize) < 0) goto error ;
 
     int i0, j0, tni, tnj ;                           // start and dimension of tiles
     for(j0=0 ; j0<gnj ; j0+=blkj){                   // loop over tile rows
@@ -416,12 +442,12 @@ ssize_t tiled_fwd_pipe_filters(int flags, array_descriptor *data_in, const filte
         ad.nx[0] = tni ; ad.nx[1] = tnj ;      // tile dimensions
         ad.n0[0] = i0  ; ad.n0[1] = j0 ;       // tile offset
         // collect local tile from global array ( array[i0:i0+tni-1,j0:j0+tnj-1] -> tile[tni,tnj] )
-        if( (nadded = get_word_block(tile_base, tile, tni, gni, tnj)) < 0) goto error ;
+        if( get_word_block(tile_base, tile, tni, gni, tnj) < 0) goto error ;
         tile_base += tni ;    // lower left corner of next tile
 
         uint32_t istart = WS32_IN(*stream) ;         // get current position in stream
         // call filter chain with tile of dimensions (in-i0) , (jn-j0)
-        if( (nadded = run_pipe_filters(PIPE_FORWARD, &ad, list, stream)) < 0) goto error ;
+        if( run_pipe_filters(PIPE_FORWARD, &ad, list, stream) < 0) goto error ;
         // tile size = current position in stream - remembered position
         uint32_t tile_size = WS32_IN(*stream) - istart ;
 fprintf(stderr,"tile_size = %ld\n", tile_size * sizeof(uint32_t)) ;
@@ -470,6 +496,10 @@ ssize_t tiled_rev_pipe_filters(int flags, array_descriptor *data_out, wordstream
   uint32_t *array = (uint32_t *) ad.data ;   // base address of global array
   ssize_t nbytes = 0 ;
   uint32_t tile[blki*blkj] ;                 // local tile allocated on stack with largest tile dimensions
+  int nblki = (gni + blki -1) / blki ;       // number of tiles along each dimension
+  int nblkj = (gnj + blkj -1) / blkj ;
+  int nskip ;
+  uint32_t *rmap, *tmap ;
 
   if(blki == 0 || blkj == 0) goto error ;
   if(gni != sni || gnj != snj || blki != sblki || blkj != sblkj || etype != stype || esize != ssize) goto error ;
@@ -478,20 +508,20 @@ ssize_t tiled_rev_pipe_filters(int flags, array_descriptor *data_out, wordstream
     msize = (esize ? esize : 4) ;
     array = (uint32_t *)malloc(msize * gni * gnj) ;
   }
-  int nblki = (gni + blki -1) / blki ;       // number of tiles along each dimension
-  int nblkj = (gnj + blkj -1) / blkj ;
 
 fprintf(stderr, "ndims = %d, [%d x %d], (%d,%d) tiles of dimension [%d x %d], data = %s_%d\n", 
         ndims, str0[0], str0[1], nblki, nblkj, sblki, sblkj, ptype[stype], ssize*8) ;
   if(ndims != 2) goto error ;
   if( gni != str0[0] || gnj != str0[1] ) goto error ;
   // nblki, nblkj, row sizes ( rmap[nblkj] ), followed by tile sizes ( tmap[nblki * nblkj] )
-  int nskip ;
   nskip = ws32_skip_out(stream, 4) ;              // skip first 4 words
-  uint32_t *rmap = WS32_BUFFER_OUT(*stream) ;
+  if(nskip < 0) goto error ;
+  rmap = WS32_BUFFER_OUT(*stream) ;
   nskip = ws32_skip_out(stream, nblkj) ;          // skip row sizes
-  uint32_t *tmap = WS32_BUFFER_OUT(*stream) ;
+  if(nskip < 0) goto error ;
+  tmap = WS32_BUFFER_OUT(*stream) ;
   nskip = ws32_skip_out(stream, nblki*nblkj) ;    // skip tile sizes
+  if(nskip < 0) goto error ;
 fprintf(stderr, "data map : ") ;
 int i ;
 for(i=0 ; i<nblkj ; i++) fprintf(stderr, "%10d", rmap[i]) ;
@@ -511,6 +541,7 @@ fprintf(stderr, "size left in stream = %d\n", WS32_FILLED(*stream)) ;
       ado.nx[0] = tni ;
       ado.nx[1] = tnj ;
       nadded = run_pipe_filters(PIPE_REVERSE, &ado, NULL, stream) ;
+      if(nadded < 0) goto error ;
 fprintf(stderr, "size left in stream = %d\n", WS32_FILLED(*stream)) ;
 //       nadded = put_word_block( tile_base, tile, tni, gni, tnj ) ;
     }
