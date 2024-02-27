@@ -77,21 +77,21 @@ ssize_t FILTER_FUNCTION(ID)(uint32_t flags, array_descriptor *ap, const filter_m
           ap->nprop = 3 ;
           ap->prop[0].i = l32.i.mins ;
           ap->prop[1].i = l32.i.maxs ;
-          ap->prop[0].i = l32.i.min0 ;
+          ap->prop[2].i = l32.i.min0 ;
           break ;
         case PIPE_DATA_UNSIGNED:
           l32 = UINT32_extrema(buf->buffer, filter_data_values(ap)) ;
           ap->nprop = 3 ;
           ap->prop[0].u = l32.u.mina ;
           ap->prop[1].u = l32.u.maxa ;
-          ap->prop[0].u = l32.u.min0 ;
+          ap->prop[2].u = l32.u.min0 ;
           break ;
         case PIPE_DATA_FP:
           l32 = IEEE32_extrema(buf->buffer, filter_data_values(ap)) ;
           ap->nprop = 3 ;
           ap->prop[0].f = l32.f.mins ;
           ap->prop[1].f = l32.f.maxs ;
-          ap->prop[0].f = l32.f.min0 ;
+          ap->prop[2].f = l32.f.min0 ;
           break ;
         default:
           goto error ; // invalid data type
