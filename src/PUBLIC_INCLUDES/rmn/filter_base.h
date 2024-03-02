@@ -31,13 +31,13 @@
 // first element of metadata for ALL filters
 // id    : filter ID
 // size  : size of the struct in 32 bit units (includes 32 bit prolog)
-// used  : used space in 32 bit units
+// meta0 : used for size or metadata_in_prolog (if size == 63 , size = meta0)
 // flags : local flags for this filter
 #if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
-#define FILTER_PROLOG uint32_t id:8, flags:2, size:22
+#define FILTER_PROLOG uint32_t id:8, flags:2, size:6, meta0:16
 #endif
 #if __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
-#define FILTER_PROLOG uint32_t size:22, flags:2, id:8
+#define FILTER_PROLOG uint32_t meta0:16, size:6, flags:2, id:8
 #endif
 
 // check that size of filter struct is a multiple of 32 bits

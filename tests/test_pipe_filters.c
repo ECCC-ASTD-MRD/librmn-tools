@@ -36,6 +36,7 @@
 int test_0(char *msg){
   fprintf(stderr, "============================ register pipe filters  ============================\n");
   pipe_filters_init() ;                                   // initialize filter table
+  return 0 ;
 }
 
 int test_1(char *msg){
@@ -218,7 +219,7 @@ int test_2(char *msg){
   for(j=0 ; j<NJ ; j++){
     for(i=0 ; i<NI ; i++){
       array_in[j][i] = i*1000 + j ;
-      array_out[j][i] = -1 ;
+      array_out[j][i] = 0xFFFFFFFFu ;
     }
   }
   fprintf(stderr, "\n============================ forward ============================\n") ;
@@ -284,7 +285,7 @@ int test_3(char *msg){
 #define NPTSI 15
 #define NPTSJ 13
 int test_4(char *msg){
-  uint32_t fullsize[NPTSI*NPTSJ], reduced[NPTSI*NPTSJ] ;
+  uint32_t fullsize[NPTSI*NPTSJ], restored[NPTSI*NPTSJ] ;
   filter_001 filter0 = filter_001_null ;
   filter_110 filter1 = filter_110_null ;
   filter_255 filter2 = filter_255_null ;
@@ -295,28 +296,36 @@ int test_4(char *msg){
                         (filter_meta *) &filter2,
                         NULL
                         } ;
-  int i, npts = NPTSI * NPTSJ ;
+  int i, npts = NPTSI * NPTSJ, errors ;
   ssize_t nmeta ;
 
   fprintf(stderr, "============================ dimension reduction test  ============================\n");
   pipe_filters_init() ;                                   // initialize filter table
 
-  for(i=0 ; i<npts ; i++) { fullsize[i] = i ; reduced[i] = 0 ; }
+  for(i=0 ; i<npts ; i++) { fullsize[i] = i ; restored[i] = 999 ; }
   // create word stream
   wordstream stream_0 ;
-  void *ptr = ws32_create(&stream_0, NULL, npts, 0, WS32_CAN_REALLOC) ;
+  void *ptr = ws32_create(&stream_0, NULL, 4096, 0, WS32_CAN_REALLOC) ;
   fprintf(stderr, "word stream buffer address %p\n", ptr) ;
   if(ptr == NULL) exit(1) ;
 
   // metadata will be in stream_out, "filtered" data will be in data_i[]
   array_descriptor adi = { .esize = 4, .etype = PIPE_DATA_UNSIGNED, .ndims = 2, .data = fullsize, .nx[0] = NPTSI, .nx[1] = NPTSJ } ;
   filter2.flags = 1 ;
-  nmeta = run_pipe_filters(PIPE_FORWARD|PIPE_INPLACE, &adi, filters, &stream_0) ;
-  fprintf(stderr, "forward filters metadata length = %ld\n", nmeta);
+  nmeta = run_pipe_filters(PIPE_FORWARD, &adi, filters, &stream_0) ;
+  fprintf(stderr, "forward filters metadata length = %ld, stream size = %d\n", nmeta, WS32_IN(stream_0));
+
+  array_descriptor ado = { .esize = 4, .etype = PIPE_DATA_UNSIGNED, .ndims = 2, .data = restored, .nx[0] = NPTSI, .nx[1] = NPTSJ } ;
+  WS32_REREAD(stream_0) ;
+  run_pipe_filters(PIPE_REVERSE, &ado, filters, &stream_0) ;
+  errors = 0 ;
+  for(i=0 ; i<npts ; i++) if(fullsize[i] != restored[i]) errors++ ;
+fprintf(stderr, "test_4 : errors = %d\n", errors) ;
+  return 0 ;
 }
 
 int main(int argc, char **argv){
-  int to_test = 0 ;
+  int to_test = 0, status ;
 
   start_of_test("C pipe filters test") ;
 
@@ -328,23 +337,23 @@ int main(int argc, char **argv){
     to_test = atoi(argv[0]) ;
     switch(to_test){
       case 0:
-        test_0(msg) ;
+        status = test_0(msg) ;
         break;
       case 1:
-        test_1(msg) ;
+        status = test_1(msg) ;
         break;
       case 2:
-        test_2(msg) ;
+        status = test_2(msg) ;
         break;
       case 3:
-        test_3(msg) ;
+        status = test_3(msg) ;
         break;
       case 4:
-        test_4(msg) ;
+        status = test_4(msg) ;
         break;
       default:
         fprintf(stderr, "WARNING: unknown test %d\n", to_test) ;
     }
   }
-  return 0 ;
+  return status ;
 }

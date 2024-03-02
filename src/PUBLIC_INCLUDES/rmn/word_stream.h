@@ -21,6 +21,7 @@
 
 #include <stdint.h>
 #include <stdlib.h>
+#include <stdio.h>
 #include <rmn/ct_assert.h>
 
 // same as sizeof() but value is in 32 bit units
@@ -133,9 +134,14 @@ static int ws32_insert(wordstream *stream, void *words, uint32_t nwords){
         WS32_INSERT1(*stream, *data) ;
         nwords-- ; data++ ;
       }
+    }else{
+fprintf(stderr, "ws32_insert : tofill = %d, nwords = %d\n", WS32_TOFILL(*stream), nwords) ;
     }
 //     fprintf(stderr, "in = %d, out = %d, limit = %d\n", WS32_IN(*stream), WS32_OUT(*stream), WS32_SIZE(*stream));
+  }else{
+    fprintf(stderr, "ws32_insert : INVALID stream\n");
   }
+fprintf(stderr, "ws32_insert : inserting %d words, status = %d\n", nwords, status) ;
   return status ;
 }
 #define WS32_NEXT(stream)  WS32_BUFFER(stream)[WS32_OUT(stream)]

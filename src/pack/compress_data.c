@@ -150,12 +150,14 @@
   |  NCI  |  NCJ  | Chunk size 1 | Chunk offset 1 | ... | Chunk size n | Chunk offset n |
   +-------+-------+--------------+----------------+     +--------------+----------------+
   <--32b--x--32b--x-----32b------x------32b------->     <-----32b------x------32b------->
+
   alternative 2 (smaller size, no 16GB limit on offsets)
   data map size = (NCI * NCJ) + 2 (in 32 bit units)
   +-------+-------+--------------+     +--------------+
   |  NCI  |  NCJ  | Chunk size 1 | ... | Chunk size n |
   +-------+-------+--------------+     +--------------+
   <--32b--x--32b--x-----32b------x     <-----32b------x
+
   alternative 3 (no 16GB limit on offsets, row of blocks limited to 16Gbytes)
   BCI (16 bits), BCJ (16 bits) : chunk dimensions
   NPI = nb of points along i, NPJ = nb of points along j
@@ -166,6 +168,17 @@
   |  NPI  |  NPJ  |  DT  |  BCI  |  DS  |  BCJ  | Row size 1 | ... | Row size NCJ | Chunk size 1 | ... | Chunk size N |
   +-------+-------+------+-------+------+-------+------------+     +--------------+--------------+     +--------------+
   <--32b--x--32b--x-----32b------x-----32b------x-----32b----x     <------32b-----x-----32b------x     <-----32b------x
+
+  alternative 4 (16GB limit on offsets) simpler map
+  BCI (16 bits), BCJ (16 bits) : chunk dimensions
+  NPI = nb of points along i, NPJ = nb of points along j
+  NCI = (NPI + BCI - 1)/BCI, NCJ = (NPJ + BCJ - 1)/BCJ (number of chunks along i and j)
+  data map size = NCI * NCJ + 4 (in 32 bit units)  N = NCI * NCJ
+  DT = data type (16 bits), DS = data size (16 bits)
+  +-------+-------+------+-------+------+-------+----------------+     +----------------+
+  |  NPI  |  NPJ  |  DT  |  BCI  |  DS  |  BCJ  | Chunk offset 1 | ... | Chunk offset n |
+  +-------+-------+------+-------+------+-------+----------------+     +----------------+
+  <--32b--x--32b--x-----32b------x-----32b------x------32b------->     x------32b------->
 
   FIELD layout (field header and chunk sizes are multiples of 32 bits)
                  <-------- Chunk size 1 --------->     <-------- Chunk size n --------->

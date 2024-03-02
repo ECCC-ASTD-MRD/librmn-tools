@@ -310,8 +310,10 @@ ssize_t run_pipe_filters(int flags, array_descriptor *data_in, const filter_list
     ws32_insert(stream, &meta_end, meta_end.size) ;                      // insert last filter metadata into wordstream
     status = WS32_IN(*stream) - pop_stream ;                             // length of added metadata
 
-    if(! in_place)
-      ws32_insert(stream, pbuf.buffer, pipe_buffer_words_used(&pbuf)) ;  // copy final data filter output into wordstream
+    if(! in_place){
+      int nw32 = ws32_insert(stream, pbuf.buffer, pipe_buffer_words_used(&pbuf)) ;  // copy final data filter output into wordstream
+      fprintf(stderr, "inserting %ld words into stream, stream size = %d, nw32 = %d\n", pipe_buffer_words_used(&pbuf), WS32_IN(*stream), nw32) ;
+    }
   }else if(flags & PIPE_REVERSE){
     // build filter table and apply filters in reverse order
     int fnumber = 0 ;
