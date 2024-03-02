@@ -8,6 +8,18 @@
 
 #define NPTS 1023
 
+void test_compress_store(int npts){
+  int32_t expanded[npts], compressed[npts], restored[npts] ;
+  uint32_t masks[npts] ;
+  int i;
+fprintf(stderr, "compress_store test with %d elements\n", npts) ;
+  for(i=0 ; i<npts ; i++){
+    expanded[i] = i ;
+    compressed[i] = npts + 1 ;
+    restored[i] = -1 ;
+  }
+}
+
 int main(int argc, char **argv){
   TIME_LOOP_DATA ;
   uint64_t overhead = get_cycles_overhead() ;
@@ -21,6 +33,12 @@ int main(int argc, char **argv){
     uarray[i] = i+1 ;
     masks[i] = 0x01234567 ;
   }
+
+  if(argc == 2){
+    test_compress_store(atoi(argv[1])) ;
+    return 0 ;
+  }
+
   for(i=1 ; i<NPTS ; i+=2) masks[i] = 0x89ABCDEF ;
 
   for(i=0 ; i<NPTS ; i++) ucomp0[i] = 0xF0F0F0F0u ;
