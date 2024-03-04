@@ -14,7 +14,7 @@
 // N.B. the SSE2 versions are 2-3 x faster than the plain C versions (compiler dependent)
 //
 #include <stdio.h>
-#undef __SSE2__
+#undef __SSE2___
 #undef __AVX512F__
 #include <rmn/compress_expand.h>
 #include <rmn/bits.h>
