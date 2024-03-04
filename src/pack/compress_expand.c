@@ -1,5 +1,5 @@
 // Hopefully useful functions for C and FORTRAN
-// Copyright (C) 2023  Recherche en Prevision Numerique
+// Copyright (C) 2023-2024  Recherche en Prevision Numerique
 //
 // This code is free software; you can redistribute it and/or
 // modify it under the terms of the GNU Lesser General Public
@@ -14,7 +14,8 @@
 // N.B. the SSE2 versions are 2-3 x faster than the plain C versions (compiler dependent)
 //
 #include <stdio.h>
-
+#undef __SSE2__
+#undef __AVX512F__
 #include <rmn/compress_expand.h>
 #include <rmn/bits.h>
 
@@ -112,127 +113,120 @@ void stream_expand_32(void *s_, void *d_, void *map_, int n, void *fill_){
 #endif
 }
 
-// SSE2 version of stream_compress_32
-#if defined(__x86_64__) && defined(__SSE2__)
-uint32_t *stream_compress_32_sse(void *s_, void *d_, void *map_, int n){
-  uint32_t *s = (uint32_t *) s_ ;
-  uint32_t *d = (uint32_t *) d_ ;
-  uint32_t *map = (uint32_t *) map_ ;
-  int j ;
-  uint32_t mask ;
-
-  for(j=0 ; j<n-31 ; j+=32){                            // chunks of 32
-    mask = *map++ ;
-    d = sse_compress_32(s, d, mask) ; s += 32 ;
-  }
-  mask = *map ;
-  d = c_compress_n(s, d, mask, n - j) ;                 // leftovers (0 -> 31)
-  return d ;
-}
-#endif
-
-// pure C code version
-// s   [IN] : source array (32 bit items)
-// d  [OUT] : store-compressed destination array  (32 bit items)
-// map [IN] : bitmap used to store-compress (BIG-ENDIAN style)
-// n   [IN] : number of items
-// return : next storage address for array d
+// src     [IN] : source array (32 bit items)
+// dst    [OUT] : store-compressed destination array  (32 bit items)
+// be_mask [IN] : bit array used for store-compress (BIG-ENDIAN style)
+// n       [IN] : number of items
+// return : next storage address for array dst
 // where there is a 0 in the mask, nothing is added into array d
 // where there is a 1 in the mask, the corresponding item in array s is appended to array d
-// return pointer - original d = number of items stored into array d
-uint32_t *stream_compress_32(void *s_, void *d_, void *map_, int n){
+// returned pointer - original dst = number of items stored into array dst
+// the mask is interpreted Big Endian style, bit 0 is the MSB, bit 31 is the LSB
 #if defined(__x86_64__) && defined(__SSE2__)
-  return stream_compress_32_sse(s_, d_, map_, n) ;
-#else
-  uint32_t *s = (uint32_t *) s_ ;
-  uint32_t *d = (uint32_t *) d_ ;
-  uint32_t *map = (uint32_t *) map_ ;
-  int j ;
-  uint32_t mask ;
-  for(j=0 ; j<n-31 ; j+=32){                            // chunks of 32
+// SSE2 version of stream_compress_32
+uint32_t *CompressStore_sse_be(void *src, void *dst, void *be_mask, int n){
+  uint32_t *map = (uint32_t *) be_mask, mask ;
+  int i ;
+
+  for(i=0 ; i<n-31 ; i+=32, src += 32){                       // chunks of 32
     mask = *map++ ;
-    d = c_compress_32(s, d, mask) ; s += 32 ;
+    dst = CompressStore_32_sse_be(src, dst, mask) ;
   }
   mask = *map ;
-  d = c_compress_n(s, d, mask, n - j) ;                 // leftovers (0 -> 31)
-  return d ;
+  dst = CompressStore_0_31_c_be(src, dst, mask, n - i) ;      // leftovers (0 -> 31)
+  return dst ;
+}
 #endif
+
+// pure C code version (non SIMD)
+uint32_t *CompressStore_c_be(void *src, void *dst, void *be_mask, int n){
+  uint32_t *map = (uint32_t *) be_mask, mask ;
+  uint32_t *w32 = (uint32_t *) src ;
+  int i ;
+  for(i=0 ; i<n-31 ; i+=32, w32 += 32){                       // chunks of 32
+    mask = *map++ ;
+    dst = CompressStore_32_c_be(w32, dst, mask) ;
+  }
+  mask = *map ;
+  dst = CompressStore_0_31_c_be(w32, dst, mask, n - i) ;      // leftovers (0 -> 31)
+  return dst ;
 }
 
-// the AVX512 version takes advantage of compressed store with mask instruction
-// the alternative is just plain C code
-// expanded    [IN] : "full" array
-// compressed [OUT] : non masked elements from "full" array
-// mask        [IN] : 32 bits mask, if bit[I] is 1, expanded[I] is stored, if 0, it is skipped
-// the function returns the next address to be stored into for the "compressed" array
-// the mask is interpreted Little Endian style, bit[0] is the LSB, bit[31] is the MSB
-// this version processes 32 elements from "expanded"
-void *CompressStore_32(void *expanded, uint32_t mask, void *compressed){
-  uint32_t *w32 = (uint32_t *) expanded ;
-  uint32_t *dest = (uint32_t *) compressed ;
-#if defined(__AVX512F__)
-  __m512i vd0 = _mm512_loadu_epi32(w32) ;
-  __m512i vd1 = _mm512_loadu_epi32(w32+16) ;
-  _mm512_mask_compressstoreu_epi32 (dest, mask & 0xFFFF, vd0) ;
-  dest += _mm_popcnt_u32(mask & 0xFFFF) ;             // bits 0-15
-  _mm512_mask_compressstoreu_epi32 (dest, mask >> 16,  vd1) ;
-  dest += _mm_popcnt_u32(mask >> 16) ;                // bits 16-31
+// generic version, switches between the optimized versions
+uint32_t *CompressStore_be_(void *src, void *dst, void *be_mask, int n){
+#if defined(__x86_64__) && defined(__SSE2__)
+  return CompressStore_sse_be(src, dst, be_mask, n) ;
 #else
-  int i ;
-  for(i = 0 ; i < 32 ; i++, mask >>=1){
-    *dest = w32[i] ;
-    dest += (mask & 1) ;
-  }
+  return CompressStore_c_be(src, dst, be_mask, n) ;
 #endif
-return dest ;
 }
 
-// expanded    [IN] : "full" array
-// compressed [OUT] : non masked elements from "full" array
-// mask        [IN] : 32 bits mask, if bit[I] is 1, expanded[I] is stored, if 0, it is skipped
-// the function returns the next address to be stored into for the "compressed" array
-// NULL in case of error nw32 > 31 or nw32 < 0
+// the AVX512 version does not use the compressed store with mask instruction
+// the alternative is just plain C code
+// src    [IN] : "full" array
+// dst [OUT] : non masked elements from "full" array
+// le_mask        [IN] : 32 bits mask, if bit[I] is 1, src[I] is stored, if 0, it is skipped
+// the function returns the next address to be stored into for the "dst" array
 // the mask is interpreted Little Endian style, bit[0] is the LSB, bit[31] is the MSB
-// this version processes 0 - 31 elements from "expanded"
-void *CompressStore_0_31(void *expanded, int nw32, uint32_t mask, void *compressed){
-  uint32_t *w32 = (uint32_t *) expanded ;
-  uint32_t *dest = (uint32_t *) compressed ;
-  int i ;
-  if(nw32 > 31 || nw32 < 0) return NULL ;
-  for(i = 0 ; i < nw32 ; i++, mask >>=1){
-    *dest = w32[i] ;
-    dest += (mask & 1) ;
-  }
-  return dest ;
+// this version processes 32 elements from "src"
+// this version uses a store rather than a compressed store for performance reasons
+// and can store up to 32 extra (irrelevant) values after the useful end of dst
+static void *CompressStore_32_le(void *src, void *dst, uint32_t le_mask){
+#if defined(__AVX512F__)
+  dst = CompressStore_32_avx512_le(src, dst, le_mask) ;
+#elif defined(__SSE2__)
+  dst = CompressStore_32_sse_le(src, dst, le_mask) ;
+#else
+  dst = CompressStore_32_c_le(src, dst, le_mask) ;
+#endif
+return dst ;
+}
+static void *CompressStore_32_be(void *src, void *dst, uint32_t le_mask){
+#if defined(__SSE2__)
+  dst = CompressStore_32_sse_be(src, dst, le_mask) ;
+#else
+  dst = CompressStore_32_c_be(src, dst, le_mask) ;
+#endif
+return dst ;
 }
 
-// expanded    [IN] : "full" array
-// nw32        [IN] : number of elements in "full" array
-// compressed [OUT] : non masked elements from "full" array
-// mk          [IN] : array of masks
-//                    32 bits elements, if bit[I] is 1, expanded[I] is stored, if 0, it is skipped
-// the function returns the next address to be stored into for the "compressed" array
-// the mask is interpreted Little Endian style, bit[0] is the LSB, bit[31] is the MSB
-void *CompressStore(void *expanded, int nw32, void *mk, void *compressed){
+// src     [IN] : "source" array
+// nw32    [IN] : number of elements in "source" array
+// dst    [OUT] : non masked elements from "source" array
+// be_mask [IN] : array of masks (Big Endian style)       bit 0 is MSB
+// le_mask [IN] : array of masks (Little Endian style)    bit 0 is LSB
+//                32 bits elements, if bit[I] is 1, src[I] is stored, if 0, it is skipped
+// the function returns the next address to be stored into for the "dst" array
+void *CompressStore_be(void *src, void *dst, void *be_map, int nw32){
   int i0 ;
-  uint32_t *w32 = (uint32_t *) expanded ;
-  uint32_t *mask = (uint32_t *) mk ;
-  uint32_t *dest = (uint32_t *) compressed ;
+  uint32_t *w32 = (uint32_t *) src ;
+  uint32_t *be_mask = (uint32_t *) be_map ;
   for(i0 = 0 ; i0 < nw32 - 31 ; i0 += 32){
-    dest = CompressStore_32(w32 + i0, *mask, dest) ;
-    mask++ ;
+    dst = CompressStore_32_be(w32 + i0, dst, *be_mask) ;
+    be_mask++ ;
   }
-  dest = CompressStore_0_31(w32 + i0, nw32 - i0, *mask, dest) ;
-  return dest ;
+  dst = CompressStore_0_31_c_be(w32 + i0, dst, *be_mask, nw32 - i0) ;
+  return dst ;
 }
-
-// mask   [OUT] : 1s where expanded[i] != reference value, 0s otherwise
-static int32_t CompressStoreSpecialValue(void *expanded, int nw32, const void *value, void *mask, void *compressed){
+void *CompressStore_le(void *src, void *dst, void *le_map, int nw32){
+  int i0 ;
+  uint32_t *w32 = (uint32_t *) src ;
+  uint32_t *le_mask = (uint32_t *) le_map ;
+  for(i0 = 0 ; i0 < nw32 - 31 ; i0 += 32){
+    dst = CompressStore_32_le(w32 + i0, dst, *le_mask) ;
+    le_mask++ ;
+  }
+  dst = CompressStore_0_31_c_le(w32 + i0, dst, *le_mask, nw32 - i0) ;
+  return dst ;
+}
+#if 0
+// le_map   [OUT] : 1s where src[i] != reference value, 0s otherwise
+static int32_t CompressStoreSpecialValue(void *src, void *dst, void *le_map, int nw32, const void *value){
   int32_t nval = 0, i, i0, j ;
-  uint32_t *w32 = (uint32_t *) expanded ;
+  uint32_t *w32 = (uint32_t *) src ;
   uint32_t *vref = (uint32_t *) value ;
-  uint32_t *mk = (uint32_t *) mask ;
-  uint32_t *dest = (uint32_t *) compressed ;
+  uint32_t *mask = (uint32_t *) le_map ;
+  uint32_t *dest = (uint32_t *) dst ;
   uint32_t mask0, bits ;
   uint32_t ref = *vref ;
 
@@ -295,7 +289,7 @@ static int32_t CompressStoreSpecialValue(void *expanded, int nw32, const void *v
   }
 #endif
 
-  *mk = mask0 ; mk++ ;
+  *mask = mask0 ; mask++ ;
   }
   bits = 1 ; mask0 = 0 ;
   for(i = i0 ; i < nw32 ; i++){
@@ -306,6 +300,7 @@ static int32_t CompressStoreSpecialValue(void *expanded, int nw32, const void *v
     }
     bits <<= 1 ;
   }
-  *mk = mask0 ;
+  *mask = mask0 ;
   return nval ;
 }
+#endif
