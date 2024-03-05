@@ -25,12 +25,16 @@
 #if defined(__x86_64__) && defined(__SSE2__)
 #include <immintrin.h>
 
+typedef struct{
+  int8_t stab[16] ;
+} tab_16x16 ;
+
 // N.B. permutation tables are BYTE permutation tables,
 //      using a vector index byte permutation instruction,
 //      as there is no vector index word permutation instruction
-static struct exptab{   // lookup permutation table used to perform a SIMD load-expand
-  int8_t stab[16] ;     // elements to pick from s[0,1,2,3], x means don't care (set to 0)
-} exptab[16] = {                                                                 // MASK s[]
+// lookup permutation table used to perform a SIMD load-expand
+// elements to pick from s[0,1,2,3], x means don't care (set to 0)
+static tab_16x16 __attribute__((aligned(16))) exp_be[16] = {                                                                 // MASK s[]
   { -1, -1, -1, -1,    -1, -1, -1, -1,    -1, -1, -1, -1,    -1, -1, -1, -1 } ,  // 0000 [x,x,x,x]
   { -1, -1, -1, -1,    -1, -1, -1, -1,    -1, -1, -1, -1,     0,  1,  2,  3 } ,  // 0001 [x,x,x,0]
   { -1, -1, -1, -1,    -1, -1, -1, -1,     0,  1,  2,  3,    -1, -1, -1, -1 } ,  // 0010 [x,x,0,x]
@@ -49,9 +53,28 @@ static struct exptab{   // lookup permutation table used to perform a SIMD load-
   {  0,  1,  2,  3,     4,  5,  6,  7,     8,  9, 10, 11,    12, 13, 14, 15 } ,  // 1111 [0,1,2,3]
              } ;
 
-static struct cmp_be{   // lookup permutation table used to perform a SIMD store-compress
-  int8_t stab[16] ;     // elements from s[0,1,2,3] to store into d, x means fill or leave as is
-} cmp_be[16] = {                                                                 // MASK
+static tab_16x16 __attribute__((aligned(16))) exp_le[16] = {                                                                 // MASK s[]
+  { -1, -1, -1, -1,    -1, -1, -1, -1,    -1, -1, -1, -1,    -1, -1, -1, -1 } ,  // 0000 [x,x,x,x]
+  {  0,  1,  2,  3,    -1, -1, -1, -1,    -1, -1, -1, -1,    -1, -1, -1, -1 } ,  // 0001 [0,x,x,x]
+  { -1, -1, -1, -1,     0,  1,  2,  3,    -1, -1, -1, -1,    -1, -1, -1, -1 } ,  // 0010 [x,0,x,x]
+  {  0,  1,  2,  3,     4,  5,  6,  7,    -1, -1, -1, -1,    -1, -1, -1, -1 } ,  // 0011 [0,1,x,x]
+  { -1, -1, -1, -1,    -1, -1, -1, -1,     0,  1,  2,  3,    -1, -1, -1, -1 } ,  // 0100 [x,x,0,x]
+  {  0,  1,  2,  3,    -1, -1, -1, -1,     4,  5,  6,  7,    -1, -1, -1, -1 } ,  // 0101 [0,x,1,x]
+  { -1, -1, -1, -1,     0,  1,  2,  3,     4,  5,  6,  7,    -1, -1, -1, -1 } ,  // 0110 [x,0,1,x]
+  {  0,  1,  2,  3,     4,  5,  6,  7,     8,  9, 10, 11,    -1, -1, -1, -1 } ,  // 0111 [0,1,2,x]
+  { -1, -1, -1, -1,    -1, -1, -1, -1,    -1, -1, -1, -1,     0,  1,  2,  3 } ,  // 1000 [x,x,x,0]
+  {  0,  1,  2,  3,    -1, -1, -1, -1,    -1, -1, -1, -1,     4,  5,  6,  7 } ,  // 1001 [0,x,x,1]
+  { -1, -1, -1, -1,     0,  1,  2,  3,    -1, -1, -1, -1,     4,  5,  6,  7 } ,  // 1010 [x,0,x,1]
+  {  0,  1,  2,  3,     4,  5,  6,  7,    -1, -1, -1, -1,     8,  9, 10, 11 } ,  // 1011 [0,1,x,2]
+  { -1, -1, -1, -1,    -1, -1, -1, -1,     0,  1,  2,  3,     4,  5,  6,  7 } ,  // 1100 [x,x,0,1]
+  {  0,  1,  2,  3,    -1, -1, -1, -1,     4,  5,  6,  7,     8,  9, 10, 11 } ,  // 1101 [0,x,1,2]
+  { -1, -1, -1, -1,     0,  1,  2,  3,     4,  5,  6,  7,     8,  9, 10, 11 } ,  // 1110 [x,0,1,2]
+  {  0,  1,  2,  3,     4,  5,  6,  7,     8,  9, 10, 11,    12, 13, 14, 15 } ,  // 1111 [0,1,2,3]
+             } ;
+
+// lookup permutation table used to perform a SIMD store-compress
+// elements from s[0,1,2,3] to store into d, x means fill or leave as is
+static tab_16x16 __attribute__((aligned(16))) cmp_be[16] = {                                                                 // MASK
   { -1, -1, -1, -1,    -1, -1, -1, -1,    -1, -1, -1, -1,    -1, -1, -1, -1 } ,  // 0000 [x,x,x,x]
   { 12, 13, 14, 15,    -1, -1, -1, -1,    -1, -1, -1, -1,    -1, -1, -1, -1 } ,  // 0001 [3,x,x,x]
   {  8,  9, 10, 11,    -1, -1, -1, -1,    -1, -1, -1, -1,    -1, -1, -1, -1 } ,  // 0010 [2,x,x,x]
@@ -70,9 +93,9 @@ static struct cmp_be{   // lookup permutation table used to perform a SIMD store
   {  0,  1,  2,  3,     4,  5,  6,  7,     8,  9, 10, 11,    12, 13, 14, 15 } ,  // 1111 [0,1,2,3]
              } ;
 
-static struct cmp_le{   // lookup permutation table used to perform a SIMD store-compress
-  int8_t stab[16] ;     // elements from s[0,1,2,3] to store into d, x means fill or leave as is
-} cmp_le[16] = {                                                                 // MASK
+// lookup permutation table used to perform a SIMD store-compress
+// elements from s[0,1,2,3] to store into d, x means fill or leave as is
+static tab_16x16 __attribute__((aligned(16))) cmp_le[16] = {                                                                 // MASK
   { -1, -1, -1, -1,    -1, -1, -1, -1,    -1, -1, -1, -1,    -1, -1, -1, -1 } ,  // 0000 [x,x,x,x]
   {  0,  1,  2,  3,    -1, -1, -1, -1,    -1, -1, -1, -1,    -1, -1, -1, -1 } ,  // 0001 [0,x,x,x]
   {  4,  5,  6,  7,    -1, -1, -1, -1,    -1, -1, -1, -1,    -1, -1, -1, -1 } ,  // 0010 [1,x,x,x]
@@ -100,7 +123,7 @@ static inline uint32_t *sse_expand_replace_32(uint32_t *s, uint32_t *d, uint32_t
       mask0 = mask >> 28 ; mask <<= 4 ; pop0 = popcnt_32(mask0) ;  // get 4 bit mask0 for this slice
       vt0 = _mm_loadu_si128((__m128i *)s) ; s += pop0 ;            // load items from source (compressed) array
 //       vt0 = _mm_maskload_epi32((int const *)s, ~vs0) ;             // load using ~vs0 as a mask to avoid load beyond array
-      vs0 = _mm_loadu_si128((__m128i *)(exptab + mask0)) ;         // load permutation for this mask0
+      vs0 = _mm_loadu_si128((__m128i *)(exp_be + mask0)) ;         // load permutation for this mask0
       vf0 = _mm_loadu_si128((__m128i *)d) ;                        // load items from destination (expanded) array
       vb0 = _mm_srai_epi32(vs0, 31) ;                              // 1s where keep, 0s where new from source
       vt0 = _mm_shuffle_epi8(vt0, vs0) ;                           // shufffle to get source items in proper position
@@ -108,7 +131,7 @@ static inline uint32_t *sse_expand_replace_32(uint32_t *s, uint32_t *d, uint32_t
       _mm_storeu_si128((__m128i *)d, vt0) ; d += 4 ;               // store into destination
       mask0 = mask >> 28 ; mask <<= 4 ; pop0 = popcnt_32(mask0) ;
       vt0 = _mm_loadu_si128((__m128i *)s) ; s += pop0 ;
-      vs0 = _mm_loadu_si128((__m128i *)(exptab + mask0)) ;
+      vs0 = _mm_loadu_si128((__m128i *)(exp_be + mask0)) ;
       vf0 = _mm_loadu_si128((__m128i *)d) ;
       vb0 = _mm_srai_epi32(vs0, 31) ;
       vt0 = _mm_shuffle_epi8(vt0, vs0) ;
@@ -116,7 +139,7 @@ static inline uint32_t *sse_expand_replace_32(uint32_t *s, uint32_t *d, uint32_t
       _mm_storeu_si128((__m128i *)d, vt0) ; d += 4 ;
       mask0 = mask >> 28 ; mask <<= 4 ; pop0 = popcnt_32(mask0) ;
       vt0 = _mm_loadu_si128((__m128i *)s) ; s += pop0 ;
-      vs0 = _mm_loadu_si128((__m128i *)(exptab + mask0)) ;
+      vs0 = _mm_loadu_si128((__m128i *)(exp_be + mask0)) ;
       vf0 = _mm_loadu_si128((__m128i *)d) ;
       vb0 = _mm_srai_epi32(vs0, 31) ;
       vt0 = _mm_shuffle_epi8(vt0, vs0) ;
@@ -124,7 +147,7 @@ static inline uint32_t *sse_expand_replace_32(uint32_t *s, uint32_t *d, uint32_t
       _mm_storeu_si128((__m128i *)d, vt0) ; d += 4 ;
       mask0 = mask >> 28 ; mask <<= 4 ; pop0 = popcnt_32(mask0) ;
       vt0 = _mm_loadu_si128((__m128i *)s) ; s += pop0 ;
-      vs0 = _mm_loadu_si128((__m128i *)(exptab + mask0)) ;
+      vs0 = _mm_loadu_si128((__m128i *)(exp_be + mask0)) ;
       vf0 = _mm_loadu_si128((__m128i *)d) ;
       vb0 = _mm_srai_epi32(vs0, 31) ;
       vt0 = _mm_shuffle_epi8(vt0, vs0) ;
@@ -187,28 +210,28 @@ static inline uint32_t * sse_expand_fill_32(uint32_t *s, uint32_t *d, uint32_t m
     mask0 = mask >> 28 ; mask <<= 4 ; pop0 = popcnt_32(mask0) ;  // get 4 bit mask0 for this slice
     vt0 = _mm_loadu_si128((__m128i *)s) ; s += pop0 ;            // load items from source (compressed) array
 //     vt0 = _mm_maskload_epi32((int const *)s, ~vs0) ;             // load using ~vs0 as a mask to avoid load beyond array
-    vs0 = _mm_loadu_si128((__m128i *)(exptab + mask0)) ;         // load permutation for this mask0
+    vs0 = _mm_loadu_si128((__m128i *)(exp_be + mask0)) ;         // load permutation for this mask0
     vb0 = _mm_srai_epi32(vs0, 31) ;                              // 1s where fill, 0s where new from source
     vt0 = _mm_shuffle_epi8(vt0, vs0) ;                           // shufffle to get source items in proper position
     vt0 = _mm_blendv_epi8(vt0, vf0, vb0) ;                       // blend in fill value
     _mm_storeu_si128((__m128i *)d, vt0) ; d += 4 ;               // store into destination
     mask0 = mask >> 28 ; mask <<= 4 ; pop0 = popcnt_32(mask0) ;
     vt0 = _mm_loadu_si128((__m128i *)s) ; s += pop0 ;
-    vs0 = _mm_loadu_si128((__m128i *)(exptab + mask0)) ;
+    vs0 = _mm_loadu_si128((__m128i *)(exp_be + mask0)) ;
     vb0 = _mm_srai_epi32(vs0, 31) ;
     vt0 = _mm_shuffle_epi8(vt0, vs0) ;
     vt0 = _mm_blendv_epi8(vt0, vf0, vb0) ;
     _mm_storeu_si128((__m128i *)d, vt0) ; d += 4 ;
     mask0 = mask >> 28 ; mask <<= 4 ; pop0 = popcnt_32(mask0) ;
     vt0 = _mm_loadu_si128((__m128i *)s) ; s += pop0 ;
-    vs0 = _mm_loadu_si128((__m128i *)(exptab + mask0)) ;
+    vs0 = _mm_loadu_si128((__m128i *)(exp_be + mask0)) ;
     vb0 = _mm_srai_epi32(vs0, 31) ;
     vt0 = _mm_shuffle_epi8(vt0, vs0) ;
     vt0 = _mm_blendv_epi8(vt0, vf0, vb0) ;
     _mm_storeu_si128((__m128i *)d, vt0) ; d += 4 ;
     mask0 = mask >> 28 ; mask <<= 4 ; pop0 = popcnt_32(mask0) ;
     vt0 = _mm_loadu_si128((__m128i *)s) ; s += pop0 ;
-    vs0 = _mm_loadu_si128((__m128i *)(exptab + mask0)) ;
+    vs0 = _mm_loadu_si128((__m128i *)(exp_be + mask0)) ;
     vb0 = _mm_srai_epi32(vs0, 31) ;
     vt0 = _mm_shuffle_epi8(vt0, vs0) ;
     vt0 = _mm_blendv_epi8(vt0, vf0, vb0) ;
