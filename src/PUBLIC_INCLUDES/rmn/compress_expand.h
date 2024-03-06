@@ -13,8 +13,8 @@
 //
 // uncomment following line to force plain C (non SIMD) code
 // #undef __SSE2__
-#undef __SSE2___
-#undef __AVX512F__
+// #undef __SSE2___
+// #undef __AVX512F___
 
 #if ! defined(STORE_COMPRESS_LOAD_EXPAND)
 #define STORE_COMPRESS_LOAD_EXPAND
@@ -32,6 +32,14 @@ typedef struct{
 // N.B. permutation tables are BYTE permutation tables,
 //      using a vector index byte permutation instruction,
 //      as there is no vector index word permutation instruction
+
+// byte swap of 4 32 bit elements
+static int8_t __attribute__((aligned(16))) byte_swap_32[16] = { 3,2,1,0,7,6,5,4,11,10,9,8,15,14,13,12 } ;
+// bit reversal of lower 4 bit nibble for 16 bytes (upper_nibble_reverse << 4) (ends up in upper nibble after nibble swap)
+// static int8_t __attribute__((aligned(16))) lower_nibble_reverse[16] = { 0,128,64,192,32,160,96,224,16,144,80,208,48,176,112,240 } ;
+// bit reversal of upper 4 bit nibble for 16 bytes (ends up in lower nibble after nibble swap)
+static int8_t __attribute__((aligned(16))) upper_nibble_reverse[16] = { 0,8,4,12,2,10,6,14,1,9,5,13,3,11,7,15 } ;
+
 // lookup permutation table used to perform a SIMD load-expand
 // elements to pick from s[0,1,2,3], x means don't care (set to 0)
 static tab_16x16 __attribute__((aligned(16))) exp_be[16] = {                                                                 // MASK s[]
@@ -113,6 +121,68 @@ static tab_16x16 __attribute__((aligned(16))) cmp_le[16] = {                    
   {  0,  1,  2,  3,     4,  5,  6,  7,    12, 13, 14, 15,    -1, -1, -1, -1 } ,  // 1011 [0,1,3,x]
   {  0,  1,  2,  3,     4,  5,  6,  7,     8,  9, 10, 11,    12, 13, 14, 15 } ,  // 1111 [0,1,2,3]
              } ;
+
+// bit reversal for 1 x 32 bit word
+static inline uint32_t BitReverse_32(uint32_t w32){
+  w32 =  (w32 >> 16)              |   (w32 << 16) ;                // swap halfwords in 32 words
+  w32 = ((w32 & 0xFF00FF00) >> 8) | ( (w32 << 8) & 0xFF00FF00) ;   // swap bytes in halfwords
+  w32 = ((w32 & 0xF0F0F0F0) >> 4) | ( (w32 << 4) & 0xF0F0F0F0) ;   // swap nibbles in bytes
+  w32 = ((w32 & 0xCCCCCCCC) >> 2) | ( (w32 << 2) & 0xCCCCCCCC) ;   // swap 2bits in nibbles
+  w32 = ((w32 & 0xAAAAAAAA) >> 1) | ( (w32 << 1) & 0xAAAAAAAA) ;   // swap bits in 2bits
+  return w32 ;
+}
+
+// in place bit reversal for 4 x 32 bit word (AVX512 version)
+#if defined(__AVX512F__)
+static void BitReverse_128_avx512(uint32_t *w32){
+  __m128i v0 = _mm_loadu_si128((__m128i *) w32) ;
+  __m128i vs = _mm_loadu_si128((__m128i *) byte_swap_32) ;
+  v0 = _mm_shuffle_epi8(v0, vs) ;              // perform byte swap on v0
+  v0 = _mm_gf2p8affine_epi64_epi8( // Step 1: Reverse each of the within each byte
+    v0,
+    _mm_set1_epi64x( 0b1000000001000000001000000001000000001000000001000000001000000001 ),  // 0x8040201008040201
+    0 ) ;   // We don't care to do a final `xor` to the result, so keep this 0
+  _mm_storeu_si128((__m128i *) w32, v0) ;
+}
+#endif
+
+// in place bit reversal for 4 x 32 bit word (SSE2 version)
+#if defined(__SSE2__)
+static inline void BitReverse_128_sse2(uint32_t *w32){
+  __m128i v0 = _mm_loadu_si128((__m128i *) w32) ;
+  __m128i vs = _mm_loadu_si128((__m128i *) byte_swap_32) ;
+  v0 = _mm_shuffle_epi8(v0, vs) ;              // perform byte swap on v0
+  __m128i vu = _mm_loadu_si128((__m128i *) upper_nibble_reverse) ;
+  __m128i vl = _mm_slli_epi32(vu, 4) ;         // lower nibble table computed from upper nibble table
+  __m128i vm = _mm_set1_epi8(0xF) ;            // nibble mask
+  __m128i ln = _mm_and_si128(v0, vm) ;         // lower nibble
+  __m128i vt = _mm_srli_epi32(v0,4) ;          // shift upper nibble right 4 bits
+  __m128i un = _mm_and_si128(vt, vm) ;         // upper nibble
+  ln = _mm_shuffle_epi8(vl, ln) ;              // translate lower nibble
+  un = _mm_shuffle_epi8(vu, un) ;              // translate upper nibble
+  v0 = _mm_or_si128(ln, un) ;                  // reconstruct byte
+  _mm_storeu_si128((__m128i *) w32, v0) ;
+}
+#endif
+
+// in place bit reversal for 4 x 32 bit word (plain C version)
+static inline void BitReverse_128_c(uint32_t *w32){
+  int i ;
+  for(i=0 ; i<8 ; i++){    // 4 x 32 bits
+    w32[i] = BitReverse_32(w32[i]) ;
+  }
+}
+
+// in place bit reversal for 4 x 32 bit word (generic version)
+static inline void BitReverse_128(uint32_t *w32){
+#if defined(__AVX512F__)
+  BitReverse_128_avx512(w32) ;
+#elif defined(__SSE2__)
+  BitReverse_128_sse2(w32) ;
+#else
+  BitReverse_128_c(w32) ;
+#endif
+}
 
 static inline uint32_t *sse_expand_replace_32(uint32_t *s, uint32_t *d, uint32_t mask){
   int i ;

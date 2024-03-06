@@ -8,6 +8,126 @@
 
 #define NPTS 64
 
+#if defined(__AVX512F__)
+void BitReverseArray_avx512(uint32_t *what, int n){
+  int i ;
+  for(i = 0 ; i < n-4 ; i += 4) BitReverse_128_avx512(what+i) ;
+  for( ; i<n ; i++) what[i] = BitReverse_32(what[i]) ;
+}
+#endif
+
+#if defined(__SSE2__)
+void BitReverseArray_sse2(uint32_t *what, int n){
+  int i ;
+  for(i = 0 ; i < n-4 ; i += 4) BitReverse_128_sse2(what+i) ;
+  for( ; i<n ; i++) what[i] = BitReverse_32(what[i]) ;
+}
+#endif
+
+void BitReverseArray_c(uint32_t *what, int n){
+  int i ;
+  for(i = 0 ; i < n-4 ; i += 4) BitReverse_128_c(what+i) ;
+  for( ; i<n ; i++) what[i] = BitReverse_32(what[i]) ;
+}
+
+void BitReverseArray(uint32_t *what, int n){
+  int i ;
+  for(i = 0 ; i < n-4 ; i += 4) BitReverse_128(what+i) ;
+  for( ; i<n ; i++) what[i] = BitReverse_32(what[i]) ;
+}
+
+int compare_values(void *what, void *ref, int n){
+  int i, errors = 0 ;
+  uint32_t *v1 = (uint32_t *) what, *v2 = (uint32_t *) ref ;
+  for(i=0 ; i<n ; i++) if(v1[i] != v2[i]) errors++ ;
+  return errors ;
+}
+
+void test_reversal(int npts){
+  uint32_t src[4] = {0x00000001, 0x00000600, 0x000f0000, 0x09000000 } ;
+  uint32_t ref[4] = {0x80000000, 0x00600000, 0x0000f000, 0x00000090 } ;
+  uint32_t s1[4], s2[4], s3[4] ;
+  uint32_t tmp[npts] ;
+  int i, errors ;
+  TIME_LOOP_DATA
+
+  fprintf(stderr, "bit reversal test with %d values\n", npts) ;
+
+  for(i=0 ; i<4 ; i++) { s1[i] = s2[i] = s3[i] = src[i] ; }
+
+  fprintf(stderr, "reference test with 4 values\n") ;
+
+  for(i=0 ; i<4 ; i++) s1[i] = BitReverse_32(s1[i]) ; errors = compare_values(s1, ref, 4) ;
+  if(errors > 0){
+    for(i=0 ; i<4 ; i++)
+      fprintf(stderr, "src = %8.8x, rev = %8.8x, ref = %8.8x\n", src[i], BitReverse_32(src[i]), ref[i]);
+    exit(1) ;
+  }
+  fprintf(stderr, "scalar version SUCCESS\n");
+
+#if defined(__AVX512F__)
+  BitReverse_128_avx512(s3) ;
+  errors = compare_values(s3, ref, 4) ;
+  BitReverse_128_avx512(s3) ;
+  errors += compare_values(s3, src, 4) ;
+  if(errors) exit(1) ;
+  fprintf(stderr, "AVX512 version SUCCESS\n");
+#endif
+#if defined(__SSE2__)
+  BitReverse_128_sse2(s3) ;
+  errors = compare_values(s3, ref, 4) ;
+  BitReverse_128_sse2(s3) ;
+  errors += compare_values(s3, src, 4) ;
+  if(errors) exit(1) ;
+  fprintf(stderr, "SSE2 version SUCCESS\n");
+#endif
+  BitReverse_128_c(s3) ;
+  errors = compare_values(s3, ref, 4) ;
+  BitReverse_128_c(s3) ;
+  errors += compare_values(s3, src, 4) ;
+  if(errors) exit(1) ;
+  fprintf(stderr, "plain C version SUCCESS\n");
+
+  BitReverse_128(s2) ;
+  errors = compare_values(s2, ref, 4) ;
+  if(errors > 0){
+    for(i=0 ; i<4 ; i++)
+      fprintf(stderr, "src = %8.8x, rev = %8.8x, ref = %8.8x\n", src[i], s2[i], ref[i]);
+    exit(1) ;
+  }
+  BitReverse_128(s2) ;
+  errors = compare_values(s2, src, 4) ;
+  if(errors > 0){
+    for(i=0 ; i<4 ; i++)
+      fprintf(stderr, "src = %8.8x, rev = %8.8x, ref = %8.8x\n", src[i], s2[i], src[i]);
+    exit(1) ;
+  }
+  fprintf(stderr, "generic version SUCCESS\n");
+
+  BitReverseArray(tmp, npts) ;
+  TIME_LOOP_EZ(1000, npts, BitReverseArray(tmp, npts) ;) ;
+  fprintf(stderr, "BitReverseArray   : %s\n", timer_msg);
+
+#if defined(__AVX512F__)
+  BitReverseArray_avx512(tmp, npts) ;
+  BitReverseArray_avx512(tmp, npts) ;
+  TIME_LOOP_EZ(1000, npts, BitReverseArray_avx512(tmp, npts) ;) ;
+  fprintf(stderr, "BitReverse_avx512 : %s\n", timer_msg);
+#endif
+
+#if defined(__SSE2__)
+  BitReverseArray_sse2(tmp, npts) ;
+  BitReverseArray_sse2(tmp, npts) ;
+  TIME_LOOP_EZ(1000, npts, BitReverseArray_sse2(tmp, npts) ;) ;
+  fprintf(stderr, "BitReverse_sse2   : %s\n", timer_msg);
+#endif
+
+  BitReverseArray_c(tmp, npts) ;
+  BitReverseArray_c(tmp, npts) ;
+  TIME_LOOP_EZ(1000, npts, BitReverseArray_c(tmp, npts) ;) ;
+  fprintf(stderr, "BitReverse_c      : %s\n", timer_msg);
+}
+
 void test_compress_store(int npts){
   int32_t expanded[npts], compressed[npts], restored[npts] ;
   uint32_t bmasks[npts] ;
@@ -37,7 +157,8 @@ int main(int argc, char **argv){
   }
 
   if(argc == 2){
-    test_compress_store(atoi(argv[1])) ;
+    test_reversal(atoi(argv[1])) ;
+//     test_compress_store(atoi(argv[1])) ;
     return 0 ;
   }
 
