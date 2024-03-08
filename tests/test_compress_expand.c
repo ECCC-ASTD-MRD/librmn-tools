@@ -43,10 +43,11 @@ int compare_values(void *what, void *ref, int n){
   return errors ;
 }
 
-void test_reversal(int npts){
+void test_reversal(char *str){
   uint32_t src[4] = {0x00000001, 0x00000600, 0x000f0000, 0x09000000 } ;
   uint32_t ref[4] = {0x80000000, 0x00600000, 0x0000f000, 0x00000090 } ;
   uint32_t s1[4], s2[4], s3[4] ;
+  int npts = atoi(str) ;
   uint32_t tmp[npts] ;
   int i, errors ;
   TIME_LOOP_DATA
@@ -109,7 +110,7 @@ void test_reversal(int npts){
   fprintf(stderr, "BitReverseArray   : %s\n", timer_msg);
 
 #if defined(__AVX512F__)
-  BitReverseArray_avx512(tmp, npts) ;
+//   BitReverseArray_avx512(tmp, npts) ;
   BitReverseArray_avx512(tmp, npts) ;
   TIME_LOOP_EZ(1000, npts, BitReverseArray_avx512(tmp, npts) ;) ;
   fprintf(stderr, "BitReverse_avx512 : %s\n", timer_msg);
@@ -128,15 +129,64 @@ void test_reversal(int npts){
   fprintf(stderr, "BitReverse_c      : %s\n", timer_msg);
 }
 
-void test_compress_store(int npts){
+void test_compress_store(char *str){
+  int npts = atoi(str) ;
   int32_t expanded[npts], compressed[npts], restored[npts] ;
-  uint32_t bmasks[npts] ;
+  uint32_t bmasks[npts], lmasks[npts] ;
   int i;
 fprintf(stderr, "compress_store test with %d elements\n", npts) ;
   for(i=0 ; i<npts ; i++){
-    expanded[i] = i ;
+    expanded[i] = i + 1 ;
     compressed[i] = npts + 1 ;
     restored[i] = -1 ;
+    bmasks[i] = 0x01234567 ;
+    lmasks[i] = 0xE6A2C480 ;
+  }
+  int32_t *d0, *d1, *d2, *dbe, *dle, *sbe, *sle ;
+  uint32_t popbe = popcnt_32(bmasks[0]) ;
+  uint32_t pople = popcnt_32(lmasks[0]) ;
+  if(npts >= 32){
+    fprintf(stderr, "========== AVX512 (le) ==========\n") ;
+    dle = CompressStore_32_avx512_le(expanded, compressed, lmasks[0]) ;
+    fprintf(stderr, "mask = %8.8x, ", lmasks[0]) ;
+    fprintf(stderr, "popbe = %d, pople = %d, points left = %ld\n", popbe, pople, dle - compressed) ;
+    for(i=0 ; i<32 ; i++) fprintf(stderr, "%3d ", compressed[i]) ; fprintf(stderr, "\n") ;
+    fprintf(stderr, "mask = %8.8x, ", lmasks[0]) ;
+    sle = ExpandReplace_32_avx512_le(compressed, restored, lmasks[0]) ;
+    fprintf(stderr, "popbe = %d, pople = %d, points read = %ld\n", popbe, pople, sle - compressed) ;
+    for(i=0 ; i<32 ; i++) fprintf(stderr, "%3d ", restored[i]) ; fprintf(stderr, "\n") ;
+    sle = ExpandFill_32_avx512_le(compressed, restored, lmasks[0], 99) ;
+    for(i=0 ; i<32 ; i++) fprintf(stderr, "%3d ", restored[i]) ; fprintf(stderr, "\n") ;
+
+    fprintf(stderr, "========== SSE2 (le) ==========\n") ;
+    for(i=0 ; i<32 ; i++) { compressed[i] = npts + 1 ; }
+    dle = CompressStore_32_sse_le(expanded, compressed, lmasks[0]) ;
+    fprintf(stderr, "mask = %8.8x, ", lmasks[0]) ;
+    fprintf(stderr, "popbe = %d, pople = %d, points left = %ld\n", popbe, pople, dle - compressed) ;
+    for(i=0 ; i<32 ; i++) fprintf(stderr, "%3d ", compressed[i]) ; fprintf(stderr, "\n") ;
+    for(i=0 ; i<32 ; i++) { restored[i] = -1 ; }
+    sle = ExpandReplace_32_sse_le(compressed, restored, lmasks[0]) ;
+    fprintf(stderr, "mask = %8.8x, ", lmasks[0]) ;
+    fprintf(stderr, "popbe = %d, pople = %d, points read = %ld\n", popbe, pople, sle - compressed) ;
+    for(i=0 ; i<32 ; i++) fprintf(stderr, "%3d ", restored[i]) ; fprintf(stderr, "\n") ;
+    for(i=0 ; i<32 ; i++) { restored[i] = -1 ; }
+    sle = ExpandFill_32_sse_le(compressed, restored, lmasks[0], 88) ;
+    for(i=0 ; i<32 ; i++) fprintf(stderr, "%3d ", restored[i]) ; fprintf(stderr, "\n") ;
+
+    fprintf(stderr, "========== C (le) ==========\n") ;
+    for(i=0 ; i<32 ; i++) { compressed[i] = npts + 1 ; restored[i] = -1 ; }
+    dle = CompressStore_32_c_le(expanded, compressed, lmasks[0]) ;
+    fprintf(stderr, "mask = %8.8x, ", lmasks[0]) ;
+    fprintf(stderr, "popbe = %d, pople = %d, points left = %ld\n", popbe, pople, dle - compressed) ;
+    for(i=0 ; i<32 ; i++) fprintf(stderr, "%3d ", compressed[i]) ; fprintf(stderr, "\n") ;
+    for(i=0 ; i<32 ; i++) { restored[i] = -1 ; }
+    sle = ExpandReplace_32_c_le(compressed, restored, lmasks[0]) ;
+    fprintf(stderr, "mask = %8.8x, ", lmasks[0]) ;
+    fprintf(stderr, "popbe = %d, pople = %d, points read = %ld\n", popbe, pople, sle - compressed) ;
+    for(i=0 ; i<32 ; i++) fprintf(stderr, "%3d ", restored[i]) ; fprintf(stderr, "\n") ;
+    for(i=0 ; i<32 ; i++) { restored[i] = -1 ; }
+    sle = ExpandFill_32_c_le(compressed, restored, lmasks[0], 88) ;
+    for(i=0 ; i<32 ; i++) fprintf(stderr, "%3d ", restored[i]) ; fprintf(stderr, "\n") ;
   }
 }
 
@@ -157,8 +207,8 @@ int main(int argc, char **argv){
   }
 
   if(argc == 2){
-    test_reversal(atoi(argv[1])) ;
-//     test_compress_store(atoi(argv[1])) ;
+//     test_reversal(argv[1]) ;
+    test_compress_store(argv[1]) ;
     return 0 ;
   }
 

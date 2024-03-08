@@ -14,7 +14,7 @@
 // N.B. the SSE2 versions are 2-3 x faster than the plain C versions (compiler dependent)
 //
 #include <stdio.h>
-#undef __SSE2___
+#undef __SSE2__
 #undef __AVX512F__
 #include <rmn/compress_expand.h>
 #include <rmn/bits.h>
@@ -27,10 +27,10 @@ static void stream_replace_32_sse(uint32_t *s, uint32_t *d, uint32_t *map, int n
 
   for(j=0 ; j<n-31 ; j+=32){                            // chunks of 32
     mask = *map++ ;
-    s = sse_expand_replace_32(s, d, mask) ; d += 32 ;
+    s = ExpandReplace_32_sse_be(s, d, mask) ; d += 32 ;
   }
   mask = *map++ ;
-  expand_replace_n(s, d, mask, n - j) ;             // leftovers (0 -> 31)
+  ExpandReplace_0_31_c_be(s, d, mask, n - j) ;             // leftovers (0 -> 31)
 }
 #endif
 
@@ -49,10 +49,10 @@ static void stream_replace_32(uint32_t *s, uint32_t *d, uint32_t *map, int n){
   uint32_t mask ;
   for(j=0 ; j<n-31 ; j+=32){                        // chunks of 32
     mask = *map++ ;
-    s = expand_replace_32(s, d, mask) ; d += 32 ;
+    s = ExpandReplace_32_c_be(s, d, mask) ; d += 32 ;
   }
   mask = *map++ ;
-  expand_replace_n(s, d, mask, n - j) ;             // leftovers (0 -> 31)
+  ExpandReplace_0_31_c_be(s, d, mask, n - j) ;             // leftovers (0 -> 31)
 }
 #endif
 
@@ -73,10 +73,10 @@ void stream_expand_32_sse(void *s_, void *d_, void *map_, int n, void *fill_){
   fill = *pfill ;
   for(j=0 ; j<n-31 ; j+=32){                            // chunks of 32
     mask = *map++ ;
-    s = sse_expand_fill_32(s, d, mask, fill) ; d += 32 ;
+    s = ExpandFill_32_sse_be(s, d, mask, fill) ; d += 32 ;
   }
   mask = *map++ ;
-  expand_fill_n(s, d, mask, fill, n - j) ;              // leftovers (0 -> 31)
+  ExpandFill_0_31_c_be(s, d, mask, fill, n - j) ;              // leftovers (0 -> 31)
 }
 #endif
 
@@ -106,10 +106,10 @@ void stream_expand_32(void *s_, void *d_, void *map_, int n, void *fill_){
   fill = *pfill ;
   for(j=0 ; j<n-31 ; j+=32){                            // chunks of 32
     mask = *map++ ;
-    s = expand_fill_32(s, d, mask, fill) ; d += 32 ;
+    s = ExpandFill_32_c_be(s, d, mask, fill) ; d += 32 ;
   }
   mask = *map++ ;
-  expand_fill_n(s, d, mask, fill, n - j) ;              // leftovers (0 -> 31)
+  ExpandFill_0_31_c_be(s, d, mask, fill, n - j) ;              // leftovers (0 -> 31)
 #endif
 }
 

@@ -22,8 +22,9 @@
 #include <stdint.h>
 #include <rmn/bits.h>
 
-#if defined(__x86_64__) && defined(__SSE2__)
+#if defined(__x86_64__) && ( defined(__SSE2__) || defined(__AVX512F__) )
 #include <immintrin.h>
+#endif
 
 typedef struct{
   int8_t stab[16] ;
@@ -115,10 +116,10 @@ static tab_16x16 __attribute__((aligned(16))) cmp_le[16] = {                    
   { 12, 13, 14, 15,    -1, -1, -1, -1,    -1, -1, -1, -1,    -1, -1, -1, -1 } ,  // 1000 [3,x,x,x]
   {  0,  1,  2,  3,    12, 13, 14, 15,    -1, -1, -1, -1,    -1, -1, -1, -1 } ,  // 1001 [0,3,x,x]
   {  4,  5,  6,  7,    12, 13, 14, 15,    -1, -1, -1, -1 ,   -1, -1, -1, -1 } ,  // 1010 [1,3,x,x]
-  {  0,  1,  2,  3,     8,  9, 10, 11,    12, 13, 14, 15,    -1, -1, -1, -1 } ,  // 1101 [0,2,3,x]
-  {  8,  9, 10, 11,    12, 13, 14, 15,    -1, -1, -1, -1,    -1, -1, -1, -1 } ,  // 1100 [2,3,x,x]
-  {  4,  5,  6,  7,     8,  9, 10, 11,    12, 13, 14, 15,    -1, -1, -1, -1 } ,  // 1110 [1,2,3,x]
   {  0,  1,  2,  3,     4,  5,  6,  7,    12, 13, 14, 15,    -1, -1, -1, -1 } ,  // 1011 [0,1,3,x]
+  {  8,  9, 10, 11,    12, 13, 14, 15,    -1, -1, -1, -1,    -1, -1, -1, -1 } ,  // 1100 [2,3,x,x]
+  {  0,  1,  2,  3,     8,  9, 10, 11,    12, 13, 14, 15,    -1, -1, -1, -1 } ,  // 1101 [0,2,3,x]
+  {  4,  5,  6,  7,     8,  9, 10, 11,    12, 13, 14, 15,    -1, -1, -1, -1 } ,  // 1110 [1,2,3,x]
   {  0,  1,  2,  3,     4,  5,  6,  7,     8,  9, 10, 11,    12, 13, 14, 15 } ,  // 1111 [0,1,2,3]
              } ;
 
@@ -132,13 +133,13 @@ static inline uint32_t BitReverse_32(uint32_t w32){
   return w32 ;
 }
 
-// in place bit reversal for 4 x 32 bit word (AVX512 version)
-#if defined(__AVX512F__)
+// in place bit reversal for 4 x 32 bit word (128 bit AVX512 version)
+#if defined(__x86_64__) && defined(__AVX512F__)
 static void BitReverse_128_avx512(uint32_t *w32){
   __m128i v0 = _mm_loadu_si128((__m128i *) w32) ;
   __m128i vs = _mm_loadu_si128((__m128i *) byte_swap_32) ;
-  v0 = _mm_shuffle_epi8(v0, vs) ;              // perform byte swap on v0
-  v0 = _mm_gf2p8affine_epi64_epi8( // Step 1: Reverse each of the within each byte
+  v0 = _mm_shuffle_epi8(v0, vs) ;              // step 1 : Perform byte swap within 32 bit word
+  v0 = _mm_gf2p8affine_epi64_epi8(             // step 2 : Reverse bits within each byte
     v0,
     _mm_set1_epi64x( 0b1000000001000000001000000001000000001000000001000000001000000001 ),  // 0x8040201008040201
     0 ) ;   // We don't care to do a final `xor` to the result, so keep this 0
@@ -146,8 +147,8 @@ static void BitReverse_128_avx512(uint32_t *w32){
 }
 #endif
 
-// in place bit reversal for 4 x 32 bit word (SSE2 version)
-#if defined(__SSE2__)
+// in place bit reversal for 4 x 32 bit word (128 bit SSE2 version)
+#if defined(__x86_64__) && defined(__SSE2__)
 static inline void BitReverse_128_sse2(uint32_t *w32){
   __m128i v0 = _mm_loadu_si128((__m128i *) w32) ;
   __m128i vs = _mm_loadu_si128((__m128i *) byte_swap_32) ;
@@ -175,16 +176,33 @@ static inline void BitReverse_128_c(uint32_t *w32){
 
 // in place bit reversal for 4 x 32 bit word (generic version)
 static inline void BitReverse_128(uint32_t *w32){
-#if defined(__AVX512F__)
+#if defined(__x86_64__) && defined(__AVX512F__)
   BitReverse_128_avx512(w32) ;
-#elif defined(__SSE2__)
+#elif defined(__x86_64__) && defined(__SSE2__)
   BitReverse_128_sse2(w32) ;
 #else
   BitReverse_128_c(w32) ;
 #endif
 }
 
-static inline uint32_t *sse_expand_replace_32(uint32_t *s, uint32_t *d, uint32_t mask){
+#if defined(__x86_64__) && defined(__AVX512F__)
+static inline void *ExpandReplace_32_avx512_le(uint32_t *src, uint32_t *dst, uint32_t le_mask){
+  uint32_t *w32 = (uint32_t *) src ;
+  uint32_t *dest = (uint32_t *) dst ;
+  __m512i vd0 = _mm512_loadu_epi32(dest     ) ;
+  __m512i vd1 = _mm512_loadu_epi32(dest + 16) ;
+  uint32_t mask0 = le_mask & 0xFFFF ;     // lower 16 bits of le_mask
+  uint32_t mask1 = le_mask >> 16 ;        // upper 16 bits of le_mask
+  __m512i vs0 = _mm512_mask_expandloadu_epi32(vd0, mask0, src) ; src += popcnt_32(mask0) ;
+  __m512i vs1 = _mm512_mask_expandloadu_epi32(vd0, mask1, src) ; src += popcnt_32(mask1) ;
+  _mm512_storeu_epi32(dest,      vs0) ;
+  _mm512_storeu_epi32(dest + 16, vs1) ;
+  return src ;
+}
+#endif
+
+#if defined(__x86_64__) && defined(__SSE2__)
+static inline uint32_t *ExpandReplace_32_sse_be(uint32_t *s, uint32_t *d, uint32_t mask){
   int i ;
   __m128i vt0, vs0, vf0, vb0 ;
   uint32_t mask0, pop0 ;
@@ -226,58 +244,114 @@ static inline uint32_t *sse_expand_replace_32(uint32_t *s, uint32_t *d, uint32_t
   }
   return s ;
 }
+
+static inline uint32_t *ExpandReplace_32_sse_le(uint32_t *s, uint32_t *d, uint32_t mask){
+  int i ;
+  __m128i vt0, vs0, vf0, vb0 ;
+  uint32_t mask0, pop0 ;
+  for(i=0 ; i<2 ; i++){                                            // explicit unroll by 4
+    mask0 = mask & 0xF ; mask >>= 4 ; pop0 = popcnt_32(mask0) ;  // get 4 bit mask0 for this slice
+    vt0 = _mm_loadu_si128((__m128i *)s) ; s += pop0 ;            // load items from source (compressed) array
+//       vt0 = _mm_maskload_epi32((int const *)s, ~vs0) ;             // load using ~vs0 as a mask to avoid load beyond array
+    vs0 = _mm_loadu_si128((__m128i *)(exp_le + mask0)) ;         // load permutation for this mask0
+    vf0 = _mm_loadu_si128((__m128i *)d) ;                        // load items from destination (expanded) array
+    vb0 = _mm_srai_epi32(vs0, 31) ;                              // 1s where keep, 0s where new from source
+    vt0 = _mm_shuffle_epi8(vt0, vs0) ;                           // shufffle to get source items in proper position
+    vt0 = _mm_blendv_epi8(vt0, vf0, vb0) ;                       // blend keep/new value
+    _mm_storeu_si128((__m128i *)d, vt0) ; d += 4 ;               // store into destination
+    mask0 = mask & 0xF ; mask >>= 4 ; pop0 = popcnt_32(mask0) ;  // get 4 bit mask0 for this slice
+    vt0 = _mm_loadu_si128((__m128i *)s) ; s += pop0 ;
+    vs0 = _mm_loadu_si128((__m128i *)(exp_le + mask0)) ;
+    vf0 = _mm_loadu_si128((__m128i *)d) ;
+    vb0 = _mm_srai_epi32(vs0, 31) ;
+    vt0 = _mm_shuffle_epi8(vt0, vs0) ;
+    vt0 = _mm_blendv_epi8(vt0, vf0, vb0) ;
+    _mm_storeu_si128((__m128i *)d, vt0) ; d += 4 ;
+    mask0 = mask & 0xF ; mask >>= 4 ; pop0 = popcnt_32(mask0) ;  // get 4 bit mask0 for this slice
+    vt0 = _mm_loadu_si128((__m128i *)s) ; s += pop0 ;
+    vs0 = _mm_loadu_si128((__m128i *)(exp_le + mask0)) ;
+    vf0 = _mm_loadu_si128((__m128i *)d) ;
+    vb0 = _mm_srai_epi32(vs0, 31) ;
+    vt0 = _mm_shuffle_epi8(vt0, vs0) ;
+    vt0 = _mm_blendv_epi8(vt0, vf0, vb0) ;
+    _mm_storeu_si128((__m128i *)d, vt0) ; d += 4 ;
+    mask0 = mask & 0xF ; mask >>= 4 ; pop0 = popcnt_32(mask0) ;  // get 4 bit mask0 for this slice
+    vt0 = _mm_loadu_si128((__m128i *)s) ; s += pop0 ;
+    vs0 = _mm_loadu_si128((__m128i *)(exp_le + mask0)) ;
+    vf0 = _mm_loadu_si128((__m128i *)d) ;
+    vb0 = _mm_srai_epi32(vs0, 31) ;
+    vt0 = _mm_shuffle_epi8(vt0, vs0) ;
+    vt0 = _mm_blendv_epi8(vt0, vf0, vb0) ;
+    _mm_storeu_si128((__m128i *)d, vt0) ; d += 4 ;
+  }
+  return s ;
+}
 #endif
 
-uint32_t *expand_replace_32(uint32_t *s, uint32_t *d, uint32_t mask){
+static uint32_t *ExpandReplace_32_c_be(uint32_t *s, uint32_t *d, uint32_t mask){
   int i ;
 
   for(i=0 ; i<8 ; i++){    // explicit unroll by 4
     uint32_t m31 ;
-    m31 = mask >> 31 ;
-    *d = m31 ? *s : *d ;
-    d++ ;
-    s += m31 ;
-    mask <<= 1 ;
-    m31 = mask >> 31 ;
-    *d = m31 ? *s : *d ;
-    d++ ;
-    s += m31 ;
-    mask <<= 1 ;
-    m31 = mask >> 31 ;
-    *d = m31 ? *s : *d ;
-    d++ ;
-    s += m31 ;
-    mask <<= 1 ;
-    m31 = mask >> 31 ;
-    *d = m31 ? *s : *d ;
-    d++ ;
-    s += m31 ;
-    mask <<= 1 ;
+    m31 = mask >> 31 ; *d = m31 ? *s : *d ; d++ ; s += m31 ; mask <<= 1 ;
+    m31 = mask >> 31 ; *d = m31 ? *s : *d ; d++ ; s += m31 ; mask <<= 1 ;
+    m31 = mask >> 31 ; *d = m31 ? *s : *d ; d++ ; s += m31 ; mask <<= 1 ;
+    m31 = mask >> 31 ; *d = m31 ? *s : *d ; d++ ; s += m31 ; mask <<= 1 ;
   }
   return s ;
 }
 
-static uint32_t *expand_replace_n(uint32_t *s, uint32_t *d, uint32_t mask, int n){
-  while(n--){
+static uint32_t *ExpandReplace_32_c_le(uint32_t *s, uint32_t *d, uint32_t mask){
+  int i ;
+
+  for(i=0 ; i<8 ; i++){    // explicit unroll by 4
     uint32_t m31 ;
-    m31 = mask >> 31 ;
-    *d = m31 ? *s : *d ;
-    d++ ;
-    s += m31 ;
-    mask <<= 1 ;
+    m31 = mask & 1 ; *d = m31 ? *s : *d ; d++ ; s += m31 ; mask >>= 1 ;
+    m31 = mask & 1 ; *d = m31 ? *s : *d ; d++ ; s += m31 ; mask >>= 1 ;
+    m31 = mask & 1 ; *d = m31 ? *s : *d ; d++ ; s += m31 ; mask >>= 1 ;
+    m31 = mask & 1 ; *d = m31 ? *s : *d ; d++ ; s += m31 ; mask >>= 1 ;
   }
   return s ;
 }
+
+static uint32_t *ExpandReplace_0_31_c_be(uint32_t *s, uint32_t *d, uint32_t mask, int n){
+  while(n--){
+    uint32_t m31 = mask >> 31 ; *d = m31 ? *s : *d ; d++ ; s += m31 ; mask <<= 1 ;
+  }
+  return s ;
+}
+
+static uint32_t *ExpandReplace_0_31_c_le(uint32_t *s, uint32_t *d, uint32_t mask, int n){
+  while(n--){
+    uint32_t m31 = mask & 1 ; *d = m31 ? *s : *d ; d++ ; s += m31 ; mask >>= 1 ;
+  }
+  return s ;
+}
+
+#if defined(__x86_64__) && defined(__AVX512F__)
+static inline uint32_t *ExpandFill_32_avx512_le(uint32_t *src, uint32_t *dst, uint32_t le_mask, uint32_t fill){
+  uint32_t *w32 = (uint32_t *) src ;
+  uint32_t *dest = (uint32_t *) dst ;
+  __m512i vf0 = _mm512_set1_epi32(fill) ;
+  uint32_t mask0 = le_mask & 0xFFFF ;     // lower 16 bits of le_mask
+  uint32_t mask1 = le_mask >> 16 ;        // upper 16 bits of le_mask
+  __m512i vs0 = _mm512_mask_expandloadu_epi32(vf0, mask0, src) ; src += popcnt_32(mask0) ;
+  __m512i vs1 = _mm512_mask_expandloadu_epi32(vf0, mask1,  src) ; src += popcnt_32(mask1) ;
+  _mm512_storeu_epi32(dest,      vs0) ;
+  _mm512_storeu_epi32(dest + 16, vs1) ;
+  return src ;
+}
+#endif
 
 #if defined(__x86_64__) && defined(__SSE2__)
-static inline uint32_t * sse_expand_fill_32(uint32_t *s, uint32_t *d, uint32_t mask, uint32_t fill){
+static inline uint32_t * ExpandFill_32_sse_be(uint32_t *s, uint32_t *d, uint32_t be_mask, uint32_t fill){
   int i ;
   __m128i vt0, vs0, vf0, vb0 ;
 
   vf0 = _mm_set1_epi32(fill) ;                                   // fill value
   for(i=0 ; i<2 ; i++){                                          // explicit unroll by 4
     uint32_t mask0, pop0 ;
-    mask0 = mask >> 28 ; mask <<= 4 ; pop0 = popcnt_32(mask0) ;  // get 4 bit mask0 for this slice
+    mask0 = be_mask >> 28 ; be_mask <<= 4 ; pop0 = popcnt_32(mask0) ;  // get 4 bit mask0 for this slice
     vt0 = _mm_loadu_si128((__m128i *)s) ; s += pop0 ;            // load items from source (compressed) array
 //     vt0 = _mm_maskload_epi32((int const *)s, ~vs0) ;             // load using ~vs0 as a mask to avoid load beyond array
     vs0 = _mm_loadu_si128((__m128i *)(exp_be + mask0)) ;         // load permutation for this mask0
@@ -285,23 +359,63 @@ static inline uint32_t * sse_expand_fill_32(uint32_t *s, uint32_t *d, uint32_t m
     vt0 = _mm_shuffle_epi8(vt0, vs0) ;                           // shufffle to get source items in proper position
     vt0 = _mm_blendv_epi8(vt0, vf0, vb0) ;                       // blend in fill value
     _mm_storeu_si128((__m128i *)d, vt0) ; d += 4 ;               // store into destination
-    mask0 = mask >> 28 ; mask <<= 4 ; pop0 = popcnt_32(mask0) ;
+    mask0 = be_mask >> 28 ; be_mask <<= 4 ; pop0 = popcnt_32(mask0) ;
     vt0 = _mm_loadu_si128((__m128i *)s) ; s += pop0 ;
     vs0 = _mm_loadu_si128((__m128i *)(exp_be + mask0)) ;
     vb0 = _mm_srai_epi32(vs0, 31) ;
     vt0 = _mm_shuffle_epi8(vt0, vs0) ;
     vt0 = _mm_blendv_epi8(vt0, vf0, vb0) ;
     _mm_storeu_si128((__m128i *)d, vt0) ; d += 4 ;
-    mask0 = mask >> 28 ; mask <<= 4 ; pop0 = popcnt_32(mask0) ;
+    mask0 = be_mask >> 28 ; be_mask <<= 4 ; pop0 = popcnt_32(mask0) ;
     vt0 = _mm_loadu_si128((__m128i *)s) ; s += pop0 ;
     vs0 = _mm_loadu_si128((__m128i *)(exp_be + mask0)) ;
     vb0 = _mm_srai_epi32(vs0, 31) ;
     vt0 = _mm_shuffle_epi8(vt0, vs0) ;
     vt0 = _mm_blendv_epi8(vt0, vf0, vb0) ;
     _mm_storeu_si128((__m128i *)d, vt0) ; d += 4 ;
-    mask0 = mask >> 28 ; mask <<= 4 ; pop0 = popcnt_32(mask0) ;
+    mask0 = be_mask >> 28 ; be_mask <<= 4 ; pop0 = popcnt_32(mask0) ;
     vt0 = _mm_loadu_si128((__m128i *)s) ; s += pop0 ;
     vs0 = _mm_loadu_si128((__m128i *)(exp_be + mask0)) ;
+    vb0 = _mm_srai_epi32(vs0, 31) ;
+    vt0 = _mm_shuffle_epi8(vt0, vs0) ;
+    vt0 = _mm_blendv_epi8(vt0, vf0, vb0) ;
+    _mm_storeu_si128((__m128i *)d, vt0) ; d += 4 ;
+  }
+  return s ;
+}
+
+static inline uint32_t *ExpandFill_32_sse_le(uint32_t *s, uint32_t *d, uint32_t le_mask, uint32_t fill){
+  int i ;
+  __m128i vt0, vs0, vf0, vb0 ;
+
+  vf0 = _mm_set1_epi32(fill) ;                                   // fill value
+  for(i=0 ; i<2 ; i++){                                          // explicit unroll by 4
+    uint32_t mask0, pop0 ;
+    mask0 = le_mask & 0xF ; le_mask >>= 4 ; pop0 = popcnt_32(mask0) ;  // get 4 bit mask0 for this slice
+    vt0 = _mm_loadu_si128((__m128i *)s) ; s += pop0 ;            // load items from source (compressed) array
+//     vt0 = _mm_maskload_epi32((int const *)s, ~vs0) ;             // load using ~vs0 as a le_mask to avoid load beyond array
+    vs0 = _mm_loadu_si128((__m128i *)(exp_le + mask0)) ;         // load permutation for this mask0
+    vb0 = _mm_srai_epi32(vs0, 31) ;                              // 1s where fill, 0s where new from source
+    vt0 = _mm_shuffle_epi8(vt0, vs0) ;                           // shufffle to get source items in proper position
+    vt0 = _mm_blendv_epi8(vt0, vf0, vb0) ;                       // blend in fill value
+    _mm_storeu_si128((__m128i *)d, vt0) ; d += 4 ;               // store into destination
+    mask0 = le_mask & 0xF ; le_mask >>= 4 ; pop0 = popcnt_32(mask0) ;  // get 4 bit mask0 for this slice
+    vt0 = _mm_loadu_si128((__m128i *)s) ; s += pop0 ;
+    vs0 = _mm_loadu_si128((__m128i *)(exp_le + mask0)) ;
+    vb0 = _mm_srai_epi32(vs0, 31) ;
+    vt0 = _mm_shuffle_epi8(vt0, vs0) ;
+    vt0 = _mm_blendv_epi8(vt0, vf0, vb0) ;
+    _mm_storeu_si128((__m128i *)d, vt0) ; d += 4 ;
+    mask0 = le_mask & 0xF ; le_mask >>= 4 ; pop0 = popcnt_32(mask0) ;  // get 4 bit mask0 for this slice
+    vt0 = _mm_loadu_si128((__m128i *)s) ; s += pop0 ;
+    vs0 = _mm_loadu_si128((__m128i *)(exp_le + mask0)) ;
+    vb0 = _mm_srai_epi32(vs0, 31) ;
+    vt0 = _mm_shuffle_epi8(vt0, vs0) ;
+    vt0 = _mm_blendv_epi8(vt0, vf0, vb0) ;
+    _mm_storeu_si128((__m128i *)d, vt0) ; d += 4 ;
+    mask0 = le_mask & 0xF ; le_mask >>= 4 ; pop0 = popcnt_32(mask0) ;  // get 4 bit mask0 for this slice
+    vt0 = _mm_loadu_si128((__m128i *)s) ; s += pop0 ;
+    vs0 = _mm_loadu_si128((__m128i *)(exp_le + mask0)) ;
     vb0 = _mm_srai_epi32(vs0, 31) ;
     vt0 = _mm_shuffle_epi8(vt0, vs0) ;
     vt0 = _mm_blendv_epi8(vt0, vf0, vb0) ;
@@ -311,51 +425,49 @@ static inline uint32_t * sse_expand_fill_32(uint32_t *s, uint32_t *d, uint32_t m
 }
 #endif
 
-static inline uint32_t *expand_fill_32(uint32_t *s, uint32_t *d, uint32_t mask, uint32_t fill){
+static inline uint32_t *ExpandFill_32_c_be(uint32_t *s, uint32_t *d, uint32_t be_mask, uint32_t fill){
   int i ;
   for(i=0 ; i<8 ; i++){    // explicit unroll by 4
     uint32_t m31 ;
-    m31 = mask >> 31 ;
-    *d = m31 ? *s : fill ;
-    d++ ;
-    s += m31 ;
-    mask <<= 1 ;
-    m31 = mask >> 31 ;
-    *d = m31 ? *s : fill ;
-    d++ ;
-    s += m31 ;
-    mask <<= 1 ;
-    m31 = mask >> 31 ;
-    *d = m31 ? *s : fill ;
-    d++ ;
-    s += m31 ;
-    mask <<= 1 ;
-    m31 = mask >> 31 ;
-    *d = m31 ? *s : fill ;
-    d++ ;
-    s += m31 ;
-    mask <<= 1 ;
+    m31 = be_mask >> 31 ; *d = m31 ? *s : fill ; d++ ; s += m31 ; be_mask <<= 1 ;
+    m31 = be_mask >> 31 ; *d = m31 ? *s : fill ; d++ ; s += m31 ; be_mask <<= 1 ;
+    m31 = be_mask >> 31 ; *d = m31 ? *s : fill ; d++ ; s += m31 ; be_mask <<= 1 ;
+    m31 = be_mask >> 31 ; *d = m31 ? *s : fill ; d++ ; s += m31 ; be_mask <<= 1 ;
   }
   return s ;
 }
 
-static inline uint32_t * expand_fill_n(uint32_t *s, uint32_t *d, uint32_t mask, uint32_t fill, int n){
+static inline uint32_t *ExpandFill_32_c_le(uint32_t *s, uint32_t *d, uint32_t le_mask, uint32_t fill){
+  int i ;
+  for(i=0 ; i<8 ; i++){    // explicit unroll by 4
+    uint32_t m31 ;
+    m31 = le_mask & 1 ; *d = m31 ? *s : fill ; d++ ; s += m31 ; le_mask >>= 1 ;
+    m31 = le_mask & 1 ; *d = m31 ? *s : fill ; d++ ; s += m31 ; le_mask >>= 1 ;
+    m31 = le_mask & 1 ; *d = m31 ? *s : fill ; d++ ; s += m31 ; le_mask >>= 1 ;
+    m31 = le_mask & 1 ; *d = m31 ? *s : fill ; d++ ; s += m31 ; le_mask >>= 1 ;
+  }
+  return s ;
+}
+
+static inline uint32_t * ExpandFill_0_31_c_be(uint32_t *s, uint32_t *d, uint32_t be_mask, uint32_t fill, int n){
   while(n--){
-    uint32_t m31 = mask >> 31 ;
-    *d = m31 ? *s : fill ;
-    d++ ;
-    s += m31 ;
-    mask <<= 1 ;
+    uint32_t m31 = be_mask >> 31 ; *d = m31 ? *s : fill ; d++ ; s += m31 ; be_mask <<= 1 ;
+  }
+  return s ;
+}
+
+static inline uint32_t * ExpandFill_0_31_c_le(uint32_t *s, uint32_t *d, uint32_t le_mask, uint32_t fill, int n){
+  while(n--){
+    uint32_t m31 = le_mask & 1 ; *d = m31 ? *s : fill ; d++ ; s += m31 ; le_mask >>= 1 ;
   }
   return s ;
 }
 
 #if defined(__x86_64__) && defined(__SSE2__)
 // store-compress 32 items according to mask using SSE2 instructions
-static inline uint32_t *CompressStore_32_sse_be(uint32_t *s, uint32_t *d, uint32_t be_mask){
+static inline void *CompressStore_32_sse_be(uint32_t *s, uint32_t *d, uint32_t be_mask){
   uint32_t pop0, mask0, i ;
   __m128i vt0, vs0 ;
-fprintf(stderr, "CompressStore_32_sse_be\n");
   for(i=0 ; i<2 ; i++){                                    // explicit unroll by 4
     mask0 = be_mask >> 28 ; be_mask <<= 4 ;
     vt0 = _mm_loadu_si128((__m128i *)s) ;  s += 4 ;        // load items from source array
@@ -385,10 +497,9 @@ fprintf(stderr, "CompressStore_32_sse_be\n");
   }
   return d ;
 }
-static inline uint32_t *CompressStore_32_sse_le(uint32_t *s, uint32_t *d, uint32_t le_mask){
+static inline void *CompressStore_32_sse_le(uint32_t *s, uint32_t *d, uint32_t le_mask){
   uint32_t pop0, mask0, i ;
   __m128i vt0, vs0 ;
-fprintf(stderr, "CompressStore_32_sse_le\n");
   for(i=0 ; i<2 ; i++){                                    // explicit unroll by 4, 16 values per loop iteration
     mask0 = le_mask & 0xF ; le_mask >>= 4 ;
     vt0 = _mm_loadu_si128((__m128i *)s) ;  s += 4 ;        // load items from source array
@@ -419,7 +530,7 @@ fprintf(stderr, "CompressStore_32_sse_le\n");
 }
 #endif
 
-#if defined(__AVX512F__)
+#if defined(__x86_64__) && defined(__AVX512F__)
 // store-compress 32 items according to mask (AVX512 code)
 // mask is little endian style, src[0] is controlled by the mask LSB
 static void *CompressStore_32_avx512_le(void *src, void *dst, uint32_t le_mask){
@@ -443,27 +554,20 @@ static void *CompressStore_32_avx512_le(void *src, void *dst, uint32_t le_mask){
 // mask is big endian style, src[0] is controlled by the mask MSB
 static inline uint32_t *CompressStore_32_c_be(uint32_t *src, uint32_t *dst, uint32_t be_mask){
   int i ;
-uint32_t *dst0 = dst ;
-fprintf(stderr, "32_c_be mask = %8.8x %8.8x\n", be_mask, *src) ;
   for(i=0 ; i<8 ; i++){    // explicit unroll by 4
     *dst = *src++ ;
     dst += (be_mask >> 31) ;
-fprintf(stderr, "%1d ", be_mask >> 31) ;
     be_mask <<= 1 ;
     *dst = *src++ ;
     dst += (be_mask >> 31) ;
-fprintf(stderr, "%1d ", be_mask >> 31) ;
     be_mask <<= 1 ;
     *dst = *src++ ;
     dst += (be_mask >> 31) ;
-fprintf(stderr, "%1d ", be_mask >> 31) ;
     be_mask <<= 1 ;
     *dst = *src++ ;
     dst += (be_mask >> 31) ;
-fprintf(stderr, "%1d ", be_mask >> 31) ;
     be_mask <<= 1 ;
   }
-fprintf(stderr, " %ld %8.8x\n", dst-dst0, *src);
   return dst ;
 }
 
