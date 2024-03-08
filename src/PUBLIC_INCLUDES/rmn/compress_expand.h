@@ -575,27 +575,20 @@ static inline uint32_t *CompressStore_32_c_be(uint32_t *src, uint32_t *dst, uint
 // mask is little endian style, src[0] is controlled by the mask LSB
 static inline uint32_t *CompressStore_32_c_le(uint32_t *src, uint32_t *dst, uint32_t le_mask){
   int i ;
-uint32_t *dst0 = dst ;
-fprintf(stderr, "32_c_le mask = %8.8x %8.8x\n", le_mask, *src) ;
   for(i=0 ; i<8 ; i++){    // explicit unroll by 4
     *dst = *src++ ;
     dst += (le_mask & 1) ;
-fprintf(stderr, "%1d ", le_mask & 1) ;
     le_mask >>= 1 ;
     *dst = *src++ ;
     dst += (le_mask & 1) ;
-fprintf(stderr, "%1d ", le_mask & 1) ;
     le_mask >>= 1 ;
     *dst = *src++ ;
     dst += (le_mask & 1) ;
-fprintf(stderr, "%1d ", le_mask & 1) ;
     le_mask >>= 1 ;
     *dst = *src++ ;
     dst += (le_mask & 1) ;
-fprintf(stderr, "%1d ", le_mask & 1) ;
     le_mask >>= 1 ;
   }
-fprintf(stderr, " %ld %8.8x\n", dst-dst0, *src);
   return dst ;
 }
 
