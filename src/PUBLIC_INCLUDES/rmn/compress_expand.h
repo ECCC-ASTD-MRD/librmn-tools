@@ -60,7 +60,7 @@ static tab_16x16 __attribute__((aligned(16))) exp_be[16] = {                    
   {  0,  1,  2,  3,     4,  5,  6,  7,    -1, -1, -1, -1,     8,  9, 10, 11 } ,  // 1101 [0,1,x,2]
   {  0,  1,  2,  3,     4,  5,  6,  7,     8,  9, 10, 11,    -1, -1, -1, -1 } ,  // 1110 [0,1,2,x]
   {  0,  1,  2,  3,     4,  5,  6,  7,     8,  9, 10, 11,    12, 13, 14, 15 } ,  // 1111 [0,1,2,3]
-             } ;
+} ;
 
 static tab_16x16 __attribute__((aligned(16))) exp_le[16] = {                                                                 // MASK s[]
   { -1, -1, -1, -1,    -1, -1, -1, -1,    -1, -1, -1, -1,    -1, -1, -1, -1 } ,  // 0000 [x,x,x,x]
@@ -79,7 +79,7 @@ static tab_16x16 __attribute__((aligned(16))) exp_le[16] = {                    
   {  0,  1,  2,  3,    -1, -1, -1, -1,     4,  5,  6,  7,     8,  9, 10, 11 } ,  // 1101 [0,x,1,2]
   { -1, -1, -1, -1,     0,  1,  2,  3,     4,  5,  6,  7,     8,  9, 10, 11 } ,  // 1110 [x,0,1,2]
   {  0,  1,  2,  3,     4,  5,  6,  7,     8,  9, 10, 11,    12, 13, 14, 15 } ,  // 1111 [0,1,2,3]
-             } ;
+} ;
 
 // lookup permutation table used to perform a SIMD store-compress
 // elements from s[0,1,2,3] to store into d, x means fill or leave as is
@@ -100,7 +100,7 @@ static tab_16x16 __attribute__((aligned(16))) cmp_be[16] = {                    
   {  0,  1,  2,  3,     4,  5,  6,  7,    12, 13, 14, 15,    -1, -1, -1, -1 } ,  // 1101 [0,1,3,x]
   {  0,  1,  2,  3,     4,  5,  6,  7,     8,  9, 10, 11,    -1, -1, -1, -1 } ,  // 1110 [0,1,2,x]
   {  0,  1,  2,  3,     4,  5,  6,  7,     8,  9, 10, 11,    12, 13, 14, 15 } ,  // 1111 [0,1,2,3]
-             } ;
+} ;
 
 // lookup permutation table used to perform a SIMD store-compress
 // elements from s[0,1,2,3] to store into d, x means fill or leave as is
@@ -121,7 +121,7 @@ static tab_16x16 __attribute__((aligned(16))) cmp_le[16] = {                    
   {  0,  1,  2,  3,     8,  9, 10, 11,    12, 13, 14, 15,    -1, -1, -1, -1 } ,  // 1101 [0,2,3,x]
   {  4,  5,  6,  7,     8,  9, 10, 11,    12, 13, 14, 15,    -1, -1, -1, -1 } ,  // 1110 [1,2,3,x]
   {  0,  1,  2,  3,     4,  5,  6,  7,     8,  9, 10, 11,    12, 13, 14, 15 } ,  // 1111 [0,1,2,3]
-             } ;
+} ;
 
 // bit reversal for 1 x 32 bit word
 static inline uint32_t BitReverse_32(uint32_t w32){
@@ -135,7 +135,7 @@ static inline uint32_t BitReverse_32(uint32_t w32){
 
 // in place bit reversal for 4 x 32 bit word (128 bit AVX512 version)
 #if defined(__x86_64__) && defined(__AVX512F__)
-static void BitReverse_128_avx512(uint32_t *w32){
+static void BitReverse_128_avx512(void *w32){
   __m128i v0 = _mm_loadu_si128((__m128i *) w32) ;
   __m128i vs = _mm_loadu_si128((__m128i *) byte_swap_32) ;
   v0 = _mm_shuffle_epi8(v0, vs) ;              // step 1 : Perform byte swap within 32 bit word
@@ -149,7 +149,7 @@ static void BitReverse_128_avx512(uint32_t *w32){
 
 // in place bit reversal for 4 x 32 bit word (128 bit SSE2 version)
 #if defined(__x86_64__) && defined(__SSE2__)
-static inline void BitReverse_128_sse2(uint32_t *w32){
+static inline void BitReverse_128_sse2(void *w32){
   __m128i v0 = _mm_loadu_si128((__m128i *) w32) ;
   __m128i vs = _mm_loadu_si128((__m128i *) byte_swap_32) ;
   v0 = _mm_shuffle_epi8(v0, vs) ;              // perform byte swap on v0
@@ -167,7 +167,8 @@ static inline void BitReverse_128_sse2(uint32_t *w32){
 #endif
 
 // in place bit reversal for 4 x 32 bit word (plain C version)
-static inline void BitReverse_128_c(uint32_t *w32){
+static inline void BitReverse_128_c(void *what){
+  uint32_t *w32 = (uint32_t *) what ;
   int i ;
   for(i=0 ; i<8 ; i++){    // 4 x 32 bits
     w32[i] = BitReverse_32(w32[i]) ;
@@ -175,7 +176,7 @@ static inline void BitReverse_128_c(uint32_t *w32){
 }
 
 // in place bit reversal for 4 x 32 bit word (generic version)
-static inline void BitReverse_128(uint32_t *w32){
+static inline void BitReverse_128(void *w32){
 #if defined(__x86_64__) && defined(__AVX512F__)
   BitReverse_128_avx512(w32) ;
 #elif defined(__x86_64__) && defined(__SSE2__)
@@ -186,7 +187,7 @@ static inline void BitReverse_128(uint32_t *w32){
 }
 
 #if defined(__x86_64__) && defined(__AVX512F__)
-static inline void *ExpandReplace_32_avx512_le(uint32_t *src, uint32_t *dst, uint32_t le_mask){
+static inline void *ExpandReplace_32_avx512_le(void *src, void *dst, uint32_t le_mask){
   uint32_t *w32 = (uint32_t *) src ;
   uint32_t *dest = (uint32_t *) dst ;
   __m512i vd0 = _mm512_loadu_epi32(dest     ) ;
@@ -202,7 +203,9 @@ static inline void *ExpandReplace_32_avx512_le(uint32_t *src, uint32_t *dst, uin
 #endif
 
 #if defined(__x86_64__) && defined(__SSE2__)
-static inline uint32_t *ExpandReplace_32_sse_be(uint32_t *s, uint32_t *d, uint32_t mask){
+static inline void *ExpandReplace_32_sse_be(void *src, void *dst, uint32_t mask){
+  uint32_t *s = (uint32_t *) src ;
+  uint32_t *d = (uint32_t *) dst ;
   int i ;
   __m128i vt0, vs0, vf0, vb0 ;
   uint32_t mask0, pop0 ;
@@ -245,7 +248,9 @@ static inline uint32_t *ExpandReplace_32_sse_be(uint32_t *s, uint32_t *d, uint32
   return s ;
 }
 
-static inline uint32_t *ExpandReplace_32_sse_le(uint32_t *s, uint32_t *d, uint32_t mask){
+static inline void *ExpandReplace_32_sse_le(void *src, void *dst, uint32_t mask){
+  uint32_t *s = (uint32_t *) src ;
+  uint32_t *d = (uint32_t *) dst ;
   int i ;
   __m128i vt0, vs0, vf0, vb0 ;
   uint32_t mask0, pop0 ;
@@ -288,7 +293,9 @@ static inline uint32_t *ExpandReplace_32_sse_le(uint32_t *s, uint32_t *d, uint32
 }
 #endif
 
-static uint32_t *ExpandReplace_32_c_be(uint32_t *s, uint32_t *d, uint32_t mask){
+static void *ExpandReplace_32_c_be(void *src, void *dst, uint32_t mask){
+  uint32_t *s = (uint32_t *) src ;
+  uint32_t *d = (uint32_t *) dst ;
   int i ;
 
   for(i=0 ; i<8 ; i++){    // explicit unroll by 4
@@ -301,7 +308,9 @@ static uint32_t *ExpandReplace_32_c_be(uint32_t *s, uint32_t *d, uint32_t mask){
   return s ;
 }
 
-static uint32_t *ExpandReplace_32_c_le(uint32_t *s, uint32_t *d, uint32_t mask){
+static void *ExpandReplace_32_c_le(void *src, void *dst, uint32_t mask){
+  uint32_t *s = (uint32_t *) src ;
+  uint32_t *d = (uint32_t *) dst ;
   int i ;
 
   for(i=0 ; i<8 ; i++){    // explicit unroll by 4
@@ -314,14 +323,18 @@ static uint32_t *ExpandReplace_32_c_le(uint32_t *s, uint32_t *d, uint32_t mask){
   return s ;
 }
 
-static uint32_t *ExpandReplace_0_31_c_be(uint32_t *s, uint32_t *d, uint32_t mask, int n){
+static void *ExpandReplace_0_31_c_be(void *src, void *dst, uint32_t mask, int n){
+  uint32_t *s = (uint32_t *) src ;
+  uint32_t *d = (uint32_t *) dst ;
   while(n--){
     uint32_t m31 = mask >> 31 ; *d = m31 ? *s : *d ; d++ ; s += m31 ; mask <<= 1 ;
   }
   return s ;
 }
 
-static uint32_t *ExpandReplace_0_31_c_le(uint32_t *s, uint32_t *d, uint32_t mask, int n){
+static void *ExpandReplace_0_31_c_le(void *src, void *dst, uint32_t mask, int n){
+  uint32_t *s = (uint32_t *) src ;
+  uint32_t *d = (uint32_t *) dst ;
   while(n--){
     uint32_t m31 = mask & 1 ; *d = m31 ? *s : *d ; d++ ; s += m31 ; mask >>= 1 ;
   }
@@ -329,7 +342,7 @@ static uint32_t *ExpandReplace_0_31_c_le(uint32_t *s, uint32_t *d, uint32_t mask
 }
 
 #if defined(__x86_64__) && defined(__AVX512F__)
-static inline uint32_t *ExpandFill_32_avx512_le(uint32_t *src, uint32_t *dst, uint32_t le_mask, uint32_t fill){
+static inline void *ExpandFill_32_avx512_le(void *src, void *dst, uint32_t le_mask, uint32_t fill){
   uint32_t *w32 = (uint32_t *) src ;
   uint32_t *dest = (uint32_t *) dst ;
   __m512i vf0 = _mm512_set1_epi32(fill) ;
@@ -344,7 +357,9 @@ static inline uint32_t *ExpandFill_32_avx512_le(uint32_t *src, uint32_t *dst, ui
 #endif
 
 #if defined(__x86_64__) && defined(__SSE2__)
-static inline uint32_t * ExpandFill_32_sse_be(uint32_t *s, uint32_t *d, uint32_t be_mask, uint32_t fill){
+static inline void * ExpandFill_32_sse_be(void *src, void *dst, uint32_t be_mask, uint32_t fill){
+  uint32_t *s = (uint32_t *) src ;
+  uint32_t *d = (uint32_t *) dst ;
   int i ;
   __m128i vt0, vs0, vf0, vb0 ;
 
@@ -384,7 +399,9 @@ static inline uint32_t * ExpandFill_32_sse_be(uint32_t *s, uint32_t *d, uint32_t
   return s ;
 }
 
-static inline uint32_t *ExpandFill_32_sse_le(uint32_t *s, uint32_t *d, uint32_t le_mask, uint32_t fill){
+static inline void *ExpandFill_32_sse_le(void *src, void *dst, uint32_t le_mask, uint32_t fill){
+  uint32_t *s = (uint32_t *) src ;
+  uint32_t *d = (uint32_t *) dst ;
   int i ;
   __m128i vt0, vs0, vf0, vb0 ;
 
@@ -425,7 +442,9 @@ static inline uint32_t *ExpandFill_32_sse_le(uint32_t *s, uint32_t *d, uint32_t 
 }
 #endif
 
-static inline uint32_t *ExpandFill_32_c_be(uint32_t *s, uint32_t *d, uint32_t be_mask, uint32_t fill){
+static inline void *ExpandFill_32_c_be(void *src, void *dst, uint32_t be_mask, uint32_t fill){
+  uint32_t *s = (uint32_t *) src ;
+  uint32_t *d = (uint32_t *) dst ;
   int i ;
   for(i=0 ; i<8 ; i++){    // explicit unroll by 4
     uint32_t m31 ;
@@ -437,7 +456,9 @@ static inline uint32_t *ExpandFill_32_c_be(uint32_t *s, uint32_t *d, uint32_t be
   return s ;
 }
 
-static inline uint32_t *ExpandFill_32_c_le(uint32_t *s, uint32_t *d, uint32_t le_mask, uint32_t fill){
+static inline void *ExpandFill_32_c_le(void *src, void *dst, uint32_t le_mask, uint32_t fill){
+  uint32_t *s = (uint32_t *) src ;
+  uint32_t *d = (uint32_t *) dst ;
   int i ;
   for(i=0 ; i<8 ; i++){    // explicit unroll by 4
     uint32_t m31 ;
@@ -449,14 +470,18 @@ static inline uint32_t *ExpandFill_32_c_le(uint32_t *s, uint32_t *d, uint32_t le
   return s ;
 }
 
-static inline uint32_t * ExpandFill_0_31_c_be(uint32_t *s, uint32_t *d, uint32_t be_mask, uint32_t fill, int n){
+static inline void * ExpandFill_0_31_c_be(void *src, void *dst, uint32_t be_mask, uint32_t fill, int n){
+  uint32_t *s = (uint32_t *) src ;
+  uint32_t *d = (uint32_t *) dst ;
   while(n--){
     uint32_t m31 = be_mask >> 31 ; *d = m31 ? *s : fill ; d++ ; s += m31 ; be_mask <<= 1 ;
   }
   return s ;
 }
 
-static inline uint32_t * ExpandFill_0_31_c_le(uint32_t *s, uint32_t *d, uint32_t le_mask, uint32_t fill, int n){
+static inline void * ExpandFill_0_31_c_le(void *src, void *dst, uint32_t le_mask, uint32_t fill, int n){
+  uint32_t *s = (uint32_t *) src ;
+  uint32_t *d = (uint32_t *) dst ;
   while(n--){
     uint32_t m31 = le_mask & 1 ; *d = m31 ? *s : fill ; d++ ; s += m31 ; le_mask >>= 1 ;
   }
@@ -465,7 +490,9 @@ static inline uint32_t * ExpandFill_0_31_c_le(uint32_t *s, uint32_t *d, uint32_t
 
 #if defined(__x86_64__) && defined(__SSE2__)
 // store-compress 32 items according to mask using SSE2 instructions
-static inline void *CompressStore_32_sse_be(uint32_t *s, uint32_t *d, uint32_t be_mask){
+static inline void *CompressStore_32_sse_be(void *src, void *dst, uint32_t be_mask){
+  uint32_t *s = (uint32_t *) src ;
+  uint32_t *d = (uint32_t *) dst ;
   uint32_t pop0, mask0, i ;
   __m128i vt0, vs0 ;
   for(i=0 ; i<2 ; i++){                                    // explicit unroll by 4
@@ -497,7 +524,9 @@ static inline void *CompressStore_32_sse_be(uint32_t *s, uint32_t *d, uint32_t b
   }
   return d ;
 }
-static inline void *CompressStore_32_sse_le(uint32_t *s, uint32_t *d, uint32_t le_mask){
+static inline void *CompressStore_32_sse_le(void *src, void *dst, uint32_t le_mask){
+  uint32_t *s = (uint32_t *) src ;
+  uint32_t *d = (uint32_t *) dst ;
   uint32_t pop0, mask0, i ;
   __m128i vt0, vs0 ;
   for(i=0 ; i<2 ; i++){                                    // explicit unroll by 4, 16 values per loop iteration
@@ -552,56 +581,62 @@ static void *CompressStore_32_avx512_le(void *src, void *dst, uint32_t le_mask){
 
 // store-compress 32 items according to mask (plain C code)
 // mask is big endian style, src[0] is controlled by the mask MSB
-static inline uint32_t *CompressStore_32_c_be(uint32_t *src, uint32_t *dst, uint32_t be_mask){
+static inline void *CompressStore_32_c_be(void *src, void *dst, uint32_t be_mask){
+  uint32_t *w32 = (uint32_t *) src ;
+  uint32_t *dest = (uint32_t *) dst ;
   int i ;
   for(i=0 ; i<8 ; i++){    // explicit unroll by 4
-    *dst = *src++ ;
-    dst += (be_mask >> 31) ;
+    *dest = *w32++ ;
+    dest += (be_mask >> 31) ;
     be_mask <<= 1 ;
-    *dst = *src++ ;
-    dst += (be_mask >> 31) ;
+    *dest = *w32++ ;
+    dest += (be_mask >> 31) ;
     be_mask <<= 1 ;
-    *dst = *src++ ;
-    dst += (be_mask >> 31) ;
+    *dest = *w32++ ;
+    dest += (be_mask >> 31) ;
     be_mask <<= 1 ;
-    *dst = *src++ ;
-    dst += (be_mask >> 31) ;
+    *dest = *w32++ ;
+    dest += (be_mask >> 31) ;
     be_mask <<= 1 ;
   }
-  return dst ;
+  return dest ;
 }
 
 // store-compress 32 items according to mask (plain C code)
 // mask is little endian style, src[0] is controlled by the mask LSB
-static inline uint32_t *CompressStore_32_c_le(uint32_t *src, uint32_t *dst, uint32_t le_mask){
+static inline void *CompressStore_32_c_le(void *src, void *dst, uint32_t le_mask){
+  uint32_t *w32 = (uint32_t *) src ;
+  uint32_t *dest = (uint32_t *) dst ;
   int i ;
   for(i=0 ; i<8 ; i++){    // explicit unroll by 4
-    *dst = *src++ ;
-    dst += (le_mask & 1) ;
+    *dest = *w32++ ;
+    dest += (le_mask & 1) ;
     le_mask >>= 1 ;
-    *dst = *src++ ;
-    dst += (le_mask & 1) ;
+    *dest = *w32++ ;
+    dest += (le_mask & 1) ;
     le_mask >>= 1 ;
-    *dst = *src++ ;
-    dst += (le_mask & 1) ;
+    *dest = *w32++ ;
+    dest += (le_mask & 1) ;
     le_mask >>= 1 ;
-    *dst = *src++ ;
-    dst += (le_mask & 1) ;
+    *dest = *w32++ ;
+    dest += (le_mask & 1) ;
     le_mask >>= 1 ;
   }
-  return dst ;
+  return dest ;
 }
 
 // store-compress n ( 0 <= n < 32) items according to mask
 // mask is big endian style, src[0] is controlled by the mask MSB
-static inline uint32_t *CompressStore_0_31_c_be(uint32_t *src, uint32_t *dst, uint32_t be_mask, int nw32){
+static inline void *CompressStore_0_31_c_be(void *src, void *dst, uint32_t be_mask, int nw32){
+  uint32_t *w32 = (uint32_t *) src ;
+  uint32_t *dest = (uint32_t *) dst ;
   if(nw32 > 31 || nw32 < 0) return NULL ;
   while(nw32--){
-    *dst = *src++ ;
-    dst += (be_mask >> 31) ;
+    *dest = *w32++ ;
+    dest += (be_mask >> 31) ;
     be_mask <<= 1 ;
   }
-  return dst ;
+  return dest ;
 }
 
 // src    [IN] : "full" array
@@ -611,27 +646,32 @@ static inline uint32_t *CompressStore_0_31_c_be(uint32_t *src, uint32_t *dst, ui
 // NULL in case of error nw32 > 31 or nw32 < 0
 // the mask is interpreted Little Endian style, src[0] is controlled by the mask LSB
 // this version processes 0 - 31 elements from "src"
-static void *CompressStore_0_31_c_le(uint32_t *src, uint32_t *dst, uint32_t le_mask, int nw32){
-//   uint32_t *w32 = (uint32_t *) src ;
-//   uint32_t *dest = (uint32_t *) dst ;
+static void *CompressStore_0_31_c_le(void *src, void *dst, uint32_t le_mask, int nw32){
+  uint32_t *w32 = (uint32_t *) src ;
+  uint32_t *dest = (uint32_t *) dst ;
 //   int i ;
   if(nw32 > 31 || nw32 < 0) return NULL ;
   while(nw32--){
-    *dst = *src++ ;
-    dst += (le_mask & 1) ;
+    *dest = *w32++ ;
+    dest += (le_mask & 1) ;
     le_mask >>=1 ;
   }
-  return dst ;
+  return dest ;
 }
 
 void *CompressStore_be(void *src, void *dst, void *le_map, int nw32);
 void *CompressStore_le(void *src, void *dst, void *le_map, int nw32);
 
-uint32_t *CompressStore_sse_be(void *s_, void *d_, void *map_, int n);
-uint32_t *CompressStore_c_be(void *s_, void *d_, void *map_, int n);
+void *CompressStore_sse_be(void *src, void *dst, void *be_mask, int n);
+void *CompressStore_sse_le(void *src, void *dst, void *be_mask, int n);
 
-void stream_expand_32(void *s_, void *d_, void *map_, int n, void *fill_);
-void stream_expand_32_sse(void *s_, void *d_, void *map_, int n, void *fill_);
+void *CompressStore_avx512_le(void *src, void *dst, void *le_mask, int n);
+
+void *CompressStore_c_be(void *s_, void *d_, void *map_, int n);
+void *CompressStore_c_le(void *s_, void *d_, void *map_, int n);
+
+void ExpandFill_be(void *s_, void *d_, void *map_, int n, void *fill_);
+void ExpandFill_sse_be(void *s_, void *d_, void *map_, int n, void *fill_);
 
 
 #endif

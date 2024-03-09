@@ -14,14 +14,14 @@
 // N.B. the SSE2 versions are 2-3 x faster than the plain C versions (compiler dependent)
 //
 #include <stdio.h>
-#undef __SSE2__
-#undef __AVX512F__
+// #undef __SSE2__
+// #undef __AVX512F__
 #include <rmn/compress_expand.h>
 #include <rmn/bits.h>
 
 // SSE2 version of stream_replace_32
 #if defined(__x86_64__) && defined(__SSE2__)
-static void stream_replace_32_sse(uint32_t *s, uint32_t *d, uint32_t *map, int n){
+static void ExpandReplace_sse_be(uint32_t *s, uint32_t *d, uint32_t *map, int n){
   int j ;
   uint32_t mask ;
 
@@ -43,8 +43,7 @@ static void stream_replace_32_sse(uint32_t *s, uint32_t *d, uint32_t *map, int n
 // where there is a 1 in the mask, the next value from s is stored into array d
 //       (at the corresponding position in the map)
 // values from s replace some values in d
-#if ! defined(__SSE2__)
-static void stream_replace_32(uint32_t *s, uint32_t *d, uint32_t *map, int n){
+static void ExpandReplace_c_be(uint32_t *s, uint32_t *d, uint32_t *map, int n){
   int j ;
   uint32_t mask ;
   for(j=0 ; j<n-31 ; j+=32){                        // chunks of 32
@@ -54,11 +53,10 @@ static void stream_replace_32(uint32_t *s, uint32_t *d, uint32_t *map, int n){
   mask = *map++ ;
   ExpandReplace_0_31_c_be(s, d, mask, n - j) ;             // leftovers (0 -> 31)
 }
-#endif
 
-// SSE2 version of stream_expand_32
+// SSE2 version of ExpandFill_32
 #if defined(__x86_64__) && defined(__SSE2__)
-void stream_expand_32_sse(void *s_, void *d_, void *map_, int n, void *fill_){
+void ExpandFill_sse_be(void *s_, void *d_, void *map_, int n, void *fill_){
   uint32_t *s = (uint32_t *) s_ ;
   uint32_t *d = (uint32_t *) d_ ;
   uint32_t *map = (uint32_t *) map_ ;
@@ -67,7 +65,7 @@ void stream_expand_32_sse(void *s_, void *d_, void *map_, int n, void *fill_){
   uint32_t mask, fill ;
 
   if(fill_ == NULL){
-    stream_replace_32_sse(s, d, map, n) ;
+    ExpandReplace_sse_be(s, d, map, n) ;
     return ;
   }
   fill = *pfill ;
@@ -80,7 +78,7 @@ void stream_expand_32_sse(void *s_, void *d_, void *map_, int n, void *fill_){
 }
 #endif
 
-// pure C code version
+// generic version
 // s   [IN] : store-compressed source array (32 bit items)
 // d  [OUT] : load-expanded destination array  (32 bit items)
 // map [IN] : bitmap used to load-expand (BIG-ENDIAN style)
@@ -89,9 +87,9 @@ void stream_expand_32_sse(void *s_, void *d_, void *map_, int n, void *fill_){
 // where there is a 1 in the mask, the next value from s is stored into array d
 //       (at the corresponding position in the map)
 // all elements of d receive a new value ("fill" of a value from s)
-void stream_expand_32(void *s_, void *d_, void *map_, int n, void *fill_){
+void ExpandFill_be(void *s_, void *d_, void *map_, int n, void *fill_){
 #if defined(__x86_64__) && defined(__SSE2__)
-  stream_expand_32_sse(s_, d_, map_, n, fill_) ;
+  ExpandFill_sse_be(s_, d_, map_, n, fill_) ;
 #else
   uint32_t *s = (uint32_t *) s_ ;
   uint32_t *d = (uint32_t *) d_ ;
@@ -100,7 +98,7 @@ void stream_expand_32(void *s_, void *d_, void *map_, int n, void *fill_){
   int j ;
   uint32_t mask, fill ;
   if(fill_ == NULL){
-    stream_replace_32(s, d, map, n) ;
+    ExpandReplace_32_be(s, d, map, n) ;
     return ;
   }
   fill = *pfill ;
@@ -124,22 +122,52 @@ void stream_expand_32(void *s_, void *d_, void *map_, int n, void *fill_){
 // the mask is interpreted Big Endian style, bit 0 is the MSB, bit 31 is the LSB
 #if defined(__x86_64__) && defined(__SSE2__)
 // SSE2 version of stream_compress_32
-uint32_t *CompressStore_sse_be(void *src, void *dst, void *be_mask, int n){
+void *CompressStore_sse_be(void *src, void *dst, void *be_mask, int n){
   uint32_t *map = (uint32_t *) be_mask, mask ;
+  uint32_t *w32 = (uint32_t *) src ;
   int i ;
 
-  for(i=0 ; i<n-31 ; i+=32, src += 32){                       // chunks of 32
+  for(i=0 ; i<n-31 ; i+=32, w32 += 32){                       // chunks of 32
     mask = *map++ ;
-    dst = CompressStore_32_sse_be(src, dst, mask) ;
+    dst = CompressStore_32_sse_be(w32, dst, mask) ;
   }
   mask = *map ;
-  dst = CompressStore_0_31_c_be(src, dst, mask, n - i) ;      // leftovers (0 -> 31)
+  dst = CompressStore_0_31_c_be(w32, dst, mask, n - i) ;      // leftovers (0 -> 31)
+  return dst ;
+}
+void *CompressStore_sse_le(void *src, void *dst, void *le_mask, int n){
+  uint32_t *map = (uint32_t *) le_mask, mask ;
+  uint32_t *w32 = (uint32_t *) src ;
+  int i ;
+
+  for(i=0 ; i<n-31 ; i+=32, w32 += 32){                       // chunks of 32
+    mask = *map++ ;
+    dst = CompressStore_32_sse_le(w32, dst, mask) ;
+  }
+  mask = *map ;
+  dst = CompressStore_0_31_c_le(w32, dst, mask, n - i) ;      // leftovers (0 -> 31)
+  return dst ;
+}
+#endif
+
+#if defined(__x86_64__) && defined(__AVX512F__)
+void *CompressStore_avx512_le(void *src, void *dst, void *le_mask, int n){
+  uint32_t *map = (uint32_t *) le_mask, mask ;
+  uint32_t *w32 = (uint32_t *) src ;
+  int i ;
+
+  for(i=0 ; i<n-31 ; i+=32, w32 += 32){                       // chunks of 32
+    mask = *map++ ;
+    dst = CompressStore_32_avx512_le(w32, dst, mask) ;
+  }
+  mask = *map ;
+  dst = CompressStore_0_31_c_le(w32, dst, mask, n - i) ;      // leftovers (0 -> 31)
   return dst ;
 }
 #endif
 
 // pure C code version (non SIMD)
-uint32_t *CompressStore_c_be(void *src, void *dst, void *be_mask, int n){
+void *CompressStore_c_be(void *src, void *dst, void *be_mask, int n){
   uint32_t *map = (uint32_t *) be_mask, mask ;
   uint32_t *w32 = (uint32_t *) src ;
   int i ;
@@ -151,15 +179,27 @@ uint32_t *CompressStore_c_be(void *src, void *dst, void *be_mask, int n){
   dst = CompressStore_0_31_c_be(w32, dst, mask, n - i) ;      // leftovers (0 -> 31)
   return dst ;
 }
+void *CompressStore_c_le(void *src, void *dst, void *le_mask, int n){
+  uint32_t *map = (uint32_t *) le_mask, mask ;
+  uint32_t *w32 = (uint32_t *) src ;
+  int i ;
+  for(i=0 ; i<n-31 ; i+=32, w32 += 32){                       // chunks of 32
+    mask = *map++ ;
+    dst = CompressStore_32_c_le(w32, dst, mask) ;
+  }
+  mask = *map ;
+  dst = CompressStore_0_31_c_le(w32, dst, mask, n - i) ;      // leftovers (0 -> 31)
+  return dst ;
+}
 
 // generic version, switches between the optimized versions
-uint32_t *CompressStore_be_(void *src, void *dst, void *be_mask, int n){
-#if defined(__x86_64__) && defined(__SSE2__)
-  return CompressStore_sse_be(src, dst, be_mask, n) ;
-#else
-  return CompressStore_c_be(src, dst, be_mask, n) ;
-#endif
-}
+// void *CompressStore_be(void *src, void *dst, void *be_mask, int n){
+// #if defined(__x86_64__) && defined(__SSE2__)
+//   return CompressStore_sse_be(src, dst, be_mask, n) ;
+// #else
+//   return CompressStore_c_be(src, dst, be_mask, n) ;
+// #endif
+// }
 
 // the AVX512 version does not use the compressed store with mask instruction
 // the alternative is just plain C code
@@ -172,6 +212,7 @@ uint32_t *CompressStore_be_(void *src, void *dst, void *be_mask, int n){
 // this version uses a store rather than a compressed store for performance reasons
 // and can store up to 32 extra (irrelevant) values after the useful end of dst
 static void *CompressStore_32_le(void *src, void *dst, uint32_t le_mask){
+// generic version, switches between the optimized versions
 #if defined(__AVX512F__)
   dst = CompressStore_32_avx512_le(src, dst, le_mask) ;
 #elif defined(__SSE2__)
@@ -182,6 +223,7 @@ static void *CompressStore_32_le(void *src, void *dst, uint32_t le_mask){
 return dst ;
 }
 static void *CompressStore_32_be(void *src, void *dst, uint32_t le_mask){
+// generic version, switches between the optimized versions
 #if defined(__SSE2__)
   dst = CompressStore_32_sse_be(src, dst, le_mask) ;
 #else
