@@ -118,7 +118,7 @@ void test_reversal(char *str){
   BitReverseArray_avx2(tmp, npts) ;
   BitReverseArray_avx2(tmp, npts) ;
   TIME_LOOP_EZ(1000, npts, BitReverseArray_avx2(tmp, npts) ;) ;
-  fprintf(stderr, "BitReverse_sse2   : %s\n", timer_msg);
+  fprintf(stderr, "BitReverse_avx2   : %s\n", timer_msg);
 #endif
 
   BitReverseArray_c(tmp, npts) ;
@@ -236,9 +236,12 @@ int main(int argc, char **argv){
     lmasks[i] = 0xE6A2C480 ;
   }
 
-  if(argc == 2){
-//     test_reversal(argv[1]) ;
-    test_compress_store(argv[1]) ;
+  if(argc == 3 && atoi(argv[1]) == 1){
+    test_compress_store(argv[2]) ;
+    return 0 ;
+  }
+  if(argc == 3 && atoi(argv[1]) == 2){
+    test_reversal(argv[2]) ;
     return 0 ;
   }
 
