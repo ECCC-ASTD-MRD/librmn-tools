@@ -377,7 +377,7 @@ static inline void *ExpandFill_32_avx512_le(void *src, void *dst, uint32_t le_ma
 }
 #endif
 
-#if defined(__x86_64__) && defined(__SSE2__)
+#if defined(__x86_64__) && defined(__AVX2__)
 static inline void * ExpandFill_32_sse_be(void *src, void *dst, uint32_t be_mask, uint32_t fill){
   uint32_t *s = (uint32_t *) src ;
   uint32_t *d = (uint32_t *) dst ;
@@ -461,7 +461,7 @@ static inline void *ExpandFill_32_sse_le(void *src, void *dst, uint32_t le_mask,
   }
   return s ;
 }
-#endif
+#endif    // defined(__AVX2__)
 
 static inline void *ExpandFill_32_c_be(void *src, void *dst, uint32_t be_mask, uint32_t fill){
   uint32_t *s = (uint32_t *) src ;
@@ -509,7 +509,7 @@ static inline void * ExpandFill_0_31_c_le(void *src, void *dst, uint32_t le_mask
   return s ;
 }
 
-#if defined(__x86_64__) && defined(__SSE2__)
+#if defined(__x86_64__) && defined(__AVX2__)
 // store-compress 32 items according to mask using SSE2 instructions
 static inline void *CompressStore_32_sse_be(void *src, void *dst, uint32_t be_mask){
   uint32_t *s = (uint32_t *) src ;
@@ -691,8 +691,20 @@ void *CompressStore_avx512_le(void *src, void *dst, void *le_mask, int n);
 void *CompressStore_c_be(void *s_, void *d_, void *map_, int n);
 void *CompressStore_c_le(void *s_, void *d_, void *map_, int n);
 
-void ExpandFill_be(void *s_, void *d_, void *map_, int n, void *fill_);
-void ExpandFill_sse_be(void *s_, void *d_, void *map_, int n, void *fill_);
+void ExpandReplace_be(void *s, void *d, void *map, int n);
+void ExpandReplace_le(void *s, void *d, void *map, int n);
+void ExpandReplace_avx512_le(void *s, void *d, void *map, int n);
+void ExpandReplace_sse_be(void *s, void *d, void *map, int n);
+void ExpandReplace_sse_le(void *s, void *d, void *map, int n);
+void ExpandReplace_c_be(void *s, void *d, void *map, int n);
+void ExpandReplace_c_le(void *s, void *d, void *map, int n);
 
+void ExpandFill_be(void *s_, void *d_, void *map_, int n, void *fill_);
+void ExpandFill_le(void *s_, void *d_, void *map_, int n, void *fill_);
+void ExpandFill_avx512_le(void *s_, void *d_, void *map_, int n, void *fill_);
+void ExpandFill_sse_be(void *s_, void *d_, void *map_, int n, void *fill_);
+void ExpandFill_sse_le(void *s_, void *d_, void *map_, int n, void *fill_);
+void ExpandFill_c_be(void *s_, void *d_, void *map_, int n, void *fill_);
+void ExpandFill_c_le(void *s_, void *d_, void *map_, int n, void *fill_);
 
 #endif
