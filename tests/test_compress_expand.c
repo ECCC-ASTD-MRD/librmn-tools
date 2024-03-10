@@ -302,17 +302,20 @@ int main(int argc, char **argv){
 #endif
   fprintf(stderr, "\n");
 
-  fill = 99u ;
+  fill = 99 ;
 
   for(i=0 ; i<NPTS ; i++) urest0[i] = -1 ;
   ExpandFill_32_c_be(ucomp0, urest0, bmasks[0], fill) ;
+  for(i=0 ; i<NPTS ; i++) urest1[i] = uarray[i] ;
+//   MaskReplace_32_c_be(urest1, ~bmasks[0], 88) ;
+  for(i=0 ; i<32 ; i++) fprintf(stderr, "%3d ", urest1[i]) ; fprintf(stderr, "\n") ;
   fprintf(stderr, "after ExpandFill_32_c_be, mask = %8.8x, fill = %d\n", bmasks[0], fill) ;
   for(i=0 ; i<32 ; i++) fprintf(stderr, "%3d ", uarray[i]) ; fprintf(stderr, "\n") ;
   for(i=0 ; i<32 ; i++) fprintf(stderr, "%3d ", (bmasks[0] >> (31-i)) & 1 ) ; fprintf(stderr, "\n") ;
-  for(i=0 ; i<32 ; i++) fprintf(stderr, "%3d ", ucomp0[i]) ; fprintf(stderr, "\n") ;
+  for(i=0 ; i<popcnt_32(bmasks[0]) ; i++) fprintf(stderr, "%3d ", ucomp0[i]) ; fprintf(stderr, "\n") ;
   for(i=0 ; i<32 ; i++) fprintf(stderr, "%3d ", urest0[i]) ; fprintf(stderr, "\n") ;
 //   for(i=16; i<32 ; i++) fprintf(stderr, "%8.8x ", urest0[i]) ; fprintf(stderr, "\n") ;
-return 0 ;
+// return 0 ;
 #if defined(__x86_64__) && defined(__SSE2__)
   for(i=0 ; i<NPTS ; i++) urest1[i] = 0xFFFFFFFFu ;
   ExpandFill_32_sse_be(ucomp0, urest1, bmasks[0], fill) ;
@@ -325,16 +328,16 @@ return 0 ;
   fprintf(stderr, "SSE vs C expand discrepancies = %d\n", errors) ;
   if(errors) exit(1) ;
 #endif
-return 0 ;
+// return 0 ;
   for(i=0 ; i<NPTS ; i++) urest0[i] = 0xFF000000u + i + 1 ;
-  ExpandFill_32(ucomp0, urest0, bmasks, NPTS, NULL) ;
+  ExpandFill_be(ucomp0, urest0, bmasks, NPTS, NULL) ;
   fprintf(stderr, "after replace\n") ;
   for(i=0 ; i<16 ; i++) fprintf(stderr, "%8.8x ", urest0[i]) ; fprintf(stderr, "\n") ;
   for(i=16; i<32 ; i++) fprintf(stderr, "%8.8x ", urest0[i]) ; fprintf(stderr, "\n") ;
 
 #if defined(__x86_64__) && defined(__SSE2__)
   for(i=0 ; i<NPTS ; i++) urest1[i] = 0xFF000000u + i + 1 ;
-  ExpandFill_32_sse(ucomp0, urest1, bmasks, NPTS, NULL) ;
+  ExpandFill_be(ucomp0, urest1, bmasks, NPTS, NULL) ;
   fprintf(stderr, "after replace_sse\n") ;
   for(i=0 ; i<16 ; i++) fprintf(stderr, "%8.8x ", urest1[i]) ; fprintf(stderr, "\n") ;
   for(i=16; i<32 ; i++) fprintf(stderr, "%8.8x ", urest1[i]) ; fprintf(stderr, "\n") ;
@@ -361,19 +364,19 @@ return 0 ;
   fprintf(stderr, "compress_AVX512: %s\n", timer_msg);
 #endif
 
-  TIME_LOOP_EZ(1000, NPTS, ExpandFill_32(uarray, ucomp0, bmasks, NPTS, &fill)) ;
+  TIME_LOOP_EZ(1000, NPTS, ExpandFill_be(uarray, ucomp0, bmasks, NPTS, &fill)) ;
   fprintf(stderr, "expand_fill    : %s\n", timer_msg);
 
 #if defined(__x86_64__) && defined(__SSE2__)
-  TIME_LOOP_EZ(1000, NPTS, ExpandFill_32_sse(uarray, ucomp0, bmasks, NPTS, &fill)) ;
+  TIME_LOOP_EZ(1000, NPTS, ExpandFill_sse_be(uarray, ucomp0, bmasks, NPTS, &fill)) ;
   fprintf(stderr, "expand_fill_sse: %s\n", timer_msg);
 #endif
 
-  TIME_LOOP_EZ(1000, NPTS, ExpandFill_32(uarray, ucomp0, bmasks, NPTS, NULL)) ;
+  TIME_LOOP_EZ(1000, NPTS, ExpandFill_be(uarray, ucomp0, bmasks, NPTS, NULL)) ;
   fprintf(stderr, "replace        : %s\n", timer_msg);
 
 #if defined(__x86_64__) && defined(__SSE2__)
-  TIME_LOOP_EZ(1000, NPTS, ExpandFill_32_sse(uarray, ucomp0, bmasks, NPTS, NULL)) ;
+  TIME_LOOP_EZ(1000, NPTS, ExpandFill_sse_be(uarray, ucomp0, bmasks, NPTS, NULL)) ;
   fprintf(stderr, "replace_sse    : %s\n", timer_msg);
 #endif
 }

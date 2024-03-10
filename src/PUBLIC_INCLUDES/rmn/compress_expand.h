@@ -123,6 +123,27 @@ static tab_16x16 __attribute__((aligned(16))) cmp_le[16] = {                    
   {  0,  1,  2,  3,     4,  5,  6,  7,     8,  9, 10, 11,    12, 13, 14, 15 } ,  // 1111 [0,1,2,3]
 } ;
 
+// tables to convert 4 bit nibble to Little/Big endian 128 bit mask for 4 x 32 bit elements
+//                                  0 0 0 0     0 0 0 1     0 0 1 0     0 0 1 1     0 1 0 0     0 1 0 1     0 1 1 0     0 1 1 1
+static uint32_t mask4_le[16] = { 0x00000000, 0x000000FF, 0x0000FF00, 0x0000FFFF, 0x00FF0000, 0x00FF00FF, 0x00FFFF00, 0x00FFFFFF,
+                                 0xFF000000, 0xFF0000FF, 0xFF00FF00, 0xFF00FFFF, 0xFFFF0000, 0xFFFF00FF, 0xFFFFFF00, 0xFFFFFFFF} ;
+static uint32_t mask4_be[16] = { 0x00000000, 0xFF000000, 0x00FF0000, 0xFFFF0000, 0x0000FF00, 0xFF00FF00, 0x00FFFF00, 0xFFFFFF00,
+                                 0x000000FF, 0xFF0000FF, 0x00FF00FF, 0xFFFF00FF, 0x0000FFFF, 0xFF00FFFF, 0x00FFFFFF, 0xFFFFFFFF} ;
+
+// 128 bit vector mask from Big Endian style nibble
+__m128i _mm_mask_be_si128(uint32_t nibble){
+  __m128i v0 = _mm_loadu_si32( &mask4_be[nibble & 0xF] ) ;   // Big endian nibble to mask
+  v0 = _mm_cvtepi8_epi32(v0) ;                               // 4 x 8 bits to 4 x 32 bits with sign extension
+  return v0 ;
+}
+
+// 128 bit vector mask from Little Endian style nibble
+__m128i _mm_mask_le_si128(uint32_t nibble){
+  __m128i v0 = _mm_loadu_si32( &mask4_le[nibble & 0xF] ) ;   // Little endian nibble to mask
+  v0 = _mm_cvtepi8_epi32(v0) ;                               // 4 x 8 bits to 4 x 32 bits with sign extension
+  return v0 ;
+}
+
 // bit reversal for 1 x 32 bit word
 static inline uint32_t BitReverse_32(uint32_t w32){
   w32 =  (w32 >> 16)              |   (w32 << 16) ;                // swap halfwords in 32 words
