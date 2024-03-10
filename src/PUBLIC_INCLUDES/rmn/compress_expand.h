@@ -129,6 +129,7 @@ static uint32_t mask4_le[16] = { 0x00000000, 0x000000FF, 0x0000FF00, 0x0000FFFF,
 static uint32_t mask4_be[16] = { 0x00000000, 0xFF000000, 0x00FF0000, 0xFFFF0000, 0x0000FF00, 0xFF00FF00, 0x00FFFF00, 0xFFFFFF00,
                                  0x000000FF, 0xFF0000FF, 0x00FF00FF, 0xFFFF00FF, 0x0000FFFF, 0xFF00FFFF, 0x00FFFFFF, 0xFFFFFFFF} ;
 
+                                 // ================================ vector mask from integer family ===============================
 // 128 bit vector mask from Big Endian style nibble
 __m128i _mm_mask_be_si128(uint32_t nibble){
   __m128i v0 = _mm_loadu_si32( &mask4_be[nibble & 0xF] ) ;   // Big endian nibble to mask
@@ -143,6 +144,7 @@ __m128i _mm_mask_le_si128(uint32_t nibble){
   return v0 ;
 }
 
+// ================================ BitReverse family ===============================
 // bit reversal for 1 x 32 bit word
 static inline uint32_t BitReverse_32(uint32_t w32){
   w32 =  (w32 >> 16)              |   (w32 << 16) ;                // swap halfwords in 32 words
@@ -154,7 +156,7 @@ static inline uint32_t BitReverse_32(uint32_t w32){
 }
 
 // in place bit reversal for 4 x 32 bit word (128 bit AVX512 version)
-#if defined(__x86_64__) && defined(__AVX512F__)
+#if defined(__x86_64__) && defined(__AVX512F__) && defined(__GFNI__)
 static void BitReverse_128_avx512(void *w32){
   __m128i v0 = _mm_loadu_si128((__m128i *) w32) ;
   __m128i vs = _mm_loadu_si128((__m128i *) byte_swap_32) ;
@@ -206,6 +208,36 @@ static inline void BitReverse_128(void *w32){
 #endif
 }
 
+// ================================ MaskedMerge family ===============================
+#if defined(__x86_64__) && defined(__AVX512F__)
+// merge src and scalar value into dst according to mask
+static inline void MaskedFill_32_avx512_be(void *src, void *dst, uint32_t le_mask, uint32_t value){
+}
+static inline void MaskedFill_32_avx512_le(void *src, void *dst, uint32_t le_mask, uint32_t value){
+}
+
+// merge src and values into dst according to mask
+static inline void MaskedMerge_32_avx512_be(void *src, void *dst, uint32_t le_mask, uint32_t *values){
+}
+static inline void MaskedMerge_32_avx512_le(void *src, void *dst, uint32_t le_mask, uint32_t *values){
+}
+#endif
+
+#if defined(__x86_64__) && defined(__AVX2__)
+// merge src and scalar value into dst according to mask
+static inline void MaskedFill_32_avx2_be(void *src, void *dst, uint32_t le_mask, uint32_t value){
+}
+static inline void MaskedFill_32_avx2_le(void *src, void *dst, uint32_t le_mask, uint32_t value){
+}
+
+// merge src and values into dst according to mask
+static inline void MaskedMerge_32_avx2_be(void *src, void *dst, uint32_t le_mask, uint32_t *values){
+}
+static inline void MaskedMerge_32_avx2_le(void *src, void *dst, uint32_t le_mask, uint32_t *values){
+}
+#endif
+
+// ================================ ExpandReplace family ===============================
 #if defined(__x86_64__) && defined(__AVX512F__)
 static inline void *ExpandReplace_32_avx512_le(void *src, void *dst, uint32_t le_mask){
   uint32_t *w32 = (uint32_t *) src ;
@@ -361,6 +393,7 @@ static void *ExpandReplace_0_31_c_le(void *src, void *dst, uint32_t mask, int n)
   return s ;
 }
 
+// ================================ ExpandFill family ===============================
 #if defined(__x86_64__) && defined(__AVX512F__)
 static inline void *ExpandFill_32_avx512_le(void *src, void *dst, uint32_t le_mask, uint32_t fill){
   uint32_t *w32 = (uint32_t *) src ;
@@ -508,6 +541,7 @@ static inline void * ExpandFill_0_31_c_le(void *src, void *dst, uint32_t le_mask
   return s ;
 }
 
+// ================================ CompressStore family ===============================
 #if defined(__x86_64__) && defined(__AVX2__)
 // store-compress 32 items according to mask using AVX2 instructions
 static inline void *CompressStore_32_avx2_be(void *src, void *dst, uint32_t be_mask){
