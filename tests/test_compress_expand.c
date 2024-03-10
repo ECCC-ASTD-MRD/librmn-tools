@@ -144,6 +144,7 @@ fprintf(stderr, "compress_store test with %d elements\n", npts) ;
   uint32_t popbe = popcnt_32(bmasks[0]) ;
   uint32_t pople = popcnt_32(lmasks[0]) ;
   if(npts >= 32){
+#if defined(__AVX512F__)
     fprintf(stderr, "========== AVX512 (le) ==========\n") ;
     dle = CompressStore_32_avx512_le(expanded, compressed, lmasks[0]) ;
     fprintf(stderr, "mask = %8.8x, ", lmasks[0]) ;
@@ -155,7 +156,7 @@ fprintf(stderr, "compress_store test with %d elements\n", npts) ;
     for(i=0 ; i<32 ; i++) fprintf(stderr, "%3d ", restored[i]) ; fprintf(stderr, "\n") ;
     sle = ExpandFill_32_avx512_le(compressed, restored, lmasks[0], 99) ;
     for(i=0 ; i<32 ; i++) fprintf(stderr, "%3d ", restored[i]) ; fprintf(stderr, "\n") ;
-
+#endif
     fprintf(stderr, "========== AVX2 (le) ==========\n") ;
     for(i=0 ; i<32 ; i++) { compressed[i] = npts + 1 ; }
     dle = CompressStore_32_avx2_le(expanded, compressed, lmasks[0]) ;
@@ -364,7 +365,7 @@ int main(int argc, char **argv){
 
 #if defined(__x86_64__) && defined(__AVX2__)
   TIME_LOOP_EZ(1000, NPTS, CompressStore_le(uarray, ucomp2, bmasks, NPTS)) ;
-  fprintf(stderr, "compress_AVX512: %s\n", timer_msg);
+  fprintf(stderr, "compress_AVX2: %s\n", timer_msg);
 #endif
 
   TIME_LOOP_EZ(1000, NPTS, ExpandFill_be(uarray, ucomp0, bmasks, NPTS, &fill)) ;
