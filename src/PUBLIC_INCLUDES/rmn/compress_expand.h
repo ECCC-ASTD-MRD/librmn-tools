@@ -12,8 +12,7 @@
 // Library General Public License for more details.
 //
 // uncomment following line to force plain C (non SIMD) code
-// #undef __SSE2__
-// #undef __SSE2___
+// #undef __AVX2___
 // #undef __AVX512F___
 
 #if ! defined(STORE_COMPRESS_LOAD_EXPAND)
@@ -22,7 +21,7 @@
 #include <stdint.h>
 #include <rmn/bits.h>
 
-#if defined(__x86_64__) && ( defined(__SSE2__) || defined(__AVX512F__) )
+#if defined(__x86_64__) && ( defined(__AVX2__) || defined(__AVX512F__) )
 #include <immintrin.h>
 #endif
 
@@ -168,9 +167,9 @@ static void BitReverse_128_avx512(void *w32){
 }
 #endif
 
-// in place bit reversal for 4 x 32 bit word (128 bit SSE2 version)
-#if defined(__x86_64__) && defined(__SSE2__)
-static inline void BitReverse_128_sse2(void *w32){
+// in place bit reversal for 4 x 32 bit word (128 bit AVX2 version)
+#if defined(__x86_64__) && defined(__AVX2__)
+static inline void BitReverse_128_avx2(void *w32){
   __m128i v0 = _mm_loadu_si128((__m128i *) w32) ;
   __m128i vs = _mm_loadu_si128((__m128i *) byte_swap_32) ;
   v0 = _mm_shuffle_epi8(v0, vs) ;              // perform byte swap on v0
@@ -200,8 +199,8 @@ static inline void BitReverse_128_c(void *what){
 static inline void BitReverse_128(void *w32){
 #if defined(__x86_64__) && defined(__AVX512F__)
   BitReverse_128_avx512(w32) ;
-#elif defined(__x86_64__) && defined(__SSE2__)
-  BitReverse_128_sse2(w32) ;
+#elif defined(__x86_64__) && defined(__AVX2__)
+  BitReverse_128_avx2(w32) ;
 #else
   BitReverse_128_c(w32) ;
 #endif
@@ -223,8 +222,8 @@ static inline void *ExpandReplace_32_avx512_le(void *src, void *dst, uint32_t le
 }
 #endif
 
-#if defined(__x86_64__) && defined(__SSE2__)
-static inline void *ExpandReplace_32_sse_be(void *src, void *dst, uint32_t mask){
+#if defined(__x86_64__) && defined(__AVX2__)
+static inline void *ExpandReplace_32_avx2_be(void *src, void *dst, uint32_t mask){
   uint32_t *s = (uint32_t *) src ;
   uint32_t *d = (uint32_t *) dst ;
   int i ;
@@ -269,7 +268,7 @@ static inline void *ExpandReplace_32_sse_be(void *src, void *dst, uint32_t mask)
   return s ;
 }
 
-static inline void *ExpandReplace_32_sse_le(void *src, void *dst, uint32_t mask){
+static inline void *ExpandReplace_32_avx2_le(void *src, void *dst, uint32_t mask){
   uint32_t *s = (uint32_t *) src ;
   uint32_t *d = (uint32_t *) dst ;
   int i ;
@@ -378,7 +377,7 @@ static inline void *ExpandFill_32_avx512_le(void *src, void *dst, uint32_t le_ma
 #endif
 
 #if defined(__x86_64__) && defined(__AVX2__)
-static inline void * ExpandFill_32_sse_be(void *src, void *dst, uint32_t be_mask, uint32_t fill){
+static inline void * ExpandFill_32_avx2_be(void *src, void *dst, uint32_t be_mask, uint32_t fill){
   uint32_t *s = (uint32_t *) src ;
   uint32_t *d = (uint32_t *) dst ;
   int i ;
@@ -420,7 +419,7 @@ static inline void * ExpandFill_32_sse_be(void *src, void *dst, uint32_t be_mask
   return s ;
 }
 
-static inline void *ExpandFill_32_sse_le(void *src, void *dst, uint32_t le_mask, uint32_t fill){
+static inline void *ExpandFill_32_avx2_le(void *src, void *dst, uint32_t le_mask, uint32_t fill){
   uint32_t *s = (uint32_t *) src ;
   uint32_t *d = (uint32_t *) dst ;
   int i ;
@@ -510,8 +509,8 @@ static inline void * ExpandFill_0_31_c_le(void *src, void *dst, uint32_t le_mask
 }
 
 #if defined(__x86_64__) && defined(__AVX2__)
-// store-compress 32 items according to mask using SSE2 instructions
-static inline void *CompressStore_32_sse_be(void *src, void *dst, uint32_t be_mask){
+// store-compress 32 items according to mask using AVX2 instructions
+static inline void *CompressStore_32_avx2_be(void *src, void *dst, uint32_t be_mask){
   uint32_t *s = (uint32_t *) src ;
   uint32_t *d = (uint32_t *) dst ;
   uint32_t pop0, mask0, i ;
@@ -545,7 +544,7 @@ static inline void *CompressStore_32_sse_be(void *src, void *dst, uint32_t be_ma
   }
   return d ;
 }
-static inline void *CompressStore_32_sse_le(void *src, void *dst, uint32_t le_mask){
+static inline void *CompressStore_32_avx2_le(void *src, void *dst, uint32_t le_mask){
   uint32_t *s = (uint32_t *) src ;
   uint32_t *d = (uint32_t *) dst ;
   uint32_t pop0, mask0, i ;
@@ -683,8 +682,8 @@ static void *CompressStore_0_31_c_le(void *src, void *dst, uint32_t le_mask, int
 void *CompressStore_be(void *src, void *dst, void *le_map, int nw32);
 void *CompressStore_le(void *src, void *dst, void *le_map, int nw32);
 
-void *CompressStore_sse_be(void *src, void *dst, void *be_mask, int n);
-void *CompressStore_sse_le(void *src, void *dst, void *be_mask, int n);
+void *CompressStore_avx2_be(void *src, void *dst, void *be_mask, int n);
+void *CompressStore_avx2_le(void *src, void *dst, void *be_mask, int n);
 
 void *CompressStore_avx512_le(void *src, void *dst, void *le_mask, int n);
 
@@ -694,16 +693,16 @@ void *CompressStore_c_le(void *s_, void *d_, void *map_, int n);
 void ExpandReplace_be(void *s, void *d, void *map, int n);
 void ExpandReplace_le(void *s, void *d, void *map, int n);
 void ExpandReplace_avx512_le(void *s, void *d, void *map, int n);
-void ExpandReplace_sse_be(void *s, void *d, void *map, int n);
-void ExpandReplace_sse_le(void *s, void *d, void *map, int n);
+void ExpandReplace_avx2_be(void *s, void *d, void *map, int n);
+void ExpandReplace_avx2_le(void *s, void *d, void *map, int n);
 void ExpandReplace_c_be(void *s, void *d, void *map, int n);
 void ExpandReplace_c_le(void *s, void *d, void *map, int n);
 
 void ExpandFill_be(void *s_, void *d_, void *map_, int n, void *fill_);
 void ExpandFill_le(void *s_, void *d_, void *map_, int n, void *fill_);
 void ExpandFill_avx512_le(void *s_, void *d_, void *map_, int n, void *fill_);
-void ExpandFill_sse_be(void *s_, void *d_, void *map_, int n, void *fill_);
-void ExpandFill_sse_le(void *s_, void *d_, void *map_, int n, void *fill_);
+void ExpandFill_avx2_be(void *s_, void *d_, void *map_, int n, void *fill_);
+void ExpandFill_avx2_le(void *s_, void *d_, void *map_, int n, void *fill_);
 void ExpandFill_c_be(void *s_, void *d_, void *map_, int n, void *fill_);
 void ExpandFill_c_le(void *s_, void *d_, void *map_, int n, void *fill_);
 

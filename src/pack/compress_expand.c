@@ -11,10 +11,10 @@
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
 // Library General Public License for more details.
 //
-// N.B. the SSE2 versions are 2-3 x faster than the plain C versions (compiler dependent)
+// N.B. the AVX2 versions are 2-3 x faster than the plain C versions (compiler dependent)
 //
 #include <stdio.h>
-// #undef __SSE2__
+// #undef __AVX2__
 // #undef __AVX512F__
 #include <rmn/compress_expand.h>
 #include <rmn/bits.h>
@@ -40,7 +40,7 @@ void ExpandReplace_avx512_le(void *s_, void *d_, void *map_, int n){
 
 // AVX2 version
 #if defined(__x86_64__) && defined(__AVX2__)
-void ExpandReplace_sse_be(void *s_, void *d_, void *map_, int n){
+void ExpandReplace_avx2_be(void *s_, void *d_, void *map_, int n){
   uint32_t *s = (uint32_t *)s_ ;
   uint32_t *d = (uint32_t *)d_ ;
   uint32_t *map = (uint32_t *)map_ ;
@@ -49,12 +49,12 @@ void ExpandReplace_sse_be(void *s_, void *d_, void *map_, int n){
 
   for(j=0 ; j<n-31 ; j+=32){                            // chunks of 32
     mask = *map++ ;
-    s = ExpandReplace_32_sse_be(s, d, mask) ; d += 32 ;
+    s = ExpandReplace_32_avx2_be(s, d, mask) ; d += 32 ;
   }
   mask = *map++ ;
   ExpandReplace_0_31_c_be(s, d, mask, n - j) ;             // leftovers (0 -> 31)
 }
-void ExpandReplace_sse_le(void *s_, void *d_, void *map_, int n){
+void ExpandReplace_avx2_le(void *s_, void *d_, void *map_, int n){
   uint32_t *s = (uint32_t *)s_ ;
   uint32_t *d = (uint32_t *)d_ ;
   uint32_t *map = (uint32_t *)map_ ;
@@ -63,7 +63,7 @@ void ExpandReplace_sse_le(void *s_, void *d_, void *map_, int n){
 
   for(j=0 ; j<n-31 ; j+=32){                            // chunks of 32
     mask = *map++ ;
-    s = ExpandReplace_32_sse_le(s, d, mask) ; d += 32 ;
+    s = ExpandReplace_32_avx2_le(s, d, mask) ; d += 32 ;
   }
   mask = *map++ ;
   ExpandReplace_0_31_c_le(s, d, mask, n - j) ;             // leftovers (0 -> 31)
@@ -108,7 +108,7 @@ void ExpandReplace_c_le(void *s_, void *d_, void *map_, int n){
 
 void ExpandReplace_be(void *s_, void *d_, void *map_, int n){
 #if defined(__x86_64__) && defined(__AVX2__)
-  ExpandReplace_sse_be(s_, d_, map_, n) ;
+  ExpandReplace_avx2_be(s_, d_, map_, n) ;
 #else
   ExpandReplace_c_be(s_, d_, map_, n) ;
 #endif
@@ -118,7 +118,7 @@ void ExpandReplace_le(void *s_, void *d_, void *map_, int n){
 #if defined(__x86_64__) && defined(__AVX512F__)
   ExpandReplace_avx512_le(s_, d_, map_, n) ;
 #elif defined(__x86_64__) && defined(__AVX2__)
-  ExpandReplace_sse_le(s_, d_, map_, n) ;
+  ExpandReplace_avx2_le(s_, d_, map_, n) ;
 #else
   ExpandReplace_c_le(s_, d_, map_, n) ;
 #endif
@@ -151,7 +151,7 @@ void ExpandFill_avx512_le(void *s_, void *d_, void *map_, int n, void *fill_){
 
 // AVX2 version of ExpandFill_32
 #if defined(__x86_64__) && defined(__AVX2__)
-void ExpandFill_sse_be(void *s_, void *d_, void *map_, int n, void *fill_){
+void ExpandFill_avx2_be(void *s_, void *d_, void *map_, int n, void *fill_){
   uint32_t *s = (uint32_t *) s_ ;
   uint32_t *d = (uint32_t *) d_ ;
   uint32_t *map = (uint32_t *) map_ ;
@@ -160,18 +160,18 @@ void ExpandFill_sse_be(void *s_, void *d_, void *map_, int n, void *fill_){
   uint32_t mask, fill ;
 
   if(fill_ == NULL){
-    ExpandReplace_sse_be(s, d, map, n) ;
+    ExpandReplace_avx2_be(s, d, map, n) ;
     return ;
   }
   fill = *pfill ;
   for(j=0 ; j<n-31 ; j+=32){                            // chunks of 32
     mask = *map++ ;
-    s = ExpandFill_32_sse_be(s, d, mask, fill) ; d += 32 ;
+    s = ExpandFill_32_avx2_be(s, d, mask, fill) ; d += 32 ;
   }
   mask = *map++ ;
   ExpandFill_0_31_c_be(s, d, mask, fill, n - j) ;              // leftovers (0 -> 31)
 }
-void ExpandFill_sse_le(void *s_, void *d_, void *map_, int n, void *fill_){
+void ExpandFill_avx2_le(void *s_, void *d_, void *map_, int n, void *fill_){
   uint32_t *s = (uint32_t *) s_ ;
   uint32_t *d = (uint32_t *) d_ ;
   uint32_t *map = (uint32_t *) map_ ;
@@ -180,13 +180,13 @@ void ExpandFill_sse_le(void *s_, void *d_, void *map_, int n, void *fill_){
   uint32_t mask, fill ;
 
   if(fill_ == NULL){
-    ExpandReplace_sse_le(s, d, map, n) ;
+    ExpandReplace_avx2_le(s, d, map, n) ;
     return ;
   }
   fill = *pfill ;
   for(j=0 ; j<n-31 ; j+=32){                            // chunks of 32
     mask = *map++ ;
-    s = ExpandFill_32_sse_le(s, d, mask, fill) ; d += 32 ;
+    s = ExpandFill_32_avx2_le(s, d, mask, fill) ; d += 32 ;
   }
   mask = *map++ ;
   ExpandFill_0_31_c_le(s, d, mask, fill, n - j) ;              // leftovers (0 -> 31)
@@ -225,7 +225,7 @@ void ExpandFill_c_be(void *s_, void *d_, void *map_, int n, void *fill_){
 // all elements of d receive a new value ("fill" of a value from s)
 void ExpandFill_be(void *s_, void *d_, void *map_, int n, void *fill_){
 #if defined(__x86_64__) && defined(__AVX2__)
-  ExpandFill_sse_be(s_, d_, map_, n, fill_) ;
+  ExpandFill_avx2_be(s_, d_, map_, n, fill_) ;
 #else
   ExpandFill_c_be(s_, d_, map_, n, fill_) ;
 #endif
@@ -234,7 +234,7 @@ void ExpandFill_le(void *s_, void *d_, void *map_, int n, void *fill_){
 #if defined(__x86_64__) && defined(__AVX512F__)
   ExpandFill_avx512_le(s_, d_, map_, n, fill_) ;
 #elif defined(__x86_64__) && defined(__AVX2__)
-  ExpandFill_sse_be(s_, d_, map_, n, fill_) ;
+  ExpandFill_avx2_be(s_, d_, map_, n, fill_) ;
 #else
   ExpandFill_c_be(s_, d_, map_, n, fill_) ;
 #endif
@@ -251,27 +251,27 @@ void ExpandFill_le(void *s_, void *d_, void *map_, int n, void *fill_){
 // the mask is interpreted Big Endian style, bit 0 is the MSB, bit 31 is the LSB
 #if defined(__x86_64__) && defined(__AVX2__)
 // AVX2 version of stream_compress_32
-void *CompressStore_sse_be(void *src, void *dst, void *be_mask, int n){
+void *CompressStore_avx2_be(void *src, void *dst, void *be_mask, int n){
   uint32_t *map = (uint32_t *) be_mask, mask ;
   uint32_t *w32 = (uint32_t *) src ;
   int i ;
 
   for(i=0 ; i<n-31 ; i+=32, w32 += 32){                       // chunks of 32
     mask = *map++ ;
-    dst = CompressStore_32_sse_be(w32, dst, mask) ;
+    dst = CompressStore_32_avx2_be(w32, dst, mask) ;
   }
   mask = *map ;
   dst = CompressStore_0_31_c_be(w32, dst, mask, n - i) ;      // leftovers (0 -> 31)
   return dst ;
 }
-void *CompressStore_sse_le(void *src, void *dst, void *le_mask, int n){
+void *CompressStore_avx2_le(void *src, void *dst, void *le_mask, int n){
   uint32_t *map = (uint32_t *) le_mask, mask ;
   uint32_t *w32 = (uint32_t *) src ;
   int i ;
 
   for(i=0 ; i<n-31 ; i+=32, w32 += 32){                       // chunks of 32
     mask = *map++ ;
-    dst = CompressStore_32_sse_le(w32, dst, mask) ;
+    dst = CompressStore_32_avx2_le(w32, dst, mask) ;
   }
   mask = *map ;
   dst = CompressStore_0_31_c_le(w32, dst, mask, n - i) ;      // leftovers (0 -> 31)
@@ -323,8 +323,8 @@ void *CompressStore_c_le(void *src, void *dst, void *le_mask, int n){
 
 // generic version, switches between the optimized versions
 // void *CompressStore_be(void *src, void *dst, void *be_mask, int n){
-// #if defined(__x86_64__) && defined(__SSE2__)
-//   return CompressStore_sse_be(src, dst, be_mask, n) ;
+// #if defined(__x86_64__) && defined(__AVX2__)
+//   return CompressStore_avx2_be(src, dst, be_mask, n) ;
 // #else
 //   return CompressStore_c_be(src, dst, be_mask, n) ;
 // #endif
@@ -345,7 +345,7 @@ static void *CompressStore_32_le(void *src, void *dst, uint32_t le_mask){
 #if defined(__AVX512F__)
   dst = CompressStore_32_avx512_le(src, dst, le_mask) ;
 #elif defined(__AVX2__)
-  dst = CompressStore_32_sse_le(src, dst, le_mask) ;
+  dst = CompressStore_32_avx2_le(src, dst, le_mask) ;
 #else
   dst = CompressStore_32_c_le(src, dst, le_mask) ;
 #endif
@@ -354,7 +354,7 @@ return dst ;
 static void *CompressStore_32_be(void *src, void *dst, uint32_t le_mask){
 // generic version, switches between the optimized versions
 #if defined(__AVX2__)
-  dst = CompressStore_32_sse_be(src, dst, le_mask) ;
+  dst = CompressStore_32_avx2_be(src, dst, le_mask) ;
 #else
   dst = CompressStore_32_c_be(src, dst, le_mask) ;
 #endif
