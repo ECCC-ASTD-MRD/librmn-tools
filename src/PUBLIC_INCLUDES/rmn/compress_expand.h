@@ -208,7 +208,7 @@ static inline void BitReverse_128(void *w32){
 #endif
 }
 
-// ================================ MaskedMerge family ===============================
+// ================================ MaskedMerge/MaskedFill family ===============================
 // plain C versions
 // merge src and scalar value into dst according to mask
 static inline void MaskedFill_1_32_c_be(void *s, void *d, uint32_t be_mask, uint32_t value, int n){

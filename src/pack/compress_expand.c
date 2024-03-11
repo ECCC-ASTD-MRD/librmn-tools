@@ -59,6 +59,7 @@ void MaskedMerge_avx2_le(void *s, void *d, uint32_t le_mask, void *values, int n
   while(n > 31){
     MaskedMerge_32_avx2_le(src, dst, le_mask, val) ;
     src += 32 ; dst += 32 ; val += 32 ;
+    n = n - 32 ;
   }
   while(n--){
     *dst++ = (le_mask & 1) ? *src : *val++ ; src++ ;
@@ -71,6 +72,7 @@ void MaskedFill_avx2_le(void *s, void *d, uint32_t le_mask, uint32_t value, int 
   while(n > 31){
     MaskedFill_32_avx2_le(src, dst, le_mask, value) ;
     src += 32 ; dst += 32 ;
+    n = n - 32 ;
   }
   while(n--){
     *dst++ = (le_mask & 1) ? *src : value ; src++ ;
