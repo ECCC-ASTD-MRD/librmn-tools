@@ -19,6 +19,102 @@
 #include <rmn/compress_expand.h>
 #include <rmn/bits.h>
 
+// ================================ MaskedMerge/MaskedFill family ===============================
+// AVX512F version
+#if defined(__x86_64__) && defined(__AVX512F__)
+void MaskedMerge_avx512_le(void *s, void *d, uint32_t le_mask, void *values, int n){
+  uint32_t *src = (uint32_t *) s ;
+  uint32_t *dst = (uint32_t *) d ;
+  uint32_t *val = (uint32_t *) values ;
+  while(n > 31){
+    MaskedMerge_32_avx512_le(src, dst, le_mask, val) ;
+    src += 32 ; dst += 32 ; val += 32 ;
+    n = n - 32 ;
+  }
+  while(n--){
+    *dst++ = (le_mask & 1) ? *src : *val++ ; src++ ;
+    le_mask >>= 1 ;
+  }
+}
+void MaskedFill_avx512_le(void *s, void *d, uint32_t le_mask, uint32_t value, int n){
+  uint32_t *src = (uint32_t *) s ;
+  uint32_t *dst = (uint32_t *) d ;
+  while(n > 31){
+    MaskedFill_32_avx512_le(src, dst, le_mask, value) ;
+    src += 32 ; dst += 32 ;
+    n = n - 32 ;
+  }
+  while(n--){
+    *dst++ = (le_mask & 1) ? *src : value ; src++ ;
+    le_mask >>= 1 ;
+  }
+}
+#endif
+// AVX2 version
+#if defined(__x86_64__) && defined(__AVX2__)
+void MaskedMerge_avx2_le(void *s, void *d, uint32_t le_mask, void *values, int n){
+  uint32_t *src = (uint32_t *) s ;
+  uint32_t *dst = (uint32_t *) d ;
+  uint32_t *val = (uint32_t *) values ;
+  while(n > 31){
+    MaskedMerge_32_avx2_le(src, dst, le_mask, val) ;
+    src += 32 ; dst += 32 ; val += 32 ;
+  }
+  while(n--){
+    *dst++ = (le_mask & 1) ? *src : *val++ ; src++ ;
+    le_mask >>= 1 ;
+  }
+}
+void MaskedFill_avx2_le(void *s, void *d, uint32_t le_mask, uint32_t value, int n){
+  uint32_t *src = (uint32_t *) s ;
+  uint32_t *dst = (uint32_t *) d ;
+  while(n > 31){
+    MaskedFill_32_avx2_le(src, dst, le_mask, value) ;
+    src += 32 ; dst += 32 ;
+  }
+  while(n--){
+    *dst++ = (le_mask & 1) ? *src : value ; src++ ;
+    le_mask >>= 1 ;
+  }
+}
+#endif
+// plain C version
+void MaskedMerge_c_le(void *s, void *d, uint32_t le_mask, void *values, int n){
+  uint32_t *src = (uint32_t *) s ;
+  uint32_t *dst = (uint32_t *) d ;
+  uint32_t *val = (uint32_t *) values ;
+  while(n--){
+    *dst++ = (le_mask & 1) ? *src : *val++ ; src++ ;
+    le_mask >>= 1 ;
+  }
+}
+void MaskedFill_c_le(void *s, void *d, uint32_t le_mask, uint32_t value, int n){
+  uint32_t *src = (uint32_t *) s ;
+  uint32_t *dst = (uint32_t *) d ;
+  while(n--){
+    *dst++ = (le_mask & 1) ? *src : value ; src++ ;
+    le_mask >>= 1 ;
+  }
+}
+void MaskedMerge_le(void *s, void *d, uint32_t le_mask, void *values, int n){
+#if defined(__x86_64__) && defined(__AVX512F__)
+  MaskedMerge_avx512_le(s, d, le_mask, values, n) ;
+#elif defined(__x86_64__) && defined(__AVX2__)
+  MaskedMerge_avx2_le(s, d, le_mask, values, n) ;
+#else
+  MaskedMerge_c_le(s, d, le_mask, values, n) ;
+#endif
+}
+void MaskedFill_le(void *s, void *d, uint32_t le_mask, uint32_t value, int n){
+#if defined(__x86_64__) && defined(__AVX512F__)
+  MaskedFill_avx512_le(s, d, le_mask, value, n) ;
+#elif defined(__x86_64__) && defined(__AVX2__)
+  MaskedFill_avx2_le(s, d, le_mask, value, n) ;
+#else
+  MaskedFill_c_le(s, d, le_mask, value, n) ;
+#endif
+}
+
 // ================================ ExpandReplace family ===============================
 // AVX512 version
 #if defined(__x86_64__) && defined(__AVX512F__)

@@ -129,7 +129,7 @@ static uint32_t mask4_le[16] = { 0x00000000, 0x000000FF, 0x0000FF00, 0x0000FFFF,
 static uint32_t mask4_be[16] = { 0x00000000, 0xFF000000, 0x00FF0000, 0xFFFF0000, 0x0000FF00, 0xFF00FF00, 0x00FFFF00, 0xFFFFFF00,
                                  0x000000FF, 0xFF0000FF, 0x00FF00FF, 0xFFFF00FF, 0x0000FFFF, 0xFF00FFFF, 0x00FFFFFF, 0xFFFFFFFF} ;
 
-                                 // ================================ vector mask from integer family ===============================
+// ================================ vector mask from integer family ===============================
 // 128 bit vector mask from Big Endian style nibble
 __m128i _mm_mask_be_si128(uint32_t nibble){
   __m128i v0 = _mm_loadu_si32( &mask4_be[nibble & 0xF] ) ;   // Big endian nibble to mask
@@ -209,31 +209,121 @@ static inline void BitReverse_128(void *w32){
 }
 
 // ================================ MaskedMerge family ===============================
-#if defined(__x86_64__) && defined(__AVX512F__)
+// plain C versions
 // merge src and scalar value into dst according to mask
-static inline void MaskedFill_32_avx512_be(void *src, void *dst, uint32_t le_mask, uint32_t value){
+static inline void MaskedFill_1_32_c_be(void *s, void *d, uint32_t be_mask, uint32_t value, int n){
+  uint32_t *src = (uint32_t *) s ;
+  uint32_t *dst = (uint32_t *) d ;
+  n = (n>32) ? 32 : n ;
+  while(n--){
+    *dst++ = ((be_mask >> 31) & 1) ? *src : value ; src++ ;
+    be_mask <<= 1 ;
+  }
 }
-static inline void MaskedFill_32_avx512_le(void *src, void *dst, uint32_t le_mask, uint32_t value){
+static inline void MaskedFill_1_32_c_le(void *s, void *d, uint32_t le_mask, uint32_t value, int n){
+  uint32_t *src = (uint32_t *) s ;
+  uint32_t *dst = (uint32_t *) d ;
+  n = (n>32) ? 32 : n ;
+  while(n--){
+    *dst++ = (le_mask & 1) ? *src : value ; src++ ;
+    le_mask >>= 1 ;
+  }
 }
 
 // merge src and values into dst according to mask
-static inline void MaskedMerge_32_avx512_be(void *src, void *dst, uint32_t le_mask, uint32_t *values){
+static inline void MaskedMerge_1_32_c_be(void *s, void *d, uint32_t be_mask, void *values, int n){
+  uint32_t *src = (uint32_t *) s ;
+  uint32_t *dst = (uint32_t *) d ;
+  uint32_t *val = (uint32_t *) values ;
+  n = (n>32) ? 32 : n ;
+  while(n--){
+    *dst++ = ((be_mask >> 31) & 1) ? *src : *val++ ; src++ ;
+    be_mask <<= 1 ;
+  }
 }
-static inline void MaskedMerge_32_avx512_le(void *src, void *dst, uint32_t le_mask, uint32_t *values){
+static inline void MaskedMerge_1_32_c_le(void *s, void *d, uint32_t le_mask, void *values, int n){
+  uint32_t *src = (uint32_t *) s ;
+  uint32_t *dst = (uint32_t *) d ;
+  uint32_t *val = (uint32_t *) values ;
+  n = (n>32) ? 32 : n ;
+  while(n--){
+    *dst++ = (le_mask & 1) ? *src : *val++ ; src++ ;
+    le_mask >>= 1 ;
+  }
 }
-#endif
-
+// AVX2 versions (use plain C versions if not coded yet)
 #if defined(__x86_64__) && defined(__AVX2__)
 // merge src and scalar value into dst according to mask
-static inline void MaskedFill_32_avx2_be(void *src, void *dst, uint32_t le_mask, uint32_t value){
+static inline void MaskedFill_32_avx2_be(void *s, void *d, uint32_t be_mask, uint32_t value){
+  uint32_t *src = (uint32_t *) s ;
+  uint32_t *dst = (uint32_t *) d ;
+  MaskedFill_1_32_c_be(s, d, be_mask, value, 32) ;
 }
-static inline void MaskedFill_32_avx2_le(void *src, void *dst, uint32_t le_mask, uint32_t value){
+static inline void MaskedFill_32_avx2_le(void *s, void *d, uint32_t le_mask, uint32_t value){
+  uint32_t *src = (uint32_t *) s ;
+  uint32_t *dst = (uint32_t *) d ;
+  MaskedFill_1_32_c_le(s, d, le_mask, value, 32) ;
 }
 
 // merge src and values into dst according to mask
-static inline void MaskedMerge_32_avx2_be(void *src, void *dst, uint32_t le_mask, uint32_t *values){
+static inline void MaskedMerge_32_avx2_be(void *s, void *d, uint32_t be_mask, void *values){
+  uint32_t *src = (uint32_t *) s ;
+  uint32_t *dst = (uint32_t *) d ;
+  uint32_t *val = (uint32_t *) values ;
+  MaskedMerge_1_32_c_be(s, d, be_mask, values, 32) ;
 }
-static inline void MaskedMerge_32_avx2_le(void *src, void *dst, uint32_t le_mask, uint32_t *values){
+static inline void MaskedMerge_32_avx2_le(void *s, void *d, uint32_t le_mask, void *values){
+  uint32_t *src = (uint32_t *) s ;
+  uint32_t *dst = (uint32_t *) d ;
+  uint32_t *val = (uint32_t *) values ;
+  MaskedMerge_1_32_c_le(s, d, le_mask, values, 32) ;
+}
+#endif
+// AVX512 versions (use AVX2 versions if not coded yet) (le version only for now)
+#if defined(__x86_64__) && defined(__AVX512F__)
+// merge src and scalar value into dst according to mask
+static inline void MaskedFill_32_avx512_be(void *s, void *d, uint32_t be_mask, uint32_t value){
+  uint32_t *src = (uint32_t *) s ;
+  uint32_t *dst = (uint32_t *) d ;
+  MaskedFill_32_avx2_be(s, d, be_mask, value) ;
+}
+static inline void MaskedFill_32_avx512_le(void *s, void *d, uint32_t le_mask, uint32_t value){
+  uint32_t *src = (uint32_t *) s ;
+  uint32_t *dst = (uint32_t *) d ;
+//   MaskedFill_1_32_c_le(s, d, le_mask, value, 32) ;
+  __m512i vs0 = _mm512_loadu_epi32(src     ) ;
+  __m512i vs1 = _mm512_loadu_epi32(src + 16) ;
+  __m512i vv0 = _mm512_set1_epi32(value) ;
+  uint16_t mask0 = le_mask & 0xFFFF ;
+  uint16_t mask1 = le_mask >> 16 ;
+  vs0 = _mm512_mask_blend_epi32(mask0, vv0, vs0) ;
+  vs1 = _mm512_mask_blend_epi32(mask1, vv0, vs1) ;
+  _mm512_storeu_epi32(dst,      vs0) ;
+  _mm512_storeu_epi32(dst + 16, vs1) ;
+}
+
+// merge src and values into dst according to mask
+static inline void MaskedMerge_32_avx512_be(void *s, void *d, uint32_t be_mask, void *values){
+  uint32_t *src = (uint32_t *) s ;
+  uint32_t *dst = (uint32_t *) d ;
+  uint32_t *val = (uint32_t *) values ;
+  MaskedMerge_32_avx2_be(s, d, be_mask, values) ;
+}
+static inline void MaskedMerge_32_avx512_le(void *s, void *d, uint32_t le_mask, void *values){
+  uint32_t *src = (uint32_t *) s ;
+  uint32_t *dst = (uint32_t *) d ;
+  uint32_t *val = (uint32_t *) values ;
+//   MaskedMerge_32_avx2_le(s, d, le_mask, values) ;
+  __m512i vs0 = _mm512_loadu_epi32(src     ) ;
+  __m512i vs1 = _mm512_loadu_epi32(src + 16) ;
+  __m512i vv0 = _mm512_loadu_epi32(val     ) ;
+  __m512i vv1 = _mm512_loadu_epi32(val + 16) ;
+  uint16_t mask0 = le_mask & 0xFFFF ;
+  uint16_t mask1 = le_mask >> 16 ;
+  vs0 = _mm512_mask_blend_epi32(mask0, vv0, vs0) ;
+  vs1 = _mm512_mask_blend_epi32(mask1, vv1, vs1) ;
+  _mm512_storeu_epi32(dst,      vs0) ;
+  _mm512_storeu_epi32(dst + 16, vs1) ;
 }
 #endif
 
@@ -246,11 +336,11 @@ static inline void *ExpandReplace_32_avx512_le(void *src, void *dst, uint32_t le
   __m512i vd1 = _mm512_loadu_epi32(dest + 16) ;
   uint32_t mask0 = le_mask & 0xFFFF ;     // lower 16 bits of le_mask
   uint32_t mask1 = le_mask >> 16 ;        // upper 16 bits of le_mask
-  __m512i vs0 = _mm512_mask_expandloadu_epi32(vd0, mask0, src) ; src += popcnt_32(mask0) ;
-  __m512i vs1 = _mm512_mask_expandloadu_epi32(vd0, mask1, src) ; src += popcnt_32(mask1) ;
+  __m512i vs0 = _mm512_mask_expandloadu_epi32(vd0, mask0, w32) ; w32 += popcnt_32(mask0) ;
+  __m512i vs1 = _mm512_mask_expandloadu_epi32(vd0, mask1, w32) ; w32 += popcnt_32(mask1) ;
   _mm512_storeu_epi32(dest,      vs0) ;
   _mm512_storeu_epi32(dest + 16, vs1) ;
-  return src ;
+  return w32 ;
 }
 #endif
 
@@ -401,11 +491,11 @@ static inline void *ExpandFill_32_avx512_le(void *src, void *dst, uint32_t le_ma
   __m512i vf0 = _mm512_set1_epi32(fill) ;
   uint32_t mask0 = le_mask & 0xFFFF ;     // lower 16 bits of le_mask
   uint32_t mask1 = le_mask >> 16 ;        // upper 16 bits of le_mask
-  __m512i vs0 = _mm512_mask_expandloadu_epi32(vf0, mask0, src) ; src += popcnt_32(mask0) ;
-  __m512i vs1 = _mm512_mask_expandloadu_epi32(vf0, mask1,  src) ; src += popcnt_32(mask1) ;
+  __m512i vs0 = _mm512_mask_expandloadu_epi32(vf0, mask0, w32) ; w32 += popcnt_32(mask0) ;
+  __m512i vs1 = _mm512_mask_expandloadu_epi32(vf0, mask1, w32) ; w32 += popcnt_32(mask1) ;
   _mm512_storeu_epi32(dest,      vs0) ;
   _mm512_storeu_epi32(dest + 16, vs1) ;
-  return src ;
+  return w32 ;
 }
 #endif
 
@@ -714,30 +804,42 @@ static void *CompressStore_0_31_c_le(void *src, void *dst, uint32_t le_mask, int
 }
 
 void *CompressStore_be(void *src, void *dst, void *le_map, int nw32);
-void *CompressStore_le(void *src, void *dst, void *le_map, int nw32);
-
+void *CompressStore_c_be(void *s_, void *d_, void *map_, int n);
 void *CompressStore_avx2_be(void *src, void *dst, void *be_mask, int n);
-void *CompressStore_avx2_le(void *src, void *dst, void *be_mask, int n);
 
+void *CompressStore_le(void *src, void *dst, void *le_map, int nw32);
+void *CompressStore_c_le(void *s_, void *d_, void *map_, int n);
+void *CompressStore_avx2_le(void *src, void *dst, void *be_mask, int n);
 void *CompressStore_avx512_le(void *src, void *dst, void *le_mask, int n);
 
-void *CompressStore_c_be(void *s_, void *d_, void *map_, int n);
-void *CompressStore_c_le(void *s_, void *d_, void *map_, int n);
 
 void ExpandReplace_be(void *s, void *d, void *map, int n);
-void ExpandReplace_le(void *s, void *d, void *map, int n);
-void ExpandReplace_avx512_le(void *s, void *d, void *map, int n);
-void ExpandReplace_avx2_be(void *s, void *d, void *map, int n);
-void ExpandReplace_avx2_le(void *s, void *d, void *map, int n);
 void ExpandReplace_c_be(void *s, void *d, void *map, int n);
+void ExpandReplace_avx2_be(void *s, void *d, void *map, int n);
+
+void ExpandReplace_le(void *s, void *d, void *map, int n);
 void ExpandReplace_c_le(void *s, void *d, void *map, int n);
+void ExpandReplace_avx2_le(void *s, void *d, void *map, int n);
+void ExpandReplace_avx512_le(void *s, void *d, void *map, int n);
 
 void ExpandFill_be(void *s_, void *d_, void *map_, int n, void *fill_);
-void ExpandFill_le(void *s_, void *d_, void *map_, int n, void *fill_);
-void ExpandFill_avx512_le(void *s_, void *d_, void *map_, int n, void *fill_);
-void ExpandFill_avx2_be(void *s_, void *d_, void *map_, int n, void *fill_);
-void ExpandFill_avx2_le(void *s_, void *d_, void *map_, int n, void *fill_);
 void ExpandFill_c_be(void *s_, void *d_, void *map_, int n, void *fill_);
+void ExpandFill_avx2_be(void *s_, void *d_, void *map_, int n, void *fill_);
+
+void ExpandFill_le(void *s_, void *d_, void *map_, int n, void *fill_);
 void ExpandFill_c_le(void *s_, void *d_, void *map_, int n, void *fill_);
+void ExpandFill_avx2_le(void *s_, void *d_, void *map_, int n, void *fill_);
+void ExpandFill_avx512_le(void *s_, void *d_, void *map_, int n, void *fill_);
+
+void MaskedMerge_le(void *s, void *d, uint32_t le_mask, void *values, int n);
+void MaskedMerge_c_le(void *s, void *d, uint32_t le_mask, void *values, int n);
+void MaskedMerge_avx2_le(void *s, void *d, uint32_t le_mask, void *values, int n);
+void MaskedMerge_avx512_le(void *s, void *d, uint32_t le_mask, void *values, int n);
+
+void MaskedFill_le(void *s, void *d, uint32_t le_mask, uint32_t value, int n);
+void MaskedFill_c_le(void *s, void *d, uint32_t le_mask, uint32_t value, int n);
+void MaskedFill_avx2_le(void *s, void *d, uint32_t le_mask, uint32_t value, int n);
+void MaskedFill_avx512_le(void *s, void *d, uint32_t le_mask, uint32_t value, int n);
+
 
 #endif
