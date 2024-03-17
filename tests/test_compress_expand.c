@@ -5,6 +5,7 @@
 #include <rmn/compress_expand.h>
 #include <rmn/compress_expand.h>
 #include <rmn/timers.h>
+#include <rmn/c_record_io.h>
 
 #if defined(__AVX512F__)
 void BitReverseArray_avx512(uint32_t *what, int n){
@@ -228,6 +229,146 @@ return ;
   }
 }
 
+int32_t rep_encode(int32_t what, int32_t rep){
+  int32_t nbits = 0 ;
+  int32_t bi = 3 ;
+  while(rep > 0){
+    if(rep & 1) {
+      nbits = nbits + bi ;
+    }
+    rep >>= 1 ;
+    bi++ ;
+  }
+  return nbits ;
+}
+
+void test_bit_mask_field(char *filename){
+  int32_t dims[7], ndims, ndata, fd = 0, i, j, nzeros, nones, old = 2, rep = 0, totbits = 0, deficit = 0 ;
+  char name[5] ;
+  float *fdata, fmin, fmax ;
+  int32_t *idata, *bitmask ;
+  for(j=0 ; j<3 ; j++){
+    void *data = read_32bit_data_record_named(filename, &fd, dims, &ndims, &ndata, name) ;
+fprintf( stderr, "read record from '%s', %d dimensions, name = '%s', ndata = %d, (%d x %d)\n",
+          filename, ndims, name, ndata, dims[0], dims[1]) ;
+    idata = (int32_t *) data ;
+    fdata = (float *) data ;
+    fmin = fmax = fdata[0] ;
+    for(i=0 ; i<ndata ; i++){
+      fmin = (fdata[i] < fmin) ? fdata[i] : fmin ;
+      fmax = (fdata[i] > fmax) ? fdata[i] : fmax ;
+    }
+fprintf( stderr, "min = %f, max = %f\n", fmin, fmax) ;
+    nzeros = nones = 0 ;
+    for(i=0 ; i<ndata ; i++){
+      idata[i] = (fdata[i] > 0) ? 1 : 0 ;
+      if(old == idata[i]){
+        rep++ ;
+      }else{
+        int32_t nbits = rep_encode(old, rep >> 3) ;
+  // fprintf(stderr,"%1d %d ", old, nbits) ;
+        old = idata[i] ;
+        totbits += nbits ;
+        rep &= 7 ;
+        if(rep){
+          totbits += 9 ;
+          rep = rep - 8 ;
+        }
+      }
+      nzeros += ((idata[i] == 0) ? 1 : 0) ;
+      nones += ((idata[i] == 1) ? 1 : 0) ;
+    }
+fprintf( stderr, "\n");
+fprintf( stderr, "number of 1s = %d, number of 0s = %d, total = %d, totbits = %d\n", nones, nzeros, nones + nzeros, totbits) ;
+  }
+}
+
+typedef union{
+  uint32_t u ;
+  int32_t  i ;
+} ui ;
+typedef struct{
+  union{
+    uint32_t ul ;
+    int32_t  il ;
+  } ;
+  union{
+    uint32_t uh ;
+    int32_t  ih ;
+  } ;
+}word_2 ;
+typedef struct{
+  ui l ;
+  ui h ;
+}words_2 ;
+
+#define NIZ 11
+#define NJZ 9
+void test_interleave(char *msg){
+  uint32_t int1 = interleave_16_32(0x1234, 0x0000) ;
+  uint32_t int2 = interleave_16_32(0x0000, 0x1234) ;
+  uint32_t int3 = interleave_16_32(0x1111, 0x1111) ;
+  fprintf(stderr, "%8.8x %8.8x %8.8x\n", int1, int2, int3) ;
+  uint32_t z[NJZ][NIZ] ;
+  uint64_t k64, k32, t0 ;
+
+  words2 t ;
+  int32_t i, j, k, errors = 0 ;
+//   for(k=0 ; k<16 ; k++){
+//     t = deinterleave_32_16(k) ;
+//     fprintf(stderr, "%3d %3d %3d\n", k, t.l, t.h) ;
+//   }
+  errors = 0 ;
+  for(j=NJZ-1 ; j>=0 ; j--){
+    for(i=0 ; i<NIZ-1 ; i++){
+      z[j][i] = interleave_16_32((uint32_t) i, (uint32_t) j) ;
+      t = deinterleave_32_16(z[j][i]) ;
+      fprintf(stderr, "%3d ", z[j][i]) ;
+      if(t.l != i || t.h != j) errors++ ;
+    }
+    fprintf(stderr, "\n");
+  }
+  fprintf(stderr, "deinterleaving errors = %d\n", errors) ;
+
+  errors = 0 ;
+  t0 = elapsed_cycles_fast() ;
+  for(j=0 ; j<65536 ; j++){
+    for(i=0 ; i<65536 ; i++){
+      k32 = interleave_16_32_c((uint32_t) i, (uint32_t) j) ;
+      t   = deinterleave_32_16_c(k32) ;
+      if(t.l != i || t.h != j) errors++ ;
+    }
+  }
+  t0 = elapsed_cycles_fast() - t0 ;
+  fprintf(stderr, "full range C-32 deinterleaving errors = %d, time = %6.2f Gcyles\n", errors, t0*1.0E-9) ;
+
+#if defined(__BMI2__)
+  errors = 0 ;
+  t0 = elapsed_cycles_fast() ;
+  for(j=0 ; j<65536 ; j++){
+    for(i=0 ; i<65536 ; i++){
+      k64 = interleave_32_64_bmi2((uint32_t) i, (uint32_t) j) ;
+      t   = deinterleave_64_32_bmi2(k64) ;
+      if(t.l != i || t.h != j) errors++ ;
+    }
+  }
+  t0 = elapsed_cycles_fast() - t0 ;
+  fprintf(stderr, "full range BMI2-64 deinterleaving errors = %d, time = %6.2f Gcyles\n", errors, t0*1.0E-9) ;
+
+  errors = 0 ;
+  t0 = elapsed_cycles_fast() ;
+  for(j=0 ; j<65536 ; j++){
+    for(i=0 ; i<65536 ; i++){
+      k32 = interleave_16_32((uint32_t) i, (uint32_t) j) ;
+      t   = deinterleave_32_16(k32) ;
+      if(t.l != i || t.h != j) errors++ ;
+    }
+  }
+  t0 = elapsed_cycles_fast() - t0 ;
+  fprintf(stderr, "full range BMI2-32 deinterleaving errors = %d, time = %6.2f Gcyles\n", errors, t0*1.0E-9) ;
+#endif
+}
+
 #define NPTS 1025
 
 int main(int argc, char **argv){
@@ -252,6 +393,14 @@ int main(int argc, char **argv){
   }
   if(argc == 3 && atoi(argv[1]) == 2){
     test_reversal(argv[2]) ;
+    return 0 ;
+  }
+  if(argc == 3 && atoi(argv[1]) == 3){
+    test_bit_mask_field(argv[2]) ;
+    return 0 ;
+  }
+  if(argc == 3 && atoi(argv[1]) == 4){
+    test_interleave(argv[2]) ;
     return 0 ;
   }
 

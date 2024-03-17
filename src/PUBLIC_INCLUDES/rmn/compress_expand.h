@@ -129,16 +129,109 @@ static uint32_t mask4_le[16] = { 0x00000000, 0x000000FF, 0x0000FF00, 0x0000FFFF,
 static uint32_t mask4_be[16] = { 0x00000000, 0xFF000000, 0x00FF0000, 0xFFFF0000, 0x0000FF00, 0xFF00FF00, 0x00FFFF00, 0xFFFFFF00,
                                  0x000000FF, 0xFF0000FF, 0x00FF00FF, 0xFFFF00FF, 0x0000FFFF, 0xFF00FFFF, 0x00FFFFFF, 0xFFFFFFFF} ;
 
+// ================================ bits interleave/detinterleave family ===============================
+typedef struct{
+  uint32_t l ;
+  uint32_t h ;
+}words2 ;
+
+#if defined(__BMI2__)
+// interleave a pair of unsigned integers into 64 bits
+uint64_t interleave_32_64_bmi2(uint32_t in1, uint32_t in2)  {
+    return _pdep_u64(in1, 0x5555555555555555) | _pdep_u64(in2,0xaaaaaaaaaaaaaaaa);
+}
+#endif
+// interleave the lower 16 bits from unsigned integers into 32 bits
+static inline uint32_t interleave_16_32_c(uint32_t in1, uint32_t in2)  {
+  in1 = (in1 ^ (in1 << 8 )) & 0x00ff00ffu;
+  in1 = (in1 ^ (in1 << 4 )) & 0x0f0f0f0fu;
+  in1 = (in1 ^ (in1 << 2 )) & 0x33333333u;
+  in1 = (in1 ^ (in1 << 1 )) & 0x55555555u;
+
+  in2 = (in2 ^ (in2 << 8 )) & 0x00ff00ffu;
+  in2 = (in2 ^ (in2 << 4 )) & 0x0f0f0f0fu;
+  in2 = (in2 ^ (in2 << 2 )) & 0x33333333u;
+  in2 = (in2 ^ (in2 << 1 )) & 0x55555555u;
+  in2 <<= 1 ;
+  return in1 | in2;
+}
+static inline uint32_t interleave_16_32(uint32_t in1, uint32_t in2)  {
+#if !defined(__BMI2__)
+  return interleave_16_32_c(in1, in2) ;
+#else
+  in1 = _pdep_u32(in1, 0x55555555u);
+  in2 = _pdep_u32(in2, 0xAAAAAAAAu);
+  return in1 | in2;
+#endif
+}
+
+#if defined(__BMI2__)
+// deinterleave 64 bits into a pair of unsigned integers 
+words2 deinterleave_64_32_bmi2(uint64_t w64)  {
+  words2 t;
+  t.l = _pext_u64(w64, 0x5555555555555555);
+  t.h = _pext_u64(w64, 0xaaaaaaaaaaaaaaaa);
+  return t;
+}
+// deinterleave 32 bits into the lower 16 bits of a pair of unsigned integers 
+static inline words2 deinterleave_32_16_bmi2(uint32_t w32){
+  words2 t ;
+  t.l = (uint32_t)_pext_u32(w32, 0x55555555u);
+  t.h = (uint32_t)_pext_u32(w32, 0xAAAAAAAAu);
+  return t ;
+}
+#endif
+// deinterleave 32 bits into the lower 16 bits of unsigned integers 
+static inline words2 deinterleave_32_16_c(uint32_t word){
+  words2 t ;
+  uint32_t wl = word ;
+  wl &= 0x55555555;
+  wl = (wl ^ (wl >> 1 )) & 0x33333333u;
+  wl = (wl ^ (wl >> 2 )) & 0x0f0f0f0fu;
+  wl = (wl ^ (wl >> 4 )) & 0x00ff00ffu;
+  wl = (wl ^ (wl >> 8 )) & 0x0000ffffu;
+  uint32_t wh = word >> 1 ;
+  wh &= 0x55555555;
+  wh = (wh ^ (wh >> 1 )) & 0x33333333u;
+  wh = (wh ^ (wh >> 2 )) & 0x0f0f0f0fu;
+  wh = (wh ^ (wh >> 4 )) & 0x00ff00ffu;
+  wh = (wh ^ (wh >> 8 )) & 0x0000ffffu;
+  t.l = wl ;
+  t.h = wh ;
+  return t ;
+}
+static inline words2 deinterleave_32_16(uint32_t word){
+#if !defined(__BMI2__)
+  return deinterleave_32_16_c(word) ;
+#else
+  return deinterleave_32_16_bmi2(word) ;
+//   words2 t ;
+//   t.l = (uint32_t)_pext_u32(word, 0x55555555u);
+//   t.h = (uint32_t)_pext_u32(word, 0xAAAAAAAAu);
+//   return t ;
+#endif
+}
+
+// ================================ byte run length encoders/decoders family ===============================
+
+static inline uint32_t ByteRunLengthEncode(void *bytes, uint32_t nbytes, void *stream){
+  return 0 ;
+}
+
+static inline uint32_t ByteRunLengthDecode(void *bytes, uint32_t nbytes, void *stream){
+  return 0 ;
+}
+
 // ================================ vector mask from integer family ===============================
 // 128 bit vector mask from Big Endian style nibble
-__m128i _mm_mask_be_si128(uint32_t nibble){
+static __m128i _mm_mask_be_si128(uint32_t nibble){
   __m128i v0 = _mm_loadu_si32( &mask4_be[nibble & 0xF] ) ;   // Big endian nibble to mask
   v0 = _mm_cvtepi8_epi32(v0) ;                               // 4 x 8 bits to 4 x 32 bits with sign extension
   return v0 ;
 }
 
 // 128 bit vector mask from Little Endian style nibble
-__m128i _mm_mask_le_si128(uint32_t nibble){
+static __m128i _mm_mask_le_si128(uint32_t nibble){
   __m128i v0 = _mm_loadu_si32( &mask4_le[nibble & 0xF] ) ;   // Little endian nibble to mask
   v0 = _mm_cvtepi8_epi32(v0) ;                               // 4 x 8 bits to 4 x 32 bits with sign extension
   return v0 ;
@@ -841,5 +934,7 @@ void MaskedFill_c_le(void *s, void *d, uint32_t le_mask, uint32_t value, int n);
 void MaskedFill_avx2_le(void *s, void *d, uint32_t le_mask, uint32_t value, int n);
 void MaskedFill_avx512_le(void *s, void *d, uint32_t le_mask, uint32_t value, int n);
 
+int32_t MaskGreater_c_be(void *src1, int nsrc1, void *src2, int nsrc2, uint32_t *mask, int negate);
+int32_t MaskGreater_c_le(void *src1, int nsrc1, void *src2, int nsrc2, uint32_t *mask, int negate);
 
 #endif
