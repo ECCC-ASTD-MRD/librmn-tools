@@ -332,41 +332,90 @@ void test_interleave(char *msg){
 
   errors = 0 ;
   t0 = elapsed_cycles_fast() ;
-  for(j=0 ; j<65536 ; j++){
-    for(i=0 ; i<65536 ; i++){
+  for(j=0 ; j<65536 ; j+=3){
+    for(i=0 ; i<65536 ; i+=3){
       k32 = interleave_16_32_c((uint32_t) i, (uint32_t) j) ;
+      t   = deinterleave_32_16_bmi2(k32) ;
+      if(t.l != i || t.h != j) errors++ ;
+    }
+  }
+  t0 = elapsed_cycles_fast() - t0 ;
+  fprintf(stderr, "full range C-bmi2-32 deinterleaving errors = %d, time = %6.2f Gcyles\n", errors, t0*1.0E-9) ;
+
+  errors = 0 ;
+  t0 = elapsed_cycles_fast() ;
+  for(j=0 ; j<65536 ; j+=3){
+    for(i=0 ; i<65536 ; i+=3){
+      k32 = interleave_16_32((uint32_t) i, (uint32_t) j) ;
       t   = deinterleave_32_16_c(k32) ;
       if(t.l != i || t.h != j) errors++ ;
     }
   }
   t0 = elapsed_cycles_fast() - t0 ;
-  fprintf(stderr, "full range C-32 deinterleaving errors = %d, time = %6.2f Gcyles\n", errors, t0*1.0E-9) ;
+  fprintf(stderr, "full range bmi2-32-c deinterleaving errors = %d, time = %6.2f Gcyles\n", errors, t0*1.0E-9) ;
 
 #if defined(__BMI2__)
   errors = 0 ;
   t0 = elapsed_cycles_fast() ;
-  for(j=0 ; j<65536 ; j++){
-    for(i=0 ; i<65536 ; i++){
+  for(j=0 ; j<65536 ; j+=3){
+    for(i=0 ; i<65536 ; i+=3){
       k64 = interleave_32_64_bmi2((uint32_t) i, (uint32_t) j) ;
       t   = deinterleave_64_32_bmi2(k64) ;
       if(t.l != i || t.h != j) errors++ ;
     }
   }
   t0 = elapsed_cycles_fast() - t0 ;
-  fprintf(stderr, "full range BMI2-64 deinterleaving errors = %d, time = %6.2f Gcyles\n", errors, t0*1.0E-9) ;
+  fprintf(stderr, "full range BMI2-64   deinterleaving errors = %d, time = %6.2f Gcyles\n", errors, t0*1.0E-9) ;
 
   errors = 0 ;
   t0 = elapsed_cycles_fast() ;
-  for(j=0 ; j<65536 ; j++){
-    for(i=0 ; i<65536 ; i++){
+  for(j=0 ; j<65536 ; j+=3){
+    for(i=0 ; i<65536 ; i+=3){
       k32 = interleave_16_32((uint32_t) i, (uint32_t) j) ;
       t   = deinterleave_32_16(k32) ;
       if(t.l != i || t.h != j) errors++ ;
     }
   }
   t0 = elapsed_cycles_fast() - t0 ;
-  fprintf(stderr, "full range BMI2-32 deinterleaving errors = %d, time = %6.2f Gcyles\n", errors, t0*1.0E-9) ;
+  fprintf(stderr, "full range BMI2-32   deinterleaving errors = %d, time = %6.2f Gcyles\n", errors, t0*1.0E-9) ;
 #endif
+}
+void test_rle(char *msg){
+  uint32_t i, j, nbits ;
+  int32_t nbytes, count ;
+  char cbuf[33] ;
+  bitstream *bstream ;
+  size_t bsize = 4096 ;
+  uint8_t bytes[4096] ;
+
+  bstream = StreamCreate(bsize, BIT_INSERT | BIT_XTRACT) ;
+  j = 1 ;
+  for(i=0 ; i<8 ; i++, j*=16){
+    BinaryToString(&j, cbuf, 32) ;
+    fprintf(stderr, "%10u = 0B%s 0X%8.8x\n", j, cbuf, j) ;
+  }
+  nbits = 0 ;
+  for(i=1 ; i<9 ; i*=2){
+    uint8_t byte = 0 ;
+    uint32_t repcount = i ;
+    nbits += RleEncodeByte(byte, repcount, bstream) ;
+  }
+  nbits += RleEncodeByte(127, 3, bstream) ;
+  for(i=1 ; i<9 ; i*=2){
+    uint8_t byte = 0xFFu ;
+    uint32_t repcount = i ;
+    nbits += RleEncodeByte(byte, repcount, bstream) ;
+  }
+  fprintf(stderr, "nbits total    = %4d\n", nbits) ;
+//   fprintf(stderr, "bits in stream = %4ld\n", STREAM_BITS_USED(*bstream)) ;
+  StreamFlush(bstream) ;
+  StreamRewind(bstream, 1) ;
+  fprintf(stderr, "bits in stream = %4ld\n", StreamAvailableBits(bstream)) ;
+  nbytes = 0 ;
+  for(i=0 ; i<9 ; i++){
+    count = RleDecodeByte(bytes + nbytes, bstream) ;
+    nbytes += count ;
+  }
 }
 
 #define NPTS 1025
@@ -401,6 +450,10 @@ int main(int argc, char **argv){
   }
   if(argc == 3 && atoi(argv[1]) == 4){
     test_interleave(argv[2]) ;
+    return 0 ;
+  }
+  if(argc == 3 && atoi(argv[1]) == 5){
+    test_rle(argv[2]) ;
     return 0 ;
   }
 

@@ -20,6 +20,7 @@
 
 #include <stdint.h>
 #include <rmn/bits.h>
+#include <rmn/bi_endian_pack.h>
 
 #if defined(__x86_64__) && ( defined(__AVX2__) || defined(__AVX512F__) )
 #include <immintrin.h>
@@ -140,6 +141,9 @@ typedef struct{
 uint64_t interleave_32_64_bmi2(uint32_t in1, uint32_t in2)  {
     return _pdep_u64(in1, 0x5555555555555555) | _pdep_u64(in2,0xaaaaaaaaaaaaaaaa);
 }
+static inline uint32_t interleave_16_32_bmi2(uint32_t in1, uint32_t in2)  {
+  return  _pdep_u32(in1, 0x55555555u) | _pdep_u32(in2, 0xAAAAAAAAu);
+}
 #endif
 // interleave the lower 16 bits from unsigned integers into 32 bits
 static inline uint32_t interleave_16_32_c(uint32_t in1, uint32_t in2)  {
@@ -159,9 +163,7 @@ static inline uint32_t interleave_16_32(uint32_t in1, uint32_t in2)  {
 #if !defined(__BMI2__)
   return interleave_16_32_c(in1, in2) ;
 #else
-  in1 = _pdep_u32(in1, 0x55555555u);
-  in2 = _pdep_u32(in2, 0xAAAAAAAAu);
-  return in1 | in2;
+  return interleave_16_32_bmi2(in1, in2) ;
 #endif
 }
 
@@ -205,17 +207,123 @@ static inline words2 deinterleave_32_16(uint32_t word){
   return deinterleave_32_16_c(word) ;
 #else
   return deinterleave_32_16_bmi2(word) ;
-//   words2 t ;
-//   t.l = (uint32_t)_pext_u32(word, 0x55555555u);
-//   t.h = (uint32_t)_pext_u32(word, 0xAAAAAAAAu);
-//   return t ;
 #endif
+}
+
+// ================================ utility functions ===============================
+// convert a binary number into a printable string of 0s and 1s
+static void BinaryToString(void *w32, char *string, int ndigits){
+  int i ;
+  uint32_t *what = (uint32_t *) w32 ;
+  uint32_t number = *what ;
+  ndigits = (ndigits > 32) ? 32 : ndigits ;
+  for(i=0 ; i<ndigits ; i++){
+    string[ndigits-1-i] = (number & 1) ? '1' : '0' ;
+    number >>= 1 ;
+  }
+  string[ndigits] = '\0' ;
 }
 
 // ================================ byte run length encoders/decoders family ===============================
 
-static inline uint32_t ByteRunLengthEncode(void *bytes, uint32_t nbytes, void *stream){
-  return 0 ;
+// encoding table for 2**n repeat counts (n = 0 to 16)
+// bit i will use i bits, from tab_2_n[i]
+//                                 1       2       4       8      16      32      64     128
+static uint32_t tab_2_n[] = { 0x0000, 0x0001, 0x0003, 0x0007, 0x000F, 0x001F, 0x003F, 0x007F,
+                              0x00FF, 0x01FF, 0x03FF, 0x07FF, 0x0FFF, 0x1FFF, 0x3FFF, 0x7FFF, 0xFFFF } ;
+//                               256     512      1k      2k      4k      8k     16k     32k     64k
+// compresssed stream format
+// 0xxxxxxxx   : byte other that 00000000 or 11111111
+// 1x0         :  1 byte of 0s (x is 0) or 1 byte of 1s (x is 1)
+// 1x10        :  2 identical bytes
+// 1x110       :  4 identical bytes
+// 1x1110      :  8 identical bytes
+// 1x11110     : 16 identical bytes
+// 1x111110    : 32 identical bytes
+// 1x1...10    : 2**n identical bytes (where n is the number of 1s after the x bit)
+// 25 (16+8+1) identical bytes would be encoded as 1x111101x11101x0
+// byte 11001010 would be encoded as 011001010
+// encode byte, repeated repcount times
+// if byte is other that 0x00 or 0xff, repcount is assumed to be 1
+// byte     [IN] : byte to encode
+// repcount [IN] : repeat count
+// stream  [OUT] : bit stream to receive encoded sequence
+// the function returns the number of bits inserted into the bit stream
+static inline int32_t RleEncodeByte(uint8_t byte, uint32_t repcount, bitstream *stream){
+  EZ_NEW_INSERT_VARS(*stream) ;
+  int32_t nbits = 0 ;
+  uint32_t token, token0, tokenc, countbits ;
+char string[33] ;
+fprintf(stderr, "encoding %3d repeated %3d times", byte, repcount) ;
+  if(repcount == 0) return 0 ;
+  if(byte == 0 || byte == 0xFFu){     // only 0x00 and 0xFF bytes can have a repeat count
+    countbits = 0 ;
+    token0 = (byte & 1) | 0b10 ;      // 0b1x
+    tokenc = 0 ;
+    while(repcount){                  // encode repeat bit (power of 2, starts at 1)
+      if(repcount & 1){               // non zero multiplier
+        token = (token0 << countbits) | tokenc ;
+        token <<= 1 ;                 // trailing 0
+        BE64_EZ_PUT_NBITS(token, countbits + 3) ;
+BinaryToString(&token, string, countbits + 3) ;
+fprintf(stderr, " %20s", string) ;
+        nbits = nbits + countbits + 3 ;
+      }
+      repcount >>= 1 ;
+      tokenc = (tokenc << 1) | 1 ;
+      countbits++ ;
+    }
+  }else{                              // 0xxxxxxxx , arbitrary byte
+    nbits += 9 ;
+    token = byte ;
+    BE64_EZ_PUT_NBITS(token, 9) ;
+BinaryToString(&token, string, 9) ;
+fprintf(stderr, " %20s", string) ;
+  }
+  EZ_SET_INSERT_VARS(*stream) ;
+fprintf(stderr, ", nbits = %d\n", nbits);
+  return nbits ;
+}
+// get bytes from encoded bit stream 
+//   1 byte of no repeat count is present
+//   variable number of bytes if a repeat coutn is found in stream
+// the function returns the number of bytes decodes
+static inline int32_t RleDecodeByte(uint8_t *bytes, bitstream *stream){
+  int32_t i, nbytes = 1 ;
+  uint32_t token, repcount ;
+  uint8_t byte ;
+  EZ_NEW_XTRACT_VARS(*stream) ;
+
+  BE64_EZ_GET_NBITS(token, 1) ;
+  if(token == 0){
+    BE64_EZ_GET_NBITS(token, 8) ;
+    byte = token ;
+    nbytes = 1 ;
+  }else{
+    BE64_EZ_GET_NBITS(token, 1) ;
+    byte = token ? 0xFFu : 0 ;
+    nbytes = 1 ;
+    BE64_EZ_GET_NBITS(token, 1) ;
+    while(token == 1){
+      nbytes <<= 1 ;
+      BE64_EZ_GET_NBITS(token, 1) ;
+    }
+  }
+  EZ_SET_XTRACT_VARS(*stream) ;
+fprintf(stderr, "RleDecodeByte : byte = %4u, nbytes = %d\n", byte, nbytes) ;
+  for(i=0 ; i<nbytes ; i++) bytes[i] = byte ;
+  return nbytes ;
+}
+
+static inline uint32_t ByteRunLengthEncode(void *b, int32_t nbytes, void *s){
+  uint8_t *bytes = (uint8_t *) b ;
+  uint32_t *stream = (uint32_t *) s ;
+  int32_t nbits = 0 ;
+  uint32_t rep = 1024 ;
+  int i ;
+  while(nbytes-- > 0){  // encode nbytes bytes
+  }
+  return nbits ;
 }
 
 static inline uint32_t ByteRunLengthDecode(void *bytes, uint32_t nbytes, void *stream){

@@ -12,5 +12,6 @@ void start_of_test(char *name){
   system("date '+%Y-%m-%d_%H.%M.%S' 1>&2") ;
   atexit(end_of_test) ;
 }
+// common Fortran mangling
 void start_of_test_(char *name){ start_of_test(name) ; };
 void start_of_test__(char *name){ start_of_test(name) ; };
