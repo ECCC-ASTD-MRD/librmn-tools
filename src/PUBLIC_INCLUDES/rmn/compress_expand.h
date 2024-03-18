@@ -300,14 +300,19 @@ static inline int32_t RleDecodeByte(uint8_t *bytes, bitstream *stream){
     byte = token ;
     nbytes = 1 ;
   }else{
+fprintf(stderr, "%1d", token) ;
     BE64_EZ_GET_NBITS(token, 1) ;
+fprintf(stderr, "%1d", token) ;
     byte = token ? 0xFFu : 0 ;
     nbytes = 1 ;
     BE64_EZ_GET_NBITS(token, 1) ;
+fprintf(stderr, "%1d", token) ;
     while(token == 1){
       nbytes <<= 1 ;
       BE64_EZ_GET_NBITS(token, 1) ;
+fprintf(stderr, "%1d", token) ;
     }
+fprintf(stderr, "\n") ;
   }
   EZ_SET_XTRACT_VARS(*stream) ;
 fprintf(stderr, "RleDecodeByte : byte = %4u, nbytes = %d\n", byte, nbytes) ;

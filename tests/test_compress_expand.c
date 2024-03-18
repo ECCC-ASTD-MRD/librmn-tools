@@ -388,7 +388,7 @@ void test_rle(char *msg){
   size_t bsize = 4096 ;
   uint8_t bytes[4096] ;
 
-  bstream = StreamCreate(bsize, BIT_INSERT | BIT_XTRACT) ;
+  bstream = BeStreamCreate(bsize, BIT_INSERT | BIT_XTRACT) ;
   j = 1 ;
   for(i=0 ; i<8 ; i++, j*=16){
     BinaryToString(&j, cbuf, 32) ;
@@ -408,13 +408,18 @@ void test_rle(char *msg){
   }
   fprintf(stderr, "nbits total    = %4d\n", nbits) ;
 //   fprintf(stderr, "bits in stream = %4ld\n", STREAM_BITS_USED(*bstream)) ;
-  StreamFlush(bstream) ;
-  StreamRewind(bstream, 1) ;
+  BeStreamFlush(bstream) ;
+  BeStreamRewind(bstream, 1) ;
+BinaryToString(bstream->first, cbuf, 32) ;
+fprintf(stderr, "0b%s\n", cbuf) ;
+BinaryToString((bstream->first) + 1, cbuf, 32) ;
+fprintf(stderr, "0b%s\n", cbuf) ;
   fprintf(stderr, "bits in stream = %4ld\n", StreamAvailableBits(bstream)) ;
   nbytes = 0 ;
   for(i=0 ; i<9 ; i++){
     count = RleDecodeByte(bytes + nbytes, bstream) ;
     nbytes += count ;
+//     fprintf(stderr, "bits in stream = %4ld\n", StreamAvailableBits(bstream)) ;
   }
 }
 
