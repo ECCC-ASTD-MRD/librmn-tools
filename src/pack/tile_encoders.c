@@ -992,3 +992,49 @@ int32_t decode_as_tiles(void *f, int ni, int lni, int nj, bitstream *s){
   }
   return nbtot ;           // return total number of bits extracted from stream
 }
+
+#include <libaec.h>
+
+int32_t aec_encode_data(void *s, int32_t source_length, void *d, int32_t dest_length){
+    struct aec_stream strm;
+    int32_t *source = (int32_t *) s;
+    unsigned char *dest = (unsigned char *) d ;
+
+    /* input data is 32 bits wide */
+    strm.bits_per_sample = 32;
+
+    /* define a block size of 16 */
+    strm.block_size = 16;
+
+    /* the reference sample interval is set to 128 blocks */
+    strm.rsi = 128;
+
+    /* input data is signed and needs to be preprocessed */
+    strm.flags = AEC_DATA_SIGNED | AEC_DATA_PREPROCESS;
+
+    /* pointer to input */
+    strm.next_in = (unsigned char *)source;
+
+    /* length of input in bytes */
+    strm.avail_in = source_length * sizeof(int32_t);
+
+    /* pointer to output buffer */
+    strm.next_out = dest;
+
+    /* length of output buffer in bytes */
+    strm.avail_out = dest_length;
+
+    /* initialize encoding */
+    if (aec_encode_init(&strm) != AEC_OK)
+        return 1;
+
+    /* Perform encoding in one call and flush output. */
+    /* In this example you must be sure that the output */
+    /* buffer is large enough for all compressed output */
+    if (aec_encode(&strm, AEC_FLUSH) != AEC_OK)
+        return 1;
+
+    /* free all resources used by encoder */
+    aec_encode_end(&strm);
+    return 0 ;
+}

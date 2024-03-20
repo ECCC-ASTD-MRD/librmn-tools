@@ -66,6 +66,9 @@ static bitstream null_bitstream = { .acc_i = 0, .acc_x = 0 , .insert = 0 , .xtra
 #define BIT_INSERT        2
 // full initialization mode
 #define BIT_FULL_INIT     8
+// set endianness
+#define SET_BIG_ENDIAN      16
+#define SET_LITTLE_ENDIAN   32
 
 // endianness
 #define STREAM_BE 1
@@ -278,6 +281,9 @@ STATIC inline void  StreamInit(bitstream *p, void *mem, size_t size, int mode){
   p->xtract = 0 ;                              // extraction point at first available bit
   if((mode & BIT_XTRACT) == 0) p->xtract = -1 ;  // deactivate extract mode (insert only mode)
   if((mode & BIT_INSERT) == 0) p->insert = -1 ;  // deactivate insert mode  (extract only mode)
+  if(mode & SET_BIG_ENDIAN   ) p->endian = STREAM_BE ;
+  if(mode & SET_LITTLE_ENDIAN) p->endian = STREAM_LE ;
+//   if(p->endian == 0) p->endian = STREAM_BE ;   //  default to BIG endian if not already defined
 }
 
 // initialize a LittleEndian stream
