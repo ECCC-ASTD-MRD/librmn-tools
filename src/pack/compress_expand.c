@@ -71,7 +71,7 @@ int32_t MaskGreater_c_le(void *src1, int nsrc1, void *src2, int nsrc2, uint32_t 
   int i0, i, inc1 = ((nsrc1 > 1) ? 1 : 0), inc2 = ((nsrc2 > 1) ? 1 : 0) ;
   int n = (nsrc1 > nsrc2) ? nsrc1 : nsrc2 ;
   int nmask = 0 ;
-
+fprintf(stderr, "MaskGreater_c_le\n");
   if(nsrc1 != n && nsrc1 != 1) return -1 ;
   if(nsrc2 != n && nsrc2 != 1) return -1 ;
 

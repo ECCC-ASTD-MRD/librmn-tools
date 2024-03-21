@@ -995,46 +995,72 @@ int32_t decode_as_tiles(void *f, int ni, int lni, int nj, bitstream *s){
 
 #include <libaec.h>
 
-int32_t aec_encode_data(void *s, int32_t source_length, void *d, int32_t dest_length){
-    struct aec_stream strm;
-    int32_t *source = (int32_t *) s;
-    unsigned char *dest = (unsigned char *) d ;
+int32_t AecDecodeUnsigned(void *source, int32_t source_length, void *dest, int32_t dest_length, int bits_per_sample){
+  struct aec_stream strm;
 
-    /* input data is 32 bits wide */
-    strm.bits_per_sample = 32;
+  strm.bits_per_sample = bits_per_sample;
+  strm.block_size = 16;
+  strm.rsi = 128;
+//   strm.flags = AEC_DATA_SIGNED ;
+  strm.flags = 0;
+  strm.next_in = source;
+  strm.avail_in = source_length;
+  strm.next_out = (unsigned char *)dest;
+  strm.avail_out = dest_length * sizeof(int32_t);
 
-    /* define a block size of 16 */
-    strm.block_size = 16;
+  if (aec_decode_init(&strm) != AEC_OK)
+    return -1;
 
-    /* the reference sample interval is set to 128 blocks */
-    strm.rsi = 128;
+  if (aec_decode(&strm, AEC_FLUSH) != AEC_OK)
+    return -1;
 
-    /* input data is signed and needs to be preprocessed */
-    strm.flags = AEC_DATA_SIGNED | AEC_DATA_PREPROCESS;
+  int32_t total_out = strm.total_out ;
+fprintf(stderr, "AecDecodeUnsigned : decoded %d bytes = %d bits\n", total_out, total_out*8) ;
+  aec_decode_end(&strm);
 
-    /* pointer to input */
-    strm.next_in = (unsigned char *)source;
+  return total_out ;
+}
 
-    /* length of input in bytes */
-    strm.avail_in = source_length * sizeof(int32_t);
+int32_t AecEncodeUnsigned(void *source, int32_t source_length, void *dest, int32_t dest_length, int bits_per_sample){
+  struct aec_stream strm;
+fprintf(stderr, "AecEncodeUnsigned : encoding %d samples 0f %d bits = %d bits\n", source_length, bits_per_sample, source_length*bits_per_sample);
+  /* input data is bits_per_sample bits wide */
+  strm.bits_per_sample = bits_per_sample;
+  /* define a block size of 16 */
+  strm.block_size = 16;
+  /* the reference sample interval is set to 128 blocks */
+  strm.rsi = 128;
+  /* input data is signed and needs to be preprocessed */
+//   strm.flags = AEC_DATA_SIGNED | AEC_DATA_PREPROCESS;
+  /* input data is unsigned and does not need to be preprocessed */
+  strm.flags = 0 ;
+  /* pointer to input */
+  strm.next_in = (unsigned char *)source;
+  /* length of input in bytes */
+//   strm.avail_in = source_length * sizeof(int32_t);
+  strm.avail_in = source_length * (bits_per_sample/8);
+  /* pointer to output buffer */
+  strm.next_out = dest;
+  /* length of output buffer in bytes */
+  strm.avail_out = dest_length;
 
-    /* pointer to output buffer */
-    strm.next_out = dest;
+  /* initialize encoding */
+  if (aec_encode_init(&strm) != AEC_OK){
+fprintf(stderr, "aec_encode_init(&strm) != AEC_OK\n");
+      return -1;
+  }
 
-    /* length of output buffer in bytes */
-    strm.avail_out = dest_length;
+  /* Perform encoding in one call and flush output. */
+  /* In this example you must be sure that the output */
+  /* buffer is large enough for all compressed output */
+  if (aec_encode(&strm, AEC_FLUSH) != AEC_OK){
+fprintf(stderr, "aec_encode(&strm, AEC_FLUSH) != AEC_OK\n") ;
+      return -1;
+  }
 
-    /* initialize encoding */
-    if (aec_encode_init(&strm) != AEC_OK)
-        return 1;
+  int32_t total_out = strm.total_out ;
+  /* free all resources used by encoder */
+  aec_encode_end(&strm);
 
-    /* Perform encoding in one call and flush output. */
-    /* In this example you must be sure that the output */
-    /* buffer is large enough for all compressed output */
-    if (aec_encode(&strm, AEC_FLUSH) != AEC_OK)
-        return 1;
-
-    /* free all resources used by encoder */
-    aec_encode_end(&strm);
-    return 0 ;
+  return total_out ;
 }

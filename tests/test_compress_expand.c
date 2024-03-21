@@ -246,8 +246,10 @@ void test_bit_mask_field(char *filename){
   int32_t dims[7], ndims, ndata, fd = 0, i, j, nzeros, nones, old = 2, rep = 0, totbits = 0, deficit = 0 ;
   char name[5] ;
   float *fdata, fmin, fmax ;
-  int32_t *idata, *bitmask ;
-  for(j=0 ; j<3 ; j++){
+  int32_t *idata, *bitmask, ncomp ;
+  uint32_t zero = 0 ;
+
+  for(j=0 ; j<1 ; j++){
     void *data = read_32bit_data_record_named(filename, &fd, dims, &ndims, &ndata, name) ;
 fprintf( stderr, "read record from '%s', %d dimensions, name = '%s', ndata = %d, (%d x %d)\n",
           filename, ndims, name, ndata, dims[0], dims[1]) ;
@@ -280,6 +282,28 @@ fprintf( stderr, "min = %f, max = %f\n", fmin, fmax) ;
     }
 fprintf( stderr, "\n");
 fprintf( stderr, "number of 1s = %d, number of 0s = %d, total = %d, totbits = %d\n", nones, nzeros, nones + nzeros, totbits) ;
+    uint32_t the_bits[ndata] , aec_compressed[ndata] ;
+    nzeros = 0 ;
+//     MaskGreater_avx512_be(void *src1, int nsrc1, void *src2, int nsrc2, uint32_t *mask, int negate)
+    for(i=0 ; i<ndata ; the_bits[i] = 0) ;
+    nones = MaskGreater_c_le(idata , ndata, &zero, 1, the_bits, 0) ;
+fprintf( stderr, "number of 1s = %d\n", nones) ;
+// AecEncodeUnsigned(void *source, int32_t source_length, void *dest, int32_t dest_length, int bits_per_sample)
+    ncomp = AecEncodeUnsigned(the_bits, (ndata+7)/8, aec_compressed, ndata, 8) ;
+fprintf( stderr, "bytes = %d, compressed bytes = %d\n", (ndata+7)/8, ncomp) ;
+// AecDecodeUnsigned(void *source, int32_t source_length, void *dest, int32_t dest_length, int bits_per_sample)
+    uint32_t restored[ndata] ;
+    ncomp = AecDecodeUnsigned(aec_compressed, ndata, restored, ndata, 8) ;
+fprintf( stderr, "decompressed bytes = %d\n", ncomp) ;
+    int errors = 0 ;
+    for(i=0 ; i<(ndata+31)/32 ; i++){
+      if(restored[i] != the_bits[i]){
+        errors++ ;
+//         fprintf( stderr, "error at %d\n", i) ;
+//         exit(1) ;
+      }
+    }
+    fprintf( stderr, "decompression errors = %d, %d words, %d points\n", errors, (ndata+31)/32, ((ndata+31)/32)*32) ;
   }
 }
 
