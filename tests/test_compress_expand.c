@@ -248,8 +248,10 @@ void test_bit_mask_field(char *filename){
   float *fdata, fmin, fmax ;
   int32_t *idata, *bitmask, ncomp ;
   uint32_t zero = 0 ;
+  uint64_t t0 ;
 
   for(j=0 ; j<1 ; j++){
+    ndims = 0 ;
     void *data = read_32bit_data_record_named(filename, &fd, dims, &ndims, &ndata, name) ;
 fprintf( stderr, "read record from '%s', %d dimensions, name = '%s', ndata = %d, (%d x %d)\n",
           filename, ndims, name, ndata, dims[0], dims[1]) ;
@@ -262,6 +264,7 @@ fprintf( stderr, "read record from '%s', %d dimensions, name = '%s', ndata = %d,
     }
 fprintf( stderr, "min = %f, max = %f\n", fmin, fmax) ;
     nzeros = nones = 0 ;
+    fdata[ndata-1] = fdata[ndata-9] = 10.0f ;  // make sure the last 2 bytes contain at least 1 bit set
     for(i=0 ; i<ndata ; i++){
       idata[i] = (fdata[i] > 0) ? 1 : 0 ;
       if(old == idata[i]){
@@ -283,22 +286,34 @@ fprintf( stderr, "min = %f, max = %f\n", fmin, fmax) ;
 fprintf( stderr, "\n");
 fprintf( stderr, "number of 1s = %d, number of 0s = %d, total = %d, totbits = %d\n", nones, nzeros, nones + nzeros, totbits) ;
     uint32_t the_bits[ndata] , aec_compressed[ndata] ;
+#if defined(__x86_64__) && defined(__AVX512F__)
     nzeros = 0 ;
-    for(i=0 ; i<ndata ; the_bits[i] = 0) ;
+    for(i=0 ; i<ndata ; i++) the_bits[i] = 0 ;
     nones = 0 ;
-fprintf(stderr, "1: s1 = %p, s2 = %p, mk = %p\n", idata, &zero, the_bits) ;
-    nones = MaskGreater_avx512_le(idata , (ndata), &zero, 1, the_bits, 0) ;
-fprintf(stderr, "1: s1 = %p, s2 = %p, mk = %p\n", idata, &zero, the_bits) ;
-fprintf( stderr, "number of 1s (avx512) = %d\n", nones) ;
-    for(i=0 ; i<ndata ; the_bits[i] = 0) ;
+    t0 = elapsed_cycles_fast() ;
+    nones = MaskGreater_avx512_le(idata , ndata, &zero, 1, the_bits, 0) ;
+    t0 = elapsed_cycles_fast() - t0 ;
+fprintf( stderr, "number of 1s (avx512) = %d, cycles = %ld\n", nones, t0) ;
+#endif
+#if defined(__x86_64__) && defined(__AVX2__)
+    nzeros = 0 ;
+    for(i=0 ; i<ndata ; i++) the_bits[i] = 0 ;
+    nones = 0 ;
+    t0 = elapsed_cycles_fast() ;
+    nones = MaskGreater_avx2_le(idata , ndata, &zero, 1, the_bits, 0) ;
+    t0 = elapsed_cycles_fast() - t0 ;
+fprintf( stderr, "number of 1s (avx2)   = %d, cycles = %ld\n", nones, t0) ;
+#endif
+    for(i=0 ; i<ndata ; i++) the_bits[i] = 0 ;
     nones = 0 ;
 //     nones = MaskGreater_avx2_le(idata , ndata, &zero, 1, the_bits, 0) ;
 // fprintf( stderr, "number of 1s (avx2)   = %d\n", nones) ;
-    for(i=0 ; i<ndata ; the_bits[i] = 0) ;
+    for(i=0 ; i<ndata ; i++) the_bits[i] = 0 ;
     nones = 0 ;
-fprintf(stderr, "2: s1 = %p, s2 = %p, mk = %p\n", idata, &zero, the_bits) ;
+    t0 = elapsed_cycles_fast() ;
     nones = MaskGreater_c_le(idata , ndata, &zero, 1, the_bits, 0) ;
-fprintf( stderr, "number of 1s (c)      = %d\n", nones) ;
+    t0 = elapsed_cycles_fast() - t0 ;
+fprintf( stderr, "number of 1s (c)      = %d, cycles = %ld\n", nones, t0) ;
 
 return ;
 // AecEncodeUnsigned(void *source, int32_t source_length, void *dest, int32_t dest_length, int bits_per_sample)

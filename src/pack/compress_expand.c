@@ -31,6 +31,15 @@
 // _be function : Big Endian style, [0] is MSB
 // _le function : Little Endian style, [0] is LSB
 // plain C version
+static inline uint32_t Mask0Greater_c_be(uint32_t *s1, int inc1, uint32_t *s2, int inc2, int n){
+  uint32_t mask0 = 0, m1 = 0x80000000u ;
+  while(n-- > 0) {                           // n < 33 value slices
+    mask0 |= ( (*s1 > *s2) ? m1 : 0 ) ;      // or m1 if src1 greater than src2
+    m1 >>= 1 ;                               // next bit to the right toward LSB
+    s1 += inc1 ; s2 += inc2 ;                // add increments to pointers
+  }
+  return mask0 ;
+}
 int32_t MaskGreater_c_be(void *src1, int nsrc1, void *src2, int nsrc2, uint32_t *mask, int negate){
   uint32_t *s1 = (uint32_t *) src1 ;
   uint32_t *s2 = (uint32_t *) src2 ;
@@ -43,26 +52,37 @@ int32_t MaskGreater_c_be(void *src1, int nsrc1, void *src2, int nsrc2, uint32_t 
   if(nsrc2 != n && nsrc2 != 1) return -1 ;
 
   for(i0=0 ; i0 < (n-31) ; i0 += 32){
-    mask0 = 0 ; m1 = 0x80000000u ;             // start with MSB
-    for(i=0 ; i<32 ; i++) {                    // 32 value slices
-      mask0 |= ( (*s1 > *s2) ? m1 : 0 ) ;      // or m1 if src1 greater than src2
-      m1 >>= 1 ;                               // next bit to the right toward LSB
-      s1 += inc1 ; s2 += inc2 ;                // add increments to pointers
-    }
+//     mask0 = 0 ; m1 = 0x80000000u ;             // start with MSB
+//     for(i=0 ; i<32 ; i++) {                    // 32 value slices
+//       mask0 |= ( (*s1 > *s2) ? m1 : 0 ) ;      // or m1 if src1 greater than src2
+//       m1 >>= 1 ;                               // next bit to the right toward LSB
+//       s1 += inc1 ; s2 += inc2 ;                // add increments to pointers
+//     }
+    mask0 = Mask0Greater_c_be(s1, inc1, s2, inc2, 32) ;
     mask0 ^= complement ;                      // negate mask if necessary (xor with 0 or FFFFFFFF)
     nmask += popcnt_32(mask0) ;                // count 1s in masks
     *mask++ = mask0 ;
   }
-  mask0 = 0 ; m1 = 0x80000000u ;               // start with MSB
-  for(i=i0 ; i < n ; i++){                     // last slice
-    mask0 |= ( (*s1 > *s2) ? m1 : 0 ) ;        // or m1 if src1 greater than src2
-    m1 >>= 1 ;                                 // next bit to the right toward LSB
-    s1 += inc1 ; s2 += inc2 ;                  // add increments to pointers
-  }
+//   mask0 = 0 ; m1 = 0x80000000u ;               // start with MSB
+//   for(i=i0 ; i < n ; i++){                     // last slice
+//     mask0 |= ( (*s1 > *s2) ? m1 : 0 ) ;        // or m1 if src1 greater than src2
+//     m1 >>= 1 ;                                 // next bit to the right toward LSB
+//     s1 += inc1 ; s2 += inc2 ;                  // add increments to pointers
+//   }
+  mask0 = Mask0Greater_c_be(s1, inc1, s2, inc2, n-i0) ;
   mask0 ^= complement ;                        // negate mask if necessary (xor with 0 or FFFFFFFF)
   nmask += popcnt_32(mask0) ;                  // count 1s in masks
   *mask++ = mask0 ;
   return nmask ;
+}
+static inline uint32_t Mask0Greater_c_le(uint32_t *s1, int inc1, uint32_t *s2, int inc2, int n){
+  uint32_t mask0 = 0, m1 = 1 ;               // start with LSB
+  while(n-- > 0) {                           // n < 33 value slices
+    mask0 |= ( (*s1 > *s2) ? m1 : 0 ) ;      // or m1 if src1 greater than src2
+    m1 <<= 1 ;                               // next bit to the left toward MSB
+    s1 += inc1 ; s2 += inc2 ;                // add increments to pointers
+  }
+  return mask0 ;
 }
 int32_t MaskGreater_c_le(void *src1, int nsrc1, void *src2, int nsrc2, void *mask, int negate){
   uint32_t *s1 = (uint32_t *) src1 ;
@@ -76,81 +96,60 @@ int32_t MaskGreater_c_le(void *src1, int nsrc1, void *src2, int nsrc2, void *mas
   if(nsrc1 != n && nsrc1 != 1) return -1 ;
   if(nsrc2 != n && nsrc2 != 1) return -1 ;
 
-fprintf(stderr, "MaskGreater_c_le : n = %d, nsrc1/2 = %d/%d, inc1/2 = %d/%d\n", n, nsrc1, nsrc2, inc1, inc2);
-fprintf(stderr, "s1 = %p, s2 = %p, mk = %p\n", s1, s2, mk);
   for(i0=0 ; i0 < (n-31) ; i0 += 32){
-    mask0 = 0 ; m1 = 1 ;                       // start with LSB
-    for(i=0 ; i<32 ; i++) {                    // 32 value slices
-      mask0 |= ( (*s1 > *s2) ? m1 : 0 ) ;      // or m1 if src1 greater than src2
-      m1 <<= 1 ;                               // next bit to the left toward MSB
-      s1 += inc1 ; s2 += inc2 ;                // add increments to pointers
-    }
-    mask0 ^= complement ;                      // negate mask if necessary (xor with 0 or FFFFFFFF)
+    mask0 = Mask0Greater_c_le(s1, inc1, s2, inc2, 32) ^ complement ;
+    s1 += inc1*32 ; s2 += inc2*32 ;
     nmask += popcnt_32(mask0) ;
     *mk++ = mask0 ;
   }
-fprintf(stderr, "\n");
-fprintf(stderr, "MaskGreater_c_le : nmask = %d, i0 = %d, n-i0 = %d\n", nmask, i0, n-i0);
-  return nmask ;
-  mask0 = 0 ; m1 = 1 ;                         // start with LSB
-  for(i=i0 ; i < n ; i++){                     // last slice
-    mask0 |= ( (*s1 > *s2) ? m1 : 0 ) ;        // or m1 if src1 greater than src2
-    m1 <<= 1 ;                                 // next bit to the left toward MSB
-    s1 += inc1 ; s2 += inc2 ;                  // add increments to pointers
-    }
-  mask0 ^= complement ;                        // negate mask if necessary (xor with 0 or FFFFFFFF)
+  mask0 = Mask0Greater_c_le(s1, inc1, s2, inc2, n-i0) ^ complement ;
   nmask += popcnt_32(mask0) ;
   *mk++ = mask0 ;
   return nmask ;
 }
 #if defined(__x86_64__) && defined(__AVX2__)
 int32_t MaskGreater_avx2_be(void *src1, int nsrc1, void *src2, int nsrc2, uint32_t *mask, int negate){
-  uint32_t *s1 = (uint32_t *) src1 ;
-  uint32_t *s2 = (uint32_t *) src2 ;
-  uint32_t complement = ( negate ? 0xFFFFFFFFu : 0 ), mask0, m1  ;
-  int n = (nsrc1 > nsrc2) ? nsrc1 : nsrc2 ;
-  int nmask = 0 ;
-  int i0, i, inc1 = ((nsrc1 > 1) ? 1 : 0), inc2 = ((nsrc2 > 1) ? 1 : 0) ;
-  uint32_t local[8] ;
-
-  if(nsrc1 != n && nsrc1 != 1) return -1 ;
-  if(nsrc2 != n && nsrc2 != 1) return -1 ;
-
-  for(i0=0 ; i0 < (n-31) ; i0 += 32){          // 32 bit slices
-  }
-  mask0 = 0 ; m1 = 0x80000000u ;               // start with MSB
-  for(i=i0 ; i < n ; i++){                     // last slice
-    mask0 |= ( (*s1 > *s2) ? m1 : 0 ) ;        // or m1 if src1 greater than src2
-    m1 >>= 1 ;                                 // next bit to the right toward LSB
-    s1 += inc1 ; s2 += inc2 ;                  // add increments to pointers
-  }
-  mask0 ^= complement ;                        // negate mask if necessary (xor with 0 or FFFFFFFF)
-  nmask += popcnt_32(mask0) ;                  // count 1s in masks
-  *mask++ = mask0 ;
-  return nmask ;
+  return MaskGreater_c_be(src1, nsrc1, src2, nsrc2, mask, negate) ;
 }
 int32_t MaskGreater_avx2_le(void *src1, int nsrc1, void *src2, int nsrc2, void *mask, int negate){
-  uint32_t *s1 = (uint32_t *) src1 ;
-  uint32_t *s2 = (uint32_t *) src2 ;
+  uint32_t *s1 = (uint32_t *) src1, *s2 = (uint32_t *) src2 ;
   uint8_t *mk = (uint8_t *) mask ;
   uint32_t complement = ( negate ? 0xFFFFFFFFu : 0 ), mask0, m1 ;
   int n = (nsrc1 > nsrc2) ? nsrc1 : nsrc2 ;
   int nmask = 0 ;
   int i0, i, inc1 = ((nsrc1 > 1) ? 1 : 0), inc2 = ((nsrc2 > 1) ? 1 : 0) ;
-  uint32_t local[8] ;
+  __m256i v1a, v1b, v1c, v1d, v2a, v2b, v2c, v2d, vm1, vm2, vc1, vc2 ;
 
   if(nsrc1 != n && nsrc1 != 1) return -1 ;
   if(nsrc2 != n && nsrc2 != 1) return -1 ;
 
-  for(i0=0 ; i0 < (n-31) ; i0 += 32){          // 32 bit slices
+  vc1 = _mm256_set1_epi32((nsrc1 == 1) ? *s1 : 0 ) ;   // *s1 if single value, 0 otherwise
+  vm1 = _mm256_set1_epi32(nsrc1 > 1 ? -1 : 0) ;
+  vc2 = _mm256_set1_epi32((nsrc2 == 1) ? *s2 : 0 ) ;   // *s2 if single value, 0 otherwise
+  vm2 = _mm256_set1_epi32(nsrc2 > 1 ? -1 : 0) ;
+  for(i0=0 ; i0 < (n-31) ; i0 += 32){          // 4 x 8 element slices
+    v1a =  _mm256_maskload_epi32((int32_t *)(s1   ), vm1) | vc1 ;   // v1x = vector of s1 if nsrc1 > 1, 0 otherwise
+    v1b =  _mm256_maskload_epi32((int32_t *)(s1+ 8), vm1) | vc1 ;   // vm1 = 0 if nsrc1 > 1, *s1 otherwise
+    v1c =  _mm256_maskload_epi32((int32_t *)(s1+16), vm1) | vc1 ;   // vector or scalar according to nsrc1 > 1
+    v1d =  _mm256_maskload_epi32((int32_t *)(s1+24), vm1) | vc1 ;
+    v2a =  _mm256_maskload_epi32((int32_t *)(s2   ), vm2) | vc2 ;   // vector of s2 if nsrc2 > 1, 0 otherwise
+    v2b =  _mm256_maskload_epi32((int32_t *)(s2+ 8), vm2) | vc2 ;   // vm2 = 0 if nsrc2 > 1, *s1 otherwise
+    v2c =  _mm256_maskload_epi32((int32_t *)(s2+16), vm2) | vc2 ;   // vector or scalar according to nsrc2 > 1
+    v2d =  _mm256_maskload_epi32((int32_t *)(s2+24), vm2) | vc2 ;
+    v1a = _mm256_cmpgt_epi32(v1a, v2a) ;
+    v1b = _mm256_cmpgt_epi32(v1b, v2b) ;
+    v1c = _mm256_cmpgt_epi32(v1c, v2c) ;
+    v1d = _mm256_cmpgt_epi32(v1d, v2d) ;
+    mk[0] = _mm256_movemask_ps((__m256) v1a) ;
+    mk[1] = _mm256_movemask_ps((__m256) v1b) ;
+    mk[2] = _mm256_movemask_ps((__m256) v1c) ;
+    mk[3] = _mm256_movemask_ps((__m256) v1d) ;
+    nmask = nmask + _mm_popcnt_u32(mk[0]) + _mm_popcnt_u32(mk[1]) + _mm_popcnt_u32(mk[2]) + _mm_popcnt_u32(mk[3]) ;
+    s1 += 32*inc1 ;
+    s2 += 32*inc2 ;
   }
-  mask0 = 0 ; m1 = 1 ;                         // start with LSB
-  for(i=i0 ; i < n ; i++){                     // last slice
-    mask0 |= ( (*s1 > *s2) ? m1 : 0 ) ;        // or m1 if src1 greater than src2
-    m1 <<= 1 ;                                 // next bit to the left toward MSB
-    s1 += inc1 ; s2 += inc2 ;                  // add increments to pointers
-    }
-  mask0 ^= complement ;                        // negate mask if necessary (xor with 0 or FFFFFFFF)
+  mask0 = Mask0Greater_c_le(s1, inc1, s2, inc2, n-i0) ;
+  mask0 = negate ? ~mask0 : mask0 ;            // negate mask if necessary (xor with 0 or FFFFFFFF)
   nmask += popcnt_32(mask0) ;
   *mk++ = mask0 ;
   return nmask ;
@@ -158,98 +157,44 @@ int32_t MaskGreater_avx2_le(void *src1, int nsrc1, void *src2, int nsrc2, void *
 #endif
 #if defined(__x86_64__) && defined(__AVX512F__)
 int32_t MaskGreater_avx512_be(void *src1, int nsrc1, void *src2, int nsrc2, void *mask, int negate){
-  uint32_t *s1 = (uint32_t *) src1 ;
-  uint32_t *s2 = (uint32_t *) src2 ;
-  uint8_t *mk = (uint8_t *) mask ;
-  uint32_t complement = ( negate ? 0xFFFFFFFFu : 0 ), mask0, m1  ;
-  int n = (nsrc1 > nsrc2) ? nsrc1 : nsrc2 ;
-  int nmask = 0 ;
-  int i0, i, inc1 = ((nsrc1 > 1) ? 1 : 0), inc2 = ((nsrc2 > 1) ? 1 : 0) ;
-  int incv1 = ((nsrc1 > 1) ? 16 : 0), incv2 = ((nsrc2 > 1) ? 16 : 0) ;
-  uint32_t local[16] ;
-
-  if(nsrc1 != n && nsrc1 != 1) return -1 ;
-  if(nsrc2 != n && nsrc2 != 1) return -1 ;
-  if(incv1 == 0){                              // src1 is single value
-    for(i=0 ; i<16 ; i++) local[i] = *s1 ;
-    s1 = local ;
-  }
-  if(incv2 == 0){                              // src2 is single value
-    for(i=0 ; i<16 ; i++) local[i] = *s2 ;
-    s2 = local ;
-  }
-
-  for(i0=0 ; i0 < (n-31) ; i0 += 32){          // 32 bit slices
-  }
-  mask0 = 0 ; m1 = 0x80000000u ;               // start with MSB
-  for(i=i0 ; i < n ; i++){                     // last slice
-    mask0 |= ( (*s1 > *s2) ? m1 : 0 ) ;        // or m1 if src1 greater than src2
-    m1 >>= 1 ;                                 // next bit to the right toward LSB
-    s1 += inc1 ; s2 += inc2 ;                  // add increments to pointers
-  }
-  mask0 ^= complement ;                        // negate mask if necessary (xor with 0 or FFFFFFFF)
-  nmask += popcnt_32(mask0) ;                  // count 1s in masks
-  mk[0] = (mask0 & 0xFF) ;
-  mk[1] = (mask0 >> 8) & 0xFF ;
-  mk[2] = (mask0 >> 16) & 0xFF ;
-  mk[3] = (mask0 >> 24) ;
-  return nmask ;
+  return MaskGreater_c_be(src1, nsrc1, src2, nsrc2, mask, negate) ;
 }
 int32_t MaskGreater_avx512_le(void *src1, int nsrc1, void *src2, int nsrc2, void *mask, int negate){
-  uint32_t *s1 = (uint32_t *) src1 ;
-  uint32_t *s2 = (uint32_t *) src2 ;
-  uint8_t *mk = (uint8_t *) mask ;
-  uint32_t complement = ( negate ? 0xFFFFFFFFu : 0 ), mask0, m1 ;
-  int n = (nsrc1 > nsrc2) ? nsrc1 : nsrc2 ;
-  int nmask = 0 ;
+  uint32_t *s1 = (uint32_t *)src1, *s2 = (uint32_t *)src2, mask0, m1 ;
+  uint8_t *mk = (uint8_t *)mask ;
+  uint16_t complement16 = ( negate ? 0xFFFFu : 0 ) ;
+  int n = (nsrc1 > nsrc2) ? nsrc1 : nsrc2, nmask = 0 ;
   int i0, i, inc1 = ((nsrc1 > 1) ? 1 : 0), inc2 = ((nsrc2 > 1) ? 1 : 0) ;
-  int incv1 = ((nsrc1 > 1) ? 16 : 0), incv2 = ((nsrc2 > 1) ? 16 : 0) ;
-  uint32_t local[8] ;
-uint32_t *s0 = s1 ;
-uint8_t *mk0 = mk ;
+  int incv1 = ((nsrc1 > 1) ? 32 : 0), incv2 = ((nsrc2 > 1) ? 32 : 0) ;
+  uint16_t mb1 = ((nsrc1 == 1) ? 0 : 0xFFFFu ), mb2 = ((nsrc2 == 1) ? 0 : 0xFFFFu ) ;
+  __m512i v1a, v2a, v1b, v2b, vb1, vb2 ;
+
   if(nsrc1 != n && nsrc1 != 1) return -1 ;
   if(nsrc2 != n && nsrc2 != 1) return -1 ;
-  if(incv1 == 0){                              // src1 is single value
-    for(i=0 ; i<16 ; i++) local[i] = *s1 ;
-    s1 = local ;
+
+  vb1 = _mm512_set1_epi32(*s1) ;               // src1 single valued
+  vb2 = _mm512_set1_epi32(*s2) ;               // src2 single valued
+  for(i0=0 ; i0 < (n-31) ; i0 += 32){          // 2 x 16 element slices
+    v1a =  _mm512_mask_loadu_epi32(vb1, mb1, s1   ) ;
+    v2a =  _mm512_mask_loadu_epi32(vb2, mb2, s2   ) ;
+    v1b =  _mm512_mask_loadu_epi32(vb1, mb1, s1+16) ;
+    v2b =  _mm512_mask_loadu_epi32(vb2, mb2, s2+16) ;
+    uint16_t k1 = _mm512_cmpgt_epu32_mask(v1a, v2a) ^ complement16 ;
+    uint16_t k2 = _mm512_cmpgt_epu32_mask(v1b, v2b) ^ complement16 ;
+    nmask = nmask + _mm_popcnt_u32(k1) + _mm_popcnt_u32(k2) ;
+    mk[0] = (k1 & 0xFF) ;
+    mk[1] = (k1 >> 16) ;
+    mk[2] = (k2 & 0xFF) ;
+    mk[3] = (k2 >> 16) ;
+    s1 += incv1 ; s2 += incv2 ; mk += 4 ;      // add increments to pointers
   }
-  if(incv2 == 0){                              // src2 is single value
-    for(i=0 ; i<16 ; i++) local[i] = *s2 ;
-    s2 = local ;
-  }
-fprintf(stderr, "MaskGreater_avx512_le : nsrc1/2 = %d/%d, inc1/2 = %d/%d, incv1/2 = %d/%d\n",
-        nsrc1, nsrc2, inc1, inc2, incv1, incv2) ;
-fprintf(stderr, "0: s1 = %p, s2 = %p, mk = %p\n", s1, s2, mk);
-  for(i0=0 ; i0 < (n-31) ; i0 += 32){          // 32 bit slices
-    __m512i v1 = _mm512_loadu_epi32(s1) ;
-    __m512i v2 = _mm512_loadu_epi32(s2) ;
-    uint16_t k = _mm512_cmpgt_epu32_mask(v1, v2) ;
-    nmask += popcnt_32(k) ;
-    mk[0] = (k & 0xFF) ;
-    mk[1] = (k >> 16) ;
-    s1 += incv1 ; s2 += incv2 ; mk += 2 ;      // add increments to pointers
-    v1 = _mm512_loadu_epi32(s1) ;
-    v2 = _mm512_loadu_epi32(s2) ;
-    k = _mm512_cmpgt_epu32_mask(v1, v2) ;
-    nmask += popcnt_32(k) ;
-    mk[0] = (k & 0xFF) ;
-    mk[1] = (k >> 16) ;
-    s1 += incv1 ; s2 += incv2 ; mk += 2 ;      // add increments to pointers
-  }
-  mask0 = 0 ; m1 = 1 ;                         // start with LSB
-  for(i=i0 ; i < n ; i++){                     // last slice
-    mask0 |= ( (*s1 > *s2) ? m1 : 0 ) ;        // or m1 if src1 greater than src2
-    m1 <<= 1 ;                                 // next bit to the left toward MSB
-    s1 += inc1 ; s2 += inc2 ;                  // add increments to pointers
-    }
-  mask0 ^= complement ;                        // negate mask if necessary (xor with 0 or FFFFFFFF)
-  nmask += popcnt_32(mask0) ;
-  mk[0] = (mask0 & 0xFF) ;
-  mk[1] = (mask0 >> 8) & 0xFF ;
+  mask0 = Mask0Greater_c_le(s1, inc1, s2, inc2, n-i0) ;
+  mask0 = negate ? ~mask0 : mask0 ;            // negate mask if necessary (xor with 0 or FFFFFFFF)
+  nmask += _mm_popcnt_u32(mask0) ;
+  mk[0] = (mask0      ) & 0xFF ;
+  mk[1] = (mask0 >>  8) & 0xFF ;
   mk[2] = (mask0 >> 16) & 0xFF ;
-  mk[3] = (mask0 >> 24) ;
-fprintf(stderr, "MaskGreater_avx512_le : nmask = %d, s1-s0 = %ld, s2 = %d, mk-mk0 = %ld\n", nmask, s1-s0, *s2, mk-mk0) ;
-fprintf(stderr, "0: s1 = %p, s2 = %p, mk = %p\n", s1, s2, mk);
+  mk[3] = (mask0 >> 24) & 0xFF ;
   return nmask ;
 }
 #endif
