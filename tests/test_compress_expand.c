@@ -284,10 +284,23 @@ fprintf( stderr, "\n");
 fprintf( stderr, "number of 1s = %d, number of 0s = %d, total = %d, totbits = %d\n", nones, nzeros, nones + nzeros, totbits) ;
     uint32_t the_bits[ndata] , aec_compressed[ndata] ;
     nzeros = 0 ;
-//     MaskGreater_avx512_be(void *src1, int nsrc1, void *src2, int nsrc2, uint32_t *mask, int negate)
     for(i=0 ; i<ndata ; the_bits[i] = 0) ;
+    nones = 0 ;
+fprintf(stderr, "1: s1 = %p, s2 = %p, mk = %p\n", idata, &zero, the_bits) ;
+    nones = MaskGreater_avx512_le(idata , (ndata), &zero, 1, the_bits, 0) ;
+fprintf(stderr, "1: s1 = %p, s2 = %p, mk = %p\n", idata, &zero, the_bits) ;
+fprintf( stderr, "number of 1s (avx512) = %d\n", nones) ;
+    for(i=0 ; i<ndata ; the_bits[i] = 0) ;
+    nones = 0 ;
+//     nones = MaskGreater_avx2_le(idata , ndata, &zero, 1, the_bits, 0) ;
+// fprintf( stderr, "number of 1s (avx2)   = %d\n", nones) ;
+    for(i=0 ; i<ndata ; the_bits[i] = 0) ;
+    nones = 0 ;
+fprintf(stderr, "2: s1 = %p, s2 = %p, mk = %p\n", idata, &zero, the_bits) ;
     nones = MaskGreater_c_le(idata , ndata, &zero, 1, the_bits, 0) ;
-fprintf( stderr, "number of 1s = %d\n", nones) ;
+fprintf( stderr, "number of 1s (c)      = %d\n", nones) ;
+
+return ;
 // AecEncodeUnsigned(void *source, int32_t source_length, void *dest, int32_t dest_length, int bits_per_sample)
     ncomp = AecEncodeUnsigned(the_bits, (ndata+7)/8, aec_compressed, ndata, 8) ;
 fprintf( stderr, "bytes = %d, compressed bytes = %d\n", (ndata+7)/8, ncomp) ;

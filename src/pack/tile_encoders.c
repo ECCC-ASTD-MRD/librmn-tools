@@ -995,12 +995,15 @@ int32_t decode_as_tiles(void *f, int ni, int lni, int nj, bitstream *s){
 
 #include <libaec.h>
 
+static uint32_t block_size = 16;
+static uint32_t rsi = 128 ;
+
 int32_t AecDecodeUnsigned(void *source, int32_t source_length, void *dest, int32_t dest_length, int bits_per_sample){
   struct aec_stream strm;
 
   strm.bits_per_sample = bits_per_sample;
-  strm.block_size = 16;
-  strm.rsi = 128;
+  strm.block_size = block_size;
+  strm.rsi = rsi;
 //   strm.flags = AEC_DATA_SIGNED ;
   strm.flags = 0;
   strm.next_in = source;
@@ -1027,9 +1030,9 @@ fprintf(stderr, "AecEncodeUnsigned : encoding %d samples 0f %d bits = %d bits\n"
   /* input data is bits_per_sample bits wide */
   strm.bits_per_sample = bits_per_sample;
   /* define a block size of 16 */
-  strm.block_size = 16;
+  strm.block_size = block_size;
   /* the reference sample interval is set to 128 blocks */
-  strm.rsi = 128;
+  strm.rsi = rsi;
   /* input data is signed and needs to be preprocessed */
 //   strm.flags = AEC_DATA_SIGNED | AEC_DATA_PREPROCESS;
   /* input data is unsigned and does not need to be preprocessed */

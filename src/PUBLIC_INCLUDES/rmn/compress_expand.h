@@ -12,8 +12,9 @@
 // Library General Public License for more details.
 //
 // uncomment following line to force plain C (non SIMD) code
-// #undef __AVX2___
-// #undef __AVX512F___
+// #undef __AVX2__
+// #undef __BMI2__
+// #undef __AVX512F__
 
 #if ! defined(STORE_COMPRESS_LOAD_EXPAND)
 #define STORE_COMPRESS_LOAD_EXPAND
@@ -22,7 +23,10 @@
 #include <rmn/bits.h>
 #include <rmn/bi_endian_pack.h>
 
-#if defined(__x86_64__) && ( defined(__AVX2__) || defined(__AVX512F__) )
+#if defined(__x86_64__) && ( defined(__AVX2__) || defined(__AVX512F__) || defined(__AVX512VBMI2__) || defined(__BMI2__) )
+#if defined(__AVX512VBMI2__)
+#define __BMI2__ 1
+#endif
 #include <immintrin.h>
 #endif
 
@@ -1048,6 +1052,8 @@ void MaskedFill_avx2_le(void *s, void *d, uint32_t le_mask, uint32_t value, int 
 void MaskedFill_avx512_le(void *s, void *d, uint32_t le_mask, uint32_t value, int n);
 
 int32_t MaskGreater_c_be(void *src1, int nsrc1, void *src2, int nsrc2, uint32_t *mask, int negate);
-int32_t MaskGreater_c_le(void *src1, int nsrc1, void *src2, int nsrc2, uint32_t *mask, int negate);
+int32_t MaskGreater_c_le(void *src1, int nsrc1, void *src2, int nsrc2, void *mask, int negate);
+int32_t MaskGreater_avx2_le(void *src1, int nsrc1, void *src2, int nsrc2, void *mask, int negate);
+int32_t MaskGreater_avx512_le(void *src1, int nsrc1, void *src2, int nsrc2, void *mask, int negate);
 
 #endif

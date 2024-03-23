@@ -64,17 +64,20 @@ int32_t MaskGreater_c_be(void *src1, int nsrc1, void *src2, int nsrc2, uint32_t 
   *mask++ = mask0 ;
   return nmask ;
 }
-int32_t MaskGreater_c_le(void *src1, int nsrc1, void *src2, int nsrc2, uint32_t *mask, int negate){
+int32_t MaskGreater_c_le(void *src1, int nsrc1, void *src2, int nsrc2, void *mask, int negate){
   uint32_t *s1 = (uint32_t *) src1 ;
   uint32_t *s2 = (uint32_t *) src2 ;
+  uint32_t *mk = (uint32_t *) mask ;
   uint32_t complement = ( negate ? 0xFFFFFFFFu : 0 ), mask0, m1 ;
   int i0, i, inc1 = ((nsrc1 > 1) ? 1 : 0), inc2 = ((nsrc2 > 1) ? 1 : 0) ;
   int n = (nsrc1 > nsrc2) ? nsrc1 : nsrc2 ;
   int nmask = 0 ;
-fprintf(stderr, "MaskGreater_c_le\n");
+
   if(nsrc1 != n && nsrc1 != 1) return -1 ;
   if(nsrc2 != n && nsrc2 != 1) return -1 ;
 
+fprintf(stderr, "MaskGreater_c_le : n = %d, nsrc1/2 = %d/%d, inc1/2 = %d/%d\n", n, nsrc1, nsrc2, inc1, inc2);
+fprintf(stderr, "s1 = %p, s2 = %p, mk = %p\n", s1, s2, mk);
   for(i0=0 ; i0 < (n-31) ; i0 += 32){
     mask0 = 0 ; m1 = 1 ;                       // start with LSB
     for(i=0 ; i<32 ; i++) {                    // 32 value slices
@@ -84,8 +87,11 @@ fprintf(stderr, "MaskGreater_c_le\n");
     }
     mask0 ^= complement ;                      // negate mask if necessary (xor with 0 or FFFFFFFF)
     nmask += popcnt_32(mask0) ;
-    *mask++ = mask0 ;
+    *mk++ = mask0 ;
   }
+fprintf(stderr, "\n");
+fprintf(stderr, "MaskGreater_c_le : nmask = %d, i0 = %d, n-i0 = %d\n", nmask, i0, n-i0);
+  return nmask ;
   mask0 = 0 ; m1 = 1 ;                         // start with LSB
   for(i=i0 ; i < n ; i++){                     // last slice
     mask0 |= ( (*s1 > *s2) ? m1 : 0 ) ;        // or m1 if src1 greater than src2
@@ -94,7 +100,7 @@ fprintf(stderr, "MaskGreater_c_le\n");
     }
   mask0 ^= complement ;                        // negate mask if necessary (xor with 0 or FFFFFFFF)
   nmask += popcnt_32(mask0) ;
-  *mask++ = mask0 ;
+  *mk++ = mask0 ;
   return nmask ;
 }
 #if defined(__x86_64__) && defined(__AVX2__)
@@ -105,6 +111,7 @@ int32_t MaskGreater_avx2_be(void *src1, int nsrc1, void *src2, int nsrc2, uint32
   int n = (nsrc1 > nsrc2) ? nsrc1 : nsrc2 ;
   int nmask = 0 ;
   int i0, i, inc1 = ((nsrc1 > 1) ? 1 : 0), inc2 = ((nsrc2 > 1) ? 1 : 0) ;
+  uint32_t local[8] ;
 
   if(nsrc1 != n && nsrc1 != 1) return -1 ;
   if(nsrc2 != n && nsrc2 != 1) return -1 ;
@@ -122,13 +129,15 @@ int32_t MaskGreater_avx2_be(void *src1, int nsrc1, void *src2, int nsrc2, uint32
   *mask++ = mask0 ;
   return nmask ;
 }
-int32_t MaskGreater_avx2_le(void *src1, int nsrc1, void *src2, int nsrc2, uint32_t *mask, int negate){
+int32_t MaskGreater_avx2_le(void *src1, int nsrc1, void *src2, int nsrc2, void *mask, int negate){
   uint32_t *s1 = (uint32_t *) src1 ;
   uint32_t *s2 = (uint32_t *) src2 ;
+  uint8_t *mk = (uint8_t *) mask ;
   uint32_t complement = ( negate ? 0xFFFFFFFFu : 0 ), mask0, m1 ;
   int n = (nsrc1 > nsrc2) ? nsrc1 : nsrc2 ;
   int nmask = 0 ;
   int i0, i, inc1 = ((nsrc1 > 1) ? 1 : 0), inc2 = ((nsrc2 > 1) ? 1 : 0) ;
+  uint32_t local[8] ;
 
   if(nsrc1 != n && nsrc1 != 1) return -1 ;
   if(nsrc2 != n && nsrc2 != 1) return -1 ;
@@ -143,29 +152,34 @@ int32_t MaskGreater_avx2_le(void *src1, int nsrc1, void *src2, int nsrc2, uint32
     }
   mask0 ^= complement ;                        // negate mask if necessary (xor with 0 or FFFFFFFF)
   nmask += popcnt_32(mask0) ;
-  *mask++ = mask0 ;
+  *mk++ = mask0 ;
   return nmask ;
 }
 #endif
 #if defined(__x86_64__) && defined(__AVX512F__)
-int32_t MaskGreater_avx512_be(void *src1, int nsrc1, void *src2, int nsrc2, uint32_t *mask, int negate){
+int32_t MaskGreater_avx512_be(void *src1, int nsrc1, void *src2, int nsrc2, void *mask, int negate){
   uint32_t *s1 = (uint32_t *) src1 ;
   uint32_t *s2 = (uint32_t *) src2 ;
+  uint8_t *mk = (uint8_t *) mask ;
   uint32_t complement = ( negate ? 0xFFFFFFFFu : 0 ), mask0, m1  ;
   int n = (nsrc1 > nsrc2) ? nsrc1 : nsrc2 ;
   int nmask = 0 ;
   int i0, i, inc1 = ((nsrc1 > 1) ? 1 : 0), inc2 = ((nsrc2 > 1) ? 1 : 0) ;
-  int incv1 = ((nsrc1 > 1) ? 32 : 0), incv2 = ((nsrc2 > 1) ? 32 : 0) ;
+  int incv1 = ((nsrc1 > 1) ? 16 : 0), incv2 = ((nsrc2 > 1) ? 16 : 0) ;
+  uint32_t local[16] ;
 
   if(nsrc1 != n && nsrc1 != 1) return -1 ;
   if(nsrc2 != n && nsrc2 != 1) return -1 ;
+  if(incv1 == 0){                              // src1 is single value
+    for(i=0 ; i<16 ; i++) local[i] = *s1 ;
+    s1 = local ;
+  }
+  if(incv2 == 0){                              // src2 is single value
+    for(i=0 ; i<16 ; i++) local[i] = *s2 ;
+    s2 = local ;
+  }
 
   for(i0=0 ; i0 < (n-31) ; i0 += 32){          // 32 bit slices
-    if(incv1 == 0){                            // src1 is single value
-    }
-    if(incv1 == 0){                            // src2 is single value
-    }
-    s1 += incv1 ; s2 += incv2 ;                // add increments to pointers
   }
   mask0 = 0 ; m1 = 0x80000000u ;               // start with MSB
   for(i=i0 ; i < n ; i++){                     // last slice
@@ -175,23 +189,52 @@ int32_t MaskGreater_avx512_be(void *src1, int nsrc1, void *src2, int nsrc2, uint
   }
   mask0 ^= complement ;                        // negate mask if necessary (xor with 0 or FFFFFFFF)
   nmask += popcnt_32(mask0) ;                  // count 1s in masks
-  *mask++ = mask0 ;
+  mk[0] = (mask0 & 0xFF) ;
+  mk[1] = (mask0 >> 8) & 0xFF ;
+  mk[2] = (mask0 >> 16) & 0xFF ;
+  mk[3] = (mask0 >> 24) ;
   return nmask ;
 }
-int32_t MaskGreater_avx512_le(void *src1, int nsrc1, void *src2, int nsrc2, uint32_t *mask, int negate){
+int32_t MaskGreater_avx512_le(void *src1, int nsrc1, void *src2, int nsrc2, void *mask, int negate){
   uint32_t *s1 = (uint32_t *) src1 ;
   uint32_t *s2 = (uint32_t *) src2 ;
+  uint8_t *mk = (uint8_t *) mask ;
   uint32_t complement = ( negate ? 0xFFFFFFFFu : 0 ), mask0, m1 ;
   int n = (nsrc1 > nsrc2) ? nsrc1 : nsrc2 ;
   int nmask = 0 ;
   int i0, i, inc1 = ((nsrc1 > 1) ? 1 : 0), inc2 = ((nsrc2 > 1) ? 1 : 0) ;
-  int incv1 = ((nsrc1 > 1) ? 32 : 0), incv2 = ((nsrc2 > 1) ? 32 : 0) ;
-
+  int incv1 = ((nsrc1 > 1) ? 16 : 0), incv2 = ((nsrc2 > 1) ? 16 : 0) ;
+  uint32_t local[8] ;
+uint32_t *s0 = s1 ;
+uint8_t *mk0 = mk ;
   if(nsrc1 != n && nsrc1 != 1) return -1 ;
   if(nsrc2 != n && nsrc2 != 1) return -1 ;
-
+  if(incv1 == 0){                              // src1 is single value
+    for(i=0 ; i<16 ; i++) local[i] = *s1 ;
+    s1 = local ;
+  }
+  if(incv2 == 0){                              // src2 is single value
+    for(i=0 ; i<16 ; i++) local[i] = *s2 ;
+    s2 = local ;
+  }
+fprintf(stderr, "MaskGreater_avx512_le : nsrc1/2 = %d/%d, inc1/2 = %d/%d, incv1/2 = %d/%d\n",
+        nsrc1, nsrc2, inc1, inc2, incv1, incv2) ;
+fprintf(stderr, "0: s1 = %p, s2 = %p, mk = %p\n", s1, s2, mk);
   for(i0=0 ; i0 < (n-31) ; i0 += 32){          // 32 bit slices
-    s1 += 32*incv1 ; s2 += 32*incv2 ;          // add increments to pointers
+    __m512i v1 = _mm512_loadu_epi32(s1) ;
+    __m512i v2 = _mm512_loadu_epi32(s2) ;
+    uint16_t k = _mm512_cmpgt_epu32_mask(v1, v2) ;
+    nmask += popcnt_32(k) ;
+    mk[0] = (k & 0xFF) ;
+    mk[1] = (k >> 16) ;
+    s1 += incv1 ; s2 += incv2 ; mk += 2 ;      // add increments to pointers
+    v1 = _mm512_loadu_epi32(s1) ;
+    v2 = _mm512_loadu_epi32(s2) ;
+    k = _mm512_cmpgt_epu32_mask(v1, v2) ;
+    nmask += popcnt_32(k) ;
+    mk[0] = (k & 0xFF) ;
+    mk[1] = (k >> 16) ;
+    s1 += incv1 ; s2 += incv2 ; mk += 2 ;      // add increments to pointers
   }
   mask0 = 0 ; m1 = 1 ;                         // start with LSB
   for(i=i0 ; i < n ; i++){                     // last slice
@@ -201,7 +244,12 @@ int32_t MaskGreater_avx512_le(void *src1, int nsrc1, void *src2, int nsrc2, uint
     }
   mask0 ^= complement ;                        // negate mask if necessary (xor with 0 or FFFFFFFF)
   nmask += popcnt_32(mask0) ;
-  *mask++ = mask0 ;
+  mk[0] = (mask0 & 0xFF) ;
+  mk[1] = (mask0 >> 8) & 0xFF ;
+  mk[2] = (mask0 >> 16) & 0xFF ;
+  mk[3] = (mask0 >> 24) ;
+fprintf(stderr, "MaskGreater_avx512_le : nmask = %d, s1-s0 = %ld, s2 = %d, mk-mk0 = %ld\n", nmask, s1-s0, *s2, mk-mk0) ;
+fprintf(stderr, "0: s1 = %p, s2 = %p, mk = %p\n", s1, s2, mk);
   return nmask ;
 }
 #endif

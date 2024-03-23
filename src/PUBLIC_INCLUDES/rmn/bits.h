@@ -22,7 +22,9 @@ Library General Public License for more details.
 #endif
 
 #if ! defined(IN_FORTRAN_CODE) && ! defined(__GFORTRAN__)
-
+#if defined(__x86_64__)
+#include <immintrin.h>
+#endif
 // C interfaces and declarations
 
 #if ! defined(RMNTOOLS_BITS)
@@ -61,10 +63,11 @@ Library General Public License for more details.
 STATIC inline uint32_t popcnt_32(uint32_t what){
   uint32_t cnt ;
 #if defined(__x86_64__)
-  // X86 family of processors
+// X86 family of processors
 //   __asm__ __volatile__ ("popcnt{l %1, %0| %0, %1}" : "=r"(cnt) : "r"(what) : "cc" ) ;
 //   __asm__ __volatile__ ("popcntl %1, %0" : "=r"(cnt) : "r"(what) : "cc" );
-  __asm__ __volatile__ ("popcnt %1, %0" : "=r"(cnt) : "r"(what) : "cc" );
+//   __asm__ __volatile__ ("popcnt %1, %0" : "=r"(cnt) : "r"(what) : "cc" );
+  cnt = _mm_popcnt_u32(what) ;
 #else
   cnt = 0 ;
   while(what & 1){
@@ -82,7 +85,7 @@ STATIC inline uint32_t popcnt_64(uint64_t what){
   // X86 family of processors
 //   __asm__ __volatile__ ("popcnt{ %1, %0| %0, %1}" : "=r"(cnt) : "r"(what) : "cc" ) ;
 //   __asm__ __volatile__ ("popcntq %1, %0" : "=r"(cnt) : "r"(what) : "cc" );
-  __asm__ __volatile__ ("popcnt %1, %0" : "=r"(cnt) : "r"(what) : "cc" );
+  __asm__ __volatile__ ("popcntq %1, %0" : "=r"(cnt) : "r"(what) : "cc" );
 #else
   cnt = 0 ;
   while(what & 1){
