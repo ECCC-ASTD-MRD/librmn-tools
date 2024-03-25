@@ -1041,11 +1041,13 @@ void ExpandFill_c_le(void *s_, void *d_, void *map_, int n, void *fill_);
 void ExpandFill_avx2_le(void *s_, void *d_, void *map_, int n, void *fill_);
 void ExpandFill_avx512_le(void *s_, void *d_, void *map_, int n, void *fill_);
 
+// _le only versions for now
 void MaskedMerge_le(void *s, void *d, uint32_t le_mask, void *values, int n);
 void MaskedMerge_c_le(void *s, void *d, uint32_t le_mask, void *values, int n);
 void MaskedMerge_avx2_le(void *s, void *d, uint32_t le_mask, void *values, int n);
 void MaskedMerge_avx512_le(void *s, void *d, uint32_t le_mask, void *values, int n);
 
+// _le only versions for now
 void MaskedFill_le(void *s, void *d, uint32_t le_mask, uint32_t value, int n);
 void MaskedFill_c_le(void *s, void *d, uint32_t le_mask, uint32_t value, int n);
 void MaskedFill_avx2_le(void *s, void *d, uint32_t le_mask, uint32_t value, int n);

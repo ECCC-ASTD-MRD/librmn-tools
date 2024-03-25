@@ -4,6 +4,7 @@
 // double include done on purpose (test protection against double inclusion)
 #include <rmn/compress_expand.h>
 #include <rmn/compress_expand.h>
+#include <rmn/tile_encoders.h>
 #include <rmn/timers.h>
 #include <rmn/c_record_io.h>
 
@@ -133,6 +134,8 @@ void test_compress_store(char *str){
   int32_t expanded[npts], compressed[npts], restored[npts], plugged[npts], fill2[npts], plug2[npts] ;
   uint32_t bmasks[npts], lmasks[npts] ;
   int i;
+  TIME_LOOP_DATA ;
+
 fprintf(stderr, "compress_store test with %d elements\n", npts) ;
   for(i=0 ; i<npts ; i++){
     expanded[i] = i + 1 ;
@@ -167,7 +170,7 @@ fprintf(stderr, "compress_store test with %d elements\n", npts) ;
     for(i=0 ; i<32 ; i++) { restored[i] = -1 ; }
     sle = ExpandFill_32_c_le(compressed, restored, lmasks[0], 66) ;
     for(i=0 ; i<32 ; i++) fprintf(stderr, "%3d ", restored[i]) ; fprintf(stderr, " - after fill\n") ;
-return ;
+// return ;
     fprintf(stderr, "========== C (be) ==========\n") ;
     for(i=0 ; i<32 ; i++) { compressed[i] = npts + 1 ; restored[i] = -1 ; }
     dle = CompressStore_32_c_be(expanded, compressed, bmasks[0]) ;
@@ -182,7 +185,7 @@ return ;
     for(i=0 ; i<32 ; i++) { restored[i] = -1 ; }
     sle = ExpandFill_32_c_be(compressed, restored, bmasks[0], 55) ;
     for(i=0 ; i<32 ; i++) fprintf(stderr, "%3d ", restored[i]) ; fprintf(stderr, "\n") ;
-#if defined(__AVX512F___)
+#if defined(__AVX512F__)
     fprintf(stderr, "========== AVX512 (le) ==========\n") ;
     dle = CompressStore_32_avx512_le(expanded, compressed, lmasks[0]) ;
     fprintf(stderr, "mask = %8.8x, ", lmasks[0]) ;
@@ -195,7 +198,7 @@ return ;
     sle = ExpandFill_32_avx512_le(compressed, restored, lmasks[0], 99) ;
     for(i=0 ; i<32 ; i++) fprintf(stderr, "%3d ", restored[i]) ; fprintf(stderr, "\n") ;
 #endif
-#if defined(__AVX2___)
+#if defined(__AVX2__)
     fprintf(stderr, "========== AVX2 (le) ==========\n") ;
     for(i=0 ; i<32 ; i++) { compressed[i] = npts + 1 ; }
     dle = CompressStore_32_avx2_le(expanded, compressed, lmasks[0]) ;
@@ -443,7 +446,7 @@ void test_interleave(char *msg){
     }
   }
   t0 = elapsed_cycles_fast() - t0 ;
-  fprintf(stderr, "full range C-bmi2-32 deinterleaving errors = %d, time = %6.2f Gcyles\n", errors, t0*1.0E-9) ;
+  fprintf(stderr, "full range C+bmi2-32 deinterleaving errors = %d, time = %6.2f Gcyles\n", errors, t0*1.0E-9) ;
 
   errors = 0 ;
   t0 = elapsed_cycles_fast() ;
@@ -455,7 +458,7 @@ void test_interleave(char *msg){
     }
   }
   t0 = elapsed_cycles_fast() - t0 ;
-  fprintf(stderr, "full range bmi2-32-c deinterleaving errors = %d, time = %6.2f Gcyles\n", errors, t0*1.0E-9) ;
+  fprintf(stderr, "full range bmi2-32+c deinterleaving errors = %d, time = %6.2f Gcyles\n", errors, t0*1.0E-9) ;
 
   errors = 0 ;
   t0 = elapsed_cycles_fast() ;

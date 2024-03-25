@@ -120,4 +120,7 @@ int32_t encode_as_tiles(void *field, int ni, int lni, int nj, bitstream *stream)
 int32_t decode_tile(void *field, int ni, int lni, int nj, int *nptsij, bitstream *stream);
 int32_t decode_as_tiles(void *field, int ni, int lni, int nj, bitstream *stream);
 
+int32_t AecEncodeUnsigned(void *source, int32_t source_length, void *dest, int32_t dest_length, int bits_per_sample);
+int32_t AecDecodeUnsigned(void *source, int32_t source_length, void *dest, int32_t dest_length, int bits_per_sample);
+
 #endif
