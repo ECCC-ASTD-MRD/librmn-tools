@@ -44,7 +44,7 @@
 // _be function : Big Endian style, [0] is MSB
 // _le function : Little Endian style, [0] is LSB
 // plain C version
-static inline uint32_t Mask0Equal_c_be(uint32_t *s1, int inc1, uint32_t *s2, int inc2, int n){
+static uint32_t Mask0Equal_c_be(uint32_t *s1, int inc1, uint32_t *s2, int inc2, int n){
   uint32_t mask0 = 0, m1 = 0x80000000u ;
   while(n-- > 0) {                           // n < 33 value slices
     mask0 |= ( (*s1 == *s2) ? m1 : 0 ) ;     // or m1 if src1 greater than src2
@@ -53,9 +53,10 @@ static inline uint32_t Mask0Equal_c_be(uint32_t *s1, int inc1, uint32_t *s2, int
   }
   return mask0 ;
 }
-int32_t MaskEqual_c_be(void *src1, int nsrc1, void *src2, int nsrc2, uint32_t *mask, int negate){
+int32_t MaskEqual_c_be(void *src1, int nsrc1, void *src2, int nsrc2, void *mask, int negate){
   uint32_t *s1 = (uint32_t *) src1 ;
   uint32_t *s2 = (uint32_t *) src2 ;
+  uint32_t *mk = (uint32_t *) mask ;
   uint32_t complement = ( negate ? 0xFFFFFFFFu : 0 ), mask0, m1 ;
   int i0, i, inc1 = ((nsrc1 > 1) ? 1 : 0), inc2 = ((nsrc2 > 1) ? 1 : 0) ;
   int n = (nsrc1 > nsrc2) ? nsrc1 : nsrc2 ;
@@ -65,18 +66,20 @@ int32_t MaskEqual_c_be(void *src1, int nsrc1, void *src2, int nsrc2, uint32_t *m
   if(nsrc2 != n && nsrc2 != 1) return -1 ;
 
   for(i0=0 ; i0 < (n-31) ; i0 += 32){
-    mask0 = Mask0Equal_c_be(s1, inc1, s2, inc2, 32) ;
-    mask0 ^= complement ;                      // negate mask if necessary (xor with 0 or FFFFFFFF)
+    mask0 = Mask0Equal_c_be(s1, inc1, s2, inc2, 32) ^ complement ;   // negate mask if necessary
     nmask += popcnt_32(mask0) ;                // count 1s in masks
-    *mask++ = mask0 ;
+    *mk++ = mask0 ;
   }
-  mask0 = Mask0Equal_c_be(s1, inc1, s2, inc2, n-i0) ;
-  mask0 ^= complement ;                        // negate mask if necessary (xor with 0 or FFFFFFFF)
-  nmask += popcnt_32(mask0) ;                  // count 1s in masks
-  *mask++ = mask0 ;
+  if(n-i0 > 0) {
+    int scount = 32 - (n-i0) ;
+    mask0 = Mask0Equal_c_be(s1, inc1, s2, inc2, n-i0) ^ complement ;   // negate mask if necessary
+    mask0 = (mask0 >> scount) << scount ;        // get rid of extra 1s from negate
+    nmask += popcnt_32(mask0) ;                  // count 1s in masks
+    *mk = mask0 ;
+  }
   return nmask ;
 }
-static inline uint32_t Mask0Equal_c_le(uint32_t *s1, int inc1, uint32_t *s2, int inc2, int n){
+static uint32_t Mask0Equal_c_le(uint32_t *s1, int inc1, uint32_t *s2, int inc2, int n){
   uint32_t mask0 = 0, m1 = 1 ;               // start with LSB
   while(n-- > 0) {                           // n < 33 value slices
     mask0 |= ( (*s1 == *s2) ? m1 : 0 ) ;      // or m1 if src1 greater than src2
@@ -98,25 +101,30 @@ int32_t MaskEqual_c_le(void *src1, int nsrc1, void *src2, int nsrc2, void *mask,
   if(nsrc2 != n && nsrc2 != 1) return -1 ;
 
   for(i0=0 ; i0 < (n-31) ; i0 += 32){
-    mask0 = Mask0Equal_c_le(s1, inc1, s2, inc2, 32) ^ complement ;
+    mask0 = Mask0Equal_c_le(s1, inc1, s2, inc2, 32) ^ complement ;   // negate mask if necessary
     s1 += inc1*32 ; s2 += inc2*32 ;
     nmask += popcnt_32(mask0) ;
-    *mk++ = mask0 ;
+    *mk++ = mask0 ;   // negate xor is MISSING
   }
-  mask0 = Mask0Equal_c_le(s1, inc1, s2, inc2, n-i0) ^ complement ;
-  nmask += popcnt_32(mask0) ;
-  *mk++ = mask0 ;
+  if(n-i0 > 0) {
+    int scount = 32 - (n-i0) ;
+    mask0 = Mask0Equal_c_le(s1, inc1, s2, inc2, n-i0) ^ complement ;   // negate mask if necessary
+    mask0 = (mask0 << scount) >> scount ;        // get rid of extra 1s from negate
+    nmask += popcnt_32(mask0) ;                  // count 1s in masks
+    *mk = mask0 ;
+  }
   return nmask ;
 }
 #if defined(__x86_64__) && defined(__AVX2__)
 // AVX2 version
 int32_t MaskEqual_avx2_be(void *src1, int nsrc1, void *src2, int nsrc2, uint32_t *mask, int negate){
-  return MaskEqual_c_be(src1, nsrc1, src2, nsrc2, mask, negate) ;
+  return MaskEqual_c_be(src1, nsrc1, src2, nsrc2, mask, negate) ;  // plain C version for now
 }
 int32_t MaskEqual_avx2_le(void *src1, int nsrc1, void *src2, int nsrc2, void *mask, int negate){
   uint32_t *s1 = (uint32_t *) src1, *s2 = (uint32_t *) src2 ;
   uint8_t *mk = (uint8_t *) mask ;
   uint32_t complement = ( negate ? 0xFFFFFFFFu : 0 ), mask0, m1 ;
+  uint8_t complement8 = ( negate ? 0xFFu : 0 ) ;
   int n = (nsrc1 > nsrc2) ? nsrc1 : nsrc2 ;
   int nmask = 0 ;
   int i0, i, inc1 = ((nsrc1 > 1) ? 1 : 0), inc2 = ((nsrc2 > 1) ? 1 : 0) ;
@@ -147,31 +155,38 @@ int32_t MaskEqual_avx2_le(void *src1, int nsrc1, void *src2, int nsrc2, void *ma
     v1b = _mm256_cmpeq_epi32(v1b, v2b) ;
     v1c = _mm256_cmpeq_epi32(v1c, v2c) ;
     v1d = _mm256_cmpeq_epi32(v1d, v2d) ;
-    mk[0] = _mm256_movemask_ps((__m256) v1a) ;
-    mk[1] = _mm256_movemask_ps((__m256) v1b) ;
-    mk[2] = _mm256_movemask_ps((__m256) v1c) ;
-    mk[3] = _mm256_movemask_ps((__m256) v1d) ;
+    mk[0] = _mm256_movemask_ps((__m256) v1a) ^ complement8 ;   // negate mask if necessary
+    mk[1] = _mm256_movemask_ps((__m256) v1b) ^ complement8 ;   // negate mask if necessary
+    mk[2] = _mm256_movemask_ps((__m256) v1c) ^ complement8 ;   // negate mask if necessary
+    mk[3] = _mm256_movemask_ps((__m256) v1d) ^ complement8 ;   // negate mask if necessary
     nmask = nmask + _mm_popcnt_u32(mk[0]) + _mm_popcnt_u32(mk[1]) + _mm_popcnt_u32(mk[2]) + _mm_popcnt_u32(mk[3]) ;
     s1 += 32*inc1 ;
     s2 += 32*inc2 ;
   }
-  mask0 = Mask0Equal_c_le(s1, inc1, s2, inc2, n-i0) ;
-  mask0 = negate ? ~mask0 : mask0 ;            // negate mask if necessary (xor with 0 or FFFFFFFF)
-  nmask += popcnt_32(mask0) ;
-  *mk++ = mask0 ;
+  if(n-i0 > 0){
+    int scount = 32 - (n-i0) ;
+    mask0 = Mask0Equal_c_le(s1, inc1, s2, inc2, n-i0) ^ complement ;  // negate mask if necessary
+    mask0 = (mask0 << scount) >> scount ;                             // get rid of extra 1s from negate
+    nmask += popcnt_32(mask0) ;
+    mk[0] = (mask0      ) & 0xFF ;
+    mk[1] = (mask0 >>  8) & 0xFF ;
+    mk[2] = (mask0 >> 16) & 0xFF ;
+    mk[3] = (mask0 >> 24) & 0xFF ;
+  }
   return nmask ;
 }
 #endif
 #if defined(__x86_64__) && defined(__AVX512F__)
 // AVX512 version
 int32_t MaskEqual_avx512_be(void *src1, int nsrc1, void *src2, int nsrc2, void *mask, int negate){
-  return MaskEqual_c_be(src1, nsrc1, src2, nsrc2, mask, negate) ;
+  return MaskEqual_c_be(src1, nsrc1, src2, nsrc2, mask, negate) ;  // plain C version for now
 }
 int32_t MaskEqual_avx512_le(void *src1, int nsrc1, void *src2, int nsrc2, void *mask, int negate){
   uint32_t *s1 = (uint32_t *)src1, *s2 = (uint32_t *)src2 ;
   uint32_t mask0, m1 ;
   uint8_t *mk = (uint8_t *)mask ;
   uint16_t complement16 = ( negate ? 0xFFFFu : 0 ) ;
+  uint32_t complement   = ( negate ? 0xFFFFFFFFu : 0 ) ;
   int n = (nsrc1 > nsrc2) ? nsrc1 : nsrc2, nmask = 0 ;
   int i0, i, inc1 = ((nsrc1 > 1) ? 1 : 0), inc2 = ((nsrc2 > 1) ? 1 : 0) ;
   int incv1 = ((nsrc1 > 1) ? 32 : 0), incv2 = ((nsrc2 > 1) ? 32 : 0) ;
@@ -188,8 +203,8 @@ int32_t MaskEqual_avx512_le(void *src1, int nsrc1, void *src2, int nsrc2, void *
     v2a =  _mm512_mask_loadu_epi32(vb2, mb2, s2   ) ;
     v1b =  _mm512_mask_loadu_epi32(vb1, mb1, s1+16) ;
     v2b =  _mm512_mask_loadu_epi32(vb2, mb2, s2+16) ;
-    uint16_t k1 = _mm512_cmpeq_epi32_mask(v1a, v2a) ^ complement16 ;
-    uint16_t k2 = _mm512_cmpeq_epi32_mask(v1b, v2b) ^ complement16 ;
+    uint16_t k1 = _mm512_cmpeq_epi32_mask(v1a, v2a) ^ complement16 ;   // negate mask if necessary
+    uint16_t k2 = _mm512_cmpeq_epi32_mask(v1b, v2b) ^ complement16 ;   // negate mask if necessary
     nmask = nmask + _mm_popcnt_u32(k1) + _mm_popcnt_u32(k2) ;
     mk[0] = (k1 & 0xFF) ;
     mk[1] = (k1 >> 16) ;
@@ -197,13 +212,16 @@ int32_t MaskEqual_avx512_le(void *src1, int nsrc1, void *src2, int nsrc2, void *
     mk[3] = (k2 >> 16) ;
     s1 += incv1 ; s2 += incv2 ; mk += 4 ;      // add increments to pointers
   }
-  mask0 = Mask0Equal_c_le(s1, inc1, s2, inc2, n-i0) ;
-  mask0 = negate ? ~mask0 : mask0 ;            // negate mask if necessary (xor with 0 or FFFFFFFF)
-  nmask += _mm_popcnt_u32(mask0) ;
-  mk[0] = (mask0      ) & 0xFF ;
-  mk[1] = (mask0 >>  8) & 0xFF ;
-  mk[2] = (mask0 >> 16) & 0xFF ;
-  mk[3] = (mask0 >> 24) & 0xFF ;
+  if(n-i0 > 0){
+    int scount = 32 - (n-i0) ;
+    mask0 = Mask0Equal_c_le(s1, inc1, s2, inc2, n-i0) ^ complement ;  // negate mask if necessary
+    mask0 = (mask0 << scount) >> scount ;                             // get rid of extra 1s from negate
+    nmask += popcnt_32(mask0) ;
+    mk[0] = (mask0      ) & 0xFF ;
+    mk[1] = (mask0 >>  8) & 0xFF ;
+    mk[2] = (mask0 >> 16) & 0xFF ;
+    mk[3] = (mask0 >> 24) & 0xFF ;
+  }
   return nmask ;
 }
 #endif
@@ -230,9 +248,10 @@ static inline uint32_t Mask0Greater_c_be(int32_t *s1, int inc1, int32_t *s2, int
   }
   return mask0 ;
 }
-int32_t MaskGreater_c_be(void *src1, int nsrc1, void *src2, int nsrc2, uint32_t *mask, int negate){
+int32_t MaskGreater_c_be(void *src1, int nsrc1, void *src2, int nsrc2, void *mask, int negate){
   int32_t *s1 = (int32_t *) src1 ;
   int32_t *s2 = (int32_t *) src2 ;
+  uint32_t *mk = (uint32_t *) mask ;
   uint32_t complement = ( negate ? 0xFFFFFFFFu : 0 ), mask0, m1 ;
   int i0, i, inc1 = ((nsrc1 > 1) ? 1 : 0), inc2 = ((nsrc2 > 1) ? 1 : 0) ;
   int n = (nsrc1 > nsrc2) ? nsrc1 : nsrc2 ;
@@ -245,12 +264,15 @@ int32_t MaskGreater_c_be(void *src1, int nsrc1, void *src2, int nsrc2, uint32_t 
     mask0 = Mask0Greater_c_be(s1, inc1, s2, inc2, 32) ;
     mask0 ^= complement ;                      // negate mask if necessary (xor with 0 or FFFFFFFF)
     nmask += popcnt_32(mask0) ;                // count 1s in masks
-    *mask++ = mask0 ;
+    *mk++ = mask0 ;
   }
-  mask0 = Mask0Greater_c_be(s1, inc1, s2, inc2, n-i0) ;
-  mask0 ^= complement ;                        // negate mask if necessary (xor with 0 or FFFFFFFF)
-  nmask += popcnt_32(mask0) ;                  // count 1s in masks
-  *mask++ = mask0 ;
+  if(n-i0 > 0){
+    int scount = 32 - (n-i0) ;
+    mask0 = Mask0Greater_c_be(s1, inc1, s2, inc2, n-i0) ^ complement ; // negate mask if necessary
+    mask0 = (mask0 >> scount) << scount ;                             // get rid of extra 1s from negate
+    nmask += popcnt_32(mask0) ;                  // count 1s in masks
+    *mk = mask0 ;
+  }
   return nmask ;
 }
 static inline uint32_t Mask0Greater_c_le(int32_t *s1, int inc1, int32_t *s2, int inc2, int n){
@@ -280,9 +302,13 @@ int32_t MaskGreater_c_le(void *src1, int nsrc1, void *src2, int nsrc2, void *mas
     nmask += popcnt_32(mask0) ;
     *mk++ = mask0 ;
   }
-  mask0 = Mask0Greater_c_le(s1, inc1, s2, inc2, n-i0) ^ complement ;
-  nmask += popcnt_32(mask0) ;
-  *mk++ = mask0 ;
+  if(n-i0 > 0){
+    int scount = 32 - (n-i0) ;
+    mask0 = Mask0Greater_c_le(s1, inc1, s2, inc2, n-i0) ^ complement ;
+    mask0 = (mask0 << scount) >> scount ;                             // get rid of extra 1s from negate
+    nmask += popcnt_32(mask0) ;
+    *mk = mask0 ;
+  }
   return nmask ;
 }
 #if defined(__x86_64__) && defined(__AVX2__)
@@ -294,6 +320,7 @@ int32_t MaskGreater_avx2_le(void *src1, int nsrc1, void *src2, int nsrc2, void *
   int32_t *s1 = (int32_t *) src1, *s2 = (int32_t *) src2 ;
   uint8_t *mk = (uint8_t *) mask ;
   uint32_t complement = ( negate ? 0xFFFFFFFFu : 0 ), mask0, m1 ;
+  uint8_t complement8 = ( negate ? 0xFFu : 0 );
   int n = (nsrc1 > nsrc2) ? nsrc1 : nsrc2 ;
   int nmask = 0 ;
   int i0, i, inc1 = ((nsrc1 > 1) ? 1 : 0), inc2 = ((nsrc2 > 1) ? 1 : 0) ;
@@ -324,18 +351,21 @@ int32_t MaskGreater_avx2_le(void *src1, int nsrc1, void *src2, int nsrc2, void *
     v1b = _mm256_cmpgt_epi32(v1b, v2b) ;
     v1c = _mm256_cmpgt_epi32(v1c, v2c) ;
     v1d = _mm256_cmpgt_epi32(v1d, v2d) ;
-    mk[0] = _mm256_movemask_ps((__m256) v1a) ;
-    mk[1] = _mm256_movemask_ps((__m256) v1b) ;
-    mk[2] = _mm256_movemask_ps((__m256) v1c) ;
-    mk[3] = _mm256_movemask_ps((__m256) v1d) ;
+    mk[0] = _mm256_movemask_ps((__m256) v1a) ^ complement8 ;
+    mk[1] = _mm256_movemask_ps((__m256) v1b) ^ complement8 ;
+    mk[2] = _mm256_movemask_ps((__m256) v1c) ^ complement8 ;
+    mk[3] = _mm256_movemask_ps((__m256) v1d) ^ complement8 ;
     nmask = nmask + _mm_popcnt_u32(mk[0]) + _mm_popcnt_u32(mk[1]) + _mm_popcnt_u32(mk[2]) + _mm_popcnt_u32(mk[3]) ;
     s1 += 32*inc1 ;
     s2 += 32*inc2 ;
   }
-  mask0 = Mask0Greater_c_le(s1, inc1, s2, inc2, n-i0) ;
-  mask0 = negate ? ~mask0 : mask0 ;            // negate mask if necessary (xor with 0 or FFFFFFFF)
-  nmask += popcnt_32(mask0) ;
-  *mk++ = mask0 ;
+  if(n-i0 > 0){
+    int scount = 32 - (n-i0) ;
+    mask0 = Mask0Greater_c_le(s1, inc1, s2, inc2, n-i0) ^ complement ; // negate mask if necessary
+    mask0 = (mask0 << scount) >> scount ;                              // get rid of extra 1s from negate
+    nmask += popcnt_32(mask0) ;
+    *mk = mask0 ;
+  }
   return nmask ;
 }
 #endif
@@ -349,6 +379,7 @@ int32_t MaskGreater_avx512_le(void *src1, int nsrc1, void *src2, int nsrc2, void
   uint32_t mask0, m1 ;
   uint8_t *mk = (uint8_t *)mask ;
   uint16_t complement16 = ( negate ? 0xFFFFu : 0 ) ;
+  uint32_t complement   = ( negate ? 0xFFFFFFFFu : 0 ) ;
   int n = (nsrc1 > nsrc2) ? nsrc1 : nsrc2, nmask = 0 ;
   int i0, i, inc1 = ((nsrc1 > 1) ? 1 : 0), inc2 = ((nsrc2 > 1) ? 1 : 0) ;
   int incv1 = ((nsrc1 > 1) ? 32 : 0), incv2 = ((nsrc2 > 1) ? 32 : 0) ;
@@ -374,13 +405,16 @@ int32_t MaskGreater_avx512_le(void *src1, int nsrc1, void *src2, int nsrc2, void
     mk[3] = (k2 >> 16) ;
     s1 += incv1 ; s2 += incv2 ; mk += 4 ;      // add increments to pointers
   }
-  mask0 = Mask0Greater_c_le(s1, inc1, s2, inc2, n-i0) ;
-  mask0 = negate ? ~mask0 : mask0 ;            // negate mask if necessary (xor with 0 or FFFFFFFF)
-  nmask += _mm_popcnt_u32(mask0) ;
-  mk[0] = (mask0      ) & 0xFF ;
-  mk[1] = (mask0 >>  8) & 0xFF ;
-  mk[2] = (mask0 >> 16) & 0xFF ;
-  mk[3] = (mask0 >> 24) & 0xFF ;
+  if(n-i0 > 0){
+    int scount = 32 - (n-i0) ;
+    mask0 = Mask0Greater_c_le(s1, inc1, s2, inc2, n-i0) ^ complement ; // negate mask if necessary
+    mask0 = (mask0 << scount) >> scount ;                              // get rid of extra 1s from negate
+    nmask += _mm_popcnt_u32(mask0) ;
+    mk[0] = (mask0      ) & 0xFF ;
+    mk[1] = (mask0 >>  8) & 0xFF ;
+    mk[2] = (mask0 >> 16) & 0xFF ;
+    mk[3] = (mask0 >> 24) & 0xFF ;
+  }
   return nmask ;
 }
 #endif

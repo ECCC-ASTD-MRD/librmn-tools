@@ -1051,7 +1051,12 @@ void MaskedFill_c_le(void *s, void *d, uint32_t le_mask, uint32_t value, int n);
 void MaskedFill_avx2_le(void *s, void *d, uint32_t le_mask, uint32_t value, int n);
 void MaskedFill_avx512_le(void *s, void *d, uint32_t le_mask, uint32_t value, int n);
 
-int32_t MaskGreater_c_be(void *src1, int nsrc1, void *src2, int nsrc2, uint32_t *mask, int negate);
+int32_t MaskEqual_c_be(void *src1, int nsrc1, void *src2, int nsrc2, void *mask, int negate);
+int32_t MaskEqual_c_le(void *src1, int nsrc1, void *src2, int nsrc2, void *mask, int negate);
+int32_t MaskEqual_avx2_le(void *src1, int nsrc1, void *src2, int nsrc2, void *mask, int negate);
+int32_t MaskEqual_avx512_le(void *src1, int nsrc1, void *src2, int nsrc2, void *mask, int negate);
+
+int32_t MaskGreater_c_be(void *src1, int nsrc1, void *src2, int nsrc2, void *mask, int negate);
 int32_t MaskGreater_c_le(void *src1, int nsrc1, void *src2, int nsrc2, void *mask, int negate);
 int32_t MaskGreater_avx2_le(void *src1, int nsrc1, void *src2, int nsrc2, void *mask, int negate);
 int32_t MaskGreater_avx512_le(void *src1, int nsrc1, void *src2, int nsrc2, void *mask, int negate);
