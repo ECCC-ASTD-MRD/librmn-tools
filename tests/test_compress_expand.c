@@ -432,6 +432,7 @@ void test_interleave(char *msg){
   }
   fprintf(stderr, "deinterleaving errors = %d\n", errors) ;
 
+#if defined(__BMI2__)
   errors = 0 ;
   t0 = elapsed_cycles_fast() ;
   for(j=0 ; j<65536 ; j+=3){
@@ -456,7 +457,6 @@ void test_interleave(char *msg){
   t0 = elapsed_cycles_fast() - t0 ;
   fprintf(stderr, "full range bmi2-32-c deinterleaving errors = %d, time = %6.2f Gcyles\n", errors, t0*1.0E-9) ;
 
-#if defined(__BMI2__)
   errors = 0 ;
   t0 = elapsed_cycles_fast() ;
   for(j=0 ; j<65536 ; j+=3){
