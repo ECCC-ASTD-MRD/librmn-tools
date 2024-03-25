@@ -287,33 +287,42 @@ fprintf( stderr, "\n");
 fprintf( stderr, "number of 1s = %d, number of 0s = %d, total = %d, totbits = %d\n", nones, nzeros, nones + nzeros, totbits) ;
     uint32_t the_bits[ndata] , aec_compressed[ndata] ;
 #if defined(__x86_64__) && defined(__AVX512F__)
-    nzeros = 0 ;
     for(i=0 ; i<ndata ; i++) the_bits[i] = 0 ;
-    nones = 0 ;
+    nones = nzeros = 0 ;
     t0 = elapsed_cycles_fast() ;
     nones = MaskGreater_avx512_le(idata , ndata, &zero, 1, the_bits, 0) ;
     t0 = elapsed_cycles_fast() - t0 ;
 fprintf( stderr, "number of 1s (avx512) = %d, cycles = %ld\n", nones, t0) ;
+    t0 = elapsed_cycles_fast() ;
+    nzeros = MaskGreater_avx512_le(idata , ndata, &zero, 1, the_bits, 1) ;
+    t0 = elapsed_cycles_fast() - t0 ;
+fprintf( stderr, "number of 0s (avx512) = %d, cycles = %ld\n", nzeros, t0) ;
 #endif
 #if defined(__x86_64__) && defined(__AVX2__)
-    nzeros = 0 ;
     for(i=0 ; i<ndata ; i++) the_bits[i] = 0 ;
-    nones = 0 ;
+    nones = nzeros = 0 ;
     t0 = elapsed_cycles_fast() ;
     nones = MaskGreater_avx2_le(idata , ndata, &zero, 1, the_bits, 0) ;
     t0 = elapsed_cycles_fast() - t0 ;
 fprintf( stderr, "number of 1s (avx2)   = %d, cycles = %ld\n", nones, t0) ;
+    t0 = elapsed_cycles_fast() ;
+    nzeros = MaskGreater_avx2_le(idata , ndata, &zero, 1, the_bits, 1) ;
+    t0 = elapsed_cycles_fast() - t0 ;
+fprintf( stderr, "number of 0s (avx2)   = %d, cycles = %ld\n", nzeros, t0) ;
 #endif
     for(i=0 ; i<ndata ; i++) the_bits[i] = 0 ;
-    nones = 0 ;
+    nones = nzeros = 0 ;
 //     nones = MaskGreater_avx2_le(idata , ndata, &zero, 1, the_bits, 0) ;
 // fprintf( stderr, "number of 1s (avx2)   = %d\n", nones) ;
     for(i=0 ; i<ndata ; i++) the_bits[i] = 0 ;
-    nones = 0 ;
     t0 = elapsed_cycles_fast() ;
     nones = MaskGreater_c_le(idata , ndata, &zero, 1, the_bits, 0) ;
     t0 = elapsed_cycles_fast() - t0 ;
 fprintf( stderr, "number of 1s (c)      = %d, cycles = %ld\n", nones, t0) ;
+    t0 = elapsed_cycles_fast() ;
+    nzeros = MaskGreater_c_le(idata , ndata, &zero, 1, the_bits, 1) ;
+    t0 = elapsed_cycles_fast() - t0 ;
+fprintf( stderr, "number of 0s (c)      = %d, cycles = %ld\n", nzeros, t0) ;
 
 return ;
 // AecEncodeUnsigned(void *source, int32_t source_length, void *dest, int32_t dest_length, int bits_per_sample)
