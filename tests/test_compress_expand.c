@@ -5,6 +5,7 @@
 #include <rmn/compress_expand.h>
 #include <rmn/compress_expand.h>
 #include <rmn/tile_encoders.h>
+#include <rmn/lorenzo.h>
 #include <rmn/timers.h>
 #include <rmn/c_record_io.h>
 
@@ -243,6 +244,47 @@ int32_t rep_encode(int32_t what, int32_t rep){
     bi++ ;
   }
   return nbits ;
+}
+
+void test_radar_field(char *filename){
+  int32_t dims[7], ndims, ndata, fd = 0, i, j, nzeros, nones, old = 2, rep = 0, totbits = 0, deficit = 0 ;
+  char name[5] ;
+  float *fdata, fmin, fmax ;
+  int32_t *idata, *bitmask, ncomp ;
+  uint32_t zero = 0 ;
+  uint64_t t0 ;
+
+  for(j=0 ; j<1 ; j++){
+    ndims = 0 ;
+    void *data = read_32bit_data_record_named(filename, &fd, dims, &ndims, &ndata, name) ;
+fprintf( stderr, "read record from '%s', %d dimensions, name = '%s', ndata = %d, (%d x %d)\n",
+          filename, ndims, name, ndata, dims[0], dims[1]) ;
+    idata = (int32_t *) data ;
+    fdata = (float *) data ;
+    fmin = fmax = fdata[0] ;
+    for(i=0 ; i<ndata ; i++){
+      fmin = (fdata[i] < fmin) ? fdata[i] : fmin ;
+      fmax = (fdata[i] > fmax) ? fdata[i] : fmax ;
+    }
+    uint32_t the_bits[ndata] ;
+    nones  = MaskEqual_avx512_le(idata , ndata, idata, 1, the_bits, 1) ; // points not equal to first point (not missing)
+    nzeros = MaskEqual_avx512_le(idata , ndata, idata, 1, the_bits, 0) ; // points equal to first point (missing)
+fprintf( stderr, "min = %f, max = %f, number of valid data = %d, number of missing data = %d\n", fmin, fmax, nones, nzeros) ;
+    t0 = elapsed_cycles_fast() ;
+    nones = MaskEqual_avx512_le(idata , ndata, idata, 1, the_bits, 1) ;
+    t0 = elapsed_cycles_fast() - t0 ;
+fprintf( stderr, "number of 1s (avx512) = %d, cycles = %ld\n", nones, t0) ;
+    t0 = elapsed_cycles_fast() ;
+    nzeros = MaskEqual_avx512_le(idata , ndata, idata, 1, the_bits, 0) ;
+    t0 = elapsed_cycles_fast() - t0 ;
+fprintf( stderr, "number of 0s (avx512) = %d, cycles = %ld\n", nzeros, t0) ;
+fprintf( stderr, "number of points = %d, 1s + 0s = %d\n", ndata, nones+nzeros) ;
+// compress bitmap
+// quantize valid data
+// raw value ranges of quantized valid data
+// try Lorenzo 1D prediction ( LorenzoPredict1D(orig, diff, ni) or LorenzoPredict1D(orig, orig, ni) )
+// value ranges of predicted data
+  }
 }
 
 void test_bit_mask_field(char *filename){
@@ -564,6 +606,10 @@ int main(int argc, char **argv){
   }
   if(argc == 3 && atoi(argv[1]) == 5){
     test_rle(argv[2]) ;
+    return 0 ;
+  }
+  if(argc == 3 && atoi(argv[1]) == 6){
+    test_radar_field(argv[2]) ;
     return 0 ;
   }
 

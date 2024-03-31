@@ -233,8 +233,8 @@ static void BinaryToString(void *w32, char *string, int ndigits){
 // encoding table for 2**n repeat counts (n = 0 to 16)
 // bit i will use i bits, from tab_2_n[i]
 //                                 1       2       4       8      16      32      64     128
-static uint32_t tab_2_n[] = { 0x0000, 0x0001, 0x0003, 0x0007, 0x000F, 0x001F, 0x003F, 0x007F,
-                              0x00FF, 0x01FF, 0x03FF, 0x07FF, 0x0FFF, 0x1FFF, 0x3FFF, 0x7FFF, 0xFFFF } ;
+// static uint32_t tab_2_n[] = { 0x0000, 0x0001, 0x0003, 0x0007, 0x000F, 0x001F, 0x003F, 0x007F,
+//                               0x00FF, 0x01FF, 0x03FF, 0x07FF, 0x0FFF, 0x1FFF, 0x3FFF, 0x7FFF, 0xFFFF } ;
 //                               256     512      1k      2k      4k      8k     16k     32k     64k
 // compresssed stream format
 // 0xxxxxxxx   : byte other that 00000000 or 11111111
@@ -246,9 +246,19 @@ static uint32_t tab_2_n[] = { 0x0000, 0x0001, 0x0003, 0x0007, 0x000F, 0x001F, 0x
 // 1x111110    : 32 identical bytes
 // 1x1...10    : 2**n identical bytes (where n is the number of 1s after the x bit)
 // 25 (16+8+1) identical bytes would be encoded as 1x111101x11101x0
-// byte 11001010 would be encoded as 011001010
 // encode byte, repeated repcount times
+//
+// other possible format
+// 1x10b         :  2 -  3 identical bytes
+// 1x110bb       :  4 -  7 identical bytes
+// 1x1110bbb     :  8 - 15 identical bytes
+// 1x11110bbbb   : 16 - 31 identical bytes
+// 1x1...10b...b : 2**n - 2**(n+1)-1 bytes (where n is the number of 1s after the x bit)
+// 25 (16+8+1) identical bytes would be encoded as 1x 1111 0 1001
+//
 // if byte is other that 0x00 or 0xff, repcount is assumed to be 1
+// byte 11001010 would be encoded as 011001010
+//
 // byte     [IN] : byte to encode
 // repcount [IN] : repeat count
 // stream  [OUT] : bit stream to receive encoded sequence

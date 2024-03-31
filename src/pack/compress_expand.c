@@ -19,7 +19,101 @@
 #include <rmn/compress_expand.h>
 #include <rmn/bits.h>
 
-// ================================ MaskCompare family ===============================
+static uint32_t word32 = 1 ;
+static uint8_t *le = (uint8_t *) &word32 ;
+// ================================ pack_n_to_m family ===============================
+// fill larger item from right to left
+// pack n 8 bit items into 32 bit words
+int Pack_8_to_32_r2l(void *s8, uint32_t n, void *d32){
+  uint8_t *c8 = (uint8_t *)s8 ;
+  uint32_t *i32 = (uint32_t *)d32 ;
+
+  uint32_t  nw = (n+3)/4 ;
+  if((s8 == d32) && *le) return n ;  // in place and little endian, NO-OP
+  while(n--){
+    uint32_t t ;
+    t = c8[3] ; t = (t << 8) | c8[2] ;  t = (t << 8) | c8[1] ; t = (t << 8) | c8[0] ;
+    *i32 = t ;
+    i32++ ; c8 += 4 ;
+  }
+  return n ;
+}
+// pack n 16 bit items into 32 bit words
+int Pack_16_to_32_r2l(void *s16, uint32_t n, void *d32){
+  uint16_t *h16 = (uint16_t *)s16 ;
+  uint32_t *i32 = (uint32_t *)d32 ;
+  n = (n+1)/2 ;
+
+  if((h16 == d32) && *le) return n ;  // in place and little endian, NO-OP
+  while(n--){
+    uint32_t t ;
+    t = h16[1] ; t = (t << 16) | h16[0] ;
+    *i32 = t ;
+    i32++ ; h16 += 2 ;
+  }
+  return n ;
+}
+// pack n 64 bit items into 32 bit words
+int Pack_64_to_32_r2l(void *s64, uint32_t n, void *d32){
+  uint64_t *d64 = (uint64_t *)s64 ;
+  uint32_t *i32 = (uint32_t *)d32 ;
+
+  if((d64 == d32) && *le) return n ;  // in place and little endian, NO-OP
+  while(n--){
+    i32[0] = *d64 & 0xFFFFFFFFu ;
+    i32[1] = *d64 >> 32 ;
+    i32 += 2 ; d64++ ;
+  }
+  return n*2 ;
+}
+// ================================ MaskCompress family ===============================
+// copy from s to d where mask0[i:i] == 1  (bit i, bit 0 is LSB)
+static uint32_t *Mask0copy_c_be(uint32_t *s, uint32_t *d, uint32_t mask0){
+  int i ;
+  for(i=0 ; mask0 != 0 ; i++){
+    *d = *s ;
+    s++ ;
+    d += (mask0 & 1) ;
+    mask0 >>= 1 ;
+  }
+  return d ;
+}
+// compute mask with 1s where s[i] == value, 0s otherwise
+// n MUST BE < 33
+static uint32_t Mask0EqualValue_c_be(uint32_t *s, uint32_t value, int n){
+  uint32_t mask0 = 0, m1 = 0x80000000u ;
+  while(n-- > 0) {                          // n < 33 value slices
+    mask0 |= ( (*s == value) ? m1 : 0 ) ;   // or m1 if src1 greater than src2
+    m1 >>= 1 ;                              // next bit to the right toward LSB
+    s++ ;                                   // increment pointer
+  }
+  return mask0 ;
+}
+// source  [IN] : first vector of values (or single value if nsrc1 == 1)
+// nsource [IN] : number of values in src1
+// value   [IN] : second vector of values (or single value if nsrc2 == 1)
+// mask   [OUT] : mask, 1s where src1[i] > src2[i], 0s otherwise
+// comp   [OUT] : vector of compressed values (where mask bit is 1)
+// negate  [IN] : invert test, produce 0s where src1[i] > src2[i], 1s otherwise
+int32_t MaskEqualCompress_c_be(void *source, int nsource, void *value, void *mask, void *comp, int negate){
+  uint32_t *src = (uint32_t *) source ;
+  uint32_t *ref = (uint32_t *) value ;
+  uint32_t ref0 = *ref ;
+  uint32_t *msk = (uint32_t *) mask ;
+  uint32_t *dst = (uint32_t *) comp ;
+  uint32_t complement = ( negate ? 0xFFFFFFFFu : 0 ), mask0, m1 ;
+  int nmask = 0, i0 ;
+
+  if(nsource <= 0) return -1 ;
+  for(i0=0 ; i0 < (nsource-31) ; i0 += 32){
+    mask0 = Mask0EqualValue_c_be(source, ref0, 32) ^ complement ;   // negate mask if necessary
+    nmask += popcnt_32(mask0) ;                // count 1s in masks
+    *msk++ = mask0 ;
+    source += 32 ;
+  }
+
+  return nmask ;
+}
 
 // ================================ MaskEqual ===============================
 // src1   [IN] vector of 32 values (32 bit) (any of float/signed integer/usigned integer)
@@ -53,32 +147,33 @@ static uint32_t Mask0Equal_c_be(uint32_t *s1, int inc1, uint32_t *s2, int inc2, 
   }
   return mask0 ;
 }
-int32_t MaskEqual_c_be(void *src1, int nsrc1, void *src2, int nsrc2, void *mask, int negate){
-  uint32_t *s1 = (uint32_t *) src1 ;
-  uint32_t *s2 = (uint32_t *) src2 ;
-  uint32_t *mk = (uint32_t *) mask ;
-  uint32_t complement = ( negate ? 0xFFFFFFFFu : 0 ), mask0, m1 ;
-  int i0, i, inc1 = ((nsrc1 > 1) ? 1 : 0), inc2 = ((nsrc2 > 1) ? 1 : 0) ;
-  int n = (nsrc1 > nsrc2) ? nsrc1 : nsrc2 ;
-  int nmask = 0 ;
-
-  if(nsrc1 != n && nsrc1 != 1) return -1 ;
-  if(nsrc2 != n && nsrc2 != 1) return -1 ;
-
-  for(i0=0 ; i0 < (n-31) ; i0 += 32){
-    mask0 = Mask0Equal_c_be(s1, inc1, s2, inc2, 32) ^ complement ;   // negate mask if necessary
-    nmask += popcnt_32(mask0) ;                // count 1s in masks
-    *mk++ = mask0 ;
-  }
-  if(n-i0 > 0) {
-    int scount = 32 - (n-i0) ;
-    mask0 = Mask0Equal_c_be(s1, inc1, s2, inc2, n-i0) ^ complement ;   // negate mask if necessary
-    mask0 = (mask0 >> scount) << scount ;        // get rid of extra 1s from negate
-    nmask += popcnt_32(mask0) ;                  // count 1s in masks
-    *mk = mask0 ;
-  }
-  return nmask ;
-}
+// int32_t MaskEqual_c_be(void *src1, int nsrc1, void *src2, int nsrc2, void *mask, int negate){
+//   uint32_t *s1 = (uint32_t *) src1 ;
+//   uint32_t *s2 = (uint32_t *) src2 ;
+//   uint32_t *mk = (uint32_t *) mask ;
+//   uint32_t complement = ( negate ? 0xFFFFFFFFu : 0 ), mask0, m1 ;
+//   int i0, i, inc1 = ((nsrc1 > 1) ? 1 : 0), inc2 = ((nsrc2 > 1) ? 1 : 0) ;
+//   int n = (nsrc1 > nsrc2) ? nsrc1 : nsrc2 ;
+//   int nmask = 0 ;
+// 
+//   if(nsrc1 != n && nsrc1 != 1) return -1 ;
+//   if(nsrc2 != n && nsrc2 != 1) return -1 ;
+// 
+//   for(i0=0 ; i0 < (n-31) ; i0 += 32){
+//     mask0 = Mask0Equal_c_be(s1, inc1, s2, inc2, 32) ^ complement ;   // negate mask if necessary
+//     nmask += popcnt_32(mask0) ;                // count 1s in masks
+//     *mk++ = mask0 ;
+//     s1 += inc1*32 ; s2 += inc2*32 ;
+//   }
+//   if(n-i0 > 0) {
+//     int scount = 32 - (n-i0) ;
+//     mask0 = Mask0Equal_c_be(s1, inc1, s2, inc2, n-i0) ^ complement ;   // negate mask if necessary
+//     mask0 = (mask0 >> scount) << scount ;        // get rid of extra 1s from negate
+//     nmask += popcnt_32(mask0) ;                  // count 1s in masks
+//     *mk = mask0 ;
+//   }
+//   return nmask ;
+// }
 static uint32_t Mask0Equal_c_le(uint32_t *s1, int inc1, uint32_t *s2, int inc2, int n){
   uint32_t mask0 = 0, m1 = 1 ;               // start with LSB
   while(n-- > 0) {                           // n < 33 value slices
@@ -117,9 +212,9 @@ int32_t MaskEqual_c_le(void *src1, int nsrc1, void *src2, int nsrc2, void *mask,
 }
 #if defined(__x86_64__) && defined(__AVX2__)
 // AVX2 version
-int32_t MaskEqual_avx2_be(void *src1, int nsrc1, void *src2, int nsrc2, uint32_t *mask, int negate){
-  return MaskEqual_c_be(src1, nsrc1, src2, nsrc2, mask, negate) ;  // plain C version for now
-}
+// int32_t MaskEqual_avx2_be(void *src1, int nsrc1, void *src2, int nsrc2, uint32_t *mask, int negate){
+//   return MaskEqual_c_be(src1, nsrc1, src2, nsrc2, mask, negate) ;  // plain C version for now
+// }
 int32_t MaskEqual_avx2_le(void *src1, int nsrc1, void *src2, int nsrc2, void *mask, int negate){
   uint32_t *s1 = (uint32_t *) src1, *s2 = (uint32_t *) src2 ;
   uint8_t *mk = (uint8_t *) mask ;
@@ -178,9 +273,9 @@ int32_t MaskEqual_avx2_le(void *src1, int nsrc1, void *src2, int nsrc2, void *ma
 #endif
 #if defined(__x86_64__) && defined(__AVX512F__)
 // AVX512 version
-int32_t MaskEqual_avx512_be(void *src1, int nsrc1, void *src2, int nsrc2, void *mask, int negate){
-  return MaskEqual_c_be(src1, nsrc1, src2, nsrc2, mask, negate) ;  // plain C version for now
-}
+// int32_t MaskEqual_avx512_be(void *src1, int nsrc1, void *src2, int nsrc2, void *mask, int negate){
+//   return MaskEqual_c_be(src1, nsrc1, src2, nsrc2, mask, negate) ;  // plain C version for now
+// }
 int32_t MaskEqual_avx512_le(void *src1, int nsrc1, void *src2, int nsrc2, void *mask, int negate){
   uint32_t *s1 = (uint32_t *)src1, *s2 = (uint32_t *)src2 ;
   uint32_t mask0, m1 ;
