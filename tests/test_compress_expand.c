@@ -267,6 +267,7 @@ fprintf( stderr, "read record from '%s', %d dimensions, name = '%s', ndata = %d,
       fmax = (fdata[i] > fmax) ? fdata[i] : fmax ;
     }
     uint32_t the_bits[ndata] ;
+#if defined(__x86_64__) && defined(__AVX512F__)
     nones  = MaskEqual_avx512_le(idata , ndata, idata, 1, the_bits, 1) ; // points not equal to first point (not missing)
     nzeros = MaskEqual_avx512_le(idata , ndata, idata, 1, the_bits, 0) ; // points equal to first point (missing)
 fprintf( stderr, "min = %f, max = %f, number of valid data = %d, number of missing data = %d\n", fmin, fmax, nones, nzeros) ;
@@ -279,6 +280,7 @@ fprintf( stderr, "number of 1s (avx512) = %d, cycles = %ld\n", nones, t0) ;
     t0 = elapsed_cycles_fast() - t0 ;
 fprintf( stderr, "number of 0s (avx512) = %d, cycles = %ld\n", nzeros, t0) ;
 fprintf( stderr, "number of points = %d, 1s + 0s = %d\n", ndata, nones+nzeros) ;
+#endif
 // compress bitmap
 // quantize valid data
 // raw value ranges of quantized valid data
