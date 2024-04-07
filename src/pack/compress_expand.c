@@ -67,8 +67,8 @@ int Copy_items_l2r(void *src, uint32_t srclen, void *dst, uint32_t dstlen, uint3
   if(*le){                                   // little endian host
     switch(dstlen) {
       case 1 :
+        nd = ns * srclen ;
         switch (srclen){
-          nd = ns * srclen ;
           case 2 :       // 16 bits to 8 bits
             for(i=0 ; i<ns ; i++) { d8[0] = *s16 >> 8 ; d8[1] = *s16 ; s16++ ; d8 += 2 ; } ;
             break ;
