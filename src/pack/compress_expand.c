@@ -21,17 +21,139 @@
 
 static uint32_t word32 = 1 ;
 static uint8_t *le = (uint8_t *) &word32 ;
+// ================================ Copy_items family ===============================
+// copy variable length (8/16/32/64 bit) items into 8/16/32/64 bit containers
+// larger item filled from right to left _r2l functions)
+// larger item filled from left to right _l2r functions)
+// BIG ENDIAN CODE IS UNTESTED
+//
+// src     [IN] : pointer to source data
+// srclen  [IN] : length in bytes of src elements (1/2/4/8)
+// dst    [OUT] : pointer to destination
+// dstlen  [IN] : length in bytes of dst elements (1/2/4/8)
+// ns      [IN] : number of src elements to cpy into dst
+int Copy_items_r2l(void *src, uint32_t srclen, void *dst, uint32_t dstlen, uint32_t ns){
+  uint32_t nd = (ns*srclen + dstlen - 1) / dstlen ;
+  if( (_mm_popcnt_u32(srclen) > 1) || (_mm_popcnt_u32(dstlen) > 1) || (srclen > 8) || (dstlen > 8) ) return -1 ;
+  if(*le){                                   // little endian host
+    if(src != dst){                          // in place is a NO-OP
+      memcpy(dst, src, ns*srclen) ;          // straight copy on a little endian host
+    }
+  }else{                                     // big endian host
+    if(srclen == dstlen){                    // same length for source and destination elements
+      if(src != dst) memcpy(dst, src, ns*srclen) ;
+      return nd = ns ;
+    }
+    return -1 ;                              // BIG ENDIAN VERSION NOT IMPLEMENTED YET
+  }
+  return nd ;
+}
+int Copy_items_l2r(void *src, uint32_t srclen, void *dst, uint32_t dstlen, uint32_t ns){
+  uint32_t nd ;
+  uint8_t  *s8  = (uint8_t  *)src, *d8  = (uint8_t  *)dst, t8 ;
+  uint16_t *s16 = (uint16_t *)src, *d16 = (uint16_t *)dst, t16 ;
+  uint32_t *s32 = (uint32_t *)src, *d32 = (uint32_t *)dst, t32 ;
+  uint64_t *s64 = (uint64_t *)src, *d64 = (uint64_t *)dst, t64 ;
+  int i, j ;
+  if( (_mm_popcnt_u32(srclen) > 1) || (_mm_popcnt_u32(dstlen) > 1) || (srclen > 8) || (dstlen > 8) ) return -1 ;
+
+  if(srclen == dstlen){                      // same length for source and destination elements
+    if(src != dst) {                         // in place is a NO-OP
+      memcpy(dst, src, ns*srclen) ;           // straight copy
+    }
+    return nd = ns ;
+  }
+
+  if(*le){                                   // little endian host
+    switch(dstlen) {
+      case 1 :
+        switch (srclen){
+          nd = ns * srclen ;
+          case 2 :       // 16 bits to 8 bits
+            for(i=0 ; i<ns ; i++) { d8[0] = *s16 >> 8 ; d8[1] = *s16 ; s16++ ; d8 += 2 ; } ;
+            break ;
+          case 4 :       // 32 bits to 8 bits
+            for(i=0 ; i<ns ; i++) { d8[0] = *s32>>24 ; d8[1] = *s32>>16 ; d8[2] = *s32 >> 8 ; d8[3] = *s32 ; s32++ ; d8 += 4 ; } ;
+            break ;
+          case 8 :       // 64 bits to 8 bits
+            for(i=0 ; i<ns ; i++) { d8[0] = *s64>>56 ; d8[1] = *s64>>48 ; d8[2] = *s64>>40 ; d8[3] = *s64>>32 ;
+                                    d8[4] = *s64>>24 ; d8[5] = *s64>>16 ; d8[6] = *s64>>8  ; d8[7] = *s64 ; s64++ ; d8 += 8 ; } ;
+            break ;
+        }
+        break ;
+
+      case 2 :
+        switch (srclen){
+          case 1 :       // 8 bits to 16 bits
+            nd = (ns+1) / 2 ;
+            for(i=0 ; i<ns ; i++) { t16 = s8[0] ; t16 = (t16 << 8) | s8[1] ; *d16 = t16 ; d16++ ; s8 += 2 ; }
+            break ;
+          case 4 :       // 32 bits to 16 bits
+            nd = ns * 2 ;
+            for(i=0 ; i<ns ; i++) { d16[0] = *s32 >> 16 ; d16[1] = *s32 ; s32++ ; d16 += 2 ; }
+            break ;
+          case 8 :       // 64 bits to 16 bits
+            nd = ns * 4 ;
+            for(i=0 ; i<ns ; i++) { d16[0] = *s64>>48 ; d16[1] = *s64>>32 ; d16[2] = *s64>>16 ; d16[3] = *s64 ; s64++ ; d16 += 4 ; }
+            break ;
+        }
+        break ;
+
+      case 4 :
+        switch (srclen){
+          case 1 :       // 8 bits to 32 bits
+            nd = (ns+3) / 4 ;
+            for(i=0 ; i<nd ; i++) { t32 = (s8[0] << 24) | (s8[1] << 16) | (s8[2] << 8) | s8[3] ; *d32 = t32 ; d32++ ; s8 += 4 ; }
+            break ;
+          case 2 :       // 16 bits to 32 bits
+            nd = (ns+1) / 2 ;
+            for(i=0 ; i<nd ; i++) { t32 = (s16[0] << 16) | s16[1] ; *d32 = t32 ; d32++ ; s32 += 2 ; }
+            break ;
+          case 8 :       // 64 bits to 32 bits
+            nd = ns * 2 ;
+            for(i=0 ; i<ns ; i++) { d32[0] = *s64 >> 32 ; d32[1] = *s64 ; s64++ ; d32 += 2 ; }
+            break ;
+        }
+        break ;
+
+      case 8 :
+        switch (srclen){
+          case 1 :       // 8 bits to 64 bits
+            nd = (ns+7) / 8 ;
+            for(i=0 ; i<nd ; i++) { t64 = s8[0] ;          t64 = (t64<<8)|s8[1] ; t64 = (t64<<8)|s8[2] ; t64 = (t64<<8)|s8[3] ;
+                                    t64 = (t64<<8)|s8[4] ; t64 = (t64<<8)|s8[5] ; t64 = (t64<<8)|s8[6] ; t64 = (t64<<8)|s8[7] ;
+                                    *d64 = t64 ; d64++ ; s8 += 8 ; }
+            break ;
+          case 2 :       // 16 bits to 64 bits
+            nd = (ns+3) / 4 ;
+            for(i=0 ; i<nd ; i++) { t64 = s16[0] ; t64 = (t64<<16)|s16[1] ; t64 = (t64<<16)|s16[2] ; t64 = (t64<<16)|s16[3] ;
+                                    *d64 = t64 ; t64++ ; s16 += 4 ; }
+            break ;
+          case 4 :       // 32 bits to 64 bits
+            nd = (ns+1) / 2 ;
+            for(i=0 ; i<nd ; i++) { t64 = s32[0] ; t64 = (t64<<32)|s32[1] ; *d64 = t64 ; t64++ ; s32 += 2 ; }
+            break ;
+        }
+        break ;
+    }
+  }else{                                     // big endian host
+    if(src != dst){                          // in place is a NO-OP
+      memcpy(dst, src, ns*srclen) ;           // straight copy on a big endian host
+    }
+  }
+  return nd ;
+}
 // ================================ Put_n_into_m family ===============================
 // larger item filled from right to left _r2l functions)
 // larger item filled from left to right _l2r functions)
-// BIG ENDIAN code is UNTESTED
+// BIG ENDIAN CODE IS UNTESTED
 //
 // pack n 8 bit items into 32 bit words
 // s8   [IN] : pointer to an array of 1 byte items
 // n    [IN] : number of 1 byte items
 // d32 [OUT] : pointer to an array of 32 bit (4 byte) words
 // return the number of 32 bit words used
-int Put_8_into_32_r2l(void *s8, uint32_t n, void *d32){
+int Put_8_into_32_r2l(void *s8, uint32_t n, void *d32){    // fill d32 from right (LSB) to left (MSB)
   uint32_t  nw = (n+3)/4 ;
 
   if(*le){                                   // little endian host
@@ -49,12 +171,30 @@ int Put_8_into_32_r2l(void *s8, uint32_t n, void *d32){
   }
   return nw ;
 }
+int Put_8_into_32_l2r(void *s8, uint32_t n, void *d32){    // fill d32 from left (MSB) to right (LSB)
+  uint32_t  nw = (n+3)/4 ;
+
+  if(*le){                                   // little endian host
+    uint8_t *c8   = (uint8_t *)s8 ;
+    uint32_t *i32 = (uint32_t *)d32 ;
+    while(nw--){
+      uint32_t t ;    // t = c8[0] c8[1] c8[2] c8[3]
+      t = c8[0] ; t = (t << 8) | c8[1] ; t = (t << 8) | c8[2] ; t = (t << 8) | c8[3] ;
+      *i32 = t ; i32++ ; c8 += 4 ;
+    }
+  }else{                                     // big endian host
+    if(s8 != d32){                           // in place is a NO-OP
+      memcpy(d32, s8, n*sizeof(uint8_t)) ;   // straight copy on a big endian host
+    }
+  }
+  return nw ;
+}
 // pack n 16 bit items into 32 bit words
 // s16  [IN] : pointer to an array of 2 byte items
 // n    [IN] : number of 2 byte items
 // d32 [OUT] : pointer to an array of 32 bit (4 byte) words
 // return the number of 32 bit words used
-int Put_16_into_32_r2l(void *s16, uint32_t n, void *d32){
+int Put_16_into_32_r2l(void *s16, uint32_t n, void *d32){    // fill d32 from right (LSB) to left (MSB)
   uint32_t  nw = (n+1)/2 ;
 
   if(*le){                                   // little endian host
@@ -72,12 +212,30 @@ int Put_16_into_32_r2l(void *s16, uint32_t n, void *d32){
   }
   return nw ;
 }
-// pack n 64 bit items into 32 bit words
+int Put_16_into_32_l2r(void *s16, uint32_t n, void *d32){    // fill d32 from left (MSB) to right (LSB)
+  uint32_t  nw = (n+1)/2 ;
+
+  if(*le){                                   // little endian host
+    uint16_t *h16 = (uint16_t *)s16 ;
+    uint32_t *i32 = (uint32_t *)d32 ;
+    while(nw--){
+      uint32_t t ;    // t = h16[0] h16[1]
+      t = h16[0] ; t = (t << 16) | h16[1] ;
+      *i32 = t ; i32++ ; h16 += 2 ;
+    }
+  }else{                                     // big endian host
+    if(s16 != d32){                          // in place is a NO-OP
+      memcpy(d32, s16, n*sizeof(uint16_t)) ; // straight copy on a big endian host
+    }
+  }
+  return nw ;
+}
+// "pack" n 64 bit items into 32 bit words
 // s64  [IN] : pointer to an array of 8 byte items
 // n    [IN] : number of 8 byte items
 // d32 [OUT] : pointer to an array of 32 bit (4 byte) words
 // return the number of 32 bit words used
-int Put_64_into_32_r2l(void *s64, uint32_t n, void *d32){
+int Put_64_into_32_r2l(void *s64, uint32_t n, void *d32){    // right part (LSB) of s64, then left part (MSB)
   uint32_t  nw = n * 2 ;
 
   if(*le){                                   // little endian host
@@ -91,6 +249,24 @@ int Put_64_into_32_r2l(void *s64, uint32_t n, void *d32){
       i32[0] = *l64 & 0xFFFFFFFFu ;          // lower part first
       i32[1] = *l64 >> 32 ;                  // upper part after
       i32 += 2 ; l64++ ;
+    }
+  }
+  return nw ;
+}
+int Put_64_into_32_l2r(void *s64, uint32_t n, void *d32){    // left part (MSB) of s64, then right part (LSB)
+  uint32_t  nw = n * 2 ;
+
+  if(*le){                                   // little endian host
+    uint64_t *l64 = (uint64_t *)s64 ;
+    uint32_t *i32 = (uint32_t *)d32 ;
+    while(n--){
+      i32[0] = *l64 >> 32 ;                  // upper part first
+      i32[1] = *l64 & 0xFFFFFFFFu ;          // lower part after
+      i32 += 2 ; l64++ ;
+    }
+  }else{                                     // big endian host
+    if(s64 != d32){                          // in place is a NO-OP
+      memcpy(d32, s64, n*sizeof(uint64_t)) ; // straight copy on a big endian host
     }
   }
   return nw ;
@@ -119,6 +295,24 @@ int Get_8_from_32_r2l(void *d8, uint32_t n, void *s32){
   }
   return nw ;
 }
+int Get_8_from_32_l2r(void *d8, uint32_t n, void *s32){
+  uint32_t  nw = (n+3)/4 ;
+
+  if(*le){                                   // little endian host
+    uint8_t *c8   = (uint8_t *)d8 ;
+    uint32_t *i32 = (uint32_t *)s32 ;
+    while(nw--){
+      uint32_t t = *i32 ;    // t = c8[0] c8[1] c8[2] c8[3]
+      c8[3] = t ; c8[2] = t >> 8 ;  c8[1] = t >> 16 ;  c8[0] = t >> 24 ;
+      i32++ ; c8 += 4 ;
+    }
+  }else{                                     // big endian host
+    if(d8 != s32){                           // in place is a NO-OP
+      memcpy(d8, s32, n*sizeof(uint8_t)) ;   // straight copy on a big endian host
+    }
+  }
+  return nw ;
+}
 // unpack n 16 bit items from 32 bit words
 // d16 [OUT] : pointer to an array of 2 byte items
 // n    [IN] : number of 2 byte items
@@ -142,7 +336,25 @@ int Get_16_from_32_r2l(void *d16, uint32_t n, void *s32){
   }
   return nw ;
 }
-// unpack n 64 bit items from 32 bit words
+int Get_16_from_32_l2r(void *d16, uint32_t n, void *s32){
+  uint32_t  nw = (n+1)/2 ;
+
+  if(*le){                                   // little endian host
+    uint16_t *h16 = (uint16_t *)d16 ;
+    uint32_t *i32 = (uint32_t *)s32 ;
+    while(nw--){
+      uint32_t t = *i32 ;    // t = h16[0] h16[1]
+      h16[0] = t >> 16 ; h16[1] = t ;
+      i32++ ; h16 += 2 ;
+    }
+  }else{                                     // big endian host
+    if(d16 != s32){                          // in place is a NO-OP
+      memcpy(d16, s32, n*sizeof(uint16_t)) ; // straight copy on a big endian host
+    }
+  }
+  return nw ;
+}
+// "unpack" n 64 bit items from 32 bit words
 // d64 [OUT] : pointer to an array of 8 byte items
 // n    [IN] : number of 8 byte items
 // s32  [IN] : pointer to an array of 32 bit (4 byte) words
@@ -158,7 +370,28 @@ int Get_64_from_32_r2l(void *d64, uint32_t n, void *s32){
     uint64_t *l64 = (uint64_t *)d64 ;
     uint32_t *i32 = (uint32_t *)s32 ;
     while(n--){
+      uint64_t t ;    // i32[1] i32[0]
+      t = i32[0] ; t = t << 32 ; t |= i32[1] ;
+      *l64 = t ;
       i32 += 2 ; l64++ ;
+    }
+  }
+  return nw ;
+}
+int Get_64_from_32_l2r(void *d64, uint32_t n, void *s32){
+  uint32_t  nw = n * 2 ;
+
+  if(*le){                                   // little endian host
+    uint64_t *l64 = (uint64_t *)d64 ;
+    uint32_t *i32 = (uint32_t *)s32 ;
+    while(n--){
+      uint64_t t = *l64 ;    // i32[0] i32[1]
+      i32[0] = t >> 32 ; i32[1] = t ;
+      i32 += 2 ; l64++ ;
+    }
+  }else{                                     // big endian host
+    if(d64 != s32){                          // in place is a NO-OP
+      memcpy(d64, s32, n*sizeof(uint64_t)) ; // straight copy on a big endian host
     }
   }
   return nw ;
