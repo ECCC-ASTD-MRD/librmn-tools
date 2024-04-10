@@ -38,12 +38,14 @@ int Copy_items_r2l(void *src, uint32_t srclen, void *dst, uint32_t dstlen, uint3
   if( (_mm_popcnt_u32(srclen) > 1) || (_mm_popcnt_u32(dstlen) > 1) || (srclen > 8) || (dstlen > 8) ) return -1 ;
   if(*le){                                   // little endian host
     if(src != dst){                          // in place is a NO-OP
-      memcpy(dst, src, ns*srclen) ;          // straight copy on a little endian host
+//       memcpy(dst, src, ns*srclen) ;          // straight copy on a little endian host
+      memcpy(dst, src, nd*dstlen) ;          // straight copy on a little endian host
     }
   }else{                                     // big endian host
     if(srclen == dstlen){                    // same length for source and destination elements
-      if(src != dst) memcpy(dst, src, ns*srclen) ;
-      return nd = ns ;
+//       if(src != dst) memcpy(dst, src, ns*srclen) ;
+      if(src != dst) memcpy(dst, src, nd*dstlen) ;
+      return nd ; // = ns ;
     }
     return -1 ;                              // BIG ENDIAN VERSION NOT IMPLEMENTED YET
   }

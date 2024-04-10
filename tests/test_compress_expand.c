@@ -647,13 +647,45 @@ void compare_mem(void *a, void *b, int nitems, char *msg, int nbytes){
   }
 }
 
-void test_copy_n_to_m(char *filename){
+void test_copy_n_to_m(char *msg){
   uint8_t  t08[24] ;
   uint16_t t16[12] ;
   uint32_t t32[ 6] ;
   uint64_t t64[ 3] ;
   int nitems, i ;
 
+  fprintf(stderr, "=================== right -> left copy ===================\n") ;
+  nitems = Copy_items_r2l(s08, 1, t16, 2,     17) ; compare_mem(r16, t16, nitems, "copy  8 to 16", 2) ;
+  nitems = Copy_items_r2l(t16, 2, t08, 1, nitems) ; compare_mem(s08, t08, nitems, "copy 16 to  8", 1) ;
+  nitems = Copy_items_r2l(t08, 1, t08, 2,     17) ; compare_mem(r16, t08, nitems, "copy  8 to 16 (in place)", 2) ;
+  nitems = Copy_items_r2l(t08, 2, t08, 1, nitems) ; compare_mem(s08, t08, nitems, "copy 16 to  8 (in place)", 1) ;
+
+  nitems = Copy_items_r2l(s08, 1, t32, 4,     17) ; compare_mem(r32, t32, nitems, "copy  8 to 32", 4) ;
+  nitems = Copy_items_r2l(t32, 4, t08, 1, nitems) ; compare_mem(s08, t08, nitems, "copy 32 to  8", 1) ;
+  nitems = Copy_items_r2l(t08, 1, t08, 4,     17) ; compare_mem(r32, t08, nitems, "copy  8 to 32 (in place)", 4) ;
+  nitems = Copy_items_r2l(t08, 4, t08, 1, nitems) ; compare_mem(s08, t08, nitems, "copy 32 to  8 (in place)", 1) ;
+
+  nitems = Copy_items_r2l(s08, 1, t64, 8,     17) ; compare_mem(r64, t64, nitems, "copy  8 to 64", 8) ;
+  nitems = Copy_items_r2l(t64, 8, t08, 1, nitems) ; compare_mem(s08, t08, nitems, "copy 64 to  8", 1) ;
+  nitems = Copy_items_r2l(t08, 1, t08, 8,     17) ; compare_mem(r64, t08, nitems, "copy  8 to 64 (in place)", 8) ;
+  nitems = Copy_items_r2l(t08, 8, t08, 1, nitems) ; compare_mem(s08, t08, nitems, "copy 64 to  8 (in place)", 1) ;
+
+  nitems = Copy_items_r2l(r16, 2, t32, 4,      9) ; compare_mem(r32, t32, nitems, "copy 16 to 32", 4) ;
+  nitems = Copy_items_r2l(t32, 4, t16, 2, nitems) ; compare_mem(r16, t16, nitems, "copy 32 to 16", 2) ;
+  nitems = Copy_items_r2l(t16, 2, t16, 4,      9) ; compare_mem(r32, t16, nitems, "copy 16 to 32 (in place)", 4) ;
+  nitems = Copy_items_r2l(t16, 4, t16, 2, nitems) ; compare_mem(r16, t16, nitems, "copy 32 to 16 (in place)", 2) ;
+
+  nitems = Copy_items_r2l(r16, 2, t64, 8,      9) ; compare_mem(r64, t64, nitems, "copy 16 to 64", 8) ;
+  nitems = Copy_items_r2l(t64, 8, t16, 2, nitems) ; compare_mem(r16, t16, nitems, "copy 64 to 16", 2) ;
+  nitems = Copy_items_r2l(t16, 2, t16, 8,      9) ; compare_mem(r64, t16, nitems, "copy 16 to 64 (in place)", 8) ;
+  nitems = Copy_items_r2l(t16, 8, t16, 2, nitems) ; compare_mem(r16, t16, nitems, "copy 64 to 16 (in place)", 2) ;
+
+  nitems = Copy_items_r2l(r32, 4, t64, 8,      5) ; compare_mem(r64, t64, nitems, "copy 32 to 64", 8) ;
+  nitems = Copy_items_r2l(t64, 8, t32, 4, nitems) ; compare_mem(r32, t32, nitems, "copy 64 to 32", 4) ;
+  nitems = Copy_items_r2l(t32, 4, t32, 8,      5) ; compare_mem(r64, t32, nitems, "copy 32 to 64 (in place)", 8) ;
+  nitems = Copy_items_r2l(t32, 8, t32, 4, nitems) ; compare_mem(r32, t32, nitems, "copy 64 to 32 (in place)", 4) ;
+
+  fprintf(stderr, "=================== left -> right copy ===================\n") ;
   nitems = Copy_items_l2r(s08, 1, t16, 2,     17) ; compare_mem(l16, t16, nitems, "copy  8 to 16", 2) ;
   nitems = Copy_items_l2r(t16, 2, t08, 1, nitems) ; compare_mem(s08, t08, nitems, "copy 16 to  8", 1) ;
   nitems = Copy_items_l2r(t08, 1, t08, 2,     17) ; compare_mem(l16, t08, nitems, "copy  8 to 16 (in place)", 2) ;
