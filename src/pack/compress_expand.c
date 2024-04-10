@@ -92,15 +92,15 @@ int Copy_items_l2r(void *src, uint32_t srclen, void *dst, uint32_t dstlen, uint3
         switch (srclen){
           case 1 :       // 8 bits to 16 bits
             nd = (ns+1) / 2 ;
-            for(i=0 ; i<ns ; i++) { t16 = s8[0] ; t16 = (t16 << 8) | s8[1] ; *d16 = t16 ; d16++ ; s8 += 2 ; }
+            for(i=0 ; i<nd ; i++) { t16 = s8[0] ; t16 = (t16 << 8) | s8[1] ; *d16 = t16 ; d16++ ; s8 += 2 ; }
             break ;
           case 4 :       // 32 bits to 16 bits
             nd = ns * 2 ;
-            for(i=0 ; i<ns ; i++) { t32 = *s32 ; d16[0] = t32 >> 16 ; d16[1] = t32 & 0xFFFF ; s32++ ; d16 += 2 ; }
+            for(i=0 ; i<nd ; i++) { t32 = *s32 ; d16[0] = t32 >> 16 ; d16[1] = t32 & 0xFFFF ; s32++ ; d16 += 2 ; }
             break ;
           case 8 :       // 64 bits to 16 bits
             nd = ns * 4 ;
-            for(i=0 ; i<ns ; i++) { t64 = *s64 ; d16[0] = t64>>48 ; d16[1] = (t64>>32) & 0xFFFF ;
+            for(i=0 ; i<nd ; i++) { t64 = *s64 ; d16[0] = t64>>48 ; d16[1] = (t64>>32) & 0xFFFF ;
                                     d16[2] = (t64>>16) & 0xFFFF ; d16[3] = t64 & 0xFFFF ; s64++ ; d16 += 4 ; }
             break ;
         }
