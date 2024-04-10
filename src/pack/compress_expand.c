@@ -32,6 +32,7 @@ static uint8_t *le = (uint8_t *) &word32 ;
 // dst    [OUT] : pointer to destination
 // dstlen  [IN] : length in bytes of dst elements (1/2/4/8)
 // ns      [IN] : number of src elements to cpy into dst
+// right to left fill/extract to/from larger item
 int Copy_items_r2l(void *src, uint32_t srclen, void *dst, uint32_t dstlen, uint32_t ns){
   uint32_t nd = (ns*srclen + dstlen - 1) / dstlen ;
   if( (_mm_popcnt_u32(srclen) > 1) || (_mm_popcnt_u32(dstlen) > 1) || (srclen > 8) || (dstlen > 8) ) return -1 ;
@@ -48,6 +49,7 @@ int Copy_items_r2l(void *src, uint32_t srclen, void *dst, uint32_t dstlen, uint3
   }
   return nd ;
 }
+// left to right fill/extract to/from larger item
 int Copy_items_l2r(void *src, uint32_t srclen, void *dst, uint32_t dstlen, uint32_t ns){
   uint32_t nd ;
   uint8_t  *s8  = (uint8_t  *)src, *d8  = (uint8_t  *)dst, t8 ;
@@ -59,30 +61,32 @@ int Copy_items_l2r(void *src, uint32_t srclen, void *dst, uint32_t dstlen, uint3
 
   if(srclen == dstlen){                      // same length for source and destination elements
     if(src != dst) {                         // in place is a NO-OP
-      memcpy(dst, src, ns*srclen) ;           // straight copy
+      memcpy(dst, src, ns*srclen) ;          // straight copy if not in place
     }
     return nd = ns ;
   }
 
   if(*le){                                   // little endian host
     switch(dstlen) {
-      case 1 :
+      case 1 :           // destination is 8 bits wide
         nd = ns * srclen ;
         switch (srclen){
           case 2 :       // 16 bits to 8 bits
-            for(i=0 ; i<ns ; i++) { d8[0] = *s16 >> 8 ; d8[1] = *s16 ; s16++ ; d8 += 2 ; } ;
+            for(i=0 ; i<ns ; i++) { t16 = *s16 ; d8[0] = t16 >> 8 ; d8[1] = t16 & 0xFF ; s16++ ; d8 += 2 ; } ;
             break ;
           case 4 :       // 32 bits to 8 bits
-            for(i=0 ; i<ns ; i++) { d8[0] = *s32>>24 ; d8[1] = *s32>>16 ; d8[2] = *s32 >> 8 ; d8[3] = *s32 ; s32++ ; d8 += 4 ; } ;
+            for(i=0 ; i<ns ; i++) { t32 = *s32 ; d8[0] = (t32>>24) ; d8[1] = (t32>>16) & 0xFF ; 
+                                    d8[2] = (t32>>8) & 0xFF ; d8[3] = t32 & 0xFF ; s32++ ; d8 += 4 ; } ;
             break ;
           case 8 :       // 64 bits to 8 bits
-            for(i=0 ; i<ns ; i++) { d8[0] = *s64>>56 ; d8[1] = *s64>>48 ; d8[2] = *s64>>40 ; d8[3] = *s64>>32 ;
-                                    d8[4] = *s64>>24 ; d8[5] = *s64>>16 ; d8[6] = *s64>>8  ; d8[7] = *s64 ; s64++ ; d8 += 8 ; } ;
+            for(i=0 ; i<ns ; i++) { t64 = *s64 ; d8[0] = t64>>56 ; d8[1] = (t64>>48) & 0xFF ; d8[2] = (t64>>40) & 0xFF ;
+                                    d8[3] = (t64>>32) & 0xFF ; d8[4] = (t64>>24) & 0xFF ; d8[5] = (t64>>16) & 0xFF ;
+                                    d8[6] = (t64>>8) & 0xFF  ; d8[7] = t64 & 0xFF ; s64++ ; d8 += 8 ; } ;
             break ;
         }
         break ;
 
-      case 2 :
+      case 2 :           // destination is 16 bits wide
         switch (srclen){
           case 1 :       // 8 bits to 16 bits
             nd = (ns+1) / 2 ;
@@ -90,16 +94,17 @@ int Copy_items_l2r(void *src, uint32_t srclen, void *dst, uint32_t dstlen, uint3
             break ;
           case 4 :       // 32 bits to 16 bits
             nd = ns * 2 ;
-            for(i=0 ; i<ns ; i++) { d16[0] = *s32 >> 16 ; d16[1] = *s32 ; s32++ ; d16 += 2 ; }
+            for(i=0 ; i<ns ; i++) { t32 = *s32 ; d16[0] = t32 >> 16 ; d16[1] = t32 & 0xFFFF ; s32++ ; d16 += 2 ; }
             break ;
           case 8 :       // 64 bits to 16 bits
             nd = ns * 4 ;
-            for(i=0 ; i<ns ; i++) { d16[0] = *s64>>48 ; d16[1] = *s64>>32 ; d16[2] = *s64>>16 ; d16[3] = *s64 ; s64++ ; d16 += 4 ; }
+            for(i=0 ; i<ns ; i++) { t64 = *s64 ; d16[0] = t64>>48 ; d16[1] = (t64>>32) & 0xFFFF ;
+                                    d16[2] = (t64>>16) & 0xFFFF ; d16[3] = t64 & 0xFFFF ; s64++ ; d16 += 4 ; }
             break ;
         }
         break ;
 
-      case 4 :
+      case 4 :           // destination is 32 bits wide
         switch (srclen){
           case 1 :       // 8 bits to 32 bits
             nd = (ns+3) / 4 ;
@@ -107,16 +112,16 @@ int Copy_items_l2r(void *src, uint32_t srclen, void *dst, uint32_t dstlen, uint3
             break ;
           case 2 :       // 16 bits to 32 bits
             nd = (ns+1) / 2 ;
-            for(i=0 ; i<nd ; i++) { t32 = (s16[0] << 16) | s16[1] ; *d32 = t32 ; d32++ ; s32 += 2 ; }
+            for(i=0 ; i<nd ; i++) { t32 = (s16[0] << 16) | s16[1] ; *d32 = t32 ; d32++ ; s16 += 2 ; }
             break ;
           case 8 :       // 64 bits to 32 bits
             nd = ns * 2 ;
-            for(i=0 ; i<ns ; i++) { d32[0] = *s64 >> 32 ; d32[1] = *s64 ; s64++ ; d32 += 2 ; }
+            for(i=0 ; i<ns ; i++) { t64 = *s64 ; d32[0] = t64 >> 32 ; d32[1] = t64 & 0xFFFFFFFF ; d32 += 2  ; s64++; }
             break ;
         }
         break ;
 
-      case 8 :
+      case 8 :           // destination is 64 bits wide
         switch (srclen){
           case 1 :       // 8 bits to 64 bits
             nd = (ns+7) / 8 ;
@@ -127,11 +132,11 @@ int Copy_items_l2r(void *src, uint32_t srclen, void *dst, uint32_t dstlen, uint3
           case 2 :       // 16 bits to 64 bits
             nd = (ns+3) / 4 ;
             for(i=0 ; i<nd ; i++) { t64 = s16[0] ; t64 = (t64<<16)|s16[1] ; t64 = (t64<<16)|s16[2] ; t64 = (t64<<16)|s16[3] ;
-                                    *d64 = t64 ; t64++ ; s16 += 4 ; }
+                                    *d64 = t64 ; d64++ ; s16 += 4 ; }
             break ;
           case 4 :       // 32 bits to 64 bits
             nd = (ns+1) / 2 ;
-            for(i=0 ; i<nd ; i++) { t64 = s32[0] ; t64 = (t64<<32)|s32[1] ; *d64 = t64 ; t64++ ; s32 += 2 ; }
+            for(i=0 ; i<nd ; i++) { t64 = s32[0] ; t64 = (t64<<32)|s32[1] ; *d64 = t64 ; d64++ ; s32 += 2 ; }
             break ;
         }
         break ;

@@ -572,6 +572,118 @@ fprintf(stderr, "0b%s\n", cbuf) ;
   }
 }
 
+static uint8_t s08[] = { 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 
+                         0x09, 0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 
+                         0x17, 0xF1, 0xF2, 0xF3, 0xF4, 0xF5, 0xF6, 0xF7 } ;
+
+static uint16_t r16[] = { 0x0201, 0x0403, 0x0605, 0x0807, 0x1009, 0x1211, 0x1413, 0x1615,0xF117, 0xF3F2, 0xF5F4, 0xF7F6} ;
+static uint16_t l16[] = { 0x0102, 0x0304, 0x0506, 0x0708, 0x0910, 0x1112, 0x1314, 0x1516,0x17F1, 0xF2F3, 0xF4F5, 0xF6F7} ;
+
+static uint32_t r32[] = { 0x04030201, 0x08070605, 0x12111009, 0x16151413, 0xF3F2F117, 0xF7F6F5F4 } ;
+static uint32_t l32[] = { 0x01020304, 0x05060708, 0x09101112, 0x13141516, 0x17F1F2F3, 0xF4F5F6F7 } ;
+
+static uint64_t r64[] = { 0x0807060504030201lu, 0x1615141312111009lu, 0xF7F6F5F4F3F2F117lu } ;
+static uint64_t l64[] = { 0x0102030405060708lu, 0x0910111213141516lu, 0x17F1F2F3F4F5F6F7lu } ;
+
+// static uint16_t l2r_16[] = { 0x0102, 0x0304, 0x0506, 0x0708, 0x0910, 0x1112, 0x1314, 0x1516, 0x17F1, 0xF2F3, 0xF4F5, 0xF6F7 } ;
+// static uint32_t l2r_32[] = { 0x01020304, 0x05060708, 0x09101112, 0x13141516, 0x17F1F2F3, 0xF4F5F6F7 } ;
+// static uint64_t l2r_64[] = { 0x0102030405060708lu, 0x0910111213141516lu, 0x17F1F2F3F4F5F6F7lu } ;
+
+int Copy_items_l2r(void *src, uint32_t srclen, void *dst, uint32_t dstlen, uint32_t ns);
+
+void fprintf_08(FILE *f, void *what, int n, char *msg){
+  uint8_t *c08 = (uint8_t *) what ;
+  int i ;
+  fprintf(f, " %s", msg) ;
+  for(i=0 ; i<n ; i++) fprintf(f, " %2.2x",c08[i]); fprintf(stderr, "\n");
+}
+
+void fprintf_16(FILE *f, void *what, int n, char *msg){
+  uint16_t *h16 = (uint16_t *) what ;
+  int i ;
+  fprintf(f, " %s", msg) ;
+  for(i=0 ; i<n ; i++) fprintf(f, " %4.4x",h16[i]); fprintf(stderr, "\n");
+}
+
+void fprintf_32(FILE *f, void *what, int n, char *msg){
+  uint32_t *w32 = (uint32_t *) what ;
+  int i ;
+  fprintf(f, " %s", msg) ;
+  for(i=0 ; i<n ; i++) fprintf(f, " %8.8x",w32[i]); fprintf(stderr, "\n");
+}
+
+void fprintf_64(FILE *f, void *what, int n, char *msg){
+  uint64_t *l64 = (uint64_t *) what ;
+  int i ;
+  fprintf(f, " %s", msg) ;
+  for(i=0 ; i<n ; i++) fprintf(f, " %16.16lx",l64[i]); fprintf(stderr, "\n");
+}
+
+void compare_mem(void *a, void *b, int nitems, char *msg, int nbytes){
+  size_t memsize = nitems * nbytes ;
+  int errors = memcmp(a, b, memsize) ;
+  if(errors){
+    fprintf(stderr, "ERROR (%d) : %s\n", nbytes, msg) ;
+    switch(nbytes) {
+      case 1:
+        fprintf_08(stderr, a, nitems, "expected :") ;
+        fprintf_08(stderr, b, nitems, "found    :") ;
+        break ;
+      case 2:
+        fprintf_16(stderr, a, nitems, "expected :") ;
+        fprintf_16(stderr, b, nitems, "found    :") ;
+        break ;
+      case 4:
+        fprintf_32(stderr, a, nitems, "expected :") ;
+        fprintf_32(stderr, b, nitems, "found    :") ;
+        break ;
+      case 8:
+        fprintf_64(stderr, a, nitems, "expected :") ;
+        fprintf_64(stderr, b, nitems, "found    :") ;
+        break ;
+    }
+  }else{
+    fprintf(stderr, "SUCCESS : %s\n", msg) ;
+  }
+}
+
+void test_copy_n_to_m(char *filename){
+  uint8_t  t08[24] ;
+  uint16_t t16[12] ;
+  uint32_t t32[ 6] ;
+  uint64_t t64[ 3] ;
+  int nitems, i ;
+
+  nitems = Copy_items_l2r(s08, 1, t16, 2,     17) ; compare_mem(l16, t16, nitems, "copy  8 to 16", 2) ;
+  nitems = Copy_items_l2r(t16, 2, t08, 1, nitems) ; compare_mem(s08, t08, nitems, "copy 16 to  8", 1) ;
+  nitems = Copy_items_l2r(t08, 1, t08, 2,     17) ; compare_mem(l16, t08, nitems, "copy  8 to 16 (in place)", 2) ;
+  nitems = Copy_items_l2r(t08, 2, t08, 1, nitems) ; compare_mem(s08, t08, nitems, "copy 16 to  8 (in place)", 1) ;
+
+  nitems = Copy_items_l2r(s08, 1, t32, 4,     17) ; compare_mem(l32, t32, nitems, "copy  8 to 32", 4) ;
+  nitems = Copy_items_l2r(t32, 4, t08, 1, nitems) ; compare_mem(s08, t08, nitems, "copy 32 to  8", 1) ;
+  nitems = Copy_items_l2r(t08, 1, t08, 4,     17) ; compare_mem(l32, t08, nitems, "copy  8 to 32 (in place)", 4) ;
+  nitems = Copy_items_l2r(t08, 4, t08, 1, nitems) ; compare_mem(s08, t08, nitems, "copy 32 to  8 (in place)", 1) ;
+
+  nitems = Copy_items_l2r(s08, 1, t64, 8,     17) ; compare_mem(l64, t64, nitems, "copy  8 to 64", 8) ;
+  nitems = Copy_items_l2r(t64, 8, t08, 1, nitems) ; compare_mem(s08, t08, nitems, "copy 64 to  8", 1) ;
+  nitems = Copy_items_l2r(t08, 1, t08, 8,     17) ; compare_mem(l64, t08, nitems, "copy  8 to 64 (in place)", 8) ;
+  nitems = Copy_items_l2r(t08, 8, t08, 1, nitems) ; compare_mem(s08, t08, nitems, "copy 64 to  8 (in place)", 1) ;
+
+  nitems = Copy_items_l2r(l16, 2, t32, 4,      9) ; compare_mem(l32, t32, nitems, "copy 16 to 32", 4) ;
+  nitems = Copy_items_l2r(t32, 4, t16, 2, nitems) ; compare_mem(l16, t16, nitems, "copy 32 to 16", 2) ;
+  nitems = Copy_items_l2r(t16, 2, t16, 4,      9) ; compare_mem(l32, t16, nitems, "copy 16 to 32 (in place)", 4) ;
+  nitems = Copy_items_l2r(t16, 4, t16, 2, nitems) ; compare_mem(l16, t16, nitems, "copy 32 to 16 (in place)", 2) ;
+
+  nitems = Copy_items_l2r(l16, 2, t64, 8,      9) ; compare_mem(l64, t64, nitems, "copy 16 to 64", 8) ;
+  nitems = Copy_items_l2r(t64, 8, t16, 2, nitems) ; compare_mem(l16, t16, nitems, "copy 64 to 16", 2) ;
+  nitems = Copy_items_l2r(t16, 2, t16, 8,      9) ; compare_mem(l64, t16, nitems, "copy 16 to 64 (in place)", 8) ;
+  nitems = Copy_items_l2r(t16, 8, t16, 2, nitems) ; compare_mem(l16, t16, nitems, "copy 64 to 16 (in place)", 2) ;
+
+  nitems = Copy_items_l2r(l32, 4, t64, 8,      5) ; compare_mem(l64, t64, nitems, "copy 32 to 64", 8) ;
+  nitems = Copy_items_l2r(t64, 8, t32, 4, nitems) ; compare_mem(l32, t32, nitems, "copy 64 to 32", 4) ;
+  nitems = Copy_items_l2r(t32, 4, t32, 8,      5) ; compare_mem(l64, t32, nitems, "copy 32 to 64 (in place)", 8) ;
+  nitems = Copy_items_l2r(t32, 8, t32, 4, nitems) ; compare_mem(l32, t32, nitems, "copy 64 to 32 (in place)", 4) ;
+}
 #define NPTS 1025
 
 int main(int argc, char **argv){
@@ -612,6 +724,10 @@ int main(int argc, char **argv){
   }
   if(argc == 3 && atoi(argv[1]) == 6){
     test_radar_field(argv[2]) ;
+    return 0 ;
+  }
+  if(argc == 3 && atoi(argv[1]) == 7){
+    test_copy_n_to_m(argv[2]) ;
     return 0 ;
   }
 
