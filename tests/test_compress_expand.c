@@ -589,6 +589,7 @@ static uint64_t l64[] = { 0x0102030405060708lu, 0x0910111213141516lu, 0x17F1F2F3
 // static uint32_t l2r_32[] = { 0x01020304, 0x05060708, 0x09101112, 0x13141516, 0x17F1F2F3, 0xF4F5F6F7 } ;
 // static uint64_t l2r_64[] = { 0x0102030405060708lu, 0x0910111213141516lu, 0x17F1F2F3F4F5F6F7lu } ;
 
+int Copy_items_r2l(void *src, uint32_t srclen, void *dst, uint32_t dstlen, uint32_t ns);
 int Copy_items_l2r(void *src, uint32_t srclen, void *dst, uint32_t dstlen, uint32_t ns);
 
 void fprintf_08(FILE *f, void *what, int n, char *msg){
