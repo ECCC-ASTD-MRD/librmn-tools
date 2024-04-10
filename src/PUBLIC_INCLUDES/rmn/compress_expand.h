@@ -1073,4 +1073,7 @@ int32_t MaskGreater_c_le(void *src1, int nsrc1, void *src2, int nsrc2, void *mas
 int32_t MaskGreater_avx2_le(void *src1, int nsrc1, void *src2, int nsrc2, void *mask, int negate);
 int32_t MaskGreater_avx512_le(void *src1, int nsrc1, void *src2, int nsrc2, void *mask, int negate);
 
+int Copy_items_r2l(void *src, uint32_t srclen, void *dst, uint32_t dstlen, uint32_t ns);
+int Copy_items_l2r(void *src, uint32_t srclen, void *dst, uint32_t dstlen, uint32_t ns);
+
 #endif
