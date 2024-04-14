@@ -216,6 +216,7 @@ set(PROJECT_C_FILES
   src/pack/bits.c
   src/pack/bi_endian_pack.c
   src/pack/misc_pack.c
+  src/pack/copy_swap.c
   src/pack/misc_operators.c
   src/pack/ieee_quantize.c
   src/pack/move_blocks.c
@@ -286,6 +287,7 @@ set(PROJECT_H_FILES
   src/PUBLIC_INCLUDES/rmn/is_fortran_compiler.h
   src/PUBLIC_INCLUDES/rmn/tools_plugins.h
   src/PUBLIC_INCLUDES/rmn/tools_plugins.hf
+  src/PUBLIC_INCLUDES/rmn/copy_swap.h
   src/PUBLIC_INCLUDES/rmn/misc_pack.h
   src/PUBLIC_INCLUDES/rmn/misc_pack.hf
   src/PUBLIC_INCLUDES/rmn/compress_data.h
