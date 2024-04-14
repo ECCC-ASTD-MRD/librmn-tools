@@ -646,10 +646,10 @@ void compare_mem(void *a, void *b, int nitems, char *msg, int nbytes){
 }
 
 void test_copy_n_to_m(char *msg){
-  uint8_t  t08[24] ;
-  uint16_t t16[12] ;
-  uint32_t t32[ 6] ;
-  uint64_t t64[ 3] ;
+  uint8_t  t08[128] ;   // at least 128 bytes
+  uint16_t t16[ 64] ;   // at least 128 bytes
+  uint32_t t32[ 32] ;   // at least 128 bytes
+  uint64_t t64[ 16] ;   // at least 128 bytes
   int nitems, i ;
 
   fprintf(stderr, "=================== right -> left copy ===================\n") ;

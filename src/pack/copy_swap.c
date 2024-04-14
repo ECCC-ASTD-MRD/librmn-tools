@@ -28,61 +28,178 @@ static unsigned char indx_16_32[] = { 2, 3, 0, 1, 6, 7, 4, 5,10,11, 8, 9,14,15,1
 static unsigned char indx_16_64[] = { 6, 7, 4, 5, 2, 3, 0, 1,14,15,12,13,10,11, 8, 9, 6, 7, 4, 5, 2, 3, 0, 1,14,15,12,13,10,11, 8, 9};
 
 // ================================ Swap_n_m family ===============================
-void Swap_08_16(void *src, void *dst, int n16){  //  8<->16 bit endian swap
+void Swap_08_16(void *src, void *dst, int n16){            //  8<->16 bit endian swap
   uint16_t *s16 = (uint16_t *)src, *d16 = (uint16_t *)dst ;
+  int i, i0 ;
 #if defined(__AVX2__) && defined(__x86_64__)
+  __m256i vswap, vs0, vs1 ;
+  if(n16 >= 32) vswap = _mm256_loadu_si256((__m256i const *) indx_08_16);
+  for(i0=0 ; i0 < n16 - 31 ; i0 += 32){                    // endian swap of 32 16 bit tokens
+    vs0 = _mm256_loadu_si256((__m256i const *) (s16  ));   // load 8 32 bit tokens
+    vs1 = _mm256_loadu_si256((__m256i const *) (s16+16));  // load 8 32 bit tokens
+    vs0 = _mm256_shuffle_epi8 (vs0, vswap);                // shuffle (vector bswap equivalent)
+    vs1 = _mm256_shuffle_epi8 (vs1, vswap);                // shuffle (vector bswap equivalent)
+    _mm256_storeu_si256((__m256i *) (d16   ), vs0);        // store 8 32 bit tokens
+    _mm256_storeu_si256((__m256i *) (d16+16), vs1);        // store 8 32 bit tokens
+    s16 += 32;
+    d16 += 32;
+  }
+  for(i=0 ; i<15 && (i0+i)<n16 ; i++){                     // up to 31 tokens
+    uint16_t t16 = s16[i];
+    t16 = (t16 >> 8) | (t16 << 8);
+    d16[i] = t16;
+  }
 #else
+  for(i=0 ; i<n16 ; i++){
+    uint16_t t16 = s16[i];
+    t16 = (t16 >> 8) | (t16 << 8);
+    d16[i] = t16;
+  }
 #endif
 }
 
-void Swap_08_32(void *src, void *dst, int n32){  //  8<->32 bit endian swap
+void Swap_08_32(void *src, void *dst, int n32){           //  8<->32 bit endian swap
   uint32_t *s32 = (uint32_t *)src, *d32 = (uint32_t *)dst ;
+  int i, i0 ;
 #if defined(__AVX2__) && defined(__x86_64__)
+  __m256i vswap, vs0, vs1 ;
+  if(n32 >= 16) vswap = _mm256_loadu_si256((__m256i const *) indx_08_32);
+  for(i0=0 ; i0 < n32 - 15 ; i0 += 16){                   // endian swap of 16 32 bit tokens
+    vs0 = _mm256_loadu_si256((__m256i const *) (s32  ));  // load 8 32 bit tokens
+    vs1 = _mm256_loadu_si256((__m256i const *) (s32+8));  // load 8 32 bit tokens
+    vs0 = _mm256_shuffle_epi8 (vs0, vswap);               // shuffle (vector bswap equivalent)
+    vs1 = _mm256_shuffle_epi8 (vs1, vswap);               // shuffle (vector bswap equivalent)
+    _mm256_storeu_si256((__m256i *) (d32  ), vs0);        // store 8 32 bit tokens
+    _mm256_storeu_si256((__m256i *) (d32+8), vs1);        // store 8 32 bit tokens
+    s32 += 16;
+    d32 += 16;
+  }
+  for(i=0 ; i<15 && (i0+i)<n32 ; i++){                    // up to 15 tokens
+    uint32_t t32 = s32[i];
+    t32 = (t32 << 24) | ((t32 & 0xFF00) << 8) | ((t32 >> 8) & 0xFF00) | (t32 >> 24);
+    d32[i] = t32;
+  }
 #else
+  for(i=0 ; i<n32 ; i++){
+    uint32_t t32 = s32[i];
+    t32 = (t32 << 24) | ((t32 & 0xFF00) << 8) | ((t32 >> 8) & 0xFF00) | (t32 >> 24);
+    d32[i] = t32;
+  }
 #endif
 }
 
-void Swap_08_64(void *src, void *dst, int n64){  //  8<->64 bit endian swap
-  uint64_t *s64 = (uint64_t *)src, *d64 = (uint64_t *)dst ;
+void Swap_08_64(void *src, void *dst, int n64){           //  8<->64 bit endian swap
+  uint64_t *s64 = (uint64_t *)src, *d64 = (uint64_t *)dst;
+  int i, i0 ;
 #if defined(__AVX2__) && defined(__x86_64__)
-  __m256i vswap ;
+  __m256i vswap, vs0, vs1 ;
   if(n64 >= 8) vswap = _mm256_loadu_si256((__m256i const *) indx_08_64);
+  for(i0=0 ; i0 < n64 - 7 ; i0 +=8){                      // 32/64 endian swap of 64 8 bit elements
+    vs0 = _mm256_loadu_si256((__m256i const *) (s64  ));  // load 32 8 bit tokens
+    vs1 = _mm256_loadu_si256((__m256i const *) (s64+4));  // load 32 8 bit tokens
+    vs0 = _mm256_shuffle_epi8 (vs0, vswap);               // shuffle (vector bswap equivalent)
+    vs1 = _mm256_shuffle_epi8 (vs1, vswap);               // shuffle (vector bswap equivalent)
+    _mm256_storeu_si256((__m256i *) (d64  ), vs0);        // store 32 8 bit tokens
+    _mm256_storeu_si256((__m256i *) (d64+4), vs1);        // store 32 8 bit tokens
+    s64 += 8;
+    d64 += 8;
+  }
+  for(i=0 ; i<7 && (i0+i)<n64 ; i++){                     // up to 7 tokens
+    uint64_t t64 = s64[i];
+    t64 = (t64<<32) | (t64>>32);                                                   // swap words in doubleword
+    t64 = ((t64 & 0x00FF00FF00FF00FF) << 16) | ((t64 >> 16) & 0x00FF00FF00FF00FF); // swap halfwords in words
+    t64 = ((t64 & 0x0F0F0F0F0F0F0F0F) << 8)  | ((t64 >>  8) & 0x0F0F0F0F0F0F0F0F); // swap bytes in halfwords
+    d64[i] = t64;
+  }
 #else
+  for(i=0 ; i<n64 ; i++){
+    uint64_t t64 = s64[i];
+    t64 = (t64<<32) | (t64>>32);                                                   // swap words in doubleword
+    t64 = ((t64 & 0x00FF00FF00FF00FF) << 16) | ((t64 >> 16) & 0x00FF00FF00FF00FF); // swap halfwords in words
+    t64 = ((t64 & 0x0F0F0F0F0F0F0F0F) << 8)  | ((t64 >>  8) & 0x0F0F0F0F0F0F0F0F); // swap bytes in halfwords
+    d64[i] = t64;
+  }
 #endif
 }
 
-void Swap_16_32(void *src, void *dst, int n32){  // 16<->32 bit endian swap
+void Swap_16_32(void *src, void *dst, int n32){           // 16<->32 bit endian swap
   uint32_t *s32 = (uint32_t *)src, *d32 = (uint32_t *)dst ;
+  int i, i0 ;
 #if defined(__AVX2__) && defined(__x86_64__)
+  __m256i vswap, vs0, vs1 ;
+  if(n32 >= 16) vswap = _mm256_loadu_si256((__m256i const *) indx_16_32);
+  for(i0=0 ; i0 < n32 - 15 ; i0 += 16){                   // endian swap of 32 16 bit tokens
+    vs0 = _mm256_loadu_si256((__m256i const *) (s32  ));  // load 16 16 bit tokens
+    vs1 = _mm256_loadu_si256((__m256i const *) (s32+8));  // load 16 16 bit tokens
+    vs0 = _mm256_shuffle_epi8 (vs0, vswap);               // shuffle (vector bswap equivalent)
+    vs1 = _mm256_shuffle_epi8 (vs1, vswap);               // shuffle (vector bswap equivalent)
+    _mm256_storeu_si256((__m256i *) (d32  ), vs0);        // store 16 16 bit tokens
+    _mm256_storeu_si256((__m256i *) (d32+8), vs1);        // store 16 16 bit tokens
+    s32 += 16;
+    d32 += 16;
+  }
+  for(i=0 ; i<15 && (i0+i)<n32 ; i++){                    // up to 15 tokens
+    uint32_t t32 = s32[i];
+    t32 = (t32 << 16) | (t32 >> 16);
+    d32[i] = t32;
+  }
 #else
+  for(i=0 ; i<n32 ; i++){
+    uint32_t t32 = s32[i];
+    t32 = (t32 << 16) | (t32 >> 16);
+    d32[i] = t32;
+  }
 #endif
 }
 
-void Swap_16_64(void *src, void *dst, int n64){  // 16<->64 bit endian swap
+void Swap_16_64(void *src, void *dst, int n64){           // 16<->64 bit endian swap
   uint64_t *s64 = (uint64_t *)src, *d64 = (uint64_t *)dst ;
+  int i, i0 ;
 #if defined(__AVX2__) && defined(__x86_64__)
-  __m256i vswap ;
+  __m256i vswap, vs0, vs1 ;
   if(n64 >= 8) vswap = _mm256_loadu_si256((__m256i const *) indx_16_64);
+  for(i0=0 ; i0 < n64 - 7 ; i0 += 8){                     // endian swap of 8 64 bit tokens
+    vs0 = _mm256_loadu_si256((__m256i const *) (s64  ));  // load 4 64 bit tokens
+    vs1 = _mm256_loadu_si256((__m256i const *) (s64+4));  // load 4 64 bit tokens
+    vs0 = _mm256_shuffle_epi8 (vs0, vswap);               // shuffle (vector bswap equivalent)
+    vs1 = _mm256_shuffle_epi8 (vs1, vswap);               // shuffle (vector bswap equivalent)
+    _mm256_storeu_si256((__m256i *) (d64  ), vs0);        // store 4 64 bit tokens
+    _mm256_storeu_si256((__m256i *) (d64+4), vs1);        // store 4 64 bit tokens
+    s64 += 8;
+    d64 += 8;
+  }
+  for(i=0 ; i<7 && (i0+i)<n64 ; i++){                      // up to 7 tokens
+    uint64_t t64 = s64[i];
+    t64 = (t64 >> 32) | (t64 << 32);                                               // swap words in doubleword
+    t64 = ((t64 & 0x00FF00FF00FF00FF) << 16) | ((t64 >> 16) & 0x00FF00FF00FF00FF); // swap halfwords in words
+    d64[i] = t64;
+  }
 #else
+  for(i=0 ; i < n64 ; i++){
+    uint64_t t64 = s64[i];
+    t64 = (t64 >> 32) | (t64 << 32);                                               // swap words in doubleword
+    t64 = ((t64 & 0x00FF00FF00FF00FF) << 16) | ((t64 >> 16) & 0x00FF00FF00FF00FF); // swap halfwords in words
+    d64[i] = t64;
+  }
 #endif
 }
 
-void Swap_32_64(void *src, void *dst, int n64){  // 32<->64 bit endian swap
+void Swap_32_64(void *src, void *dst, int n64){            // 32<->64 bit endian swap
   uint64_t *s64 = (uint64_t *)src, *d64 = (uint64_t *)dst ;
   int i, i0 ;
 #if defined(__AVX2__) && defined(__x86_64__)
   __m256i vs0, vs1 ;
-  for(i0=0 ; i0 < n64 - 7 ; i0 +=8){                         // 32/64 endian swap of 8 64 bit elements
-    vs0 = _mm256_loadu_si256((__m256i const *)(s64    ));    // load 4 64 bit elements
-    vs1 = _mm256_loadu_si256((__m256i const *)(s64 + 8));    // load 4 64 bit elements
-    vs0 = _mm256_shuffle_epi32(vs0 , 0b10110001);            // 1, 0, 3, 2
-    vs1 = _mm256_shuffle_epi32(vs1 , 0b10110001);            // 1, 0, 3, 2
-    _mm256_storeu_si256((__m256i *)(d64  ), vs0);            // store 4 64 bit elements
-    _mm256_storeu_si256((__m256i *)(d64+8), vs1);            // store 4 64 bit elements
+  for(i0=0 ; i0 < n64 - 7 ; i0 +=8){                       // 32/64 endian swap of 8 64 bit elements
+    vs0 = _mm256_loadu_si256((__m256i const *)(s64  ));    // load 4 64 bit elements
+    vs1 = _mm256_loadu_si256((__m256i const *)(s64+4));    // load 4 64 bit elements
+    vs0 = _mm256_shuffle_epi32(vs0 , 0b10110001);          // 1, 0, 3, 2
+    vs1 = _mm256_shuffle_epi32(vs1 , 0b10110001);          // 1, 0, 3, 2
+    _mm256_storeu_si256((__m256i *)(d64  ), vs0);          // store 4 64 bit elements
+    _mm256_storeu_si256((__m256i *)(d64+4), vs1);          // store 4 64 bit elements
     s64 += 8;
     d64 += 8;
   }
-  for(i=0 ; i<8 && (i0+i)<n64 ; i++){
+  for(i=0 ; i<7 && (i0+i)<n64 ; i++){                      // up to 7 tokens
     uint64_t t64 = s64[i];
     t64 = (t64 >> 32) | (t64 << 32);
     d64[i] = t64;
