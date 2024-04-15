@@ -15,5 +15,6 @@
 static uint32_t word32 = 1 ;
 static uint8_t *le = (uint8_t *) &word32 ;
 
+void FetchShuffleStore(void *src, void *dst, uint8_t *indx, int nbytes);
 int Copy_items_r2l(void *src, uint32_t srclen, void *dst, uint32_t dstlen, uint32_t ns);
 int Copy_items_l2r(void *src, uint32_t srclen, void *dst, uint32_t dstlen, uint32_t ns);
