@@ -749,6 +749,7 @@ void compare_mem(void *a, void *b, int nitems, char *msg, int nbytes){
 }
 
 void test_copy_n_to_m(char *msg){
+  TIME_LOOP_DATA ;
   uint8_t  t08[128] ;   // at least 128 bytes
   uint16_t t16[ 64] ;   // at least 128 bytes
   uint32_t t32[ 32] ;   // at least 128 bytes
@@ -797,9 +798,9 @@ void test_copy_n_to_m(char *msg){
   nitems = Copy_items_l2r(t08, 1, t08, 4,    122) ; compare_mem(l32, t08, nitems, "copy  8 to 32 (in place)", 4) ;
   nitems = Copy_items_l2r(t08, 4, t08, 1, nitems) ; compare_mem(s08, t08, nitems, "copy 32 to  8 (in place)", 1) ;
 
-  nitems = Copy_items_l2r(s08, 1, t64, 8,    93) ; compare_mem(l64, t64, nitems, "copy  8 to 64", 8) ;
+  nitems = Copy_items_l2r(s08, 1, t64, 8,     93) ; compare_mem(l64, t64, nitems, "copy  8 to 64", 8) ;
   nitems = Copy_items_l2r(t64, 8, t08, 1, nitems) ; compare_mem(s08, t08, nitems, "copy 64 to  8", 1) ;
-  nitems = Copy_items_l2r(t08, 1, t08, 8,    79) ; compare_mem(l64, t08, nitems, "copy  8 to 64 (in place)", 8) ;
+  nitems = Copy_items_l2r(t08, 1, t08, 8,     79) ; compare_mem(l64, t08, nitems, "copy  8 to 64 (in place)", 8) ;
   nitems = Copy_items_l2r(t08, 8, t08, 1, nitems) ; compare_mem(s08, t08, nitems, "copy 64 to  8 (in place)", 1) ;
 
   nitems = Copy_items_l2r(l16, 2, t32, 4,     59) ; compare_mem(l32, t32, nitems, "copy 16 to 32", 4) ;
@@ -816,6 +817,39 @@ void test_copy_n_to_m(char *msg){
   nitems = Copy_items_l2r(t64, 8, t32, 4, nitems) ; compare_mem(l32, t32, nitems, "copy 64 to 32", 4) ;
   nitems = Copy_items_l2r(t32, 4, t32, 8,     29) ; compare_mem(l64, t32, nitems, "copy 32 to 64 (in place)", 8) ;
   nitems = Copy_items_l2r(t32, 8, t32, 4, nitems) ; compare_mem(l32, t32, nitems, "copy 64 to 32 (in place)", 4) ;
+
+  fprintf(stderr, "=================== timing tests ===================\n") ;
+
+  uint8_t tmp1[1024*1024*1024] ;   // 1 GByte array
+  uint8_t tmp2[1024*1024*1024] ;   // 1 GByte array
+  int npts ;
+  for(i=0 ; i<sizeof(tmp1) ; i++) tmp1[i] = i & 0xFF ;
+  for(i=0 ; i<sizeof(tmp2) ; i++) tmp2[i] = i & 0xEE ;
+
+  npts = 32768 ;            // level1 cache
+  TIME_LOOP_EZ(2*1024*1024, npts, Copy_items_l2r(tmp1, 1, tmp1, 8, npts)) ;
+  fprintf(stderr, "Copy_items_l2r: %s\n", timer_msg);
+
+  TIME_LOOP_EZ(1024*1024, npts, Copy_items_l2r(tmp1, 1, tmp2, 8, npts)) ;
+  fprintf(stderr, "Copy_items_l2r: %s\n", timer_msg);
+  fprintf(stderr, "\n");
+
+  npts = 32768*1024 ;       // level3 cache
+  TIME_LOOP_EZ(2*1024, npts, Copy_items_l2r(tmp1, 1, tmp1, 8, npts)) ;
+  fprintf(stderr, "Copy_items_l2r: %s\n", timer_msg);
+
+  npts = 32768*1024 ;       // level3 cache
+  TIME_LOOP_EZ(1024, npts, Copy_items_l2r(tmp1, 1, tmp2, 8, npts)) ;
+  fprintf(stderr, "Copy_items_l2r: %s\n", timer_msg);
+  fprintf(stderr, "\n");
+
+  npts = 1024*1024*1024 ;   // memory
+  TIME_LOOP_EZ(40, npts, Copy_items_l2r(tmp1, 1, tmp1, 8, npts)) ;
+  fprintf(stderr, "Copy_items_l2r: %s\n", timer_msg);
+
+  npts = 1024*1024*1024 ;   // memory
+  TIME_LOOP_EZ(20, npts, Copy_items_l2r(tmp1, 1, tmp2, 8, npts)) ;
+  fprintf(stderr, "Copy_items_l2r: %s\n", timer_msg);
 }
 #define NPTS 1025
 
