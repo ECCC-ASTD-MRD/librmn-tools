@@ -26,6 +26,7 @@ static uint8_t indx_08_16[] = { 1, 0, 3, 2, 5, 4, 7, 6, 9, 8,11,10,13,12,15,14, 
 static uint8_t indx_08_64[] = { 7, 6, 5, 4, 3, 2, 1, 0,15,14,13,12,11,10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0,15,14,13,12,11,10, 9, 8};
 static uint8_t indx_16_32[] = { 2, 3, 0, 1, 6, 7, 4, 5,10,11, 8, 9,14,15,12,13, 2, 3, 0, 1, 6, 7, 4, 5,10,11, 8, 9,14,15,12,13};
 static uint8_t indx_16_64[] = { 6, 7, 4, 5, 2, 3, 0, 1,14,15,12,13,10,11, 8, 9, 6, 7, 4, 5, 2, 3, 0, 1,14,15,12,13,10,11, 8, 9};
+static uint8_t indx_32_64[] = { 4, 5, 6, 7, 0, 1, 2, 3,12,13,14,15, 8, 9,10,11, 4, 5, 6, 7, 0, 1, 2, 3,12,13,14,15, 8, 9,10,11};
 
 // ================================ Swap_n_m family ===============================
 #if defined(__AVX2__) && defined(__x86_64__)
@@ -139,25 +140,26 @@ void Swap_16_64(void *src, void *dst, int n64){           // 16<->64 bit endian 
 
 void Swap_32_64(void *src, void *dst, int n64){            // 32<->64 bit endian swap
   uint64_t *s64 = (uint64_t *)src, *d64 = (uint64_t *)dst ;
-  int i, i0 ;
 #if defined(__AVX2__) && defined(__x86_64__)
-  __m256i vs0, vs1 ;
-  for(i0=0 ; i0 < n64 - 7 ; i0 +=8){                       // 32/64 endian swap of 8 64 bit elements
-    vs0 = _mm256_loadu_si256((__m256i const *)(s64  ));    // load 4 64 bit elements
-    vs1 = _mm256_loadu_si256((__m256i const *)(s64+4));    // load 4 64 bit elements
-    vs0 = _mm256_shuffle_epi32(vs0 , 0b10110001);          // 1, 0, 3, 2
-    vs1 = _mm256_shuffle_epi32(vs1 , 0b10110001);          // 1, 0, 3, 2
-    _mm256_storeu_si256((__m256i *)(d64  ), vs0);          // store 4 64 bit elements
-    _mm256_storeu_si256((__m256i *)(d64+4), vs1);          // store 4 64 bit elements
-    s64 += 8;
-    d64 += 8;
-  }
-  for(i=0 ; i<7 && (i0+i)<n64 ; i++){                      // up to 7 tokens
-    uint64_t t64 = s64[i];
-    t64 = (t64 >> 32) | (t64 << 32);
-    d64[i] = t64;
-  }
+  FetchShuffleStore(s64, d64, indx_32_64, n64*8) ;
+//   __m256i vs0, vs1 ;
+//   for(i0=0 ; i0 < n64 - 7 ; i0 +=8){                       // 32/64 endian swap of 8 64 bit elements
+//     vs0 = _mm256_loadu_si256((__m256i const *)(s64  ));    // load 4 64 bit elements
+//     vs1 = _mm256_loadu_si256((__m256i const *)(s64+4));    // load 4 64 bit elements
+//     vs0 = _mm256_shuffle_epi32(vs0 , 0b10110001);          // 1, 0, 3, 2
+//     vs1 = _mm256_shuffle_epi32(vs1 , 0b10110001);          // 1, 0, 3, 2
+//     _mm256_storeu_si256((__m256i *)(d64  ), vs0);          // store 4 64 bit elements
+//     _mm256_storeu_si256((__m256i *)(d64+4), vs1);          // store 4 64 bit elements
+//     s64 += 8;
+//     d64 += 8;
+//   }
+//   for(i=0 ; i<7 && (i0+i)<n64 ; i++){                      // up to 7 tokens
+//     uint64_t t64 = s64[i];
+//     t64 = (t64 >> 32) | (t64 << 32);
+//     d64[i] = t64;
+//   }
 #else
+  int i, i0 ;
   for(i=0 ; i < n64 ; i++){
     uint64_t t64 = s64[i];
     t64 = (t64 >> 32) | (t64 << 32);

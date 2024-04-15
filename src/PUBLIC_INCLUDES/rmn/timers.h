@@ -81,14 +81,14 @@ STATIC double inline cycles_to_ns(uint64_t t){
   } \
   timer_min = mint ; timer_max = maxt ; timer_avg = avgt/iter ; \
   if(npts > 0 && timer_msg != NULL) \
-    snprintf(timer_msg, (size_t)timer_msg_size, " npts = %d, niter = %d, ns = %6.0f (%6.0f), %6.2f (%6.2f) ns/pt", \
+    snprintf(timer_msg, (size_t)timer_msg_size, " npts = %d, niter = %d, ns = %6.0f (%6.0f), %9.2e (%9.2e) ns/pt", \
              npts, iter, timer_min*NaNoSeC, timer_avg*NaNoSeC, timer_min*NaNoSeC/(npts), timer_avg*NaNoSeC/(npts)) ; \
 }
 #define TIME_LOOP_BOT_EZ(npts) TIME_LOOP_BOT(timer_min, timer_max, timer_avg, npts, timer_msg, timer_msg_size)
 #define TIME_ONCE_BOT(npts, timer_msg, timer_msg_size) \
     t = elapsed_cycles() -t -to ; \
     if(npts > 0 && timer_msg != NULL) \
-    snprintf(timer_msg, (size_t)timer_msg_size, " npts = %d, ns = %6.0f, %6.2f ns/pt", \
+    snprintf(timer_msg, (size_t)timer_msg_size, " npts = %d, ns = %6.0f, %8.2g ns/pt", \
              npts, t*NaNoSeC, t*NaNoSeC/(npts)) ; \
 }
 #define TIME_ONCE_BOT_EZ(npts) TIME_ONCE_BOT(npts, timer_msg, timer_msg_size)
@@ -109,7 +109,8 @@ STATIC double inline cycles_to_ns(uint64_t t){
 //
 // TIME_ONCE does not need timer_min, timer_max, timer_avg, niter
 #define TIME_LOOP(timer_min, timer_max, timer_avg, niter, npts, timer_msg, timer_msg_size, TimedCode) \
-  TIME_LOOP_TOP(niter) ; \
+  TIME_LOOP_TOP(niter/2) ; \
+  TimedCode ; \
   TimedCode ; \
   TIME_LOOP_BOT(timer_min, timer_max, timer_avg, npts, timer_msg, timer_msg_size) ;
 #define TIME_LOOP_EZ(niter, npts, TimedCode) TIME_LOOP(timer_min, timer_max, timer_avg, niter, npts, timer_msg, timer_msg_size, TimedCode)
