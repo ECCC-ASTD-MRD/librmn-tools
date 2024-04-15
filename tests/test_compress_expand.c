@@ -826,30 +826,38 @@ void test_copy_n_to_m(char *msg){
   for(i=0 ; i<sizeof(tmp1) ; i++) tmp1[i] = i & 0xFF ;
   for(i=0 ; i<sizeof(tmp2) ; i++) tmp2[i] = i & 0xEE ;
 
-  npts = 32768 ;            // level1 cache
-  TIME_LOOP_EZ(2*1024*1024, npts, Copy_items_l2r(tmp1, 1, tmp1, 8, npts)) ;
-  fprintf(stderr, "Copy_items_l2r: %s\n", timer_msg);
+  npts = 4096 ;            // level2 cache
+  TIME_LOOP_EZ(8*1024*1024, npts, Copy_items_l2r(tmp1, 1, tmp1, 8, npts)) ;
+  fprintf(stderr, "Copy_items_l2r (in place): %s\n", timer_msg);
 
-  TIME_LOOP_EZ(1024*1024, npts, Copy_items_l2r(tmp1, 1, tmp2, 8, npts)) ;
-  fprintf(stderr, "Copy_items_l2r: %s\n", timer_msg);
+  TIME_LOOP_EZ(4*1024*1024, npts, Copy_items_l2r(tmp1, 1, tmp2, 8, npts)) ;
+  fprintf(stderr, "Copy_items_l2r           : %s\n", timer_msg);
+  fprintf(stderr, "\n");
+
+  npts = 65536 ;            // level2 cache
+  TIME_LOOP_EZ(1024*1024, npts, Copy_items_l2r(tmp1, 1, tmp1, 8, npts)) ;
+  fprintf(stderr, "Copy_items_l2r (in place): %s\n", timer_msg);
+
+  TIME_LOOP_EZ(512*1024, npts, Copy_items_l2r(tmp1, 1, tmp2, 8, npts)) ;
+  fprintf(stderr, "Copy_items_l2r           : %s\n", timer_msg);
   fprintf(stderr, "\n");
 
   npts = 32768*1024 ;       // level3 cache
   TIME_LOOP_EZ(2*1024, npts, Copy_items_l2r(tmp1, 1, tmp1, 8, npts)) ;
-  fprintf(stderr, "Copy_items_l2r: %s\n", timer_msg);
+  fprintf(stderr, "Copy_items_l2r (in place): %s\n", timer_msg);
 
   npts = 32768*1024 ;       // level3 cache
   TIME_LOOP_EZ(1024, npts, Copy_items_l2r(tmp1, 1, tmp2, 8, npts)) ;
-  fprintf(stderr, "Copy_items_l2r: %s\n", timer_msg);
+  fprintf(stderr, "Copy_items_l2r           : %s\n", timer_msg);
   fprintf(stderr, "\n");
 
   npts = 1024*1024*1024 ;   // memory
   TIME_LOOP_EZ(40, npts, Copy_items_l2r(tmp1, 1, tmp1, 8, npts)) ;
-  fprintf(stderr, "Copy_items_l2r: %s\n", timer_msg);
+  fprintf(stderr, "Copy_items_l2r (in place): %s\n", timer_msg);
 
   npts = 1024*1024*1024 ;   // memory
   TIME_LOOP_EZ(20, npts, Copy_items_l2r(tmp1, 1, tmp2, 8, npts)) ;
-  fprintf(stderr, "Copy_items_l2r: %s\n", timer_msg);
+  fprintf(stderr, "Copy_items_l2r           : %s\n", timer_msg);
 }
 #define NPTS 1025
 
