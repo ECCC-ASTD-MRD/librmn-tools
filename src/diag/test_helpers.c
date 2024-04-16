@@ -17,7 +17,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-static void end_of_test(void){
+#include <rmn/test_helpers.h>
+
+void end_of_test(void){
   fprintf(stderr,"==================== end of test  ==================== ") ;
   system("date '+%Y-%m-%d_%H.%M.%S' 1>&2") ;
 }

@@ -67,6 +67,7 @@ function(add_project_test name source)
 endfunction()
 
 SET_SOURCE_FILES_PROPERTIES( test_shared.c PROPERTIES COMPILE_OPTIONS -I${CMAKE_SOURCE_DIR}/src/PUBLIC_INCLUDES )
+SET_SOURCE_FILES_PROPERTIES( ../src/diag/test_helpers.c PROPERTIES COMPILE_OPTIONS -I${CMAKE_SOURCE_DIR}/src/PUBLIC_INCLUDES )
 add_library(shared0 SHARED plugin_0.c ../src/diag/test_helpers.c plugin_0.F90)
 add_project_test(test_shared_0 test_shared.c LINK_LIBS shared0 NO_TOOLS)
 add_library(shared1 SHARED plugin_1.c ../src/diag/test_helpers.c)
