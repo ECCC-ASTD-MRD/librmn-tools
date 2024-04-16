@@ -1,6 +1,6 @@
 /*
  * Hopefully useful code for C
- * Copyright (C) 2023  Recherche en Prevision Numerique
+ * Copyright (C) 2023-2024  Recherche en Prevision Numerique
  *
  * This code is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -21,6 +21,12 @@
 #include <stdio.h>
 #include <stdint.h>
 
+#define TEE_DEBUG   0
+#define TEE_INFO    2
+#define TEE_WARNING 4
+#define TEE_ERROR   6
+#define TEE_FATAL   8
+
 // print_diag is a WEAK entry point that can be overriden by a user supplied function
 void print_diag(FILE *f, char *what, int level) ;
 
@@ -34,5 +40,10 @@ FILE *get_tee_file(void) ;
 
 // "replacement" for fprintf
 #define TEE_FPRINTF( file, level,...) { char _TeMp_[4096] ; snprintf(_TeMp_, sizeof(_TeMp_),  __VA_ARGS__) ; print_diag(file, _TeMp_, level) ; }
+
+void hexprintf_08(FILE *f, void *what, int n, char *msg, int level);
+void hexprintf_16(FILE *f, void *what, int n, char *msg, int level);
+void hexprintf_32(FILE *f, void *what, int n, char *msg, int level);
+void hexprintf_64(FILE *f, void *what, int n, char *msg, int level);
 
 #endif

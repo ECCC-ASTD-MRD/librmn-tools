@@ -13,9 +13,12 @@
 //
 #include <stdio.h>
 #include <stdint.h>
+#include <string.h>
 
 #include <rmn/timers.h>
 #include <rmn/copy_swap.h>
+#include <rmn/test_helpers.h>
+#include <rmn/tee_print.h>
 
 static uint8_t s08[] = { 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08,
                          0x09, 0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16,
@@ -137,59 +140,35 @@ static uint64_t l64[] = { 0x0102030405060708lu,
 // static uint32_t l2r_32[] = { 0x01020304, 0x05060708, 0x09101112, 0x13141516, 0x17F1F2F3, 0xF4F5F6F7 } ;
 // static uint64_t l2r_64[] = { 0x0102030405060708lu, 0x0910111213141516lu, 0x17F1F2F3F4F5F6F7lu } ;
 
-void fprintf_08(FILE *f, void *what, int n, char *msg){
-  uint8_t *c08 = (uint8_t *) what ;
-  int i ;
-  fprintf(f, " %s", msg) ;
-  for(i=0 ; i<n ; i++) fprintf(f, " %2.2x",c08[i]); fprintf(stderr, "\n");
-}
-
-void fprintf_16(FILE *f, void *what, int n, char *msg){
-  uint16_t *h16 = (uint16_t *) what ;
-  int i ;
-  fprintf(f, " %s", msg) ;
-  for(i=0 ; i<n ; i++) fprintf(f, " %4.4x",h16[i]); fprintf(stderr, "\n");
-}
-
-void fprintf_32(FILE *f, void *what, int n, char *msg){
-  uint32_t *w32 = (uint32_t *) what ;
-  int i ;
-  fprintf(f, " %s", msg) ;
-  for(i=0 ; i<n ; i++) fprintf(f, " %8.8x",w32[i]); fprintf(stderr, "\n");
-}
-
-void fprintf_64(FILE *f, void *what, int n, char *msg){
-  uint64_t *l64 = (uint64_t *) what ;
-  int i ;
-  fprintf(f, " %s", msg) ;
-  for(i=0 ; i<n ; i++) fprintf(f, " %16.16lx",l64[i]); fprintf(stderr, "\n");
-}
-
+// compare 2 memory areas a and b
+// nitems [IN] : number of items in a and b
+// nbytes [IN] : item length in bytes (1/2/4/8)
+// msg    [IN] : extra message for the error line
 void compare_mem(void *a, void *b, int nitems, char *msg, int nbytes){
   size_t memsize = nitems * nbytes ;
   int errors = memcmp(a, b, memsize) ;
   if(errors){
-    fprintf(stderr, "ERROR (%d) : %s\n", nbytes, msg) ;
+    TEE_FPRINTF(stderr, TEE_ERROR, "ERROR (%d) : %s\n", nbytes, msg) ;
     switch(nbytes) {
       case 1:
-        fprintf_08(stderr, a, nitems, "expected :") ;
-        fprintf_08(stderr, b, nitems, "found    :") ;
+        hexprintf_08(stderr, a, nitems, "expected :", TEE_ERROR) ;
+        hexprintf_08(stderr, b, nitems, "found    :", TEE_ERROR) ;
         break ;
       case 2:
-        fprintf_16(stderr, a, nitems, "expected :") ;
-        fprintf_16(stderr, b, nitems, "found    :") ;
+        hexprintf_16(stderr, a, nitems, "expected :", TEE_ERROR) ;
+        hexprintf_16(stderr, b, nitems, "found    :", TEE_ERROR) ;
         break ;
       case 4:
-        fprintf_32(stderr, a, nitems, "expected :") ;
-        fprintf_32(stderr, b, nitems, "found    :") ;
+        hexprintf_32(stderr, a, nitems, "expected :", TEE_ERROR) ;
+        hexprintf_32(stderr, b, nitems, "found    :", TEE_ERROR) ;
         break ;
       case 8:
-        fprintf_64(stderr, a, nitems, "expected :") ;
-        fprintf_64(stderr, b, nitems, "found    :") ;
+        hexprintf_64(stderr, a, nitems, "expected :", TEE_ERROR) ;
+        hexprintf_64(stderr, b, nitems, "found    :", TEE_ERROR) ;
         break ;
     }
   }else{
-    fprintf(stderr, "SUCCESS : %s\n", msg) ;
+    TEE_FPRINTF(stderr, TEE_ERROR, "SUCCESS : %s\n", msg) ;
   }
 }
 
@@ -201,7 +180,7 @@ int main(int argc, char **argv){
   uint64_t t64[ 16] ;   // at least 128 bytes
   int nitems, i ;
 
-  fprintf(stderr, "=================== right -> left copy ===================\n") ;
+  TEE_FPRINTF(stderr, TEE_INFO, "=================== right -> left copy ===================\n") ;
   nitems = Copy_items_r2l(s08, 1, t16, 2,    127) ; compare_mem(r16, t16, nitems, "copy  8 to 16", 2) ;
   nitems = Copy_items_r2l(t16, 2, t08, 1, nitems) ; compare_mem(s08, t08, nitems, "copy 16 to  8", 1) ;
   nitems = Copy_items_r2l(t08, 1, t08, 2,    127) ; compare_mem(r16, t08, nitems, "copy  8 to 16 (in place)", 2) ;
@@ -232,7 +211,7 @@ int main(int argc, char **argv){
   nitems = Copy_items_r2l(t32, 4, t32, 8,      5) ; compare_mem(r64, t32, nitems, "copy 32 to 64 (in place)", 8) ;
   nitems = Copy_items_r2l(t32, 8, t32, 4, nitems) ; compare_mem(r32, t32, nitems, "copy 64 to 32 (in place)", 4) ;
 
-  fprintf(stderr, "=================== left -> right copy ===================\n") ;
+  TEE_FPRINTF(stderr, TEE_INFO, "=================== left -> right copy ===================\n") ;
   nitems = Copy_items_l2r(s08, 1, t16, 2,    125) ; compare_mem(l16, t16, nitems, "copy  8 to 16", 2) ;
   nitems = Copy_items_l2r(t16, 2, t08, 1, nitems) ; compare_mem(s08, t08, nitems, "copy 16 to  8", 1) ;
   nitems = Copy_items_l2r(t08, 1, t08, 2,    124) ; compare_mem(l16, t08, nitems, "copy  8 to 16 (in place)", 2) ;
@@ -263,7 +242,7 @@ int main(int argc, char **argv){
   nitems = Copy_items_l2r(t32, 4, t32, 8,     29) ; compare_mem(l64, t32, nitems, "copy 32 to 64 (in place)", 8) ;
   nitems = Copy_items_l2r(t32, 8, t32, 4, nitems) ; compare_mem(l32, t32, nitems, "copy 64 to 32 (in place)", 4) ;
 
-  fprintf(stderr, "=================== timing tests ===================\n") ;
+  TEE_FPRINTF(stderr, TEE_INFO, "=================== timing tests ===================\n") ;
 
   uint8_t tmp1[1024*1024*1024] ;   // 1 GByte array
   uint8_t tmp2[1024*1024*1024] ;   // 1 GByte array
@@ -273,34 +252,34 @@ int main(int argc, char **argv){
 
   npts = 4096 ;            // level2 cache
   TIME_LOOP_EZ(8*1024*1024, npts, Copy_items_l2r(tmp1, 1, tmp1, 8, npts)) ;
-  fprintf(stderr, "Copy_items_l2r (in place): %s\n", timer_msg);
+  TEE_FPRINTF(stderr, TEE_INFO, "Copy_items_l2r (in place): %s\n", timer_msg);
 
   TIME_LOOP_EZ(4*1024*1024, npts, Copy_items_l2r(tmp1, 1, tmp2, 8, npts)) ;
-  fprintf(stderr, "Copy_items_l2r           : %s\n", timer_msg);
-  fprintf(stderr, "\n");
+  TEE_FPRINTF(stderr, TEE_INFO, "Copy_items_l2r           : %s\n", timer_msg);
+  TEE_FPRINTF(stderr, TEE_INFO, "\n");
 
   npts = 65536 ;            // level2 cache
   TIME_LOOP_EZ(1024*1024, npts, Copy_items_l2r(tmp1, 1, tmp1, 8, npts)) ;
-  fprintf(stderr, "Copy_items_l2r (in place): %s\n", timer_msg);
+  TEE_FPRINTF(stderr, TEE_INFO, "Copy_items_l2r (in place): %s\n", timer_msg);
 
   TIME_LOOP_EZ(512*1024, npts, Copy_items_l2r(tmp1, 1, tmp2, 8, npts)) ;
-  fprintf(stderr, "Copy_items_l2r           : %s\n", timer_msg);
-  fprintf(stderr, "\n");
+  TEE_FPRINTF(stderr, TEE_INFO, "Copy_items_l2r           : %s\n", timer_msg);
+  TEE_FPRINTF(stderr, TEE_INFO, "\n");
 
   npts = 32768*1024 ;       // level3 cache
   TIME_LOOP_EZ(2*1024, npts, Copy_items_l2r(tmp1, 1, tmp1, 8, npts)) ;
-  fprintf(stderr, "Copy_items_l2r (in place): %s\n", timer_msg);
+  TEE_FPRINTF(stderr, TEE_INFO, "Copy_items_l2r (in place): %s\n", timer_msg);
 
   npts = 32768*1024 ;       // level3 cache
   TIME_LOOP_EZ(1024, npts, Copy_items_l2r(tmp1, 1, tmp2, 8, npts)) ;
-  fprintf(stderr, "Copy_items_l2r           : %s\n", timer_msg);
-  fprintf(stderr, "\n");
+  TEE_FPRINTF(stderr, TEE_INFO, "Copy_items_l2r           : %s\n", timer_msg);
+  TEE_FPRINTF(stderr, TEE_INFO, "\n");
 
   npts = 1024*1024*1024 ;   // memory
   TIME_LOOP_EZ(40, npts, Copy_items_l2r(tmp1, 1, tmp1, 8, npts)) ;
-  fprintf(stderr, "Copy_items_l2r (in place): %s\n", timer_msg);
+  TEE_FPRINTF(stderr, TEE_INFO, "Copy_items_l2r (in place): %s\n", timer_msg);
 
   npts = 1024*1024*1024 ;   // memory
   TIME_LOOP_EZ(20, npts, Copy_items_l2r(tmp1, 1, tmp2, 8, npts)) ;
-  fprintf(stderr, "Copy_items_l2r           : %s\n", timer_msg);
+  TEE_FPRINTF(stderr, TEE_INFO, "Copy_items_l2r           : %s\n", timer_msg);
 }

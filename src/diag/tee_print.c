@@ -21,6 +21,7 @@
 #include <stdlib.h>
 #include <sys/types.h>
 #include <unistd.h>
+
 #include <rmn/tee_print.h>
 
 static int32_t tee_auto_init = 1 ;
@@ -78,9 +79,9 @@ fprintf(stderr, "opening automatic file '%s', prefix = '%s'\n", name, d) ;
 
 // diagnostic print, goes both to file f and tee_file (if not NULL)
 // if tee_file is NULL and auto_open is true, a tee log file is automatically opened
-#pragma weak print_diag=print_diag_
-void print_diag(FILE *f, char *what, int level) ;
-void print_diag_(FILE *f, char *what, int level){
+#pragma weak print_diag=Print_diag
+// void print_diag(FILE *f, char *what, int level) ;
+void Print_diag(FILE *f, char *what, int level){
   if(level < msg_level) return ;       // message level lower than threshold
   fprintf(f, "%s", what) ;
 
@@ -101,5 +102,4 @@ fprintf(stderr, "DEBUG: auto_open = 1 \n") ;
     fprintf(tee_file, "%s", what) ;
   }
 }
-
 

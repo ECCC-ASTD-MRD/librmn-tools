@@ -234,6 +234,7 @@ set(PROJECT_C_FILES
   src/pack/filter_255.c
   src/diag/tee_print.c
   src/diag/test_helpers.c
+  src/diag/print_helpers.c
   src/diag/misc_analyze.c
   src/diag/data_info.c
   src/diag/c_record_io.c
