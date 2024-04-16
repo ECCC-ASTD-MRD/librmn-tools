@@ -12,7 +12,7 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * Library General Public License for more details.
  *
- * print messages from application, possibly duplicating them to a file
+ * print data in hex from application, possibly duplicating output to a log file
  * 
  */
 #include <rmn/tee_print.h>
@@ -21,8 +21,8 @@
 
 // print n bytes into file f in hexadecimal format
 // f     [IN] : file to print into
-// what  [IN] : address of data ro be printed
-// n     [IN] : number of items to print
+// what  [IN] : address of bytes to be printed
+// n     [IN] : number of bytes to print
 // level [IN] : message level TEE_DEBUG/.../TEE_FATAL (see rmn/tee_print.h)
 void hexprintf_08(FILE *f, void *what, int n, char *msg, int level){
   uint8_t *c08 = (uint8_t *) what ;
@@ -34,8 +34,8 @@ void hexprintf_08(FILE *f, void *what, int n, char *msg, int level){
 
 // print n halfwords into file f in hexadecimal format
 // f     [IN] : file to print into
-// what  [IN] : address of data ro be printed
-// n     [IN] : number of items to print
+// what  [IN] : address of halfwords to be printed
+// n     [IN] : number of halfwords to print
 // level [IN] : message level TEE_DEBUG/.../TEE_FATAL (see rmn/tee_print.h)
 void hexprintf_16(FILE *f, void *what, int n, char *msg, int level){
   uint16_t *h16 = (uint16_t *) what ;
@@ -47,8 +47,8 @@ void hexprintf_16(FILE *f, void *what, int n, char *msg, int level){
 
 // print n words into file f in hexadecimal format
 // f     [IN] : file to print into
-// what  [IN] : address of data ro be printed
-// n     [IN] : number of items to print
+// what  [IN] : address of words to be printed
+// n     [IN] : number of words to print
 // level [IN] : message level TEE_DEBUG/.../TEE_FATAL (see rmn/tee_print.h)
 void hexprintf_32(FILE *f, void *what, int n, char *msg, int level){
   uint32_t *w32 = (uint32_t *) what ;
@@ -60,8 +60,8 @@ void hexprintf_32(FILE *f, void *what, int n, char *msg, int level){
 
 // print n doublewords into file f in hexadecimal format
 // f     [IN] : file to print into
-// what  [IN] : address of data ro be printed
-// n     [IN] : number of items to print
+// what  [IN] : address of doublewords to be printed
+// n     [IN] : number of doublewords to print
 // level [IN] : message level TEE_DEBUG/.../TEE_FATAL (see rmn/tee_print.h)
 void hexprintf_64(FILE *f, void *what, int n, char *msg, int level){
   uint64_t *l64 = (uint64_t *) what ;
