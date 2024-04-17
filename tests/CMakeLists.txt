@@ -66,8 +66,10 @@ function(add_project_test name source)
   endif()
 endfunction()
 
-SET_SOURCE_FILES_PROPERTIES( test_shared.c PROPERTIES COMPILE_OPTIONS -I${CMAKE_SOURCE_DIR}/src/PUBLIC_INCLUDES )
-SET_SOURCE_FILES_PROPERTIES( ../src/diag/test_helpers.c PROPERTIES COMPILE_OPTIONS -I${CMAKE_SOURCE_DIR}/src/PUBLIC_INCLUDES )
+set(TEST_INCLUDES -I${CMAKE_SOURCE_DIR}/src/PUBLIC_INCLUDES)
+
+SET_SOURCE_FILES_PROPERTIES( test_shared.c PROPERTIES COMPILE_OPTIONS ${TEST_INCLUDES} )
+SET_SOURCE_FILES_PROPERTIES( ../src/diag/test_helpers.c PROPERTIES COMPILE_OPTIONS ${TEST_INCLUDES} )
 add_library(shared0 SHARED plugin_0.c ../src/diag/test_helpers.c plugin_0.F90)
 add_project_test(test_shared_0 test_shared.c LINK_LIBS shared0 NO_TOOLS)
 add_library(shared1 SHARED plugin_1.c ../src/diag/test_helpers.c)
@@ -75,13 +77,13 @@ add_project_test(test_shared_1 test_shared.c LINK_LIBS shared1 NO_TOOLS)
 add_library(shared2 SHARED plugin_2.c ../src/diag/test_helpers.c)
 add_project_test(test_shared_2 test_shared.c LINK_LIBS shared2 NO_TOOLS)
 
-SET_SOURCE_FILES_PROPERTIES( test_shared_012.c PROPERTIES COMPILE_OPTIONS -I${CMAKE_SOURCE_DIR}/src/PUBLIC_INCLUDES )
+SET_SOURCE_FILES_PROPERTIES( test_shared_012.c PROPERTIES COMPILE_OPTIONS ${TEST_INCLUDES} )
 add_project_test(test_shared_012 test_shared_012.c LINK_LIBS "shared2;shared1;shared0" NO_TOOLS)
 
-SET_SOURCE_FILES_PROPERTIES( sharedf1.F90 PROPERTIES COMPILE_OPTIONS -I${CMAKE_SOURCE_DIR}/src/PUBLIC_INCLUDES )
+SET_SOURCE_FILES_PROPERTIES( sharedf1.F90 PROPERTIES COMPILE_OPTIONS ${TEST_INCLUDES} )
 add_library(sharedf1 SHARED sharedf1.F90 ../src/plugins/plugin_constructor.c)
 
-SET_SOURCE_FILES_PROPERTIES( sharedf2.F90 PROPERTIES COMPILE_OPTIONS -I${CMAKE_SOURCE_DIR}/src/PUBLIC_INCLUDES )
+SET_SOURCE_FILES_PROPERTIES( sharedf2.F90 PROPERTIES COMPILE_OPTIONS ${TEST_INCLUDES} )
 add_library(sharedf2 SHARED sharedf2.F90 ../src/plugins/plugin_constructor.c)
 
 add_library(plugin0 MODULE plugin_0.c plugin_0.F90)
