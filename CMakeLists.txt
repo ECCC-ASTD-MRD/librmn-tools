@@ -101,6 +101,7 @@ endif()
 if (NOT libaec_FOUND)
    find_package(libaec REQUIRED)
 endif()
+message(STATUS "(AEC includes) : ${libaec_INCLUDE_DIR}")
 # message(STATUS "rmn_DIR = ${rmn_DIR}")
 # cmake_print_properties(TARGETS rmn::rmn PROPERTIES INTERFACE_INCLUDE_DIRECTORIES INTERFACE_LINK_LIBRARIES INTERFACE_COMPILE_DEFINITIONS)
 # cmake_print_properties(TARGETS rmn::rmn 
@@ -216,7 +217,7 @@ set(PROJECT_C_FILES
   src/pack/bits.c
   src/pack/bi_endian_pack.c
   src/pack/misc_pack.c
-  src/pack/copy_swap.c
+#   src/pack/copy_swap.c
   src/pack/misc_operators.c
   src/pack/ieee_quantize.c
   src/pack/move_blocks.c
@@ -288,7 +289,7 @@ set(PROJECT_H_FILES
   src/PUBLIC_INCLUDES/rmn/is_fortran_compiler.h
   src/PUBLIC_INCLUDES/rmn/tools_plugins.h
   src/PUBLIC_INCLUDES/rmn/tools_plugins.hf
-  src/PUBLIC_INCLUDES/rmn/copy_swap.h
+#   src/PUBLIC_INCLUDES/rmn/copy_swap.h
   src/PUBLIC_INCLUDES/rmn/misc_pack.h
   src/PUBLIC_INCLUDES/rmn/misc_pack.hf
   src/PUBLIC_INCLUDES/rmn/compress_data.h
@@ -315,7 +316,7 @@ set(PROJECT_H_FILES
   src/PUBLIC_INCLUDES/rmn/filter_255.h
 )
 
-set(INCLUDE_DIRECTORIES ${CMAKE_SOURCE_DIR}/include ${CMAKE_SOURCE_DIR}/src/PUBLIC_INCLUDES)
+set(INCLUDE_DIRECTORIES ${CMAKE_SOURCE_DIR}/include ${CMAKE_SOURCE_DIR}/src/PUBLIC_INCLUDES ${libaec_INCLUDE_DIR})
 # set(INCLUDE_DIRECTORIES ${CMAKE_CURRENT_SOURCE_DIR}/include ${CMAKE_CURRENT_SOURCE_DIR}/src/PUBLIC_INCLUDES)
 #set(PROJECT_INCLUDES
 #   -I${CMAKE_CURRENT_SOURCE_DIR}/include
@@ -386,7 +387,7 @@ if(BUILD_SHARED_LIBS)
       OUTPUT_NAME rmntools-shared)
   if(WITH_OPENMP)
       target_compile_definitions(rmntools-shared PUBLIC WITH_OPENMP)
-      target_link_libraries(rmntools-shared PUBLIC OpenMP::OpenMP_C -laec)
+      target_link_libraries(rmntools-shared PUBLIC OpenMP::OpenMP_C libaec::aec)
   endif()
 
   # C shared plugins library
@@ -419,7 +420,7 @@ if(BUILD_SHARED_LIBS)
   # target_link_libraries(rmntoolsf-shared PUBLIC rmntools-shared)
   if(WITH_OPENMP)
       target_compile_definitions(rmntoolsf-shared PUBLIC WITH_OPENMP)
-      target_link_libraries(rmntoolsf-shared PUBLIC OpenMP::OpenMP_Fortran -laec)
+      target_link_libraries(rmntoolsf-shared PUBLIC OpenMP::OpenMP_Fortran libaec::aec)
   endif()
 
   add_library(${PROJECT_NAME}::${PROJECT_NAME}-shared ALIAS ${PROJECT_NAME}-shared)
@@ -452,6 +453,7 @@ message(STATUS "${TARGET} : Fortran_MODULE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
     target_include_directories(${TARGET}
         PUBLIC
             ${rmn_INCLUDES}/                                                        # public includes from librmn
+            ${libaec_INCLUDE_DIR}/
             $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>                  # project private includes
             $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/PUBLIC_INCLUDES>      # project public includes
         INTERFACE
