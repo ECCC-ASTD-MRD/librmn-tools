@@ -95,10 +95,10 @@ foreach(ITEM IN ITEMS ${test_plugins})
   install(TARGETS ${ITEM} DESTINATION bin)
 endforeach()
 
-add_project_test(test_plugins_c test_plugins.c LINK_LIBS "rmn::rmn;-laec" DL)
+add_project_test(test_plugins_c test_plugins.c LINK_LIBS "rmn::rmn;libaec::aec" DL)
 # SET_SOURCE_FILES_PROPERTIES( test_plugins.c PROPERTIES COMPILE_OPTIONS -I${CMAKE_SOURCE_DIR}/include )
 
-add_project_test(test_plugins_f test_plugins.F90 LINK_LIBS "rmn::rmn;-laec" DL)
+add_project_test(test_plugins_f test_plugins.F90 LINK_LIBS "rmn::rmn;libaec::aec" DL)
 # SET_SOURCE_FILES_PROPERTIES( test_plugins.F90 PROPERTIES COMPILE_OPTIONS -I${CMAKE_CURRENT_BINARY_DIR}/../modules )
 
 # set compile/link special options for targets not created with add_project_test
@@ -114,7 +114,7 @@ endforeach()
 add_project_test(test_identify_mpi_child test_identify_mpi_child.c MPI "mpirun -n 2 ")
 
 add_project_test(test_identify_compiler_c test_identify_compiler_c.c)
-add_project_test(test_identify_compiler_f test_identify_compiler_f.F90 DL LINK_LIBS "-laec")
+add_project_test(test_identify_compiler_f test_identify_compiler_f.F90 DL LINK_LIBS "libaec::aec")
 add_project_test(test_timers test_timers.c )
 
 add_project_test(test_tee_file test_tee_file.c)
@@ -128,7 +128,7 @@ add_project_test(test_pack_macros test_pack_macros.c)
 SET_SOURCE_FILES_PROPERTIES( test_pack_macros PROPERTIES COMPILE_OPTIONS -O3 )
 
 add_project_test(test_lorenzo_c test_lorenzo_c.c)
-add_project_test(test_lorenzo_f_shared test_lorenzo.F90 LINK_LIBS "rmn::rmn-shared;-laec" DL)                        # build with shared libraries
+add_project_test(test_lorenzo_f_shared test_lorenzo.F90 LINK_LIBS "rmn::rmn-shared;libaec::aec" DL)                        # build with shared libraries
 if(NOT ( ${COMPILER_SUITE} MATCHES  "nvhpc") )
 # problem building test_lorenzo_f_static with Nvidia compiler (dl library symbol missing)
 add_project_test(test_lorenzo_f_static test_lorenzo.F90 STATIC LINK_LIBS "rmn::rmn-static" DL)        # build with static libraries
@@ -138,18 +138,18 @@ endif()
 # add_project_test(test_lorenzo_f_static test_lorenzo.F90 STATIC LINK_LIBS rmn::rmn-static)                          # build with static libraries
 # SET_SOURCE_FILES_PROPERTIES( test_lorenzo.F90 PROPERTIES COMPILE_OPTIONS -DNO_FORTRAN_CODE )
 
-add_project_test(test_fstd_compress  test_fstd_compress.F90 LINK_LIBS "rmn::rmn;-laec" DL NOCTEST)   # not included in ctest for now
+add_project_test(test_fstd_compress  test_fstd_compress.F90 LINK_LIBS "rmn::rmn;libaec::aec" DL NOCTEST)   # not included in ctest for now
 # add_project_test(fstd_to_raw  fstd_to_raw.F90 LINK_LIBS "rmn::rmn" DL NOCTEST)   # not included in ctest for now
-add_project_test(fstd_to_raw  fstd_to_raw.F90 LINK_LIBS "rmn::rmn-shared;-laec" DL NOCTEST)   # not included in ctest for now
+add_project_test(fstd_to_raw  fstd_to_raw.F90 LINK_LIBS "rmn::rmn-shared;libaec::aec" DL NOCTEST)   # not included in ctest for now
 if(NOT ( ${COMPILER_SUITE} MATCHES  "nvhpc") )
 # problem building fstd_to_raw_s with Nvidia compiler (dl library symbol missing)
 add_project_test(fstd_to_raw_s  fstd_to_raw.F90 STATIC LINK_LIBS "rmn::rmn-static" DL NOCTEST)   # not included in ctest for now
 endif()
 
 add_project_test(test_c_record_io test_c_record_io.c NOCTEST)    # not included in ctest for now
-add_project_test(test_c_record_io_f test_c_record_io.F90 NOCTEST DL LINK_LIBS "-laec")    # not included in ctest for now
+add_project_test(test_c_record_io_f test_c_record_io.F90 NOCTEST DL LINK_LIBS "libaec::aec")    # not included in ctest for now
 
-add_project_test(test_quantizer_errors test_quantizer_errors.c LINK_LIBS "m;-laec" DL NOCTEST NODIAG)    # not included in ctest for now
+add_project_test(test_quantizer_errors test_quantizer_errors.c LINK_LIBS "m;libaec::aec" DL NOCTEST NODIAG)    # not included in ctest for now
 
 add_project_test(test_serialized_functions test_serialized_functions.c NODIAG)
 # maybe needed depending upon print statement distribution in test code
@@ -163,14 +163,14 @@ add_project_test(test_ieeequantize test_ieeequantize.c NODIAG)
 add_project_test(test_logquantize test_logquantize.c NODIAG)
 add_project_test(test_encoders test_encoders.c NODIAG)
 add_project_test(test_bitstream test_bitstream.c NODIAG)
-add_project_test(test_entropy test_entropy.c LINK_LIBS "m;-laec" DL NODIAG)
+add_project_test(test_entropy test_entropy.c LINK_LIBS "m;libaec::aec" DL NODIAG)
 add_project_test(test_data_info_c test_data_info.c NODIAG)
-add_project_test(test_data_info_f test_data_info.F90 LINK_LIBS "rmn::rmn;-laec" DL)
+add_project_test(test_data_info_f test_data_info.F90 LINK_LIBS "rmn::rmn;libaec::aec" DL)
 
-add_project_test(test_bits test_bits.F90 DL LINK_LIBS "-laec")
+add_project_test(test_bits test_bits.F90 DL LINK_LIBS "libaec::aec")
 add_project_test(test_pipe_filters test_pipe_filters.c)
 add_project_test(test_atomic_functions test_atomic_functions.c NODIAG)
 add_project_test(test_pixmaps test_pixmaps.c NODIAG)
 add_project_test(test_wordstream test_wordstream.c NODIAG)
-add_project_test(test_compress_expand test_compress_expand.c LINK_LIBS "-laec" NODIAG)
-add_project_test(test_copy_swap test_copy_swap.c NODIAG)
+add_project_test(test_compress_expand test_compress_expand.c LINK_LIBS "rmn::rmn;libaec::aec" NODIAG)
+add_project_test(test_copy_swap test_copy_swap.c  LINK_LIBS "rmn::rmn" NODIAG)
