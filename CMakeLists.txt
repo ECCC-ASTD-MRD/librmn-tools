@@ -216,6 +216,7 @@ set(PROJECT_C_FILES
   src/pred/average_2x2.c
   src/pack/bits.c
   src/pack/bi_endian_pack.c
+  src/pack/data_map.c
   src/pack/misc_pack.c
 #   src/pack/copy_swap.c
   src/pack/misc_operators.c
@@ -275,6 +276,7 @@ set(PROJECT_H_FILES
   src/PUBLIC_INCLUDES/rmn/tools_types.h
   src/PUBLIC_INCLUDES/rmn/pack_macros.h
   src/PUBLIC_INCLUDES/rmn/bi_endian_pack.h
+  src/PUBLIC_INCLUDES/rmn/data_map.h
   src/PUBLIC_INCLUDES/rmn/word_stream.h
   src/PUBLIC_INCLUDES/rmn/bit_stream.h
   src/PUBLIC_INCLUDES/rmn/bit_pack_macros.h
