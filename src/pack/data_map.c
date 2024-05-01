@@ -15,3 +15,7 @@
 //     M. Valin,   Recherche en Prevision Numerique, 2024
 //
 #include <rmn/data_map.h>
+
+uint32_t Zindex_from_i_j(uint32_t i, uint32_t j, uint32_t nti, uint32_t ntj, uint32_t sf0){
+  return Zindex_from_i_j_(i, j, nti, ntj, sf0) ;
+}

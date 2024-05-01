@@ -25,10 +25,10 @@
 //
 // SF1 = MODULO(NTJ , SF0)
 // if(SF1 == 0) then SF1 = SF0
-// STI = J / SF0                ( stripe number for row J )
-// J0  = STI * SF0              ( J index of lower row in stripe )
+// STJ = J / SF0                ( stripe number for row J )
+// J0  = STJ * SF0              ( J index of lower row in stripe )
 // if(J0 + SF0 > NTJ) then SF = SF1 else SF = SF0    ( stripe factor for this row )
-// ZI = (J0 * SF0) + (J - J0) + (SF * I)             ( Z index of tile[I,J] )
+// ZI = (J0 * NTI) + (J - J0) + (SF1 * I)            ( Z index of tile[I,J] )
 //
 // row (J)                                                           stripe
 //     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
@@ -97,3 +97,23 @@
 // # delimited region, 8 tiles
 //  option 1 : ( ideal case )
 //    read tiles 28->35 [ 8 tiles read, 1 IO request ]
+# if ! defined(Z_DATA_MAP)
+# define Z_DATA_MAP
+#include <stdint.h>
+
+static uint32_t Zindex_from_i_j_(uint32_t i, uint32_t j, uint32_t nti, uint32_t ntj, uint32_t sf0){
+  uint32_t zi, sf1, j0, stj, cj ;
+
+  sf1 = ntj - ((ntj / sf0) * sf0) ;         // modulo(ntj, sf0)
+  if(sf1 == 0) sf1 = sf0 ;                  // same as sf0 if modulo  == 0
+  stj = j / sf0 ;                           // stripe number for this row
+  j0 = stj * sf0 ;                          // j index of lowest row in stripe
+  cj = ((j0 + sf0) > ntj) ? sf1 : sf0 ;     // width along j of current stripe
+  zi = (j0 * nti) +                         // lower left corner of stripe
+       (j - j0) +                           // number of rows above bottom of stripe
+       (i * sf1) ;                          // i * stripe width
+
+  return zi ;
+}
+
+#endif

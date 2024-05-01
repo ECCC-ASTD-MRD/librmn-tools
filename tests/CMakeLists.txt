@@ -174,3 +174,5 @@ add_project_test(test_pixmaps test_pixmaps.c NODIAG)
 add_project_test(test_wordstream test_wordstream.c NODIAG)
 add_project_test(test_compress_expand test_compress_expand.c LINK_LIBS "rmn::rmn;libaec::aec" NODIAG)
 add_project_test(test_copy_swap test_copy_swap.c  LINK_LIBS "rmn::rmn" NODIAG)
+
+add_project_test(test_data_map test_data_map.c NODIAG)
