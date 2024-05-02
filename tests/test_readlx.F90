@@ -1,3 +1,9 @@
+#define NEW_READLX_
+#if defined(NEW_READLX)
+#define qlxins qlxins_2
+#define READLX READLX_2
+#define qlxinx qlxinx_2
+#endif
 /* RMNLIB - Library of useful routines for C and FORTRAN programming
 *  Copyright (C) 1975-2001  Division de Recherche en Prevision Numerique
 *                           Environnement Canada
@@ -35,7 +41,7 @@ PROGRAM YOYO
   end interface
 
   EXTERNAL SUB1,SUB2, YOUPI
-  integer :: KND, KRR
+  integer :: KND, KRR, i
   character(len=4096) :: input_file
 
   if(command_argument_count() < 1) then
@@ -46,8 +52,8 @@ PROGRAM YOYO
 
   CALL qlxins(TAB1(1), 'TAB1', NTAB1, 9, 1)      ! up to 9 values, writable
   CALL qlxins(INDICE,  'IND' , NNN,   1, 1)      ! up to 1 value, writable
-  CALL qlxins(TAB2(1), 'TAB2', NTAB2, 4, 1)      ! up to 1 values, writable
-  CALL qlxins(TAB3(1), 'TAB3', NTAB3, 7, 1)      ! up to 1 values, writable
+  CALL qlxins(TAB2(1), 'TAB2', NTAB2, 4, 1)      ! up to 4 values, writable
+  CALL qlxins(TAB3(1), 'TAB3', NTAB3, 7, 1)      ! up to 7 values, writable
   CALL qlxins(22,   'CONST22', dummy, 1, 0)      ! up to 1 value, constant
   CALL qlxins(55,   'CONST55', dummy, 1, 0)      ! up to 1 value, constant
 
@@ -61,6 +67,7 @@ PROGRAM YOYO
 !   IER = FNOM(5,'INP_READLX','SEQ',0)
   open(5, file=trim(input_file), form='FORMATTED')
   CALL READLX(5,KND,KRR)
+  print '(A,I3,A,10A4)', 'NTAB2 =', NTAB2, ' TAB2 = ',(tab2(i), i=1,NTAB2)
   PRINT *,' APRES READLX - KND,KRR ',KND,KRR
 !     CALL READLX(5,KND,KRR)
 !     PRINT *,' APRES READLX - KND,KRR ',KND,KRR

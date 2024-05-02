@@ -1,3 +1,9 @@
+#define NEW_READLX
+#if defined(NEW_READLX)
+#define qlxins qlxins_2
+#define READLX READLX_2
+#define QLXINX QLXINX_2
+#endif
 ! TODO A lot of global variables in theses modules are not initialized. Is that OK?
 ! (there was no "DATA" statement for them in the common blocks)
 module readlx_parmadr
@@ -123,7 +129,7 @@ SUBROUTINE LEXINS(IVAR, ICLE, NB, LIMIT, TYP)
     character(len=8) :: KLE
 
     WRITE(KLE, '(A8)') ICLE
-    CALL QLXINS(IVAR, KLE, NB, LIMIT, TYP)
+    CALL qlxins(IVAR, KLE, NB, LIMIT, TYP)
 END
 
 !> Get value of indexed array component
@@ -348,7 +354,6 @@ SUBROUTINE QLXCALL(SUB, ICOUNT, LIMITS, ERR)
     INTEGER LEN, TYPE, JVAL
     REAL ZVAL
     pointer(pjval,jval)
-!     EQUIVALENCE (ZVAL, JVAL)
 
     COMMON/QLXTOK2/TOKEN
     character(len=80) TOKEN
@@ -770,7 +775,7 @@ SUBROUTINE QLXIND(IND, ERR)
 END
 
 !> Déclaration des routines
-SUBROUTINE qlxinx(xtern, key, icount, limits, ityp)
+SUBROUTINE QLXINX(xtern, key, icount, limits, ityp)
     use app
 
     !> Nom de la fonction à appeler
@@ -807,14 +812,14 @@ SUBROUTINE qlxins(ivar, key, icount, limits, ityp)
     INTEGER :: limits
     INTEGER :: ityp
 
-    integer, EXTERNAL :: readlx
+    integer, EXTERNAL :: READLX
 
     IF (ityp == 2) THEN
         CALL lib_log(APP_LIBRMN, APP_ERROR, 'QLXINX doit etre utilise quand ityp = 2, au lieu de QLXINS')
         CALL QLXERR(81013, 'QLXINS')
         STOP
     ELSE
-        CALL qqlxins(ivar, key, icount, limits, ityp, readlx)
+        CALL qqlxins(ivar, key, icount, limits, ityp, READLX)
     ENDIF
 END
 
@@ -1084,7 +1089,7 @@ SUBROUTINE QLXNVAR(KEY, NW)
         CALL QLXERR(21011, 'QLXNVAR')
         RETURN
     ENDIF
-    CALL QLXINS(SC(NSC), IKEY, DUMMY, NW, 1)
+    CALL qlxins(SC(NSC), IKEY, DUMMY, NW, 1)
     NSC = NSC + NW
 END
 
@@ -1857,7 +1862,7 @@ SUBROUTINE READLX(UNIT, KEND, KERR)
     IF (KERR < 0 ) THEN
         KERRMAX = MIN(ABS(KERR), KERRMAX)
     ENDIF
-
+print *,"==========================READLX NEW=========================="
     NC = 1
     LAST = 0
     INPFILE = UNIT
