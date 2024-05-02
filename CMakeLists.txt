@@ -261,6 +261,7 @@ set(PROJECT_F_FILES
   src/plugins/fortran_plugins.F90
   src/pred/misc_operators_mod.F90
   src/diag/data_info_mod.F90
+  src/diag/readlx_new.F90
 )
 SET_SOURCE_FILES_PROPERTIES( src/pred/lorenzo_mod.F90 PROPERTIES COMPILE_OPTIONS -DNO_EXTRA_FORTRAN )
 
