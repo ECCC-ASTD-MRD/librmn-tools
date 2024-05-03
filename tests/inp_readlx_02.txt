@@ -17,4 +17,15 @@ TABL = -12, -18, -24, -30
 I = 1 $ PRINT(TABL[I],'("TABL[I] = ",T15,I6.5)')
 I = 4 $ PRINT(TABL[I],'("TABL[I] = ",T15,I6.5)')
 SUB3()
+* Voici un commentaire !@##%
+SUB2(1,CONST22,3,4,CONST55)
+sub1(1,[2,3,4,5],6,7)
+sub1(1,[2,3,4,5],6)
+sub1(1,[2,3,4,5])
+sub1(1)
+TAB2="ABCD","EFGH","IJKL","MNOP"
+I = 1 $ PRINT(TAB2[I],'("TAB2[I] = ",T15,A4)')
+I = 2 $ PRINT(TAB2[I],'("TAB2[I] = ",T15,A4)')
+I = 3 $ PRINT(TAB2[I],'("TAB2[I] = ",T15,A4)')
+I = 4 $ PRINT(TAB2[I],'("TAB2[I] = ",T15,A4)')
 IND=(TAB1[1])
