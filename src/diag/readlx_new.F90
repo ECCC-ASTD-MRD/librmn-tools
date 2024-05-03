@@ -51,6 +51,44 @@ module readlx_nrdlx
    integer(kind = int64), dimension(2, 256) :: IPTADR = 0
 end module readlx_nrdlx
 
+module readlx_remote
+   use rmn_common
+   implicit none
+contains
+  integer function remote_call(fn, args)
+    abstract interface
+      integer function machin(a00,a01,a02,a03,a04,a05,a06,a07,a08,a09, &
+                              a10,a11,a12,a13,a14,a15,a16,a17,a18,a19, &
+                              a20,a21,a22,a23,a24,a25,a26,a27,a28,a29, &
+                              a30,a31,a32,a33,a34,a35,a36,a37,a38,a39, &
+                              a40)
+      use ISO_C_BINDING
+      type(C_PTR), intent(IN), value :: a00,a01,a02,a03,a04,a05,a06,a07,a08,a09, &
+                                 a10,a11,a12,a13,a14,a15,a16,a17,a18,a19, &
+                                 a20,a21,a22,a23,a24,a25,a26,a27,a28,a29, &
+                                 a30,a31,a32,a33,a34,a35,a36,a37,a38,a39, &
+                                 a40
+      end function machin
+    end interface
+    integer(C_INT64_T), intent(IN) :: fn
+    integer(C_INT64_T), dimension(0:40), intent(IN) :: args
+    procedure(machin), pointer :: fptr
+    type(C_FUNPTR) :: cptr
+    type(C_PTR), dimension(0:40) :: v
+    integer :: i
+    do i = 0, 40
+      v(i) = transfer(args(i), v(i))
+    enddo
+    cptr = transfer(fn, cptr)
+    call c_f_procpointer(cptr, fptr)
+    remote_call = fptr(v(00), v(01), v(02), v(03), v(04), v(05), v(06), v(07), v(08), v(09), &
+                       v(10), v(11), v(12), v(13), v(14), v(15), v(16), v(17), v(18), v(19), &
+                       v(20), v(21), v(22), v(23), v(24), v(25), v(26), v(27), v(28), v(29), &
+                       v(30), v(31), v(32), v(33), v(34), v(35), v(36), v(37), v(38), v(39), &
+                       v(40))
+  end function
+end module readlx_remote
+
 ! get contents at address(subscript) (assuming a 32 bit item)
 subroutine get_content_of_address(address, subscript, content)
   use rmn_common
@@ -148,7 +186,6 @@ SUBROUTINE QLXADI2(KLE, IND, VALEUR, ERR)
     integer, dimension(1024) :: mem
     pointer(pmem, mem)
     REAL Z
-!     EQUIVALENCE(Z, IZ)
 
     IZ = IND
     IF (QLXDTYP(IZ) == 1) THEN
@@ -217,7 +254,6 @@ SUBROUTINE QLXASG(VAL, ICOUNT, LIMIT, ERR)
     INTEGER LEN, TYPE, JVAL
     REAL ZVAL
     pointer(pjval,jval)
-!     EQUIVALENCE (ZVAL, JVAL)
     integer(kind = int64) :: jval64
 
     COMMON/QLXTOK2/TOKEN
@@ -225,8 +261,6 @@ SUBROUTINE QLXASG(VAL, ICOUNT, LIMIT, ERR)
 
     INTEGER IND, JLEN, QLXVAL
     INTEGER OLDTYP, ITEMP(80), IREPCN
-!     REAL TEMP(80)
-!     EQUIVALENCE (TEMP, ITEMP)
     LOGICAL IAREP, FIN
 
     pjval = LOC(ZVAL)
@@ -346,6 +380,7 @@ SUBROUTINE QLXCALL(SUB, ICOUNT, LIMITS, ERR)
     use rmn_common
     use readlx_parmadr
     use readlx_qlxfmt
+    use readlx_remote
 
     integer(kind = int64) :: SUB, ICOUNT
 
@@ -358,8 +393,8 @@ SUBROUTINE QLXCALL(SUB, ICOUNT, LIMITS, ERR)
     COMMON/QLXTOK2/TOKEN
     character(len=80) TOKEN
 
-    EXTERNAL RMTCALL, QLXADR, QLXVAL
-    INTEGER  RMTCALL, QLXVAL
+    EXTERNAL QLXADR, QLXVAL
+    INTEGER  QLXVAL
     INTEGER LIM1, LIM2, JLEN, PREVI
     integer(kind = int64) LOCDUM, QLXADR
     character(len=8) KLE
@@ -483,7 +518,7 @@ SUBROUTINE QLXCALL(SUB, ICOUNT, LIMITS, ERR)
             ELSE
                 icount64 = ICOUNT
                 call set_content_of_address(icount64, 1, NARG)
-                JUNK=RMTCALL(SUB, ADR)
+                junk = remote_call(SUB, ADR)
                 call set_content_of_address(icount64, 1, 0)
                 CALL QLXFLSH('$')
             ENDIF
@@ -496,7 +531,6 @@ function QLXCHR()
     use App
     use readlx_qlxbuff
     character(len=1) QLXCHR
-
 
     character(len=8) SKIPMSG(0:3)
     LOGICAL COMMENT
@@ -620,6 +654,7 @@ SUBROUTINE QLXERR(CODE, MODULE)
     DATA MSG( 20) /', OU ) ATTENDU'/
     DATA MSG( 21) /'LA PILE D ARGUMENTS DEBORDE'/
     DATA MSG( 22) /'TROP OU PAS ASSEZ D''ARGUMENTS'/
+    DATA MSG( 23) /'ADRESSE INVALIDE'/
 
     DATA TYPE( 1) /APP_INFO/
     DATA TYPE( 2) /APP_ALWAYS/
@@ -741,7 +776,6 @@ SUBROUTINE QLXIND(IND, ERR)
     INTEGER LEN, TYPE, JVAL
     REAL ZVAL
     pointer(pjval,JVAL)
-!     EQUIVALENCE (ZVAL, JVAL)
 
     COMMON/QLXTOK2/TOKEN
     character(len=80) TOKEN
@@ -1102,7 +1136,6 @@ SUBROUTINE QLXOPR(TOKENS, NTOKEN, TOKTYPE, OPRTR, ERR)
 
       INTEGER IZ1, IZ2, IR1
       REAL   Z1,  Z2,  R1
-!       EQUIVALENCE (IZ1, Z1), (IZ2, Z2), (IR1, R1)
       pointer(pz1,Z1)
       pointer(pz2,Z2)
       pointer(pr1,R1)
@@ -1686,7 +1719,6 @@ SUBROUTINE QLXXPR(ERR)
     LOGICAL INEXPR
     INTEGER LEN, TYPE, JVAL
     REAL ZVAL
-!     EQUIVALENCE (ZVAL, JVAL)
     pointer(pjval,JVAL)
 
     COMMON /QLXTOK2/ TOKEN
@@ -1725,7 +1757,10 @@ SUBROUTINE QLXXPR(ERR)
                 ERR = .TRUE.
             ENDIF
 !             TOKENS(NTOKEN) = LOCVAR
-            TOKENS(NTOKEN) = 0
+            TOKENS(NTOKEN) = 0              ! FATAL ERROR, no way to store an address in 32 bits
+            call lib_log(APP_LIBRMN, APP_ERROR, 'impossible de stocker 64 bits dans 32 bits')
+            ERR = .TRUE.
+            CALL QLXERR(81023, 'QLXEXPR')
             TOKTYPE(NTOKEN) = LIMITES + 1
             IF (.NOT. UNARY) THEN
                 ERR = .TRUE.
@@ -1832,7 +1867,6 @@ SUBROUTINE READLX(UNIT, KEND, KERR)
     LOGICAL INEXPR
     INTEGER LEN, TYPE, JVAL
     REAL ZVAL
-!     EQUIVALENCE (ZVAL, JVAL)
     pointer(pjval,JVAL)
 
     COMMON/QLXTOK2/TOKEN

@@ -30,6 +30,7 @@ end module
 PROGRAM YOYO
   use ISO_C_BINDING
   use yyy
+  use app
   implicit none
   integer, dimension(10) :: TAB0,TAB1,TAB2,TAB3
   integer :: dummy, INDICE
@@ -49,6 +50,7 @@ PROGRAM YOYO
     call program_exit(1)
   endif
   call GET_COMMAND_ARGUMENT(1 , input_file)
+  i = app_loglevel('INFO')
 
   CALL qlxins(TAB0(1), 'TAB0', NTAB0, 9, 1)      ! up to 9 values, writable
   CALL qlxins(TAB1(1), 'TAB1', NTAB1, 9, 1)      ! up to 9 values, writable
