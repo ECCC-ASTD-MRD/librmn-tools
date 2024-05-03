@@ -55,7 +55,7 @@ module readlx_remote
    use rmn_common
    implicit none
 contains
-  integer function remote_call(fn, args)
+  integer(C_INT32_t) function remote_call(fn, args) BIND(C)
     abstract interface
       integer(C_INT32_t) function machin( &
                               a00,a01,a02,a03,a04,a05,a06,a07,a08,a09, &
