@@ -24,14 +24,14 @@
 *  Boston, MA 02111-1307, USA.
 */
 module yyy
-      integer, save :: NTAB1,NTAB2,NTAB3,NSUB1,NSUB2,NSUB3,NNN
+      integer, save :: NTAB0,NTAB1,NTAB2,NTAB3,NSUB1,NSUB2,NSUB3,NNN
 end module
 
 PROGRAM YOYO
   use ISO_C_BINDING
   use yyy
   implicit none
-  integer, dimension(10) :: TAB1,TAB2,TAB3
+  integer, dimension(10) :: TAB0,TAB1,TAB2,TAB3
   integer :: dummy, INDICE
   interface
     subroutine program_exit(code) bind(C,name='exit')
@@ -50,6 +50,7 @@ PROGRAM YOYO
   endif
   call GET_COMMAND_ARGUMENT(1 , input_file)
 
+  CALL qlxins(TAB0(1), 'TAB0', NTAB0, 9, 1)      ! up to 9 values, writable
   CALL qlxins(TAB1(1), 'TAB1', NTAB1, 9, 1)      ! up to 9 values, writable
   CALL qlxins(INDICE,  'IND' , NNN,   1, 1)      ! up to 1 value, writable
   CALL qlxins(TAB2(1), 'TAB2', NTAB2, 4, 1)      ! up to 4 values, writable
@@ -61,22 +62,16 @@ PROGRAM YOYO
   CALL qlxinx(SUB2,  'SUB2', NSUB2, 0305, 2)    ! 3 to 5 argments, callable
   CALL qlxinx(YOUPI, 'SUB3', NSUB3, 0000, 2)    ! NO argument, callable
 !
-  write(*,77) LOC(sub1),LOC(sub2)
-77  format(' *** debug sub1 = ',z16.16,' sub2 = ',z16.16)
-  PRINT *,' Avant READLX - input=inp_readlx'
+!   write(*,77) LOC(sub1),LOC(sub2)
+! 77  format(' *** debug sub1 = ',z16.16,' sub2 = ',z16.16)
+!   PRINT *,' Avant READLX - input=inp_readlx'
 !   IER = FNOM(5,'INP_READLX','SEQ',0)
   open(5, file=trim(input_file), form='FORMATTED')
   CALL READLX(5,KND,KRR)
+  print '(A,I3,A,10A4)', 'NTAB1 =', NTAB1, ' TAB1 = ',(tab1(i), i=1,NTAB1)
   print '(A,I3,A,10A4)', 'NTAB2 =', NTAB2, ' TAB2 = ',(tab2(i), i=1,NTAB2)
+  print '(A,I3,A,10A4)', 'NTAB3 =', NTAB3, ' TAB3 = ',(tab3(i), i=1,NTAB3)
   PRINT *,' APRES READLX - KND,KRR ',KND,KRR
-!     CALL READLX(5,KND,KRR)
-!     PRINT *,' APRES READLX - KND,KRR ',KND,KRR
-
-!     PRINT *,' NTAB1,NTAB2MNTAB3 -',NTAB1,NTAB2,NTAB3
-!     WRITE(6,'(3X,4Z20)')TAB1
-!     WRITE(6,'(3X,4Z20)')TAB2
-!     WRITE(6,'(3X,4Z20)')TAB3
-      STOP
 END
 SUBROUTINE SUB1(A,B,C,D)
   use yyy

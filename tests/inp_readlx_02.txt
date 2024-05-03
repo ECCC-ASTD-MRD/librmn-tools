@@ -1,20 +1,30 @@
 DEFINE(IND2,1)
 IND2=2222
-PRINT(IND2,'(T35,I5.5)')
-TAB1=10,20,30,40,50
+PRINT(IND2,'("IND2 = ",T15,I5.5)')
+
+TAB0=10,20,30,40,50
 IND=1111
-PRINT(IND,'(T35,I5.5)')
-PRINT(TAB1,'(T35,I5.5)')
+PRINT(IND,'("IND = ",T15,I5.5)')
+PRINT(TAB0[1],'("TAB0[1] = ",T15,I5.5)')
+PRINT(TAB0[2],'("TAB0[2] = ",T15,I5.5)')
+PRINT(TAB0[3],'("TAB0[3] = ",T15,I5.5)')
+PRINT(TAB0[4],'("TAB0[4] = ",T15,I5.5)')
+PRINT(TAB0[5],'("TAB0[5] = ",T15,I5.5)')
+
 DEFINE(I,1)
 DEFINE(TABL,4)
 TABL=12,18,24,30
-*I=0
-*I=(I+2)
+I = 1
+PRINT(I,'("I = ",T15,I5.5)')
+PRINT(TABL[I],'("TABL[I] = ",T15,I5.5)')
 I = 2
-PRINT(I,'(T5,I5.5)')
-*while ((I:=I+1) <= 4)
-I=3
-PRINT(I,'(T15,I5.5)')
-PRINT(TABL[I],'(T35,I5.5)')
-*endwhile
+PRINT(I,'("I = ",T15,I5.5)')
+PRINT(TABL[I],'("TABL[I] = ",T15,I5.5)')
+I = 3
+PRINT(I,'("I = ",T15,I5.5)')
+PRINT(TABL[I],'("TABL[I] = ",T15,I5.5)')
+I = 4
+PRINT(I,'("I = ",T15,I5.5)')
+PRINT(TABL[I],'("TABL[I] = ",T15,I5.5)')
 
+SUB3()
