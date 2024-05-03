@@ -57,13 +57,15 @@ module readlx_remote
 contains
   integer function remote_call(fn, args)
     abstract interface
-      integer function machin(a00,a01,a02,a03,a04,a05,a06,a07,a08,a09, &
+      integer(C_INT32_t) function machin( &
+                              a00,a01,a02,a03,a04,a05,a06,a07,a08,a09, &
                               a10,a11,a12,a13,a14,a15,a16,a17,a18,a19, &
                               a20,a21,a22,a23,a24,a25,a26,a27,a28,a29, &
                               a30,a31,a32,a33,a34,a35,a36,a37,a38,a39, &
-                              a40)
+                              a40) BIND(C)
       use ISO_C_BINDING
-      type(C_PTR), intent(IN), value :: a00,a01,a02,a03,a04,a05,a06,a07,a08,a09, &
+      type(C_PTR), intent(IN), value :: &
+                                 a00,a01,a02,a03,a04,a05,a06,a07,a08,a09, &
                                  a10,a11,a12,a13,a14,a15,a16,a17,a18,a19, &
                                  a20,a21,a22,a23,a24,a25,a26,a27,a28,a29, &
                                  a30,a31,a32,a33,a34,a35,a36,a37,a38,a39, &
@@ -393,6 +395,7 @@ SUBROUTINE QLXCALL(SUB, ICOUNT, LIMITS, ERR)
     COMMON/QLXTOK2/TOKEN
     character(len=80) TOKEN
 
+    integer, external :: rmtcall
     EXTERNAL QLXADR, QLXVAL
     INTEGER  QLXVAL
     INTEGER LIM1, LIM2, JLEN, PREVI
@@ -518,6 +521,7 @@ SUBROUTINE QLXCALL(SUB, ICOUNT, LIMITS, ERR)
             ELSE
                 icount64 = ICOUNT
                 call set_content_of_address(icount64, 1, NARG)
+!                 junk = rmtcall(SUB, ADR)
                 junk = remote_call(SUB, ADR)
                 call set_content_of_address(icount64, 1, 0)
                 CALL QLXFLSH('$')
@@ -1114,6 +1118,7 @@ SUBROUTINE QLXNVAR(KEY, NW)
     SAVE DUMMY
     DATA NSC /1/
     DATA DUMMY /0/
+
     WRITE(IKEY, LINEFMT) (KEY(J), J=1, ARGDIMS(1))
     CALL QLXLOOK(IVAR, IKEY, ICOUNT, LIMITS, ITYP)
     IF (ITYP /= -1) THEN

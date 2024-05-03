@@ -1,4 +1,4 @@
-#define NEW_READLX_
+#define NEW_READLX
 #if defined(NEW_READLX)
 #define qlxins qlxins_2
 #define READLX READLX_2
