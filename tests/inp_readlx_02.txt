@@ -28,4 +28,7 @@ I = 1 $ PRINT(TAB2[I],'("TAB2[I] = ",T15,A4)')
 I = 2 $ PRINT(TAB2[I],'("TAB2[I] = ",T15,A4)')
 I = 3 $ PRINT(TAB2[I],'("TAB2[I] = ",T15,A4)')
 I = 4 $ PRINT(TAB2[I],'("TAB2[I] = ",T15,A4)')
-IND=(TAB1[1])
+DEFINE(TAB4,4) $ TAB4 = 111,222,333
+IND=(TAB4[1]+TABL[1])
+PRINT(IND,'("IND = ",T15,I6.5)')
+I = 1 $ PRINT(TAB4[I],'("TAB4[I] = ",T15,I6.5)')

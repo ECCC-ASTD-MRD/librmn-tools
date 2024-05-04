@@ -168,7 +168,6 @@ integer(kind = int64) FUNCTION qlx_adr(KLE, ERR)
     POINTER (LOCVAR, VARI(*))
 
     CALL qlx_ind(IND, ERR)
-
     IF (.NOT. ERR) THEN
         CALL qlx_fnd(KLE, LOCVAR8, LOCCNT, LIMITS, ITYP)
 !         call make_cray_pointer(LOCVAR, locvar8)
@@ -203,10 +202,13 @@ SUBROUTINE qlx_asg(VAL, ICOUNT, LIMIT, ERR)
     INTEGER LEN, TYPE, JVAL
     REAL ZVAL
     pointer(pjval,jval)
-    integer(kind = int64) :: jval64
+!     integer(kind = int64) :: jval64
 
     COMMON/qlx_tok2/TOKEN
     character(len=80) TOKEN
+
+    COMMON /qlx_tok3/ jval64
+    integer(kind = int64) :: jval64
 
     INTEGER IND, JLEN, qlx_val
     INTEGER OLDTYP, ITEMP(80), IREPCN
@@ -236,7 +238,7 @@ SUBROUTINE qlx_asg(VAL, ICOUNT, LIMIT, ERR)
             ENDIF
             IF (TYPE == 8) THEN
 !                 call get_value_at_address(JVAL, 1, JVAL)
-                jval64 = jval
+!                 jval64 = jval
                 call get_value_at_address(jval64, 1, JVAL)
             ELSE
                 IF (TYPE == 1 .AND. OLDTYP == 4) THEN
@@ -1033,17 +1035,19 @@ END
 !> Appliquer un operateur numerique ou logique
 SUBROUTINE qlx_opr(TOKENS, NTOKEN, TOKTYPE, OPRTR, ERR)
       use rmn_common
-      INTEGER NTOKEN, OPRTR, TOKENS(NTOKEN), TOKTYPE(NTOKEN)
+!       INTEGER NTOKEN, OPRTR, TOKENS(NTOKEN), TOKTYPE(NTOKEN)
+      INTEGER NTOKEN, OPRTR, TOKTYPE(NTOKEN)
+      integer(kind = int64) :: TOKENS(NTOKEN)
       LOGICAL ERR
-      integer (kind = int64) :: token64
+!       integer (kind = int64) :: token64
 
-      INTEGER IZ1, IZ2, IR1
+      INTEGER IZ1, IZ2, IR1, tok32
       REAL   Z1,  Z2,  R1
       pointer(pz1,Z1)
       pointer(pz2,Z2)
       pointer(pr1,R1)
       LOGICAL REALOP
-      integer :: TOK
+      integer(kind = int64) :: TOK
       POINTER (PTOK, TOK(*))
 
       pz1 = LOC(IZ1)
@@ -1065,28 +1069,30 @@ SUBROUTINE qlx_opr(TOKENS, NTOKEN, TOKTYPE, OPRTR, ERR)
          RETURN
       ENDIF
       IF (TOKTYPE(NTOKEN) > 0) THEN
-         token64 = TOKENS(NTOKEN)
-         call get_value_at_address(token64, 1, TOKENS(NTOKEN))
+!          token64 = TOKENS(NTOKEN)
+         call get_value_at_address(TOKENS(NTOKEN), 1, tok32)
+         TOKENS(NTOKEN) = tok32
          TOKTYPE(NTOKEN) = 0
       ENDIF
       IF (OPRTR.NE.2 .AND. OPRTR.NE.17   .AND. OPRTR.NE.21 .AND. OPRTR.NE.4) THEN
          IF (TOKTYPE(NTOKEN-1) > 0) THEN
-            token64 = TOKENS(NTOKEN-1)
-            call get_value_at_address(token64, 1, TOKENS(NTOKEN-1))
+!             token64 = TOKENS(NTOKEN-1)
+            call get_value_at_address(TOKENS(NTOKEN-1), 1, tok32)
+            TOKENS(NTOKEN-1) = tok32
             TOKTYPE(NTOKEN-1) = 0
          ENDIF
       ENDIF
       REALOP = ABS(TOKENS(NTOKEN)) > 2147483647
-      IZ1 = TOKENS(NTOKEN)
+      IZ1 = int(TOKENS(NTOKEN))
       IF (OPRTR.NE.2 .AND. OPRTR.NE.17 .AND. OPRTR.NE.4) THEN
          REALOP = REALOP .OR. ABS(TOKENS(NTOKEN-1)) > 2147483647
-         IZ2 = TOKENS(NTOKEN-1)
+         IZ2 = int(TOKENS(NTOKEN-1))
          IF (REALOP) THEN
             IF (ABS(IZ1) <= 2147483647) THEN
-               Z1 = TOKENS(NTOKEN)
+               Z1 = int(TOKENS(NTOKEN))
             ENDIF
             IF (ABS(IZ2) <= 2147483647) THEN
-               Z2 = TOKENS(NTOKEN-1)
+               Z2 = int(TOKENS(NTOKEN-1))
             ENDIF
          ENDIF
       ENDIF
@@ -1247,8 +1253,9 @@ SUBROUTINE qlx_opr(TOKENS, NTOKEN, TOKTYPE, OPRTR, ERR)
             ERR = .TRUE.
             RETURN
          ENDIF
-         token64 = TOKENS(NTOKEN-1)
-         call set_value_at_address(token64, 1, TOKENS(NTOKEN))
+!          token64 = TOKENS(NTOKEN-1)
+         call set_value_at_address(TOKENS(NTOKEN-1), 1, tok32)
+         TOKENS(NTOKEN) = tok32
          NTOKEN = NTOKEN - 1
          RETURN
       end select
@@ -1321,15 +1328,17 @@ END
 
 !> Conversion a notation postfixe
 SUBROUTINE qlx_rpn(TOK, TOKENS, MAXTKNS, NTOKEN, TOKTYPE, PILEOP, MAXOPS, NOPER, ERR)
+    use rmn_common
     character(len=*) TOK
     INTEGER MAXTKNS, NTOKEN, MAXOPS, NOPER
-    INTEGER TOKENS(MAXTKNS), TOKTYPE(MAXTKNS)
+!     INTEGER TOKENS(MAXTKNS), TOKTYPE(MAXTKNS)
+    INTEGER TOKTYPE(MAXTKNS)
+    integer(kind  = int64) :: TOKENS(MAXTKNS)
     EXTERNAL qlx_pri, qlx_pril
     INTEGER  qlx_pri, qlx_pril
     LOGICAL ERR
     character(len=4) TOKEN
     character(len=4) PILEOP(MAXOPS)
-
     IF (ERR) THEN
         RETURN
     ENDIF
@@ -1609,8 +1618,13 @@ SUBROUTINE qlx_xpr(ERR)
     COMMON /qlx_tok2/ TOKEN
     character(len=80) TOKEN
 
+    COMMON /qlx_tok3/ jval64
+    integer(kind = int64) :: jval64
+
     PARAMETER (MAXTKNS=65, MAXOPS=30)
-    INTEGER TOKENS(MAXTKNS), TOKTYPE(MAXTKNS), NTOKEN
+!     INTEGER TOKENS(MAXTKNS), TOKTYPE(MAXTKNS), NTOKEN
+    INTEGER TOKTYPE(MAXTKNS), NTOKEN
+    integer(kind = int64) :: TOKENS(MAXTKNS)
     INTEGER NOPER
     integer(kind = int64) :: LOCVAR, LOCCNT
     character(len=4) :: PILEOP(MAXOPS)
@@ -1641,11 +1655,11 @@ SUBROUTINE qlx_xpr(ERR)
             IF (ITYP.NE.0 .AND. ITYP.NE.1) THEN
                 ERR = .TRUE.
             ENDIF
-!             TOKENS(NTOKEN) = LOCVAR
-            TOKENS(NTOKEN) = 0              ! FATAL ERROR, no way to store an address in 32 bits
-            call lib_log(APP_LIBRMN, APP_ERROR, 'impossible de stocker 64 bits dans 32 bits')
-            ERR = .TRUE.
-            CALL qlx_err(81023, 'QLXEXPR')
+            TOKENS(NTOKEN) = LOCVAR
+!             TOKENS(NTOKEN) = 0              ! FATAL ERROR, no way to store an address in 32 bits
+!             call lib_log(APP_LIBRMN, APP_ERROR, 'impossible de stocker 64 bits dans 32 bits')
+!             ERR = .TRUE.
+!             CALL qlx_err(81023, 'QLXEXPR')
             TOKTYPE(NTOKEN) = LIMITES + 1
             IF (.NOT. UNARY) THEN
                 ERR = .TRUE.
@@ -1718,9 +1732,10 @@ SUBROUTINE qlx_xpr(ERR)
     INEXPR = .FALSE.
     IF (.NOT.ERR) THEN
         TOKEN = ' '
-        JVAL = TOKENS(1)
+        JVAL = int(TOKENS(1))
         IF (TOKTYPE(1) > 0) THEN
-            TYPE =8
+            TYPE = 8
+            jval64 = TOKENS(1)
         ELSE
             IF (ABS(JVAL) <= 2147483647) THEN
                 TYPE =1
