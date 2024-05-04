@@ -1,7 +1,9 @@
-#define NEW_READLX___
-#if defined(NEW_READLX)
+#define NEW_READLX_NAMES
+#if defined(NEW_READLX_NAMES)
+#define qlxopt qlxopt_2
+#define lexins lexins_2
 #define qlxins qlxins_2
-#define READLX READLX_2
+#define readlx readlx_2
 #define qlxinx qlxinx_2
 #endif
 /* RMNLIB - Library of useful routines for C and FORTRAN programming
@@ -66,14 +68,14 @@ PROGRAM YOYO
 !
 !   write(*,77) LOC(sub1),LOC(sub2)
 ! 77  format(' *** debug sub1 = ',z16.16,' sub2 = ',z16.16)
-!   PRINT *,' Avant READLX - input=inp_readlx'
+!   PRINT *,' Avant readlx - input=inp_readlx'
 !   IER = FNOM(5,'INP_READLX','SEQ',0)
   open(5, file=trim(input_file), form='FORMATTED')
-  CALL READLX(5,KND,KRR)
+  CALL readlx(5,KND,KRR)
   print '(A,I3,A,10A4)', 'NTAB1 =', NTAB1, ' TAB1 = ',(tab1(i), i=1,NTAB1)
   print '(A,I3,A,10A4)', 'NTAB2 =', NTAB2, ' TAB2 = ',(tab2(i), i=1,NTAB2)
   print '(A,I3,A,10A4)', 'NTAB3 =', NTAB3, ' TAB3 = ',(tab3(i), i=1,NTAB3)
-  PRINT *,' APRES READLX - KND,KRR ',KND,KRR
+  PRINT *,' APRES readlx - KND,KRR ',KND,KRR
 END
 SUBROUTINE SUB1(A,B,C,D)
   use yyy
