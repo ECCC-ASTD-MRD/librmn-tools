@@ -1267,7 +1267,7 @@ SUBROUTINE qlx_opr(TOKENS, NTOKEN, TOKTYPE, OPRTR, ERR)
          ELSE
             IR1 = IEOR(IZ2, IZ1)
          ENDIF
-      case(21)
+      case(21)              ! :=
          IF (TOKTYPE(NTOKEN-1) <= 0) THEN
             ERR = .TRUE.
             RETURN
@@ -1369,49 +1369,49 @@ SUBROUTINE qlx_rpn(TOK, TOKENS, MAXTKNS, NTOKEN, TOKTYPE, PILEOP, MAXOPS, NOPER,
         NOPER = MIN(NOPER+1 , MAXOPS)
         PILEOP(NOPER) = TOKEN
     ELSE
-        IF (TOKEN == ')') THEN
-            DO WHILE (PILEOP(NOPER) .NE.'(' .AND. PILEOP(NOPER) .NE.'[' .AND. PILEOP(NOPER) .NE.'$')
-                CALL qlx_opr(TOKENS, NTOKEN, TOKTYPE, MOD(qlx_pri(PILEOP(NOPER)), 100), ERR)
-                NOPER = NOPER - 1
-            ENDDO
-            IF (PILEOP(NOPER) == '(') THEN
-                NOPER = NOPER-1
-            ELSE
-                ERR = .TRUE.
-            ENDIF
+    IF (TOKEN == ')') THEN
+        DO WHILE (PILEOP(NOPER) .NE.'(' .AND. PILEOP(NOPER) .NE.'[' .AND. PILEOP(NOPER) .NE.'$')
+            CALL qlx_opr(TOKENS, NTOKEN, TOKTYPE, MOD(qlx_pri(PILEOP(NOPER)), 100), ERR)
+            NOPER = NOPER - 1
+        ENDDO
+        IF (PILEOP(NOPER) == '(') THEN
+            NOPER = NOPER-1
         ELSE
-            IF (TOKEN == ']') THEN
-                DO WHILE (PILEOP(NOPER) .NE.'(' .AND. PILEOP(NOPER) .NE. '[' .AND. PILEOP(NOPER) .NE.'$')
-                    CALL qlx_opr(TOKENS, NTOKEN, TOKTYPE, MOD(qlx_pri(PILEOP(NOPER)), 100), ERR)
-                    NOPER = NOPER - 1
-                ENDDO
-                IF (PILEOP(NOPER) == '[') THEN
-                    CALL qlx_opr(TOKENS, NTOKEN, TOKTYPE, MOD(qlx_pri(']'), 100), ERR)
-                    NOPER = NOPER-1
-                ELSE
-                    ERR = .TRUE.
-                ENDIF
-            ELSE
-                IF (TOKEN == '$') THEN
-                    DO WHILE (PILEOP(NOPER) .NE.'(' .AND. PILEOP(NOPER) .NE.'[' .AND. PILEOP(NOPER) .NE.'$')
-                        CALL qlx_opr(TOKENS, NTOKEN, TOKTYPE, MOD(qlx_pri(PILEOP(NOPER)), 100), ERR)
-                        NOPER = NOPER - 1
-                    ENDDO
-                    IF (PILEOP(NOPER) == '$') THEN
-                        NOPER = NOPER-1
-                    ELSE
-                        ERR = .TRUE.
-                    ENDIF
-                ELSE
-                    DO WHILE (qlx_pril(PILEOP(NOPER)) > qlx_pri(TOKEN))
-                        CALL qlx_opr(TOKENS, NTOKEN, TOKTYPE, MOD(qlx_pri(PILEOP(NOPER)), 100), ERR)
-                        NOPER = NOPER -1
-                    ENDDO
-                    NOPER = MIN(NOPER+1 , MAXOPS)
-                    PILEOP(NOPER) = TOKEN
-                ENDIF
-            ENDIF
+            ERR = .TRUE.
         ENDIF
+    ELSE
+    IF (TOKEN == ']') THEN
+        DO WHILE (PILEOP(NOPER) .NE.'(' .AND. PILEOP(NOPER) .NE. '[' .AND. PILEOP(NOPER) .NE.'$')
+            CALL qlx_opr(TOKENS, NTOKEN, TOKTYPE, MOD(qlx_pri(PILEOP(NOPER)), 100), ERR)
+            NOPER = NOPER - 1
+        ENDDO
+        IF (PILEOP(NOPER) == '[') THEN
+            CALL qlx_opr(TOKENS, NTOKEN, TOKTYPE, MOD(qlx_pri(']'), 100), ERR)
+            NOPER = NOPER-1
+        ELSE
+            ERR = .TRUE.
+        ENDIF
+    ELSE
+    IF (TOKEN == '$') THEN
+        DO WHILE (PILEOP(NOPER) .NE.'(' .AND. PILEOP(NOPER) .NE.'[' .AND. PILEOP(NOPER) .NE.'$')
+            CALL qlx_opr(TOKENS, NTOKEN, TOKTYPE, MOD(qlx_pri(PILEOP(NOPER)), 100), ERR)
+            NOPER = NOPER - 1
+        ENDDO
+        IF (PILEOP(NOPER) == '$') THEN
+            NOPER = NOPER-1
+        ELSE
+            ERR = .TRUE.
+        ENDIF
+    ELSE
+        DO WHILE (qlx_pril(PILEOP(NOPER)) > qlx_pri(TOKEN))
+            CALL qlx_opr(TOKENS, NTOKEN, TOKTYPE, MOD(qlx_pri(PILEOP(NOPER)), 100), ERR)
+            NOPER = NOPER -1
+        ENDDO
+        NOPER = MIN(NOPER+1 , MAXOPS)
+        PILEOP(NOPER) = TOKEN
+    ENDIF
+    ENDIF
+    ENDIF
     ENDIF
 ! print *,'exiting qlx_rpn'
 END
