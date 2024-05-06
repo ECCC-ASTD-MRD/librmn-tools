@@ -5,6 +5,8 @@
 #define qlxins qlxins_2
 #define readlx readlx_2
 #define qlxinx qlxinx_2
+#define argdope argdope_2
+#define argdims argdims_2
 #endif
 /* RMNLIB - Library of useful routines for C and FORTRAN programming
 *  Copyright (C) 1975-2001  Division de Recherche en Prevision Numerique
@@ -79,22 +81,22 @@ PROGRAM YOYO
 END
 SUBROUTINE SUB1(A,B,C,D)
   use yyy
-  INTEGER A(*),B(*),C(*),D(*),ARGDIMS,ARGDOPE,ND
+  INTEGER A(*),B(*),C(*),D(*),argdims,argdope,ND
   INTEGER LISTE(5)
   PRINT *,' PASSE PAR SUB1'
   PRINT *,' NB D ARGUMENTS =',NSUB1
    GOTO(1,2,3,4)NSUB1
-4  PRINT 101,D(1),D(1),LOC(D),(D(I),I=1,ARGDIMS(4))
-   ND = ARGDOPE(4,LISTE,5)
+4  PRINT 101,D(1),D(1),LOC(D),(D(I),I=1,argdims(4))
+   ND = argdope(4,LISTE,5)
    PRINT 102,ND,LISTE
-3  PRINT 101,C(1),C(1),LOC(C),(C(I),I=1,ARGDIMS(3))
-   ND = ARGDOPE(3,LISTE,5)
+3  PRINT 101,C(1),C(1),LOC(C),(C(I),I=1,argdims(3))
+   ND = argdope(3,LISTE,5)
    PRINT 102,ND,LISTE
-2  PRINT 101,B(1),B(1),LOC(B),(B(I),I=1,ARGDIMS(2))
-   ND = ARGDOPE(2,LISTE,5)
+2  PRINT 101,B(1),B(1),LOC(B),(B(I),I=1,argdims(2))
+   ND = argdope(2,LISTE,5)
    PRINT 102,ND,LISTE
-1  PRINT 101,A(1),A(1),LOC(A),(A(I),I=1,ARGDIMS(1))
-   ND = ARGDOPE(1,LISTE,5)
+1  PRINT 101,A(1),A(1),LOC(A),(A(I),I=1,argdims(1))
+   ND = argdope(1,LISTE,5)
    PRINT 102,ND,LISTE
    print *,' =========================='
 101 FORMAT(3X,Z10.8,I10,Z20.16,4Z10.8)

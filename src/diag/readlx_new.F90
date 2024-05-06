@@ -5,7 +5,10 @@
 #define qlxins qlxins_2
 #define readlx readlx_2
 #define qlxinx qlxinx_2
+#define argdope argdope_2
+#define argdims argdims_2
 #endif
+
 ! TODO A lot of global variables in theses modules are not initialized. Is that OK?
 ! (there was no "DATA" statement for them in the common blocks)
 module readlx_parmadr
@@ -136,10 +139,10 @@ SUBROUTINE qlx_adi2(KLE, IND, VALEUR, ERR)
     EXTERNAL qlx_dtyp
     integer(kind = int64) LOCVAR, LOCCNT
     INTEGER LIMITE, ITYP, IZ, INDX
-    integer, dimension(*) :: mem
+    integer, dimension(1024) :: mem
     pointer(pmem, mem)
     REAL Z
-! print *,'entering qlx_adi2, ind =', ind
+
     IZ = IND
     IF (qlx_dtyp(IZ) == 1) THEN
         INDX = IZ
@@ -157,9 +160,8 @@ SUBROUTINE qlx_adi2(KLE, IND, VALEUR, ERR)
     IF (.NOT.ERR) THEN
         pmem = LOCVAR
         VALEUR = mem(INDX)
-!         CALL PEEK(LOCVAR, INDX, VALEUR)
     ENDIF
-! print *,'exiting qlx_adi2, err =', err
+
 END
 
 !> Get subscript then build memory address
@@ -172,11 +174,9 @@ integer(kind = int64) FUNCTION qlx_adr(KLE, ERR)
     integer(kind = int64) :: LOCCNT, locvar8
     POINTER (LOCVAR, VARI(*))
 
-! print *,'entering qlx_adr'
     CALL qlx_ind(IND, ERR)
     IF (.NOT. ERR) THEN
         CALL qlx_fnd(KLE, LOCVAR8, LOCCNT, LIMITS, ITYP)
-!         call make_cray_pointer(LOCVAR, locvar8)
         LOCVAR = transfer(locvar8, LOCVAR)
         IF (IND <= LIMITS .AND. ITYP >= 0 .AND. ITYP <= 1) THEN
             qlx_adr = LOC(VARI(IND))
@@ -188,7 +188,6 @@ integer(kind = int64) FUNCTION qlx_adr(KLE, ERR)
     ELSE
         qlx_adr = 0
     ENDIF
-! print *,'exiting qlx_adr, err =',err
 END
 
 !> Prend les tokens qui suivent le signe = et separes par des virgules pour les placer a l'adresse val
@@ -209,7 +208,6 @@ SUBROUTINE qlx_asg(VAL, ICOUNT, LIMIT, ERR)
     INTEGER LEN, TYPE, JVAL
     REAL ZVAL
     pointer(pjval,jval)
-!     integer(kind = int64) :: jval64
 
     COMMON/qlx_tok2/TOKEN
     character(len=80) TOKEN
@@ -239,15 +237,11 @@ SUBROUTINE qlx_asg(VAL, ICOUNT, LIMIT, ERR)
             CALL qlx_tok
             IF ((TYPE == 4) .AND. (TOKEN(1:1) == '(')) THEN
                 CALL qlx_xpr(ERR)
-! print *,'qlx_asg after qlx_xpr'
                 IF (ERR) THEN
                     EXIT
                 ENDIF
             ENDIF
             IF (TYPE == 8) THEN
-!                 call get_value_at_address(JVAL, 1, JVAL)
-!                 jval64 = jval
-! print *,'qlx_asg type 8'
                 call get_value_at_address(jval64, 1, JVAL)
             ELSE
                 IF (TYPE == 1 .AND. OLDTYP == 4) THEN
@@ -255,7 +249,6 @@ SUBROUTINE qlx_asg(VAL, ICOUNT, LIMIT, ERR)
                     JLEN = 1
                 ELSE
                     IF (TYPE == 2 .AND. OLDTYP == 4) THEN
-!                         TEMP(1) = ZVAL
                         itemp(1) = transfer(zval, itemp(1))
                         JLEN = 1
                     ELSE
@@ -749,12 +742,11 @@ SUBROUTINE qlx_ind(IND, ERR)
     pjval = LOC(ZVAL)
     IND=1
     IC=qlx_skp(' ')
-! print *,'entering qlx_ind, ic = ',ic
+
     IF (IC == '[') THEN
         CALL qlx_tok
         IF (((TYPE == 1) .OR.(TYPE == 0)) .AND. JVAL > 0) THEN
             IND=JVAL
-! print *,'inside qlx_ind, ind = ',ind
         ELSE
             CALL qlx_err(21009, 'qlx_ind')
             ERR = .TRUE.
@@ -769,7 +761,6 @@ SUBROUTINE qlx_ind(IND, ERR)
     ELSE
         CALL qlx_bak(IC)
     ENDIF
-! print *,'exiting qlx_ind, ind = ',ind
 END
 
 !> DECLARATION DES CLES ET DE LEUR TYPE
@@ -1018,8 +1009,8 @@ SUBROUTINE qlx_nvar(KEY, NW)
 
     INTEGER NW
     INTEGER KEY(*)
-    EXTERNAL ARGDIMS
-    INTEGER  ARGDIMS
+    EXTERNAL argdims
+    INTEGER  argdims
     INTEGER SC(1024), NSC
     SAVE SC, NSC
     INTEGER DUMMY
@@ -1030,7 +1021,7 @@ SUBROUTINE qlx_nvar(KEY, NW)
     DATA NSC /1/
     DATA DUMMY /0/
 
-    WRITE(IKEY, LINEFMT) (KEY(J), J=1, ARGDIMS(1))
+    WRITE(IKEY, LINEFMT) (KEY(J), J=1, argdims(1))
     CALL qlx_look(IVAR, IKEY, ICOUNT, LIMITS, ITYP)
     IF (ITYP /= -1) THEN
         RETURN
@@ -1050,7 +1041,6 @@ SUBROUTINE qlx_opr(TOKENS, NTOKEN, TOKTYPE, OPRTR, ERR)
       INTEGER NTOKEN, OPRTR, TOKTYPE(NTOKEN)
       integer(kind = int64) :: TOKENS(NTOKEN)
       LOGICAL ERR
-!       integer (kind = int64) :: token64
 
       INTEGER IZ1, IZ2, IR1, tok32
       REAL   Z1,  Z2,  R1
@@ -1066,7 +1056,7 @@ SUBROUTINE qlx_opr(TOKENS, NTOKEN, TOKTYPE, OPRTR, ERR)
       pz2 = LOC(IZ2)
       IZ2 = 0
       pr1 = LOC(IR1)
-! print *,'entering qlx_opr'
+
       IF (ERR) THEN
          RETURN
       ENDIF
@@ -1080,14 +1070,12 @@ SUBROUTINE qlx_opr(TOKENS, NTOKEN, TOKTYPE, OPRTR, ERR)
          RETURN
       ENDIF
       IF (TOKTYPE(NTOKEN) > 0) THEN
-!          token64 = TOKENS(NTOKEN)
          call get_value_at_address(TOKENS(NTOKEN), 1, tok32)
          TOKENS(NTOKEN) = tok32
          TOKTYPE(NTOKEN) = 0
       ENDIF
       IF (OPRTR.NE.2 .AND. OPRTR.NE.17   .AND. OPRTR.NE.21 .AND. OPRTR.NE.4) THEN
          IF (TOKTYPE(NTOKEN-1) > 0) THEN
-!             token64 = TOKENS(NTOKEN-1)
             call get_value_at_address(TOKENS(NTOKEN-1), 1, tok32)
             TOKENS(NTOKEN-1) = tok32
             TOKTYPE(NTOKEN-1) = 0
@@ -1108,7 +1096,7 @@ SUBROUTINE qlx_opr(TOKENS, NTOKEN, TOKTYPE, OPRTR, ERR)
          ENDIF
       ENDIF
       IR1 = 0
-! print *,'in qlx_opr, oprtr =',OPRTR,', ntoken=',NTOKEN
+
       select case(OPRTR)
       case(1)
          ERR = .TRUE.
@@ -1123,15 +1111,8 @@ SUBROUTINE qlx_opr(TOKENS, NTOKEN, TOKTYPE, OPRTR, ERR)
             RETURN
 
          ENDIF
-! print '(A,Z18.16,A,Z18.16)','exiting qlx_opr case 2, TOKENS(NTOKEN-1) =', TOKENS(NTOKEN-1),', TOKENS(NTOKEN) =', TOKENS(NTOKEN)
-!          PTOK = LOC(TOKENS(NTOKEN-1))
          PTOK = TOKENS(NTOKEN-1)
-!          tok32b = TOKENS(NTOKEN)
-!          call get_value_at_address(TOKENS(NTOKEN-1), tok32b, tok32)
-!          TOKENS(NTOKEN-1) = TOK(TOKENS(NTOKEN))
-!          tok32 = tok(TOKENS(NTOKEN))
          TOKENS(NTOKEN-1) = tok(TOKENS(NTOKEN))
-! print *, 'TOKENS(NTOKEN-1) = ', TOKENS(NTOKEN-1), ', ERR =',ERR
          NTOKEN = NTOKEN - 1
          TOKTYPE(NTOKEN) = 0
          RETURN
@@ -1272,7 +1253,6 @@ SUBROUTINE qlx_opr(TOKENS, NTOKEN, TOKTYPE, OPRTR, ERR)
             ERR = .TRUE.
             RETURN
          ENDIF
-!          token64 = TOKENS(NTOKEN-1)
          tok32 = int(TOKENS(NTOKEN))
          call set_value_at_address(TOKENS(NTOKEN-1), 1, tok32)
 !          TOKENS(NTOKEN) = tok32
@@ -1282,7 +1262,6 @@ SUBROUTINE qlx_opr(TOKENS, NTOKEN, TOKTYPE, OPRTR, ERR)
       NTOKEN = NTOKEN + 1 - MINOPER
       TOKENS(NTOKEN) = IR1
       TOKTYPE(NTOKEN) = 0
-! print *,'exiting qlx_opr'
 END
 
 !  FONCTION  qlx_pri_l EVALUER LA PRIORITE D'UN OPERATEUR
@@ -1337,9 +1316,9 @@ SUBROUTINE qlx_prnt(QUOI, COMMENT)
 
     INTEGER QUOI(*), COMMENT(*)
     character(len=120) FMT
-    INTEGER ARGDIMS
-    L1 = ARGDIMS(1)
-    L2 = MIN(120/KARMOT, ARGDIMS(2))
+    INTEGER argdims
+    L1 = argdims(1)
+    L2 = MIN(120/KARMOT, argdims(2))
     IF (L1 < 1 .OR. L2 < 1) THEN
         RETURN
     ENDIF
@@ -1363,7 +1342,7 @@ SUBROUTINE qlx_rpn(TOK, TOKENS, MAXTKNS, NTOKEN, TOKTYPE, PILEOP, MAXOPS, NOPER,
     IF (ERR) THEN
         RETURN
     ENDIF
-! print *,'entering qlx_rpn'
+
     TOKEN = TOK
     IF (TOKEN == '(' .OR. TOKEN == '[') THEN
         NOPER = MIN(NOPER+1 , MAXOPS)
@@ -1413,7 +1392,6 @@ SUBROUTINE qlx_rpn(TOK, TOKENS, MAXTKNS, NTOKEN, TOKTYPE, PILEOP, MAXOPS, NOPER,
     ENDIF
     ENDIF
     ENDIF
-! print *,'exiting qlx_rpn'
 END
 
 !> Retourne le premier caractere d'une ligne de texte, différent de icar
@@ -1589,7 +1567,6 @@ SUBROUTINE qlx_tok
         ENDIF
     ENDIF
     LEN = LENG
-! print *,'qlx_tok: token = ',token(1:len),', length =',len,', type =',type
 END
 
 
@@ -1599,10 +1576,10 @@ SUBROUTINE qlx_undf(IKEY)
 
     INTEGER IKEY(*)
     character(len=8) CKEY
-    INTEGER ARGDIMS
+    INTEGER argdims
 !     integer(kind = int64) :: SCRAP
 
-    WRITE(CKEY, 101) (IKEY(I), I=1, ARGDIMS(1))
+    WRITE(CKEY, 101) (IKEY(I), I=1, argdims(1))
 101   FORMAT(2 A4)
     CALL qlx_udf2(CKEY)
 END
@@ -1645,7 +1622,6 @@ SUBROUTINE qlx_xpr(ERR)
     integer(kind = int64) :: jval64
 
     PARAMETER (MAXTKNS=65, MAXOPS=30)
-!     INTEGER TOKENS(MAXTKNS), TOKTYPE(MAXTKNS), NTOKEN
     INTEGER TOKTYPE(MAXTKNS), NTOKEN
     integer(kind = int64) :: TOKENS(MAXTKNS)
     INTEGER NOPER
@@ -1666,7 +1642,7 @@ SUBROUTINE qlx_xpr(ERR)
     FIRST = .TRUE.
     NOPER = 1
     PILEOP(1) ='$'
-! print *,'entering qlx_xpr'
+
     DO WHILE ( .NOT.FINI .AND. NTOKEN < MAXTKNS .AND. NOPER < MAXOPS .AND. .NOT.ERR)
         IF (.NOT.FIRST) THEN
             CALL qlx_tok
@@ -1679,11 +1655,6 @@ SUBROUTINE qlx_xpr(ERR)
                 ERR = .TRUE.
             ENDIF
             TOKENS(NTOKEN) = LOCVAR
-! print '(A,Z18.16,A,i5)','qlx_xpr, locvar =',LOCVAR,' NTOKEN =',NTOKEN
-!             TOKENS(NTOKEN) = 0              ! FATAL ERROR, no way to store an address in 32 bits
-!             call lib_log(APP_LIBRMN, APP_ERROR, 'impossible de stocker 64 bits dans 32 bits')
-!             ERR = .TRUE.
-!             CALL qlx_err(81023, 'QLXEXPR')
             TOKTYPE(NTOKEN) = LIMITES + 1
             IF (.NOT. UNARY) THEN
                 ERR = .TRUE.
@@ -1749,7 +1720,7 @@ SUBROUTINE qlx_xpr(ERR)
         ENDIF
         ENDIF
     END DO
-! print '(A,i3,A,Z18.16)','qlx_xpr, plev = ',plev,' tokens(1) =',tokens(1)
+
     IF (PLEV > 0 .OR. .NOT.FINI .OR. BLEV > 0   .OR. NTOKEN.NE.1 ) THEN
         ERR = .TRUE.
     ENDIF
@@ -1760,7 +1731,6 @@ SUBROUTINE qlx_xpr(ERR)
         IF (TOKTYPE(1) > 0) THEN
             TYPE = 8      ! adresse
             jval64 = TOKENS(1)
-! print '(A,z18.16,A,i5)','qlx_xpr, jval64 = ',jval64,' toktype =', TOKTYPE(1)
         ELSE
         IF (ABS(JVAL) <= 2147483647) THEN
             TYPE =1
@@ -1772,7 +1742,6 @@ SUBROUTINE qlx_xpr(ERR)
     IF (ERR) THEN
         CALL qlx_err(81005, 'QLXEXPR')
     ENDIF
-! print *,'exiting qlx_xpr'
 END
 
 !> Passage d'options a readlx
@@ -1793,13 +1762,13 @@ SUBROUTINE qlxopt(OPTION, VAL)
 END
 
 !> LONGUEUR D'ARGUMENTS (APPEL VIA readlx)
-FUNCTION ARGDIMS(N)
+FUNCTION argdims(N)
       use rmn_common
       use readlx_parmadr
-      INTEGER ARGDIMS
+      INTEGER argdims
       INTEGER N
 
-!OBJET(ARGDIMS)
+!OBJET(argdims)
 !         RENVOYER LA LONGUEUR EN NOMBRE DE MOTS DE L'ARGUMENT
 !         N DU DERNIER APPEL EFFECTUE VIA readlx
 
@@ -1807,28 +1776,28 @@ FUNCTION ARGDIMS(N)
 ! IN      N     NUMERO D'ORDRE DE L'ARGUMENT DANS LA LISTE
 
     IF (N  <=  NARG) THEN
-        ARGDIMS = DOPE(N)
+        argdims = DOPE(N)
     ELSE
-        ARGDIMS = 0
+        argdims = 0
     ENDIF
 END
 
 !> GET DOPE LIST OF ARGUMENT NARG
-FUNCTION ARGDOPE(N, LISTE, ND)
+FUNCTION argdope(N, LISTE, ND)
     use rmn_common
     use readlx_parmadr
 
-    INTEGER ARGDOPE
+    INTEGER argdope
     INTEGER N, ND
     INTEGER LISTE(ND)
 
     INTEGER I, BASE
 
     IF (N >  NARG) THEN
-        ARGDOPE = 0
+        argdope = 0
     ELSE
         BASE = DOPEA(N)
-        ARGDOPE = DOPEA(N+1) - DOPEA(N)
+        argdope = DOPEA(N+1) - DOPEA(N)
         DO I = 1, MIN(DOPEA(N + 1) - DOPEA(N), ND)
             LISTE(I) = DOPES(BASE + I - 1)
         END DO
@@ -1942,7 +1911,7 @@ SUBROUTINE readlx(UNIT, KEND, KERR)
     IF (KERR < 0 ) THEN
         KERRMAX = MIN(ABS(KERR), KERRMAX)
     ENDIF
-print *,"==========================readlx NEW=========================="
+! print *,"==========================readlx NEW=========================="
     NC = 1
     LAST = 0
     INPFILE = UNIT
@@ -2030,7 +1999,6 @@ print *,"==========================readlx NEW=========================="
                                         CALL qlx_tok
                                         IF (TOKEN(1:1).NE.'$') THEN
                                             CALL qlx_xpr(ERR)
-! print *,'readlx : after qlx_xpr'
                                             IF (ERR) THEN
                                                 EXIT
                                             ENDIF
