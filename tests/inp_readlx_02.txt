@@ -1,6 +1,7 @@
 DEFINE(IND2,1) $ IND2 = 2222 $ PRINT(IND2,'("IND2 = ",T15,I6.5)')
 IND=1111 $ PRINT(IND,'("IND = ",T15,I6.5)')
 TAB0 = 10, 20, 30, 40, 50
+IND=(TAB0[3])
 PRINT(TAB0[1],'("TAB0[1] = ",T15,I6.5)')
 PRINT(TAB0[2],'("TAB0[2] = ",T15,I6.5)')
 PRINT(TAB0[3],'("TAB0[3] = ",T15,I6.5)')
@@ -29,6 +30,6 @@ I = 2 $ PRINT(TAB2[I],'("TAB2[I] = ",T15,A4)')
 I = 3 $ PRINT(TAB2[I],'("TAB2[I] = ",T15,A4)')
 I = 4 $ PRINT(TAB2[I],'("TAB2[I] = ",T15,A4)')
 DEFINE(TAB4,4) $ TAB4 = 111,222,333
-IND=(TAB4[1]+TABL[1])
+IND=(TAB4[2]+tab4[1]+tab4[3])
 PRINT(IND,'("IND = ",T15,I6.5)')
 I = 1 $ PRINT(TAB4[I],'("TAB4[I] = ",T15,I6.5)')

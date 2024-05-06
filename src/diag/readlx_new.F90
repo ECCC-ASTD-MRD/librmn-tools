@@ -102,8 +102,10 @@ subroutine get_value_at_address(address, subscript, content)
   integer :: val
   pointer(pval, val(*))
 
-  pval = address
+  pval = transfer(address,pval)
+! print *,'entering get_value_at_address, subscript =',subscript
   content = val(subscript)
+! print *,'exiting get_value_at_address'
 end subroutine
 
 ! set contents at address(subscript) (assuming a 32 bit item)
@@ -115,8 +117,10 @@ subroutine set_value_at_address(address, subscript, content)
   integer :: val
   pointer(pval, val(*))
 
-  pval = address
+  pval = transfer(address,pval)
+! print *,'entering set_value_at_address, subscript =',subscript
   val(subscript) = content
+! print *,'exiting set_value_at_address'
 end subroutine
 
 !> Get value of indexed array component
@@ -132,10 +136,10 @@ SUBROUTINE qlx_adi2(KLE, IND, VALEUR, ERR)
     EXTERNAL qlx_dtyp
     integer(kind = int64) LOCVAR, LOCCNT
     INTEGER LIMITE, ITYP, IZ, INDX
-    integer, dimension(1024) :: mem
+    integer, dimension(*) :: mem
     pointer(pmem, mem)
     REAL Z
-
+! print *,'entering qlx_adi2, ind =', ind
     IZ = IND
     IF (qlx_dtyp(IZ) == 1) THEN
         INDX = IZ
@@ -155,6 +159,7 @@ SUBROUTINE qlx_adi2(KLE, IND, VALEUR, ERR)
         VALEUR = mem(INDX)
 !         CALL PEEK(LOCVAR, INDX, VALEUR)
     ENDIF
+! print *,'exiting qlx_adi2, err =', err
 END
 
 !> Get subscript then build memory address
@@ -167,6 +172,7 @@ integer(kind = int64) FUNCTION qlx_adr(KLE, ERR)
     integer(kind = int64) :: LOCCNT, locvar8
     POINTER (LOCVAR, VARI(*))
 
+! print *,'entering qlx_adr'
     CALL qlx_ind(IND, ERR)
     IF (.NOT. ERR) THEN
         CALL qlx_fnd(KLE, LOCVAR8, LOCCNT, LIMITS, ITYP)
@@ -182,6 +188,7 @@ integer(kind = int64) FUNCTION qlx_adr(KLE, ERR)
     ELSE
         qlx_adr = 0
     ENDIF
+! print *,'exiting qlx_adr, err =',err
 END
 
 !> Prend les tokens qui suivent le signe = et separes par des virgules pour les placer a l'adresse val
@@ -232,6 +239,7 @@ SUBROUTINE qlx_asg(VAL, ICOUNT, LIMIT, ERR)
             CALL qlx_tok
             IF ((TYPE == 4) .AND. (TOKEN(1:1) == '(')) THEN
                 CALL qlx_xpr(ERR)
+! print *,'qlx_asg after qlx_xpr'
                 IF (ERR) THEN
                     EXIT
                 ENDIF
@@ -239,6 +247,7 @@ SUBROUTINE qlx_asg(VAL, ICOUNT, LIMIT, ERR)
             IF (TYPE == 8) THEN
 !                 call get_value_at_address(JVAL, 1, JVAL)
 !                 jval64 = jval
+! print *,'qlx_asg type 8'
                 call get_value_at_address(jval64, 1, JVAL)
             ELSE
                 IF (TYPE == 1 .AND. OLDTYP == 4) THEN
@@ -740,11 +749,12 @@ SUBROUTINE qlx_ind(IND, ERR)
     pjval = LOC(ZVAL)
     IND=1
     IC=qlx_skp(' ')
-
+! print *,'entering qlx_ind, ic = ',ic
     IF (IC == '[') THEN
         CALL qlx_tok
         IF (((TYPE == 1) .OR.(TYPE == 0)) .AND. JVAL > 0) THEN
             IND=JVAL
+! print *,'inside qlx_ind, ind = ',ind
         ELSE
             CALL qlx_err(21009, 'qlx_ind')
             ERR = .TRUE.
@@ -759,6 +769,7 @@ SUBROUTINE qlx_ind(IND, ERR)
     ELSE
         CALL qlx_bak(IC)
     ENDIF
+! print *,'exiting qlx_ind, ind = ',ind
 END
 
 !> DECLARATION DES CLES ET DE LEUR TYPE
@@ -818,7 +829,7 @@ SUBROUTINE qqlx_ins(ivar, key, icount, limits, ityp, xtern)
     IPTADR(2, ipnt) = LOC(icount)
 END SUBROUTINE qqlx_ins
 
-
+! variable lookup
 SUBROUTINE qlx_look(IVAR, KEY, ICOUNT, LIMITS, ITYP)
     use rmn_common
     use readlx_nrdlx
@@ -851,7 +862,7 @@ SUBROUTINE qlx_look(IVAR, KEY, ICOUNT, LIMITS, ITYP)
 end
 
 
-! subroutine QLXUDF(IVAR, KEY)
+! subroutine QLXUDF(IVAR, KEY) (undefine a variable)
 subroutine qlx_udf2(KEY)
     use rmn_common
     use readlx_nrdlx
@@ -903,9 +914,9 @@ INTEGER FUNCTION qlx_num(IB, LENG)
 
     !ARGUMENT
     !        qlx_num    RETOURNE   2   reel
-    !        (S)                  1   entier
-    !                             6   entier octal
-    !                             5   ERREUR
+    !        (S)                   1   entier
+    !                              6   entier octal
+    !                              5   ERREUR
     !
     !        IB(*)     IB(1) EST LE PREMIER CHIFFRE DU NOMBRE.
     !        (E)       LA TABLE IB CONTIENT LE NOMBRE.
@@ -1047,7 +1058,7 @@ SUBROUTINE qlx_opr(TOKENS, NTOKEN, TOKTYPE, OPRTR, ERR)
       pointer(pz2,Z2)
       pointer(pr1,R1)
       LOGICAL REALOP
-      integer(kind = int64) :: TOK
+      integer(kind = int32) :: TOK
       POINTER (PTOK, TOK(*))
 
       pz1 = LOC(IZ1)
@@ -1055,7 +1066,7 @@ SUBROUTINE qlx_opr(TOKENS, NTOKEN, TOKTYPE, OPRTR, ERR)
       pz2 = LOC(IZ2)
       IZ2 = 0
       pr1 = LOC(IR1)
-
+! print *,'entering qlx_opr'
       IF (ERR) THEN
          RETURN
       ENDIF
@@ -1097,6 +1108,7 @@ SUBROUTINE qlx_opr(TOKENS, NTOKEN, TOKTYPE, OPRTR, ERR)
          ENDIF
       ENDIF
       IR1 = 0
+! print *,'in qlx_opr, oprtr =',OPRTR,', ntoken=',NTOKEN
       select case(OPRTR)
       case(1)
          ERR = .TRUE.
@@ -1111,50 +1123,57 @@ SUBROUTINE qlx_opr(TOKENS, NTOKEN, TOKTYPE, OPRTR, ERR)
             RETURN
 
          ENDIF
-         PTOK = LOC(TOKENS(NTOKEN-1))
-         TOKENS(NTOKEN-1) = TOK(TOKENS(NTOKEN))
+! print '(A,Z18.16,A,Z18.16)','exiting qlx_opr case 2, TOKENS(NTOKEN-1) =', TOKENS(NTOKEN-1),', TOKENS(NTOKEN) =', TOKENS(NTOKEN)
+!          PTOK = LOC(TOKENS(NTOKEN-1))
+         PTOK = TOKENS(NTOKEN-1)
+!          tok32b = TOKENS(NTOKEN)
+!          call get_value_at_address(TOKENS(NTOKEN-1), tok32b, tok32)
+!          TOKENS(NTOKEN-1) = TOK(TOKENS(NTOKEN))
+!          tok32 = tok(TOKENS(NTOKEN))
+         TOKENS(NTOKEN-1) = tok(TOKENS(NTOKEN))
+! print *, 'TOKENS(NTOKEN-1) = ', TOKENS(NTOKEN-1), ', ERR =',ERR
          NTOKEN = NTOKEN - 1
-         TOKTYPE(NTOKEN) = 1
+         TOKTYPE(NTOKEN) = 0
          RETURN
-      case(3)
+      case(3)               ! unary +
          RETURN
-      case(4)
+      case(4)               ! unary -
          IF (REALOP) THEN
             R1 = -Z1
          ELSE
             IR1 = -IZ1
          ENDIF
-      case(5)
+      case(5)               ! **
          IF (REALOP) THEN
             R1 = Z2**Z1
          ELSE
             IR1 = IZ2**IZ1
          ENDIF
-      case(6)
+      case(6)               ! *
          IF (REALOP) THEN
             R1 = Z2*Z1
          ELSE
             IR1 = IZ2*IZ1
          ENDIF
-      case(7)
+      case(7)               ! /
          IF (REALOP) THEN
             R1 = Z2/Z1
          ELSE
             IR1 = IZ2/IZ1
          ENDIF
-      case(8)
+      case(8)               ! binary +
          IF (REALOP) THEN
             R1 = Z2+Z1
          ELSE
             IR1 = IZ2+IZ1
          ENDIF
-      case(9)
+      case(9)               ! binary -
          IF (REALOP) THEN
             R1 = Z2-Z1
          ELSE
             IR1 = IZ2-IZ1
          ENDIF
-      case(10)
+      case(10)              ! binary <
          IF (REALOP) THEN
             IF (Z2 < Z1) THEN
                IR1 =ishft(-1, 32-(32))
@@ -1164,7 +1183,7 @@ SUBROUTINE qlx_opr(TOKENS, NTOKEN, TOKTYPE, OPRTR, ERR)
                IR1 =ishft(-1, 32-(32))
             ENDIF
          ENDIF
-      case(11)
+      case(11)              ! binary >
          IF (REALOP) THEN
             IF (Z2 > Z1) THEN
                IR1 =ishft(-1, 32-(32))
@@ -1174,7 +1193,7 @@ SUBROUTINE qlx_opr(TOKENS, NTOKEN, TOKTYPE, OPRTR, ERR)
                IR1 =ishft(-1, 32-(32))
             ENDIF
          ENDIF
-      case(12)
+      case(12)              ! binary ==
          IF (REALOP) THEN
             IF (Z2 == Z1) THEN
                IR1 =ishft(-1, 32-(32))
@@ -1184,7 +1203,7 @@ SUBROUTINE qlx_opr(TOKENS, NTOKEN, TOKTYPE, OPRTR, ERR)
                IR1 =ishft(-1, 32-(32))
             ENDIF
          ENDIF
-      case(13)
+      case(13)              ! binary <=
          IF (REALOP) THEN
             IF (Z2 <= Z1) THEN
                IR1 =ishft(-1, 32-(32))
@@ -1194,7 +1213,7 @@ SUBROUTINE qlx_opr(TOKENS, NTOKEN, TOKTYPE, OPRTR, ERR)
                IR1 =ishft(-1, 32-(32))
             ENDIF
          ENDIF
-      case(14)
+      case(14)              ! binary >=
          IF (REALOP) THEN
             IF (Z2 >= Z1) THEN
                IR1 =ishft(-1, 32-(32))
@@ -1204,7 +1223,7 @@ SUBROUTINE qlx_opr(TOKENS, NTOKEN, TOKTYPE, OPRTR, ERR)
                IR1 =ishft(-1, 32-(32))
             ENDIF
          ENDIF
-      case(15)
+      case(15)              ! binary <>
          IF (REALOP) THEN
             IF (Z2.NE.Z1) THEN
                IR1 =ishft(-1, 32-(32))
@@ -1214,7 +1233,7 @@ SUBROUTINE qlx_opr(TOKENS, NTOKEN, TOKTYPE, OPRTR, ERR)
                IR1 =ishft(-1, 32-(32))
             ENDIF
          ENDIF
-      case(16)
+      case(16)              ! binary ><
          IF (REALOP) THEN
             IF (Z2.NE.Z1) THEN
                IR1 =ishft(-1, 32-(32))
@@ -1224,25 +1243,25 @@ SUBROUTINE qlx_opr(TOKENS, NTOKEN, TOKTYPE, OPRTR, ERR)
                IR1 =ishft(-1, 32-(32))
             ENDIF
          ENDIF
-      case(17)
+      case(17)              ! unary NOT
          IF (REALOP) THEN
             ERR = .TRUE.
          ELSE
             IR1 =NOT(IZ1)
          ENDIF
-      case(18)
+      case(18)              ! binary AND
          IF (REALOP) THEN
             ERR = .TRUE.
          ELSE
             IR1 = IAND(IZ2, IZ1)
          ENDIF
-      case(19)
+      case(19)              ! binary OR
          IF (REALOP) THEN
             ERR = .TRUE.
          ELSE
             IR1 = IOR(IZ2, IZ1)
          ENDIF
-      case(20)
+      case(20)              ! binary XOR
          IF (REALOP) THEN
             ERR = .TRUE.
          ELSE
@@ -1254,14 +1273,16 @@ SUBROUTINE qlx_opr(TOKENS, NTOKEN, TOKTYPE, OPRTR, ERR)
             RETURN
          ENDIF
 !          token64 = TOKENS(NTOKEN-1)
+         tok32 = int(TOKENS(NTOKEN))
          call set_value_at_address(TOKENS(NTOKEN-1), 1, tok32)
-         TOKENS(NTOKEN) = tok32
+!          TOKENS(NTOKEN) = tok32
          NTOKEN = NTOKEN - 1
          RETURN
       end select
       NTOKEN = NTOKEN + 1 - MINOPER
       TOKENS(NTOKEN) = IR1
       TOKTYPE(NTOKEN) = 0
+! print *,'exiting qlx_opr'
 END
 
 !  FONCTION  qlx_pri_l EVALUER LA PRIORITE D'UN OPERATEUR
@@ -1326,7 +1347,7 @@ SUBROUTINE qlx_prnt(QUOI, COMMENT)
     WRITE(6, FMT)(QUOI(I), I=1, L1)
 END
 
-!> Conversion a notation postfixe
+!> Conversion a notation postfixe (reverse polish notation)
 SUBROUTINE qlx_rpn(TOK, TOKENS, MAXTKNS, NTOKEN, TOKTYPE, PILEOP, MAXOPS, NOPER, ERR)
     use rmn_common
     character(len=*) TOK
@@ -1342,7 +1363,7 @@ SUBROUTINE qlx_rpn(TOK, TOKENS, MAXTKNS, NTOKEN, TOKTYPE, PILEOP, MAXOPS, NOPER,
     IF (ERR) THEN
         RETURN
     ENDIF
-
+! print *,'entering qlx_rpn'
     TOKEN = TOK
     IF (TOKEN == '(' .OR. TOKEN == '[') THEN
         NOPER = MIN(NOPER+1 , MAXOPS)
@@ -1392,6 +1413,7 @@ SUBROUTINE qlx_rpn(TOK, TOKENS, MAXTKNS, NTOKEN, TOKTYPE, PILEOP, MAXOPS, NOPER,
             ENDIF
         ENDIF
     ENDIF
+! print *,'exiting qlx_rpn'
 END
 
 !> Retourne le premier caractere d'une ligne de texte, différent de icar
@@ -1465,72 +1487,72 @@ SUBROUTINE qlx_tok
             IC = qlx_chr()
         ENDDO
         IF (LENG > 8) THEN
-            TYPE = 3
+            TYPE = 3                 ! string ( non delimited )
         ELSE
-            TYPE = 0
+            TYPE = 0                 ! short string, possibly a key
         ENDIF
         CALL qlx_bak(IC)
     ELSE
-        IF (IC == '''' .OR. IC == '"') THEN
-            LENG = 0
+    IF (IC == '''' .OR. IC == '"') THEN
+        LENG = 0
+        LENG = MIN(80, LENG + 1)
+        TOKEN(LENG:LENG) = qlx_chr()
+        DO WHILE (.NOT.(TOKEN(LENG:LENG) ==  IC))
             LENG = MIN(80, LENG + 1)
             TOKEN(LENG:LENG) = qlx_chr()
-            DO WHILE (.NOT.(TOKEN(LENG:LENG) ==  IC))
-                LENG = MIN(80, LENG + 1)
-                TOKEN(LENG:LENG) = qlx_chr()
-            END DO
-            TOKEN(LENG:LENG) = ' '
-            LENG = LENG -1
-            IF (IC  == '"') THEN
-                LENG = MIN(LENG, KARMOT)
-            ENDIF
-            TYPE = 3
-        ELSE
-            IF ( (IC >= '0' .AND. IC <= '9') .OR. (IC == '.') ) THEN
-                TYPE = qlx_num(TOKEN, LENG)
-                JSIGN = 1
-            ELSE
-                IF ( (IC == '+' .OR. IC == '-') .AND. (.NOT.INEXPR) ) THEN
-                    IF (IC == '+') THEN
-                        JSIGN = 1
-                    ELSE
-                        JSIGN = -1
-                    ENDIF
-                    IC = qlx_chr()
-                    IF ((IC >= '0' .AND. IC <= '9').OR. IC == '.') THEN
-                        TOKEN(1:1)=IC
-                        TYPE = qlx_num(TOKEN, LENG)
-                    ELSE
-                        CALL qlx_bak(IC)
-                        TYPE = 4
-                    ENDIF
-                ELSE
-                    IF (IC == '*') THEN
-                        TYPE = 4
-                        IC = qlx_chr()
-                        IF (IC == '*') THEN
-                            LENG = 2
-                            TOKEN = '**'
-                        ELSE
-                            CALL qlx_bak(IC)
-                        ENDIF
-                    ELSE
-                        IF (IC == '<' .OR. IC == '>' .OR. IC == '=' .OR. IC == ':') THEN
-                            TYPE = 4
-                            IC = qlx_chr()
-                            IF (IC == '<' .OR. IC == '>' .OR. IC == '=') THEN
-                                LENG = 2
-                                TOKEN(2:2) = IC
-                            ELSE
-                                CALL qlx_bak(IC)
-                            ENDIF
-                        ELSE
-                            TYPE = 4
-                        ENDIF
-                    ENDIF
-                ENDIF
-            ENDIF
+        END DO
+        TOKEN(LENG:LENG) = ' '
+        LENG = LENG -1
+        IF (IC  == '"') THEN
+            LENG = MIN(LENG, KARMOT)
         ENDIF
+        TYPE = 3                    ! string ( delimited )
+    ELSE
+    IF ( (IC >= '0' .AND. IC <= '9') .OR. (IC == '.') ) THEN
+        TYPE = qlx_num(TOKEN, LENG)  ! 1/2/5/6
+        JSIGN = 1
+    ELSE
+    IF ( (IC == '+' .OR. IC == '-') .AND. (.NOT.INEXPR) ) THEN
+        IF (IC == '+') THEN
+            JSIGN = 1
+        ELSE
+            JSIGN = -1
+        ENDIF
+        IC = qlx_chr()
+        IF ((IC >= '0' .AND. IC <= '9').OR. IC == '.') THEN
+            TOKEN(1:1)=IC
+            TYPE = qlx_num(TOKEN, LENG)  ! 1/2/5/6
+        ELSE
+            CALL qlx_bak(IC)
+            TYPE = 4              ! special char, possibly operator
+        ENDIF
+    ELSE
+    IF (IC == '*') THEN
+        TYPE = 4                  ! operator (1 or 2 chars)
+        IC = qlx_chr()
+        IF (IC == '*') THEN
+            LENG = 2
+            TOKEN = '**'
+        ELSE
+            CALL qlx_bak(IC)
+        ENDIF
+    ELSE
+    IF (IC == '<' .OR. IC == '>' .OR. IC == '=' .OR. IC == ':') THEN
+        TYPE = 4                  ! operator (1 or 2 chars)
+        IC = qlx_chr()
+        IF (IC == '<' .OR. IC == '>' .OR. IC == '=') THEN
+            LENG = 2
+            TOKEN(2:2) = IC
+        ELSE
+            CALL qlx_bak(IC)
+        ENDIF
+    ELSE
+        TYPE = 4                  ! operator
+    ENDIF
+    ENDIF
+    ENDIF
+    ENDIF
+    ENDIF
     ENDIF
 
     IF ( (LENG > 80) .OR. (TYPE == 5) ) THEN
@@ -1538,20 +1560,20 @@ SUBROUTINE qlx_tok
         TYPE = 5
         CALL qlx_err(21014, 'qlx_tok')
     ENDIF
-    IF (TYPE == 1) THEN
+    IF (TYPE == 1) THEN         ! integer
         READ(TOKEN, '(I20)')JVAL
         JVAL = SIGN(JVAL, JSIGN)
     ELSE
-        IF (TYPE == 2) THEN
-            READ(TOKEN, '(G20.3)')ZVAL
-            ZVAL = SIGN(ZVAL, FLOAT(JSIGN))
-        ELSE
-            IF (TYPE == 6) THEN
-                READ(TOKEN, '(O20)')JVAL
-                TYPE = 1
-                JVAL = SIGN(JVAL, JSIGN)
-            ENDIF
-        ENDIF
+    IF (TYPE == 2) THEN         ! float
+        READ(TOKEN, '(G20.3)')ZVAL
+        ZVAL = SIGN(ZVAL, FLOAT(JSIGN))
+    ELSE
+    IF (TYPE == 6) THEN          ! octal constant
+        READ(TOKEN, '(O20)')JVAL
+        TYPE = 1                 ! integer
+        JVAL = SIGN(JVAL, JSIGN)
+    ENDIF
+    ENDIF
     ENDIF
     IF (TYPE == 0) THEN
         CALL qlx_fnd(TOKEN(1:8), LOCVAR, LOCCNT, LIMITS, ITYP)
@@ -1559,14 +1581,15 @@ SUBROUTINE qlx_tok
             TYPE = 3
             LENG = MIN(LENG, KARMOT)
         ELSE
-            IF ( (ITYP  ==  0) .OR. (ITYP  ==  1) ) THEN
-                call get_value_at_address(LOCVAR, 1, JVAL)
-            ELSE
-                JVAL = -1
-            ENDIF
+        IF ( (ITYP  ==  0) .OR. (ITYP  ==  1) ) THEN
+            call get_value_at_address(LOCVAR, 1, JVAL)
+        ELSE
+            JVAL = -1
+        ENDIF
         ENDIF
     ENDIF
     LEN = LENG
+! print *,'qlx_tok: token = ',token(1:len),', length =',len,', type =',type
 END
 
 
@@ -1643,7 +1666,7 @@ SUBROUTINE qlx_xpr(ERR)
     FIRST = .TRUE.
     NOPER = 1
     PILEOP(1) ='$'
-
+! print *,'entering qlx_xpr'
     DO WHILE ( .NOT.FINI .AND. NTOKEN < MAXTKNS .AND. NOPER < MAXOPS .AND. .NOT.ERR)
         IF (.NOT.FIRST) THEN
             CALL qlx_tok
@@ -1656,6 +1679,7 @@ SUBROUTINE qlx_xpr(ERR)
                 ERR = .TRUE.
             ENDIF
             TOKENS(NTOKEN) = LOCVAR
+! print '(A,Z18.16,A,i5)','qlx_xpr, locvar =',LOCVAR,' NTOKEN =',NTOKEN
 !             TOKENS(NTOKEN) = 0              ! FATAL ERROR, no way to store an address in 32 bits
 !             call lib_log(APP_LIBRMN, APP_ERROR, 'impossible de stocker 64 bits dans 32 bits')
 !             ERR = .TRUE.
@@ -1666,66 +1690,66 @@ SUBROUTINE qlx_xpr(ERR)
             ENDIF
             UNARY = .FALSE.
         ELSE
-            IF (TYPE == 1 .OR. TYPE == 2) THEN
-                NTOKEN = NTOKEN + 1
-                TOKENS(NTOKEN) = JVAL
-                TOKTYPE(NTOKEN) = 0
-                IF (.NOT. UNARY) THEN
+        IF (TYPE == 1 .OR. TYPE == 2) THEN
+            NTOKEN = NTOKEN + 1
+            TOKENS(NTOKEN) = JVAL
+            TOKTYPE(NTOKEN) = 0
+            IF (.NOT. UNARY) THEN
+                ERR = .TRUE.
+            ENDIF
+            UNARY = .FALSE.
+        ELSE
+        IF (qlx_pri(TOKEN(1:4)) > 0) THEN
+            IF (TOKEN(1:2) == '( ') THEN
+                PLEV = PLEV + 1
+            ELSE
+            IF (TOKEN(1:2) == ') ') THEN
+                PLEV = PLEV - 1
+            ELSE
+            IF (TOKEN(1:2) == '[ ') THEN
+                BLEV = BLEV + 1
+            ELSE
+            IF (TOKEN(1:2) == '] ') THEN
+                BLEV = BLEV - 1
+            ENDIF
+            ENDIF
+            ENDIF
+            ENDIF
+            IF (PLEV < 0 .OR. BLEV < 0) THEN
+                FINI = .TRUE.
+                CALL qlx_bak(TOKEN(1:1))
+                EXIT
+            ENDIF
+            IF (UNARY) THEN
+                IF (TOKEN(1:2) == '+ ') THEN
+                    TOKEN(1:2) = 'U+'
+                ELSE
+                IF (TOKEN(1:2) == '- ') THEN
+                    TOKEN(1:2) = 'U-'
+                ELSE
+                IF (TOKEN(1:2).NE.'( ' .AND. TOKEN(1:2).NE.'[ ') THEN
                     ERR = .TRUE.
                 ENDIF
-                UNARY = .FALSE.
-            ELSE
-                IF (qlx_pri(TOKEN(1:4)) > 0) THEN
-                    IF (TOKEN(1:2) == '( ') THEN
-                        PLEV = PLEV + 1
-                    ELSE
-                        IF (TOKEN(1:2) == ') ') THEN
-                            PLEV = PLEV - 1
-                        ELSE
-                            IF (TOKEN(1:2) == '[ ') THEN
-                                BLEV = BLEV + 1
-                            ELSE
-                                IF (TOKEN(1:2) == '] ') THEN
-                                    BLEV = BLEV - 1
-                                ENDIF
-                            ENDIF
-                        ENDIF
-                    ENDIF
-                    IF (PLEV < 0 .OR. BLEV < 0) THEN
-                        FINI = .TRUE.
-                        CALL qlx_bak(TOKEN(1:1))
-                        EXIT
-                    ENDIF
-                    IF (UNARY) THEN
-                        IF (TOKEN(1:2) == '+ ') THEN
-                            TOKEN(1:2) = 'U+'
-                        ELSE
-                            IF (TOKEN(1:2) == '- ') THEN
-                                TOKEN(1:2) = 'U-'
-                            ELSE
-                                IF (TOKEN(1:2).NE.'( ' .AND. TOKEN(1:2).NE.'[ ') THEN
-                                    ERR = .TRUE.
-                                ENDIF
-                            ENDIF
-                        ENDIF
-                    ENDIF
-                    UNARY = TOKEN(1:1).NE.')' .AND. TOKEN(1:1).NE.']'
-                    CALL qlx_rpn(TOKEN, TOKENS, MAXTKNS, NTOKEN, TOKTYPE, PILEOP, MAXOPS, NOPER, ERR)
-                ELSE
-                    IF (TOKEN(1:1) == ',' .OR. TOKEN(1:1) == '$' .OR. TOKEN(1:2) == ':=') THEN
-                        CALL qlx_rpn('$', TOKENS, MAXTKNS, NTOKEN, TOKTYPE, PILEOP, MAXOPS, NOPER, ERR)
-                        FINI = .TRUE.
-                        CALL qlx_bak(TOKEN(1:1))
-                    ELSE
-                        WRITE(app_msg, '(A8,A)')TOKEN(1:8), ' IS INVALID'
-                        call lib_log(APP_LIBRMN, APP_ERROR, app_msg)
-                        ERR = .TRUE.
-                    ENDIF
+                ENDIF
                 ENDIF
             ENDIF
+            UNARY = TOKEN(1:1).NE.')' .AND. TOKEN(1:1).NE.']'
+            CALL qlx_rpn(TOKEN, TOKENS, MAXTKNS, NTOKEN, TOKTYPE, PILEOP, MAXOPS, NOPER, ERR)
+        ELSE
+        IF (TOKEN(1:1) == ',' .OR. TOKEN(1:1) == '$' .OR. TOKEN(1:2) == ':=') THEN
+            CALL qlx_rpn('$', TOKENS, MAXTKNS, NTOKEN, TOKTYPE, PILEOP, MAXOPS, NOPER, ERR)
+            FINI = .TRUE.
+            CALL qlx_bak(TOKEN(1:1))
+        ELSE
+            WRITE(app_msg, '(A8,A)')TOKEN(1:8), ' IS INVALID'
+            call lib_log(APP_LIBRMN, APP_ERROR, app_msg)
+            ERR = .TRUE.
+        ENDIF
+        ENDIF
+        ENDIF
         ENDIF
     END DO
-
+! print '(A,i3,A,Z18.16)','qlx_xpr, plev = ',plev,' tokens(1) =',tokens(1)
     IF (PLEV > 0 .OR. .NOT.FINI .OR. BLEV > 0   .OR. NTOKEN.NE.1 ) THEN
         ERR = .TRUE.
     ENDIF
@@ -1734,19 +1758,21 @@ SUBROUTINE qlx_xpr(ERR)
         TOKEN = ' '
         JVAL = int(TOKENS(1))
         IF (TOKTYPE(1) > 0) THEN
-            TYPE = 8
+            TYPE = 8      ! adresse
             jval64 = TOKENS(1)
+! print '(A,z18.16,A,i5)','qlx_xpr, jval64 = ',jval64,' toktype =', TOKTYPE(1)
         ELSE
-            IF (ABS(JVAL) <= 2147483647) THEN
-                TYPE =1
-            ELSE
-                TYPE =2
-            ENDIF
+        IF (ABS(JVAL) <= 2147483647) THEN
+            TYPE =1
+        ELSE
+            TYPE =2
+        ENDIF
         ENDIF
     ENDIF
     IF (ERR) THEN
         CALL qlx_err(81005, 'QLXEXPR')
     ENDIF
+! print *,'exiting qlx_xpr'
 END
 
 !> Passage d'options a readlx
@@ -2004,6 +2030,7 @@ print *,"==========================readlx NEW=========================="
                                         CALL qlx_tok
                                         IF (TOKEN(1:1).NE.'$') THEN
                                             CALL qlx_xpr(ERR)
+! print *,'readlx : after qlx_xpr'
                                             IF (ERR) THEN
                                                 EXIT
                                             ENDIF
