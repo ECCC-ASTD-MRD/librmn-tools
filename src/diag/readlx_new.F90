@@ -241,71 +241,71 @@ SUBROUTINE qlx_asg(VAL, ICOUNT, LIMIT, ERR)
                     EXIT
                 ENDIF
             ENDIF
-            IF (TYPE == 8) THEN
+            IF (TYPE == 8) THEN          ! address
                 call get_value_at_address(jval64, 1, JVAL)
             ELSE
-                IF (TYPE == 1 .AND. OLDTYP == 4) THEN
-                    ITEMP(1) = JVAL
-                    JLEN = 1
-                ELSE
-                    IF (TYPE == 2 .AND. OLDTYP == 4) THEN
-                        itemp(1) = transfer(zval, itemp(1))
-                        JLEN = 1
-                    ELSE
-                        IF (TYPE == 3 .AND. OLDTYP == 4) THEN
-                            JLEN = (LEN + KARMOT - 1) / KARMOT
-                            READ(TOKEN, LINEFMT)(ITEMP(J), J=1, JLEN)
+            IF (TYPE == 1 .AND. OLDTYP == 4) THEN
+                ITEMP(1) = JVAL
+                JLEN = 1
+            ELSE
+            IF (TYPE == 2 .AND. OLDTYP == 4) THEN
+                itemp(1) = transfer(zval, itemp(1))
+                JLEN = 1
+            ELSE
+            IF (TYPE == 3 .AND. OLDTYP == 4) THEN
+                JLEN = (LEN + KARMOT - 1) / KARMOT
+                READ(TOKEN, LINEFMT)(ITEMP(J), J=1, JLEN)
+            ELSE
+            IF (TYPE == 4) THEN
+                IF (TOKEN(1:2) == '% ') THEN
+                    IF (OLDTYP == 1 .AND.(.NOT.IAREP)) THEN
+                        IREPCN = ITEMP(1)
+                        IF (IREPCN > 0) THEN
+                            IAREP = .TRUE.
+                            JLEN = 0
                         ELSE
-                            IF (TYPE == 4) THEN
-                                IF (TOKEN(1:2) == '% ') THEN
-                                    IF (OLDTYP == 1 .AND.(.NOT.IAREP)) THEN
-                                        IREPCN = ITEMP(1)
-                                        IF (IREPCN > 0) THEN
-                                            IAREP = .TRUE.
-                                            JLEN = 0
-                                        ELSE
-                                            CALL qlx_err(21001, 'qlx_asg')
-                                            ERR = .TRUE.
-                                        ENDIF
-                                    ELSE
-                                        CALL qlx_err(21002, 'qlx_asg')
-                                        ERR = .TRUE.
-                                    ENDIF
-                                ELSE
-                                    IF (TOKEN(1:2) == ', ' .OR.TOKEN(1:2) == '$ ') THEN
-                                        IF ((IREPCN * MAX(JLEN, 1) + IND) > LIMIT + 1) THEN
-                                            CALL qlx_err(21003, 'qlx_asg')
-                                            ERR = .TRUE.
-                                        ELSE
-                                            DO I = 1, IREPCN
-                                                DO J = 1, JLEN
-                                                    call set_value_at_address(VAL, IND + J - 1, ITEMP(J))
-                                                END DO
-                                                IND = IND + MAX(JLEN, 1)
-                                            END DO
-                                            IREPCN = 1
-                                            IAREP = .FALSE.
-                                            JLEN = 0
-                                            ICOUNT = IND-1
-                                        ENDIF
-                                        FIN = TOKEN(1:1) == '$'
-                                    ELSE
-                                        CALL qlx_err(21004, 'qlx_asg')
-                                        ERR = .TRUE.
-                                    ENDIF
-                                ENDIF
-                            ELSE
-                                IF (TYPE == 0 .AND. OLDTYP == 4) THEN
-                                    JLEN = 1
-                                    ITEMP(1) = qlx_val(TOKEN(1:8), ERR)
-                                ELSE
-                                    CALL qlx_err(21005, 'qlx_asg')
-                                    ERR = .TRUE.
-                                ENDIF
-                            ENDIF
+                            CALL qlx_err(21001, 'qlx_asg')
+                            ERR = .TRUE.
                         ENDIF
+                    ELSE
+                        CALL qlx_err(21002, 'qlx_asg')
+                        ERR = .TRUE.
                     ENDIF
+                ELSE
+                IF (TOKEN(1:2) == ', ' .OR.TOKEN(1:2) == '$ ') THEN
+                    IF ((IREPCN * MAX(JLEN, 1) + IND) > LIMIT + 1) THEN
+                        CALL qlx_err(21003, 'qlx_asg')
+                        ERR = .TRUE.
+                    ELSE
+                        DO I = 1, IREPCN
+                            DO J = 1, JLEN
+                                call set_value_at_address(VAL, IND + J - 1, ITEMP(J))
+                            END DO
+                            IND = IND + MAX(JLEN, 1)
+                        END DO
+                        IREPCN = 1
+                        IAREP = .FALSE.
+                        JLEN = 0
+                        ICOUNT = IND-1
+                    ENDIF
+                    FIN = TOKEN(1:1) == '$'
+                ELSE
+                    CALL qlx_err(21004, 'qlx_asg')
+                    ERR = .TRUE.
                 ENDIF
+                ENDIF
+            ELSE
+            IF (TYPE == 0 .AND. OLDTYP == 4) THEN
+                JLEN = 1
+                ITEMP(1) = qlx_val(TOKEN(1:8), ERR)
+            ELSE
+                CALL qlx_err(21005, 'qlx_asg')
+                ERR = .TRUE.
+            ENDIF
+            ENDIF
+            ENDIF
+            ENDIF
+            ENDIF
             ENDIF
             OLDTYP = TYPE
         END DO
@@ -396,66 +396,66 @@ SUBROUTINE qlx_call(SUB, ICOUNT, LIMITS, ERR)
                 DOPES(NDOPES) = TYPE + 1 * 256 + (NPRM-NPRM0) * 256 * 256
                 DOPE(NARG) = DOPE(NARG) + 1
             ELSE
-                IF (TYPE == 1 .OR. TYPE == 2) THEN
-                    NPRM = MIN(NPRM+1, 101)
-                    PARM(NPRM) = JVAL
-                    PREVI =7
-                    IF (.NOT. INLIST) THEN
-                        NARG = MIN(NARG+1, 41)
-                        ADR(NARG) = LOC(PARM(NPRM))
-                        DOPEA(NARG) = NDOPES + 1
-                        NPRM0 = NPRM - 1
-                    ENDIF
-                    NDOPES = MIN(NDOPES+1, 101)
-                    DOPES(NDOPES) = TYPE + 1 * 256 + (NPRM-NPRM0)*256*256
-                    DOPE(NARG) = DOPE(NARG) + 1
-                ELSE
-                    IF (TYPE  == 3) THEN
-                        JLEN = MIN((LEN+KARMOT-1) / KARMOT , 101 - NPRM)
-                        IF (.NOT. INLIST) THEN
-                            NARG = MIN(NARG+1, 41)
-                            ADR(NARG) = LOC(PARM(NPRM+1))
-                            DOPEA(NARG) = NDOPES + 1
-                            NPRM0 = NPRM
-                        ENDIF
-                        READ(TOKEN, LINEFMT) (PARM(J+NPRM), J=1, JLEN)
-                        NDOPES = MIN(NDOPES+1, 101)
-                        DOPES(NDOPES) = TYPE + LEN * 256 + (NPRM-NPRM0+1)*256 *256
-                        NPRM = MIN(NPRM+JLEN, 101)
-
-                        DOPE(NARG) = DOPE(NARG) + JLEN
-                        PREVI =7
-                    ELSE
-                        IF (TYPE == 4 .AND. TOKEN(1:1) == '[' .AND. .NOT.INLIST) THEN
-                            INLIST = .TRUE.
-                            PREVI =4
-                            NARG = MIN(NARG+1, 41)
-                            ADR(NARG) = LOC(PARM(NPRM+1))
-                            DOPEA(NARG) = NDOPES + 1
-                            NPRM0 = NPRM
-                        ELSE
-                            IF (TYPE == 4 .AND. TOKEN(1:1) == ')' .AND.NARG == 0) THEN
-                                FIN = .TRUE.
-                            ELSE
-                                CALL qlx_err(81019, 'qlx_call')
-                                ERR = .TRUE.
-                            ENDIF
-                        ENDIF
-                    ENDIF
+            IF (TYPE == 1 .OR. TYPE == 2) THEN
+                NPRM = MIN(NPRM+1, 101)
+                PARM(NPRM) = JVAL
+                PREVI =7
+                IF (.NOT. INLIST) THEN
+                    NARG = MIN(NARG+1, 41)
+                    ADR(NARG) = LOC(PARM(NPRM))
+                    DOPEA(NARG) = NDOPES + 1
+                    NPRM0 = NPRM - 1
                 ENDIF
+                NDOPES = MIN(NDOPES+1, 101)
+                DOPES(NDOPES) = TYPE + 1 * 256 + (NPRM-NPRM0)*256*256
+                DOPE(NARG) = DOPE(NARG) + 1
+            ELSE
+            IF (TYPE  == 3) THEN
+                JLEN = MIN((LEN+KARMOT-1) / KARMOT , 101 - NPRM)
+                IF (.NOT. INLIST) THEN
+                    NARG = MIN(NARG+1, 41)
+                    ADR(NARG) = LOC(PARM(NPRM+1))
+                    DOPEA(NARG) = NDOPES + 1
+                    NPRM0 = NPRM
+                ENDIF
+                READ(TOKEN, LINEFMT) (PARM(J+NPRM), J=1, JLEN)
+                NDOPES = MIN(NDOPES+1, 101)
+                DOPES(NDOPES) = TYPE + LEN * 256 + (NPRM-NPRM0+1)*256 *256
+                NPRM = MIN(NPRM+JLEN, 101)
+
+                DOPE(NARG) = DOPE(NARG) + JLEN
+                PREVI =7
+            ELSE
+            IF (TYPE == 4 .AND. TOKEN(1:1) == '[' .AND. .NOT.INLIST) THEN
+                INLIST = .TRUE.
+                PREVI =4
+                NARG = MIN(NARG+1, 41)
+                ADR(NARG) = LOC(PARM(NPRM+1))
+                DOPEA(NARG) = NDOPES + 1
+                NPRM0 = NPRM
+            ELSE
+            IF (TYPE == 4 .AND. TOKEN(1:1) == ')' .AND.NARG == 0) THEN
+                FIN = .TRUE.
+            ELSE
+                CALL qlx_err(81019, 'qlx_call')
+                ERR = .TRUE.
+            ENDIF
+            ENDIF
+            ENDIF
+            ENDIF
             ENDIF
         ELSE
-            IF (TYPE == 4 .AND. (TOKEN(1:1) == ',' .OR. TOKEN(1:1) == ')')) THEN
-                FIN = TOKEN(1:1) == ')'
-                PREVI = 4
-            ELSE
-                IF (TYPE == 4 .AND. TOKEN(1:1) == ']' .AND. INLIST) THEN
-                    INLIST = .FALSE.
-                ELSE
-                    CALL qlx_err(81020, 'qlx_call')
-                    ERR = .TRUE.
-                ENDIF
-            ENDIF
+        IF (TYPE == 4 .AND. (TOKEN(1:1) == ',' .OR. TOKEN(1:1) == ')')) THEN
+            FIN = TOKEN(1:1) == ')'
+            PREVI = 4
+        ELSE
+        IF (TYPE == 4 .AND. TOKEN(1:1) == ']' .AND. INLIST) THEN
+            INLIST = .FALSE.
+        ELSE
+            CALL qlx_err(81020, 'qlx_call')
+            ERR = .TRUE.
+        ENDIF
+        ENDIF
         ENDIF
     END DO
     DOPEA(NARG + 1) = NDOPES + 1
@@ -496,60 +496,60 @@ function qlx_chr()
         qlx_chr = INLINE(NC:NC)
         NC = NC + 1
     ELSE
-         IF (.NOT. EOFL) THEN
-1           CONTINUE
-            IF (READREC > CURREC) THEN
-               READREC=0
-            ENDIF
-            IF (READREC == 0) THEN
-               READ(INPFILE, '(A80)', END = 10)INLINE(21:100)
-               CURREC = CURREC + 1
-               WRITE(TMPFILE, '(A80)', REC=CURREC)INLINE(21:100)
-            ELSE
-               READ(TMPFILE, '(A80)', REC=READREC)INLINE(21:100)
-               READREC = READREC + 1
-            ENDIF
-            INLINE(1:20) = ' '
-            COMMENT = .FALSE.
-            PRTFLAG = SKIPFLG
-            IF (INLINE(21:21) == 'C' .OR. INLINE(21:21) == '*' .OR.INLINE(21:21)  == '#') THEN
-               IF (PRTFLAG ==  0) THEN
-                  COMMENT = .TRUE.
-                  PRTFLAG = 3
-               ELSE
-                  COMMENT = .TRUE.
-               ENDIF
-            ENDIF
-            WRITE(app_msg, '(1X, A8, 1X, A80)')   SKIPMSG(PRTFLAG), INLINE(21:100)
-            call Lib_Log(APP_LIBRMN, APP_INFO, app_msg)
-            IF ((INLINE == ' ') .OR. (COMMENT)) THEN
-               GOTO 1
-            ENDIF
-            LAST = 100
-            DO WHILE (LAST > 21 .AND. INLINE(LAST:LAST) == ' ')
-                LAST = LAST - 1
-            END DO
-            IF (INLINE(LAST:LAST)  == '_') THEN
-               LAST = LAST - 1
-            ELSE
-               IF (INLINE(LAST:LAST) .NE. ',') THEN
-                  LAST = LAST + 1
-                  INLINE(LAST:LAST) ='$'
-               ENDIF
-            ENDIF
-            qlx_chr=INLINE(21:21)
-            NC = 22
-         ELSE
-            CALL qlx_err(81008, 'qlx_chr')
-            CALL ABORT
-         ENDIF
+    IF (.NOT. EOFL) THEN
+1     CONTINUE
+      IF (READREC > CURREC) THEN
+          READREC=0
       ENDIF
-      RETURN
-10    INLINE = ' END$'
-      qlx_chr = ' '
-      EOFL = .TRUE.
-      LAST = 5
-      NC = 2
+      IF (READREC == 0) THEN
+          READ(INPFILE, '(A80)', END = 10)INLINE(21:100)
+          CURREC = CURREC + 1
+          WRITE(TMPFILE, '(A80)', REC=CURREC)INLINE(21:100)
+      ELSE
+          READ(TMPFILE, '(A80)', REC=READREC)INLINE(21:100)
+          READREC = READREC + 1
+      ENDIF
+      INLINE(1:20) = ' '
+      COMMENT = .FALSE.
+      PRTFLAG = SKIPFLG
+      IF (INLINE(21:21) == 'C' .OR. INLINE(21:21) == '*' .OR.INLINE(21:21)  == '#') THEN
+          IF (PRTFLAG ==  0) THEN
+            COMMENT = .TRUE.
+            PRTFLAG = 3
+          ELSE
+            COMMENT = .TRUE.
+          ENDIF
+      ENDIF
+      WRITE(app_msg, '(1X, A8, 1X, A80)')   SKIPMSG(PRTFLAG), INLINE(21:100)
+      call Lib_Log(APP_LIBRMN, APP_INFO, app_msg)
+      IF ((INLINE == ' ') .OR. (COMMENT)) THEN
+          GOTO 1
+      ENDIF
+      LAST = 100
+      DO WHILE (LAST > 21 .AND. INLINE(LAST:LAST) == ' ')
+          LAST = LAST - 1
+      END DO
+      IF (INLINE(LAST:LAST)  == '_') THEN
+          LAST = LAST - 1
+      ELSE
+      IF (INLINE(LAST:LAST) .NE. ',') THEN
+        LAST = LAST + 1
+        INLINE(LAST:LAST) ='$'
+      ENDIF
+      ENDIF
+      qlx_chr=INLINE(21:21)
+      NC = 22
+    ELSE
+      CALL qlx_err(81008, 'qlx_chr')
+      CALL ABORT
+    ENDIF
+    ENDIF
+    RETURN
+10  INLINE = ' END$'
+    qlx_chr = ' '
+    EOFL = .TRUE.
+    LAST = 5
+    NC = 2
 END
 
 SUBROUTINE qlx_dbg
@@ -943,63 +943,63 @@ INTEGER FUNCTION qlx_num(IB, LENG)
         END DO
     END IF
 
-      IF (I == 'E' ) THEN                      ! E after number
-         IF (ILX == 0) THEN
-            LENG=MIN(21, LENG+1)
-            IB(LENG:LENG)='.'
-         ENDIF
-         ILX = 1                               ! definitely a real number
-         LENG = MIN(21, LENG+1)
-         IB(LENG:LENG) = I
-         I = qlx_chr()
-         IF ( (I >= '0' .AND. I <= '9') .OR. (I == '+') .OR. (I == '-') ) THEN
-6           LENG = MIN(21, LENG + 1)
-            IB(LENG:LENG) = I
-            I = qlx_chr()
-            IF (I >= '0' .AND. I <= '9') THEN  ! more digits
-               GOTO 6
-            ENDIF
-         ENDIF
-      ENDIF
+    IF (I == 'E' ) THEN                      ! E after number
+        IF (ILX == 0) THEN
+          LENG=MIN(21, LENG+1)
+          IB(LENG:LENG)='.'
+        ENDIF
+        ILX = 1                               ! definitely a real number
+        LENG = MIN(21, LENG+1)
+        IB(LENG:LENG) = I
+        I = qlx_chr()
+        IF ( (I >= '0' .AND. I <= '9') .OR. (I == '+') .OR. (I == '-') ) THEN
+6         LENG = MIN(21, LENG + 1)
+          IB(LENG:LENG) = I
+          I = qlx_chr()
+          IF (I >= '0' .AND. I <= '9') THEN  ! more digits
+              GOTO 6
+          ENDIF
+        ENDIF
+    ENDIF
 
-      IF (LENG >= 21) THEN
-         qlx_num=5                              ! bad number
+    IF (LENG >= 21) THEN
+        qlx_num=5                              ! bad number
+    ELSE
+    IF (ILX == 0) THEN
+      IF (I.NE.'B') THEN
+          qlx_num=1                        ! integer
       ELSE
-         IF (ILX == 0) THEN
-            IF (I.NE.'B') THEN
-               qlx_num=1                        ! integer
-            ELSE
-               qlx_num=6                        ! octal
-               I=qlx_chr()
-               DO J = LENG, 1, -1
-                  IF (IB(J:J) > '7') THEN
-                     qlx_num=5                  ! bad number
-                  ENDIF
-                  CTMP = IB(J:J)
-                  IB(20-LENG+J:20-LENG+J)=CTMP
-               END DO
-               DO J = 1, 20 - LENG
-                  IB(J:J)='0'
-               END DO
-               LENG=20
+          qlx_num=6                        ! octal
+          I=qlx_chr()
+          DO J = LENG, 1, -1
+            IF (IB(J:J) > '7') THEN
+                qlx_num=5                  ! bad number
             ENDIF
-         ELSE
-            IF (LENG > 1) THEN
-               IF (IB(LENG:LENG) == '.') THEN
-                  qlx_num=2                     ! real number
-               ELSE
-                  IF (IB(LENG:LENG) >= '0' .AND. IB(LENG:LENG) <= '9') THEN
-                     qlx_num=2                  ! real number
-                  ELSE
-                     qlx_num=5                  ! bad number
-                  ENDIF
-               ENDIF
-            ELSE
-               qlx_num=5
-            ENDIF
-         ENDIF
+            CTMP = IB(J:J)
+            IB(20-LENG+J:20-LENG+J)=CTMP
+          END DO
+          DO J = 1, 20 - LENG
+            IB(J:J)='0'
+          END DO
+          LENG=20
       ENDIF
-      CALL qlx_bak(I)
+    ELSE
+    IF (LENG > 1) THEN
+        IF (IB(LENG:LENG) == '.') THEN
+          qlx_num=2                     ! real number
+        ELSE
+        IF (IB(LENG:LENG) >= '0' .AND. IB(LENG:LENG) <= '9') THEN
+            qlx_num=2                  ! real number
+        ELSE
+            qlx_num=5                  ! bad number
+        ENDIF
+        ENDIF
+    ELSE
+        qlx_num=5
+    ENDIF
+    ENDIF
+    ENDIF
+    CALL qlx_bak(I)
 END
 
 
