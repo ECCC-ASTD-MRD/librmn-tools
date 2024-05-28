@@ -22,14 +22,31 @@
 #define NTJ 11
 #define SF0  4
 
+// #define NTI  4
+// #define NTJ  3
+// #define SF0  2
+
 int main(int argc, char **argv){
   int i, j, x[NTI] ;
+  ij_index ij ;
   for(j=NTJ-1 ; j>=0 ; j--){ 
-    for(i=0 ; i<NTI ; i++) { x[i] = Zindex_from_i_j_(i, j, NTI, NTJ, SF0) ; }
-    for(i=0 ; i<NTI ; i++) { fprintf(stderr, "+-----"      ) ; } fprintf(stderr, "+\n") ;
-    for(i=0 ; i<NTI ; i++) { fprintf(stderr, "|     "      ) ; } fprintf(stderr, "|\n") ;
-    for(i=0 ; i<NTI ; i++) { fprintf(stderr, "| %3d ", x[i]) ; } fprintf(stderr, "|\n") ;
-    for(i=0 ; i<NTI ; i++) { fprintf(stderr, "|     "      ) ; } fprintf(stderr, "|\n") ;
+    for(i=0 ; i<NTI ; i++) { 
+      x[i] = Zindex_from_i_j_(i, j, NTI, NTJ, SF0) ;
+      ij   = Zindex_to_i_j_(x[i], NTI, NTJ, SF0) ;
+      if(ij.i != i || ij.j != j){
+        fprintf(stderr, "ERROR: zij = %3d, expecting i,j = (%2d,%2d), got (%2d,%2d)\n", x[i], i, j, ij.i, ij.j) ;
+        exit(1) ;
+      }
+    }
+    for(i=0 ; i<NTI ; i++) { fprintf(stderr, "+------"             ) ; } fprintf(stderr, "+\n") ;
+//     for(i=0 ; i<NTI ; i++) { fprintf(stderr, "|      "             ) ; } fprintf(stderr, "|\n") ;
+    for(i=0 ; i<NTI ; i++) { fprintf(stderr, "| %3d  " ,       x[i]) ; } fprintf(stderr, "| (Z index)\n") ;
+    for(i=0 ; i<NTI ; i++) { fprintf(stderr, "|%2d,%3d",    i,    j) ; } fprintf(stderr, "| (expected i,j)\n") ;
+    for(i=0 ; i<NTI ; i++) { 
+      ij   = Zindex_to_i_j_(x[i], NTI, NTJ, SF0) ;
+      fprintf(stderr, "|%2d,%3d", ij.i, ij.j) ; 
+    } fprintf(stderr, "| (computed i,j)\n") ;
+//     for(i=0 ; i<NTI ; i++) { fprintf(stderr, "|      "             ) ; } fprintf(stderr, "|\n") ;
   }
-  for(i=0 ; i<NTI ; i++) { fprintf(stderr, "+-----"        ) ; } fprintf(stderr, "+\n") ;
+  for(i=0 ; i<NTI ; i++) { fprintf(stderr, "+------"        ) ; } fprintf(stderr, "+\n") ;
 }

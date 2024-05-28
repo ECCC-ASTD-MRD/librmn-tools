@@ -101,14 +101,51 @@
 # define Z_DATA_MAP
 #include <stdint.h>
 
-static uint32_t Zindex_from_i_j_(uint32_t i, uint32_t j, uint32_t nti, uint32_t ntj, uint32_t sf0){
-  uint32_t zi, sf1, j0, stj, cj ;
+typedef struct{
+  int32_t i ;
+  int32_t j ;
+}ij_index ;
 
-  sf1 = ntj - ((ntj / sf0) * sf0) ;         // modulo(ntj, sf0)
-  if(sf1 == 0) sf1 = sf0 ;                  // same as sf0 if modulo  == 0
+static ij_index Zindex_to_i_j_(int32_t zij, uint32_t nti, uint32_t ntj, uint32_t sf0){
+  ij_index ij ;
+  uint32_t sf1, i, j, st0, sz0, sti, stn, j0 ;
+
+  ij.i = -1 ;
+  ij.j = -1 ;
+  if(zij < 0         ) goto end ;           // zij is out of bounds
+  if(zij >= nti * ntj) goto end ;           // zij is out of bounds
+
+  stn = (ntj - 1) / sf0 ;                   // stripe number for last row
+  j0  = stn * sf0 ;                         // j index of lowest row in last stripe
+  sf1 = ntj - j0 ;                          // width of last stripe
+  sz0 = stn * nti * sf0 ;                   // z index of first point in last stripe
+  if(zij < sz0) sf1 = sf0 ;                 // not in last stripe, current width = sf0
+
+  st0 = zij / (sf0 * nti) ;                 // current stripe number
+  sz0 = st0 * (sf0 * nti) ;                 // first z index in stripe
+  sti = (zij - sz0) ;                       // z index offset in stripe
+  i   = sti / sf1 ;                         // position along i
+  j   = sti - (i * sf1) ;                   // modulo(sti, sf1) (j position in stripe)
+  j  += st0 * sf0 ;                         // position along j (add stripe j start position)
+  ij.i = i ;
+  ij.j = j ;
+end:
+  return ij ;
+}
+
+static int32_t Zindex_from_i_j_(int32_t i, int32_t j, uint32_t nti, uint32_t ntj, uint32_t sf0){
+  uint32_t zi, sf1, j0, stj, stn ;
+
+  if( i < 0    || j < 0   ) return -1 ;     // i or j out of bounds
+  if( i >= nti || j >= ntj) return -1 ;     // i or j out of bounds
+
+  stn = (ntj - 1) / sf0 ;                   // stripe number for last row
+  j0  = stn * sf0 ;                         // j index of lowest row in last stripe
+  sf1 = ntj - j0 ;                          // width of last stripe
   stj = j / sf0 ;                           // stripe number for this row
-  j0 = stj * sf0 ;                          // j index of lowest row in stripe
-  cj = ((j0 + sf0) > ntj) ? sf1 : sf0 ;     // width along j of current stripe
+  if(j < j0) sf1 = sf0 ;                    // width of current stripe (sf1 only if last stripe)
+
+  j0 = stj * sf0 ;                          // j index of lowest row in current stripe
   zi = (j0 * nti) +                         // lower left corner of stripe
        (j - j0) +                           // number of rows above bottom of stripe
        (i * sf1) ;                          // i * stripe width
