@@ -106,6 +106,11 @@ typedef struct{
   int32_t j ;
 }ij_index ;
 
+// zij    [IN] : Z (zigzag) index
+// nti    [IN] : row size
+// ntj    [IN] : number of rows
+// sf0    [IN] : stripe width (last stripe may be narrower)
+// the function returns i and j coordinates in struct ij_index
 static ij_index Zindex_to_i_j_(int32_t zij, uint32_t nti, uint32_t ntj, uint32_t sf0){
   ij_index ij ;
   uint32_t sf1, i, j, st0, sz0, sti, stn, j0 ;
@@ -133,6 +138,12 @@ end:
   return ij ;
 }
 
+// i      [IN] : index in row
+// j      [IN] : index of row
+// nti    [IN] : row size
+// ntj    [IN] : number of rows
+// sf0    [IN] : stripe width (last stripe may be narrower)
+// the function returns the Z (zigzag index associated to i and j
 static int32_t Zindex_from_i_j_(int32_t i, int32_t j, uint32_t nti, uint32_t ntj, uint32_t sf0){
   uint32_t zi, sf1, j0, stj, stn ;
 
@@ -152,5 +163,9 @@ static int32_t Zindex_from_i_j_(int32_t i, int32_t j, uint32_t nti, uint32_t ntj
 
   return zi ;
 }
+
+// external functions (same interface as inline functions)
+int32_t Zindex_from_i_j(int32_t i, int32_t j, uint32_t nti, uint32_t ntj, uint32_t sf0);
+ij_index Zindex_to_i_j(int32_t zij, uint32_t nti, uint32_t ntj, uint32_t sf0);
 
 #endif

@@ -16,6 +16,21 @@
 //
 #include <rmn/data_map.h>
 
-uint32_t Zindex_from_i_j(uint32_t i, uint32_t j, uint32_t nti, uint32_t ntj, uint32_t sf0){
+// zij    [IN] : Z (zigzag) index
+// nti    [IN] : row size
+// ntj    [IN] : number of rows
+// sf0    [IN] : stripe width (last stripe may be narrower)
+// the function returns i and j coordinates in struct ij_index
+ij_index Zindex_to_i_j(int32_t zij, uint32_t nti, uint32_t ntj, uint32_t sf0){
+  return Zindex_to_i_j_(zij, nti, ntj, sf0) ;
+}
+
+// i      [IN] : index in row
+// j      [IN] : index of row
+// nti    [IN] : row size
+// ntj    [IN] : number of rows
+// sf0    [IN] : stripe width (last stripe may be narrower)
+// the function returns the Z (zigzag index associated to i and j
+int32_t Zindex_from_i_j(int32_t i, int32_t j, uint32_t nti, uint32_t ntj, uint32_t sf0){
   return Zindex_from_i_j_(i, j, nti, ntj, sf0) ;
 }
