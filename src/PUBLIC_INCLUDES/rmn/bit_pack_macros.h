@@ -61,6 +61,8 @@
 //
 //
 #if ! defined(LE64_INSERT_BEGIN)
+#include <stdint.h>
+
 // ================================ bit insertion/extraction macros into/from bitstream ===============================
 // macro arguments description
 // accum  [INOUT] : 64 bit accumulator (normally acc_i or acc_x)
@@ -73,6 +75,12 @@
 // N.B. : if w32 and accum are "signed" variables, extraction will produce a "signed" result
 //        if w32 and accum are "unsigned" variables, extraction will produce an "unsigned" result
 // the EZ and STREAM macros use implicit accum/xtract/xtract/stream arguments
+//
+// ===============================================================================================
+// little endian (LE) style (right to left) bit stream packing
+// insertion into accumulator of token shifted left
+// extraction from the bottom (least significant part) of accumulator then shift accumulator right
+// accumulator MUST be zeroed before starting to insert
 // ===============================================================================================
 // initialize stream for insertion
 #define LE64_INSERT_BEGIN(accum, insert) { accum = 0 ; insert = 0 ; }
@@ -81,8 +89,9 @@
         { uint32_t mask = ~0 ; mask >>= (32-(nbits)) ; uint64_t w64 = (w32) & mask ; accum |= (w64 << insert) ; insert += (nbits) ; }
 // check that 32 bits can be safely inserted into accum
 // if not possible, store lower 32 bits of accum into stream, update accum, insert, stream
+// accum MUST be treated as "unsigned"
 #define LE64_INSERT_CHECK(accum, insert, stream) \
-        { if(insert > 32) { *stream = accum ; stream++ ; insert -= 32 ; accum >>= 32 ; } ; }
+        { if(insert > 32) { *stream = accum ; stream++ ; insert -= 32 ; accum = (uint64_t) accum >> 32 ; } ; }
 // push data to stream without fully updating control info (stream, insert)
 #define LE64_PUSH(accum, insert, stream) \
         { LE64_INSERT_CHECK(accum, insert, stream) ; { if(insert > 0) { *stream = accum ; } ; } }
@@ -105,7 +114,7 @@
 #define LE64_PEEK_NBITS(accum, xtract, w32, nbits) { w32 = (accum << (64-nbits)) >> (64-nbits) ; }
 // extract nbits bits into w32 from accum, update xtract, accum
 #define LE64_XTRACT_NBITS(accum, xtract, w32, nbits) \
-        { w32 = (accum << (64-nbits)) >> (64-nbits) ; accum >>= nbits ; xtract -= (nbits) ;}
+        { w32 = (accum << (64-nbits)) >> (64-nbits) ; accum = (uint64_t) accum >> nbits ; xtract -= (nbits) ;}
 // check that 32 bits can be safely extracted from accum
 // if not possible, get extra 32 bits into accum from stresm, update accum, xtract, stream
 #define LE64_XTRACT_CHECK(accum, xtract, stream) \
@@ -117,7 +126,7 @@
 #define LE64_GET_NBITS(accum, xtract, w32, nbits, stream) \
         { LE64_XTRACT_CHECK(accum, xtract, stream) ; LE64_XTRACT_NBITS(accum, xtract, w32, nbits) ; }
 // align extraction point to a 32 bit boundary
-#define LE64_XTRACT_ALIGN(accum, xtract) { uint32_t tbits = xtract ; tbits &= 31 ; accum >>= tbits ; xtract -= tbits ; }
+#define LE64_XTRACT_ALIGN(accum, xtract) { uint32_t tbits = xtract ; tbits &= 31 ; accum = (uint64_t) accum >> tbits ; xtract -= tbits ; }
 // #define LE64_EZ_XTRACT_ALIGN { uint32_t tbits = StReAm_xtract ; tbits &= 31 ; StReAm_acc_x >>= tbits ; StReAm_xtract -= tbits ; }
 // #define LE64_STREAM_XTRACT_ALIGN { uint32_t tbits = (s).xtract ; tbits &= 31 ; (s).acc_x >>= tbits ; (s).xtract -= tbits ; }
 //
@@ -125,6 +134,7 @@
 // big endian (BE) style (left to right) bit stream packing
 // insertion at bottom (least significant part) of accumulator after accumulator shifted left
 // extraction from the top (most significant part) of accumulator then shift accumulator left
+// it is not important to set the accumulator to zero before staring to insert
 // ===============================================================================================
 // initialize stream for insertion
 #define BE64_INSERT_BEGIN(accum, insert) { accum = 0 ; insert = 0 ; }
@@ -159,7 +169,7 @@
 // check that 32 bits can be safely extracted from accum
 // if not possible, get extra 32 bits into accum from stresm, update accum, xtract, stream
 #define BE64_XTRACT_CHECK(accum, xtract, stream) \
-        { if(xtract < 32) { accum >>= (32-xtract) ; accum |= *(stream) ; accum <<= (32-xtract) ; xtract += 32 ; (stream)++ ; } ; }
+        { if(xtract < 32) { accum = (uint64_t) accum >> (32-xtract) ; accum |= *(stream) ; accum <<= (32-xtract) ; xtract += 32 ; (stream)++ ; } ; }
 // finalize extraction, update accum, xtract
 #define BE64_XTRACT_FINAL(accum, xtract) { accum = 0 ; xtract = 0 ; }
 // combined XTRACT_CHECK and XTRACT_NBITS, update accum, xtract, stream
@@ -168,4 +178,4 @@
 // align extraction point to a 32 bit boundary
 #define BE64_XTRACT_ALIGN(accum, xtract) { uint32_t tbits = xtract ; tbits &= 31 ; accum <<= tbits ; xtract -= tbits ; }
 //
-#endif
+#endif // ! defined(LE64_INSERT_BEGIN)
