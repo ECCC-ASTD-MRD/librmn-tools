@@ -202,14 +202,17 @@
   <--32b--x--32b--x------32b------x-------------32b------------->     x-----16b------>
 
   alternative 4d (no 16GB limit on offsets, 256KB limit on chunk size) simpler map, no "small" chunks
-  BCI (16 bits), BCJ (16 bits) : chunk dimensions
-  BI0 (16 bits) : dimension along I of first chunk in row
-  BJ0 (16 bits) : dimension along J of chnumks in the first row
+  BCI (16 bits), BCJ (16 bits) : chunk dimensions (normally a multiple of 8)
+  BI0 (16 bits) : dimension along I of the first chunk in all rows (chunks in first column)
+  BJ0 (16 bits) : dimension along J of chunks in the first row (chunks in first row)
   NPI = nb of points along i, NPJ = nb of points along j
-  NCI = (NPI + BCI - 1)/BCI, NCJ = (NPJ + BCJ - 1)/BCJ (number of chunks along i and j)
+  NCI = NPI/BCI, NCJ = NPJ/BCJ (number of chunks along i and j)
+  the first chunk (BI0, BJ0) may be larger than the following one(s)
+  BCI <= BI0 < BCI * 2, BCJ <= BJ0 < BCJ * 2
+  BI0 == 0 means BI0 == BCI (NPI is a multiple if BCI), BJ0 == 0 means BJ0 == BCJ (NPJ is a multiple if BCJ)
   data map size = (NCI * NCJ +1) / 2 + 3 (in 32 bit units)  N = NCI * NCJ
   +-------+-------+-------+-------+-------+-------+--------------+--------------+     +--------------+
-  |  NPI  |  NPJ  |  BCI  |  BCJ  |  BI0  |  BJ0  | Chunk 1 size | Chunk 2 size | ... | Chunk n size |
+  |  NPI  |  NPJ  |  BI0  |  BCI  |  BJ0  |  BCJ  | Chunk 1 size | Chunk 2 size | ... | Chunk n size |
   +-------+-------+-------+-------+-------+-------+--------------+--------------+     +--------------+
   <--32b--x--32b--x------32b------x------32b------x-------------32b------------->     x-----16b------>
 
