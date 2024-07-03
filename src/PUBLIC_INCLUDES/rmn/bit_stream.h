@@ -52,7 +52,7 @@ typedef struct{
            valid:32 ; // signature marker
 //   uint32_t buf[] ;    // flexible array (meaningful only if full == 1)
 } bitstream ;
-CT_ASSERT(sizeof(bitstream) == 64) ;   // 8 64 bit elements
+CT_ASSERT(sizeof(bitstream) == 64)    // 8 64 bit elements
 
 // all fields set to 0, makes for a fast initialization xxx = null_bitstream
 static bitstream null_bitstream = { .acc_i = 0, .acc_x = 0 , .insert = 0 , .xtract = 0, 
@@ -172,7 +172,7 @@ typedef struct{
   int32_t   insert ;  // # of bits used in accumulator (-1 <= insert <= 64) (-1 if invalid)
   int32_t   xtract ;  // # of bits extractable from accumulator (-1 <= xtract <= 64) (-1 if invalid)
 } bitstream_state ;
-CT_ASSERT(sizeof(bitstream_state) == 40) ;
+CT_ASSERT(sizeof(bitstream_state) == 40)
 //
 // save the current bit stream state in a bitstream_state structure
 // stream  [IN] : pointer to a bit stream struct
@@ -402,19 +402,19 @@ static void StreamDup(bitstream *sdst, bitstream *ssrc){
 static int StreamFree(bitstream *s){
   int status = 1 ;
   if(s->full){       // struct and buffer
-    fprintf(stderr, "auto allocated bit stream (%p) freed\n", s) ;
+    fprintf(stderr, "auto allocated bit stream (%p) freed\n", (void *)s) ;
     if(s->alloc) free(s->first) ;   // a resize operation has been performed
     free(s) ;
     return 0 ;
   }
   if(s->alloc){       // buffer was allocated with malloc
-    fprintf(stderr, "auto allocated bit stream buffer (%p) freed\n", s->first) ;
+    fprintf(stderr, "auto allocated bit stream buffer (%p) freed\n", (void *)s->first) ;
     free(s->first) ;
     s->first = s->in = s->out = s->limit = NULL ;   // nullify data pointers
     s->user = s->full = s->alloc = 0 ;
     status = 0 ;
   }else{
-    fprintf(stderr, "not owner of buffer, no free done (%p)\n", s->first);
+    fprintf(stderr, "not owner of buffer, no free done (%p)\n", (void *)s->first);
   }
   s->insert = s->xtract = s->acc_i = s->acc_x = 0 ;  // mark accumulators as empty
   return status ;
