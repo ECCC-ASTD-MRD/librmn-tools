@@ -87,8 +87,8 @@
 #define STATIC_DEFINED_HERE
 #endif
 
-CT_ASSERT(sizeof(uint64_t) == 8) ;     // this better be true !
-CT_ASSERT(sizeof(void *) == 8) ;       // enforce 64 bit pointers
+CT_ASSERT(sizeof(uint64_t) == 8)      // this better be true !
+CT_ASSERT(sizeof(void *) == 8)        // enforce 64 bit pointers
 
 // simple data buffer structure with capacity and fill level
 typedef struct{
