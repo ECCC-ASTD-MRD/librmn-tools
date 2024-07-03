@@ -147,8 +147,10 @@ if(WITH_OPENMP)
   set(M_OPENMP -mp)
 endif()
 
-set(Intel_FFLAGS -convert big_endian -align array32byte -assume byterecl -march=skylake -diag-disable=10441,5268,10121,7025,7028,7416,6477,8291 ${Q_OPENMP})
-set(IntelLLVM_FFLAGS -convert big_endian -align array32byte -assume byterecl -march=skylake ${Q_OPENMP})
+set(Intel_FFLAGS -convert big_endian -align array32byte -assume byterecl -march=skylake 
+                 -diag-disable=7028,7416,6477,10441,5268,10121,7025,7028,7416,6477,8291 ${Q_OPENMP})
+set(IntelLLVM_FFLAGS -convert big_endian -align array32byte -assume byterecl -march=skylake 
+                     -diag-disable=7028,7416,6477,7342 ${Q_OPENMP})
 set(GNU_FFLAGS -fconvert=big-endian -fcray-pointer -frecord-marker=4 -fno-second-underscore ${F_OPENMP} -ldl -pthread)
 set(Flang_FFLAGS -Mbyteswapio ${F_OPENMP})
 set(PGI_FFLAGS -tp native -byteswapio ${M_OPENMP})
