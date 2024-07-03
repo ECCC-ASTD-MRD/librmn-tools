@@ -71,8 +71,10 @@ typedef struct{
   p_iuf    prop[MAX_ARRAY_PROPERTIES] ;
   uint32_t *extra ;    // normally NULL, pointer to extended information
 } array_descriptor ;
-static array_descriptor array_descriptor_null = {.data = NULL, .version = 0, .nx = {[0 ... MAX_ARRAY_DIMENSIONS-1] = 0 } } ;
-static array_descriptor array_descriptor_base = {.data = NULL, .version = PROP_VERSION, .nx = {[0 ... MAX_ARRAY_DIMENSIONS-1] = 1 } } ;
+// static array_descriptor array_descriptor_null = {.data = NULL, .version = 0, .nx = {[0 ... MAX_ARRAY_DIMENSIONS-1] = 0 } } ;
+static array_descriptor array_descriptor_null = {.data = NULL, .version = 0 } ;
+// static array_descriptor array_descriptor_base = {.data = NULL, .version = PROP_VERSION, .nx = {[0 ... MAX_ARRAY_DIMENSIONS-1] = 1 } } ;
+static array_descriptor array_descriptor_base = {.data = NULL, .version = PROP_VERSION } ;
 
 static int array_data_values(array_descriptor *ap){
   int nval = 1, i, ndims = ap->ndims ;
