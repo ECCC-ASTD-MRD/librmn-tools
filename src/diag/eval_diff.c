@@ -89,6 +89,5 @@ int32_t array_compare_masked(void *f1, void *f2, int n, uint32_t mask){
       TEE_FPRINTF(stderr,2, "compare_masked [%d], got %8.8x (%8d), expected %8.8x (%8d)\n", i, w2[i] & mask, w2[i] & mask, w1[i] & mask, w1[i] & mask) ;
     }
   }
-  if(errors) exit(1) ;
   return errors ;
 }
