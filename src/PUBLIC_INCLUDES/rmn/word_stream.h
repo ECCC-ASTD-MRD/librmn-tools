@@ -26,7 +26,7 @@
 
 // same as sizeof() but value is in 32 bit units
 #define W32_SIZEOF(item) (sizeof(item) >> 2)
-CT_ASSERT(W32_SIZEOF(uint32_t) == 1) ;   // 1 x 32 bit item
+CT_ASSERT(W32_SIZEOF(uint32_t) == 1)    // 1 x 32 bit item
 
 // word (32 bit) stream descriptor
 // number of words in buffer : in - out (available for extraction)
@@ -44,7 +44,7 @@ typedef struct{
            spare: 2 , // spare bits
            alloc: 1 ; // buffer allocated with malloc (realloc is possible)
 } wordstream ;
-CT_ASSERT(sizeof(wordstream) == 24) ;   // 3 64 bit elements (1 x 64 bits + 4x 32 bits)
+CT_ASSERT(sizeof(wordstream) == 24)    // 3 64 bit elements (1 x 64 bits + 4x 32 bits)
 
 static wordstream null_wordstream = { .buf = NULL, .limit = 0, .in = 0, .out = 0, .valid = 0, .alloc = 0 } ;
 
@@ -249,7 +249,7 @@ typedef struct{
   uint32_t in ;       // insertion index (0 initially)
   uint32_t out ;      // extraction index (0 initially)
 } wordstream_state ;
-CT_ASSERT(sizeof(wordstream_state) == 8) ;   // 2 32 bit elements
+CT_ASSERT(sizeof(wordstream_state) == 8)    // 2 32 bit elements
 
 #define WS32_STATE_IN(wordstate)           ((wordstate).in)
 #define WS32_STATE_OUT(wordstate)          ((wordstate).out)
