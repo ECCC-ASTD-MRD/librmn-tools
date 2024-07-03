@@ -163,7 +163,8 @@ return ;
   }
   free(t) ;
   e0->bias /= e0->ndata ; e0->abs_error /= e0->ndata ; e0->sum /= e0->ndata ;
-  while((*name != '/') && (*name != '\0')) name++ ; if(*name == '/') name++ ;
+  while((*name != '/') && (*name != '\0')) name++ ;
+  if(*name == '/') name++ ;
   fprintf(stderr, "name = %c%c, ndata = %d, bias = %f, abs_error = %f, max_error = %f, avg = %f\n", 
           name[0], name[1], e0->ndata, e0->bias, e0->abs_error, e0->max_error, e0->sum) ;
   fprintf(stderr, "freed t\n") ;
@@ -314,26 +315,34 @@ goto long_test ;
   l32 = IEEE32_extrema(f, NPTSIJ) ;
   fprintf(stderr, "IEEE32_fakelog_quantize_0\n");
   qu_q = IEEE32_fakelog_quantize_0(f, NPTSIJ, r_f, q, &l32, NULL) ;
-  for(i=0 ; i<NPTSIJ ; i++) fprintf(stderr, "%12.5g", f[i]) ; fprintf(stderr, "\n") ;
+  for(i=0 ; i<NPTSIJ ; i++) fprintf(stderr, "%12.5g", f[i]) ;
+  fprintf(stderr, "\n") ;
   printf_quant_out(stderr, qu_q) ;
-  for(i=0 ; i<NPTSIJ ; i++) fprintf(stderr, "%12.8x", q[i]) ; fprintf(stderr, "\n") ;
+  for(i=0 ; i<NPTSIJ ; i++) fprintf(stderr, "%12.8x", q[i]) ;
+  fprintf(stderr, "\n") ;
 
   fprintf(stderr, "IEEE32_fakelog_restore_0\n");
   qut_r = IEEE32_fakelog_restore_0(fr, NPTSIJ, qu_q, q) ;
-  for(i=0 ; i<NPTSIJ ; i++) fprintf(stderr, "%12.5g", fr[i]) ; fprintf(stderr, "\n") ;
-  for(i=0 ; i<NPTSIJ ; i++) fprintf(stderr, "%12.7f", fr[i]/f[i]) ; fprintf(stderr, "\n") ;
+  for(i=0 ; i<NPTSIJ ; i++) fprintf(stderr, "%12.5g", fr[i]) ;
+  fprintf(stderr, "\n") ;
+  for(i=0 ; i<NPTSIJ ; i++) fprintf(stderr, "%12.7f", fr[i]/f[i]) ;
+  fprintf(stderr, "\n") ;
   fprintf(stderr, "\n") ;
 
   fprintf(stderr, "IEEE32_fakelog_quantize_1\n");
   qu_q = IEEE32_fakelog_quantize_1(f, NPTSIJ, r_f, q, &l32, NULL) ;
-  for(i=0 ; i<NPTSIJ ; i++) fprintf(stderr, "%12.5g", f[i]) ; fprintf(stderr, "\n") ;
+  for(i=0 ; i<NPTSIJ ; i++) fprintf(stderr, "%12.5g", f[i]) ;
+  fprintf(stderr, "\n") ;
   printf_quant_out(stderr, qu_q) ;
-  for(i=0 ; i<NPTSIJ ; i++) fprintf(stderr, "%12.8x", q[i]) ; fprintf(stderr, "\n") ;
+  for(i=0 ; i<NPTSIJ ; i++) fprintf(stderr, "%12.8x", q[i]) ;
+  fprintf(stderr, "\n") ;
 
   fprintf(stderr, "IEEE32_fakelog_restore_1\n");
   qut_r = IEEE32_fakelog_restore_1(fr, NPTSIJ, qu_q, q) ;
-  for(i=0 ; i<NPTSIJ ; i++) fprintf(stderr, "%12.5g", fr[i]) ; fprintf(stderr, "\n") ;
-  for(i=0 ; i<NPTSIJ ; i++) fprintf(stderr, "%12.7f", fr[i]/f[i]) ; fprintf(stderr, "\n") ;
+  for(i=0 ; i<NPTSIJ ; i++) fprintf(stderr, "%12.5g", fr[i]) ;
+  fprintf(stderr, "\n") ;
+  for(i=0 ; i<NPTSIJ ; i++) fprintf(stderr, "%12.7f", fr[i]/f[i]) ;
+  fprintf(stderr, "\n") ;
   fprintf(stderr, "\n") ;
 // return 0 ;
 
