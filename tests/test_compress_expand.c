@@ -59,7 +59,8 @@ void test_reversal(char *str){
 
   fprintf(stderr, "reference test with 4 values\n") ;
 
-  for(i=0 ; i<4 ; i++) s1[i] = BitReverse_32(s1[i]) ; errors = compare_values(s1, ref, 4) ;
+  for(i=0 ; i<4 ; i++) s1[i] = BitReverse_32(s1[i]) ;
+  errors = compare_values(s1, ref, 4) ;
   if(errors > 0){
     for(i=0 ; i<4 ; i++)
       fprintf(stderr, "src = %8.8x, rev = %8.8x, ref = %8.8x\n", src[i], BitReverse_32(src[i]), ref[i]);
@@ -154,50 +155,64 @@ fprintf(stderr, "compress_store test with %d elements\n", npts) ;
     dle = CompressStore_32_c_le(expanded, compressed, lmasks[0]) ;
     fprintf(stderr, "mask = %8.8x, ", lmasks[0]) ; nc = dle - compressed ;
     fprintf(stderr, "popbe = %d, pople = %d, points left = %d\n", popbe, pople, nc) ;
-    for(i=0 ; i<32 ; i++) fprintf(stderr, "%3d ", expanded[i]) ; fprintf(stderr, " - orig\n") ;
+    for(i=0 ; i<32 ; i++) fprintf(stderr, "%3d ", expanded[i]) ;
+    fprintf(stderr, " - orig\n") ;
     for(i=0 ; i<32 ; i++) { plugged[i] = -1 ; plug2[i] = 999 ; }
     MaskedFill_le(expanded, plugged, lmasks[0], 99, 32) ;
     MaskedMerge_le(expanded, plug2, lmasks[0], fill2, 32) ;
-    for(i=0 ; i<32 ; i++) fprintf(stderr, "%3d ", plugged[i]) ; fprintf(stderr, " - fill\n") ;
-    for(i=0 ; i<32 ; i++) fprintf(stderr, "%3d ", fill2[i]) ; fprintf(stderr, " - filler\n") ;
-    for(i=0 ; i<32 ; i++) fprintf(stderr, "%3d ", plug2[i]) ; fprintf(stderr, " - after merge\n") ;
-    for(i=0 ; i<nc ; i++) fprintf(stderr, "%3d ", compressed[i]) ; fprintf(stderr, " - compressed\n") ;
+    for(i=0 ; i<32 ; i++) fprintf(stderr, "%3d ", plugged[i]) ;
+    fprintf(stderr, " - fill\n") ;
+    for(i=0 ; i<32 ; i++) fprintf(stderr, "%3d ", fill2[i]) ;
+    fprintf(stderr, " - filler\n") ;
+    for(i=0 ; i<32 ; i++) fprintf(stderr, "%3d ", plug2[i]) ;
+    fprintf(stderr, " - after merge\n") ;
+    for(i=0 ; i<nc ; i++) fprintf(stderr, "%3d ", compressed[i]) ;
+    fprintf(stderr, " - compressed\n") ;
     for(i=0 ; i<32 ; i++) { restored[i] = 100+i ; }
-    for(i=0 ; i<32 ; i++) fprintf(stderr, "%3d ", restored[i]) ; fprintf(stderr, " - before replace/fill\n") ;
+    for(i=0 ; i<32 ; i++) fprintf(stderr, "%3d ", restored[i]) ;
+    fprintf(stderr, " - before replace/fill\n") ;
     sle = ExpandReplace_32_c_le(compressed, restored, lmasks[0]) ; nc = sle - compressed ;
     fprintf(stderr, "mask = %8.8x, ", lmasks[0]) ;
     fprintf(stderr, "popbe = %d, pople = %d, points read = %d\n", popbe, pople, nc) ;
-    for(i=0 ; i<32 ; i++) fprintf(stderr, "%3d ", restored[i]) ; fprintf(stderr, " - after replace\n") ;
+    for(i=0 ; i<32 ; i++) fprintf(stderr, "%3d ", restored[i]) ;
+    fprintf(stderr, " - after replace\n") ;
     for(i=0 ; i<32 ; i++) { restored[i] = -1 ; }
     sle = ExpandFill_32_c_le(compressed, restored, lmasks[0], 66) ;
-    for(i=0 ; i<32 ; i++) fprintf(stderr, "%3d ", restored[i]) ; fprintf(stderr, " - after fill\n") ;
+    for(i=0 ; i<32 ; i++) fprintf(stderr, "%3d ", restored[i]) ;
+    fprintf(stderr, " - after fill\n") ;
 // return ;
     fprintf(stderr, "========== C (be) ==========\n") ;
     for(i=0 ; i<32 ; i++) { compressed[i] = npts + 1 ; restored[i] = -1 ; }
     dle = CompressStore_32_c_be(expanded, compressed, bmasks[0]) ;
     fprintf(stderr, "mask = %8.8x, ", bmasks[0]) ;
     fprintf(stderr, "popbe = %d, pople = %d, points left = %ld\n", popbe, pople, dle - compressed) ;
-    for(i=0 ; i<32 ; i++) fprintf(stderr, "%3d ", compressed[i]) ; fprintf(stderr, "\n") ;
+    for(i=0 ; i<32 ; i++) fprintf(stderr, "%3d ", compressed[i]) ;
+    fprintf(stderr, "\n") ;
     for(i=0 ; i<32 ; i++) { restored[i] = -1 ; }
     sle = ExpandReplace_32_c_be(compressed, restored, bmasks[0]) ;
     fprintf(stderr, "mask = %8.8x, ", bmasks[0]) ;
     fprintf(stderr, "popbe = %d, pople = %d, points read = %ld\n", popbe, pople, sle - compressed) ;
-    for(i=0 ; i<32 ; i++) fprintf(stderr, "%3d ", restored[i]) ; fprintf(stderr, "\n") ;
+    for(i=0 ; i<32 ; i++) fprintf(stderr, "%3d ", restored[i]) ;
+    fprintf(stderr, "\n") ;
     for(i=0 ; i<32 ; i++) { restored[i] = -1 ; }
     sle = ExpandFill_32_c_be(compressed, restored, bmasks[0], 55) ;
-    for(i=0 ; i<32 ; i++) fprintf(stderr, "%3d ", restored[i]) ; fprintf(stderr, "\n") ;
+    for(i=0 ; i<32 ; i++) fprintf(stderr, "%3d ", restored[i]) ;
+    fprintf(stderr, "\n") ;
 #if defined(__AVX512F__)
     fprintf(stderr, "========== AVX512 (le) ==========\n") ;
     dle = CompressStore_32_avx512_le(expanded, compressed, lmasks[0]) ;
     fprintf(stderr, "mask = %8.8x, ", lmasks[0]) ;
     fprintf(stderr, "popbe = %d, pople = %d, points left = %ld\n", popbe, pople, dle - compressed) ;
-    for(i=0 ; i<32 ; i++) fprintf(stderr, "%3d ", compressed[i]) ; fprintf(stderr, "\n") ;
+    for(i=0 ; i<32 ; i++) fprintf(stderr, "%3d ", compressed[i]) ;
+    fprintf(stderr, "\n") ;
     fprintf(stderr, "mask = %8.8x, ", lmasks[0]) ;
     sle = ExpandReplace_32_avx512_le(compressed, restored, lmasks[0]) ;
     fprintf(stderr, "popbe = %d, pople = %d, points read = %ld\n", popbe, pople, sle - compressed) ;
-    for(i=0 ; i<32 ; i++) fprintf(stderr, "%3d ", restored[i]) ; fprintf(stderr, "\n") ;
+    for(i=0 ; i<32 ; i++) fprintf(stderr, "%3d ", restored[i]) ;
+    fprintf(stderr, "\n") ;
     sle = ExpandFill_32_avx512_le(compressed, restored, lmasks[0], 99) ;
-    for(i=0 ; i<32 ; i++) fprintf(stderr, "%3d ", restored[i]) ; fprintf(stderr, "\n") ;
+    for(i=0 ; i<32 ; i++) fprintf(stderr, "%3d ", restored[i]) ;
+    fprintf(stderr, "\n") ;
 #endif
 #if defined(__AVX2__)
     fprintf(stderr, "========== AVX2 (le) ==========\n") ;
@@ -213,22 +228,26 @@ fprintf(stderr, "compress_store test with %d elements\n", npts) ;
     for(i=0 ; i<32 ; i++) fprintf(stderr, "%3d ", restored[i]) ; fprintf(stderr, "\n") ;
     for(i=0 ; i<32 ; i++) { restored[i] = -1 ; }
     sle = ExpandFill_32_avx2_le(compressed, restored, lmasks[0], 88) ;
-    for(i=0 ; i<32 ; i++) fprintf(stderr, "%3d ", restored[i]) ; fprintf(stderr, "\n") ;
+    for(i=0 ; i<32 ; i++) fprintf(stderr, "%3d ", restored[i]) ;
+    fprintf(stderr, "\n") ;
 
     fprintf(stderr, "========== AVX2 (be) ==========\n") ;
     for(i=0 ; i<32 ; i++) { compressed[i] = npts + 1 ; }
     dle = CompressStore_32_avx2_be(expanded, compressed, bmasks[0]) ;
     fprintf(stderr, "mask = %8.8x, ", bmasks[0]) ;
     fprintf(stderr, "popbe = %d, pople = %d, points left = %ld\n", popbe, pople, dle - compressed) ;
-    for(i=0 ; i<32 ; i++) fprintf(stderr, "%3d ", compressed[i]) ; fprintf(stderr, "\n") ;
+    for(i=0 ; i<32 ; i++) fprintf(stderr, "%3d ", compressed[i]) ;
+    fprintf(stderr, "\n") ;
     for(i=0 ; i<32 ; i++) { restored[i] = -1 ; }
     sle = ExpandReplace_32_avx2_be(compressed, restored, bmasks[0]) ;
     fprintf(stderr, "mask = %8.8x, ", bmasks[0]) ;
     fprintf(stderr, "popbe = %d, pople = %d, points read = %ld\n", popbe, pople, sle - compressed) ;
-    for(i=0 ; i<32 ; i++) fprintf(stderr, "%3d ", restored[i]) ; fprintf(stderr, "\n") ;
+    for(i=0 ; i<32 ; i++) fprintf(stderr, "%3d ", restored[i]) ;
+    fprintf(stderr, "\n") ;
     for(i=0 ; i<32 ; i++) { restored[i] = -1 ; }
     sle = ExpandFill_32_avx2_be(compressed, restored, bmasks[0], 77) ;
-    for(i=0 ; i<32 ; i++) fprintf(stderr, "%3d ", restored[i]) ; fprintf(stderr, "\n") ;
+    for(i=0 ; i<32 ; i++) fprintf(stderr, "%3d ", restored[i]) ;
+    fprintf(stderr, "\n") ;
 #endif
   }
 }
@@ -696,28 +715,32 @@ void fprintf_08(FILE *f, void *what, int n, char *msg){
   uint8_t *c08 = (uint8_t *) what ;
   int i ;
   fprintf(f, " %s", msg) ;
-  for(i=0 ; i<n ; i++) fprintf(f, " %2.2x",c08[i]); fprintf(stderr, "\n");
+  for(i=0 ; i<n ; i++) fprintf(f, " %2.2x",c08[i]);
+  fprintf(stderr, "\n");
 }
 
 void fprintf_16(FILE *f, void *what, int n, char *msg){
   uint16_t *h16 = (uint16_t *) what ;
   int i ;
   fprintf(f, " %s", msg) ;
-  for(i=0 ; i<n ; i++) fprintf(f, " %4.4x",h16[i]); fprintf(stderr, "\n");
+  for(i=0 ; i<n ; i++) fprintf(f, " %4.4x",h16[i]);
+  fprintf(stderr, "\n");
 }
 
 void fprintf_32(FILE *f, void *what, int n, char *msg){
   uint32_t *w32 = (uint32_t *) what ;
   int i ;
   fprintf(f, " %s", msg) ;
-  for(i=0 ; i<n ; i++) fprintf(f, " %8.8x",w32[i]); fprintf(stderr, "\n");
+  for(i=0 ; i<n ; i++) fprintf(f, " %8.8x",w32[i]);
+  fprintf(stderr, "\n");
 }
 
 void fprintf_64(FILE *f, void *what, int n, char *msg){
   uint64_t *l64 = (uint64_t *) what ;
   int i ;
   fprintf(f, " %s", msg) ;
-  for(i=0 ; i<n ; i++) fprintf(f, " %16.16lx",l64[i]); fprintf(stderr, "\n");
+  for(i=0 ; i<n ; i++) fprintf(f, " %16.16lx",l64[i]);
+  fprintf(stderr, "\n");
 }
 
 void compare_mem(void *a, void *b, int nitems, char *msg, int nbytes){
@@ -972,20 +995,27 @@ int main(int argc, char **argv){
   ExpandFill_32_c_be(ucomp0, urest0, bmasks[0], fill) ;
   for(i=0 ; i<NPTS ; i++) urest1[i] = uarray[i] ;
 //   MaskReplace_32_c_be(urest1, ~bmasks[0], 88) ;
-  for(i=0 ; i<32 ; i++) fprintf(stderr, "%3d ", urest1[i]) ; fprintf(stderr, "\n") ;
+  for(i=0 ; i<32 ; i++) fprintf(stderr, "%3d ", urest1[i]) ;
+  fprintf(stderr, "\n") ;
   fprintf(stderr, "after ExpandFill_32_c_be, mask = %8.8x, fill = %d\n", bmasks[0], fill) ;
-  for(i=0 ; i<32 ; i++) fprintf(stderr, "%3d ", uarray[i]) ; fprintf(stderr, "\n") ;
-  for(i=0 ; i<32 ; i++) fprintf(stderr, "%3d ", (bmasks[0] >> (31-i)) & 1 ) ; fprintf(stderr, "\n") ;
-  for(i=0 ; i<popcnt_32(bmasks[0]) ; i++) fprintf(stderr, "%3d ", ucomp0[i]) ; fprintf(stderr, "\n") ;
-  for(i=0 ; i<32 ; i++) fprintf(stderr, "%3d ", urest0[i]) ; fprintf(stderr, "\n") ;
+  for(i=0 ; i<32 ; i++) fprintf(stderr, "%3d ", uarray[i]) ;
+  fprintf(stderr, "\n") ;
+  for(i=0 ; i<32 ; i++) fprintf(stderr, "%3d ", (bmasks[0] >> (31-i)) & 1 ) ;
+  fprintf(stderr, "\n") ;
+  for(i=0 ; i<popcnt_32(bmasks[0]) ; i++) fprintf(stderr, "%3d ", ucomp0[i]) ;
+  fprintf(stderr, "\n") ;
+  for(i=0 ; i<32 ; i++) fprintf(stderr, "%3d ", urest0[i]) ;
+  fprintf(stderr, "\n") ;
 //   for(i=16; i<32 ; i++) fprintf(stderr, "%8.8x ", urest0[i]) ; fprintf(stderr, "\n") ;
 // return 0 ;
 #if defined(__x86_64__) && defined(__AVX2__)
   for(i=0 ; i<NPTS ; i++) urest1[i] = 0xFFFFFFFFu ;
   ExpandFill_32_avx2_be(ucomp0, urest1, bmasks[0], fill) ;
   fprintf(stderr, "after ExpandFill_32_sse\n") ;
-  for(i=0 ; i<16 ; i++) fprintf(stderr, "%8.8x ", urest1[i]) ; fprintf(stderr, "\n") ;
-  for(i=16; i<32 ; i++) fprintf(stderr, "%8.8x ", urest1[i]) ; fprintf(stderr, "\n") ;
+  for(i=0 ; i<16 ; i++) fprintf(stderr, "%8.8x ", urest1[i]) ;
+  fprintf(stderr, "\n") ;
+  for(i=16; i<32 ; i++) fprintf(stderr, "%8.8x ", urest1[i]) ;
+  fprintf(stderr, "\n") ;
 
   errors = 0 ;
   for(i=0 ; i<32 ; i++) errors += ((urest0[i] != urest1[i]) ? 1 : 0 ) ;
@@ -996,15 +1026,19 @@ int main(int argc, char **argv){
   for(i=0 ; i<NPTS ; i++) urest0[i] = 0xFF000000u + i + 1 ;
   ExpandFill_be(ucomp0, urest0, bmasks, NPTS, NULL) ;
   fprintf(stderr, "after replace\n") ;
-  for(i=0 ; i<16 ; i++) fprintf(stderr, "%8.8x ", urest0[i]) ; fprintf(stderr, "\n") ;
-  for(i=16; i<32 ; i++) fprintf(stderr, "%8.8x ", urest0[i]) ; fprintf(stderr, "\n") ;
+  for(i=0 ; i<16 ; i++) fprintf(stderr, "%8.8x ", urest0[i]) ;
+  fprintf(stderr, "\n") ;
+  for(i=16; i<32 ; i++) fprintf(stderr, "%8.8x ", urest0[i]) ;
+  fprintf(stderr, "\n") ;
 
 #if defined(__x86_64__) && defined(__AVX2__)
   for(i=0 ; i<NPTS ; i++) urest1[i] = 0xFF000000u + i + 1 ;
   ExpandFill_be(ucomp0, urest1, bmasks, NPTS, NULL) ;
   fprintf(stderr, "after replace_sse\n") ;
-  for(i=0 ; i<16 ; i++) fprintf(stderr, "%8.8x ", urest1[i]) ; fprintf(stderr, "\n") ;
-  for(i=16; i<32 ; i++) fprintf(stderr, "%8.8x ", urest1[i]) ; fprintf(stderr, "\n") ;
+  for(i=0 ; i<16 ; i++) fprintf(stderr, "%8.8x ", urest1[i]) ;
+  fprintf(stderr, "\n") ;
+  for(i=16; i<32 ; i++) fprintf(stderr, "%8.8x ", urest1[i]) ;
+  fprintf(stderr, "\n") ;
 
   errors = 0 ;
   for(i=0 ; i<NPTS ; i++) errors += ((urest0[i] != urest1[i]) ? 1 : 0 ) ;
