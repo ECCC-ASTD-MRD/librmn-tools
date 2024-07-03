@@ -100,8 +100,12 @@ typedef struct{
 } chunk_item ;
 
 typedef struct{                // 2D nci x ncj chunk array
-  uint32_t nci ;               // number of chunks along 1st dimension
-  uint32_t ncj ;               // number of chunks along 2nd dimension
+  uint32_t npi ;               // number of points along 1st dimension
+  uint32_t npj ;               // number of points along 2nd dimension
+  uint32_t bi0_bci ;           // chunk sizes along i (32 bit units)
+  uint32_t bj0_bcj ;           // chunk sizes along i (32 bit units)
+                               // bi0 = size along i of first chunk in each rows
+                               // bj0 = size along j of chunks in first row
   chunk_item chunk[] ;         // flexible array, chunk layout
 } data_map ;
 
