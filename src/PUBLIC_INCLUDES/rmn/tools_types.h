@@ -130,7 +130,7 @@ typedef union{    // the union allows to transfer the whole contents in one shot
   uint32_t u ;
 } ieee_prop ;
 
-static ieee_prop ieee_prop_0 = { 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0 } ;
+static ieee_prop ieee_prop_0 = { {0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0} } ;
 
 // some properties of a float array, 64 bits total
 typedef struct{
@@ -156,6 +156,6 @@ typedef union{    // the union allows to transfer the whole contents in one shot
   uint64_t u ;
 } ieee_prop_64 ;
 
-static ieee_prop_64 ieee_prop_64_0 = { 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0 } ;
+static ieee_prop_64 ieee_prop_64_0 = { {0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0} } ;
 
 #endif
