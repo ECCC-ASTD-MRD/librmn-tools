@@ -30,7 +30,7 @@ typedef struct{
   uint32_t opt[FILTER_255] ;
 } FILTER_TYPE(255) ;
 static FILTER_TYPE(255) FILTER_NULL(255) = {FILTER_BASE(255) } ;
-CT_ASSERT(FILTER_SIZE_OK(FILTER_TYPE(255)))
+CT_ASSERT_(FILTER_SIZE_OK(FILTER_TYPE(255)))
 pipe_filter FILTER_FUNCTION(255) ;  // dummy filter (dimension encoding)
 
 #endif

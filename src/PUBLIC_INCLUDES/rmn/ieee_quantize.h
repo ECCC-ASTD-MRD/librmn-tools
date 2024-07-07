@@ -153,7 +153,7 @@ typedef union{           // union of structs q_rules/q_encode/q_decode
   q_decode r ;
 }q_desc ;
 // make sure that q_desc does not need more than 64 bits
-CT_ASSERT(sizeof(q_desc) <= sizeof(uint64_t))
+CT_ASSERT_(sizeof(q_desc) <= sizeof(uint64_t))
 
 static q_desc q_desc_0 = {.u = 0 } ;
 

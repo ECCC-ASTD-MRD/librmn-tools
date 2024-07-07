@@ -183,7 +183,7 @@ typedef union{
   limits_f f ;      // IEEE float limits
 } limits_w32 ;      // limits union
 
-CT_ASSERT(sizeof(limits_w32) == 28)
+CT_ASSERT_(sizeof(limits_w32) == 28)
 
 // structure used to describe the "special" value, how to recognize it, and how to deal with it
 // (*spv & mask) == (value & mask) : a "special" value is recognized

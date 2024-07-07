@@ -105,7 +105,7 @@ typedef union{
   int32_t   i[2]  ;  // access as 2 32 bit nsigned integers
 } ieee32_props ;
 // make sure that access as a single 64 bit unsigned integer is respected
-CT_ASSERT(sizeof(ieee32_props) == sizeof(uint64_t))
+CT_ASSERT_(sizeof(ieee32_props) == sizeof(uint64_t))
 
 static uint64_t IEEE32_quantize_linear_0(void * restrict f, int npts, uint64_t u64, void * restrict qs);
 static uint64_t IEEE32_quantize_linear_1(void * restrict f, int npts, uint64_t u64, void * restrict qs);

@@ -103,7 +103,7 @@ typedef   union{
              spare       :25 ;
   } ;
   }p_b_flags ;
-CT_ASSERT(sizeof(p_b_flags) == sizeof(uint32_t))
+CT_ASSERT_(sizeof(p_b_flags) == sizeof(uint32_t))
 
 typedef struct{
   void *buffer ;           // pointer to storage for buffer

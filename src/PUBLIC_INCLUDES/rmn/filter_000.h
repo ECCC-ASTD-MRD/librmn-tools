@@ -30,7 +30,7 @@ typedef struct{
   array_descriptor adim ;
 } FILTER_TYPE(000) ;
 static FILTER_TYPE(000) FILTER_NULL(000) = {FILTER_BASE(000) } ;
-CT_ASSERT(FILTER_SIZE_OK(FILTER_TYPE(000)))
+CT_ASSERT_(FILTER_SIZE_OK(FILTER_TYPE(000)))
 pipe_filter FILTER_FUNCTION(000) ;  // dummy filter (dimension encoding)
 
 #endif

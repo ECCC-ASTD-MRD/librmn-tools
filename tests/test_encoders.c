@@ -65,9 +65,9 @@ static void print_tile(int32_t *tile, int ni, int lni, int nj, char *msg){
 }
 
 // GLOBAL scope compile time assertions
-CT_ASSERT(8 == sizeof(tile_properties))
-CT_ASSERT(8 == sizeof(tile_parms))
-CT_ASSERT(2 == sizeof(tile_header))
+CT_ASSERT_(8 == sizeof(tile_properties))
+CT_ASSERT_(8 == sizeof(tile_parms))
+CT_ASSERT_(2 == sizeof(tile_header))
 
 #define NPTSI 16
 #define NPTSLNI 17
@@ -91,9 +91,9 @@ int main(int argc, char **argv){
   TIME_LOOP_DATA ;
 
   // LOCAL scope compile time assertions
-CT_ASSERT(8 == sizeof(nano))
-CT_ASSERT(8 == sizeof(freq))
-CT_ASSERT(2 == sizeof(uint16_t))
+CT_ASSERT_(8 == sizeof(nano))
+CT_ASSERT_(8 == sizeof(freq))
+CT_ASSERT_(2 == sizeof(uint16_t))
 
 
   freq = cycles_counter_freq() ;

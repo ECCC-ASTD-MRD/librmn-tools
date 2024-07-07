@@ -28,7 +28,7 @@ typedef struct{
   FILTER_PROLOG ;
 } FILTER_TYPE(001) ;
 static FILTER_TYPE(001) FILTER_NULL(001) = {FILTER_BASE(001) } ;
-CT_ASSERT(FILTER_SIZE_OK(FILTER_TYPE(001)))
+CT_ASSERT_(FILTER_SIZE_OK(FILTER_TYPE(001)))
 pipe_filter FILTER_FUNCTION(001) ;  // dummy filter (dimension encoding)
 
 #endif

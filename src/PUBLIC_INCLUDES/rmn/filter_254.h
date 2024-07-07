@@ -31,7 +31,7 @@ typedef struct{
   int32_t offset ;
 } FILTER_TYPE(254) ;
 static FILTER_TYPE(254) filter_254_null = {FILTER_BASE(254), .factor = 0, .offset = 0 } ;
-CT_ASSERT(FILTER_SIZE_OK(FILTER_TYPE(254)))
+CT_ASSERT_(FILTER_SIZE_OK(FILTER_TYPE(254)))
 pipe_filter FILTER_FUNCTION(254) ;  // test filter (scale and offset)
 
 #endif

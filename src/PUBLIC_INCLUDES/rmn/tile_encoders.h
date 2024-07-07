@@ -18,6 +18,8 @@
 #include <rmn/ct_assert.h>
 #include <rmn/misc_operators.h>
 #include <rmn/bi_endian_pack.h>
+// bit stream macros and functions
+#include <rmn/bit_stream.h>
 
 // encoded tile layout :
 //
@@ -81,7 +83,7 @@ typedef struct{          // 2 D tile
 //            nptj: 3,      // second dimension (nptj = nj - 1) (0 <= nj <= 8)
            min0: 1;      // 1 : minimum value is used as offset, 0 : minimum not used
 }tile_head ;             // header with bit fields
-CT_ASSERT(2 == sizeof(tile_head))
+CT_ASSERT_(2 == sizeof(tile_head))
 
 typedef struct{          // 1-8 x 1-8 encoded tile header (16 bits)
   union{
@@ -89,7 +91,7 @@ typedef struct{          // 1-8 x 1-8 encoded tile header (16 bits)
     uint16_t s ;         // allows to grab everything as one piece
   } ;
 } tile_header ;
-CT_ASSERT(2 == sizeof(tile_header))
+CT_ASSERT_(2 == sizeof(tile_header))
 
 // tile properties for encoding (includes tile header)
 typedef struct{
@@ -97,7 +99,7 @@ typedef struct{
       uint16_t bshort:8, nshort:8 ; // u16[2]
       tile_head h ;                 // u16[3]
 } tile_parms ;
-CT_ASSERT(8 == sizeof(tile_parms))
+CT_ASSERT_(8 == sizeof(tile_parms))
 
 typedef union{
     tile_parms t ;
@@ -105,7 +107,7 @@ typedef union{
     uint32_t u32[2] ;      // u32[0] : min
     uint16_t u16[4] ;      // u16[2] : grab bshort and nshort, u16[3] : grab tile header
 } tile_properties ;
-CT_ASSERT(8 == sizeof(tile_properties))
+CT_ASSERT_(8 == sizeof(tile_properties))
 
 // uint64_t encode_tile_scheme(uint64_t p64);
 void tile_population(void *tile, int n, int32_t pop[4], void *ref);

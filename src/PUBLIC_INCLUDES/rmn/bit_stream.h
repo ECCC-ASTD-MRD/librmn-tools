@@ -52,7 +52,7 @@ typedef struct{
            valid:32 ; // signature marker
 //   uint32_t buf[] ;    // flexible array (meaningful only if full == 1)
 } bitstream ;
-CT_ASSERT(sizeof(bitstream) == 64)    // 8 64 bit elements
+CT_ASSERT_(sizeof(bitstream) == 64)    // 8 64 bit elements
 
 // all fields set to 0, makes for a fast initialization xxx = null_bitstream
 static bitstream null_bitstream = { .acc_i = 0, .acc_x = 0 , .insert = 0 , .xtract = 0, 
@@ -172,7 +172,7 @@ typedef struct{
   int32_t   insert ;  // # of bits used in accumulator (-1 <= insert <= 64) (-1 if invalid)
   int32_t   xtract ;  // # of bits extractable from accumulator (-1 <= xtract <= 64) (-1 if invalid)
 } bitstream_state ;
-CT_ASSERT(sizeof(bitstream_state) == 40)
+CT_ASSERT_(sizeof(bitstream_state) == 40)
 //
 // save the current bit stream state in a bitstream_state structure
 // stream  [IN] : pointer to a bit stream struct
