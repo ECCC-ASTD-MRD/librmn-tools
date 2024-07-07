@@ -63,8 +63,8 @@ int main(int argc, char **argv){
 
   entropy = ComputeEntropy(etab) ;
   fprintf(stderr, "value\n");
-  for(i=0 ; i<etab->size ; i++) fprintf(stderr, "%4d", i) ; fprintf(stderr, "\n") ;
+  for(i=0 ; i<etab->size ; i++) { fprintf(stderr, "%4d", i) ; } ; fprintf(stderr, "\n") ;
   fprintf(stderr, "population\n");
-  for(i=0 ; i<etab->size ; i++) fprintf(stderr, "%4d", etab->pop[i]) ; fprintf(stderr, "\n") ;
+  for(i=0 ; i<etab->size ; i++) { fprintf(stderr, "%4d", etab->pop[i]) ; } ; fprintf(stderr, "\n") ;
   fprintf(stderr, "computed entropy for %d values = %5.2f bits/value\n", etab->npop, entropy) ;
 }

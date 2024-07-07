@@ -101,9 +101,9 @@ int test_1(char *msg){
   fprintf(stderr, "============================ register pipe filters  ============================\n");
   pipe_filters_init() ;                                   // initialize filter table
   i = pipe_filter_register(254, "demo254", pipe_filter_254) ;  // change name of filter 254
-  fprintf(stderr, "registered demo254 status = %d, name = '%s', address = %p\n", i, pipe_filter_name(254), pipe_filter_address(254)) ;
+  fprintf(stderr, "registered demo254 status = %d, name = '%s', address = %p\n", i, pipe_filter_name(254), (void *)pipe_filter_address(254)) ;
   i = pipe_filter_register(255, "demo255", pipe_filter_255) ;  // change name of filter 255
-  fprintf(stderr, "registered demo255 status = %d, name = '%s', address = %p\n", i, pipe_filter_name(255), pipe_filter_address(255)) ;
+  fprintf(stderr, "registered demo255 status = %d, name = '%s', address = %p\n", i, pipe_filter_name(255), (void *)pipe_filter_address(255)) ;
 
   fprintf(stderr, "============================ pipe filters (in place)  ============================\n");
 
@@ -115,19 +115,19 @@ int test_1(char *msg){
   for(i = 0 ; i < NPTSJ*NPTSI ; i++) data_ref[i] = i ;
   for(i = 0 ; i < NPTSJ*NPTSI ; i++) data_i[i] = data_ref[i] ;
   fprintf(stderr, "input    : ") ;
-  for(i = 0 ; i < NPTSJ*NPTSI ; i++) fprintf(stderr, "%6d ", data_ref[i]) ; fprintf(stderr, "\n") ;
+  for(i = 0 ; i < NPTSJ*NPTSI ; i++) { fprintf(stderr, "%6d ", data_ref[i]) ; } ; fprintf(stderr, "\n") ;
 
   // metadata will be in stream_out, "filtered" data will be in data_i[]
   adi = (array_descriptor) { .esize = 4, .ndims = 2, .data = data_i, .nx[0] = NPTSI, .nx[1] = NPTSJ } ;
   nmeta = run_pipe_filters(PIPE_FORWARD|PIPE_INPLACE, &adi, filters, &stream_out) ;
   fprintf(stderr, "forward filters metadata length = %ld\n", nmeta);
   fprintf(stderr, "filtered : ") ;
-  for(i = 0 ; i < NPTSJ*NPTSI ; i++) fprintf(stderr, "%6d ", data_i[i]) ; fprintf(stderr, "\n") ;
+  for(i = 0 ; i < NPTSJ*NPTSI ; i++) { fprintf(stderr, "%6d ", data_i[i]) ; } ; fprintf(stderr, "\n") ;
 
   fprintf(stderr, " %d words in output stream\nmetadata : ", WS32_FILLED(stream_out)) ;
   for(i = 0 ; i < nmeta ; i++) fprintf(stderr, "%8.8x ", stream_out.buf[i]) ;
   fprintf(stderr, "\ndata_i   : ");
-  for(i = 0 ; i < NPTSJ*NPTSI ; i++) fprintf(stderr, "%6d ", data_i[i]) ; fprintf(stderr, "\n\n") ;
+  for(i = 0 ; i < NPTSJ*NPTSI ; i++) { fprintf(stderr, "%6d ", data_i[i]) ; } ; fprintf(stderr, "\n\n") ;
 //   ssize_t run_pipe_filters(int flags, int *dims, void *data_i, filter_list list, pipe_buffer *buffer);
 
   WS32_REREAD(stream_out) ;
@@ -157,19 +157,19 @@ int test_1(char *msg){
   for(i = 0 ; i < NPTSJ*NPTSI ; i++) data_ref[i] = i ;
   for(i = 0 ; i < NPTSJ*NPTSI ; i++) data_i[i] = data_ref[i] ;
   fprintf(stderr, "input    : ") ;
-  for(i = 0 ; i < NPTSJ*NPTSI ; i++) fprintf(stderr, "%6d ", data_ref[i]) ; fprintf(stderr, "\n") ;
+  for(i = 0 ; i < NPTSJ*NPTSI ; i++) { fprintf(stderr, "%6d ", data_ref[i]) ; } ; fprintf(stderr, "\n") ;
 
   // metadata will be in stream_out, "filtered" data will be in stream_put, after metadata
   adi = (array_descriptor) { .esize = 4, .ndims = 2, .data = data_i, .nx[0] = NPTSI, .nx[1] = NPTSJ } ;
   nmeta = run_pipe_filters(PIPE_FORWARD, &adi, filters, &stream_out) ;
   fprintf(stderr, "forward filters metadata length = %ld\n", nmeta);
   fprintf(stderr, "filtered : ") ;
-  for(i = 0 ; i < NPTSJ*NPTSI ; i++) fprintf(stderr, "%6d ", stream_out.buf[i+nmeta]) ; fprintf(stderr, "\n") ;
+  for(i = 0 ; i < NPTSJ*NPTSI ; i++) { fprintf(stderr, "%6d ", stream_out.buf[i+nmeta]) ; } ; fprintf(stderr, "\n") ;
 
   fprintf(stderr, " %d words in output stream\nmetadata : ", WS32_FILLED(stream_out)) ;
   for(i = 0 ; i < nmeta ; i++) fprintf(stderr, "%8.8x ", stream_out.buf[i]) ;
   fprintf(stderr, "\ndata_i   : ");
-  for(i = 0 ; i < NPTSJ*NPTSI ; i++) fprintf(stderr, "%6d ", data_i[i]) ; fprintf(stderr, "\n\n") ;
+  for(i = 0 ; i < NPTSJ*NPTSI ; i++)  {fprintf(stderr, "%6d ", data_i[i]) ; } ; fprintf(stderr, "\n\n") ;
 //   ssize_t run_pipe_filters(int flags, int *dims, void *data_i, filter_list list, pipe_buffer *buffer);
 
   WS32_REREAD(stream_out) ;
@@ -214,7 +214,7 @@ int test_2(char *msg){
   fprintf(stderr, "============================ register pipe filters  ============================\n");
   pipe_filters_init() ;                                   // initialize filter table
   i = pipe_filter_register(255, "diag255", pipe_filter_255) ;  // change name of filter 255
-  fprintf(stderr, "registered diag255 status = %d, name = '%s', address = %p\n", i, pipe_filter_name(255), pipe_filter_address(255)) ;
+  fprintf(stderr, "registered diag255 status = %d, name = '%s', address = %p\n", i, pipe_filter_name(255), (void *)pipe_filter_address(255)) ;
 
   for(j=0 ; j<NJ ; j++){
     for(i=0 ; i<NI ; i++){
@@ -237,7 +237,7 @@ int test_2(char *msg){
   map += 4 ;
   for(i=0 ; i<nblkj ; i++) fprintf(stderr, "%10d", map[i]) ; // fprintf(stderr, "\n") ;
   map += nblkj ;
-  for(i=0 ; i<nblki*nblkj ; i++) fprintf(stderr, "%10d", map[i]) ; fprintf(stderr, "\n") ;
+  for(i=0 ; i<nblki*nblkj ; i++) { fprintf(stderr, "%10d", map[i]) ; } ; fprintf(stderr, "\n") ;
 
   fprintf(stderr, "\n============================ reverse ============================\n") ;
   ado = adi ;
