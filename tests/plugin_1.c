@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <stdint.h>
 #include <string.h>
 
 void FortranConstructor() __attribute__((weak)) ;
@@ -40,7 +41,7 @@ int get_symbol_number(){  // like fortran, function to get number of symbols, op
 void __attribute__ ((constructor)) Constructor1(void) {
    fprintf(stderr, "plugin constructor for plugin_1 : ");
    if( FortranConstructor ){
-     fprintf(stderr, "FortranConstructor is Available [%p]\n", (void *)&FortranConstructor) ;
+     fprintf(stderr, "FortranConstructor is Available [%16ld]\n", (uint64_t)&FortranConstructor) ;
      FortranConstructor() ;
    }else{
      fprintf(stderr, "FortranConstructor is NOT FOUND\n") ;
@@ -50,7 +51,7 @@ void __attribute__ ((constructor)) Constructor1(void) {
 void __attribute__ ((destructor)) Destructor1(void) {
    fprintf(stderr, "plugin destructor for plugin_1 : ");
    if( FortranDestructor ){
-     fprintf(stderr, "FortranDestructor is Available [%p]\n", (void *)&FortranDestructor) ;
+     fprintf(stderr, "FortranDestructor is Available [%16ld]\n", (uint64_t)&FortranDestructor) ;
      FortranDestructor() ;
    }else{
      fprintf(stderr, "FortranDestructor is NOT FOUND\n") ;

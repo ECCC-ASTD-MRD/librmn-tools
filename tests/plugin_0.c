@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <stdint.h>
 
 void FortranConstructor() __attribute__((weak)) ;
 void FortranDestructor() __attribute__((weak)) ;
@@ -32,7 +33,7 @@ return(arg);
 void __attribute__ ((constructor)) Constructor0(void) {
    fprintf(stderr, "plugin constructor for plugin_0 : ");
    if( FortranConstructor ){
-     fprintf(stderr, "FortranConstructor is Available [%p]\n", (void *)&FortranConstructor) ;
+     fprintf(stderr, "FortranConstructor is Available [%16ld]\n", (uint64_t)&FortranConstructor) ;
      FortranConstructor() ;
    }else{
      fprintf(stderr, "FortranConstructor is NOT FOUND\n") ;
@@ -42,7 +43,7 @@ void __attribute__ ((constructor)) Constructor0(void) {
 void __attribute__ ((destructor)) Destructor0(void) {
    fprintf(stderr, "plugin destructor for plugin_0 : ");
    if( FortranDestructor ){
-     fprintf(stderr, "FortranDestructor is Available [%p]\n", (void *)&FortranDestructor) ;
+     fprintf(stderr, "FortranDestructor is Available [%16ld]\n", (uint64_t)&FortranDestructor) ;
      FortranDestructor() ;
    }else{
      fprintf(stderr, "FortranDestructor is NOT FOUND\n") ;
