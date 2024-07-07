@@ -220,12 +220,12 @@ fprintf(stderr, "compress_store test with %d elements\n", npts) ;
     dle = CompressStore_32_avx2_le(expanded, compressed, lmasks[0]) ;
     fprintf(stderr, "mask = %8.8x, ", lmasks[0]) ;
     fprintf(stderr, "popbe = %d, pople = %d, points left = %ld\n", popbe, pople, dle - compressed) ;
-    for(i=0 ; i<32 ; i++) fprintf(stderr, "%3d ", compressed[i]) ; fprintf(stderr, "\n") ;
+    for(i=0 ; i<32 ; i++) { fprintf(stderr, "%3d ", compressed[i]) ; } ; fprintf(stderr, "\n") ;
     for(i=0 ; i<32 ; i++) { restored[i] = -1 ; }
     sle = ExpandReplace_32_avx2_le(compressed, restored, lmasks[0]) ;
     fprintf(stderr, "mask = %8.8x, ", lmasks[0]) ;
     fprintf(stderr, "popbe = %d, pople = %d, points read = %ld\n", popbe, pople, sle - compressed) ;
-    for(i=0 ; i<32 ; i++) fprintf(stderr, "%3d ", restored[i]) ; fprintf(stderr, "\n") ;
+    for(i=0 ; i<32 ; i++) { fprintf(stderr, "%3d ", restored[i]) ; } ; fprintf(stderr, "\n") ;
     for(i=0 ; i<32 ; i++) { restored[i] = -1 ; }
     sle = ExpandFill_32_avx2_le(compressed, restored, lmasks[0], 88) ;
     for(i=0 ; i<32 ; i++) fprintf(stderr, "%3d ", restored[i]) ;
