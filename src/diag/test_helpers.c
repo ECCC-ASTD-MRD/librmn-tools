@@ -30,5 +30,5 @@ void start_of_test(char *name){
   atexit(end_of_test) ;
 }
 // common Fortran manglings
-void start_of_test_(char *name){ start_of_test(name) ; };
-void start_of_test__(char *name){ start_of_test(name) ; };
+void start_of_test_(char *name){ start_of_test(name) ; }
+void start_of_test__(char *name){ start_of_test(name) ; }
