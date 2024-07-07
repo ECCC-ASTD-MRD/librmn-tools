@@ -23,6 +23,11 @@
 #include <rmn/timers.h>
 #include <rmn/bits.h>
 #include <rmn/bi_endian_pack.h>
+// word stream macros and functions
+#include <rmn/word_stream.h>
+// bit stream macros and functions
+#include <rmn/bit_stream.h>
+
 #include <rmn/print_bitstream.h>
 #include <rmn/tee_print.h>
 #include <rmn/test_helpers.h>
@@ -35,7 +40,7 @@
 // #define NPTS 9
 #endif
 
-#define NTIMES 100
+#define NTIMES 2000
 // #define NTIMES 1
 
 // pass 1 : build bit stream, read it
@@ -104,7 +109,7 @@ read_again:
         return 1 ;
       }
     }else{
-      BE64_EZ_GET_NBITS(w32, nbits) ;                 // insert value w32 (nbits wide) from bit stream
+      BE64_EZ_GET_NBITS(w32, nbits) ;                 // extract value w32 (nbits wide) from bit stream
       if(i != w32){                                   // check that it is the expected value (i)
         fprintf(stderr, "expecting %3d, got %3d, xtract = %4d, accum = %16.16lx\n", i, w32, StReAm_xtract, StReAm_acc_x) ;
         return 1 ;                                    // error
@@ -350,14 +355,16 @@ int main(int argc, char **argv){
     LeStreamInit(pple, packedle, sizeof(packedle), BIT_INSERT) ; LeStreamInsert(pple, unpacked, nbits, -NPTS) ;
     TIME_LOOP(tmin, tmax, tavg, NTIMES, NPTS, buf, bufsiz, \
     LeStreamInit(pple, packedle, sizeof(packedle), BIT_INSERT) ; LeStreamInsert(pple, unpacked, nbits, -NPTS) ) ;
-    TEE_FPRINTF(stderr,2, ", %6.2f ns/pt (le)", tavg*nano/NPTS);
+    TEE_FPRINTF(stderr,2, ", %6.2f ns/pt (le)", tmin*nano/NPTS);
+//     TEE_FPRINTF(stderr,2, ", %6.2f ns/pt (le)", tavg*nano/NPTS);
 #endif
 #if 1
 //  time big endian insertion
     BeStreamInit(ppbe, packedbe, sizeof(packedbe), BIT_INSERT) ; BeStreamInsert(ppbe, unpacked, nbits, -NPTS) ;
     TIME_LOOP(tmin, tmax, tavg, NTIMES, NPTS, buf, bufsiz, \
     BeStreamInit(ppbe, packedbe, sizeof(packedbe), BIT_INSERT) ; BeStreamInsert(ppbe, unpacked, nbits, -NPTS) ) ;
-    TEE_FPRINTF(stderr,2, ", %6.2f ns/pt (be)", tavg*nano/NPTS);
+    TEE_FPRINTF(stderr,2, ", %6.2f ns/pt (be)", tmin*nano/NPTS);
+//     TEE_FPRINTF(stderr,2, ", %6.2f ns/pt (be)", tavg*nano/NPTS);
 #endif
 #if 1
 //  time little endian unsigned extraction + error check
@@ -365,7 +372,8 @@ int main(int argc, char **argv){
     LeStreamRewind(pple, 1) ; LeStreamXtract(pple, restored, nbits, NPTS) ;
     TIME_LOOP(tmin, tmax, tavg, NTIMES, NPTS, buf, bufsiz, \
               LeStreamRewind(pple, 1) ; LeStreamXtract(pple, restored, nbits, NPTS) ) ;
-    TEE_FPRINTF(stderr,2, ", = %6.2f ns/pt (le)", tavg*nano/NPTS);
+    TEE_FPRINTF(stderr,2, ", = %6.2f ns/pt (le)", tmin*nano/NPTS);
+//     TEE_FPRINTF(stderr,2, ", = %6.2f ns/pt (le)", tavg*nano/NPTS);
     errorsle = array_compare_masked(unpacked, restored, NPTS, mask) ;  // check for errors
 #endif
 #if 1
@@ -374,7 +382,8 @@ int main(int argc, char **argv){
     BeStreamRewind(ppbe, 1) ; BeStreamXtract(ppbe, restored, nbits, NPTS) ;
     TIME_LOOP(tmin, tmax, tavg, NTIMES, NPTS, buf, bufsiz, \
               BeStreamRewind(ppbe, 1) ; BeStreamXtract(ppbe, restored, nbits, NPTS) ) ;
-    TEE_FPRINTF(stderr,2, ", %6.2f ns/pt (be)", tavg*nano/NPTS);
+    TEE_FPRINTF(stderr,2, ", %6.2f ns/pt (be)", tmin*nano/NPTS);
+//     TEE_FPRINTF(stderr,2, ", %6.2f ns/pt (be)", tavg*nano/NPTS);
     errorsbe = array_compare_masked( unpacked, restored,NPTS, mask) ;  // check for errors
 #endif
 #if 1
@@ -386,7 +395,8 @@ int main(int argc, char **argv){
     LeStreamRewind(pple, 1) ; LeStreamXtractSigned(pple, signed_restored, nbits, NPTS) ;
     TIME_LOOP(tmin, tmax, tavg, NTIMES, NPTS, buf, bufsiz, \
               LeStreamRewind(pple, 1) ; LeStreamXtractSigned(pple, signed_restored, nbits, NPTS) ) ;
-    TEE_FPRINTF(stderr,2, ", %6.2f ns/pt (les)", tavg*nano/NPTS);
+    TEE_FPRINTF(stderr,2, ", %6.2f ns/pt (les)", tmin*nano/NPTS);
+//     TEE_FPRINTF(stderr,2, ", %6.2f ns/pt (les)", tavg*nano/NPTS);
     errorsles = array_compare_masked( unpacked_signed, signed_restored,NPTS, mask) ;
 #endif
 #if 1
@@ -398,7 +408,8 @@ int main(int argc, char **argv){
     BeStreamRewind(ppbe, 1) ; BeStreamXtractSigned(ppbe, signed_restored, nbits, NPTS) ;
     TIME_LOOP(tmin, tmax, tavg, NTIMES, NPTS, buf, bufsiz, \
               BeStreamRewind(ppbe, 1) ; BeStreamXtractSigned(ppbe, signed_restored, nbits, NPTS) ) ;
-    TEE_FPRINTF(stderr,2, ", %6.2f ns/pt (bes)", tavg*nano/NPTS);
+    TEE_FPRINTF(stderr,2, ", %6.2f ns/pt (bes)", tmin*nano/NPTS);
+//     TEE_FPRINTF(stderr,2, ", %6.2f ns/pt (bes)", tavg*nano/NPTS);
     errorsbes = array_compare_masked( unpacked_signed, signed_restored,NPTS, mask) ;
 #endif
     TEE_FPRINTF(stderr,2, " (%d/%d/%d/%d errors)", errorsle, errorsbe, errorsles, errorsbes);
