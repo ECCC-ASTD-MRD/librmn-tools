@@ -83,7 +83,7 @@ int pipe_filter_register(int id, char *name, pipe_filter_pointer fn){
     fprintf(stderr, "WARNING: undefined filter '%s', id = %d\n", name, id) ;
     return 1 ;
   }
-fprintf(stderr, "filter_register(%3d) : '%32s' at %p\n", id, name, fn) ;
+fprintf(stderr, "filter_register(%3d) : '%32s' at %p\n", id, name, (void *)fn) ;
   if(id >= MAX_FILTERS || id <= 0) return -1 ;                             // bad id
   if(filter_table[id].fn != 0 && filter_table[id].fn != fn) return -1 ;    // id already in use for another function
   filter_table[id].fn = fn ;                                               // filter function address
@@ -482,7 +482,7 @@ fprintf(stderr, "ndims = %d, [%d x %d], (%d,%d) tiles of dimension [%d x %d], da
 fprintf(stderr, "data map : ") ;
 int i ;
 for(i=0 ; i<nblkj ; i++) fprintf(stderr, "%10d", rmap[i]) ;
-for(i=0 ; i<nblki*nblkj ; i++) fprintf(stderr, "%10d", tmap[i]) ; fprintf(stderr, "\n") ;
+for(i=0 ; i<nblki*nblkj ; i++) { fprintf(stderr, "%10d", tmap[i]) ; } ; fprintf(stderr, "\n") ;
 fprintf(stderr, "size left in stream = %d\n", WS32_FILLED(*stream)) ;
 
   int i0, j0, tni, tnj, nadded ;                   // start and dimension of tiles
