@@ -313,10 +313,10 @@ int32_t MaskEqualCompress_c_be(void *source, int nsource, void *value, void *mas
 
   if(nsource <= 0) return -1 ;
   for(i0=0 ; i0 < (nsource-31) ; i0 += 32){
-    mask0 = Mask0EqualValue_c_be(source, ref0, 32) ^ complement ;   // negate mask if necessary
+    mask0 = Mask0EqualValue_c_be(src, ref0, 32) ^ complement ;   // negate mask if necessary
     nmask += popcnt_32(mask0) ;                // count 1s in masks
     *msk++ = mask0 ;
-    source += 32 ;
+    src += 32 ;
   }
 
   return nmask ;
