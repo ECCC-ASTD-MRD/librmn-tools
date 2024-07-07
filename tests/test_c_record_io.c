@@ -24,7 +24,7 @@ int main(int argc, char **argv){
     fprintf(stderr, "file = '%s', fd = %d\n", argv[i], fd) ;
     while(buf != NULL){
       fprintf(stderr, "number of dimensions = %d : (", ndim) ;
-      for(j=0 ; j<ndim ; j++) fprintf(stderr, "%d ", dims[j]) ; fprintf(stderr, ") [%d]\n", ndata);
+      for(j=0 ; j<ndim ; j++) { fprintf(stderr, "%d ", dims[j]) ; } ; fprintf(stderr, ") [%d]\n", ndata);
       free(buf) ;
       fprintf(stderr, "reading next record, fd = %d\n", fd);
       buf = read_32bit_data_record("", &fd, dims, &ndim, &ndata) ;
