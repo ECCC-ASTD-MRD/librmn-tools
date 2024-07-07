@@ -44,9 +44,10 @@ int main(int argc, char **argv){
   for(i=0 ; i<NDATA ; i++) data_in[i] = i - NDATA/2 ;
 
   fprintf(stderr, "============================ create/insert/save state/extract ============================\n");
+  stream0 = null_wordstream ;
   buf00 = ws32_create(&stream0, NULL, NDATA/2, 0, 0) ;        // internally malloc(ed) buffer, last 2 arguments are irrelevant
   size0 = WS32_SIZE(stream0) ;
-  fprintf(stderr, "stream0 buffer at %16p[%6d], mem = %16p\n", buf00, size0, NULL) ;
+  fprintf(stderr, "stream0 buffer at %16p[%6d], mem = %16p\n", (void *)buf00, size0, NULL) ;
   if(buf00 == NULL || size0 != NDATA/2) goto fail ;
   status0 = ws32_insert(&stream0, data_in, CHUNK0) ;
   fprintf(stderr, "stream0 insertion of  %5d words, status = %5d, out/in = %5d/%5d\n", 
@@ -63,9 +64,10 @@ int main(int argc, char **argv){
   fprintf(stderr, "\n") ;
 
   local_buf = (uint32_t *) malloc(sizeof(uint32_t) * lbuf0) ;
+  stream1 = null_wordstream ;
   buf10 = ws32_create(&stream1, local_buf, lbuf0, 0, WS32_CAN_REALLOC) ;   // realloc(atable) local buffer
   size1 = WS32_SIZE(stream1) ;
-  fprintf(stderr, "stream1 buffer at %16p[%6d], mem = %16p\n", buf10, size1, local_buf) ;
+  fprintf(stderr, "stream1 buffer at %16p[%6d], mem = %16p\n", (void *)buf10, size1, (void *)local_buf) ;
   status1 = ws32_insert(&stream1, data_in, CHUNK1) ;
   fprintf(stderr, "stream1 insertion of  %5d words, status = %5d, out/in = %5d/%5d\n", 
           CHUNK1, status1, WS32_OUT(stream1), WS32_IN(stream1)) ;
@@ -80,9 +82,10 @@ int main(int argc, char **argv){
   fprintf(stderr, "\n") ;
 
   buf2 = (uint32_t *) malloc(sizeof(uint32_t) * lbuf2) ;
+  stream2 = null_wordstream ;
   buf20 = ws32_create(&stream2, buf2, lbuf2, 0, 0) ;   // non realloc(atable) local buffer
   size2 = WS32_SIZE(stream2) ;
-  fprintf(stderr, "stream2 buffer at %16p[%6d], mem = %16p\n", buf20, size2, buf2) ;
+  fprintf(stderr, "stream2 buffer at %16p[%6d], mem = %16p\n", (void *)buf20, size2, (void *)buf2) ;
   status2 = ws32_insert(&stream2, data_in, CHUNK2) ;
   fprintf(stderr, "stream2 insertion of  %5d words, status = %5d, out/in = %5d/%5d\n", 
           CHUNK2, status2, WS32_OUT(stream2), WS32_IN(stream2)) ;
@@ -101,7 +104,7 @@ int main(int argc, char **argv){
   if(status0) goto fail ;
   buf01 = WS32_BUFFER(stream0) ;
   size0 = WS32_SIZE(stream0) ;
-  fprintf(stderr, "stream0 new buffer at %16p[%6d], old was at %16p, %s\n", buf01, size0, buf00, status0 ? "FAIL" : "SUCCESS") ;
+  fprintf(stderr, "stream0 new buffer at %16p[%6d], old was at %16p, %s\n", (void *)buf01, size0, (void *)buf00, status0 ? "FAIL" : "SUCCESS") ;
   status0 = WStreamRestoreState(&stream0, &state0, WS32_R) ;
   if(status0) goto fail ;
   fprintf(stderr, "stream0 state restore status = %2d, in/out = %5d/%5d\n", status0, WS32_STATE_IN(stream0), WS32_STATE_OUT(stream0)) ;
@@ -117,7 +120,7 @@ int main(int argc, char **argv){
   if(status1) goto fail ;
   buf11 = WS32_BUFFER(stream1) ;
   size1 = WS32_SIZE(stream1) ;
-  fprintf(stderr, "stream1 new buffer at %16p[%6d], old was at %16p, %s\n", buf11, size1, buf10, status1 ? "FAIL" : "SUCCESS") ;
+  fprintf(stderr, "stream1 new buffer at %16p[%6d], old was at %16p, %s\n", (void *)buf11, size1, (void *)buf10, status1 ? "FAIL" : "SUCCESS") ;
   WS32_REREAD(stream1) ;
   fprintf(stderr, "stream1 reread, in/out = %5d/%5d\n", WS32_IN(stream1), WS32_OUT(stream1)) ;
   for(i=0 ; i<NDATA ; i++) data_out[i] = 999999 ;
@@ -132,7 +135,7 @@ int main(int argc, char **argv){
   if(status2 == 0) goto fail ;
   buf21 = WS32_BUFFER(stream2) ;
   size2 = WS32_SIZE(stream2) ;
-  fprintf(stderr, "stream2 new buffer at %16p[%6d], old was at %16p, %s\n", buf21, size2, buf20, buf20 == buf21 ? "SUCCESS" : "FAIL") ;
+  fprintf(stderr, "stream2 new buffer at %16p[%6d], old was at %16p, %s\n", (void *)buf21, size2, (void *)buf20, buf20 == buf21 ? "SUCCESS" : "FAIL") ;
   if(buf21 != buf20 || size2 != lbuf2) goto fail ;
   for(i=0 ; i<NDATA ; i++) data_out[i] = 999999 ;
   status2 = ws32_xtract(&stream2, data_out, CHUNK2) ;    // this MUST fail, stream was not "rewound"
