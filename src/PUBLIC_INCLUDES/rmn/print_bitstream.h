@@ -22,6 +22,8 @@
 #include <stdint.h>
 #include <rmn/tee_print.h>
 #include <rmn/bi_endian_pack.h>
+// bit stream macros and functions
+#include <rmn/bit_stream.h>
 
 // helper functions to help diagnose bitstream management functions
 
