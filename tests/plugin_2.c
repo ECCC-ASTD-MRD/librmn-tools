@@ -32,7 +32,7 @@ return(arg);
 void __attribute__ ((constructor)) Constructor2(void) {
    fprintf(stderr, "plugin constructor for plugin_2 : ");
    if( FortranConstructor ){
-     fprintf(stderr, "FortranConstructor is Available [%p]\n", &FortranConstructor) ;
+     fprintf(stderr, "FortranConstructor is Available [%p]\n", (void *)&FortranConstructor) ;
      FortranConstructor() ;
    }else{
      fprintf(stderr, "FortranConstructor is NOT FOUND\n") ;
@@ -42,7 +42,7 @@ void __attribute__ ((constructor)) Constructor2(void) {
 void __attribute__ ((destructor)) Destructor2(void) {
    fprintf(stderr, "plugin destructor for plugin_2 : ");
    if( FortranDestructor ){
-     fprintf(stderr, "FortranDestructor is Available [%p]\n", &FortranDestructor) ;
+     fprintf(stderr, "FortranDestructor is Available [%p]\n", (void *)&FortranDestructor) ;
      FortranDestructor() ;
    }else{
      fprintf(stderr, "FortranDestructor is NOT FOUND\n") ;

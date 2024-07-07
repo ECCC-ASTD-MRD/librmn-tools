@@ -31,7 +31,7 @@ arg += 200 ;
 return(arg);
 }
 
-void *AddressList_[4] = {_name_1_1, _name_1_2, _name_1_3, NULL} ;
+void *AddressList_[4] = {(void *)_name_1_1, (void *)_name_1_2, (void *)_name_1_3, NULL} ;
 
 int get_symbol_number(){  // like fortran, function to get number of symbols, optional
   return(3);
@@ -40,7 +40,7 @@ int get_symbol_number(){  // like fortran, function to get number of symbols, op
 void __attribute__ ((constructor)) Constructor1(void) {
    fprintf(stderr, "plugin constructor for plugin_1 : ");
    if( FortranConstructor ){
-     fprintf(stderr, "FortranConstructor is Available [%p]\n", &FortranConstructor) ;
+     fprintf(stderr, "FortranConstructor is Available [%p]\n", (void *)&FortranConstructor) ;
      FortranConstructor() ;
    }else{
      fprintf(stderr, "FortranConstructor is NOT FOUND\n") ;
@@ -50,7 +50,7 @@ void __attribute__ ((constructor)) Constructor1(void) {
 void __attribute__ ((destructor)) Destructor1(void) {
    fprintf(stderr, "plugin destructor for plugin_1 : ");
    if( FortranDestructor ){
-     fprintf(stderr, "FortranDestructor is Available [%p]\n", &FortranDestructor) ;
+     fprintf(stderr, "FortranDestructor is Available [%p]\n", (void *)&FortranDestructor) ;
      FortranDestructor() ;
    }else{
      fprintf(stderr, "FortranDestructor is NOT FOUND\n") ;

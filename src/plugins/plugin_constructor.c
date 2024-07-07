@@ -21,7 +21,7 @@ int fortran_destructor(void) __attribute__((weak)) ;
 
 void __attribute__ ((constructor)) FortranConstructor(void) {
    if( fortran_constructor ){
-     printf("fortran_constructor found at [%p]\n", &fortran_constructor) ;
+     printf("fortran_constructor found at [%p]\n", (void *)&fortran_constructor) ;
      fortran_constructor() ;   // call user supplied Fortran constructor
    }else{
      printf("INFO: fortran_constructor NOT FOUND\n") ;
@@ -30,7 +30,7 @@ void __attribute__ ((constructor)) FortranConstructor(void) {
 
 void __attribute__ ((destructor)) FortranDestructor(void) {
    if( fortran_destructor ){
-     printf("fortran_destructor found at [%p]\n", &fortran_destructor) ;
+     printf("fortran_destructor found at [%p]\n", (void *)&fortran_destructor) ;
      fortran_destructor() ;   // call user supplied Fortran destructor
    }else{
      printf("INFO:fortran_destructor NOT FOUND\n") ;

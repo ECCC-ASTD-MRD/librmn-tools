@@ -368,7 +368,7 @@ void *Load_plugin(const char *lib)  //InTc
 
   for(i=0 ; i<nsym ; i++){                                // fill address table if advertised symbol list is present
     p->addr[i] =  (fnptr) dlsym(p->handle,p->symbol[i]);
-    if(verbose) fprintf(stderr,"INFO:   %p %s\n",p->addr[i],p->symbol[i]);
+    if(verbose) fprintf(stderr,"INFO:   %p %s\n",(void *)p->addr[i],p->symbol[i]);
   }
   return(p);  // pointer to "plugin" structure
 }
