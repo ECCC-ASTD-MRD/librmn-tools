@@ -21,9 +21,7 @@ program test_plugin   ! test of fortran plugin module
   type(plugin) :: sharedf1, sharedf2, sharedf3, shared2, anonymous
   logical :: status
   type(C_FUNPTR) :: fptr1, fptr2                  ! C pointer to function
-  type(C_PTR) :: entry_ptr
-  integer :: nsym, ilen, i, answer
-  character(C_CHAR), dimension(:), pointer :: symbol_name
+  integer :: nsym, i, answer
   character(len=128) :: longstr
   integer(C_INT64_T) :: ifptr
   character(len=128) :: version_librmn
@@ -37,15 +35,17 @@ program test_plugin   ! test of fortran plugin module
 
   procedure(procval) , pointer :: fpl2 => NULL()  ! pointer to integer function with one value integer argument
   abstract interface                              ! abstract interface needed for pointer to function
-    integer function procval(arg) BIND(C)         ! with argument passed by value (BIND(C) is MANDATORY)
-      integer, intent(IN), value :: arg           ! errors have been seen at run time
+    integer(C_INT) function procval(arg) BIND(C)  ! with argument passed by value (BIND(C) is MANDATORY)
+      import :: C_INT
+      integer(C_INT), intent(IN), value :: arg    ! errors have been seen at run time
     end function procval                          ! with some compilers if BIND(C) is missing
   end interface
 
   procedure(procadr) , pointer :: fpl1 => NULL()  ! pointer to generic integer function with one integer argument
   abstract interface                              ! abstract interface needed for pointer to function
-    integer function procadr(arg) BIND(C)         ! with argument passed by address (BIND(C) is a good idea)
-      integer, intent(IN) :: arg                  ! absence of BIND(C) seems not to induce runtime errors
+    integer(C_INT) function procadr(arg) BIND(C)  ! with argument passed by address (BIND(C) is a good idea)
+      import :: C_INT
+      integer(C_INT), intent(IN) :: arg           ! absence of BIND(C) seems not to induce runtime errors
     end function procadr
   end interface
 
