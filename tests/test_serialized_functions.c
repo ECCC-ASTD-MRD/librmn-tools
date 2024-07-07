@@ -15,7 +15,7 @@ float *demo_fn2(int8_t i8, int8_t *i8p, float  f, float *fp, double d, double *d
 // the useful function
 float *demo_fn(int8_t i8, float  f, double d, int8_t *i8p, float *fp, double *dp){
   void *r = fp ;
-  fprintf(stderr,"\ni8 = %d, f = %f, d = %f, i8p = %p, fp = %p, dp = %p\n", i8, f, d, i8p, fp, dp) ;
+  fprintf(stderr,"\ni8 = %d, f = %f, d = %f, i8p = %p, fp = %p, dp = %p\n", i8, f, d, (void *)i8p, (void *)fp, (void *)dp) ;
   if(*i8p != i8) { fprintf(stderr,"ERROR: *i8p (%p -> %d) != i8 (%d)\n", i8p, *i8p, i8) ; r = NULL ; } 
   else { fprintf(stderr,"SUCCESS: *i8p == i8\n") ; }
   if(*fp  != f ) { fprintf(stderr,"ERROR: *fp != f\n")   ; r = NULL ; } else { fprintf(stderr,"SUCCESS: *fp == f\n") ; }
@@ -26,7 +26,7 @@ float *demo_fn(int8_t i8, float  f, double d, int8_t *i8p, float *fp, double *dp
 // another function
 float *demo_fn2(int8_t i8, int8_t *i8p, float  f, float *fp, double d, double *dp){
   void *r = fp ;
-  fprintf(stderr,"\ni8 = %d, f = %f, d = %f, i8p = %p, fp = %p, dp = %p\n", i8, f, d, i8p, fp, dp) ;
+  fprintf(stderr,"\ni8 = %d, f = %f, d = %f, i8p = %p, fp = %p, dp = %p\n", i8, f, d, (void *)i8p, (void *)fp, (void *)dp) ;
   if(*i8p != i8) { fprintf(stderr,"ERROR: *i8p (%d) != i8 (%d)\n", *i8p, i8) ; r = NULL ; } 
   else { fprintf(stderr,"SUCCESS: *i8p == i8\n") ; }
   if(*fp  != f ) { fprintf(stderr,"ERROR: *fp != f\n")   ; r = NULL ; } 
