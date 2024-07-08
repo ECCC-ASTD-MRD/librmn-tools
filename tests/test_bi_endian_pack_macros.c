@@ -22,6 +22,7 @@ int w32_compare(void *wold, void *wnew, int n){
 }
 
 int main(int argc, char **argv){
+  int (*fn)() = &w32_compare ;
   int npts = 4096 ;
   wstream be_u, le_u ;
   wstream be_s, le_s ;
@@ -38,5 +39,7 @@ int main(int argc, char **argv){
   restored_s = (int32_t  *) malloc(npts * sizeof(int32_t) ) ;
 
   fprintf(stderr, "test bi_endian pack macros\n") ;
+  fprintf(stderr, "address of function = %16.16lx\n", (uint64_t) fn) ;
+  fprintf(stderr, "address of function = %16.16lx\n", (uint64_t) &w32_compare) ;
   return 0;
 }

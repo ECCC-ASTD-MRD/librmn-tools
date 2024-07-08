@@ -180,3 +180,6 @@ add_project_test(test_copy_swap test_copy_swap.c  LINK_LIBS "rmn::rmn" NODIAG)
 
 add_project_test(test_data_map test_data_map.c LINK_LIBS "rmn::rmn-shared" NODIAG)
 add_project_test(test_readlx test_readlx.F90 LINK_LIBS "rmn::rmn-shared" NODIAG)
+
+add_project_test(test_syntax test_syntax.c LINK_LIBS "rmn::rmn-shared" NODIAG)
+
