@@ -3,30 +3,7 @@
 #include <dlfcn.h>
 #include <errno.h>
 #include <rmn/test_helpers.h>
-#include <rmn/ct_assert.h>
-
-typedef int (*proc_ptr)();             // pointer to function
-typedef void *data_ptr ;
-// data and function pointers MUST have the same size for this to work
-CT_ASSERT(sizeof(data_ptr) == sizeof(proc_ptr), "pointer sizes mismatch")
-
-static proc_ptr data2proc_ptr(data_ptr da_p){
-  union{
-    proc_ptr fn_p ;
-    data_ptr da_p ;
-  } pp ;
-  pp.da_p = da_p ;
-  return pp.fn_p ;
-}
-
-static data_ptr proc2data_ptr(proc_ptr fn_p){
-  union{
-    proc_ptr fn_p ;
-    data_ptr da_p ;
-  } pp ;
-  pp.fn_p = fn_p ;
-  return pp.da_p ;
-}
+#include <rmn/function_pointers.h>
 
 int main(int argc, char **argv){
   void *plugin0, *plugin1, *plugin2 ;

@@ -271,6 +271,7 @@ set(PROJECT_H_FILES
   src/PUBLIC_INCLUDES/rmntools.h
   src/PUBLIC_INCLUDES/rmn/atomic_functions.h
   src/PUBLIC_INCLUDES/rmn/ct_assert.h
+  src/PUBLIC_INCLUDES/rmn/function_pointers.h
   src/PUBLIC_INCLUDES/rmn/lorenzo.h
   src/PUBLIC_INCLUDES/rmn/smooth124.h
   src/PUBLIC_INCLUDES/rmn/rmn_tools.h
