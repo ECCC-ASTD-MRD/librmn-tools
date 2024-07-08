@@ -144,7 +144,7 @@ typedef struct{
 
 #if defined(__BMI2__)
 // interleave a pair of unsigned integers into 64 bits
-uint64_t interleave_32_64_bmi2(uint32_t in1, uint32_t in2)  {
+static inline uint64_t interleave_32_64_bmi2(uint32_t in1, uint32_t in2)  {
     return _pdep_u64(in1, 0x5555555555555555) | _pdep_u64(in2,0xaaaaaaaaaaaaaaaa);
 }
 static inline uint32_t interleave_16_32_bmi2(uint32_t in1, uint32_t in2)  {
@@ -175,7 +175,7 @@ static inline uint32_t interleave_16_32(uint32_t in1, uint32_t in2)  {
 
 #if defined(__BMI2__)
 // deinterleave 64 bits into a pair of unsigned integers 
-words2 deinterleave_64_32_bmi2(uint64_t w64)  {
+static inline words2 deinterleave_64_32_bmi2(uint64_t w64)  {
   words2 t;
   t.l = _pext_u64(w64, 0x5555555555555555);
   t.h = _pext_u64(w64, 0xaaaaaaaaaaaaaaaa);
@@ -218,7 +218,7 @@ static inline words2 deinterleave_32_16(uint32_t word){
 
 // ================================ utility functions ===============================
 // convert a binary number into a printable string of 0s and 1s
-static void BinaryToString(void *w32, char *string, int ndigits){
+static inline void BinaryToString(void *w32, char *string, int ndigits){
   int i ;
   uint32_t *what = (uint32_t *) w32 ;
   uint32_t number = *what ;
@@ -353,14 +353,14 @@ static inline uint32_t ByteRunLengthDecode(void *bytes, uint32_t nbytes, void *s
 
 // ================================ vector mask from integer family ===============================
 // 128 bit vector mask from Big Endian style nibble
-static __m128i _mm_mask_be_si128(uint32_t nibble){
+static inline __m128i _mm_mask_be_si128(uint32_t nibble){
   __m128i v0 = _mm_loadu_si32( &mask4_be[nibble & 0xF] ) ;   // Big endian nibble to mask
   v0 = _mm_cvtepi8_epi32(v0) ;                               // 4 x 8 bits to 4 x 32 bits with sign extension
   return v0 ;
 }
 
 // 128 bit vector mask from Little Endian style nibble
-static __m128i _mm_mask_le_si128(uint32_t nibble){
+static inline __m128i _mm_mask_le_si128(uint32_t nibble){
   __m128i v0 = _mm_loadu_si32( &mask4_le[nibble & 0xF] ) ;   // Little endian nibble to mask
   v0 = _mm_cvtepi8_epi32(v0) ;                               // 4 x 8 bits to 4 x 32 bits with sign extension
   return v0 ;
@@ -379,7 +379,7 @@ static inline uint32_t BitReverse_32(uint32_t w32){
 
 // in place bit reversal for 4 x 32 bit word (128 bit AVX512 version)
 #if defined(__x86_64__) && defined(__AVX512F__) && defined(__GFNI__)
-static void BitReverse_128_avx512(void *w32){
+static inline void BitReverse_128_avx512(void *w32){
   __m128i v0 = _mm_loadu_si128((__m128i *) w32) ;
   __m128i vs = _mm_loadu_si128((__m128i *) byte_swap_32) ;
   v0 = _mm_shuffle_epi8(v0, vs) ;              // step 1 : Perform byte swap within 32 bit word
@@ -657,7 +657,7 @@ static inline void *ExpandReplace_32_avx2_le(void *src, void *dst, uint32_t mask
 }
 #endif
 
-static void *ExpandReplace_32_c_be(void *src, void *dst, uint32_t mask){
+static inline void *ExpandReplace_32_c_be(void *src, void *dst, uint32_t mask){
   uint32_t *s = (uint32_t *) src ;
   uint32_t *d = (uint32_t *) dst ;
   int i ;
@@ -672,7 +672,7 @@ static void *ExpandReplace_32_c_be(void *src, void *dst, uint32_t mask){
   return s ;
 }
 
-static void *ExpandReplace_32_c_le(void *src, void *dst, uint32_t mask){
+static inline void *ExpandReplace_32_c_le(void *src, void *dst, uint32_t mask){
   uint32_t *s = (uint32_t *) src ;
   uint32_t *d = (uint32_t *) dst ;
   int i ;
@@ -687,7 +687,7 @@ static void *ExpandReplace_32_c_le(void *src, void *dst, uint32_t mask){
   return s ;
 }
 
-static void *ExpandReplace_0_31_c_be(void *src, void *dst, uint32_t mask, int n){
+static inline void *ExpandReplace_0_31_c_be(void *src, void *dst, uint32_t mask, int n){
   uint32_t *s = (uint32_t *) src ;
   uint32_t *d = (uint32_t *) dst ;
   while(n--){
@@ -696,7 +696,7 @@ static void *ExpandReplace_0_31_c_be(void *src, void *dst, uint32_t mask, int n)
   return s ;
 }
 
-static void *ExpandReplace_0_31_c_le(void *src, void *dst, uint32_t mask, int n){
+static inline void *ExpandReplace_0_31_c_le(void *src, void *dst, uint32_t mask, int n){
   uint32_t *s = (uint32_t *) src ;
   uint32_t *d = (uint32_t *) dst ;
   while(n--){
@@ -928,7 +928,7 @@ static inline void *CompressStore_32_avx2_le(void *src, void *dst, uint32_t le_m
 #if defined(__x86_64__) && defined(__AVX512F__)
 // store-compress 32 items according to mask (AVX512 code)
 // mask is little endian style, src[0] is controlled by the mask LSB
-static void *CompressStore_32_avx512_le(void *src, void *dst, uint32_t le_mask){
+static inline void *CompressStore_32_avx512_le(void *src, void *dst, uint32_t le_mask){
   uint32_t *w32 = (uint32_t *) src ;
   uint32_t *dest = (uint32_t *) dst ;
   __m512i vd0 = _mm512_loadu_epi32(w32) ;
@@ -1012,7 +1012,7 @@ static inline void *CompressStore_0_31_c_be(void *src, void *dst, uint32_t be_ma
 // NULL in case of error nw32 > 31 or nw32 < 0
 // the mask is interpreted Little Endian style, src[0] is controlled by the mask LSB
 // this version processes 0 - 31 elements from "src"
-static void *CompressStore_0_31_c_le(void *src, void *dst, uint32_t le_mask, int nw32){
+static inline void *CompressStore_0_31_c_le(void *src, void *dst, uint32_t le_mask, int nw32){
   uint32_t *w32 = (uint32_t *) src ;
   uint32_t *dest = (uint32_t *) dst ;
 //   int i ;

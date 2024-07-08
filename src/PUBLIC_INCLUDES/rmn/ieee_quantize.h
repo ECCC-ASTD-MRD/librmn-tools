@@ -162,7 +162,7 @@ static q_desc q_desc_0 = {.u = 0 } ;
 // src    [IN] : 32 bit IEEE float (passed as a signed integer)
 // RefExp [IN} : reference exponent (includes +127 bias)
 // return signed "normalized" value
-static int32_t normalize_mantissa(int32_t src, int32_t RefExp)
+static inline int32_t normalize_mantissa(int32_t src, int32_t RefExp)
 {
   int32_t Mantis = (1 << 23) | ( 0x7FFFFF & src );   // extract IEEE mantissa, restore hidden 1
   int32_t Exp    = (src >> 23) & 0xFF;               // extract IEEE float 32 exponent (includes +127 bias)
@@ -175,7 +175,7 @@ static int32_t normalize_mantissa(int32_t src, int32_t RefExp)
   return Mantis ;                                    // "normalized" mantissa
 }
 
-static void printf_quant_out(FILE *file, q_encode d){
+static inline void printf_quant_out(FILE *file, q_encode d){
   if(d.state != QUANTIZED) { fprintf(file, "ERROR: invalid state, expected %d, got %d\n", QUANTIZED, d.state) ; return ; }
   int pos_neg = (d.allp == 0) && (d.allm == 0) ;
   int ebits = d.nbits-d.mbits-pos_neg ;
@@ -189,7 +189,7 @@ typedef q_encode (*quantizer_fnptr)(void * restrict f, int ni, q_rules rules, vo
 
 // https://gcc.gnu.org/onlinedocs/gcc/Compound-Literals.html
 static quantizer_function linear_quantizer_init ;
-static q_encode linear_quantizer_init(void * restrict f, int ni, q_rules rules, void * restrict q, limits_w32 *limits, special_value *s){
+static inline q_encode linear_quantizer_init(void * restrict f, int ni, q_rules rules, void * restrict q, limits_w32 *limits, special_value *s){
   q_desc qr ;
 // syntax checks, commented out to eliminate warnings
 //   qr.u = q_desc_0.u ;
@@ -199,7 +199,7 @@ static q_encode linear_quantizer_init(void * restrict f, int ni, q_rules rules, 
   qr = q_desc_0 ;
   return qr.q ;
 }
-static q_encode linear_q_init(void * restrict f, int ni, q_rules rules, void * restrict q, limits_w32 *limits, special_value *s){
+static inline q_encode linear_q_init(void * restrict f, int ni, q_rules rules, void * restrict q, limits_w32 *limits, special_value *s){
   return linear_quantizer_init(f, ni, rules, q, NULL, NULL) ;
 }
 
@@ -207,7 +207,7 @@ typedef q_decode restore_function(void * restrict f, int ni, q_encode desc, void
 typedef q_decode (*restore_fnptr)(void * restrict f, int ni, q_encode desc, void * restrict q) ;
 
 restore_function linear_restore ;
-static q_decode linear_rfunction(void * restrict f, int ni, q_encode rule, void * restrict q){
+static inline q_decode linear_rfunction(void * restrict f, int ni, q_encode rule, void * restrict q){
   return linear_restore(f, ni, rule, q) ;
 }
 

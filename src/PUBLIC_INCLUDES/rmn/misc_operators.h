@@ -125,10 +125,10 @@ static inline float int1_to_float(uint32_t i){
 #define IDIV2R_256(v) _mm256_srai_epi32(_mm256_add_epi32(_mm256_sub_epi32(v, _mm256_cmpeq_epi32(v, v)), _mm256_srai_epi32(v, 31)), 1)
 #define IDIV2R_128(v) _mm_srai_epi32(_mm_add_epi32(_mm_sub_epi32(v, _mm_cmpeq_epi32(v, v)), _mm_srai_epi32(v, 31)), 1)
 
-static __m256i _mm256_idiv2r_epi32(__m256i v){
+static inline __m256i _mm256_idiv2r_epi32(__m256i v){
   return IDIV2R_256(v) ;
 }
-static __m128i _mm_idiv2r_epi32(__m128i v){
+static inline __m128i _mm_idiv2r_epi32(__m128i v){
   return IDIV2R_128(v) ;
 }
 #endif
@@ -143,7 +143,7 @@ static __m128i _mm_idiv2r_epi32(__m128i v){
 static inline __m256i _mm256_idiv4r_epi32(__m256i v){
   return IDIV4R_256(v) ;
 }
-static __m128i _mm_idiv4r_epi32(__m128i v){
+static inline __m128i _mm_idiv4r_epi32(__m128i v){
   return IDIV4R_128(v) ;
 }
 #endif
@@ -155,10 +155,10 @@ static __m128i _mm_idiv4r_epi32(__m128i v){
 #define IDIV8R_256(v) _mm256_srai_epi32(_mm256_sub_epi32(_mm256_add_epi32(v, _mm256_srai_epi32(v, 31)), _mm256_slli_epi32(_mm256_cmpeq_epi32(v, v), 2)), 3)
 #define IDIV8R_128(v) _mm_srai_epi32(_mm_sub_epi32(_mm_add_epi32(v, _mm_srai_epi32(v, 31)), _mm_slli_epi32(_mm_cmpeq_epi32(v, v), 2)), 3)
 
-static __m256i _mm256_idiv8r_epi32(__m256i v){
+static inline __m256i _mm256_idiv8r_epi32(__m256i v){
   return IDIV8R_256(v) ;
 }
-static __m128i _mm_idiv8r_epi32(__m128i v){
+static inline __m128i _mm_idiv8r_epi32(__m128i v){
   return IDIV8R_128(v) ;
 }
 #endif
@@ -170,10 +170,10 @@ static __m128i _mm_idiv8r_epi32(__m128i v){
 #define IDIV2T_256(v) _mm256_srai_epi32(_mm256_add_epi32(v, _mm256_srli_epi32(v, 31)), 1)
 #define IDIV2T_128(v) _mm_srai_epi32(_mm_add_epi32(v, _mm_srli_epi32(v, 31)), 1)
 
-static __m256i _mm256_idiv2t_epi32(__m256i v){
+static inline __m256i _mm256_idiv2t_epi32(__m256i v){
   return IDIV2T_256(v) ;
 }
-static __m128i _mm_idiv2t_epi32(__m128i v){
+static inline __m128i _mm_idiv2t_epi32(__m128i v){
   return IDIV2T_128(v) ;
 }
 #endif
@@ -185,10 +185,10 @@ static __m128i _mm_idiv2t_epi32(__m128i v){
 #define IDIV4T_256(v) _mm256_srai_epi32(_mm256_add_epi32(v, _mm256_srli_epi32(_mm256_srai_epi32(v, 1), 30)), 2)
 #define IDIV4T_128(v) _mm_srai_epi32(_mm_add_epi32(v, _mm_srli_epi32(_mm_srai_epi32(v, 1), 30)), 2)
 
-static __m256i _mm256_idiv4t_epi32(__m256i v){
+static inline __m256i _mm256_idiv4t_epi32(__m256i v){
   return IDIV4T_256(v) ;
 }
-static __m128i _mm_idiv4t_epi32(__m128i v){
+static inline __m128i _mm_idiv4t_epi32(__m128i v){
   return IDIV4T_128(v) ;
 }
 #endif
@@ -200,10 +200,10 @@ static __m128i _mm_idiv4t_epi32(__m128i v){
 #define IDIV8T_256(v) _mm256_srai_epi32(_mm256_add_epi32(v, _mm256_srli_epi32(_mm256_srai_epi32(v, 1), 29)), 3)
 #define IDIV8T_128(v) _mm_srai_epi32(_mm_add_epi32(v, _mm_srli_epi32(_mm_srai_epi32(v, 1), 29)), 3)
 
-static __m256i _mm256_idiv8t_epi32(__m256i v){
+static inline __m256i _mm256_idiv8t_epi32(__m256i v){
   return IDIV8T_256(v) ;
 }
-static __m128i _mm_idiv8t_epi32(__m128i v){
+static inline __m128i _mm_idiv8t_epi32(__m128i v){
   return IDIV8T_128(v) ;
 }
 #endif

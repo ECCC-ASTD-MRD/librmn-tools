@@ -76,14 +76,14 @@ static array_descriptor array_descriptor_null = {.data = NULL, .version = 0 } ;
 // static array_descriptor array_descriptor_base = {.data = NULL, .version = PROP_VERSION, .nx = {[0 ... MAX_ARRAY_DIMENSIONS-1] = 1 } } ;
 static array_descriptor array_descriptor_base = {.data = NULL, .version = PROP_VERSION } ;
 
-static int array_data_values(array_descriptor *ap){
+static inline int array_data_values(array_descriptor *ap){
   int nval = 1, i, ndims = ap->ndims ;
   if(ndims < 0 || ndims > MAX_ARRAY_DIMENSIONS) return -1 ;
   for(i=0 ; i<ndims ; i++) nval *= ap->nx[i] ;
   return nval ;
 }
 
-static int array_data_size(array_descriptor *ap){
+static inline int array_data_size(array_descriptor *ap){
   return array_data_values(ap) * ap->esize ;
 }
 
@@ -113,28 +113,28 @@ typedef struct{
 } pipe_buffer ;
 static pipe_buffer pipe_buffer_null = { .used = 0, .max_size = 0, .buffer = NULL, .flags.u32 = 0 } ;
 
-static size_t pipe_buffer_bytes_used(pipe_buffer *p){
+static inline size_t pipe_buffer_bytes_used(pipe_buffer *p){
   return p->used ;
 }
 
-static size_t pipe_buffer_bytes_free(pipe_buffer *p){
+static inline size_t pipe_buffer_bytes_free(pipe_buffer *p){
   return (p->max_size - p->used) ;
 }
 
-static size_t pipe_buffer_words_used(pipe_buffer *p){
+static inline size_t pipe_buffer_words_used(pipe_buffer *p){
   return p->used / sizeof(uint32_t) ;
 }
-static size_t pipe_buffer_words_free(pipe_buffer *p){
+static inline size_t pipe_buffer_words_free(pipe_buffer *p){
   return (p->max_size - p->used) / sizeof(uint32_t) ;
 }
 
-static void *pipe_buffer_data(pipe_buffer *p){
+static inline void *pipe_buffer_data(pipe_buffer *p){
   return p->buffer ;
 }
 
 // translate array dimensions into number of values
 // ap  [IN] : pointer to array dimensions struct
-static int filter_data_values(const array_descriptor *ap){
+static inline int filter_data_values(const array_descriptor *ap){
   int nval = 0 ;
   int i ;
   int ndims = ap->ndims ;
@@ -149,7 +149,7 @@ end:
 
 // translate array dimensions into number of bytes
 // ap  [IN] : pointer to array dimensions struct
-static int filter_data_bytes(const array_descriptor *ap){
+static inline int filter_data_bytes(const array_descriptor *ap){
   return filter_data_values(ap) * ap->esize ;
 }
 

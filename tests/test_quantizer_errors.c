@@ -619,11 +619,11 @@ for(i=0 ; i<NPTS_TIMING ; i++) ft[i] = i * 7.97f / NPTS_TIMING + 3123.0f ;
 error:
   return 1 ;
 }
-
+#if 0
 static int index_ij(int i, int j, int ni, q_rules r){
   return (i + j * ni) ;
 }
-
+#endif
 static int32_t decode_block(void *decoded, int ni, int nj, bitstream *encoded){
   int nbits_tot = 0 ;
   nbits_tot = decode_as_tiles(decoded, ni, ni, nj, encoded) ;

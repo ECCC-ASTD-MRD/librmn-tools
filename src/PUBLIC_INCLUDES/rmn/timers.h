@@ -35,7 +35,7 @@ static double NaNoSeC = 0.0 ;
 STATIC inline uint64_t cycles_counter_freq(void) ;
 #define TIME_CONVERT_INIT if(NaNoSeC == 0) NaNoSeC = 1.0E+9f / cycles_counter_freq() ;
 
-STATIC double inline cycles_to_ns(uint64_t t){
+STATIC inline double inline cycles_to_ns(uint64_t t){
   TIME_CONVERT_INIT ;
   return t * NaNoSeC ;
 }
@@ -189,7 +189,7 @@ static inline uint64_t elapsed_cycles_fenced(void) {
 // default version
 // elapsed_cycles_fast is used by get_cycles_overhead
 static uint64_t cycles_overhead = 0 ;
-STATIC uint64_t elapsed_cycles_raw(void) {
+STATIC inline uint64_t elapsed_cycles_raw(void) {
 #if defined(__x86_64__)
   uint64_t lo, hi ;
   __asm__ volatile ("lfence");

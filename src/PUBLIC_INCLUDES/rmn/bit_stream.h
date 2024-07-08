@@ -80,7 +80,7 @@ static bitstream null_bitstream = { .acc_i = 0, .acc_x = 0 , .insert = 0 , .xtra
 // =========================== utility functions and macros ======================
 // is stream valid ?
 // s [IN] : pointer to a bit stream struct
-static int StreamIsValid(bitstream *s){
+static inline int StreamIsValid(bitstream *s){
   if(s->valid != 0xCAFEFADEu)                  return 0 ;    // incorrect marker
   if(s->first == NULL)                         return 0 ;    // no buffer
   if(s->limit == NULL)                         return 0 ;    // invalid limit
@@ -93,7 +93,7 @@ static int StreamIsValid(bitstream *s){
 
 // get stream endianness, return 0 if invalid endianness
 // s [IN] : pointer to a bit stream struct
-static int StreamEndianness(bitstream *stream){
+static inline int StreamEndianness(bitstream *stream){
   int endian = STREAM_ENDIANNESS( (*stream) ) ;
   if((endian == 0) || (endian == (STREAM_BE | STREAM_LE)) ) return 0 ;
   return endian ;
@@ -177,7 +177,7 @@ CT_ASSERT_(sizeof(bitstream_state) == 40)
 // save the current bit stream state in a bitstream_state structure
 // stream  [IN] : pointer to a bit stream struct
 // state  [OUT] : pointer to a bit stream state struct
-static int StreamSaveState(bitstream *stream, bitstream_state *state){
+static inline int StreamSaveState(bitstream *stream, bitstream_state *state){
   if(! StreamIsValid(stream)) goto error ;
   state->acc_i  = stream->acc_i ;
   state->acc_x  = stream->acc_x ;
@@ -203,7 +203,7 @@ fprintf(stderr, "error in save state\n");
 // state   [IN] : pointer to a bit stream state struct
 // mode    [IN} : 0, BIT_XTRACT, BIT_INSERT (which mode state(s) to restore)
 //                0 restore BOTH insert and extract states
-static int StreamRestoreState(bitstream *stream, bitstream_state *state, int mode){
+static inline int StreamRestoreState(bitstream *stream, bitstream_state *state, int mode){
   char *msg ;
   msg = "invalid stream" ;
   if(! StreamIsValid(stream)) goto error ;                            // invalid stream
@@ -306,7 +306,7 @@ STATIC inline void  BeStreamInit(bitstream *p, uint32_t *buffer, size_t size, in
 // return a pointer to the created struct
 // p->full will be set, p->alloc will be 0
 // p->alloc can end up as 1 if a resize is performed at a later time
-static bitstream *StreamCreate(size_t size, int mode){
+static inline bitstream *StreamCreate(size_t size, int mode){
   char *buf ;
   bitstream *p = (bitstream *) malloc(size + sizeof(bitstream)) ;  // allocate size + overhead
 fprintf(stderr, "StreamCreate : size = %ld, mode = %d\n", size*8, mode) ;
@@ -318,14 +318,14 @@ fprintf(stderr, "StreamCreate : size = %ld, mode = %d\n", size*8, mode) ;
 }
 
 // fully allocate and initialize a LittleEndian stream
-static bitstream *LeStreamCreate(size_t size, int mode){
+static inline bitstream *LeStreamCreate(size_t size, int mode){
   bitstream *p = StreamCreate(size, mode) ;
   p->endian = STREAM_LE ;
   return p ;
 }
 
 // fully allocate and initialize a BigEndian stream
-static bitstream *BeStreamCreate(size_t size, int mode){
+static inline bitstream *BeStreamCreate(size_t size, int mode){
   bitstream *p = StreamCreate(size, mode) ;
   p->endian = STREAM_BE ;
   return p ;
@@ -365,7 +365,7 @@ STATIC inline size_t StreamResize(bitstream *p, void *mem, size_t size){
 // this function will be useful to make an already filled stream ready for extraction
 // stream  [IN] : pointer to a bit stream struct
 // pos     [IN] : number of valid bits for extraction from stream buffer
-static int StreamSetFilledBits(bitstream *stream, size_t pos){
+static inline int StreamSetFilledBits(bitstream *stream, size_t pos){
   if(! StreamIsValid(stream)) return 1 ;                    // invalid stream
   pos = (pos + 7) / 8 ;                                     // round up as bytes
   pos = (pos + sizeof(uint32_t) - 1) / sizeof(uint32_t) ;   // round up as 32 bit words
@@ -385,7 +385,7 @@ STATIC inline int  StreamSetFilledBytes(bitstream *p, size_t size){
 // duplicate a bit stream structure
 // sdst [OUT] : pointer to a bit stream (destination)
 // ssrc  [IN] : pointer to a bit stream (source)
-static void StreamDup(bitstream *sdst, bitstream *ssrc){
+static inline void StreamDup(bitstream *sdst, bitstream *ssrc){
 //   memcpy(sdst, ssrc, sizeof(bitstream)) ;    // image copy of the bitstream struct
   *sdst = *ssrc ;
   sdst->full  = 0 ;                             // not fully allocated with malloc
@@ -399,7 +399,7 @@ static void StreamDup(bitstream *sdst, bitstream *ssrc){
 // s [OUT] : pointer to a bit stream struct
 // return : 0 if a free was performed, 1 if not
 // N.B. s may no longer be valid at exit
-static int StreamFree(bitstream *s){
+static inline int StreamFree(bitstream *s){
   int status = 1 ;
   if(s->full){       // struct and buffer
     fprintf(stderr, "auto allocated bit stream (%p) freed\n", (void *)s) ;
@@ -546,7 +546,7 @@ STATIC inline int32_t BeStreamPeekSigned(bitstream *p, int nbits){
 // mem   [OUT] : where to copy
 // size   [IN] : size of mem array in bytes
 // return original size of valid info from stream in bits (-1 in case of error)
-static int64_t StreamDataCopy(bitstream *stream, void *mem, size_t size){
+static inline int64_t StreamDataCopy(bitstream *stream, void *mem, size_t size){
   size_t nbtot, nborig ;
   bitstream temp ;    // temporary struct used during the copy process
 

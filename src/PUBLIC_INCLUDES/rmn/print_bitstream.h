@@ -31,7 +31,7 @@
 // (see bi_endian_pack.h)
 // s   [IN] : bitstream structure
 // msg [IN] : user message
-static void print_stream_data(bitstream s, char *msg){
+static inline void print_stream_data(bitstream s, char *msg){
   uint32_t *in = s.in ;
   uint32_t *first = s.first ;
   uint32_t *cur = first ;
@@ -56,7 +56,7 @@ static void print_stream_data(bitstream s, char *msg){
 // s             [IN] : bitstream structure
 // msg           [IN] : user message
 // expected_mode [IN] : "R", "W", or "RW"  read/write/read-write, expected mode for bit stream
-static void print_stream_params(bitstream s, char *msg, char *expected_mode){
+static inline void print_stream_params(bitstream s, char *msg, char *expected_mode){
   int32_t available = StreamAvailableBits(&s) ;
   int32_t strict_available = StreamStrictAvailableBits(&s) ;
   int32_t space_available = StreamAvailableSpace(&s) ;

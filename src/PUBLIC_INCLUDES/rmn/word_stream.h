@@ -92,7 +92,7 @@ static wordstream null_wordstream = { .buf = NULL, .limit = 0, .in = 0, .out = 0
 // in        [IN] : if mem is not NULL, set insertion index at position in (ignored otherwise)
 // options   [IN] : 0 = no options, possible options : WS32_CAN_REALLOC
 // return the address of the wordstream buffer (NULL in case of error)
-static uint32_t *ws32_create(wordstream *stream, void *mem, uint32_t nwds, uint32_t in, uint32_t options){
+static inline uint32_t *ws32_create(wordstream *stream, void *mem, uint32_t nwds, uint32_t in, uint32_t options){
   if(WS32_MARKER_VALID(*stream)) return NULL ;        // existing stream
   WS32_INIT(*stream) ;                                // initialize to null values
   WS32_BUFFER(*stream) = (mem == NULL) ? (uint32_t *) malloc(sizeof(uint32_t) * nwds) : mem ;
@@ -108,7 +108,7 @@ static uint32_t *ws32_create(wordstream *stream, void *mem, uint32_t nwds, uint3
 
 // is this stream valid and have consistent indexes
 // stream [IN] : pointer to a wordstream struct
-static int ws32_is_valid(wordstream *stream){
+static inline int ws32_is_valid(wordstream *stream){
   return WS32_VALID(*stream) ;
 }
 
@@ -123,7 +123,7 @@ static int ws32_is_valid(wordstream *stream){
 // words     [IN] : pointer to data to be inserted (32 bit words)
 // nwords    [IN] : number of 32 bit elements to insert into word stream
 // return number of words inserted (-1 in case of error)
-static int ws32_insert(wordstream *stream, void *words, uint32_t nwords){
+static inline int ws32_insert(wordstream *stream, void *words, uint32_t nwords){
   uint32_t *data = (uint32_t *) words ;
   int status = -1 ;
   if(WS32_MARKER_VALID(*stream)) {           // quick check that stream is valid
@@ -148,7 +148,7 @@ fprintf(stderr, "ws32_insert : inserting %d words, status = %d\n", nwords, statu
 // get next available 32 bit word, do not advance out index
 // stream [IN] : pointer to a wordstream struct
 // return zero if word stream is empty
-static uint32_t ws32_peek(wordstream *stream){
+static inline uint32_t ws32_peek(wordstream *stream){
   return (WS32_EMPTY(*stream)) ? 0 : WS32_NEXT(*stream) ;
 }
 #define WS32_XTRACT1(stream, wout) { (wout) = (stream).buf[(stream).out] ; (stream).out++ ; }
@@ -157,7 +157,7 @@ static uint32_t ws32_peek(wordstream *stream){
 // words     [IN] : pointer to memory area to receive data (32 bit words)
 // nwords    [IN] : number of 32 bit elements to extract from word stream
 // return number of words extracted (-1 in case of error)
-static int ws32_xtract(wordstream *stream, void *words, uint32_t nwords){
+static inline int ws32_xtract(wordstream *stream, void *words, uint32_t nwords){
   uint32_t *data = (uint32_t *) words ;
   int status = -1 ;
   if(WS32_MARKER_VALID(*stream)) {         // check that stream is valid
@@ -177,7 +177,7 @@ static int ws32_xtract(wordstream *stream, void *words, uint32_t nwords){
 // stream [IN] : pointer to a wordstream struct
 // nwords [IN] : number of 32 bit elements to skip in word stream
 // return number of words skipped (-1 or -2  in case of error)
-static int ws32_skip_out(wordstream *stream, uint32_t nwords){
+static inline int ws32_skip_out(wordstream *stream, uint32_t nwords){
   int status = -1 ;
   if(WS32_MARKER_VALID(*stream)) {             // check that stream is valid
     if(stream->out + nwords <= stream->in ){   // check that we are not skipping beyond insertion point
@@ -193,7 +193,7 @@ static int ws32_skip_out(wordstream *stream, uint32_t nwords){
 // stream [IN] : pointer to a wordstream struct
 // nwords [IN] : number of 32 bit elements to skip in word stream
 // return number of words skipped (-1 or -2  in case of error)
-static int ws32_skip_in(wordstream *stream, uint32_t nwords){
+static inline int ws32_skip_in(wordstream *stream, uint32_t nwords){
   int status = -1 ;
   if(WS32_MARKER_VALID(*stream)) {             // check that stream is valid
     if(stream->in + nwords <= stream->limit ){   // check that we are not skipping beyond insertion point
@@ -207,7 +207,7 @@ static int ws32_skip_in(wordstream *stream, uint32_t nwords){
 }
 // get the address of the current extraction point in stream
 // stream [IN] : pointer to a wordstream struct
-static uint32_t *ws32_data(wordstream *stream){
+static inline uint32_t *ws32_data(wordstream *stream){
   if(WS32_MARKER_VALID(*stream)) return &(stream->buf[stream->out]) ;
   return NULL ;
 }
@@ -239,7 +239,7 @@ static int ws32_resize(wordstream *stream, uint32_t size32){
 // extra     [IN] : number of 32 bit words to be added to stream storage
 // return 0 if resize successful (or not needed)
 // return -1 in case of resize error
-static int ws32_extend(wordstream *stream, uint32_t extra){
+static inline int ws32_extend(wordstream *stream, uint32_t extra){
   return ws32_resize(stream, WS32_SIZE(*stream) + extra) ;
 }
 
@@ -258,7 +258,7 @@ CT_ASSERT_(sizeof(wordstream_state) == 8)    // 2 32 bit elements
 // stream  [IN] : pointer to a valid wordstream struct
 // state  [OUT] : pointer to a wordstream_state struct
 // return 0 if O.K., -1 if error
-static int WStreamSaveState(wordstream *stream, wordstream_state *state){
+static inline int WStreamSaveState(wordstream *stream, wordstream_state *state){
   int status = -1 ;
   if(WS32_MARKER_VALID(*stream)){
     WS32_STATE_IN(*state)  = WS32_IN(*stream) ;
@@ -276,7 +276,7 @@ static int WStreamSaveState(wordstream *stream, wordstream_state *state){
 // state   [IN] : pointer to a wordstream_state struct
 // mode    [IN] : restore in, out, or both
 // return 0 if O.K., -1 if error
-static int WStreamRestoreState(wordstream *stream, wordstream_state *state, int mode){
+static inline int WStreamRestoreState(wordstream *stream, wordstream_state *state, int mode){
   int status = -1 ;
   int new_in, new_out ;
 

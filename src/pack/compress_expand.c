@@ -275,7 +275,7 @@ int Get_64_from_32_l2r(void *d64, uint32_t n, void *s32){
 }
 // ================================ MaskCompress family ===============================
 // copy from s to d where mask0[i:i] == 1  (bit i, bit 0 is LSB)
-static uint32_t *Mask0copy_c_be(uint32_t *s, uint32_t *d, uint32_t mask0){
+static inline uint32_t *Mask0copy_c_be(uint32_t *s, uint32_t *d, uint32_t mask0){
   int i ;
   for(i=0 ; mask0 != 0 ; i++){
     *d = *s ;
@@ -287,7 +287,7 @@ static uint32_t *Mask0copy_c_be(uint32_t *s, uint32_t *d, uint32_t mask0){
 }
 // compute mask with 1s where s[i] == value, 0s otherwise
 // n MUST BE < 33
-static uint32_t Mask0EqualValue_c_be(uint32_t *s, uint32_t value, int n){
+static inline uint32_t Mask0EqualValue_c_be(uint32_t *s, uint32_t value, int n){
   uint32_t mask0 = 0, m1 = 0x80000000u ;
   while(n-- > 0) {                          // n < 33 value slices
     mask0 |= ( (*s == value) ? m1 : 0 ) ;   // or m1 if src1 greater than src2
@@ -345,7 +345,7 @@ int32_t MaskEqualCompress_c_be(void *source, int nsource, void *value, void *mas
 // _be function : Big Endian style, [0] is MSB
 // _le function : Little Endian style, [0] is LSB
 // plain C version
-static uint32_t Mask0Equal_c_be(uint32_t *s1, int inc1, uint32_t *s2, int inc2, int n){
+static inline uint32_t Mask0Equal_c_be(uint32_t *s1, int inc1, uint32_t *s2, int inc2, int n){
   uint32_t mask0 = 0, m1 = 0x80000000u ;
   while(n-- > 0) {                           // n < 33 value slices
     mask0 |= ( (*s1 == *s2) ? m1 : 0 ) ;     // or m1 if src1 greater than src2
@@ -381,7 +381,7 @@ static uint32_t Mask0Equal_c_be(uint32_t *s1, int inc1, uint32_t *s2, int inc2, 
 //   }
 //   return nmask ;
 // }
-static uint32_t Mask0Equal_c_le(uint32_t *s1, int inc1, uint32_t *s2, int inc2, int n){
+static inline uint32_t Mask0Equal_c_le(uint32_t *s1, int inc1, uint32_t *s2, int inc2, int n){
   uint32_t mask0 = 0, m1 = 1 ;               // start with LSB
   while(n-- > 0) {                           // n < 33 value slices
     mask0 |= ( (*s1 == *s2) ? m1 : 0 ) ;      // or m1 if src1 greater than src2

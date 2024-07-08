@@ -233,7 +233,7 @@ static inline void stream32_put(stream32 *p, uint32_t item, int nbits){
 }
 
 // pack n items, nbits (<=32) bits long into a stream
-static void pack_stream(void *p, uint32_t *u, int nbits, int n){
+static inline void pack_stream(void *p, uint32_t *u, int nbits, int n){
   stream32 ps32 ;
   int i ;
   stream32_init(&ps32, p) ;
@@ -283,7 +283,7 @@ static inline uint32_t stream32_get(stream32 *p, int nbits){
 }
 
 // extract n items nbits(<= 32) bits long from a stream
-static void unpack_stream(void *p, uint32_t *u, int nbits, int n){
+static inline void unpack_stream(void *p, uint32_t *u, int nbits, int n){
   stream32 ps32 ;
   int i ;
   stream32_init(&ps32, p) ;
