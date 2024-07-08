@@ -83,7 +83,7 @@ int pipe_filter_register(int id, char *name, pipe_filter_pointer fn){
     fprintf(stderr, "WARNING: undefined filter '%s', id = %d\n", name, id) ;
     return 1 ;
   }
-fprintf(stderr, "filter_register(%3d) : '%32s' at %p\n", id, name, (void *)fn) ;
+fprintf(stderr, "filter_register(%3d) : '%32s' at %16lx\n", id, name, (uint64_t)fn) ;
   if(id >= MAX_FILTERS || id <= 0) return -1 ;                             // bad id
   if(filter_table[id].fn != 0 && filter_table[id].fn != fn) return -1 ;    // id already in use for another function
   filter_table[id].fn = fn ;                                               // filter function address
@@ -275,7 +275,9 @@ ssize_t run_pipe_filters(int flags, array_descriptor *data_in, const filter_list
     struct{
       FILTER_PROLOG ;
       int32_t meta[MAX_ARRAY_DIMENSIONS+1] ;
-    } meta_end = {.id = 0 , .size = 1, .flags = 0, .meta = {[0 ... MAX_ARRAY_DIMENSIONS - 1] = 0 } } ;
+    } meta_end = {.id = 0 , .size = 1, .flags = 0 } ;
+//     } meta_end = {.id = 0 , .size = 1, .flags = 0, .meta = {[0 ... MAX_ARRAY_DIMENSIONS - 1] = 0 } } ;
+    for(i=0 ; i<MAX_ARRAY_DIMENSIONS - 1 ; i++) meta_end.meta[i] = 0 ;
 
     pop_stream = WS32_IN(*stream) ;                         // start of what will be metadata part of the stream
     pbuf.max_size = pbuf.used = ndata * esize ;             // input (and possibly output) data dimension

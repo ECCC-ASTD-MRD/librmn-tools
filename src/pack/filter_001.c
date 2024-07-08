@@ -31,11 +31,10 @@ ssize_t FILTER_FUNCTION(ID)(uint32_t flags, array_descriptor *ap, const filter_m
   // the definition of FILTER_TYPE(ID) (filter_xxx) will come from filter_xxx.h or the appropriate include file
   ssize_t nbytes = 0 ;
   int errors = 0 ;
-  typedef struct{    // used as m_out in forward mode, used as m_inv for the reverse filter
+//   typedef struct{    // used as m_out in forward mode, used as m_inv for the reverse filter
 //     FILTER_PROLOG ;
-    // empty filter, no metadata
-    uint32_t not_used[] ;
-  } filter_inverse ;
+//     // empty filter, no metadata
+//   } filter_inverse ;
   FILTER_TYPE(ID) *m_fwd ;
 
   if(meta_in == NULL)          goto error ;   // outright error

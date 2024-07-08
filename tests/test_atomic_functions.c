@@ -36,7 +36,8 @@ static  int xcnt, dummy;
 static  int32_t bcnt = NREP*MAX_THREADS ;
 static  int32_t pcnt = NREP*MAX_THREADS ;
 // static  pthread_t tid[MAX_THREADS] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
-static  pthread_t tid[MAX_THREADS+1] = {[0 ... MAX_THREADS] = 0xFFFFFFFFFFFFFFFFu};
+// static  pthread_t tid[MAX_THREADS+1] = {[0 ... MAX_THREADS] = 0xFFFFFFFFFFFFFFFFu};
+static  pthread_t tid[MAX_THREADS+1] ;
 static  void *arguments = &pcnt;                  // argument list for called thread
 static  pthread_attr_t attr;
 
@@ -187,6 +188,7 @@ int main(int argc, char **argv)
   pthread_attr_setstacksize(&attr, stacksize) ;
 
 //   fprintf(stderr,"size of pthread_t = %ld\n", sizeof(pthread_t));
+  for(i=0 ; i<MAX_THREADS+1 ; i++) tid[i] = 0xFFFFFFFFFFFFFFFFu ;
   tid[0] = pthread_self() ;                 // thread 0 is the main thread
   adding(arguments);                        // thread 0 will get extra threads launched
 

@@ -101,9 +101,9 @@ int test_1(char *msg){
   fprintf(stderr, "============================ register pipe filters  ============================\n");
   pipe_filters_init() ;                                   // initialize filter table
   i = pipe_filter_register(254, "demo254", pipe_filter_254) ;  // change name of filter 254
-  fprintf(stderr, "registered demo254 status = %d, name = '%s', address = %p\n", i, pipe_filter_name(254), (void *)pipe_filter_address(254)) ;
+  fprintf(stderr, "registered demo254 status = %d, name = '%s', address = %16lx\n", i, pipe_filter_name(254), (uint64_t)pipe_filter_address(254)) ;
   i = pipe_filter_register(255, "demo255", pipe_filter_255) ;  // change name of filter 255
-  fprintf(stderr, "registered demo255 status = %d, name = '%s', address = %p\n", i, pipe_filter_name(255), (void *)pipe_filter_address(255)) ;
+  fprintf(stderr, "registered demo255 status = %d, name = '%s', address = %16lx\n", i, pipe_filter_name(255), (uint64_t)pipe_filter_address(255)) ;
 
   fprintf(stderr, "============================ pipe filters (in place)  ============================\n");
 
@@ -214,7 +214,7 @@ int test_2(char *msg){
   fprintf(stderr, "============================ register pipe filters  ============================\n");
   pipe_filters_init() ;                                   // initialize filter table
   i = pipe_filter_register(255, "diag255", pipe_filter_255) ;  // change name of filter 255
-  fprintf(stderr, "registered diag255 status = %d, name = '%s', address = %p\n", i, pipe_filter_name(255), (void *)pipe_filter_address(255)) ;
+  fprintf(stderr, "registered diag255 status = %d, name = '%s', address = %16lx\n", i, pipe_filter_name(255), (uint64_t)pipe_filter_address(255)) ;
 
   for(j=0 ; j<NJ ; j++){
     for(i=0 ; i<NI ; i++){

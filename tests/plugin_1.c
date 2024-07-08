@@ -32,7 +32,9 @@ arg += 200 ;
 return(arg);
 }
 
-void *AddressList_[4] = {(void *)_name_1_1, (void *)_name_1_2, (void *)_name_1_3, NULL} ;
+// void *AddressList_[4] = {(void *)_name_1_1, (void *)_name_1_2, (void *)_name_1_3, NULL} ;
+typedef int (*proc_ptr)() ;
+proc_ptr AddressList_[4] = {(proc_ptr)_name_1_1, (proc_ptr)_name_1_2, (proc_ptr)_name_1_3, (proc_ptr)NULL} ;
 
 int get_symbol_number(){  // like fortran, function to get number of symbols, optional
   return(3);
