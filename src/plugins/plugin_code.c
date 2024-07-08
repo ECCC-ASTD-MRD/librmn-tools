@@ -206,14 +206,36 @@
 #include <dlfcn.h>
 
 #include <rmn/tools_plugins.h>
+#include <rmn/ct_assert.h>
 
-typedef int (*fnptr)();             // pointer to function
+typedef int (*proc_ptr)();             // pointer to function
+typedef void *data_ptr ;
+// data and function pointers MUST have the same size for this to work
+CT_ASSERT(sizeof(data_ptr) == sizeof(proc_ptr), "pointer sizes mismatch")
+
+static proc_ptr data2proc_ptr(data_ptr da_p){
+  union{
+    proc_ptr fn_p ;
+    data_ptr da_p ;
+  } pp ;
+  pp.da_p = da_p ;
+  return pp.fn_p ;
+}
+
+static data_ptr proc2data_ptr(proc_ptr fn_p){
+  union{
+    proc_ptr fn_p ;
+    data_ptr da_p ;
+  } pp ;
+  pp.fn_p = fn_p ;
+  return pp.da_p ;
+}
 
 typedef struct {
   void *handle;        // blind pointer to plugin(library) handle (from dlopen)
   char *name;          // pointer to plugin(library) name
   const char* *symbol; // pointer to list of symbol names (from plugin) (NULL if no such list)
-  fnptr *addr;         // list of functions addresses (function names in symbol) (from dlsym) (NULL if no such list)
+  proc_ptr *addr;         // list of functions addresses (function names in symbol) (from dlsym) (NULL if no such list)
   int nentries;        // number of functions advertised in plugin (size of symbol table/address list)
   int ordinal;         // index in plugin table
 } plugin;
@@ -308,7 +330,7 @@ void *Load_plugin(const char *lib)  //InTc
   int nsym;
   int i;
   plugin *p;
-  fnptr func_nb;
+  proc_ptr func_nb;
   int slot ;
   void *ptr ;
 
@@ -344,7 +366,7 @@ void *Load_plugin(const char *lib)  //InTc
 //     then look for EntryList_ and use it (if present) to count advertized entries
 // ===============================================================================================
   nsym = 0;
-  func_nb = (fnptr) dlsym(p->handle,"get_symbol_number");     // get_symbol_number found ?
+  func_nb = data2proc_ptr( dlsym(p->handle,"get_symbol_number") ) ;     // get_symbol_number found ?
   if(func_nb == NULL){                                // optional function (mainly for Fortran plugin usage)
     if(verbose) fprintf(stderr,"INFO: get_symbol_number not found\n");
   }else{
@@ -368,7 +390,7 @@ void *Load_plugin(const char *lib)  //InTc
   if(slot >= last_plugin) last_plugin = slot + 1;
 
   for(i=0 ; i<nsym ; i++){                                // fill address table if advertised symbol list is present
-    p->addr[i] =  (fnptr) dlsym(p->handle,p->symbol[i]);
+    p->addr[i] =  data2proc_ptr( dlsym(p->handle,p->symbol[i]) ) ;
     if(verbose) fprintf(stderr,"INFO:   %16ld %s\n",(uint64_t)p->addr[i],p->symbol[i]);
   }
   return(p);  // pointer to "plugin" structure
@@ -487,7 +509,7 @@ void *Plugin_function(const void *handle, const char *name)  //InTc
     for(j=0 ; j<last_plugin ; j++){
       p = &plugin_table[j];
       for(i=0 ; i<p->nentries ; i++){
-        if(strcmp(name, p->symbol[i]) == 0) return(p->addr[i]) ;
+        if(strcmp(name, p->symbol[i]) == 0) return proc2data_ptr( (p->addr[i]) ) ;
       }
       // no entries because there was no EntryList_ symbol or unadvertised symbol, try dlsym
       faddr = dlsym(p->handle,name) ;
@@ -499,7 +521,7 @@ void *Plugin_function(const void *handle, const char *name)  //InTc
   if( (p - plugin_table) >= last_plugin) return(NULL);  // beyond table end
   // if no entries because there was no EntryList_ symbol, dlsym will be called directly
   for(i=0 ; i<p->nentries ; i++){
-    if(strcmp(name, p->symbol[i]) == 0) return(p->addr[i]) ;
+    if(strcmp(name, p->symbol[i]) == 0) return proc2data_ptr( (p->addr[i]) ) ;
   }
   return ( dlsym(p->handle,name) ); // try unadvertised symbol. if not found, NULL will be returned
 }
