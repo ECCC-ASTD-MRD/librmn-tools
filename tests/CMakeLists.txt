@@ -2,17 +2,23 @@
 add_custom_target(check COMMAND CTEST_OUTPUT_ON_FAILURE=true ${CMAKE_CTEST_COMMAND})
 message(STATUS "(EC) Generating librmntools tests")
 
-set(PROJECT_STATIC_TEST_LIBRARIES rmntoolsf rmntools)
-set(PROJECT_SHARED_TEST_LIBRARIES rmntoolsf-shared rmntools-shared)
 
 function(add_project_test name source)
+  # STATIC    : static executable (if static libs available)
+  # NO_TOOLS  : do not use project libraries
+  # MPI       : build using MPI
+  # LINK_LIBS : extra libraries needed
   cmake_parse_arguments(PARSE_ARGV 0 "TN" "NOCTEST;NODIAG;STATIC;NO_TOOLS;DL" "" "MPI;LINK_LIBS")
   # Use same name for target and executable file
   add_executable(${name} ${source})
+  set(PROJECT_STATIC_TEST_LIBRARIES rmntoolsf rmntools)
+  set(PROJECT_SHARED_TEST_LIBRARIES rmntoolsf-shared rmntools-shared)
+  # suppress some diagnostics for Nvidia C compiler
   if( TN_NODIAG AND ${COMPILER_SUITE} MATCHES  "nvhpc" AND ${source} MATCHES ".c")
     SET_SOURCE_FILES_PROPERTIES( ${source} PROPERTIES 
       COMPILE_OPTIONS "--diag_suppress;declared_but_not_referenced;--diag_suppress;set_but_not_used;--diag_suppress;code_is_unreachable" )
   endif()
+  # needs libdl
   if(TN_DL)
     set(libdl "-ldl")
     if(NOT TN_STATIC)
@@ -38,6 +44,7 @@ function(add_project_test name source)
   endif()
   extra_target_link_options(${name} PRIVATE)      # compiler specific flags
   extra_target_compile_options(${name} PRIVATE)   # compiler specific flags
+  # not includes in ctest
   if(TN_NOCTEST)
     message(STATUS "(EC) test ${name} not included in target check(ctest)")
   else()
@@ -59,6 +66,7 @@ function(add_project_test name source)
   endif()
   add_dependencies(check ${name})                         # target check depends on this test
   add_dependencies(${name} ${PROJECT_TEST_DEPENDENCIES})  # some Fortran modules are needed for the tests
+  # do we want to install tests ?
   if(INSTALL_TESTS)
       install(TARGETS ${name} RUNTIME DESTINATION bin)
   else()
@@ -179,7 +187,8 @@ add_project_test(test_compress_expand test_compress_expand.c LINK_LIBS "rmn::rmn
 add_project_test(test_copy_swap test_copy_swap.c  LINK_LIBS "rmn::rmn" NODIAG)
 
 add_project_test(test_data_map test_data_map.c LINK_LIBS "rmn::rmn-shared" NODIAG)
+# add_project_test(test_readlx test_readlx.F90 LINK_LIBS "rmn::rmn-shared" NODIAG)
 add_project_test(test_readlx test_readlx.F90 LINK_LIBS "rmn::rmn-shared" NODIAG)
 
-add_project_test(test_syntax test_syntax.c LINK_LIBS "rmn::rmn-shared" NODIAG)
+add_project_test(test_syntax test_syntax.c NO_TOOLS DL )
 
