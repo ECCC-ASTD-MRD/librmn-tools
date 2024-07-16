@@ -16,7 +16,7 @@
 //
 // set of macros and functions to manage insertion/extraction into/from a bit stream
 //
-// N.B. the accumulator MUST be a 64 bit variable
+// N.B. the accumulator MUST be a 64 bit unsigned variable
 // initialize stream for insertion
 //   [L|B]E64_INSERT_BEGIN(accumulator, counter)
 // insert the lower nbits bits from uint32 into accumulator, update counter, accumulator
@@ -36,18 +36,20 @@
 // N.B. : if uint32 and accumulator are signed variables, the extract will produce a "signed" result
 //        if uint32 and accumulator are unsigned variables, the extract will produce an "unsigned" result
 // initialize stream for extraction
-//   [L|B]E64_XTRACT_BEGIN(accumulator, xtract, stream)
+//   [L|B]E64_XTRACT_BEGIN(accumulator, counter, stream)
 // take a peek at nbits bits from accumulator into uint32
-//   [L|B]E64_PEEK_NBITS(accumulator, xtract, uint32, nbits)
-// extract nbits bits into uint32 from accumulator, update xtract, accumulator
-//   [L|B]E64_XTRACT_NBITS(accumulator, xtract, uint32, nbits)
+//   [L|B]E64_PEEK_NBITS(accumulator, counter, uint32, nbits)
+// skip nbits bits from accumulator
+//   [L|B]E64_SKIP_NBITS(accumulator, counter, nbits)
+// extract nbits bits into uint32 from accumulator, update counter, accumulator
+//   [L|B]E64_XTRACT_NBITS(accumulator, counter, uint32, nbits)
 // check that 32 bits can be safely extracted from accumulator
-// if not possible, get extra 32 bits into accumulator from stream, update accumulator, xtract, stream
-//   [L|B]E64_XTRACT_CHECK(accumulator, xtract, stream)
-// finalize extraction, update accumulator, xtract
-//   [L|B]E64_XTRACT_FINAL(accumulator, xtract)
-// combined XTRACT_CHECK and XTRACT_NBITS, update accumulator, xtract, stream
-//   [L|B]E64_GET_NBITS(accumulator, xtract, uint32, nbits, stream)
+// if not possible, get extra 32 bits into accumulator from stream, update accumulator, counter, stream
+//   [L|B]E64_XTRACT_CHECK(accumulator, counter, stream)
+// finalize extraction, update accumulator, counter
+//   [L|B]E64_XTRACT_FINAL(accumulator, counter)
+// combined XTRACT_CHECK and XTRACT_NBITS, update accumulator, counter, stream
+//   [L|B]E64_GET_NBITS(accumulator, counter, uint32, nbits, stream)
 //
 //
 #include <stdint.h>
@@ -64,6 +66,7 @@
 
 #undef LE64_XTRACT_BEGIN
 #undef LE64_PEEK_NBITS
+#undef LE64_SKIP_NBITS
 #undef LE64_XTRACT_NBITS
 #undef LE64_XTRACT_CHECK
 #undef LE64_XTRACT_FINAL
@@ -82,6 +85,7 @@
 
 #undef BE64_XTRACT_BEGIN
 #undef BE64_PEEK_NBITS
+#undef BE64_SKIP_NBITS
 #undef BE64_XTRACT_NBITS
 #undef BE64_XTRACT_CHECK
 #undef BE64_XTRACT_FINAL
@@ -115,6 +119,7 @@
 // ===============================================================================================
 // initialize little endian (LE) style stream for insertion, accumulator and inserted bits count are set to 0
 #define LE64_INSERT_BEGIN(accum, insert) { accum = 0 ; insert = 0 ; }
+
 #if defined (FILL_FROM_BOTTOM)
 // insert the lower nbits bits from w32 into accum, update insert, accum (safer/slower version using a mask)
 // (unsafe as it assumes that nbits bits can be inserted into acumulator)
@@ -128,7 +133,7 @@
 // if not possible, store lower 32 bits of accum into stream, update accum, insert, stream
 // accum MUST be treated as "unsigned"
 #define LE64_INSERT_CHECK(accum, insert, stream) \
-        { if(insert > 32) { *stream = accum ; stream++ ; insert -= 32 ; accum = (uint64_t) accum >> 32 ; } ; }
+        { *stream = accum ; if(insert > 32) { stream++ ; insert -= 32 ; accum = (uint64_t) accum >> 32 ; } ; }
 // push data to stream without fully updating control info (stream, insert)
 #define LE64_PUSH(accum, insert, stream) \
         { LE64_INSERT_CHECK(accum, insert, stream) ; { if(insert > 0) { *stream = accum ; } ; } }
@@ -151,7 +156,7 @@
 // insert the lower nbits bits from w32 into accum, update insert, accum
 // (unsafe as it assumes that nbits bits can be inserted into acumulator)
 #define LE64_INSERT_NBITS(accum, insert, w32, nbits) \
-        { uint64_t t=(w32) ; t<<=(64-(nbits)) ; (uint64_t)accum>>=(nbits) ; accum|=t ; insert+=(nbits) ; }
+        { uint64_t t=(w32) ; t<<=(64-(nbits)) ; accum=(uint64_t)accum>>(nbits) ; accum|=t ; insert+=(nbits) ; }
 #define LE64_FAST_INSERT_NBITS(accum, insert, w32, nbits)  LE64_INSERT_NBITS(accum, insert, w32, nbits)
 // check that 32 bits can be safely inserted into accum
 // if not possible, store lower 32 bits of accum into stream, update accum, insert, stream
@@ -178,11 +183,13 @@
 //        if w32 and accum are unsigned variables, the extract will produce an "unsigned" result
 // initialize stream for extraction, load first 32 bits from stream into accum, set available bits count to 32
 #define LE64_XTRACT_BEGIN(accum, xtract, stream) { accum = (uint32_t) *(stream) ; (stream)++ ; xtract = 32 ; }
-// take a peek at nbits bits from accum into w32 (unsafe, assumes that nbits bits are available)
-#define LE64_PEEK_NBITS(accum, xtract, w32, nbits) { w32 = (accum << (64-nbits)) >> (64-nbits) ; }
+// take a peek at the next nbits bits from accum into w32 (unsafe, assumes that nbits bits are available)
+#define LE64_PEEK_NBITS(accum, xtract, w32, nbits) { w32 = (accum << (64-(nbits))) >> (64-(nbits)) ; }
+// skip the next nbits bits from accum (unsafe, assumes that nbits bits are available)
+#define LE64_SKIP_NBITS(accum, xtract, nbits) { accum = (uint64_t) accum >> (nbits) ; xtract -= (nbits) ; }
 // extract nbits bits into w32 from accum, update xtract, accum (unsafe, assumes that nbits bits are available)
 #define LE64_XTRACT_NBITS(accum, xtract, w32, nbits) \
-        { w32 = (accum << (64-nbits)) >> (64-nbits) ; accum = (uint64_t) accum >> nbits ; xtract -= (nbits) ;}
+        { w32 = (accum << (64-nbits)) >> (64-nbits) ; accum = (uint64_t) accum >> (nbits) ; xtract -= (nbits) ; }
 // check that 32 bits can be safely extracted from accum (accum contains at least 32 available bits)
 // if not possible, get extra 32 bits into accum from stream, update accum, xtract, stream
 #define LE64_XTRACT_CHECK(accum, xtract, stream) \
@@ -206,6 +213,7 @@
 // ===============================================================================================
 // initialize big endian (BE) stylestream for insertion, accumulator and inserted bits count are set to 0
 #define BE64_INSERT_BEGIN(accum, insert) { accum = 0 ; insert = 0 ; }
+
 #if defined (FILL_FROM_BOTTOM)
 // insert the lower nbits bits from w32 into accum, update insert, accum (safer/slower version using a mask)
 // (unsafe as it assumes that nbits bits can be inserted into acumulator)
@@ -263,8 +271,10 @@
 //        if w32 and accum are unsigned variables, the extract will produce an "unsigned" result
 // initialize stream for extraction
 #define BE64_XTRACT_BEGIN(accum, xtract, stream) { uint32_t t = *(stream) ; accum = t ; accum <<= 32 ; (stream)++ ; xtract = 32 ; }
-// take a peek at nbits bits from accum into w32 (unsafe, assumes that nbits bits are available)
+// take a peek at the next nbits bits from accum into w32 (unsafe, assumes that nbits bits are available)
 #define BE64_PEEK_NBITS(accum, xtract, w32, nbits) { w32 = accum >> (64 - (nbits)) ; }
+// skip the next nbits bits from accum (unsafe, assumes that nbits bits are available)
+#define BE64_SKIP_NBITS(accum, xtract, nbits) { accum <<= (nbits) ; xtract -= (nbits) ; }
 // extract nbits bits into w32 from accum, update xtract, accum (unsafe, assumes that nbits bits are available)
 #define BE64_XTRACT_NBITS(accum, xtract, w32, nbits) \
         { w32 = accum >> (64 - (nbits)) ; accum <<= (nbits) ; xtract -= (nbits) ; }

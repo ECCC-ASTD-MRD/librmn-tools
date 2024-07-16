@@ -109,8 +109,7 @@ STATIC inline double inline cycles_to_ns(uint64_t t){
 //
 // TIME_ONCE does not need timer_min, timer_max, timer_avg, niter
 #define TIME_LOOP(timer_min, timer_max, timer_avg, niter, npts, timer_msg, timer_msg_size, TimedCode) \
-  TIME_LOOP_TOP(niter/2) ; \
-  TimedCode ; \
+  TIME_LOOP_TOP(niter) ; \
   TimedCode ; \
   TIME_LOOP_BOT(timer_min, timer_max, timer_avg, npts, timer_msg, timer_msg_size) ;
 #define TIME_LOOP_EZ(niter, npts, TimedCode) TIME_LOOP(timer_min, timer_max, timer_avg, niter, npts, timer_msg, timer_msg_size, TimedCode)

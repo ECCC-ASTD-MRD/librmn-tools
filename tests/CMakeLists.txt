@@ -136,7 +136,7 @@ add_project_test(test_pack_macros test_pack_macros.c LINK_LIBS "rmn::rmn-shared"
 SET_SOURCE_FILES_PROPERTIES( test_pack_macros PROPERTIES COMPILE_OPTIONS -O3 )
 
 add_project_test(test_bi_endian_pack_macros test_bi_endian_pack_macros.c LINK_LIBS "rmn::rmn-shared")
-SET_SOURCE_FILES_PROPERTIES( test_bi_endian_pack_macros PROPERTIES COMPILE_OPTIONS -O3 )
+SET_SOURCE_FILES_PROPERTIES( test_bi_endian_pack_macros PROPERTIES COMPILE_OPTIONS "-O3;-DWITH_TIMING" )
 
 add_project_test(test_lorenzo_c test_lorenzo_c.c LINK_LIBS "rmn::rmn-shared")
 add_project_test(test_lorenzo_f_shared test_lorenzo.F90 LINK_LIBS "rmn::rmn-shared;libaec::aec" DL)                        # build with shared libraries
