@@ -71,8 +71,11 @@ size_t SparseConcatFd(int fdi, int fdo, int diag){
     if(diag == 0) CopyFileData(fdi, fdo, hole - cur_i) ;           // copy from current position up to hole
     if(hole < szi){
       cur_i = lseek(fdi, hole, SEEK_DATA) ;
-      if(diag == 0) cur_o = lseek(fdo, cur_i - hole, SEEK_CUR) ;   // make a hole in output file
-      if(diag) fprintf(stderr, "hole at %12ld, %12ld bytes \n", hole, cur_i - hole) ;
+      if(diag) {
+        fprintf(stderr, "hole at %12ld, %12ld bytes \n", hole, cur_i - hole) ;
+      }else{
+        cur_o = lseek(fdo, cur_i - hole, SEEK_CUR) ;   // make a hole in output file
+      }
     }
   }
   if(diag == 0) szo = lseek(fdo, 0L, SEEK_END) ;                   // return final size of output
