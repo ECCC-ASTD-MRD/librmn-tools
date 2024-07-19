@@ -95,9 +95,13 @@ size_t SparseConcatFile(char *name1, char *name2, int diag){
   if(diag == 0) fdi = open(name2, O_RDONLY | O_LARGEFILE) ;  // input file
   if(fdi < 0) exit(1) ;
 
-  fdo = open(name1, O_RDWR | O_CREAT | O_LARGEFILE, 0777) ;
+  if(diag){
+    fdo = open(name1, O_RDONLY | O_LARGEFILE) ;  // open as input file
+    fdi = fdo ;
+  }else{
+    fdo = open(name1, O_RDWR | O_CREAT | O_LARGEFILE, 0777) ;
+  }
   if(fdo < 0) exit(1) ;
-  if(diag) fdi = fdo ;
 
   return SparseConcatFd(fdi, fdo, diag) ;
 }
