@@ -244,6 +244,7 @@ set(PROJECT_C_FILES
   src/diag/c_record_io.c
   src/diag/eval_diff.c
   src/diag/entropy.c
+  src/diag/sparse_concat.c
   src/plugins/plugin_code.c
 )
 set(PROJECT_PLUGIN_FILES 
@@ -295,6 +296,7 @@ set(PROJECT_H_FILES
   src/PUBLIC_INCLUDES/rmn/is_fortran_compiler.h
   src/PUBLIC_INCLUDES/rmn/tools_plugins.h
   src/PUBLIC_INCLUDES/rmn/tools_plugins.hf
+  src/PUBLIC_INCLUDES/rmn/sparse_concat.h
 #   src/PUBLIC_INCLUDES/rmn/copy_swap.h
   src/PUBLIC_INCLUDES/rmn/misc_pack.h
   src/PUBLIC_INCLUDES/rmn/misc_pack.hf
