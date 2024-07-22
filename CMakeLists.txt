@@ -284,6 +284,7 @@ set(PROJECT_H_FILES
   src/PUBLIC_INCLUDES/rmn/data_map.h
   src/PUBLIC_INCLUDES/rmn/word_stream.h
   src/PUBLIC_INCLUDES/rmn/bit_stream.h
+  src/PUBLIC_INCLUDES/rmn/stream_pack.h
   src/PUBLIC_INCLUDES/rmn/bit_pack_macros.h
   src/PUBLIC_INCLUDES/rmn/print_bitstream.h
   src/PUBLIC_INCLUDES/rmn/bits.h
