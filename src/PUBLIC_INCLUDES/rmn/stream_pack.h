@@ -174,4 +174,17 @@ typedef struct{
 } stream32 ;
 CT_ASSERT(sizeof(stream32) == 64, "wordstream size MUST be 56 bytes")    // 8 64 bit elements (7 x 64 bits + 2 x 32 bits)
 
+uint32_t pack_w32(void *unp, void *pak, int nbits, int n) ;
+uint32_t unpack_u32(void *unp, void *pak, int nbits, int n) ;
+uint32_t unpack_i32(void *unp, void *pak, int nbits, int n) ;
+
+stream32 *stream32_create(void *buf, uint32_t size) ;
+stream32 *stream32_resize(stream32 *s_old, uint32_t size) ;
+void *stream32_rewind(stream32 *s) ;
+void *stream32_rewrite(stream32 *s) ;
+
+uint32_t stream32_pack(stream32 *s, void *unp, int nbits, int n) ;
+uint32_t stream32_unpack_u32(stream32 *s,void *unp,  int nbits, int n) ;
+uint32_t stream32_unpack_i32(stream32 *s,void *unp,  int nbits, int n) ;
+
 #endif

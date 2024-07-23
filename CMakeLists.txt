@@ -220,6 +220,7 @@ set(PROJECT_C_FILES
   src/pack/bi_endian_pack.c
   src/pack/data_map.c
   src/pack/misc_pack.c
+  src/pack/stream_pack.c
 #   src/pack/copy_swap.c
   src/pack/misc_operators.c
   src/pack/ieee_quantize.c
