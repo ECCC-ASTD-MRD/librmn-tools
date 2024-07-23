@@ -55,9 +55,11 @@
 // pak  [OUT] : packed bit stream
 // nbits [IN] : number of rightmost bits to keep in unp
 // n     [IN] : number of 32 bit elements in unp array
-void *pack_w32(void *unp, void *pak, int nbits, int n){
+// return number of 32 bit words used
+uint32_t pack_w32(void *unp, void *pak, int nbits, int n){
   uint64_t accum ;
   uint32_t *unp_u = (uint32_t *) unp, *pak_u = (uint32_t *) pak, count ;
+  uint32_t *pak_0 = pak_u ;
   BITS_PUT_START(accum, count) ;
   if(nbits < 9){
     while(n>3) {
@@ -77,12 +79,12 @@ void *pack_w32(void *unp, void *pak, int nbits, int n){
   }
   while(n--){ BITS_PUT_SAFE(accum, count, *unp_u, nbits, pak_u) ; unp_u++ ; }
   BITS_PUT_END(accum, count, pak_u) ;
-  return pak_u ;
+  return pak_u - pak_0 ;
 }
 
 // create stream32
 // buf  [IN] : buffer address for stream32 (if NULL, it will be allocated internally)
-// size [IN] : size of buffer
+// size [IN] : size of buffer in 32 bit units
 // return pointer to stream32 struct
 stream32 *stream32_create(void *buf, uint32_t size){
   stream32 *s ;
@@ -102,6 +104,28 @@ end:
   return s ;
 }
 
+// resize an existing stream
+// if size is smaller than or equal to the actual size of the stream32 buffer, nothing is done
+// if the alloc flag is false, nothing is done
+// size [IN] : size of buffer in 32 bit units
+// return pointer to new stream32 struct
+stream32 *stream32_resize(stream32 *s_old, uint32_t size){
+  stream32 *s_new = s_old ;
+  uint64_t in, out ;
+
+  if(s_old->limit - s_old->first < size && s_old->alloc) {
+    in  = s_old->in  - s_old->first ;
+    out = s_old->out - s_old->first ;
+    s_new = (stream32 *) realloc(s_old, sizeof(stream32) + size * sizeof(uint32_t)) ;
+    s_new->first = &(s_new->data[0]) ;
+    s_new->limit = s_new->first + size ;
+    s_new->in    = s_new->first + in ;
+    s_new->out   = s_new->first + out ;
+  }
+
+  return s_new ;
+}
+
 // rewrite stream32, set insertion data pointer to beginning of data
 // s [INOUT] : stream32 struct
 void *stream32_rewrite(stream32 *s){
@@ -116,8 +140,8 @@ void *stream32_rewrite(stream32 *s){
 // unp   [IN] : pointer to array of 32 bit words to pack
 // nbits [IN] : number of rightmost bits to keep in unp
 // n     [IN] : number of 32 bit elements in unp array
-// return pointer to the current insertion position into stream32 buffer
-void *stream32_pack(stream32 *s, void *unp, int nbits, int n){
+// return index to the current insertion position into stream32 buffer
+uint32_t stream32_pack(stream32 *s, void *unp, int nbits, int n){
   uint32_t *unp_u = (uint32_t *) unp ;
   // get accum, packed stream pointer, count from stream
   uint64_t accum = s->acc_i ;
@@ -164,7 +188,7 @@ void *stream32_pack(stream32 *s, void *unp, int nbits, int n){
   s->acc_i = accum ;
   s->in = pak_u ;
   s->insert = count ;
-  return s->in ;
+  return s->in - s->first ;
 }
 
 // unsigned unpacker, unpack into the lower nbits bits of unp
@@ -172,10 +196,12 @@ void *stream32_pack(stream32 *s, void *unp, int nbits, int n){
 // pak   [IN] : packed bit stream
 // nbits [IN] : number of bits of packed items
 // n     [IN] : number of 32 bit elements in unp array
-// return pointer to the current extraction position
-void *unpack_u32(void *unp, void *pak, int nbits, int n){
+// return index to the current extraction position
+uint32_t unpack_u32(void *unp, void *pak, int nbits, int n){
   uint64_t accum ;
   uint32_t *unp_u = (uint32_t *) unp, *pak_u = (uint32_t *) pak, count ;
+  uint32_t *pak_0 = pak_u ;
+
   BITS_GET_START(accum, count, pak_u) ;
   if(nbits < 9){
     while(n>3) {         // 8 bits or less, safe to get 4 elements back to back
@@ -195,7 +221,7 @@ void *unpack_u32(void *unp, void *pak, int nbits, int n){
   }
   while(n--) { BITS_GET_SAFE(accum, count, *unp_u, nbits, pak_u) ; unp_u++ ; } ;
   if(count >= 32) pak_u-- ;
-  return pak_u ;
+  return pak_u - pak_0 ;
 }
 
 // signed unpacker, unpack into unp
@@ -203,11 +229,13 @@ void *unpack_u32(void *unp, void *pak, int nbits, int n){
 // pak   [IN] : packed bit stream
 // nbits [IN] : number of bits of packed items
 // n     [IN] : number of 32 bit elements in unp array
-// return pointer to the current extraction position
-void *unpack_i32(void *unp, void *pak, int nbits, int n){
-  int64_t accum ;
+// return index to the current extraction position
+uint32_t unpack_i32(void *unp, void *pak, int nbits, int n){
+  uint64_t accum ;
   int32_t *unp_s = (int32_t *) unp ;
   uint32_t *pak_u = (uint32_t *) pak, count ;
+  uint32_t *pak_0 = pak_u ;
+
   BITS_GET_START(accum, count, pak_u) ;
   if(nbits < 9){         // 8 bits or less, safe to get 4 elements back to back
     while(n>3) {
@@ -227,7 +255,7 @@ void *unpack_i32(void *unp, void *pak, int nbits, int n){
   }
   while(n--) { BITS_GET_SAFE(accum, count, *unp_s, nbits, pak_u) ; unp_s++ ; } ;
   if(count >= 32) pak_u-- ;
-  return pak_u ;
+  return pak_u - pak_0 ;
 }
 
 // rewind stream32, set extraction data pointer to beginning of data
@@ -245,19 +273,16 @@ void *stream32_rewind(stream32 *s){
 // nbits [IN] : number of bits of packed items
 // n     [IN] : number of 32 bit elements in unp array
 // return pointer to the current extraction position from stream32 buffer
-void *stream32_unpack_u32(stream32 *s,void *unp,  int nbits, int n){
+uint32_t stream32_unpack_u32(stream32 *s,void *unp,  int nbits, int n){
   uint32_t *unp_u = (uint32_t *) unp ;
   // get accum, packed stream pointer, count from stream
-  uint64_t accum = s->acc_x ;
-  uint32_t *pak_u = s->out, count = s->xtract ;
+  EZSTREAM_DCL_OUT ;
+  EZSTREAM_GET_OUT(*s) ;
 
-  BITS_GET_START(accum, count, pak_u) ;
-  while(n--) { BITS_GET_SAFE(accum, count, *unp_u, nbits, pak_u) ; unp_u++ ; } ;
-  if(count >= 32) pak_u-- ;
-  s->out = pak_u ;
-  s->acc_x = accum ;
-  s->xtract = count ;
-  return s->out ;
+  EZSTREAM_GET_START ;
+  while(n--) { EZSTREAM_GET_SAFE(*unp_u, nbits) ; unp_u++ ; } ;
+  EZSTREAM_SAVE_OUT(*s) ;
+  return EZSTREAM_OUT(*s) ;
 }
 
 // signed unpack
@@ -266,24 +291,28 @@ void *stream32_unpack_u32(stream32 *s,void *unp,  int nbits, int n){
 // nbits [IN] : number of bits of packed items
 // n     [IN] : number of 32 bit elements in unp array
 // return pointer to the current extraction position from stream32 buffer
-void *stream32_unpack_i32(stream32 *s,void *unp,  int nbits, int n){
+uint32_t stream32_unpack_i32(stream32 *s,void *unp,  int nbits, int n){
   int32_t *unp_s = (int32_t *) unp ;
   // get accum, packed stream pointer, count from stream
-  int64_t accum = s->acc_x ;
-  uint32_t *pak_u = s->out, count = s->xtract ;
+  EZSTREAM_DCL_OUT ;
+  EZSTREAM_GET_OUT(*s) ;
 
-  BITS_GET_START(accum, count, pak_u) ;
-  while(n--) { BITS_GET_SAFE(accum, count, *unp_s, nbits, pak_u) ; unp_s++ ; } ;
-  if(count >= 32) pak_u-- ;
-  s->out = pak_u ;
-  s->acc_x = accum ;
-  s->xtract = count ;
-  return s->out ;
+  EZSTREAM_GET_START ;
+  while(n--) { EZSTREAM_GET_SAFE(*unp_s, nbits) ; unp_s++ ; } ;
+  EZSTREAM_SAVE_OUT(*s) ;
+  return EZSTREAM_OUT(*s) ;
+}
+
+void check_pos(uint32_t p1, uint32_t p2, char *msg){
+    if(p1 != p2) {
+      fprintf(stderr, "\ninconsistent position after %s, expected %d, got %d\n", msg, p1, p2) ; exit(1) ;
+    }
 }
 
 int main(int argc, char **argv){
   int npts = 32*1024 + 17 ;
-  uint32_t *unpacked_u, *packed, *restored_u, *stream_pos1, *stream_pos2, *stream_pos3, *stream_pos4 ;
+  uint32_t *unpacked_u, *packed, *restored_u ;
+  uint32_t stream_siz1, stream_siz2, stream_siz3, stream_siz4 ;
   int32_t  *unpacked_s, *restored_s ;
   int i, nbits, errors ;
   int32_t maskn ;
@@ -315,39 +344,40 @@ int main(int argc, char **argv){
     fprintf(stderr, "nbits = %2d, mask = %8.8x", nbits, maskn) ;
 
     // unsigned pack/unpack base functions correctness test
-    stream_pos1 = pack_w32(unpacked_u, packed, nbits, npts) ;
-    stream_pos2 = unpack_u32(restored_u, packed, nbits, npts) ;
+    stream_siz1 = pack_w32(unpacked_u, packed, nbits, npts) ;           // pack (unsigned)
+    stream_siz2 = unpack_u32(restored_u, packed, nbits, npts) ;         // unpack unsigned
     errors = w32_compare(unpacked_u, restored_u, npts) ;                // check unsigned pack/unpack errors
     if(errors > 0) { fprintf(stderr, ", errors_u = %d\n", errors) ; exit(1) ; }
-    if(stream_pos1 != stream_pos2) { fprintf(stderr, "\ninconsistent position after unpack\n") ; exit(1) ; }
+    check_pos(stream_siz1, stream_siz2, "unpack 1") ;                   // must be same length as unsigned pack
 
     // signed pack/unpack base functions correctness test
-    stream_pos3 = pack_w32(unpacked_s, packed, nbits, npts) ;
-    if(stream_pos3 != stream_pos1) { fprintf(stderr, "\ninconsistent position after pack\n") ; exit(1) ; }
-    stream_pos4 = unpack_i32(restored_s, packed, nbits, npts) ;
+    stream_siz3 = pack_w32(unpacked_s, packed, nbits, npts) ;           // pack (signed)
+    stream_siz4 = unpack_i32(restored_s, packed, nbits, npts) ;         // unpack signed
     errors = w32_compare(unpacked_s, restored_s, npts) ;                // check signed pack/unpack errors
     if(errors > 0) { fprintf(stderr, ", errors_u = %d\n", errors) ; exit(1) ; }
-    if(stream_pos3 != stream_pos4) { fprintf(stderr, "\ninconsistent position after unpack\n") ; exit(1) ; }
+    check_pos(stream_siz3, stream_siz1, "pack 2") ;                     // must be same length as unsigned pack
+    check_pos(stream_siz3, stream_siz4, "unpack 2") ;                   // must be same length as signed pack
 
-    // unsigned pack/unpack stream functions correctness test
+    // unsigned pack/unpack stream32 functions correctness test
     stream32_rewrite(s) ;
-    stream_pos3 = stream32_pack(s, unpacked_u, nbits, npts) ;
-    if(stream_pos3 - s->first != stream_pos1 - packed) { fprintf(stderr, "\ninconsistent position after pack\n") ; exit(1) ; }
-    stream32_rewind(s) ;
-    stream_pos4 = stream32_unpack_u32(s,restored_u,  nbits, npts) ;
-    if(stream_pos3 != stream_pos4) { fprintf(stderr, "\ninconsistent position after unpack\n") ; exit(1) ; }
+    stream_siz3 = stream32_pack(s, unpacked_u, nbits, npts) ;           // pack (unsigned)
+    s = stream32_resize(s, npts + nbits * 1024 * 1024) ;                // resize stream after pack to force address change
+    stream32_rewind(s) ;                                                // rewind stream before unpack
+    stream_siz4 = stream32_unpack_u32(s,restored_u,  nbits, npts) ;     // unpack unsigned
     errors = w32_compare(unpacked_u, restored_u, npts) ;                // check unsigned pack/unpack errors
     if(errors > 0) { fprintf(stderr, ", errors_u stream = %d\n", errors) ; exit(1) ; }
+    check_pos(stream_siz3, stream_siz1, "pack 3") ;                     // must be same length as unsigned pack
+    check_pos(stream_siz3, stream_siz4, "unpack 3") ;                   // must be same length as unsigned pack
 
-    // signed pack/unpack stream functions correctness test
-    stream32_rewrite(s) ;
-    stream_pos3 = stream32_pack(s, unpacked_s, nbits, npts) ;
-    if(stream_pos3 - s->first != stream_pos1 - packed) { fprintf(stderr, "\ninconsistent position after pack\n") ; exit(1) ; }
-    stream32_rewind(s) ;
-    stream_pos4 = stream32_unpack_i32(s,restored_s,  nbits, npts) ;
-    if(stream_pos3 != stream_pos4) { fprintf(stderr, "\ninconsistent position after unpack\n") ; exit(1) ; }
+    // signed pack/unpack stream32 functions correctness test
+    stream32_rewrite(s) ;                                               // rewind stream before signed pack
+    stream_siz3 = stream32_pack(s, unpacked_s, nbits, npts) ;           // pack (signed)
+    stream32_rewind(s) ;                                                // rewind stream before unpack
+    stream_siz4 = stream32_unpack_i32(s,restored_s,  nbits, npts) ;     // unpack (signed)
     errors = w32_compare(unpacked_s, restored_s, npts) ;                // check unsigned pack/unpack errors
     if(errors > 0) { fprintf(stderr, ", errors_s stream = %d\n", errors) ; exit(1) ; }
+    check_pos(stream_siz3, stream_siz1, "pack 4") ;                     // must be same length as unsigned pack
+    check_pos(stream_siz3, stream_siz4, "unpack 4") ;                   // must be same length as signed pack
 
     // base functions timing tests
     TIME_LOOP_EZ(NITER, npts, pack_w32(unpacked_u, packed, nbits, npts))
@@ -357,7 +387,7 @@ int main(int argc, char **argv){
     TIME_LOOP_EZ(NITER, npts, unpack_u32(restored_u, packed, nbits, npts))
     t1 = timer_min * NaNoSeC / (npts) ;
 
-    pack_w32(unpacked_s, packed, nbits, npts) ;
+    stream32_rewrite(s) ; pack_w32(unpacked_s, packed, nbits, npts) ;
     TIME_LOOP_EZ(NITER, npts, unpack_i32(restored_s, packed, nbits, npts))
     t2 = timer_min * NaNoSeC / (npts) ;
 
@@ -366,15 +396,16 @@ int main(int argc, char **argv){
     TIME_LOOP_EZ(NITER, npts, stream32_rewrite(s) ; stream32_pack(s, unpacked_u, nbits, npts) )
     t3 = timer_min * NaNoSeC / (npts) ;
 
-    stream32_pack(s, unpacked_u, nbits, npts) ;
+    stream32_rewrite(s) ; stream32_pack(s, unpacked_u, nbits, npts) ;
     TIME_LOOP_EZ(NITER, npts, stream32_rewind(s) ; stream32_unpack_u32(s,restored_u,  nbits, npts) )
     t4 = timer_min * NaNoSeC / (npts) ;
 
-    stream32_pack(s, unpacked_s, nbits, npts) ;
+    stream32_rewrite(s) ; stream32_pack(s, unpacked_s, nbits, npts) ;
     TIME_LOOP_EZ(NITER, npts, stream32_rewind(s) ; stream32_unpack_i32(s,restored_s,  nbits, npts) )
     t5 = timer_min * NaNoSeC / (npts) ;
 
-    fprintf(stderr, ",  %4.2f      %4.2f      %4.2f      %4.2f      %4.2f      %4.2f\n", t0, t1, t2, t3, t4, t5) ;
+    fprintf(stderr, ",  %4.2f      %4.2f      %4.2f      %4.2f      %4.2f      %4.2f", t0, t1, t2, t3, t4, t5) ;
+    fprintf(stderr, ", stream size = %8ld, [%p]\n", BITSTREAM_SIZE(*s), (void *)s) ;
     if(timer_min == timer_max) timer_avg = timer_min ;
   }
 
