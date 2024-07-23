@@ -35,7 +35,7 @@ static double NaNoSeC = 0.0 ;
 STATIC inline uint64_t cycles_counter_freq(void) ;
 #define TIME_CONVERT_INIT if(NaNoSeC == 0) NaNoSeC = 1.0E+9f / cycles_counter_freq() ;
 
-STATIC inline double inline cycles_to_ns(uint64_t t){
+STATIC inline double cycles_to_ns(uint64_t t){
   TIME_CONVERT_INIT ;
   return t * NaNoSeC ;
 }
