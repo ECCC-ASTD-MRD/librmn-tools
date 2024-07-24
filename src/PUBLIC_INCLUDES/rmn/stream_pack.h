@@ -180,8 +180,9 @@ typedef struct{
   uint32_t *out ;      // extraction index (0 initially)
   uint64_t acc_x ;     // accumulator for extraction
   uint64_t valid:32 ,  // signature marker
-           spare:31 ,  // spare bits
-           alloc: 1 ;  // buffer allocated with malloc (realloc is possible)
+           spare:30 ,  // spare bits
+           ualloc:1 ,  // user allocated buffer, may be free(d)/realloc(ed)
+           alloc: 1 ;  // whole struct allocated with malloc (realloc is possible)
   uint32_t data[] ;    // dynamic array, only used if alloc is true
 } stream32 ;
 CT_ASSERT(sizeof(stream32) == 64, "wordstream size MUST be 56 bytes")    // 8 64 bit elements (7 x 64 bits + 2 x 32 bits)

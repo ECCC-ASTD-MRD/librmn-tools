@@ -156,26 +156,29 @@ uint32_t unpack_i32(void *unp, void *pak, int nbits, int nn){
 
 // create stream32
 // buf  [IN] : buffer address for stream32 (if NULL, it will be allocated internally)
-// size [IN] : size of buffer in 32 bit units
+// size [IN] : size of buffer in 32 bit units (
+//             negative size means use buffer can be free(d)/realloc(ed)
 // return pointer to stream32 struct
 stream32 *stream32_create(void *buf, uint32_t size){
   stream32 *s ;
+  size_t sz = (size < 0) ? -size : size ;
 
-  s = (stream32 *) malloc( sizeof(stream32) + ( (buf == NULL) ? (size * sizeof(uint32_t)) : 0 ) ) ;
+  s = (stream32 *) malloc( sizeof(stream32) + ( (buf == NULL) ? (sz * sizeof(uint32_t)) : 0 ) ) ;
   if(s == NULL) goto end ;
 
   s->first = (buf == NULL) ? &(s->data) : buf ;
   s->in = s->out = s->first ;
-  s->limit = s->first + size ;
-  s->acc_i = s->acc_x = 0 ;
+  s->limit = s->first + sz ;
+  s->acc_i  = s->acc_x = 0 ;
   s->insert = s->xtract = 0 ;
-  s->valid = 0xDEADBEEF ;
-  s->spare = 0 ;
-  s->alloc = (buf == NULL) ;
+  s->valid  = 0xDEADBEEF ;
+  s->spare  = 0 ;
+  s->ualloc = ((size < 0) && (buf != NULL)) ;
+  s->alloc  = (buf == NULL) ;
 end:
   return s ;
 }
-
+#include <stdio.h>
 // resize an existing stream
 // if size is smaller than or equal to the actual size of the stream32 buffer, nothing is done
 // if the alloc flag is false, nothing is done
@@ -184,17 +187,24 @@ end:
 stream32 *stream32_resize(stream32 *s_old, uint32_t size){
   stream32 *s_new = s_old ;
   uint64_t in, out ;
-
-  if(s_old->limit - s_old->first < size && s_old->alloc) {
-    in  = s_old->in  - s_old->first ;
-    out = s_old->out - s_old->first ;
-    s_new = (stream32 *) realloc(s_old, sizeof(stream32) + size * sizeof(uint32_t)) ;
-    s_new->first = &(s_new->data[0]) ;
-    s_new->limit = s_new->first + size ;
-    s_new->in    = s_new->first + in ;
-    s_new->out   = s_new->first + out ;
-  }
-
+  size_t sz = (size < 0) ? -size : size ;
+// fprintf(stderr, "resize to %ld %d %d", sz, s_old->alloc, s_old->ualloc) ;
+  if(s_old->limit - s_old->first < sz){
+    in  = s_old->in  - s_old->first ;      // in index from pointer
+    out = s_old->out - s_old->first ;      // out index from pointer
+    if(s_old->alloc) {                     // the whole stream32 struc was malloc(ed)
+      s_new = (stream32 *) realloc(s_old, sizeof(stream32) + sz * sizeof(uint32_t)) ;
+      s_new->first = &(s_new->data[0]) ;
+      s_new->limit = s_new->first + sz ;   // new limit
+      s_new->in    = s_new->first + in ;   // in pointer from index
+      s_new->out   = s_new->first + out ;  // out pointer from index
+    }else if(s_old->ualloc) {              // only buffer was malloc(ed)
+      s_new->first = (uint32_t *) realloc(s_new->first, sz * sizeof(uint32_t)) ;
+      s_new->limit = s_new->first + sz ;   // new limit
+      s_new->in    = s_new->first + in ;   // in pointer from index
+      s_new->out   = s_new->first + out ;  // out pointer from index
+    }
+  }  // sz larger that old size
   return s_new ;
 }
 

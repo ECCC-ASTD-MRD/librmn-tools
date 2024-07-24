@@ -77,6 +77,7 @@ int main(int argc, char **argv){
   restored_s = (int32_t *)  malloc(npts * sizeof(uint32_t)) ; if(restored_s == NULL) exit(1) ;
 
   s = stream32_create(NULL, npts) ;
+  fprintf(stderr, "alloc = %d, ualloc = %d\n", s->alloc, s->ualloc) ;
 
   fprintf(stderr, "                                      macros                          stream\n") ;
   fprintf(stderr, "timings :                     pack unpack(u) unpack(s)      pack unpack(u) unpack(s)\n") ;
