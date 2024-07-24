@@ -15,6 +15,9 @@
 //     M. Valin,   Recherche en Prevision Numerique, 2024
 //
 // set of macros to manage insertion into/extraction from a 32 bit word based bit stream
+// BITS_xxxxxxxx macros  : base macros
+// BITSTREAM_xxx macros  : direct individual use of stream32 struct (convenient, but slower)
+// EZSTREAM_xxxx macros  : get stream32 info , multiple insert/extract, save stream32 info (as fast as BITS_xxx)
 //
 #if ! defined(BITS_PUT_START)
 
@@ -26,130 +29,139 @@
 // accumulator MUST BE a 64 bit (preferably UNSIGNED) variable
 // the following MUST BE TRUE :  0 < nbits <= 32
 // the macros always shift accumulator right as UNSIGNED 64 BITS
+//
+// macro arguments
+// S32      stream32 struct                        (BITSTREAM_xxx EZSTREAM_ macros)
+// ACCUM    64 bit unsigned accumulator            (BITS_xxxx macros)
+// INSERT   inserted bit count for insertion       (BITS_xxxx macros)
+// XTRACT   available bit count for extraction     (BITS_xxxx macros)
+// STREAM   pointer into packed stream             (BITS_xxxx macros)
+// W32      32 bit signed or unsigned variable     (all macros)
+// NBITS    number of useful bits in W32           (all macros)
 
-// declaration macros necessary to use the EZSTREAM insertion / extraction macors below
+// declaration macros necessary to use the EZSTREAM_xxxx insertion / extraction macros
 // declare variables for insertion
 #define EZSTREAM_DCL_IN  uint64_t AcC_In  ; uint32_t InSeRt, *StReAm_In ;
 // declare variables for extraction
 #define EZSTREAM_DCL_OUT uint64_t AcC_OuT ; uint32_t XtRaCt, *StReAm_OuT ;
 
 // get accumulator/count/pointer for insertion from stream32 structure
-#define EZSTREAM_GET_IN(s)  AcC_In  = (s).acc_i ; InSeRt = (s).insert ; StReAm_In  = (s).in ;
+#define EZSTREAM_GET_IN(S32)  AcC_In  = (S32).acc_i ; InSeRt = (S32).insert ; StReAm_In  = (S32).in ;
 // get accumulator/count/pointer for extraction from stream32 structure
-#define EZSTREAM_GET_OUT(s) AcC_OuT = (s).acc_x ; XtRaCt = (s).xtract ; StReAm_OuT = (s).out ;
+#define EZSTREAM_GET_OUT(S32) AcC_OuT = (S32).acc_x ; XtRaCt = (S32).xtract ; StReAm_OuT = (S32).out ;
 
 // if there are 32 or more valid bits in accumulator, push 32 bits back into stream
 #define EZSTREAM_ADJUST_OUT if(XtRaCt >= 32) { AcC_OuT <<= 32 ; StReAm_OuT-- ; XtRaCt -= 32 ; } ;
 
 // save accumulator/count/pointer for insertion into stream32 structure
-#define EZSTREAM_SAVE_IN(s)  (s).acc_i = AcC_In  ; (s).insert = InSeRt ; (s).in  = StReAm_In ;
+#define EZSTREAM_SAVE_IN(S32)  (S32).acc_i = AcC_In  ; (S32).insert = InSeRt ; (S32).in  = StReAm_In ;
 // save accumulator/count/pointer for extraction into stream32 structure
-#define EZSTREAM_SAVE_OUT(s) EZSTREAM_ADJUST_OUT ; (s).acc_x = AcC_OuT ; (s).xtract = XtRaCt ; (s).out = StReAm_OuT ;
+#define EZSTREAM_SAVE_OUT(S32) EZSTREAM_ADJUST_OUT ; (S32).acc_x = AcC_OuT ; (S32).xtract = XtRaCt ; (S32).out = StReAm_OuT ;
 
 // access to stream32 in/out/limit(size) as indexes into a unit32_t array
-#define EZSTREAM_IN(s)    ((s).in    - (s).first)
-#define EZSTREAM_OUT(s)   ((s).out   - (s).first)
-#define BITSTREAM_SIZE(s) ((s).limit - (s).first)
+#define EZSTREAM_IN(S32)    ((S32).in    - (S32).first)
+#define EZSTREAM_OUT(S32)   ((S32).out   - (S32).first)
+#define BITSTREAM_SIZE(S32) ((S32).limit - (S32).first)
 
 // =============== insertion macros ===============
 
 // initialize stream for insertion, accumulator and inserted bits count are set to 0
-#define BITS_PUT_START(accum, insert) { accum = 0 ; insert = 0 ; }
-#define BITSTREAM_PUT_START(s) BITS_PUT_START( (s).acc_i, (s).insert )
+#define BITS_PUT_START(ACCUM, INSERT) { ACCUM = 0 ; INSERT = 0 ; }
+#define BITSTREAM_PUT_START(S32) BITS_PUT_START( (S32).acc_i, (S32).insert )
 #define EZSTREAM_PUT_START BITS_PUT_START(AcC_In, InSeRt)
 
-// insert the lower nbits bits from w32 into accum, update insert, accum
-// insert BELOW the topmost insert bits in accumulator
-// (unsafe as it assumes that nbits bits can be inserted into acumulator)
-#define BITS_PUT_FAST(accum, insert, w32, nbits) \
-        { uint64_t t=(w32) ; t <<= (64-(nbits)) ; t >>= insert ; insert += (nbits) ; accum |= t ; }
-//                           only keep lower nbits bits from t ; update count      ; insert
-#define BITSTREAM_PUT_FAST(s, w32, nbits) BITS_PUT_FAST((s).acc_i, (s).insert, w32, nbits)
-#define EZSTREAM_PUT_FAST(w32, nbits) BITS_PUT_FAST(AcC_In, InSeRt,  w32, nbits)
+// insert the lower NBITS bits from W32 into ACCUM, update INSERT, ACCUM
+// insert BELOW the topmost INSERT bits in accumulator
+// (unsafe as it assumes that NBITS bits can be inserted into acumulator)
+#define BITS_PUT_FAST(ACCUM, INSERT, W32, NBITS) \
+        { uint64_t t=(W32) ; t <<= (64-(NBITS)) ; t >>= INSERT ; INSERT += (NBITS) ; ACCUM |= t ; }
+//                           only keep lower NBITS bits from t ; update count      ; insert
+#define BITSTREAM_PUT_FAST(S32, W32, NBITS) BITS_PUT_FAST((S32).acc_i, (S32).insert, W32, NBITS)
+#define EZSTREAM_PUT_FAST(W32, NBITS) BITS_PUT_FAST(AcC_In, InSeRt,  W32, NBITS)
 
-// check that 32 bits can be safely inserted into accum
-// if not possible, store upper 32 bits of accum into stream, update accum, insert, stream
-#define BITS_PUT_CHECK(accum, insert, stream) \
-        { *(stream) = (uint64_t) accum >> 32 ; if(insert > 32) { insert -= 32 ; (stream)++ ; accum <<= 32 ; } ; }
-//       always store upper 32 bits of accum ; if necessary  :   update count ; bump stream ; remove stored bits
-#define BITSTREAM_PUT_CHECK(s) BITS_PUT_CHECK((s).acc_i, (s).insert, (s).in)
+// check that 32 bits can be safely inserted into ACCUM
+// if not possible, store upper 32 bits of ACCUM into stream, update ACCUM, INSERT, stream
+#define BITS_PUT_CHECK(ACCUM, INSERT, STREAM) \
+        { *(STREAM) = (uint64_t) ACCUM >> 32 ; if(INSERT > 32) { INSERT -= 32 ; (STREAM)++ ; ACCUM <<= 32 ; } ; }
+//       always store upper 32 bits of ACCUM ; if necessary  :   update count ; bump STREAM ; remove stored bits
+#define BITSTREAM_PUT_CHECK(S32) BITS_PUT_CHECK((S32).acc_i, (S32).insert, (S32).in)
 #define EZSTREAM_PUT_CHECK BITS_PUT_CHECK(AcC_In, InSeRt, StReAm_In)
 
-// combined CHECK and INSERT, update accum, insert, stream
-#define BITS_PUT_SAFE(accum, insert, w32, nbits, stream) \
-        { BITS_PUT_CHECK(accum, insert, stream) ; BITS_PUT_FAST(accum, insert, w32, nbits) ; }
-#define BITSTREAM_PUT_SAFE(s, w32, nbits) BITS_PUT_SAFE((s).acc_i, (s).insert, w32, nbits, (s).in)
-#define EZSTREAM_PUT_SAFE(w32, nbits) BITS_PUT_SAFE(AcC_In, InSeRt, w32, nbits, StReAm_In)
+// combined CHECK and INSERT, update ACCUM, INSERT, STREAM
+#define BITS_PUT_SAFE(ACCUM, INSERT, W32, NBITS, STREAM) \
+        { BITS_PUT_CHECK(ACCUM, INSERT, STREAM) ; BITS_PUT_FAST(ACCUM, INSERT, W32, NBITS) ; }
+#define BITSTREAM_PUT_SAFE(S32, W32, NBITS) BITS_PUT_SAFE((S32).acc_i, (S32).insert, W32, NBITS, (S32).in)
+#define EZSTREAM_PUT_SAFE(W32, NBITS) BITS_PUT_SAFE(AcC_In, InSeRt, W32, NBITS, StReAm_In)
 
-// push all accumulator data into stream without fully updating control info (stream, insert)
-#define BITS_PUSH(accum, insert, stream) \
-        { BITS_PUT_CHECK(accum, insert, stream) ; if(insert > 0) { *stream = (uint64_t) accum >> 32 ; } }
+// push all accumulator data into stream without fully updating control info (STREAM, INSERT)
+#define BITS_PUSH(ACCUM, INSERT, STREAM) \
+        { BITS_PUT_CHECK(ACCUM, INSERT, STREAM) ; if(INSERT > 0) { *(STREAM) = (uint64_t) ACCUM >> 32 ; } }
 //                                              if there is residual data in accumulator store it
-#define BITSTREAM_PUSH(s) BITS_PUSH((s).acc_i, (s).insert, (s).in)
+#define BITSTREAM_PUSH(S32) BITS_PUSH((S32).acc_i, (S32).insert, (S32).in)
 #define EZSTREAM_PUSH BITS_PUSH(AcC_In, InSeRt, StReAm_In)
 
-// store any residual data from accum into stream, update insert, stream
-#define BITS_PUT_END(accum, insert, stream) \
-        { BITS_PUT_CHECK(accum, insert, stream) ; if(insert > 0) { *stream = (uint64_t) accum >> 32 ; stream++ ; insert = 0 ; accum = 0 ;} }
-//                                      if there is residual data in accumulator store it, bump stream ptr, mark accum as empty
-#define BITSTREAM_PUT_END(s) BITS_PUT_END((s).acc_i, (s).insert, (s).in)
+// store any residual data from ACCUM into stream, update INSERT, STREAM
+#define BITS_PUT_END(ACCUM, INSERT, STREAM) \
+        { BITS_PUT_CHECK(ACCUM, INSERT, STREAM) ; if(INSERT > 0) { *(STREAM) = (uint64_t) ACCUM >> 32 ; (STREAM)++ ; INSERT = 0 ; ACCUM = 0 ;} }
+//                                      if there is residual data in accumulator store it, bump STREAM ptr, mark ACCUM as empty
+#define BITSTREAM_PUT_END(S32) BITS_PUT_END((S32).acc_i, (S32).insert, (S32).in)
 #define EZSTREAM_PUT_END BITS_PUT_END(AcC_In, InSeRt, StReAm_In)
 
 // align insertion point to a 32 bit boundary
-//  make insert a 32 bit multiple              free bits             modulo 31
-#define BITS_PUT_ALIGN(accum, insert) { uint32_t tbits = 64 - insert ; tbits &= 31 ; insert += tbits ; }
-#define BITSTREAM_PUT_ALIGN(s) BITS_PUT_ALIGN((s).acc_i, (s).insert)
+//  make INSERT a 32 bit multiple              free bits             modulo 31
+#define BITS_PUT_ALIGN(ACCUM, INSERT) { uint32_t tbits = 64 - INSERT ; tbits &= 31 ; INSERT += tbits ; }
+#define BITSTREAM_PUT_ALIGN(S32) BITS_PUT_ALIGN((S32).acc_i, (S32).insert)
 #define EZSTREAM_PUT_ALIGN BITS_PUT_ALIGN(AcC_In, InSeRt)
 
 // =============== extraction macros ===============
-// N.B. : if w32 is a signed variable, the extract will produce a "signed" result
-//        if w32 is an unsigned variable, the extract will produce an "unsigned" result
+// N.B. : if W32 is a signed variable, the extract will produce a "signed" result
+//        if W32 is an unsigned variable, the extract will produce an "unsigned" result
 //
 // initialize stream for extraction, fill 32 bits
-//                                                                               fill topmost bits  bup stream   32 useful bits
-#define BITS_GET_START(accum, xtract, stream) { uint32_t t = *(stream) ; accum = t ; accum <<= 32 ; (stream)++ ; xtract = 32 ; }
-#define BITSTREAM_GET_START(s) BITS_GET_START( (s).acc_x, (s).xtract, (s).out)
+//                                                                               fill topmost bits  bump STREAM   32 useful bits
+#define BITS_GET_START(ACCUM, XTRACT, STREAM) { uint32_t t = *(STREAM) ; ACCUM = t ; ACCUM <<= 32 ; (STREAM)++ ; XTRACT = 32 ; }
+#define BITSTREAM_GET_START(S32) BITS_GET_START( (S32).acc_x, (S32).xtract, (S32).out)
 #define EZSTREAM_GET_START BITS_GET_START(AcC_OuT, XtRaCt, StReAm_OuT)
 
-// take a peek at the next nbits bits from accum into w32 (unsafe, assumes that nbits bits are available)
-// if w32 is signed, the result will be signed, if w32 is unsigned, the result will be unsigned
-#define BITS_PEEK(accum, xtract, w32, nbits) { w32 = (uint64_t) accum >> 32 ; w32 = w32 >> (32 - (nbits)) ; }
-#define BITSTREAM_PEEK(w32, nbits) BITS_PEEK((s).acc_x, (s).xtract, w32, nbits)
-#define EZSTREAM_PEEK(w32, nbits) BITS_PEEK(AcC_OuT, XtRaCt,  w32, nbits)
+// take a peek at the next NBITS bits from ACCUM into W32 (unsafe, assumes that NBITS bits are available)
+// if W32 is signed, the result will be signed, if W32 is unsigned, the result will be unsigned
+#define BITS_PEEK(ACCUM, W32, NBITS) { W32 = (uint64_t) ACCUM >> 32 ; W32 = W32 >> (32 - (NBITS)) ; }
+#define BITSTREAM_PEEK(W32, NBITS) BITS_PEEK((S32).acc_x, W32, NBITS)
+#define EZSTREAM_PEEK(W32, NBITS) BITS_PEEK(AcC_OuT,  W32, NBITS)
 
-// skip the next nbits bits from accum (unsafe, assumes that nbits bits are available)
-#define BITS_SKIP(accum, xtract, nbits) { accum <<= (nbits) ; xtract -= (nbits) ; }
-#define BITSTREAM_SKIP(s, nbits) BITS_SKIP((s).acc_x, (s).xtract, nbits)
-#define EZSTREAM_SKIP(nbits) BITS_SKIP(AcC_OuT, XtRaCt, nbits)
+// skip the next NBITS bits from ACCUM (unsafe, assumes that NBITS bits are available)
+#define BITS_SKIP(ACCUM, XTRACT, NBITS) { ACCUM <<= (NBITS) ; XTRACT -= (NBITS) ; }
+#define BITSTREAM_SKIP(S32, NBITS) BITS_SKIP((S32).acc_x, (S32).xtract, NBITS)
+#define EZSTREAM_SKIP(NBITS) BITS_SKIP(AcC_OuT, XtRaCt, NBITS)
 
-// extract nbits bits into w32 from accum, update xtract, accum (unsafe, assumes that nbits bits are available)
-#define BITS_GET_FAST(accum, xtract, w32, nbits) \
-        { BITS_PEEK(accum, xtract, w32, nbits) ; BITS_SKIP(accum, xtract, nbits) ; }
-#define BITSTREAM_GET_FAST(w32, nbits) BITS_GET_FAST((s).acc_x, (s).xtract, w32, nbits)
-#define EZSTREAM_GET_FAST(w32, nbits) BITS_GET_FAST(AcC_OuT, XtRaCt, w32, nbits)
+// extract NBITS bits into W32 from ACCUM, update XTRACT, ACCUM (unsafe, assumes that NBITS bits are available)
+#define BITS_GET_FAST(ACCUM, XTRACT, W32, NBITS) \
+        { BITS_PEEK(ACCUM, W32, NBITS) ; BITS_SKIP(ACCUM, XTRACT, NBITS) ; }
+#define BITSTREAM_GET_FAST(W32, NBITS) BITS_GET_FAST((S32).acc_x, (S32).xtract, W32, NBITS)
+#define EZSTREAM_GET_FAST(W32, NBITS) BITS_GET_FAST(AcC_OuT, XtRaCt, W32, NBITS)
 
-// check that 32 bits can be safely extracted from accum
-// if not possible, get extra 32 bits into accum from stresm, update accum, xtract, stream
-#define BITS_GET_CHECK(accum, xtract, stream) \
-        { if(xtract < 32) { accum = (uint64_t) accum >> (32-xtract) ; accum |= *(stream) ; accum <<= (32-xtract) ; xtract += 32 ; (stream)++ ; } ; }
-#define BITSTREAM_GET_CHECK(s) BITS_GET_CHECK((s).acc_x, (s).xtract, (s).out)
+// check that 32 bits can be safely extracted from ACCUM
+// if not possible, get extra 32 bits into ACCUM from stresm, update ACCUM, XTRACT, STREAM
+#define BITS_GET_CHECK(ACCUM, XTRACT, STREAM) \
+        { if(XTRACT < 32) { ACCUM = (uint64_t) ACCUM >> (32-XTRACT) ; ACCUM |= *(STREAM) ; ACCUM <<= (32-XTRACT) ; XTRACT += 32 ; (STREAM)++ ; } ; }
+#define BITSTREAM_GET_CHECK(S32) BITS_GET_CHECK((S32).acc_x, (S32).xtract, (S32).out)
 #define EZSTREAM_GET_CHECK BITS_GET_CHECK(AcC_OuT, XtRaCt, StReAm_OuT)
 
-// combined CHECK and EXTRACT, update accum, xtract, stream
-#define BITS_GET_SAFE(accum, xtract, w32, nbits, stream) \
-        { BITS_GET_CHECK(accum, xtract, stream) ; BITS_GET_FAST(accum, xtract, w32, nbits) ; }
-#define BITSTREAM_GET_SAFE(s, w32, nbits) BITS_GET_SAFE((s).acc_x, (s).xtract, w32, nbits, (s).out)
-#define EZSTREAM_GET_SAFE(w32, nbits) BITS_GET_SAFE(AcC_OuT, XtRaCt, w32, nbits, StReAm_OuT)
+// combined CHECK and EXTRACT, update ACCUM, XTRACT, STREAM
+#define BITS_GET_SAFE(ACCUM, XTRACT, W32, NBITS, STREAM) \
+        { BITS_GET_CHECK(ACCUM, XTRACT, STREAM) ; BITS_GET_FAST(ACCUM, XTRACT, W32, NBITS) ; }
+#define BITSTREAM_GET_SAFE(S32, W32, NBITS) BITS_GET_SAFE((S32).acc_x, (S32).xtract, W32, NBITS, (S32).out)
+#define EZSTREAM_GET_SAFE(W32, NBITS) BITS_GET_SAFE(AcC_OuT, XtRaCt, W32, NBITS, StReAm_OuT)
 
-// finalize extraction, update accum, xtract
-#define BITS_GET_END(accum, xtract) { accum = 0 ; xtract = 0 ; }
-#define BITSTREAM_GET_END(s) BITS_GET_END((s).acc_x, (s).xtract)
+// finalize extraction, update ACCUM, XTRACT
+#define BITS_GET_END(ACCUM, XTRACT) { ACCUM = 0 ; XTRACT = 0 ; }
+#define BITSTREAM_GET_END(S32) BITS_GET_END((S32).acc_x, (S32).xtract)
 #define EZSTREAM_GET_END BITS_GET_END(AcC_OuT, XtRaCt)
 
 // align extraction point to a 32 bit boundary
-//  make xtract a 32 bit multiple                available bits   modulo 32
-#define BITS_GET_ALIGN(accum, xtract) { uint32_t tbits = xtract ; tbits &= 31 ; accum <<= tbits ; xtract -= tbits ; }
-#define BITSTREAM_GET_ALIGN(s) BITS_GET_ALIGN((s).acc_x, (s).xtract)
+//  make XTRACT a 32 bit multiple                available bits   modulo 32
+#define BITS_GET_ALIGN(ACCUM, XTRACT) { uint32_t tbits = XTRACT ; tbits &= 31 ; ACCUM <<= tbits ; XTRACT -= tbits ; }
+#define BITSTREAM_GET_ALIGN(S32) BITS_GET_ALIGN((S32).acc_x, (S32).xtract)
 #define EZSTREAM_GET_ALIGN BITS_GET_ALIGN(AcC_OuT, XtRaCt)
 
 // word (32 bit) stream descriptor
@@ -174,10 +186,12 @@ typedef struct{
 } stream32 ;
 CT_ASSERT(sizeof(stream32) == 64, "wordstream size MUST be 56 bytes")    // 8 64 bit elements (7 x 64 bits + 2 x 32 bits)
 
+// old style behavior interface (less safe, no indication of pak dimansion)
 uint32_t pack_w32(void *unp, void *pak, int nbits, int n) ;
 uint32_t unpack_u32(void *unp, void *pak, int nbits, int n) ;
 uint32_t unpack_i32(void *unp, void *pak, int nbits, int n) ;
 
+// preferred stream32 based interface
 stream32 *stream32_create(void *buf, uint32_t size) ;
 stream32 *stream32_resize(stream32 *s_old, uint32_t size) ;
 void *stream32_rewind(stream32 *s) ;

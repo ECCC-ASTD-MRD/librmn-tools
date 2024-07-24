@@ -26,7 +26,17 @@
 // nbits [IN] : number of rightmost bits to keep in unp
 // n     [IN] : number of 32 bit elements in unp array
 // return number of 32 bit words used
-uint32_t pack_w32(void *unp, void *pak, int nbits, int n){
+#if 1
+uint32_t pack_w32(void *unp, void *pak, int nbits, int nn){
+  int n = (nn < 0) ? -nn : nn ;
+  stream32 s ;
+  s.in = s.first = pak ;
+  s.limit = s.first + (n * nbits + 31) / 32 ;
+  return stream32_pack(&s, unp, nbits, n) ;
+}
+#else
+uint32_t pack_w32(void *unp, void *pak, int nbits, int nn){
+  int n = (nn < 0) ? -nn : nn ;
   uint64_t accum ;
   uint32_t *unp_u = (uint32_t *) unp, *pak_u = (uint32_t *) pak, count ;
   uint32_t *pak_0 = pak_u ;
@@ -51,6 +61,7 @@ uint32_t pack_w32(void *unp, void *pak, int nbits, int n){
   BITS_PUT_END(accum, count, pak_u) ;
   return pak_u - pak_0 ;
 }
+#endif
 
 // unsigned unpacker, unpack into the lower nbits bits of unp
 // unp  [OUT] : pointer to array of 32 bit words to receive unsigned unpacked data
@@ -58,7 +69,17 @@ uint32_t pack_w32(void *unp, void *pak, int nbits, int n){
 // nbits [IN] : number of bits of packed items
 // n     [IN] : number of 32 bit elements in unp array
 // return index to the current extraction position
-uint32_t unpack_u32(void *unp, void *pak, int nbits, int n){
+#if 1
+uint32_t unpack_u32(void *unp, void *pak, int nbits, int nn){
+  int n = (nn < 0) ? -nn : nn ;
+  stream32 s ;
+  s.out = s.first = pak ;
+  s.limit = s.first + (n * nbits + 31) / 32 ;
+  return stream32_unpack_u32(&s, unp, nbits, n) ;
+}
+#else
+uint32_t unpack_u32(void *unp, void *pak, int nbits, int nn){
+  int n = (nn < 0) ? -nn : nn ;
   uint64_t accum ;
   uint32_t *unp_u = (uint32_t *) unp, *pak_u = (uint32_t *) pak, count ;
   uint32_t *pak_0 = pak_u ;
@@ -84,6 +105,7 @@ uint32_t unpack_u32(void *unp, void *pak, int nbits, int n){
   if(count >= 32) pak_u-- ;
   return pak_u - pak_0 ;
 }
+#endif
 
 // signed unpacker, unpack into unp
 // unp  [OUT] : pointer to array of 32 bit words to receive signed unpacked data
@@ -91,7 +113,17 @@ uint32_t unpack_u32(void *unp, void *pak, int nbits, int n){
 // nbits [IN] : number of bits of packed items
 // n     [IN] : number of 32 bit elements in unp array
 // return index to the current extraction position
-uint32_t unpack_i32(void *unp, void *pak, int nbits, int n){
+#if 1
+uint32_t unpack_i32(void *unp, void *pak, int nbits, int nn){
+  int n = (nn < 0) ? -nn : nn ;
+  stream32 s ;
+  s.out = s.first = pak ;
+  s.limit = s.first + (n * nbits + 31) / 32 ;
+  return stream32_unpack_i32(&s, unp, nbits, n) ;
+}
+#else
+uint32_t unpack_i32(void *unp, void *pak, int nbits, int nn){
+  int n = (nn < 0) ? -nn : nn ;
   uint64_t accum ;
   int32_t *unp_s = (int32_t *) unp ;
   uint32_t *pak_u = (uint32_t *) pak, count ;
@@ -118,6 +150,7 @@ uint32_t unpack_i32(void *unp, void *pak, int nbits, int n){
   if(count >= 32) pak_u-- ;
   return pak_u - pak_0 ;
 }
+#endif
 
 // =================== stream32 interface ===================
 
@@ -188,15 +221,17 @@ void *stream32_rewrite(stream32 *s){
 // unp   [IN] : pointer to array of 32 bit words to pack
 // nbits [IN] : number of rightmost bits to keep in unp
 // n     [IN] : number of 32 bit elements in unp array
+//              if n < 0 , do not initialize/finalize packed stream
 // return index to the current insertion position into stream32 buffer
-uint32_t stream32_pack(stream32 *s, void *unp, int nbits, int n){
+uint32_t stream32_pack(stream32 *s, void *unp, int nbits, int nn){
+  int n = (nn < 0) ? -nn : nn ;
   uint32_t *unp_u = (uint32_t *) unp ;
   // get accum, packed stream pointer, count from stream
-  EZSTREAM_DCL_IN ;
-  EZSTREAM_GET_IN(*s) ;
+  EZSTREAM_DCL_IN ;      // EZ declarations for insertion
+  EZSTREAM_GET_IN(*s) ;  // get info from stream
 
-  EZSTREAM_PUT_START ;
-  if(nbits < 9){
+  if(nn >= 0) EZSTREAM_PUT_START ;
+  if(nbits < 9){         //  8 bits or less, safe to put 4 elements back to back
     while(n>3) {
       EZSTREAM_PUT_CHECK ; n -= 4 ;
       EZSTREAM_PUT_FAST(*unp_u, nbits) ; unp_u++ ;
@@ -205,7 +240,7 @@ uint32_t stream32_pack(stream32 *s, void *unp, int nbits, int n){
       EZSTREAM_PUT_FAST(*unp_u, nbits) ; unp_u++ ;
     }
   }
-  if(nbits < 17){
+  if(nbits < 17){        // 16 bits or less, safe to put 2 elements back to back
     while(n>1) {
       EZSTREAM_PUT_CHECK ; n -= 2 ;
       EZSTREAM_PUT_FAST(*unp_u, nbits) ; unp_u++ ;
@@ -213,8 +248,8 @@ uint32_t stream32_pack(stream32 *s, void *unp, int nbits, int n){
     }
   }
   while(n--){ EZSTREAM_PUT_SAFE(*unp_u, nbits) ; unp_u++ ; }
-  EZSTREAM_PUT_END ;
-  EZSTREAM_SAVE_IN(*s) ;
+  if(nn >= 0) EZSTREAM_PUT_END ;
+  EZSTREAM_SAVE_IN(*s) ;  // save updated info into stream
   return EZSTREAM_IN(*s) ;
 }
 
@@ -223,16 +258,34 @@ uint32_t stream32_pack(stream32 *s, void *unp, int nbits, int n){
 // unp  [OUT] : pointer to array of 32 bit words to receive signed unpacked data
 // nbits [IN] : number of bits of packed items
 // n     [IN] : number of 32 bit elements in unp array
+//              if n < 0 , do not initialize stream before extraction
 // return pointer to the current extraction position from stream32 buffer
-uint32_t stream32_unpack_u32(stream32 *s,void *unp,  int nbits, int n){
+uint32_t stream32_unpack_u32(stream32 *s,void *unp,  int nbits, int nn){
+  int n = (nn < 0) ? -nn : nn ;
   uint32_t *unp_u = (uint32_t *) unp ;
   // get accum, packed stream pointer, count from stream
-  EZSTREAM_DCL_OUT ;
-  EZSTREAM_GET_OUT(*s) ;
+  EZSTREAM_DCL_OUT ;      // EZ declarations for extraction
+  EZSTREAM_GET_OUT(*s) ;  // get info from stream
 
-  EZSTREAM_GET_START ;
+  if(nn >= 0) EZSTREAM_GET_START ;
+  if(nbits < 9){
+    while(n>3) {         // 8 bits or less, safe to get 4 elements back to back
+      EZSTREAM_GET_CHECK ; n -= 4 ;
+      EZSTREAM_GET_FAST(*unp_u, nbits) ; unp_u++ ;
+      EZSTREAM_GET_FAST(*unp_u, nbits) ; unp_u++ ;
+      EZSTREAM_GET_FAST(*unp_u, nbits) ; unp_u++ ;
+      EZSTREAM_GET_FAST(*unp_u, nbits) ; unp_u++ ;
+    }
+  }
+  if(nbits < 17){        // 16 bits or less, safe to get 2 elements back to back
+    while(n>1) {
+      EZSTREAM_GET_CHECK ; n -= 2 ;
+      EZSTREAM_GET_FAST(*unp_u, nbits) ; unp_u++ ;
+      EZSTREAM_GET_FAST(*unp_u, nbits) ; unp_u++ ;
+    }
+  }
   while(n--) { EZSTREAM_GET_SAFE(*unp_u, nbits) ; unp_u++ ; } ;
-  EZSTREAM_SAVE_OUT(*s) ;
+  EZSTREAM_SAVE_OUT(*s) ;  // save updated info into stream
   return EZSTREAM_OUT(*s) ;
 }
 
@@ -241,15 +294,33 @@ uint32_t stream32_unpack_u32(stream32 *s,void *unp,  int nbits, int n){
 // unp  [OUT] : pointer to array of 32 bit words to receive signed unpacked data
 // nbits [IN] : number of bits of packed items
 // n     [IN] : number of 32 bit elements in unp array
+//              if n < 0 , do not initialize stream before extraction
 // return pointer to the current extraction position from stream32 buffer
-uint32_t stream32_unpack_i32(stream32 *s,void *unp,  int nbits, int n){
+uint32_t stream32_unpack_i32(stream32 *s,void *unp,  int nbits, int nn){
+  int n = (nn < 0) ? -nn : nn ;
   int32_t *unp_s = (int32_t *) unp ;
   // get accum, packed stream pointer, count from stream
-  EZSTREAM_DCL_OUT ;
-  EZSTREAM_GET_OUT(*s) ;
+  EZSTREAM_DCL_OUT ;      // EZ declarations for extraction
+  EZSTREAM_GET_OUT(*s) ;  // get info from stream
 
-  EZSTREAM_GET_START ;
+  if(nn >= 0) EZSTREAM_GET_START ;
+  if(nbits < 9){
+    while(n>3) {         // 8 bits or less, safe to get 4 elements back to back
+      EZSTREAM_GET_CHECK ; n -= 4 ;
+      EZSTREAM_GET_FAST(*unp_s, nbits) ; unp_s++ ;
+      EZSTREAM_GET_FAST(*unp_s, nbits) ; unp_s++ ;
+      EZSTREAM_GET_FAST(*unp_s, nbits) ; unp_s++ ;
+      EZSTREAM_GET_FAST(*unp_s, nbits) ; unp_s++ ;
+    }
+  }
+  if(nbits < 17){        // 16 bits or less, safe to get 2 elements back to back
+    while(n>1) {
+      EZSTREAM_GET_CHECK ; n -= 2 ;
+      EZSTREAM_GET_FAST(*unp_s, nbits) ; unp_s++ ;
+      EZSTREAM_GET_FAST(*unp_s, nbits) ; unp_s++ ;
+    }
+  }
   while(n--) { EZSTREAM_GET_SAFE(*unp_s, nbits) ; unp_s++ ; } ;
-  EZSTREAM_SAVE_OUT(*s) ;
+  EZSTREAM_SAVE_OUT(*s) ;  // save updated info into stream
   return EZSTREAM_OUT(*s) ;
 }
