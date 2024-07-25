@@ -100,7 +100,7 @@
 #define BITSTREAM_PUSH(S32) BITS_PUSH((S32).acc_i, (S32).insert, (S32).in)
 #define EZSTREAM_PUSH BITS_PUSH(AcC_In, InSeRt, StReAm_In)
 
-// flush any residual data from ACCUM into stream, update INSERT, STREAM
+// flush any residual data from ACCUM into stream, update ACCUM, INSERT, STREAM
 #define BITS_PUT_FLUSH(ACCUM, INSERT, STREAM) \
         { BITS_PUT_CHECK(ACCUM, INSERT, STREAM) ; if(INSERT > 0) { *(STREAM) = (uint64_t) ACCUM >> 32 ; (STREAM)++ ; INSERT = 0 ; ACCUM = 0 ;} }
 //                                      if there is residual data in accumulator store it, bump STREAM ptr, mark ACCUM as empty

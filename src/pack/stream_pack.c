@@ -230,20 +230,19 @@ void *stream32_rewrite(stream32 *s){
 }
 
 // stream packer, pack the lower nbits bits of unp into stream32
-// s  [INOUT] : stream32 struct
-// unp   [IN] : pointer to array of 32 bit words to pack
-// nbits [IN] : number of rightmost bits to keep in unp
-// n     [IN] : number of 32 bit elements in unp array
-//              if n < 0 , do not initialize/finalize packed stream
-// return index to the current insertion position into stream32 buffer
-uint32_t stream32_pack(stream32 *s, void *unp, int nbits, int nn, uint32_t options){
-  int n = (nn < 0) ? -nn : nn ;
+// s    [INOUT] : stream32 struct
+// unp     [IN] : pointer to array of 32 bit words to pack
+// nbits   [IN] : number of rightmost bits to keep in unp
+// n       [IN] : number of 32 bit elements in unp array
+// options [IN] : packing options (PUT_NO_INIT / PUT_NO_FLUSH)
+// return index of the current insertion position into stream32 buffer
+uint32_t stream32_pack(stream32 *s, void *unp, int nbits, int n, uint32_t options){
   uint32_t *unp_u = (uint32_t *) unp ;
   // get accum, packed stream pointer, count from stream
   EZSTREAM_DCL_IN ;      // EZ declarations for insertion
   EZSTREAM_GET_IN(*s) ;  // get info from stream
 
-  if(nn >= 0) EZSTREAM_PUT_INIT ;
+  if((PUT_NO_INIT & options) == 0) EZSTREAM_PUT_INIT ;
   if(nbits < 9){         //  8 bits or less, safe to put 4 elements back to back
     while(n>3) {
       EZSTREAM_PUT_CHECK ; n -= 4 ;
@@ -261,26 +260,25 @@ uint32_t stream32_pack(stream32 *s, void *unp, int nbits, int nn, uint32_t optio
     }
   }
   while(n--){ EZSTREAM_PUT_SAFE(*unp_u, nbits) ; unp_u++ ; }
-  if(nn >= 0) EZSTREAM_PUT_FLUSH ;
+  if((PUT_NO_FLUSH & options) == 0) EZSTREAM_PUT_FLUSH ;
   EZSTREAM_SAVE_IN(*s) ;  // save updated info into stream
   return EZSTREAM_IN(*s) ;
 }
 
 // unsigned unpack
-// s  [INOUT] : stream32 struct
-// unp  [OUT] : pointer to array of 32 bit words to receive signed unpacked data
-// nbits [IN] : number of bits of packed items
-// n     [IN] : number of 32 bit elements in unp array
-//              if n < 0 , do not initialize stream before extraction
-// return pointer to the current extraction position from stream32 buffer
-uint32_t stream32_unpack_u32(stream32 *s,void *unp,  int nbits, int nn, uint32_t options){
-  int n = (nn < 0) ? -nn : nn ;
+// s    [INOUT]   : stream32 struct
+// unp    [OUT]   : pointer to array of 32 bit words to receive signed unpacked data
+// nbits   [IN]   : number of bits of packed items
+// n       [IN]   : number of 32 bit elements in unp array
+// options [IN] : unpacking options (GET_NO_INIT / GET_NO_FINALIZE)
+// return index of the current extraction position from stream32 buffer
+uint32_t stream32_unpack_u32(stream32 *s,void *unp,  int nbits, int n, uint32_t options){
   uint32_t *unp_u = (uint32_t *) unp ;
   // get accum, packed stream pointer, count from stream
   EZSTREAM_DCL_OUT ;      // EZ declarations for extraction
   EZSTREAM_GET_OUT(*s) ;  // get info from stream
 
-  if(nn >= 0) EZSTREAM_GET_INIT ;
+  if((GET_NO_INIT & options) == 0) EZSTREAM_GET_INIT ;
   if(nbits < 9){
     while(n>3) {         // 8 bits or less, safe to get 4 elements back to back
       EZSTREAM_GET_CHECK ; n -= 4 ;
@@ -298,26 +296,25 @@ uint32_t stream32_unpack_u32(stream32 *s,void *unp,  int nbits, int nn, uint32_t
     }
   }
   while(n--) { EZSTREAM_GET_SAFE(*unp_u, nbits) ; unp_u++ ; } ;
-  if(nn >= 0) EZSTREAM_GET_FINALIZE ;
+  if((GET_NO_FINALIZE & options) == 0) EZSTREAM_GET_FINALIZE ;
   EZSTREAM_SAVE_OUT(*s) ;  // save updated info into stream
   return EZSTREAM_OUT(*s) ;
 }
 
 // signed unpack
-// s  [INOUT] : stream32 struct
-// unp  [OUT] : pointer to array of 32 bit words to receive signed unpacked data
-// nbits [IN] : number of bits of packed items
-// n     [IN] : number of 32 bit elements in unp array
-//              if n < 0 , do not initialize stream before extraction
-// return pointer to the current extraction position from stream32 buffer
-uint32_t stream32_unpack_i32(stream32 *s,void *unp,  int nbits, int nn, uint32_t options){
-  int n = (nn < 0) ? -nn : nn ;
+// s    [INOUT] : stream32 struct
+// unp    [OUT] : pointer to array of 32 bit words to receive signed unpacked data
+// nbits   [IN] : number of bits of packed items
+// n       [IN] : number of 32 bit elements in unp array
+// options [IN] : unpacking options (GET_NO_INIT / GET_NO_FINALIZE)
+// return index of the current extraction position from stream32 buffer
+uint32_t stream32_unpack_i32(stream32 *s,void *unp,  int nbits, int n, uint32_t options){
   int32_t *unp_s = (int32_t *) unp ;
   // get accum, packed stream pointer, count from stream
   EZSTREAM_DCL_OUT ;      // EZ declarations for extraction
   EZSTREAM_GET_OUT(*s) ;  // get info from stream
 
-  if(nn >= 0) EZSTREAM_GET_INIT ;
+  if((GET_NO_INIT & options) == 0) EZSTREAM_GET_INIT ;
   if(nbits < 9){
     while(n>3) {         // 8 bits or less, safe to get 4 elements back to back
       EZSTREAM_GET_CHECK ; n -= 4 ;
@@ -335,7 +332,7 @@ uint32_t stream32_unpack_i32(stream32 *s,void *unp,  int nbits, int nn, uint32_t
     }
   }
   while(n--) { EZSTREAM_GET_SAFE(*unp_s, nbits) ; unp_s++ ; } ;
-  if(nn >= 0) EZSTREAM_GET_FINALIZE ;
+  if((GET_NO_FINALIZE & options) == 0) EZSTREAM_GET_FINALIZE ;
   EZSTREAM_SAVE_OUT(*s) ;  // save updated info into stream
   return EZSTREAM_OUT(*s) ;
 }
