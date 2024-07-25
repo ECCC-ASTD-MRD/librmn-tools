@@ -108,10 +108,10 @@ int main(int argc, char **argv){
 
     // unsigned pack/unpack stream32 functions correctness test
     stream32_rewrite(s) ;
-    stream_siz3 = stream32_pack(s, unpacked_u, nbits, npts) ;           // pack (unsigned)
+    stream_siz3 = stream32_pack(s, unpacked_u, nbits, npts, 0) ;        // pack (unsigned)
     s = stream32_resize(s, npts + nbits * 1024 * 1024) ;                // resize stream after pack to force address change
     stream32_rewind(s) ;                                                // rewind stream before unpack
-    stream_siz4 = stream32_unpack_u32(s,restored_u,  nbits, npts) ;     // unpack unsigned
+    stream_siz4 = stream32_unpack_u32(s,restored_u,  nbits, npts, 0) ;  // unpack unsigned
     errors = w32_compare(unpacked_u, restored_u, npts) ;                // check unsigned pack/unpack errors
     if(errors > 0) { fprintf(stderr, ", errors_u stream = %d\n", errors) ; exit(1) ; }
     check_pos(stream_siz3, stream_siz1, "pack 3") ;                     // must be same length as unsigned pack
@@ -119,9 +119,9 @@ int main(int argc, char **argv){
 
     // signed pack/unpack stream32 functions correctness test
     stream32_rewrite(s) ;                                               // rewind stream before signed pack
-    stream_siz3 = stream32_pack(s, unpacked_s, nbits, npts) ;           // pack (signed)
+    stream_siz3 = stream32_pack(s, unpacked_s, nbits, npts, 0) ;        // pack (signed)
     stream32_rewind(s) ;                                                // rewind stream before unpack
-    stream_siz4 = stream32_unpack_i32(s,restored_s,  nbits, npts) ;     // unpack (signed)
+    stream_siz4 = stream32_unpack_i32(s,restored_s,  nbits, npts, 0) ;  // unpack (signed)
     errors = w32_compare(unpacked_s, restored_s, npts) ;                // check unsigned pack/unpack errors
     if(errors > 0) { fprintf(stderr, ", errors_s stream = %d\n", errors) ; exit(1) ; }
     check_pos(stream_siz3, stream_siz1, "pack 4") ;                     // must be same length as unsigned pack
@@ -140,16 +140,16 @@ int main(int argc, char **argv){
     t2 = timer_min * NaNoSeC / (npts) ;
 
     // stream32 functions timing tests
-    stream32_pack(s, unpacked_u, nbits, npts) ;
-    TIME_LOOP_EZ(NITER, npts, stream32_rewrite(s) ; stream32_pack(s, unpacked_u, nbits, npts) )
+    stream32_pack(s, unpacked_u, nbits, npts, 0) ;
+    TIME_LOOP_EZ(NITER, npts, stream32_rewrite(s) ; stream32_pack(s, unpacked_u, nbits, npts, 0) )
     t3 = timer_min * NaNoSeC / (npts) ;
 
-    stream32_rewrite(s) ; stream32_pack(s, unpacked_u, nbits, npts) ;
-    TIME_LOOP_EZ(NITER, npts, stream32_rewind(s) ; stream32_unpack_u32(s,restored_u,  nbits, npts) )
+    stream32_rewrite(s) ; stream32_pack(s, unpacked_u, nbits, npts, 0) ;
+    TIME_LOOP_EZ(NITER, npts, stream32_rewind(s) ; stream32_unpack_u32(s,restored_u,  nbits, npts, 0) )
     t4 = timer_min * NaNoSeC / (npts) ;
 
-    stream32_rewrite(s) ; stream32_pack(s, unpacked_s, nbits, npts) ;
-    TIME_LOOP_EZ(NITER, npts, stream32_rewind(s) ; stream32_unpack_i32(s,restored_s,  nbits, npts) )
+    stream32_rewrite(s) ; stream32_pack(s, unpacked_s, nbits, npts, 0) ;
+    TIME_LOOP_EZ(NITER, npts, stream32_rewind(s) ; stream32_unpack_i32(s,restored_s,  nbits, npts, 0) )
     t5 = timer_min * NaNoSeC / (npts) ;
 
     fprintf(stderr, ",  %4.2f      %4.2f      %4.2f      %4.2f      %4.2f      %4.2f", t0, t1, t2, t3, t4, t5) ;

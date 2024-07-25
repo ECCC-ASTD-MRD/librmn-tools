@@ -100,12 +100,12 @@
 #define BITSTREAM_PUSH(S32) BITS_PUSH((S32).acc_i, (S32).insert, (S32).in)
 #define EZSTREAM_PUSH BITS_PUSH(AcC_In, InSeRt, StReAm_In)
 
-// store any residual data from ACCUM into stream, update INSERT, STREAM
-#define BITS_PUT_CLOSE(ACCUM, INSERT, STREAM) \
+// flush any residual data from ACCUM into stream, update INSERT, STREAM
+#define BITS_PUT_FLUSH(ACCUM, INSERT, STREAM) \
         { BITS_PUT_CHECK(ACCUM, INSERT, STREAM) ; if(INSERT > 0) { *(STREAM) = (uint64_t) ACCUM >> 32 ; (STREAM)++ ; INSERT = 0 ; ACCUM = 0 ;} }
 //                                      if there is residual data in accumulator store it, bump STREAM ptr, mark ACCUM as empty
-#define BITSTREAM_PUT_CLOSE(S32) BITS_PUT_CLOSE((S32).acc_i, (S32).insert, (S32).in)
-#define EZSTREAM_PUT_CLOSE BITS_PUT_CLOSE(AcC_In, InSeRt, StReAm_In)
+#define BITSTREAM_PUT_FLUSH(S32) BITS_PUT_FLUSH((S32).acc_i, (S32).insert, (S32).in)
+#define EZSTREAM_PUT_FLUSH BITS_PUT_FLUSH(AcC_In, InSeRt, StReAm_In)
 
 // align insertion point to a 32 bit boundary
 //  make INSERT a 32 bit multiple              free bits             modulo 31
@@ -154,9 +154,9 @@
 #define EZSTREAM_GET_SAFE(W32, NBITS) BITS_GET_SAFE(AcC_OuT, XtRaCt, W32, NBITS, StReAm_OuT)
 
 // finalize extraction, push unused full 32 bit words back into stream, update ACCUM, XTRACT, STREAM
-#define BITS_GET_CLOSE(ACCUM, XTRACT, STREAM) if(XTRACT > 32) { ACCUM <<= 32 ; XTRACT -= 32 ; (STREAM)-- ; }
-#define BITSTREAM_GET_CLOSE(S32) BITS_GET_CLOSE((S32).acc_x, (S32).xtract, (S32).out)
-#define EZSTREAM_GET_CLOSE BITS_GET_CLOSE(AcC_OuT, XtRaCt, StReAm_OuT)
+#define BITS_GET_FINALIZE(ACCUM, XTRACT, STREAM) if(XTRACT > 32) { ACCUM <<= 32 ; XTRACT -= 32 ; (STREAM)-- ; }
+#define BITSTREAM_GET_FINALIZE(S32) BITS_GET_FINALIZE((S32).acc_x, (S32).xtract, (S32).out)
+#define EZSTREAM_GET_FINALIZE BITS_GET_FINALIZE(AcC_OuT, XtRaCt, StReAm_OuT)
 
 // align extraction point to a 32 bit boundary
 //  make XTRACT a 32 bit multiple                available bits   modulo 32
@@ -198,8 +198,14 @@ stream32 *stream32_resize(stream32 *s_old, uint32_t size) ;
 void *stream32_rewind(stream32 *s) ;
 void *stream32_rewrite(stream32 *s) ;
 
-uint32_t stream32_pack(stream32 *s, void *unp, int nbits, int n) ;
-uint32_t stream32_unpack_u32(stream32 *s,void *unp,  int nbits, int n) ;
-uint32_t stream32_unpack_i32(stream32 *s,void *unp,  int nbits, int n) ;
+// stream32 pack/unpack options
+#define GET_NO_INIT     0x00000001
+#define GET_NO_FINALIZE 0x00000002
+#define PUT_NO_INIT     0x00000004
+#define PUT_NO_FLUSH    0x00000008
+
+uint32_t stream32_pack(stream32 *s, void *unp, int nbits, int n, uint32_t options) ;
+uint32_t stream32_unpack_u32(stream32 *s,void *unp,  int nbits, int n, uint32_t options) ;
+uint32_t stream32_unpack_i32(stream32 *s,void *unp,  int nbits, int n, uint32_t options) ;
 
 #endif

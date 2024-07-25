@@ -32,7 +32,7 @@ uint32_t pack_w32(void *unp, void *pak, int nbits, int nn){
   stream32 s ;
   s.in = s.first = pak ;
   s.limit = s.first + (n * nbits + 31) / 32 ;
-  return stream32_pack(&s, unp, nbits, n) ;
+  return stream32_pack(&s, unp, nbits, n, 0) ;
 }
 #else
 uint32_t pack_w32(void *unp, void *pak, int nbits, int nn){
@@ -75,7 +75,7 @@ uint32_t unpack_u32(void *unp, void *pak, int nbits, int nn){
   stream32 s ;
   s.out = s.first = pak ;
   s.limit = s.first + (n * nbits + 31) / 32 ;
-  return stream32_unpack_u32(&s, unp, nbits, n) ;
+  return stream32_unpack_u32(&s, unp, nbits, n, 0) ;
 }
 #else
 uint32_t unpack_u32(void *unp, void *pak, int nbits, int nn){
@@ -119,7 +119,7 @@ uint32_t unpack_i32(void *unp, void *pak, int nbits, int nn){
   stream32 s ;
   s.out = s.first = pak ;
   s.limit = s.first + (n * nbits + 31) / 32 ;
-  return stream32_unpack_i32(&s, unp, nbits, n) ;
+  return stream32_unpack_i32(&s, unp, nbits, n, 0) ;
 }
 #else
 uint32_t unpack_i32(void *unp, void *pak, int nbits, int nn){
@@ -236,7 +236,7 @@ void *stream32_rewrite(stream32 *s){
 // n     [IN] : number of 32 bit elements in unp array
 //              if n < 0 , do not initialize/finalize packed stream
 // return index to the current insertion position into stream32 buffer
-uint32_t stream32_pack(stream32 *s, void *unp, int nbits, int nn){
+uint32_t stream32_pack(stream32 *s, void *unp, int nbits, int nn, uint32_t options){
   int n = (nn < 0) ? -nn : nn ;
   uint32_t *unp_u = (uint32_t *) unp ;
   // get accum, packed stream pointer, count from stream
@@ -261,7 +261,7 @@ uint32_t stream32_pack(stream32 *s, void *unp, int nbits, int nn){
     }
   }
   while(n--){ EZSTREAM_PUT_SAFE(*unp_u, nbits) ; unp_u++ ; }
-  if(nn >= 0) EZSTREAM_PUT_CLOSE ;
+  if(nn >= 0) EZSTREAM_PUT_FLUSH ;
   EZSTREAM_SAVE_IN(*s) ;  // save updated info into stream
   return EZSTREAM_IN(*s) ;
 }
@@ -273,7 +273,7 @@ uint32_t stream32_pack(stream32 *s, void *unp, int nbits, int nn){
 // n     [IN] : number of 32 bit elements in unp array
 //              if n < 0 , do not initialize stream before extraction
 // return pointer to the current extraction position from stream32 buffer
-uint32_t stream32_unpack_u32(stream32 *s,void *unp,  int nbits, int nn){
+uint32_t stream32_unpack_u32(stream32 *s,void *unp,  int nbits, int nn, uint32_t options){
   int n = (nn < 0) ? -nn : nn ;
   uint32_t *unp_u = (uint32_t *) unp ;
   // get accum, packed stream pointer, count from stream
@@ -298,6 +298,7 @@ uint32_t stream32_unpack_u32(stream32 *s,void *unp,  int nbits, int nn){
     }
   }
   while(n--) { EZSTREAM_GET_SAFE(*unp_u, nbits) ; unp_u++ ; } ;
+  if(nn >= 0) EZSTREAM_GET_FINALIZE ;
   EZSTREAM_SAVE_OUT(*s) ;  // save updated info into stream
   return EZSTREAM_OUT(*s) ;
 }
@@ -309,7 +310,7 @@ uint32_t stream32_unpack_u32(stream32 *s,void *unp,  int nbits, int nn){
 // n     [IN] : number of 32 bit elements in unp array
 //              if n < 0 , do not initialize stream before extraction
 // return pointer to the current extraction position from stream32 buffer
-uint32_t stream32_unpack_i32(stream32 *s,void *unp,  int nbits, int nn){
+uint32_t stream32_unpack_i32(stream32 *s,void *unp,  int nbits, int nn, uint32_t options){
   int n = (nn < 0) ? -nn : nn ;
   int32_t *unp_s = (int32_t *) unp ;
   // get accum, packed stream pointer, count from stream
@@ -334,6 +335,7 @@ uint32_t stream32_unpack_i32(stream32 *s,void *unp,  int nbits, int nn){
     }
   }
   while(n--) { EZSTREAM_GET_SAFE(*unp_s, nbits) ; unp_s++ ; } ;
+  if(nn >= 0) EZSTREAM_GET_FINALIZE ;
   EZSTREAM_SAVE_OUT(*s) ;  // save updated info into stream
   return EZSTREAM_OUT(*s) ;
 }
