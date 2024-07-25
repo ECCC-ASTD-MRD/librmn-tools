@@ -19,7 +19,7 @@
 // BITSTREAM_xxx macros  : direct individual use of stream32 struct (convenient, but slower)
 // EZSTREAM_xxxx macros  : get stream32 info , multiple insert/extract, save stream32 info (as fast as BITS_xxx)
 //
-#if ! defined(BITS_PUT_START)
+#if ! defined(BITS_PUT_INIT)
 
 #include <stdint.h>
 #include <rmn/ct_assert.h>
@@ -66,9 +66,9 @@
 // =============== insertion macros ===============
 
 // initialize stream for insertion, accumulator and inserted bits count are set to 0
-#define BITS_PUT_START(ACCUM, INSERT) { ACCUM = 0 ; INSERT = 0 ; }
-#define BITSTREAM_PUT_START(S32) BITS_PUT_START( (S32).acc_i, (S32).insert )
-#define EZSTREAM_PUT_START BITS_PUT_START(AcC_In, InSeRt)
+#define BITS_PUT_INIT(ACCUM, INSERT) { ACCUM = 0 ; INSERT = 0 ; }
+#define BITSTREAM_PUT_INIT(S32) BITS_PUT_INIT( (S32).acc_i, (S32).insert )
+#define EZSTREAM_PUT_INIT BITS_PUT_INIT(AcC_In, InSeRt)
 
 // insert the lower NBITS bits from W32 into ACCUM, update INSERT, ACCUM
 // insert BELOW the topmost INSERT bits in accumulator
@@ -101,11 +101,11 @@
 #define EZSTREAM_PUSH BITS_PUSH(AcC_In, InSeRt, StReAm_In)
 
 // store any residual data from ACCUM into stream, update INSERT, STREAM
-#define BITS_PUT_END(ACCUM, INSERT, STREAM) \
+#define BITS_PUT_CLOSE(ACCUM, INSERT, STREAM) \
         { BITS_PUT_CHECK(ACCUM, INSERT, STREAM) ; if(INSERT > 0) { *(STREAM) = (uint64_t) ACCUM >> 32 ; (STREAM)++ ; INSERT = 0 ; ACCUM = 0 ;} }
 //                                      if there is residual data in accumulator store it, bump STREAM ptr, mark ACCUM as empty
-#define BITSTREAM_PUT_END(S32) BITS_PUT_END((S32).acc_i, (S32).insert, (S32).in)
-#define EZSTREAM_PUT_END BITS_PUT_END(AcC_In, InSeRt, StReAm_In)
+#define BITSTREAM_PUT_CLOSE(S32) BITS_PUT_CLOSE((S32).acc_i, (S32).insert, (S32).in)
+#define EZSTREAM_PUT_CLOSE BITS_PUT_CLOSE(AcC_In, InSeRt, StReAm_In)
 
 // align insertion point to a 32 bit boundary
 //  make INSERT a 32 bit multiple              free bits             modulo 31
@@ -119,9 +119,9 @@
 //
 // initialize stream for extraction, fill 32 bits
 //                                                                               fill topmost bits  bump STREAM   32 useful bits
-#define BITS_GET_START(ACCUM, XTRACT, STREAM) { uint32_t t = *(STREAM) ; ACCUM = t ; ACCUM <<= 32 ; (STREAM)++ ; XTRACT = 32 ; }
-#define BITSTREAM_GET_START(S32) BITS_GET_START( (S32).acc_x, (S32).xtract, (S32).out)
-#define EZSTREAM_GET_START BITS_GET_START(AcC_OuT, XtRaCt, StReAm_OuT)
+#define BITS_GET_INIT(ACCUM, XTRACT, STREAM) { uint32_t t = *(STREAM) ; ACCUM = t ; ACCUM <<= 32 ; (STREAM)++ ; XTRACT = 32 ; }
+#define BITSTREAM_GET_INIT(S32) BITS_GET_INIT( (S32).acc_x, (S32).xtract, (S32).out)
+#define EZSTREAM_GET_INIT BITS_GET_INIT(AcC_OuT, XtRaCt, StReAm_OuT)
 
 // take a peek at the next NBITS bits from ACCUM into W32 (unsafe, assumes that NBITS bits are available)
 // if W32 is signed, the result will be signed, if W32 is unsigned, the result will be unsigned
@@ -153,10 +153,10 @@
 #define BITSTREAM_GET_SAFE(S32, W32, NBITS) BITS_GET_SAFE((S32).acc_x, (S32).xtract, W32, NBITS, (S32).out)
 #define EZSTREAM_GET_SAFE(W32, NBITS) BITS_GET_SAFE(AcC_OuT, XtRaCt, W32, NBITS, StReAm_OuT)
 
-// finalize extraction, update ACCUM, XTRACT
-#define BITS_GET_END(ACCUM, XTRACT) { ACCUM = 0 ; XTRACT = 0 ; }
-#define BITSTREAM_GET_END(S32) BITS_GET_END((S32).acc_x, (S32).xtract)
-#define EZSTREAM_GET_END BITS_GET_END(AcC_OuT, XtRaCt)
+// finalize extraction, push unused full 32 bit words back into stream, update ACCUM, XTRACT, STREAM
+#define BITS_GET_CLOSE(ACCUM, XTRACT, STREAM) if(XTRACT > 32) { ACCUM <<= 32 ; XTRACT -= 32 ; (STREAM)-- ; }
+#define BITSTREAM_GET_CLOSE(S32) BITS_GET_CLOSE((S32).acc_x, (S32).xtract, (S32).out)
+#define EZSTREAM_GET_CLOSE BITS_GET_CLOSE(AcC_OuT, XtRaCt, StReAm_OuT)
 
 // align extraction point to a 32 bit boundary
 //  make XTRACT a 32 bit multiple                available bits   modulo 32
@@ -183,7 +183,7 @@ typedef struct{
            spare:30 ,  // spare bits
            ualloc:1 ,  // user allocated buffer, may be free(d)/realloc(ed)
            alloc: 1 ;  // whole struct allocated with malloc (realloc is possible)
-  uint32_t data[] ;    // dynamic array, only used if alloc is true
+//   uint32_t data[] ;    // dynamic array, only used if alloc is true
 } stream32 ;
 CT_ASSERT(sizeof(stream32) == 64, "wordstream size MUST be 56 bytes")    // 8 64 bit elements (7 x 64 bits + 2 x 32 bits)
 
@@ -193,7 +193,7 @@ uint32_t unpack_u32(void *unp, void *pak, int nbits, int n) ;
 uint32_t unpack_i32(void *unp, void *pak, int nbits, int n) ;
 
 // preferred stream32 based interface
-stream32 *stream32_create(void *buf, uint32_t size) ;
+stream32 *stream32_create(stream32 *s_old, void *buf, uint32_t size) ;
 stream32 *stream32_resize(stream32 *s_old, uint32_t size) ;
 void *stream32_rewind(stream32 *s) ;
 void *stream32_rewrite(stream32 *s) ;

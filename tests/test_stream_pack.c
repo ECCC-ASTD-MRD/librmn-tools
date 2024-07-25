@@ -65,7 +65,7 @@ int main(int argc, char **argv){
   int32_t maskn ;
   TIME_LOOP_DATA ;
   float t0 , t1, t2, t3, t4, t5 ;
-  stream32 *s ;
+  stream32 *s, s0 ;   // s will eventually point to s0
 
   fprintf(stderr, "test for stream packing macros\n") ;
   if(cycles_overhead > 0)fprintf(stderr, ", timing overhead = %4.2f ns\n", cycles_overhead * NaNoSeC);
@@ -76,7 +76,7 @@ int main(int argc, char **argv){
   unpacked_s = (int32_t *)  malloc(npts * sizeof(uint32_t)) ; if(unpacked_s == NULL) exit(1) ;
   restored_s = (int32_t *)  malloc(npts * sizeof(uint32_t)) ; if(restored_s == NULL) exit(1) ;
 
-  s = stream32_create(NULL, npts) ;
+  s = stream32_create(&s0, NULL, npts) ;  // testing creation with existing struct
   fprintf(stderr, "alloc = %d, ualloc = %d\n", s->alloc, s->ualloc) ;
 
   fprintf(stderr, "                                      macros                          stream\n") ;
