@@ -57,9 +57,9 @@ void check_pos(uint32_t p1, uint32_t p2, char *msg){
 }
 
 int main(int argc, char **argv){
-  int npts = 32*1024 + 17 ;
+  int npts = 32*1024 + 17, npts1 = npts/2 - 5, npts2 = npts - npts1 ;
   uint32_t *unpacked_u, *packed, *restored_u ;
-  uint32_t stream_siz1, stream_siz2, stream_siz3, stream_siz4 ;
+  uint32_t stream_pos1, stream_pos2, stream_pos3, stream_pos4 ;
   int32_t  *unpacked_s, *restored_s ;
   int i, nbits, errors ;
   int32_t maskn ;
@@ -92,40 +92,50 @@ int main(int argc, char **argv){
     fprintf(stderr, "nbits = %2d, mask = %8.8x", nbits, maskn) ;
 
     // unsigned pack/unpack base functions correctness test
-    stream_siz1 = pack_w32(unpacked_u, packed, nbits, npts) ;           // pack (unsigned)
-    stream_siz2 = unpack_u32(restored_u, packed, nbits, npts) ;         // unpack unsigned
+    stream_pos1 = pack_w32(unpacked_u, packed, nbits, npts) ;           // pack (unsigned)
+    stream_pos2 = unpack_u32(restored_u, packed, nbits, npts) ;         // unpack unsigned
     errors = w32_compare(unpacked_u, restored_u, npts) ;                // check unsigned pack/unpack errors
     if(errors > 0) { fprintf(stderr, ", errors_u = %d\n", errors) ; exit(1) ; }
-    check_pos(stream_siz1, stream_siz2, "unpack 1") ;                   // must be same length as unsigned pack
+    check_pos(stream_pos1, stream_pos2, "unpack 1") ;                   // must be same length as unsigned pack
 
     // signed pack/unpack base functions correctness test
-    stream_siz3 = pack_w32(unpacked_s, packed, nbits, npts) ;           // pack (signed)
-    stream_siz4 = unpack_i32(restored_s, packed, nbits, npts) ;         // unpack signed
+    stream_pos3 = pack_w32(unpacked_s, packed, nbits, npts) ;           // pack (signed)
+    stream_pos4 = unpack_i32(restored_s, packed, nbits, npts) ;         // unpack signed
     errors = w32_compare(unpacked_s, restored_s, npts) ;                // check signed pack/unpack errors
     if(errors > 0) { fprintf(stderr, ", errors_u = %d\n", errors) ; exit(1) ; }
-    check_pos(stream_siz3, stream_siz1, "pack 2") ;                     // must be same length as unsigned pack
-    check_pos(stream_siz3, stream_siz4, "unpack 2") ;                   // must be same length as signed pack
+    check_pos(stream_pos1, stream_pos3, "pack 2") ;                     // must be same length as unsigned pack
+    check_pos(stream_pos3, stream_pos4, "unpack 2") ;                   // must be same length as signed pack
 
     // unsigned pack/unpack stream32 functions correctness test
     stream32_rewrite(s) ;
-    stream_siz3 = stream32_pack(s, unpacked_u, nbits, npts, 0) ;        // pack (unsigned)
+    for(i=0 ; i<npts ; i++) restored_u[i] = 0 ;
+//     stream_pos3 = stream32_pack(s, unpacked_u, nbits, npts, 0) ;        // pack (unsigned)
+    stream_pos3 = stream32_pack(s, unpacked_u      , nbits, npts1, PUT_NO_FLUSH) ;   // pack, part 1
+    stream_pos3 = stream32_pack(s, unpacked_u+npts1, nbits, npts2, PUT_NO_INIT) ;    // pack, part 2
     s = stream32_resize(s, npts + nbits * 1024 * 1024) ;                // resize stream after pack to force address change
     stream32_rewind(s) ;                                                // rewind stream before unpack
-    stream_siz4 = stream32_unpack_u32(s,restored_u,  nbits, npts, 0) ;  // unpack unsigned
+//     stream_pos4 = stream32_unpack_u32(s,restored_u,  nbits, npts, 0) ;  // unpack unsigned
+    stream_pos4 = stream32_unpack_u32(s,restored_u      ,  nbits, npts2, GET_NO_FINALIZE) ;   // unpack, part 1
+    stream_pos4 = stream32_unpack_u32(s,restored_u+npts2,  nbits, npts1, GET_NO_INIT) ;       // unpack, part 2
     errors = w32_compare(unpacked_u, restored_u, npts) ;                // check unsigned pack/unpack errors
     if(errors > 0) { fprintf(stderr, ", errors_u stream = %d\n", errors) ; exit(1) ; }
-    check_pos(stream_siz3, stream_siz1, "pack 3") ;                     // must be same length as unsigned pack
-    check_pos(stream_siz3, stream_siz4, "unpack 3") ;                   // must be same length as unsigned pack
+    check_pos(stream_pos1, stream_pos3, "pack 3") ;                     // must be same length as unsigned pack
+    check_pos(stream_pos1, stream_pos4, "unpack 3") ;                   // must be same length as unsigned pack
 
     // signed pack/unpack stream32 functions correctness test
     stream32_rewrite(s) ;                                               // rewind stream before signed pack
-    stream_siz3 = stream32_pack(s, unpacked_s, nbits, npts, 0) ;        // pack (signed)
+    for(i=0 ; i<npts ; i++) restored_s[i] = 0 ;
+//     stream_pos3 = stream32_pack(s, unpacked_s, nbits, npts, 0) ;        // pack (signed)
+    stream_pos3 = stream32_pack(s, unpacked_s      , nbits, npts2, PUT_NO_FLUSH) ;   // pack, part 1
+    stream_pos3 = stream32_pack(s, unpacked_s+npts2, nbits, npts1, PUT_NO_INIT) ;    // pack, part 2
     stream32_rewind(s) ;                                                // rewind stream before unpack
-    stream_siz4 = stream32_unpack_i32(s,restored_s,  nbits, npts, 0) ;  // unpack (signed)
+//     stream_pos4 = stream32_unpack_i32(s,restored_s,  nbits, npts, 0) ;  // unpack (signed)
+    stream_pos4 = stream32_unpack_i32(s,restored_s      ,  nbits, npts1, GET_NO_FINALIZE) ;   // unpack, part 1
+    stream_pos4 = stream32_unpack_i32(s,restored_s+npts1,  nbits, npts2, GET_NO_INIT) ;       // unpack, part 2
     errors = w32_compare(unpacked_s, restored_s, npts) ;                // check unsigned pack/unpack errors
     if(errors > 0) { fprintf(stderr, ", errors_s stream = %d\n", errors) ; exit(1) ; }
-    check_pos(stream_siz3, stream_siz1, "pack 4") ;                     // must be same length as unsigned pack
-    check_pos(stream_siz3, stream_siz4, "unpack 4") ;                   // must be same length as signed pack
+    check_pos(stream_pos1, stream_pos3, "pack 4") ;                     // must be same length as unsigned pack
+    check_pos(stream_pos1, stream_pos4, "unpack 4") ;                   // must be same length as signed pack
 
     // base functions timing tests
     TIME_LOOP_EZ(NITER, npts, pack_w32(unpacked_u, packed, nbits, npts))
