@@ -57,7 +57,8 @@ void check_pos(uint32_t p1, uint32_t p2, char *msg){
 }
 
 int main(int argc, char **argv){
-  int npts = 32*1024 + 17, npts1 = npts/2 - 5, npts2 = npts - npts1 ;
+  int npts = 32*1024 + 17, npts1 = npts/3, npts2 = npts/2, npts3 = npts - npts2 - npts1 ;
+  int offset ;
   uint32_t *unpacked_u, *packed, *restored_u ;
   uint32_t stream_pos1, stream_pos2, stream_pos3, stream_pos4 ;
   int32_t  *unpacked_s, *restored_s ;
@@ -65,7 +66,7 @@ int main(int argc, char **argv){
   int32_t maskn ;
   TIME_LOOP_DATA ;
   float t0 , t1, t2, t3, t4, t5 ;
-  stream32 *s, s0 ;   // s will eventually point to s0
+  stream32 *s, s0, *s1 ;   // s will eventually point to s0
 
   fprintf(stderr, "test for stream packing macros\n") ;
   if(cycles_overhead > 0)fprintf(stderr, ", timing overhead = %4.2f ns\n", cycles_overhead * NaNoSeC);
@@ -76,8 +77,20 @@ int main(int argc, char **argv){
   unpacked_s = (int32_t *)  malloc(npts * sizeof(uint32_t)) ; if(unpacked_s == NULL) exit(1) ;
   restored_s = (int32_t *)  malloc(npts * sizeof(uint32_t)) ; if(restored_s == NULL) exit(1) ;
 
-  s = stream32_create(&s0, NULL, npts) ;  // testing creation with existing struct
-  fprintf(stderr, "alloc = %d, ualloc = %d\n", s->alloc, s->ualloc) ;
+  s1 = stream32_create(NULL, NULL, npts) ;  // testing creation from scratch
+  if(s1->alloc == 0){
+    fprintf(stderr, "alloc = %d (expected 1), ualloc = %d\n", s1->alloc, s1->ualloc) ;
+    exit(1) ;
+  }
+  if(stream32_free(s1) == 0){
+    fprintf(stderr, "ERROR : stream32_free failed freeing s1\n");
+    exit(1) ;
+  }
+  s  = stream32_create(&s0 , NULL, npts) ;  // testing creation with existing struct
+  if(s->ualloc == 0 || s->alloc == 1){
+    fprintf(stderr, "alloc = %d (expected 0), ualloc = %d (expected 1)\n", s->alloc, s->ualloc) ;
+    exit(1) ;
+  }
 
   fprintf(stderr, "                                      macros                          stream\n") ;
   fprintf(stderr, "timings :                     pack unpack(u) unpack(s)      pack unpack(u) unpack(s)\n") ;
@@ -110,13 +123,19 @@ int main(int argc, char **argv){
     stream32_rewrite(s) ;
     for(i=0 ; i<npts ; i++) restored_u[i] = 0 ;
 //     stream_pos3 = stream32_pack(s, unpacked_u, nbits, npts, 0) ;        // pack (unsigned)
-    stream_pos3 = stream32_pack(s, unpacked_u      , nbits, npts1, PUT_NO_FLUSH) ;   // pack, part 1
-    stream_pos3 = stream32_pack(s, unpacked_u+npts1, nbits, npts2, PUT_NO_INIT) ;    // pack, part 2
+    stream_pos3 = stream32_pack(s, unpacked_u       , nbits, npts1, PUT_NO_FLUSH) ;                 // pack, part 1
+    offset = npts1 ;
+    stream_pos3 = stream32_pack(s, unpacked_u+offset, nbits, npts2, PUT_NO_INIT | PUT_NO_FLUSH) ;   // pack, part 2
+    offset += npts2 ;
+    stream_pos3 = stream32_pack(s, unpacked_u+offset, nbits, npts3, PUT_NO_INIT) ;                  // pack, part 3
     s = stream32_resize(s, npts + nbits * 1024 * 1024) ;                // resize stream after pack to force address change
     stream32_rewind(s) ;                                                // rewind stream before unpack
 //     stream_pos4 = stream32_unpack_u32(s,restored_u,  nbits, npts, 0) ;  // unpack unsigned
-    stream_pos4 = stream32_unpack_u32(s,restored_u      ,  nbits, npts2, GET_NO_FINALIZE) ;   // unpack, part 1
-    stream_pos4 = stream32_unpack_u32(s,restored_u+npts2,  nbits, npts1, GET_NO_INIT) ;       // unpack, part 2
+    stream_pos4 = stream32_unpack_u32(s,restored_u       ,  nbits, npts3, GET_NO_FINALIZE) ;                 // unpack, part 1
+    offset = npts3 ;
+    stream_pos4 = stream32_unpack_u32(s,restored_u+offset,  nbits, npts2, GET_NO_INIT | GET_NO_FINALIZE) ;   // unpack, part 2
+    offset += npts2 ;
+    stream_pos4 = stream32_unpack_u32(s,restored_u+offset,  nbits, npts1, GET_NO_INIT) ;                     // unpack, part 3
     errors = w32_compare(unpacked_u, restored_u, npts) ;                // check unsigned pack/unpack errors
     if(errors > 0) { fprintf(stderr, ", errors_u stream = %d\n", errors) ; exit(1) ; }
     check_pos(stream_pos1, stream_pos3, "pack 3") ;                     // must be same length as unsigned pack
@@ -126,12 +145,18 @@ int main(int argc, char **argv){
     stream32_rewrite(s) ;                                               // rewind stream before signed pack
     for(i=0 ; i<npts ; i++) restored_s[i] = 0 ;
 //     stream_pos3 = stream32_pack(s, unpacked_s, nbits, npts, 0) ;        // pack (signed)
-    stream_pos3 = stream32_pack(s, unpacked_s      , nbits, npts2, PUT_NO_FLUSH) ;   // pack, part 1
-    stream_pos3 = stream32_pack(s, unpacked_s+npts2, nbits, npts1, PUT_NO_INIT) ;    // pack, part 2
+    stream_pos3 = stream32_pack(s, unpacked_s      , nbits, npts3, PUT_NO_FLUSH) ;                   // pack, part 1
+    offset = npts3 ;
+    stream_pos3 = stream32_pack(s, unpacked_s+offset, nbits, npts2, PUT_NO_INIT | PUT_NO_FLUSH) ;    // pack, part 2
+    offset += npts2 ;
+    stream_pos3 = stream32_pack(s, unpacked_s+offset, nbits, npts1, PUT_NO_INIT) ;                   // pack, part 3
     stream32_rewind(s) ;                                                // rewind stream before unpack
 //     stream_pos4 = stream32_unpack_i32(s,restored_s,  nbits, npts, 0) ;  // unpack (signed)
-    stream_pos4 = stream32_unpack_i32(s,restored_s      ,  nbits, npts1, GET_NO_FINALIZE) ;   // unpack, part 1
-    stream_pos4 = stream32_unpack_i32(s,restored_s+npts1,  nbits, npts2, GET_NO_INIT) ;       // unpack, part 2
+    stream_pos4 = stream32_unpack_i32(s,restored_s      ,  nbits, npts1, GET_NO_FINALIZE) ;                  // unpack, part 1
+    offset = npts1 ;
+    stream_pos4 = stream32_unpack_i32(s,restored_s+offset,  nbits, npts2, GET_NO_INIT |GET_NO_FINALIZE ) ;   // unpack, part 2
+    offset += npts2 ;
+    stream_pos4 = stream32_unpack_i32(s,restored_s+offset,  nbits, npts3, GET_NO_INIT) ;                     // unpack, part 3
     errors = w32_compare(unpacked_s, restored_s, npts) ;                // check unsigned pack/unpack errors
     if(errors > 0) { fprintf(stderr, ", errors_s stream = %d\n", errors) ; exit(1) ; }
     check_pos(stream_pos1, stream_pos3, "pack 4") ;                     // must be same length as unsigned pack
@@ -165,6 +190,15 @@ int main(int argc, char **argv){
     fprintf(stderr, ",  %4.2f      %4.2f      %4.2f      %4.2f      %4.2f      %4.2f", t0, t1, t2, t3, t4, t5) ;
     fprintf(stderr, ", stream size = %8ld, [%p]\n", BITSTREAM_SIZE(*s), (void *)s) ;
     if(timer_min == timer_max) timer_avg = timer_min ;
+  }
+
+  if(stream32_free(s) != 2){
+    fprintf(stderr, "ERROR : stream32_free buffer free failed s\n");
+    exit(1) ;
+  }
+  if(stream32_free(s) != 0){
+    fprintf(stderr, "ERROR : second stream32_free did not fail s\n");
+    exit(1) ;
   }
 
 }

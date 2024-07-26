@@ -19,7 +19,10 @@
 // BITSTREAM_xxx macros  : direct individual use of stream32 struct (convenient, but slower)
 // EZSTREAM_xxxx macros  : get stream32 info , multiple insert/extract, save stream32 info (as fast as BITS_xxx)
 //
-#if ! defined(BITS_PUT_INIT)
+#if ! defined(STREAM32_VERSION)
+
+#define STREAM32_VERSION 1
+#define STREAM32_MARKER 0xDEADBEEF
 
 #include <stdint.h>
 #include <rmn/ct_assert.h>
@@ -59,9 +62,10 @@
 #define EZSTREAM_SAVE_OUT(S32) EZSTREAM_ADJUST_OUT ; (S32).acc_x = AcC_OuT ; (S32).xtract = XtRaCt ; (S32).out = StReAm_OuT ;
 
 // access to stream32 in/out/limit(size) as indexes into a unit32_t array
-#define EZSTREAM_IN(S32)    ((S32).in    - (S32).first)
-#define EZSTREAM_OUT(S32)   ((S32).out   - (S32).first)
-#define BITSTREAM_SIZE(S32) ((S32).limit - (S32).first)
+#define EZSTREAM_IN(S32)     ((S32).in    - (S32).first)
+#define EZSTREAM_OUT(S32)    ((S32).out   - (S32).first)
+#define BITSTREAM_SIZE(S32)  ((S32).limit - (S32).first)
+#define BITSTREAM_VALID(S32) ((S32).marker == STREAM32_MARKER && (S32).version == STREAM32_VERSION)
 
 // =============== insertion macros ===============
 
@@ -171,21 +175,22 @@
 // the 2 most popular trios [acc_i, in, insert] and [xtract, out, acc_x] are adjacent in memory
 // the fields from the following struct should only be accessed through the appropriate macros
 typedef struct{
-  uint32_t *first ;    // pointer to start of stream data storage
-  uint32_t *limit ;    // buffer size (in 32 bit units)
-  uint64_t acc_i ;     // accumulator for insertion
-  uint32_t *in ;       // insertion index (0 initially)
-  uint32_t insert ;    // number of inserted bits in acc_i
-  uint32_t xtract ;    // umber of available bits in acc_x
-  uint32_t *out ;      // extraction index (0 initially)
-  uint64_t acc_x ;     // accumulator for extraction
-  uint64_t valid:32 ,  // signature marker
-           spare:30 ,  // spare bits
-           ualloc:1 ,  // user allocated buffer, may be free(d)/realloc(ed)
-           alloc: 1 ;  // whole struct allocated with malloc (realloc is possible)
+  uint32_t version: 8,  // version    (to be kept in the first 32 bits of the struct)
+           spare:  22,  // spare bits
+           ualloc:  1,  // user allocated buffer, may be free(d)/realloc(ed)
+           alloc:   1;  // whole struct allocated with malloc (realloc is possible)
+  uint32_t marker ;     // signature marker
+  uint32_t *first ;     // pointer to start of stream data storage
+  uint32_t *limit ;     // buffer size (in 32 bit units)
+  uint64_t acc_i ;      // accumulator for insertion
+  uint32_t *in ;        // insertion index (0 initially)
+  uint32_t insert ;     // number of inserted bits in acc_i
+  uint32_t xtract ;     // umber of available bits in acc_x
+  uint32_t *out ;       // extraction index (0 initially)
+  uint64_t acc_x ;      // accumulator for extraction
 //   uint32_t data[] ;    // dynamic array, only used if alloc is true
 } stream32 ;
-CT_ASSERT(sizeof(stream32) == 64, "wordstream size MUST be 56 bytes")    // 8 64 bit elements (7 x 64 bits + 2 x 32 bits)
+CT_ASSERT(sizeof(stream32) == 64, "wordstream size MUST be 56 bytes")    // 8 x 64 bits (6 x 64 bits + 4 x 32 bits)
 
 // old style behavior interface (less safe, no indication of pak dimansion)
 uint32_t pack_w32(void *unp, void *pak, int nbits, int n) ;
@@ -197,6 +202,7 @@ stream32 *stream32_create(stream32 *s_old, void *buf, uint32_t size) ;
 stream32 *stream32_resize(stream32 *s_old, uint32_t size) ;
 void *stream32_rewind(stream32 *s) ;
 void *stream32_rewrite(stream32 *s) ;
+int stream32_free(stream32 *s) ;
 
 // stream32 pack/unpack options
 #define GET_NO_INIT     0x00000001

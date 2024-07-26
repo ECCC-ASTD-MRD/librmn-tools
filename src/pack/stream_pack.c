@@ -19,6 +19,18 @@
 #include <rmn/stream_pack.h>
 
 // =================== explicit array interface ===================
+#define USE_STREAM32
+
+#if defined(USE_STREAM32)
+static stream32 make_stream(void *pak, int nbits, int n){
+  stream32 s ;
+  s.in = s.out = s.first = pak ;
+  s.limit   = s.first + (n * nbits + 31) / 32 ;
+  s.marker  = STREAM32_MARKER ;
+  s.version = STREAM32_VERSION ;
+  return s ;
+}
+#endif
 
 // stream packer, pack the lower nbits bits of unp into pak
 // unp   [IN] : pointer to array of 32 bit words to pack
@@ -26,17 +38,13 @@
 // nbits [IN] : number of rightmost bits to keep in unp
 // n     [IN] : number of 32 bit elements in unp array
 // return number of 32 bit words used
-#if 1
-uint32_t pack_w32(void *unp, void *pak, int nbits, int nn){
-  int n = (nn < 0) ? -nn : nn ;
-  stream32 s ;
-  s.in = s.first = pak ;
-  s.limit = s.first + (n * nbits + 31) / 32 ;
+#if defined(USE_STREAM32)
+uint32_t pack_w32(void *unp, void *pak, int nbits, int n){
+  stream32 s = make_stream(pak, nbits, n) ;
   return stream32_pack(&s, unp, nbits, n, 0) ;
 }
 #else
-uint32_t pack_w32(void *unp, void *pak, int nbits, int nn){
-  int n = (nn < 0) ? -nn : nn ;
+uint32_t pack_w32(void *unp, void *pak, int nbits, int n){
   uint64_t accum ;
   uint32_t *unp_u = (uint32_t *) unp, *pak_u = (uint32_t *) pak, count ;
   uint32_t *pak_0 = pak_u ;
@@ -58,7 +66,7 @@ uint32_t pack_w32(void *unp, void *pak, int nbits, int nn){
     }
   }
   while(n--){ BITS_PUT_SAFE(accum, count, *unp_u, nbits, pak_u) ; unp_u++ ; }
-  BITS_PUT_CLOSE(accum, count, pak_u) ;
+  BITS_PUT_FLUSH(accum, count, pak_u) ;
   return pak_u - pak_0 ;
 }
 #endif
@@ -69,17 +77,13 @@ uint32_t pack_w32(void *unp, void *pak, int nbits, int nn){
 // nbits [IN] : number of bits of packed items
 // n     [IN] : number of 32 bit elements in unp array
 // return index to the current extraction position
-#if 1
-uint32_t unpack_u32(void *unp, void *pak, int nbits, int nn){
-  int n = (nn < 0) ? -nn : nn ;
-  stream32 s ;
-  s.out = s.first = pak ;
-  s.limit = s.first + (n * nbits + 31) / 32 ;
+#if defined(USE_STREAM32)
+uint32_t unpack_u32(void *unp, void *pak, int nbits, int n){
+  stream32 s = make_stream(pak, nbits, n) ;
   return stream32_unpack_u32(&s, unp, nbits, n, 0) ;
 }
 #else
-uint32_t unpack_u32(void *unp, void *pak, int nbits, int nn){
-  int n = (nn < 0) ? -nn : nn ;
+uint32_t unpack_u32(void *unp, void *pak, int nbits, int n){
   uint64_t accum ;
   uint32_t *unp_u = (uint32_t *) unp, *pak_u = (uint32_t *) pak, count ;
   uint32_t *pak_0 = pak_u ;
@@ -113,17 +117,13 @@ uint32_t unpack_u32(void *unp, void *pak, int nbits, int nn){
 // nbits [IN] : number of bits of packed items
 // n     [IN] : number of 32 bit elements in unp array
 // return index to the current extraction position
-#if 1
-uint32_t unpack_i32(void *unp, void *pak, int nbits, int nn){
-  int n = (nn < 0) ? -nn : nn ;
-  stream32 s ;
-  s.out = s.first = pak ;
-  s.limit = s.first + (n * nbits + 31) / 32 ;
+#if defined(USE_STREAM32)
+uint32_t unpack_i32(void *unp, void *pak, int nbits, int n){
+  stream32 s = make_stream(pak, nbits, n) ;
   return stream32_unpack_i32(&s, unp, nbits, n, 0) ;
 }
 #else
-uint32_t unpack_i32(void *unp, void *pak, int nbits, int nn){
-  int n = (nn < 0) ? -nn : nn ;
+uint32_t unpack_i32(void *unp, void *pak, int nbits, int n){
   uint64_t accum ;
   int32_t *unp_s = (int32_t *) unp ;
   uint32_t *pak_u = (uint32_t *) pak, count ;
@@ -176,13 +176,33 @@ stream32 *stream32_create(stream32 *s, void *buf, uint32_t size){
     s->ualloc = (buf == NULL) ;        // buffer may be free(d) or realloc(ed)
   }
   s->in = s->out = s->first ;
-  s->limit = s->first + size ;
-  s->acc_i  = s->acc_x = 0 ;
-  s->insert = s->xtract = 0 ;
-  s->valid  = 0xDEADBEEF ;
-  s->spare  = 0 ;
+  s->limit   = s->first + size ;
+  s->acc_i   = s->acc_x = 0 ;
+  s->insert  = s->xtract = 0 ;
+  s->marker  = STREAM32_MARKER ;
+  s->version = STREAM32_VERSION ;
+  s->spare   = 0 ;
 
   return s ;
+}
+
+// free memory associated with stream
+// s [INOUT] : stream32 struct
+// return 0 in case of error, 1 or 2 for full / partial free
+// if nothing can be freed, it is considered an error
+int stream32_free(stream32 *s){
+  if(s == NULL) return 0 ;
+  if( ! BITSTREAM_VALID(*s) ) return 0 ;
+  if(s->alloc == 1){               // whole struct was malloc(ed)
+    free(s) ;
+    return 1 ;
+  }else if(s->ualloc == 1){        // buffer was malloc(ed)
+    free(s->first) ;
+    s->first  = NULL ;
+    s->ualloc = 0 ;                // nothing to free any more
+    return 2 ;
+  }
+  return 0 ;
 }
 
 // resize an existing stream
@@ -193,6 +213,8 @@ stream32 *stream32_create(stream32 *s, void *buf, uint32_t size){
 stream32 *stream32_resize(stream32 *s, uint32_t size){
   uint64_t in, out ;
 
+  if(s == NULL) return NULL ;
+  if( ! BITSTREAM_VALID(*s) ) return NULL ;
   if(s->limit - s->first < size){  // current size is smaller then requested size
     in  = s->in  - s->first ;      // in index from pointer
     out = s->out - s->first ;      // out index from pointer
@@ -213,7 +235,10 @@ stream32 *stream32_resize(stream32 *s, uint32_t size){
 
 // rewind stream32, set extraction data pointer to beginning of data
 // s [INOUT] : stream32 struct
+// return pointer to extraction point
 void *stream32_rewind(stream32 *s){
+  if(s == NULL) return NULL ;
+  if( ! BITSTREAM_VALID(*s) ) return NULL ;
   s->out = s->first ;
   s->acc_x = 0 ;
   s->xtract = 0 ;
@@ -222,7 +247,10 @@ void *stream32_rewind(stream32 *s){
 
 // rewrite stream32, set insertion data pointer to beginning of data
 // s [INOUT] : stream32 struct
+// return pointer to insertion point
 void *stream32_rewrite(stream32 *s){
+  if(s == NULL) return NULL ;
+  if( ! BITSTREAM_VALID(*s) ) return NULL ;
   s->in = s->first ;
   s->acc_i = 0 ;
   s->insert = 0 ;
@@ -238,6 +266,8 @@ void *stream32_rewrite(stream32 *s){
 // return index of the current insertion position into stream32 buffer
 uint32_t stream32_pack(stream32 *s, void *unp, int nbits, int n, uint32_t options){
   uint32_t *unp_u = (uint32_t *) unp ;
+  if(s == NULL) return 0xFFFFFFFF ;
+  if( ! BITSTREAM_VALID(*s) ) return 0xFFFFFFFF ;
   // get accum, packed stream pointer, count from stream
   EZSTREAM_DCL_IN ;      // EZ declarations for insertion
   EZSTREAM_GET_IN(*s) ;  // get info from stream
@@ -274,6 +304,8 @@ uint32_t stream32_pack(stream32 *s, void *unp, int nbits, int n, uint32_t option
 // return index of the current extraction position from stream32 buffer
 uint32_t stream32_unpack_u32(stream32 *s,void *unp,  int nbits, int n, uint32_t options){
   uint32_t *unp_u = (uint32_t *) unp ;
+  if(s == NULL) return 0xFFFFFFFF ;
+  if( ! BITSTREAM_VALID(*s) ) return 0xFFFFFFFF ;
   // get accum, packed stream pointer, count from stream
   EZSTREAM_DCL_OUT ;      // EZ declarations for extraction
   EZSTREAM_GET_OUT(*s) ;  // get info from stream
@@ -310,6 +342,8 @@ uint32_t stream32_unpack_u32(stream32 *s,void *unp,  int nbits, int n, uint32_t 
 // return index of the current extraction position from stream32 buffer
 uint32_t stream32_unpack_i32(stream32 *s,void *unp,  int nbits, int n, uint32_t options){
   int32_t *unp_s = (int32_t *) unp ;
+  if(s == NULL) return 0xFFFFFFFF ;
+  if( ! BITSTREAM_VALID(*s) ) return 0xFFFFFFFF ;
   // get accum, packed stream pointer, count from stream
   EZSTREAM_DCL_OUT ;      // EZ declarations for extraction
   EZSTREAM_GET_OUT(*s) ;  // get info from stream
