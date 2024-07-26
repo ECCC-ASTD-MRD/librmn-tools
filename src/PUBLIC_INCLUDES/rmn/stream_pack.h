@@ -214,4 +214,8 @@ uint32_t stream32_pack(stream32 *s, void *unp, int nbits, int n, uint32_t option
 uint32_t stream32_unpack_u32(stream32 *s,void *unp,  int nbits, int n, uint32_t options) ;
 uint32_t stream32_unpack_i32(stream32 *s,void *unp,  int nbits, int n, uint32_t options) ;
 
+uint32_t stream32_vpack(stream32 *s, void *unp, int *nbits, int n, uint32_t options) ;
+uint32_t stream32_vunpack_u32(stream32 *s,void *unp,  int *nbits, int n, uint32_t options) ;
+uint32_t stream32_vunpack_u32(stream32 *s,void *unp,  int *nbits, int n, uint32_t options) ;
+
 #endif

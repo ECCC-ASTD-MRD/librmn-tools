@@ -295,12 +295,38 @@ uint32_t stream32_pack(stream32 *s, void *unp, int nbits, int n, uint32_t option
   return EZSTREAM_IN(*s) ;
 }
 
+// stream packer, pack the lower nbits bits of unp into stream32
+// s    [INOUT] : stream32 struct
+// unp     [IN] : pointer to array of 32 bit words to pack
+// nbits   [IN] : keep nbits[i] bits from unp[i] when inserting into packed stream
+// n       [IN] : number of 32 bit elements in unp and nbits arrays
+// options [IN] : packing options (PUT_NO_INIT / PUT_NO_FLUSH)
+// return index of the current insertion position into stream32 buffer
+uint32_t stream32_vpack(stream32 *s, void *unp, int *nbits, int n, uint32_t options){
+  uint32_t *unp_u = (uint32_t *) unp ;
+  if(s == NULL) return 0xFFFFFFFF ;
+  if( ! BITSTREAM_VALID(*s) ) return 0xFFFFFFFF ;
+  // get accum, packed stream pointer, count from stream
+  EZSTREAM_DCL_IN ;      // EZ declarations for insertion
+  EZSTREAM_GET_IN(*s) ;  // get info from stream
+
+  if((PUT_NO_INIT & options) == 0) EZSTREAM_PUT_INIT ;
+  while(n--){
+    if(*nbits <= 0) return 0xFFFFFFFF ;
+    EZSTREAM_PUT_SAFE(*unp_u, *nbits) ;
+    unp_u++ ; nbits++ ;
+  }
+  if((PUT_NO_FLUSH & options) == 0) EZSTREAM_PUT_FLUSH ;
+  EZSTREAM_SAVE_IN(*s) ;  // save updated info into stream
+  return EZSTREAM_IN(*s) ;
+}
+
 // unsigned unpack
 // s    [INOUT]   : stream32 struct
 // unp    [OUT]   : pointer to array of 32 bit words to receive signed unpacked data
 // nbits   [IN]   : number of bits of packed items
 // n       [IN]   : number of 32 bit elements in unp array
-// options [IN] : unpacking options (GET_NO_INIT / GET_NO_FINALIZE)
+// options [IN]   : unpacking options (GET_NO_INIT / GET_NO_FINALIZE)
 // return index of the current extraction position from stream32 buffer
 uint32_t stream32_unpack_u32(stream32 *s,void *unp,  int nbits, int n, uint32_t options){
   uint32_t *unp_u = (uint32_t *) unp ;
@@ -328,6 +354,32 @@ uint32_t stream32_unpack_u32(stream32 *s,void *unp,  int nbits, int n, uint32_t 
     }
   }
   while(n--) { EZSTREAM_GET_SAFE(*unp_u, nbits) ; unp_u++ ; } ;
+  if((GET_NO_FINALIZE & options) == 0) EZSTREAM_GET_FINALIZE ;
+  EZSTREAM_SAVE_OUT(*s) ;  // save updated info into stream
+  return EZSTREAM_OUT(*s) ;
+}
+
+// unsigned unpack
+// s    [INOUT]   : stream32 struct
+// unp    [OUT]   : pointer to array of 32 bit words to receive signed unpacked data
+// nbits   [IN]   : use nbits[i] bits for unp[i] when extracting from packed stream
+// n       [IN]   : number of 32 bit elements in unp array
+// options [IN] : unpacking options (GET_NO_INIT / GET_NO_FINALIZE)
+// return index of the current extraction position from stream32 buffer
+uint32_t stream32_vunpack_u32(stream32 *s,void *unp,  int *nbits, int n, uint32_t options){
+  uint32_t *unp_u = (uint32_t *) unp ;
+  if(s == NULL) return 0xFFFFFFFF ;
+  if( ! BITSTREAM_VALID(*s) ) return 0xFFFFFFFF ;
+  // get accum, packed stream pointer, count from stream
+  EZSTREAM_DCL_OUT ;      // EZ declarations for extraction
+  EZSTREAM_GET_OUT(*s) ;  // get info from stream
+
+  if((GET_NO_INIT & options) == 0) EZSTREAM_GET_INIT ;
+  while(n--) {
+    if(*nbits <= 0) return 0xFFFFFFFF ;
+    EZSTREAM_GET_SAFE(*unp_u, *nbits) ;
+    unp_u++ ; nbits++ ;
+  }
   if((GET_NO_FINALIZE & options) == 0) EZSTREAM_GET_FINALIZE ;
   EZSTREAM_SAVE_OUT(*s) ;  // save updated info into stream
   return EZSTREAM_OUT(*s) ;
@@ -366,6 +418,32 @@ uint32_t stream32_unpack_i32(stream32 *s,void *unp,  int nbits, int n, uint32_t 
     }
   }
   while(n--) { EZSTREAM_GET_SAFE(*unp_s, nbits) ; unp_s++ ; } ;
+  if((GET_NO_FINALIZE & options) == 0) EZSTREAM_GET_FINALIZE ;
+  EZSTREAM_SAVE_OUT(*s) ;  // save updated info into stream
+  return EZSTREAM_OUT(*s) ;
+}
+
+// signed unpack
+// s    [INOUT] : stream32 struct
+// unp    [OUT] : pointer to array of 32 bit words to receive signed unpacked data
+// nbits   [IN] : use nbits[i] bits for unp[i] when extracting from packed stream
+// n       [IN] : number of 32 bit elements in unp array
+// options [IN] : unpacking options (GET_NO_INIT / GET_NO_FINALIZE)
+// return index of the current extraction position from stream32 buffer
+uint32_t stream32_vunpack_i32(stream32 *s,void *unp,  int *nbits, int n, uint32_t options){
+  int32_t *unp_s = (int32_t *) unp ;
+  if(s == NULL) return 0xFFFFFFFF ;
+  if( ! BITSTREAM_VALID(*s) ) return 0xFFFFFFFF ;
+  // get accum, packed stream pointer, count from stream
+  EZSTREAM_DCL_OUT ;      // EZ declarations for extraction
+  EZSTREAM_GET_OUT(*s) ;  // get info from stream
+
+  if((GET_NO_INIT & options) == 0) EZSTREAM_GET_INIT ;
+  while(n--) {
+    if(*nbits <= 0) return 0xFFFFFFFF ;
+    EZSTREAM_GET_SAFE(*unp_s, *nbits) ;
+    unp_s++ ; nbits++ ;
+  }
   if((GET_NO_FINALIZE & options) == 0) EZSTREAM_GET_FINALIZE ;
   EZSTREAM_SAVE_OUT(*s) ;  // save updated info into stream
   return EZSTREAM_OUT(*s) ;
