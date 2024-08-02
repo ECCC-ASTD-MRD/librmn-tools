@@ -192,6 +192,7 @@ add_project_test(test_readlx test_readlx.F90 LINK_LIBS "rmn::rmn-shared" NODIAG)
 add_project_test(test_sparse_concat test_sparse_concat.c LINK_LIBS "rmn::rmn" NODIAG)
 
 add_project_test(test_stream_pack test_stream_pack.c LINK_LIBS "rmn::rmn" NODIAG)
+add_project_test(test_tracked_malloc test_tracked_malloc.c LINK_LIBS "rmn::rmn" NODIAG)
 
 add_project_test(test_syntax test_syntax.c NO_TOOLS DL )
 
