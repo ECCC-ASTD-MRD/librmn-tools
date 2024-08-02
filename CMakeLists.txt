@@ -325,6 +325,7 @@ set(PROJECT_H_FILES
   src/PUBLIC_INCLUDES/rmn/filter_110.h
   src/PUBLIC_INCLUDES/rmn/filter_254.h
   src/PUBLIC_INCLUDES/rmn/filter_255.h
+  src/PUBLIC_INCLUDES/rmn/tracked_malloc.h
 )
 
 set(INCLUDE_DIRECTORIES ${CMAKE_SOURCE_DIR}/include ${CMAKE_SOURCE_DIR}/src/PUBLIC_INCLUDES ${libaec_INCLUDE_DIR})

@@ -14,9 +14,9 @@
 // Author:
 //     M. Valin,   Recherche en Prevision Numerique, 2024
 //
-#include <stdint.h>
-#include <stdlib.h>
 #include <string.h>
+
+#include <rmn/tracked_malloc.h>
 
 #define VALID_BLOCK_SIGNATURE 0xCAD0BEBE1AD0FADA
 
@@ -32,6 +32,8 @@ typedef struct{
   uint8_t data[] ;
 } tracked_block ;
 
+// check that a tracked memory block is valid
+// p   [IN] : pointer returned by tracked_block_alloc
 // return 0 if block is valid, error code otherwise
 int tracked_block_check(void *p){
   tracked_header *head, *tail ;
@@ -49,31 +51,70 @@ int tracked_block_check(void *p){
   return 0 ;
 }
 
+// create a new tracked memory block
+// size [IN] : size of block in bytes (same as malloc)
+// return pointer to user data (not pointer to block)
 void *tracked_block_alloc(size_t size){
   tracked_header *tail ;
   tracked_block *tb = (tracked_block *) malloc(size + 2 * sizeof(tracked_header)) ;
   if(tb == NULL) return NULL ;
 
-  tb->th.first = tb->data ;                  // header below block
+  tb->th.first = tb->data ;                  // set header below block
   tb->th.limit = tb->th.first + size ;
   tb->th.size  = size ;
   tb->th.sign  = VALID_BLOCK_SIGNATURE ;
 
-  tail = (tracked_header *) tb->th.limit ;   // header above block, identical to header below block
+  tail = (tracked_header *) tb->th.limit ;   // set header above block, identical to header below block
   tail->first = tb->th.first ;
   tail->limit = tb->th.limit ;
   tail->size  = tb->th.size ;
   tail->sign  = tb->th.sign ;
-  return tb ;
+  return tb->th.first ;
 }
 
+// resize a tracked memory block
+// p       [IN] : pointer returned by tracked_block_alloc
+// size    [IN] : size of block in bytes (same as malloc)
+// options [IN] : TRACKED_BLOCK_KEEP_DATA : keep existing data
+// return pointer to user data (not pointer to block) (NULL if error)
+// if block is already large enough, return old pointer
+void *tracked_block_resize(void *p, size_t size, int options){
+  tracked_header *head, *tail ;
+  tracked_block *tb ;
+  if(tracked_block_check(p) != 0) return NULL ;   // invalid block
+  head = (tracked_header *) p ;
+  head-- ;
+  if(head->size >= size) return p ;               // block is large enough
+
+  if(options == 0){                               // new fresh block
+    free(head) ;                                  // free the old block
+    return tracked_block_alloc(size) ;
+
+  }else if(options & TRACKED_BLOCK_KEEP_DATA){    // enlarge but keep data in memory block
+    tb = (tracked_block *) head ;
+    tb = (tracked_block *) realloc(tb, size + 2 * sizeof(tracked_header)) ;
+    tail = (tracked_header *) tb->th.limit ;      // set header above block
+    tail->first = tb->th.first ;
+    tail->limit = tb->th.limit ;
+    tail->size  = tb->th.size ;
+    tail->sign  = tb->th.sign ;
+    return tb->th.first ;
+  }
+
+  return NULL ;                                   // should never get here
+}
+
+// free a tracked memory block allocated with tracked_block_alloc
+// p [IN] : pointer returned by tracked_block_alloc
+// return 0 if O.K., error code if an error occurred
 int tracked_block_free(void *p){
   tracked_header *head ;
-  int error = tracked_block_check(p) ;
-  if(error) return 1 ;                        // invalid tracked block
+
+  if(tracked_block_check(p)) return 1 ;       // invalid tracked block
+
   head = (tracked_header *) p ;
   head-- ;                                    // header below block == start of tracked_block
-  free(head) ;
+  free(head) ;                                // free the block
 
   return 0 ;
 }
