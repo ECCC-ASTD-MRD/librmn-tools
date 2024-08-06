@@ -21,7 +21,65 @@
 // bit stream macros and functions
 #include <rmn/bit_stream.h>
 
-// encoded tile layout :
+// encoded tile layout (tentative) :
+//
+// ============================================= LAYOUT 2 (new) =============================================
+// (2024/08/06)
+//
+//  <- always > <------- as needed --------> <-------        as needed            -------->
+// +-----------+----------+-----------------+-----------------+          +-----------------+
+// |   header  |   NBMI   |     offset      |     token 1     | ........ |     token n     |
+// +-----------+----------+-----------------+-----------------+          +-----------------+
+//  <--- NH --> <------- NBMI + 5 --------->
+//
+// header :
+//
+// <---------- always ---------> <-- as needed  -->
+// +-----+---------------+------+--------+--------+
+// |  N0 |     ndata     | mode | encode |  NB0   |
+// +-----+---------------+------+--------+--------+
+//  < 2 > <- 6/8/16/32 -> <  2 > <-- 2 -> <-- 5 -->
+// <-------------------- NH ---------------------->
+//
+// N0     : number of bits used for ndata ( 2 bits )
+//     00 -  6 bits for ndata
+//     01 -  8 bits for ndata
+//     10 - 16 bits for ndata
+//     11 - 32 bits for ndata
+// ndata  : number of data points - 1 ( 6/8/16/32 bits )
+// mode   : data properties ( 2 bits )
+//     00 - unsigned data (NO NEGATIVE VALUES)
+//     01 - signed data (2s complement or zigzag)
+//     10 - zero tile (coding and nbits 0 absent)
+//     11 - 2s complement offset is used (data  >= 0 after offset removal)
+// encode : encoding mode ( 3 bits )
+//    000 - NB0 + 1 bits per value (unsigned or 2s complement signed)
+//    001 - short/long encoding, NSHORT == (NB0+1)/2 - 1 bits
+//    010 - short/long encoding, NSHORT == (NB0+1)/2     bits
+//    011 - short/long encoding, NSHORT == (NB0+1)/2 + 1 bits
+//    100 - short/long encoding, NSHORT == 0             bits
+//    101 - constant valued tile (implies mode == 11, offset is value)
+//    110 - no short/long encoding, all values < 0, -value stored in NB0 + 1 bits
+//    111 - alternative encoding (reserved for future encoding schemes)
+// NB0    : base number of bits per encoded value = NB0 + 1 ( 5 bits )
+//          (not used for constant valued tiles)
+// NBMI   : number of bits - 1 used to store offset
+// offset : minimum data value (2s complement) ( NBMI + 1 bits )
+//
+// short / long encoding :
+//    a "short" value is a non negative value that can be represented using NSHORT bits or less
+//    any other value is considered as a "long" value
+//    short values : 0 followed by NSHORT bits ( token length = NSHORT + 1 bits)
+//    long values  : 1 followed by NB0 bits ( token length = NB0 + 1 bits)
+//    if values are signed, zigzag format is used for short/long data value encoding
+//
+// zero tile     : 2 + N0 bits, mode = 10
+//                 ( 10/12/20/36 bits)
+// constant tile : 2 + N0 bits, mode = 11, encode = 101, NBMI and offset used
+//                 (13/15/23/39 + 5 + NBMI+1 bits)
+//
+// ============================================= LAYOUT 1 (old) =============================================
+// (before 2024/08/06)
 //
 //             <------ optional fields -------------->
 // +-----------+--------+----------+-----------------+-----------------+          +-----------------+
@@ -70,7 +128,7 @@
 //        value >= 0 :   value
 //        value  < 0 :  ~value
 // values are normally stored in full ZigZag form, sign is LSB
-// if all values are negative or all values are non negative, 
+// if all values are negative or all values are non negative,
 // the sign bit is omitted and value or ~value is stored
 //
 // header for an encoded tile (16 bits)
