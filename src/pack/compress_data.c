@@ -144,21 +144,21 @@
   DATA MAP (map of chunk positions in data stream) (sizes and offsets in 32 bit units)
            (see typedef data_map in compress_data.h)
            (chunk size limited to 16GBytes)
-  alternative 1
+  evolution 1
   data map size = (NCI * NCJ) * 2 + 2 (in 32 bit units)
   +-------+-------+--------------+----------------+     +--------------+----------------+
   |  NCI  |  NCJ  | Chunk size 1 | Chunk offset 1 | ... | Chunk size n | Chunk offset n |
   +-------+-------+--------------+----------------+     +--------------+----------------+
   <--32b--x--32b--x-----32b------x------32b------->     <-----32b------x------32b------->
 
-  alternative 2 (smaller size, no 16GB limit on offsets)
+  evolution 2 (smaller size, no 16GB limit on offsets)
   data map size = (NCI * NCJ) + 2 (in 32 bit units)
   +-------+-------+--------------+     +--------------+
   |  NCI  |  NCJ  | Chunk size 1 | ... | Chunk size n |
   +-------+-------+--------------+     +--------------+
   <--32b--x--32b--x-----32b------x     <-----32b------x
 
-  alternative 3 (no 16GB limit on offsets, row of blocks limited to 16Gbytes)
+  evolution 3 (no 16GB limit on offsets, row of blocks limited to 16Gbytes)
   BCI (16 bits), BCJ (16 bits) : chunk dimensions
   NPI = nb of points along i, NPJ = nb of points along j
   NCI = (NPI + BCI - 1)/BCI, NCJ = (NPJ + BCJ - 1)/BCJ
@@ -169,7 +169,7 @@
   +-------+-------+------+-------+------+-------+------------+     +--------------+--------------+     +--------------+
   <--32b--x--32b--x-----32b------x-----32b------x-----32b----x     <------32b-----x-----32b------x     <-----32b------x
 
-  alternative 4a (16GB limit on offsets) simpler map
+  evolution 4a (16GB limit on offsets) simpler map
   BCI (16 bits), BCJ (16 bits) : chunk dimensions
   NPI = nb of points along i, NPJ = nb of points along j
   NCI = (NPI + BCI - 1)/BCI, NCJ = (NPJ + BCJ - 1)/BCJ (number of chunks along i and j)
@@ -180,7 +180,7 @@
   +-------+-------+------+-------+------+-------+----------------+     +----------------+
   <--32b--x--32b--x-----32b------x-----32b------x------32b------->     x------32b------->
 
-  alternative 4b (no 16GB limit on offsets, 256KB limit on chunk size) simpler map
+  evolution 4b (no 16GB limit on offsets, 256KB limit on chunk size) simpler map
   BCI (16 bits), BCJ (16 bits) : chunk dimensions
   NPI = nb of points along i, NPJ = nb of points along j
   NCI = (NPI + BCI - 1)/BCI, NCJ = (NPJ + BCJ - 1)/BCJ (number of chunks along i and j)
@@ -191,7 +191,7 @@
   +-------+-------+------+-------+------+-------+--------------+--------------+     +--------------+
   <--32b--x--32b--x-----32b------x-----32b------x-------------32b------------->     x-----16b------>
 
-  alternative 4c (no 16GB limit on offsets, 256KB limit on chunk size) simpler map
+  evolution 4c (no 16GB limit on offsets, 256KB limit on chunk size) simpler map
   BCI (16 bits), BCJ (16 bits) : chunk dimensions
   NPI = nb of points along i, NPJ = nb of points along j
   NCI = (NPI + BCI - 1)/BCI, NCJ = (NPJ + BCJ - 1)/BCJ (number of chunks along i and j)
@@ -201,7 +201,7 @@
   +-------+-------+-------+-------+--------------+--------------+     +--------------+
   <--32b--x--32b--x------32b------x-------------32b------------->     x-----16b------>
 
-  alternative 4d (no 16GB limit on offsets, 256KB limit on chunk size) simpler map, no "small" chunks
+  evolution 4d (no 16GB limit on offsets, 256KB limit on chunk size) simpler map, no "small" chunks
   BCI (16 bits), BCJ (16 bits) : chunk dimensions (normally a multiple of 8)
   BI0 (16 bits) : dimension along I of the first chunk in all rows (chunks in first column)
   BJ0 (16 bits) : dimension along J of chunks in the first row (chunks in first row)
