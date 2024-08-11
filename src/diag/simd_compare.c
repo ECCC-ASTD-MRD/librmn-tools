@@ -29,57 +29,7 @@
 // ref      [IN] : 6 reference values
 // count [INOUT] : 6 counts to be incremented
 // n        [IN] : number of values
-#if defined(__AVX2__)
-void v_less_than(int32_t *z, int32_t ref[5], int32_t count[5], int32_t n){
-  int nvl, t ;
-  __m256i vz, vr0, vr1, vr2, vr3, vr4, vc0, vc1, vc2, vc3, vc4 ;
-  nvl = (n & (VL-1)) ;
-  if(nvl == 0) nvl = VL ;
-  vr0 = _mm256_broadcastd_epi32( _mm_set1_epi32(ref[0]) ) ;
-  vr1 = _mm256_broadcastd_epi32( _mm_set1_epi32(ref[1]) ) ;
-  vr2 = _mm256_broadcastd_epi32( _mm_set1_epi32(ref[2]) ) ;
-  vr3 = _mm256_broadcastd_epi32( _mm_set1_epi32(ref[3]) ) ;
-  vr4 = _mm256_broadcastd_epi32( _mm_set1_epi32(ref[4]) ) ;
-
-  vz = _mm256_loadu_si256((__m256i *) z) ;
-  vc0 = _mm256_cmpgt_epi32(vr0, vz) ;
-  vc1 = _mm256_cmpgt_epi32(vr1, vz) ;
-  vc2 = _mm256_cmpgt_epi32(vr2, vz) ;
-  vc3 = _mm256_cmpgt_epi32(vr3, vz) ;
-  vc4 = _mm256_cmpgt_epi32(vr4, vz) ;
-  z += nvl ;
-  n -= nvl ;
-  while(n > VL - 1){
-    vz = _mm256_loadu_si256((__m256i *) z) ;
-    vc0 = _mm256_add_epi32( vc0 , _mm256_cmpgt_epi32(vr0, vz) ) ;
-    vc1 = _mm256_add_epi32( vc1 , _mm256_cmpgt_epi32(vr1, vz) ) ;
-    vc2 = _mm256_add_epi32( vc2 , _mm256_cmpgt_epi32(vr2, vz) ) ;
-    vc3 = _mm256_add_epi32( vc3 , _mm256_cmpgt_epi32(vr3, vz) ) ;
-    vc4 = _mm256_add_epi32( vc4 , _mm256_cmpgt_epi32(vr4, vz) ) ;
-    z += VL ;
-    n -= VL ;
-  }
-  // fold 256 to 128
-  __m128i vi0 = _mm_add_epi32( _mm256_extracti128_si256(vc0, 0) , _mm256_extracti128_si256(vc0, 1) ) ;
-  __m128i vi1 = _mm_add_epi32( _mm256_extracti128_si256(vc1, 0) , _mm256_extracti128_si256(vc1, 1) ) ;
-  __m128i vi2 = _mm_add_epi32( _mm256_extracti128_si256(vc2, 0) , _mm256_extracti128_si256(vc2, 1) ) ;
-  __m128i vi3 = _mm_add_epi32( _mm256_extracti128_si256(vc3, 0) , _mm256_extracti128_si256(vc3, 1) ) ;
-  __m128i vi4 = _mm_add_epi32( _mm256_extracti128_si256(vc4, 0) , _mm256_extracti128_si256(vc4, 1) ) ;
-  // fold 128 to 32
-  vi0 = _mm_add_epi32( _mm_bsrli_si128(vi0, 8), vi0) ; vi0 = _mm_add_epi32( _mm_bsrli_si128(vi0, 4), vi0) ;
-  vi1 = _mm_add_epi32( _mm_bsrli_si128(vi1, 8), vi0) ; vi1 = _mm_add_epi32( _mm_bsrli_si128(vi1, 4), vi0) ;
-  vi2 = _mm_add_epi32( _mm_bsrli_si128(vi2, 8), vi0) ; vi2 = _mm_add_epi32( _mm_bsrli_si128(vi2, 4), vi0) ;
-  vi3 = _mm_add_epi32( _mm_bsrli_si128(vi3, 8), vi0) ; vi3 = _mm_add_epi32( _mm_bsrli_si128(vi3, 4), vi0) ;
-  vi4 = _mm_add_epi32( _mm_bsrli_si128(vi4, 8), vi0) ; vi4 = _mm_add_epi32( _mm_bsrli_si128(vi4, 4), vi0) ;
-
-  _mm_storeu_si32(&t , vi0) ; count[0] -= t ;
-  _mm_storeu_si32(&t , vi1) ; count[1] -= t ;
-  _mm_storeu_si32(&t , vi2) ; count[2] -= t ;
-  _mm_storeu_si32(&t , vi3) ; count[3] -= t ;
-  _mm_storeu_si32(&t , vi4) ; count[4] -= t ;
-}
-#else
-void v_less_than(int32_t *z, int32_t ref[6], int32_t count[6], int32_t n){
+void v_less_than_c(int32_t *z, int32_t ref[6], int32_t count[6], int32_t n){
   int32_t vc0[VL], vc1[VL], vc2[VL], vc3[VL], vc4[VL], vc5[VL]  ;     // vector counts
   int32_t kr0[VL], kr1[VL], kr2[VL], kr3[VL], kr4[VL], kr5[VL]  ;     // vector copies of reference values
   int32_t t[VL] ;
@@ -131,5 +81,64 @@ void v_less_than(int32_t *z, int32_t ref[6], int32_t count[6], int32_t n){
     count[5] -= vc5[i] ;
   }
   return;
+}
+#if defined(__AVX2__)
+void v_less_than(int32_t *z, int32_t ref[6], int32_t count[6], int32_t n){
+  int nvl, t ;
+  __m256i vz, vr0, vr1, vr2, vr3, vr4, vr5, vc0, vc1, vc2, vc3, vc4, vc5 ;
+  nvl = (n & (VL-1)) ;
+  if(nvl == 0) nvl = VL ;
+  vr0 = _mm256_broadcastd_epi32( _mm_set1_epi32(ref[0]) ) ;
+  vr1 = _mm256_broadcastd_epi32( _mm_set1_epi32(ref[1]) ) ;
+  vr2 = _mm256_broadcastd_epi32( _mm_set1_epi32(ref[2]) ) ;
+  vr3 = _mm256_broadcastd_epi32( _mm_set1_epi32(ref[3]) ) ;
+  vr4 = _mm256_broadcastd_epi32( _mm_set1_epi32(ref[4]) ) ;
+  vr5 = _mm256_broadcastd_epi32( _mm_set1_epi32(ref[5]) ) ;
+
+  vz = _mm256_loadu_si256((__m256i *) z) ;
+  vc0 = _mm256_cmpgt_epi32(vr0, vz) ;
+  vc1 = _mm256_cmpgt_epi32(vr1, vz) ;
+  vc2 = _mm256_cmpgt_epi32(vr2, vz) ;
+  vc3 = _mm256_cmpgt_epi32(vr3, vz) ;
+  vc4 = _mm256_cmpgt_epi32(vr4, vz) ;
+  vc5 = _mm256_cmpgt_epi32(vr5, vz) ;
+  z += nvl ;
+  n -= nvl ;
+  while(n > VL - 1){
+    vz = _mm256_loadu_si256((__m256i *) z) ;
+    vc0 = _mm256_add_epi32( vc0 , _mm256_cmpgt_epi32(vr0, vz) ) ;
+    vc1 = _mm256_add_epi32( vc1 , _mm256_cmpgt_epi32(vr1, vz) ) ;
+    vc2 = _mm256_add_epi32( vc2 , _mm256_cmpgt_epi32(vr2, vz) ) ;
+    vc3 = _mm256_add_epi32( vc3 , _mm256_cmpgt_epi32(vr3, vz) ) ;
+    vc4 = _mm256_add_epi32( vc4 , _mm256_cmpgt_epi32(vr4, vz) ) ;
+    vc5 = _mm256_add_epi32( vc5 , _mm256_cmpgt_epi32(vr5, vz) ) ;
+    z += VL ;
+    n -= VL ;
+  }
+  // fold 256 to 128
+  __m128i vi0 = _mm_add_epi32( _mm256_extracti128_si256(vc0, 0) , _mm256_extracti128_si256(vc0, 1) ) ;
+  __m128i vi1 = _mm_add_epi32( _mm256_extracti128_si256(vc1, 0) , _mm256_extracti128_si256(vc1, 1) ) ;
+  __m128i vi2 = _mm_add_epi32( _mm256_extracti128_si256(vc2, 0) , _mm256_extracti128_si256(vc2, 1) ) ;
+  __m128i vi3 = _mm_add_epi32( _mm256_extracti128_si256(vc3, 0) , _mm256_extracti128_si256(vc3, 1) ) ;
+  __m128i vi4 = _mm_add_epi32( _mm256_extracti128_si256(vc4, 0) , _mm256_extracti128_si256(vc4, 1) ) ;
+  __m128i vi5 = _mm_add_epi32( _mm256_extracti128_si256(vc5, 0) , _mm256_extracti128_si256(vc5, 1) ) ;
+  // fold 128 to 32
+  vi0 = _mm_add_epi32( _mm_bsrli_si128(vi0, 8), vi0) ; vi0 = _mm_add_epi32( _mm_bsrli_si128(vi0, 4), vi0) ;
+  vi1 = _mm_add_epi32( _mm_bsrli_si128(vi1, 8), vi0) ; vi1 = _mm_add_epi32( _mm_bsrli_si128(vi1, 4), vi0) ;
+  vi2 = _mm_add_epi32( _mm_bsrli_si128(vi2, 8), vi0) ; vi2 = _mm_add_epi32( _mm_bsrli_si128(vi2, 4), vi0) ;
+  vi3 = _mm_add_epi32( _mm_bsrli_si128(vi3, 8), vi0) ; vi3 = _mm_add_epi32( _mm_bsrli_si128(vi3, 4), vi0) ;
+  vi4 = _mm_add_epi32( _mm_bsrli_si128(vi4, 8), vi0) ; vi4 = _mm_add_epi32( _mm_bsrli_si128(vi4, 4), vi0) ;
+  vi5 = _mm_add_epi32( _mm_bsrli_si128(vi5, 8), vi0) ; vi4 = _mm_add_epi32( _mm_bsrli_si128(vi5, 4), vi0) ;
+
+  _mm_storeu_si32(&t , vi0) ; count[0] -= t ;
+  _mm_storeu_si32(&t , vi1) ; count[1] -= t ;
+  _mm_storeu_si32(&t , vi2) ; count[2] -= t ;
+  _mm_storeu_si32(&t , vi3) ; count[3] -= t ;
+  _mm_storeu_si32(&t , vi4) ; count[4] -= t ;
+  _mm_storeu_si32(&t , vi5) ; count[5] -= t ;
+}
+#else
+void v_less_than(int32_t *z, int32_t ref[6], int32_t count[6], int32_t n){
+  v_less_than_c(z, ref, count, n) ;
 }
 #endif

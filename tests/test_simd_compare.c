@@ -70,9 +70,16 @@ int main(int argc, char **argv){
   }
 
   if(cycles_overhead == 0) cycles_overhead = 1 ;
+
+  for(i=0 ; i<6 ; i++) count[i] = 0 ;
+  TIME_LOOP_EZ(NITER, NPTS, v_less_than_c(array, ref, count, NPTS) ; )
+  t0 = timer_min * NaNoSeC / (NPTS) ;
+  if(timer_max > timer_min) timer_max = timer_avg ;
+  fprintf(stderr, "C    version : t(min) = %5.3f ns/pt, %ld ticks (%d pts)\n", t0, timer_min, NPTS) ;
+
   for(i=0 ; i<6 ; i++) count[i] = 0 ;
   TIME_LOOP_EZ(NITER, NPTS, v_less_than(array, ref, count, NPTS) ; )
   t0 = timer_min * NaNoSeC / (NPTS) ;
   if(timer_max > timer_min) timer_max = timer_avg ;
-  fprintf(stderr, "%s t(min) = %4.2f ns/pt, %ld ticks (%d pts)\n", "", t0, timer_min, NPTS) ;
+  fprintf(stderr, "AVX2 version : t(min) = %5.3f ns/pt, %ld ticks (%d pts)\n", t0, timer_min, NPTS) ;
 }
