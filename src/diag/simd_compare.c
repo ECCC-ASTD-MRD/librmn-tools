@@ -17,19 +17,15 @@
 
 #include <rmn/simd_compare.h>
 
-#if defined(__AVX2__)
-#include <immintrin.h>
 #define VL 8
-#else
-#define VL 4
-#endif
 
 // increment count[j] when z[i] < ref[j] (0 <= j < 6, 0 <= i < n)
 // z        [IN] : array of values
 // ref      [IN] : 6 reference values
 // count [INOUT] : 6 counts to be incremented
 // n        [IN] : number of values
-void v_less_than_c(int32_t *z, int32_t ref[6], int32_t count[6], int32_t n){
+// slower, fully accurate version
+void v_less_than_precise(int32_t *z, int32_t ref[6], int32_t count[6], int32_t n){
   int32_t vc0[VL], vc1[VL], vc2[VL], vc3[VL], vc4[VL], vc5[VL]  ;     // vector counts
   int32_t kr0[VL], kr1[VL], kr2[VL], kr3[VL], kr4[VL], kr5[VL]  ;     // vector copies of reference values
   int32_t t[VL] ;
@@ -82,10 +78,20 @@ void v_less_than_c(int32_t *z, int32_t ref[6], int32_t count[6], int32_t n){
   }
   return;
 }
+
 #if defined(__AVX2__)
-void v_less_than(int32_t *z, int32_t ref[6], int32_t count[6], int32_t n){
+#include <immintrin.h>
+// increment count[j] when z[i] < ref[j] (0 <= j < 6, 0 <= i < n)
+// z        [IN] : array of values
+// ref      [IN] : 6 reference values
+// count [INOUT] : 6 counts to be incremented
+// n        [IN] : number of values
+// fast, possibly not totally accurate version, up to 7 points may be counted twice
+// if less than n < 8, NO-OP
+void v_less_than_simd(int32_t *z, int32_t ref[6], int32_t count[6], int32_t n){
   int nvl, t ;
   __m256i vz, vr0, vr1, vr2, vr3, vr4, vr5, vc0, vc1, vc2, vc3, vc4, vc5 ;
+  if(n < 8) return ;   // less than 8 values, DO NOT BOTHER
   nvl = (n & (VL-1)) ;
   if(nvl == 0) nvl = VL ;
   vr0 = _mm256_broadcastd_epi32( _mm_set1_epi32(ref[0]) ) ;
@@ -94,7 +100,7 @@ void v_less_than(int32_t *z, int32_t ref[6], int32_t count[6], int32_t n){
   vr3 = _mm256_broadcastd_epi32( _mm_set1_epi32(ref[3]) ) ;
   vr4 = _mm256_broadcastd_epi32( _mm_set1_epi32(ref[4]) ) ;
   vr5 = _mm256_broadcastd_epi32( _mm_set1_epi32(ref[5]) ) ;
-
+  // first slice (may partially overlap slice 2)
   vz = _mm256_loadu_si256((__m256i *) z) ;
   vc0 = _mm256_cmpgt_epi32(vr0, vz) ;
   vc1 = _mm256_cmpgt_epi32(vr1, vz) ;
@@ -137,8 +143,12 @@ void v_less_than(int32_t *z, int32_t ref[6], int32_t count[6], int32_t n){
   _mm_storeu_si32(&t , vi4) ; count[4] -= t ;
   _mm_storeu_si32(&t , vi5) ; count[5] -= t ;
 }
-#else
-void v_less_than(int32_t *z, int32_t ref[6], int32_t count[6], int32_t n){
-  v_less_than_c(z, ref, count, n) ;
-}
 #endif
+void v_less_than(int32_t *z, int32_t ref[6], int32_t count[6], int32_t n, int precise){
+#if defined(__AVX2__)
+  if(precise) v_less_than_precise(z, ref, count, n) ;
+  v_less_than_simd(z, ref, count, n) ;
+#else
+  v_less_than_precise(z, ref, count, n) ;
+#endif
+}
