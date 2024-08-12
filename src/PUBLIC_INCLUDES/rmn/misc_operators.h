@@ -65,7 +65,7 @@ static inline __m128i _mm_upper128(__m256i v256) { return _mm256_extracti128_si2
 static inline __m128i _mm_memmask_si128(int n){
   __m128i vm ;
   uint32_t i32 = ~0u ;                           // all 1s
-  i32 = n ? i32 >> ( 8 * (4 - (n&3)) ) : 0 ;     // shift right to eliminate unneeded elements
+  i32 = (n&3) ? i32 >> ( 8 * (4 - (n&3)) ) : i32 ;     // shift right to eliminate unneeded elements
   vm = _mm_set1_epi32(i32) ;                     // load into 128 bit register
   return _mm_cvtepi8_epi32(vm) ;                 // convert from 8 bit to 32 bit mask (4 elements)
 }
@@ -74,7 +74,7 @@ static inline __m128i _mm_memmask_si128(int n){
 static inline __m256i _mm256_memmask_si256(int n){
   __m128i vm ;
   uint64_t i64 = ~0lu ;                           // all 1s
-  i64 = n ? i64 >> ( 8 * (8 - (n&7)) ) : 0 ;      // shift right to eliminate unneeded elements
+  i64 = (n&7) ? i64 >> ( 8 * (8 - (n&7)) ) : i64 ;  // shift right to eliminate unneeded elements
   vm = _mm_set1_epi64x(i64) ;                     // load into 128 bit register
   return _mm256_cvtepi8_epi32(vm) ;               // convert from 8 bit to 32 bit mask (8 elements)
 }
