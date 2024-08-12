@@ -14,18 +14,19 @@
 // Author:
 //     M. Valin,   Recherche en Prevision Numerique, 2024
 //
+#include <stdio.h>
 
 #include <rmn/simd_compare.h>
 
 #define VL 8
 
 // increment count[j] when z[i] < ref[j] (0 <= j < 6, 0 <= i < n)
-// z        [IN] : array of values
+// z        [IN] : array of NON NEGATIVE SIGNED values
 // ref      [IN] : 6 reference values
 // count [INOUT] : 6 counts to be incremented
 // n        [IN] : number of values
 // slower, fully accurate version
-void v_less_than_precise(int32_t *z, int32_t ref[6], int32_t count[6], int32_t n){
+void v_less_than_c(int32_t *z, int32_t ref[6], int32_t count[6], int32_t n){
   int32_t vc0[VL], vc1[VL], vc2[VL], vc3[VL], vc4[VL], vc5[VL]  ;     // vector counts
   int32_t kr0[VL], kr1[VL], kr2[VL], kr3[VL], kr4[VL], kr5[VL]  ;     // vector copies of reference values
   int32_t t[VL] ;
@@ -81,27 +82,40 @@ void v_less_than_precise(int32_t *z, int32_t ref[6], int32_t count[6], int32_t n
 
 #if defined(__AVX2__)
 #include <immintrin.h>
+
+// build a 256 bit mask (8 x 32 bits) to keep n (0-8) elements in masked operations
+// mask is built as a 64 bit mask (8x8bit), then expanded to 256 bits (8x32bit)
+static inline __m256i _mm256_memmask_si256(int n){
+  __m128i vm ;
+  uint64_t i64 = ~0lu ;                           // all 1s
+  i64 = (n&7) ? (i64 >> ( 8 * (8 - (n&7)) )) : i64 ;    // shift right to eliminate unneeded elements
+//   if((n&7) > 0) i64 >>= ( 8 * (8 - (n&7)) ) ;
+  vm = _mm_set1_epi64x(i64) ;                     // load into 128 bit register
+  return _mm256_cvtepi8_epi32(vm) ;               // convert from 8 bit to 32 bit mask (8 elements)
+}
+
 // increment count[j] when z[i] < ref[j] (0 <= j < 6, 0 <= i < n)
-// z        [IN] : array of values
+// z        [IN] : array of NON NEGATIVE SIGNED values
 // ref      [IN] : 6 reference values
 // count [INOUT] : 6 counts to be incremented
 // n        [IN] : number of values
-// fast, possibly not totally accurate version, up to 7 points may be counted twice
-// if less than n < 8, NO-OP
+// fast, AVX2 version
 void v_less_than_simd(int32_t *z, int32_t ref[6], int32_t count[6], int32_t n){
-  int nvl, t ;
-  __m256i vz, vr0, vr1, vr2, vr3, vr4, vr5, vc0, vc1, vc2, vc3, vc4, vc5 ;
-  if(n < 8) return ;   // less than 8 values, DO NOT BOTHER
+  int nvl, t, xtra ;
+  __m256i vz, vr0, vr1, vr2, vr3, vr4, vr5, vc0, vc1, vc2, vc3, vc4, vc5, vm ;
+
   nvl = (n & (VL-1)) ;
   if(nvl == 0) nvl = VL ;
+  xtra = 8 - nvl ;                         // xtra points will be counted twice
+  vm = _mm256_memmask_si256(nvl) ;
   vr0 = _mm256_broadcastd_epi32( _mm_set1_epi32(ref[0]) ) ;
   vr1 = _mm256_broadcastd_epi32( _mm_set1_epi32(ref[1]) ) ;
   vr2 = _mm256_broadcastd_epi32( _mm_set1_epi32(ref[2]) ) ;
   vr3 = _mm256_broadcastd_epi32( _mm_set1_epi32(ref[3]) ) ;
   vr4 = _mm256_broadcastd_epi32( _mm_set1_epi32(ref[4]) ) ;
   vr5 = _mm256_broadcastd_epi32( _mm_set1_epi32(ref[5]) ) ;
-  // first slice (may partially overlap slice 2)
-  vz = _mm256_loadu_si256((__m256i *) z) ;
+  // first slice (may partially overlap the next slice)
+  vz = _mm256_maskload_epi32(z, vm) ;      // set overlap values to 0 (will be counted twice)
   vc0 = _mm256_cmpgt_epi32(vr0, vz) ;
   vc1 = _mm256_cmpgt_epi32(vr1, vz) ;
   vc2 = _mm256_cmpgt_epi32(vr2, vz) ;
@@ -111,7 +125,7 @@ void v_less_than_simd(int32_t *z, int32_t ref[6], int32_t count[6], int32_t n){
   z += nvl ;
   n -= nvl ;
   while(n > VL - 1){
-    vz = _mm256_loadu_si256((__m256i *) z) ;
+    vz = _mm256_loadu_si256((__m256i *)z) ;
     vc0 = _mm256_add_epi32( vc0 , _mm256_cmpgt_epi32(vr0, vz) ) ;
     vc1 = _mm256_add_epi32( vc1 , _mm256_cmpgt_epi32(vr1, vz) ) ;
     vc2 = _mm256_add_epi32( vc2 , _mm256_cmpgt_epi32(vr2, vz) ) ;
@@ -130,25 +144,24 @@ void v_less_than_simd(int32_t *z, int32_t ref[6], int32_t count[6], int32_t n){
   __m128i vi5 = _mm_add_epi32( _mm256_extracti128_si256(vc5, 0) , _mm256_extracti128_si256(vc5, 1) ) ;
   // fold 128 to 32
   vi0 = _mm_add_epi32( _mm_bsrli_si128(vi0, 8), vi0) ; vi0 = _mm_add_epi32( _mm_bsrli_si128(vi0, 4), vi0) ;
-  vi1 = _mm_add_epi32( _mm_bsrli_si128(vi1, 8), vi0) ; vi1 = _mm_add_epi32( _mm_bsrli_si128(vi1, 4), vi0) ;
-  vi2 = _mm_add_epi32( _mm_bsrli_si128(vi2, 8), vi0) ; vi2 = _mm_add_epi32( _mm_bsrli_si128(vi2, 4), vi0) ;
-  vi3 = _mm_add_epi32( _mm_bsrli_si128(vi3, 8), vi0) ; vi3 = _mm_add_epi32( _mm_bsrli_si128(vi3, 4), vi0) ;
-  vi4 = _mm_add_epi32( _mm_bsrli_si128(vi4, 8), vi0) ; vi4 = _mm_add_epi32( _mm_bsrli_si128(vi4, 4), vi0) ;
-  vi5 = _mm_add_epi32( _mm_bsrli_si128(vi5, 8), vi0) ; vi4 = _mm_add_epi32( _mm_bsrli_si128(vi5, 4), vi0) ;
+  vi1 = _mm_add_epi32( _mm_bsrli_si128(vi1, 8), vi1) ; vi1 = _mm_add_epi32( _mm_bsrli_si128(vi1, 4), vi1) ;
+  vi2 = _mm_add_epi32( _mm_bsrli_si128(vi2, 8), vi2) ; vi2 = _mm_add_epi32( _mm_bsrli_si128(vi2, 4), vi2) ;
+  vi3 = _mm_add_epi32( _mm_bsrli_si128(vi3, 8), vi3) ; vi3 = _mm_add_epi32( _mm_bsrli_si128(vi3, 4), vi3) ;
+  vi4 = _mm_add_epi32( _mm_bsrli_si128(vi4, 8), vi4) ; vi4 = _mm_add_epi32( _mm_bsrli_si128(vi4, 4), vi4) ;
+  vi5 = _mm_add_epi32( _mm_bsrli_si128(vi5, 8), vi5) ; vi5 = _mm_add_epi32( _mm_bsrli_si128(vi5, 4), vi5) ;
 
-  _mm_storeu_si32(&t , vi0) ; count[0] -= t ;
-  _mm_storeu_si32(&t , vi1) ; count[1] -= t ;
-  _mm_storeu_si32(&t , vi2) ; count[2] -= t ;
-  _mm_storeu_si32(&t , vi3) ; count[3] -= t ;
-  _mm_storeu_si32(&t , vi4) ; count[4] -= t ;
-  _mm_storeu_si32(&t , vi5) ; count[5] -= t ;
+  _mm_storeu_si32(&t , vi0) ; count[0] -= t ; count[0] -= xtra ;  // xtra points have been counted twice
+  _mm_storeu_si32(&t , vi1) ; count[1] -= t ; count[1] -= xtra ;
+  _mm_storeu_si32(&t , vi2) ; count[2] -= t ; count[2] -= xtra ;
+  _mm_storeu_si32(&t , vi3) ; count[3] -= t ; count[3] -= xtra ;
+  _mm_storeu_si32(&t , vi4) ; count[4] -= t ; count[4] -= xtra ;
+  _mm_storeu_si32(&t , vi5) ; count[5] -= t ; count[5] -= xtra ;
 }
 #endif
-void v_less_than(int32_t *z, int32_t ref[6], int32_t count[6], int32_t n, int precise){
+void v_less_than(int32_t *z, int32_t ref[6], int32_t count[6], int32_t n){
 #if defined(__AVX2__)
-  if(precise) v_less_than_precise(z, ref, count, n) ;
   v_less_than_simd(z, ref, count, n) ;
 #else
-  v_less_than_precise(z, ref, count, n) ;
+  v_less_than_c(z, ref, count, n) ;
 #endif
 }
