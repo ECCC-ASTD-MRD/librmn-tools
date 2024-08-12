@@ -17,5 +17,13 @@
 #include <stdint.h>
 
 void v_less_than_c(int32_t *z, int32_t ref[6], int32_t count[6], int n) ;
+void v_less_than_c_6(int32_t *z, int32_t ref[6], int32_t count[6], int n) ;
+void v_less_than_c_4(int32_t *z, int32_t ref[4], int32_t count[4], int n) ;
+
 void v_less_than_simd(int32_t *z, int32_t ref[6], int32_t count[6], int n) ;
+void v_less_than_simd_6(int32_t *z, int32_t ref[6], int32_t count[6], int n) ;
+void v_less_than_simd_4(int32_t *z, int32_t ref[4], int32_t count[4], int n) ;
+
 void v_less_than(int32_t *z, int32_t ref[6], int32_t count[6], int n) ;
+void v_less_than_6(int32_t *z, int32_t ref[6], int32_t count[6], int n) ;
+void v_less_than_4(int32_t *z, int32_t ref[4], int32_t count[4], int n) ;

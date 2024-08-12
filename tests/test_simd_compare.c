@@ -31,6 +31,7 @@
   float NaNoSeC = 0.0f ;
 #endif
 
+// multiple of 8 + 7
 #define NPTS 4097
 #define BITS 12
 #define MASK 0xFFF
@@ -39,7 +40,6 @@ int main(int argc, char **argv){
   TIME_LOOP_DATA ;
   int32_t array[NPTS] ;
   int32_t count[16] ;
-//   int32_t ref[] = { NPTS/64, NPTS/16, NPTS/4, NPTS } ;
   int32_t ref[] = { 1, 4, 8, 16, 32, 64, 128 } ;
   int32_t bit[] = { 1, 2, 3,  4,  5,  6,   7 } ;
   int i, imax ;
@@ -53,14 +53,14 @@ int main(int argc, char **argv){
     xrand = (random() & MASK) / 4096.0f ;
     array[i] = xrand * xrand * xrand * xrand * xrand * NPTS ;
   }
-//   for(i=0 ; i<8 ; i++) array[i] = 0 ;
+  for(i=0 ; i<8 ; i++) array[i] = 0 ;  // set potential extra points to 0 to be counted twice
 
   imax = 0 ;
   for(i=0 ; i<NPTS ; i++) imax = (array[i] > imax) ? array[i] : imax ;
   fprintf(stderr, "largest of %d values is %d\n", NPTS, imax) ;
 
   for(i=0 ; i<6 ; i++) count[i] = 0 ;
-  v_less_than_simd(array, ref, count, NPTS) ;   // fast SIMD call
+  v_less_than_simd_6(array, ref, count, NPTS) ;   // fast SIMD call
   for(i=0 ; i<6 ; i++){
     int short_c = count[i] ;
     int long_c = NPTS - short_c ;
@@ -72,7 +72,7 @@ int main(int argc, char **argv){
   fprintf(stderr, "\n") ;
 
   for(i=0 ; i<6 ; i++) count[i] = 0 ;
-  v_less_than_c(array, ref, count, NPTS) ;   // C call
+  v_less_than_c_6(array, ref, count, NPTS) ;   // C call
   for(i=0 ; i<6 ; i++){
     int short_c = count[i] ;
     int long_c = NPTS - short_c ;
@@ -93,15 +93,51 @@ int main(int argc, char **argv){
   fprintf(stderr, "generic version : t(min) = %5.3f ns/pt, %ld ticks (%d pts)\n", t0, timer_min, NPTS) ;
 
   for(i=0 ; i<6 ; i++) count[i] = 0 ;
+  TIME_LOOP_EZ(NITER, NPTS, v_less_than_6(array, ref, count, NPTS) ; )
+  t0 = timer_min * NaNoSeC / (NPTS) ;
+  if(timer_max > timer_min) timer_max = timer_avg ;
+  fprintf(stderr, "generic version6: t(min) = %5.3f ns/pt, %ld ticks (%d pts)\n", t0, timer_min, NPTS) ;
+
+  for(i=0 ; i<6 ; i++) count[i] = 0 ;
+  TIME_LOOP_EZ(NITER, NPTS, v_less_than_4(array, ref, count, NPTS) ; )
+  t0 = timer_min * NaNoSeC / (NPTS) ;
+  if(timer_max > timer_min) timer_max = timer_avg ;
+  fprintf(stderr, "generic version4: t(min) = %5.3f ns/pt, %ld ticks (%d pts)\n", t0, timer_min, NPTS) ;
+
+  for(i=0 ; i<6 ; i++) count[i] = 0 ;
   TIME_LOOP_EZ(NITER, NPTS, v_less_than_c(array, ref, count, NPTS) ; )
   t0 = timer_min * NaNoSeC / (NPTS) ;
   if(timer_max > timer_min) timer_max = timer_avg ;
   fprintf(stderr, "C       version : t(min) = %5.3f ns/pt, %ld ticks (%d pts)\n", t0, timer_min, NPTS) ;
 
   for(i=0 ; i<6 ; i++) count[i] = 0 ;
+  TIME_LOOP_EZ(NITER, NPTS, v_less_than_c_6(array, ref, count, NPTS) ; )
+  t0 = timer_min * NaNoSeC / (NPTS) ;
+  if(timer_max > timer_min) timer_max = timer_avg ;
+  fprintf(stderr, "C6      version : t(min) = %5.3f ns/pt, %ld ticks (%d pts)\n", t0, timer_min, NPTS) ;
+
+  for(i=0 ; i<6 ; i++) count[i] = 0 ;
+  TIME_LOOP_EZ(NITER, NPTS, v_less_than_c_4(array, ref, count, NPTS) ; )
+  t0 = timer_min * NaNoSeC / (NPTS) ;
+  if(timer_max > timer_min) timer_max = timer_avg ;
+  fprintf(stderr, "C4      version : t(min) = %5.3f ns/pt, %ld ticks (%d pts)\n", t0, timer_min, NPTS) ;
+
+  for(i=0 ; i<6 ; i++) count[i] = 0 ;
   TIME_LOOP_EZ(NITER, NPTS, v_less_than_simd(array, ref, count, NPTS) ; )
   t0 = timer_min * NaNoSeC / (NPTS) ;
   if(timer_max > timer_min) timer_max = timer_avg ;
   fprintf(stderr, "SIMD    version : t(min) = %5.3f ns/pt, %ld ticks (%d pts)\n", t0, timer_min, NPTS) ;
+
+  for(i=0 ; i<6 ; i++) count[i] = 0 ;
+  TIME_LOOP_EZ(NITER, NPTS, v_less_than_simd_6(array, ref, count, NPTS) ; )
+  t0 = timer_min * NaNoSeC / (NPTS) ;
+  if(timer_max > timer_min) timer_max = timer_avg ;
+  fprintf(stderr, "SIMD6   version : t(min) = %5.3f ns/pt, %ld ticks (%d pts)\n", t0, timer_min, NPTS) ;
+
+  for(i=0 ; i<6 ; i++) count[i] = 0 ;
+  TIME_LOOP_EZ(NITER, NPTS, v_less_than_simd_4(array, ref, count, NPTS) ; )
+  t0 = timer_min * NaNoSeC / (NPTS) ;
+  if(timer_max > timer_min) timer_max = timer_avg ;
+  fprintf(stderr, "SIMD4   version : t(min) = %5.3f ns/pt, %ld ticks (%d pts)\n", t0, timer_min, NPTS) ;
 #endif
 }
