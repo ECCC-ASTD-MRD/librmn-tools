@@ -87,11 +87,10 @@ void v_less_than_c(int32_t *z, int32_t ref[6], int32_t count[6], int32_t n){
 // mask is built as a 64 bit mask (8x8bit), then expanded to 256 bits (8x32bit)
 static inline __m256i _mm256_memmask_si256(int n){
   __m128i vm ;
-  uint64_t i64 = ~0lu ;                           // all 1s
+  uint64_t i64 = ~0lu ;                                 // all 1s
   i64 = (n&7) ? (i64 >> ( 8 * (8 - (n&7)) )) : i64 ;    // shift right to eliminate unneeded elements
-//   if((n&7) > 0) i64 >>= ( 8 * (8 - (n&7)) ) ;
-  vm = _mm_set1_epi64x(i64) ;                     // load into 128 bit register
-  return _mm256_cvtepi8_epi32(vm) ;               // convert from 8 bit to 32 bit mask (8 elements)
+  vm = _mm_set1_epi64x(i64) ;                           // load into 128 bit register
+  return _mm256_cvtepi8_epi32(vm) ;                     // convert from 8 bit to 32 bit mask (8 elements)
 }
 
 // increment count[j] when z[i] < ref[j] (0 <= j < 6, 0 <= i < n)
