@@ -210,7 +210,7 @@ static inline __m128i _mm_idiv8t_epi32(__m128i v){
 
 #define MAX(a,b) ( ((a) > (b)) ? (a) : (b) )
 #define MIN(a,b) ( ((a) < (b)) ? (a) : (b) )
-#define ABS(val)  ((val) < 0) ? (-(val)) : (val)
+#define ABS(val) ( ((val) < 0) ? (-(val)) : (val) )
 
 #define MINMAX(min,max,src,n)  \
 { int i=1 ; min = max = src[0] ; \
