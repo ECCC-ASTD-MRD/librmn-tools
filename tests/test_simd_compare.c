@@ -144,12 +144,38 @@ int main(int argc, char **argv){
   fprintf(stderr, "\n") ;
 #endif
 
-  uint32_t mina ;
-  int32_t mins, maxs ;
-  for(i=0 ; i<NPTS/2 ; i++) { array[i] = -(i + 10) ; array[i + NPTS/2] = (i + 10) ; }
-  array[NPTS-1] = 9 ;
+#define ABS(val)  (((val) < 0) ? (-(val)) : (val))
+
+// short case (NPTS < vector length)
+#undef NPTS
+#define NPTS 7
+  uint32_t mina = 0xFFFFFFFFu ;
+  int32_t mins = 0x7FFFFFFF, maxs = -mins ;
+  for(i=0 ; i<NPTS/2 ; i++) { array[i] = -(i + 5) ; array[i + NPTS/2] = (i + 5) ; }
+  array[NPTS-1] = NPTS + 5 ;      // set max value
+  array[0] = array[NPTS/2] = 0 ;  // eliminate smallest values as the > 0 min abs value
   v_minmax(array, NPTS, &mins, &maxs, &mina) ;
-  fprintf(stderr, "minimum = %6d, maximum = %6d, abs minimum = %6d\n", mins, maxs, mina) ;
+  fprintf(stderr, "minimum = %6d, maximum = %6d, abs minimum = %6d, %d values\n", mins, maxs, mina, NPTS) ;
+  if(mina != array[1 + NPTS/2] ) exit(1) ;
+  if(mina != ABS(array[1])) exit(1) ;
+  if(mins != array[NPTS/2 - 1]) exit(1) ;
+  if(maxs != array[NPTS-1]) exit(1) ;
+  fprintf(stderr, "\n") ;
+
+// normal case (NPTS >= vector length)
+#undef NPTS
+#define NPTS 4097
+  mina = 0xFFFFFFFFu ;
+  mins = 0x7FFFFFFF ;
+  maxs = -mins ;
+  for(i=0 ; i<NPTS/2 ; i++) { array[i] = -(i + 15) ; array[i + NPTS/2] = (i + 15) ; }
+  array[NPTS-1] = NPTS + 5 ;      // set max value
+  array[0] = array[NPTS/2] = 0 ;  // eliminate smallest values as the > 0 min abs value
+  v_minmax(array, NPTS, &mins, &maxs, &mina) ;
+  fprintf(stderr, "minimum = %6d, maximum = %6d, abs minimum = %6d, %d values\n", mins, maxs, mina, NPTS) ;
+  if(mina != array[1 + NPTS/2] || mina != ABS(array[1]) ) exit(1) ;
+  if(mins != array[NPTS/2 - 1]) exit(1) ;
+  if(maxs != array[NPTS-1]) exit(1) ;
   fprintf(stderr, "\n") ;
 
 #if defined(WITH_TIMING)
@@ -158,5 +184,6 @@ int main(int argc, char **argv){
   if(timer_max > timer_min) timer_max = timer_avg ;
   fprintf(stderr, "v_minmax        : t(min) = %5.3f ns/pt, %ld ticks (%d pts)\n", t0, timer_min, NPTS) ;
 
+  fprintf(stderr, "\n") ;
 #endif
 }

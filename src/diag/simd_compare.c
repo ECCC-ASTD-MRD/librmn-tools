@@ -18,7 +18,7 @@
 
 #include <rmn/simd_compare.h>
 
-#define VL 8
+#define VL 16
 
 // increment count[j] when z[i] < ref[j] (0 <= j < 6, 0 <= i < n)
 // z        [IN] : array of NON NEGATIVE SIGNED values
@@ -130,6 +130,9 @@ void v_less_than_c_4(int32_t *z, int32_t ref[4], int32_t count[4], int32_t n){
 
 #if defined(__AVX2__)
 #include <immintrin.h>
+
+#undef VL
+#define VL 8
 
 // build a 256 bit mask (8 x 32 bits) to keep n (0-8) elements in masked operations
 // mask is built as a 64 bit mask (8x8bit), then expanded to 256 bits (8x32bit)
@@ -270,17 +273,23 @@ void v_less_than_4(int32_t *z, int32_t ref[4], int32_t count[4], int32_t n){
   v_less_than_c_4(z, ref, count, n) ;
 #endif
 }
+
 #if defined(__AVX512F__)
 #define VL2 32
 #else
 #define VL2 16
 #endif
-// get minimum, maximum, minimum absolute values from signed array z
+
+#define MAX(a,b) ( ((a) > (b)) ? (a) : (b) )
+#define MIN(a,b) ( ((a) < (b)) ? (a) : (b) )
+#define ABS(val) ( ((val) < 0) ? (-(val)) : (val) )
+
+// get minimum, maximum, minimum non zero absolute values from signed array z
 // z        [IN] : array of SIGNED values
 // n        [IN] : number of values
-// mins    [OUT] : smallest value
-// maxs    [OUT] : largest value
-// min0    [OUT] : smallest non zero absolute value
+// mins    [OUT] : smallest value (signed minimum)
+// maxs    [OUT] : largest value (signed maximum)
+// min0    [OUT] : smallest NON ZERO absolute value
 void v_minmax(int32_t *z, int32_t n, int32_t *mins, int32_t *maxs, uint32_t *min0){
   int i, nvl ;
   int32_t vmins[VL2], vmaxs[VL2] ;
@@ -289,29 +298,42 @@ void v_minmax(int32_t *z, int32_t n, int32_t *mins, int32_t *maxs, uint32_t *min
   nvl = (n & (VL2-1)) ;
   if(nvl == 0) nvl = VL2 ;
   if(n > VL2-1){
-    for(i=0 ; i<VL2 ; i++){
-      vmins[i] = vmaxs[i] = z[i] ;
-      vmina[i] = (z[i] < 0) ? -z[i] : z[i] ;
+    for(i=0 ; i<VL2 ; i++){                      // first chunk, may overlap second one
+      vmins[i] = vmaxs[i] = z[i] ;               // does not matter for results
+      vmina[i] = ABS(z[i]) ;
+      vmina[i] = (vmina[i] == 0) ? 0xFFFFFFFFu : vmina[i] ;
     }
-    z += nvl ; n -= nvl ;
-    while(n > VL2-1){
+    z += nvl ; n -= nvl ;                        // bump source pointer, decrement n
+
+    while(n > VL2-1){                            // subsequent chunks
       for(i=0 ; i<VL2 ; i++){
-        uint32_t temp = (z[i] > 0) ? z[i] : -z[i] ;
+        uint32_t temp = ABS(z[i]) ;
         temp = (temp == 0) ? vmina[i] : temp ;
-        vmins[i] = (z[i] < vmins[i]) ? z[i] : vmins[i] ;
-        vmaxs[i] = (z[i] > vmaxs[i]) ? z[i] : vmaxs[i] ;
-        vmina[i] = (temp < vmina[i]) ? temp : vmina[i] ;
+        vmins[i] = MIN(z[i] , vmins[i]) ;
+        vmaxs[i] = MAX(z[i] , vmaxs[i]) ;
+        vmina[i] = MIN(temp , vmina[i]) ;
       }
-      z += VL2 ; n -= VL2 ;
+      z += VL2 ; n -= VL2 ;                      // bump source pointer, decrement n
     }
     for(i=1 ; i<VL2 ; i++){
-      vmins[0] = (vmins[i] < vmins[0]) ? vmins[i] : vmins[0] ;
-      vmaxs[0] = (vmaxs[i] > vmaxs[0]) ? vmaxs[i] : vmaxs[0] ;
-      vmina[0] = (vmina[i] < vmina[0]) ? vmina[i] : vmina[0] ;
+      vmins[0] = MIN(vmins[i] , vmins[0]) ;
+      vmaxs[0] = MAX(vmaxs[i] , vmaxs[0]) ;
+      vmina[0] = MIN(vmina[i] , vmina[0]) ;
     }
     *mins = vmins[0] ;
     *maxs = vmaxs[0] ;
     *min0 = vmina[0] ;
   }else{
+    *mins = z[0] ;
+    *maxs = z[0] ;
+    *min0 = ABS(z[0]) ;
+    if(*min0 == 0) *min0 = 0xFFFFFFFFu ;
+    for(i=1 ; (i<VL2) && (i<n) ; i++){
+      uint32_t temp = ABS(z[i]) ;
+      temp = (temp == 0) ? *min0 : temp ;
+      *mins = MIN(z[i] , *mins) ;
+      *maxs = MAX(z[i] , *maxs) ;
+      *min0 = MIN(temp , *min0) ;
+    }
   }
 }
