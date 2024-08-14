@@ -82,6 +82,7 @@ int main(int argc, char **argv){
     fprintf(stderr, "C    : %4d values smaller than %4d [%6d/%6d bits]\n", count[i], ref[i], bt, BITS * NPTS) ;
   }
   fprintf(stderr, "\n") ;
+
 #if defined(WITH_TIMING)
   float t0 ;
   if(cycles_overhead == 0) cycles_overhead = 1 ;
@@ -139,5 +140,23 @@ int main(int argc, char **argv){
   t0 = timer_min * NaNoSeC / (NPTS) ;
   if(timer_max > timer_min) timer_max = timer_avg ;
   fprintf(stderr, "SIMD4   version : t(min) = %5.3f ns/pt, %ld ticks (%d pts)\n", t0, timer_min, NPTS) ;
+
+  fprintf(stderr, "\n") ;
+#endif
+
+  uint32_t mina ;
+  int32_t mins, maxs ;
+  for(i=0 ; i<NPTS/2 ; i++) { array[i] = -(i + 10) ; array[i + NPTS/2] = (i + 10) ; }
+  array[NPTS-1] = 9 ;
+  v_minmax(array, NPTS, &mins, &maxs, &mina) ;
+  fprintf(stderr, "minimum = %6d, maximum = %6d, abs minimum = %6d\n", mins, maxs, mina) ;
+  fprintf(stderr, "\n") ;
+
+#if defined(WITH_TIMING)
+  TIME_LOOP_EZ(NITER, NPTS,v_minmax(array, NPTS, &mins, &maxs, &mina) ; )
+  t0 = timer_min * NaNoSeC / (NPTS) ;
+  if(timer_max > timer_min) timer_max = timer_avg ;
+  fprintf(stderr, "v_minmax        : t(min) = %5.3f ns/pt, %ld ticks (%d pts)\n", t0, timer_min, NPTS) ;
+
 #endif
 }

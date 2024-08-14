@@ -270,3 +270,43 @@ void v_less_than_4(int32_t *z, int32_t ref[4], int32_t count[4], int32_t n){
   v_less_than_c_4(z, ref, count, n) ;
 #endif
 }
+
+// get minimum, maximum, minimum absolute values from signed array z
+// z        [IN] : array of SIGNED values
+// n        [IN] : number of values
+// mins    [OUT] : smallest value
+// maxs    [OUT] : largest value
+// mina    [OUT] : smallest absolute value
+void v_minmax(int32_t *z, int32_t n, int32_t *mins, int32_t *maxs, uint32_t *mina){
+  int i, nvl ;
+  int32_t vmins[VL], vmaxs[VL] ;
+  uint32_t vmina[VL] ;
+
+  nvl = (n & (VL-1)) ;
+  if(nvl == 0) nvl = VL ;
+  if(n > VL-1){
+    for(i=0 ; i<VL ; i++){
+      vmins[i] = vmaxs[i] = z[i] ;
+      vmina[i] = (z[i] > 0) ? z[i] : -z[i] ;
+    }
+    z += nvl ; n -= nvl ;
+    while(n > VL-1){
+      for(i=0 ; i<VL ; i++){
+        uint32_t temp = (z[i] > 0) ? z[i] : -z[i] ;
+        vmins[i] = (z[i] < vmins[i]) ? z[i] : vmins[i] ;
+        vmaxs[i] = (z[i] > vmaxs[i]) ? z[i] : vmaxs[i] ;
+        vmina[i] = (temp < vmina[i]) ? temp : vmina[i] ;
+      }
+      z += VL ; n -= VL ;
+    }
+    for(i=1 ; i<VL ; i++){
+      vmins[0] = (vmins[i] < vmins[0]) ? vmins[i] : vmins[0] ;
+      vmaxs[0] = (vmaxs[i] > vmaxs[0]) ? vmaxs[i] : vmaxs[0] ;
+      vmina[0] = (vmina[i] < vmina[0]) ? vmina[i] : vmina[0] ;
+    }
+    *mins = vmins[0] ;
+    *maxs = vmaxs[0] ;
+    *mina = vmina[0] ;
+  }else{
+  }
+}
