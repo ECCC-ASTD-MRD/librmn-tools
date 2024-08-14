@@ -21,7 +21,8 @@
 /*
                          a FIELD is subdivided into CHUNKS
                          (basic chunk size = 256 x 64)
-                         (last chunk along a dimension may be shorter)
+                         - (last chunk along a dimension may be shorter)
+                         - (first chunk along a dimension may be longer [up to 511 x 127])
        <------ 256 ----->                                  <--- <= 256 ----->
      ^ +----------------+----------------------------------+----------------+ ^
      | |                |                                  |                | |
@@ -44,7 +45,8 @@
 
          each CHUNK is then subdivided into quantization/prediction BLOCKS
          (basic block size = 64 x 64)
-         (last block along a dimension may be shorter)
+         - (last block along a dimension may be shorter)
+         - (first block along a dimension may be longer [ up to 127 x 127])
        HUGE chunk (or field with only a single chunk)
        <------ 64 ------>                                  <--- <= 64 ------>
      ^ +----------------+----------------------------------+----------------+ ^
