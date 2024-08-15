@@ -274,12 +274,13 @@ void v_less_than_4(int32_t *z, int32_t ref[4], int32_t count[4], int32_t n){
 #endif
 }
 
+// on AVX512 platforms, use a larger chunk per loop iteration
 #if defined(__AVX512F__)
 #define VL2 32
 #else
 #define VL2 16
 #endif
-
+// some useful macros
 #define MAX(a,b) ( ((a) > (b)) ? (a) : (b) )
 #define MIN(a,b) ( ((a) < (b)) ? (a) : (b) )
 #define ABS(val) ( ((val) < 0) ? (-(val)) : (val) )
@@ -290,10 +291,11 @@ void v_less_than_4(int32_t *z, int32_t ref[4], int32_t count[4], int32_t n){
 // mins    [OUT] : smallest value (signed minimum)
 // maxs    [OUT] : largest value (signed maximum)
 // min0    [OUT] : smallest NON ZERO absolute value
+// plain C version, slower than AVX2 version with some compilers on some platforms
 void v_minmax_c(int32_t *z, int32_t n, int32_t *mins, int32_t *maxs, uint32_t *min0){
   int i, nvl ;
-  int32_t vmins[VL2], vmaxs[VL2] ;
-  uint32_t vmina[VL2] ;
+  int32_t vmins[VL2], vmaxs[VL2] ;  // signed min and max values
+  uint32_t vmina[VL2] ;             // unsigned non zero min absolute values
 
   nvl = (n & (VL2-1)) ;
   if(nvl == 0) nvl = VL2 ;
@@ -323,7 +325,7 @@ void v_minmax_c(int32_t *z, int32_t n, int32_t *mins, int32_t *maxs, uint32_t *m
     *mins = vmins[0] ;
     *maxs = vmaxs[0] ;
     *min0 = vmina[0] ;
-  }else{
+  }else{     // n < VL2
     *mins = z[0] ;
     *maxs = z[0] ;
     *min0 = ABS(z[0]) ;
@@ -338,41 +340,40 @@ void v_minmax_c(int32_t *z, int32_t n, int32_t *mins, int32_t *maxs, uint32_t *m
   }
 }
 #if defined(__AVX2__)
+#include <immintrin.h>
+// AVX2 version, faster than plain C version with some compilers on some platforms
 void v_minmax_simd(int32_t *z, int32_t n, int32_t *mins, int32_t *maxs, uint32_t *min0){
+  __m256i vdata, vdatb, vmin0, vmins, vmaxs, vtemp, vzero, vmask, vmas2, vxxxx ;
   int nvl ;
 
-  if(n < 16){
+  if(n < 16){          // less than 16 values, use pure C version
     v_minmax_c(z, n, mins, maxs, min0) ;
     return ;
   }
   nvl = (n & 15) ;
   if(nvl == 0) nvl = 16 ;
 
-  __m256i vdata, vdatb, vmin0, vmins, vmaxs, vtemp, vzero, vmask, vmas2, vxxxx ;
-
-  vdata = _mm256_loadu_si256((__m256i *)z) ;
-  vdatb = _mm256_loadu_si256((__m256i *)(z +  8)) ;
+  vdata = _mm256_loadu_si256((__m256i *) z     ) ;  // first 8 values
+  vdatb = _mm256_loadu_si256((__m256i *)(z + 8)) ;  // next 8 values
   vzero = _mm256_xor_si256(vdata, vdata) ;
-  vxxxx = _mm256_set1_epi32(0x7FFFFFFFu) ;
+  vxxxx = _mm256_set1_epi32(0x7FFFFFFFu) ;   // used to replace zero values when computing vmin0
   vmins = vdata ;
   vmaxs = vdata ;
-  vtemp = _mm256_abs_epi32(vdata) ;
-  vmask = _mm256_cmpeq_epi32(vzero, vdata) ;
+  vtemp = _mm256_abs_epi32(vdata) ;          // absolute value of vdata
+  vmask = _mm256_cmpeq_epi32(vzero, vdata) ; // 1s where vdata == 0, to be replaced with 0x7FFFFFFFu
   vmin0 = (__m256i)_mm256_blendv_ps((__m256)vtemp, (__m256)vxxxx, (__m256)vmask) ;
-
-  vmaxs = _mm256_max_epi32(vmaxs, vdatb) ;
-  vmins = _mm256_min_epi32(vmins, vdatb) ;
-  vtemp = _mm256_abs_epi32(vdatb) ;
-  vmask = _mm256_cmpeq_epi32(vzero, vdatb) ;
+  vmaxs = _mm256_max_epi32(vmaxs, vdatb) ;   // max of first 8 and next 8 values
+  vmins = _mm256_min_epi32(vmins, vdatb) ;   // min of first 8 and next 8 values
+  vtemp = _mm256_abs_epi32(vdatb) ;          // absolute value of vdatb
+  vmask = _mm256_cmpeq_epi32(vzero, vdatb) ; // 1s where vdatb == 0, to be replaced with 0x7FFFFFFFu
   vtemp = (__m256i)_mm256_blendv_ps((__m256)vtemp, (__m256)vmin0, (__m256)vmask) ;
-  vmin0 = _mm256_min_epu32(vmin0, vtemp) ;
+  vmin0 = _mm256_min_epu32(vmin0, vtemp) ;   // non zero min abs of first 8 and next 8 values
+  z += nvl ; n -= nvl ;                      // bump z, decrement n
 
-  z += nvl ; n -= nvl ;
-
-  while(n > 15){
+  while(n > 15){                             // 2 chunks of 8 values per iteration
     vdata = _mm256_loadu_si256((__m256i *)z) ;
     vdatb = _mm256_loadu_si256((__m256i *)(z+8)) ;
-    z += 16 ; n -= 16 ;
+    z += 16 ; n -= 16 ;                      // bump z, decrement n
     vmask = _mm256_cmpeq_epi32(vzero, vdata) ;
     vtemp = _mm256_abs_epi32(vdata) ;
     vmins = _mm256_min_epi32(vmins, vdata) ;
@@ -386,25 +387,26 @@ void v_minmax_simd(int32_t *z, int32_t n, int32_t *mins, int32_t *maxs, uint32_t
     vmin0 = _mm256_min_epu32(vmin0, vtemp) ;
     vmin0 = _mm256_min_epu32(vmin0, vtemp) ;
   }
-  // fold 256 to 128
+  //             fold 256 to 128
   __m128i vmis = _mm_min_epi32( _mm256_extracti128_si256(vmins, 0) , _mm256_extracti128_si256(vmins, 1) ) ;
   __m128i vmas = _mm_max_epi32( _mm256_extracti128_si256(vmaxs, 0) , _mm256_extracti128_si256(vmaxs, 1) ) ;
   __m128i vmi0 = _mm_min_epu32( _mm256_extracti128_si256(vmin0, 0) , _mm256_extracti128_si256(vmin0, 1) ) ;
-  // fold 128 to 32
+  //     fold 128 to 64                                          fold 64 to 32
   vmis = _mm_min_epi32( _mm_bsrli_si128(vmis, 8), vmis) ; vmis = _mm_min_epi32( _mm_bsrli_si128(vmis, 4), vmis) ;
   vmas = _mm_max_epi32( _mm_bsrli_si128(vmas, 8), vmas) ; vmas = _mm_max_epi32( _mm_bsrli_si128(vmas, 4), vmas) ;
   vmi0 = _mm_min_epu32( _mm_bsrli_si128(vmi0, 8), vmi0) ; vmi0 = _mm_min_epu32( _mm_bsrli_si128(vmi0, 4), vmi0) ;
-  // store
+  // store results
   _mm_storeu_si32(mins , vmis) ;
   _mm_storeu_si32(maxs , vmas) ;
   _mm_storeu_si32(min0 , vmi0) ;
 }
 #endif
+// generic name
 void v_minmax(int32_t *z, int32_t n, int32_t *mins, int32_t *maxs, uint32_t *min0){
 #if defined(__AVX2__)
-  v_minmax_simd(z, n, mins, maxs, min0) ;
+  v_minmax_simd(z, n, mins, maxs, min0) ;  // use SIMD version if processor permits it
 #else
-  v_minmax_c(z, n, mins, maxs, min0) ;
+  v_minmax_c(z, n, mins, maxs, min0) ;     // otherwise use plain C version
 #endif
 }
 

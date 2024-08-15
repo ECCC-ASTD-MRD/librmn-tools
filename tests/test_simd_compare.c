@@ -156,11 +156,10 @@ int main(int argc, char **argv){
   array[0] = array[NPTS/2] = 0 ;  // eliminate smallest values as the > 0 min abs value
   v_minmax(array, NPTS, &mins, &maxs, &mina) ;
   fprintf(stderr, "minimum = %6d, maximum = %6d, abs minimum = %6d, %d values\n", mins, maxs, mina, NPTS) ;
-  if(mina != array[1 + NPTS/2] ) exit(1) ;
-  if(mina != ABS(array[1])) exit(1) ;
+  if(mina != (uint32_t)array[1 + NPTS/2] ) exit(1) ;
+  if(mina != (uint32_t)ABS(array[1])) exit(1) ;
   if(mins != array[NPTS/2 - 1]) exit(1) ;
   if(maxs != array[NPTS-1]) exit(1) ;
-  fprintf(stderr, "\n") ;
 
 // normal case (NPTS >= vector length)
 #undef NPTS
@@ -173,7 +172,7 @@ int main(int argc, char **argv){
   array[0] = array[NPTS/2] = 0 ;  // eliminate smallest values as the > 0 min abs value
   v_minmax(array, NPTS, &mins, &maxs, &mina) ;
   fprintf(stderr, "minimum = %6d, maximum = %6d, abs minimum = %6d, %d values\n", mins, maxs, mina, NPTS) ;
-  if(mina != array[1 + NPTS/2] || mina != ABS(array[1]) ) exit(1) ;
+  if(mina != (uint32_t)array[1 + NPTS/2] || mina != (uint32_t)ABS(array[1]) ) exit(1) ;
   if(mins != array[NPTS/2 - 1]) exit(1) ;
   if(maxs != array[NPTS-1]) exit(1) ;
   fprintf(stderr, "\n") ;
