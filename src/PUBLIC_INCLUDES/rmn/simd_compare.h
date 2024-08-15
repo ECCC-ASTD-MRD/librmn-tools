@@ -28,4 +28,6 @@ void v_less_than(int32_t *z, int32_t ref[6], int32_t count[6], int n) ;
 void v_less_than_6(int32_t *z, int32_t ref[6], int32_t count[6], int n) ;
 void v_less_than_4(int32_t *z, int32_t ref[4], int32_t count[4], int n) ;
 
-void v_minmax(int32_t *z, int32_t n, int32_t *mins, int32_t *maxs, uint32_t *mina) ;
+void v_minmax(int32_t *z, int32_t n, int32_t *mins, int32_t *maxs, uint32_t *min0) ;
+void v_minmax_simd(int32_t *z, int32_t n, int32_t *mins, int32_t *maxs, uint32_t *min0) ;
+void v_minmax_c(int32_t *z, int32_t n, int32_t *mins, int32_t *maxs, uint32_t *min0) ;

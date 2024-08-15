@@ -290,7 +290,7 @@ void v_less_than_4(int32_t *z, int32_t ref[4], int32_t count[4], int32_t n){
 // mins    [OUT] : smallest value (signed minimum)
 // maxs    [OUT] : largest value (signed maximum)
 // min0    [OUT] : smallest NON ZERO absolute value
-void v_minmax(int32_t *z, int32_t n, int32_t *mins, int32_t *maxs, uint32_t *min0){
+void v_minmax_c(int32_t *z, int32_t n, int32_t *mins, int32_t *maxs, uint32_t *min0){
   int i, nvl ;
   int32_t vmins[VL2], vmaxs[VL2] ;
   uint32_t vmina[VL2] ;
@@ -337,3 +337,74 @@ void v_minmax(int32_t *z, int32_t n, int32_t *mins, int32_t *maxs, uint32_t *min
     }
   }
 }
+#if defined(__AVX2__)
+void v_minmax_simd(int32_t *z, int32_t n, int32_t *mins, int32_t *maxs, uint32_t *min0){
+  int nvl ;
+
+  if(n < 16){
+    v_minmax_c(z, n, mins, maxs, min0) ;
+    return ;
+  }
+  nvl = (n & 15) ;
+  if(nvl == 0) nvl = 16 ;
+
+  __m256i vdata, vdatb, vmin0, vmins, vmaxs, vtemp, vzero, vmask, vmas2, vxxxx ;
+
+  vdata = _mm256_loadu_si256((__m256i *)z) ;
+  vdatb = _mm256_loadu_si256((__m256i *)(z +  8)) ;
+  vzero = _mm256_xor_si256(vdata, vdata) ;
+  vxxxx = _mm256_set1_epi32(0x7FFFFFFFu) ;
+  vmins = vdata ;
+  vmaxs = vdata ;
+  vtemp = _mm256_abs_epi32(vdata) ;
+  vmask = _mm256_cmpeq_epi32(vzero, vdata) ;
+  vmin0 = (__m256i)_mm256_blendv_ps((__m256)vtemp, (__m256)vxxxx, (__m256)vmask) ;
+
+  vmaxs = _mm256_max_epi32(vmaxs, vdatb) ;
+  vmins = _mm256_min_epi32(vmins, vdatb) ;
+  vtemp = _mm256_abs_epi32(vdatb) ;
+  vmask = _mm256_cmpeq_epi32(vzero, vdatb) ;
+  vtemp = (__m256i)_mm256_blendv_ps((__m256)vtemp, (__m256)vmin0, (__m256)vmask) ;
+  vmin0 = _mm256_min_epu32(vmin0, vtemp) ;
+
+  z += nvl ; n -= nvl ;
+
+  while(n > 15){
+    vdata = _mm256_loadu_si256((__m256i *)z) ;
+    vdatb = _mm256_loadu_si256((__m256i *)(z+8)) ;
+    z += 16 ; n -= 16 ;
+    vmask = _mm256_cmpeq_epi32(vzero, vdata) ;
+    vtemp = _mm256_abs_epi32(vdata) ;
+    vmins = _mm256_min_epi32(vmins, vdata) ;
+    vmaxs = _mm256_max_epi32(vmaxs, vdata) ;
+    vmas2 = _mm256_cmpeq_epi32(vzero, vdatb) ;
+    vmins = _mm256_min_epi32(vmins, vdatb) ;
+    vmaxs = _mm256_max_epi32(vmaxs, vdatb) ;
+    vtemp = (__m256i)_mm256_blendv_ps((__m256)vtemp, (__m256)vmin0, (__m256)vmask) ;
+    vtemp = _mm256_abs_epi32(vdatb) ;
+    vtemp = (__m256i)_mm256_blendv_ps((__m256)vtemp, (__m256)vmin0, (__m256)vmas2) ;
+    vmin0 = _mm256_min_epu32(vmin0, vtemp) ;
+    vmin0 = _mm256_min_epu32(vmin0, vtemp) ;
+  }
+  // fold 256 to 128
+  __m128i vmis = _mm_min_epi32( _mm256_extracti128_si256(vmins, 0) , _mm256_extracti128_si256(vmins, 1) ) ;
+  __m128i vmas = _mm_max_epi32( _mm256_extracti128_si256(vmaxs, 0) , _mm256_extracti128_si256(vmaxs, 1) ) ;
+  __m128i vmi0 = _mm_min_epu32( _mm256_extracti128_si256(vmin0, 0) , _mm256_extracti128_si256(vmin0, 1) ) ;
+  // fold 128 to 32
+  vmis = _mm_min_epi32( _mm_bsrli_si128(vmis, 8), vmis) ; vmis = _mm_min_epi32( _mm_bsrli_si128(vmis, 4), vmis) ;
+  vmas = _mm_max_epi32( _mm_bsrli_si128(vmas, 8), vmas) ; vmas = _mm_max_epi32( _mm_bsrli_si128(vmas, 4), vmas) ;
+  vmi0 = _mm_min_epu32( _mm_bsrli_si128(vmi0, 8), vmi0) ; vmi0 = _mm_min_epu32( _mm_bsrli_si128(vmi0, 4), vmi0) ;
+  // store
+  _mm_storeu_si32(mins , vmis) ;
+  _mm_storeu_si32(maxs , vmas) ;
+  _mm_storeu_si32(min0 , vmi0) ;
+}
+#endif
+void v_minmax(int32_t *z, int32_t n, int32_t *mins, int32_t *maxs, uint32_t *min0){
+#if defined(__AVX2__)
+  v_minmax_simd(z, n, mins, maxs, min0) ;
+#else
+  v_minmax_c(z, n, mins, maxs, min0) ;
+#endif
+}
+
