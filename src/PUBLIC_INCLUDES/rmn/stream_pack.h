@@ -133,10 +133,26 @@
 #define BITSTREAM_PEEK(W32, NBITS) BITS_PEEK((S32).acc_x, W32, NBITS)
 #define EZSTREAM_PEEK(W32, NBITS) BITS_PEEK(AcC_OuT,  W32, NBITS)
 
-// skip the next NBITS bits from ACCUM (unsafe, assumes that NBITS bits are available)
+// fast skip of the next NBITS bits (<= 32) from ACCUM (unsafe, assumes that NBITS bits are available)
+// if NBITS > XTRACT, it is an unchecked error
+// may leave less than 32 available bits in accumulator
 #define BITS_SKIP(ACCUM, XTRACT, NBITS) { ACCUM <<= (NBITS) ; XTRACT -= (NBITS) ; }
 #define BITSTREAM_SKIP(S32, NBITS) BITS_SKIP((S32).acc_x, (S32).xtract, NBITS)
 #define EZSTREAM_SKIP(NBITS) BITS_SKIP(AcC_OuT, XtRaCt, NBITS)
+
+// safely skip NBITS bits in stream (does not assume that NBITS bits are available)
+// no limit on NBITS other than stream contents
+// may leave less than 32 available bits in accumulator
+#define BITS_SKIP_SAFE(ACCUM, XTRACT, NBITS, STREAM) \
+        { if((NBITS) <= XTRACT){ \
+            ACCUM <<= (NBITS) ; XTRACT -= (NBITS) ; \
+          }else { \
+            int nb = (NBITS) - XTRACT ; STREAM += (nb / 32) ; nb &= 31 ; \
+            ACCUM = *(STREAM) ; ACCUM <<= (32 + nb) ; (STREAM)++ ; XTRACT = 32 - nb ; \
+          } ; \
+        }
+#define BITSTREAM_SKIP_SAFE(S32, NBITS) BITS_SKIP_SAFE((S32).acc_x, (S32).xtract, NBITS, (S32).out)
+#define EZSTREAM_SKIP_SAFE(NBITS) BITS_SKIP_SAFE(AcC_OuT, XtRaCt, NBITS, StReAm_OuT)
 
 // extract NBITS bits into W32 from ACCUM, update XTRACT, ACCUM (unsafe, assumes that NBITS bits are available)
 #define BITS_GET_FAST(ACCUM, XTRACT, W32, NBITS) \
@@ -145,7 +161,7 @@
 #define EZSTREAM_GET_FAST(W32, NBITS) BITS_GET_FAST(AcC_OuT, XtRaCt, W32, NBITS)
 
 // check that 32 bits can be safely extracted from ACCUM
-// if not possible, get extra 32 bits into ACCUM from stresm, update ACCUM, XTRACT, STREAM
+// if it is not true, get an extra 32 bits into ACCUM from stresm, update ACCUM, XTRACT, STREAM
 #define BITS_GET_CHECK(ACCUM, XTRACT, STREAM) \
         { if(XTRACT < 32) { ACCUM = (uint64_t) ACCUM >> (32-XTRACT) ; ACCUM |= *(STREAM) ; ACCUM <<= (32-XTRACT) ; XTRACT += 32 ; (STREAM)++ ; } ; }
 #define BITSTREAM_GET_CHECK(S32) BITS_GET_CHECK((S32).acc_x, (S32).xtract, (S32).out)
