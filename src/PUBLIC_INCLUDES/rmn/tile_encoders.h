@@ -24,59 +24,71 @@
 // encoded tile layout (tentative) :
 //
 // ============================================= LAYOUT 2 (new) =============================================
-// (2024/08/06)
+// (revised 2024/08/21)
 //
-//  <- always > <------- as needed --------> <-------        as needed            -------->
-// +-----------+----------+-----------------+-----------------+          +-----------------+
-// |   header  |   NBMI   |     offset      |     token 1     | ........ |     token n     |
-// +-----------+----------+-----------------+-----------------+          +-----------------+
-//  <--- NH --> <------- NBMI + 5 --------->
+// <- always -> <-----------        as needed            -------------->
+// +-----------+-----------------+          +-----------------+--------+
+// |   header  |     token 1     | ........ |     token n     |  fill  |
+// +-----------+-----------------+          +-----------------+--------+
+// <--- NH --->                                                <- 0-7 -> (bits)
+// <---------------------------- TSIZE  -------------------------------> (bytes)
 //
 // header :
 //
-// <---------- always ---------> <-- as needed  -->
-// +-----+---------------+------+--------+--------+
-// |  N0 |     ndata     | mode | encode |  NB0   |
-// +-----+---------------+------+--------+--------+
-//  < 2 > <- 6/8/16/32 -> <  2 > <-- 2 -> <-- 5 -->
-// <-------------------- NH ---------------------->
+// <----------------- always --------> <----------------------- as needed  --------------------------->
+// +-----+-----+---------------+------+--------+---------+---------------+----------+-----------------+
+// |  S0 |  N0 |     ndata     | MODE | ENCODE |  NBI0   |      NBY0     |   NBMI   |     OFFSET      |
+// +-----+-----+---------------+------+--------+---------+---------------+----------+-----------------+
+//  < 3 > < 2 > <- 6/8/16/32 -> <  2 > <-- 3 -> <-- 5 --> <- 6/8/16/32 -> <------- NBMI + 5 ----------> (bits)
+// <--------------------------------------------- NH -------------------------------------------------> (bits)
 //
+// S0     : tile size indicator ( 3 bits )
+//     000 -> 011  : 2/3/4/5 bytes (2 + S0)
+//     100         : TSIZE = NBY0 + 6 bytes (NBY0 uses 6 bits)
+//     101         : TSIZE = NBY0 + 6 bytes (NBY0 uses 8 bits)
+//     110         : TSIZE = NBY0 + 6 bytes (NBY0 uses 16 bits)
+//     111         : TSIZE = NBY0 + 6 bytes (NBY0 uses 32 bits)
 // N0     : number of bits used for ndata ( 2 bits )
 //     00 -  6 bits for ndata
 //     01 -  8 bits for ndata
 //     10 - 16 bits for ndata
 //     11 - 32 bits for ndata
 // ndata  : number of data points - 1 ( 6/8/16/32 bits )
-// mode   : data properties ( 2 bits )
+// MODE   : data properties ( 2 bits )
 //     00 - unsigned data (NO NEGATIVE VALUES)
 //     01 - signed data (2s complement or zigzag)
 //     10 - zero tile (coding and nbits 0 absent)
 //     11 - 2s complement offset is used (data  >= 0 after offset removal)
-// encode : encoding mode ( 3 bits )
-//    000 - NB0 + 1 bits per value (unsigned or 2s complement signed)
-//    001 - short/long encoding, NSHORT == (NB0+1)/2 - 1 bits
-//    010 - short/long encoding, NSHORT == (NB0+1)/2     bits
-//    011 - short/long encoding, NSHORT == (NB0+1)/2 + 1 bits
+// ENCODE : encoding mode ( 3 bits )
+//    000 - NBI0 + 1 bits per value (unsigned or 2s complement signed)
+//    001 - short/long encoding, NSHORT == (NBI0+1)/2 - 1 bits
+//    010 - short/long encoding, NSHORT == (NBI0+1)/2     bits
+//    011 - short/long encoding, NSHORT == (NBI0+1)/2 + 1 bits
 //    100 - short/long encoding, NSHORT == 0             bits
-//    101 - constant valued tile (implies mode == 11, offset is value)
-//    110 - no short/long encoding, all values < 0, -value stored in NB0 + 1 bits
+//    101 - constant valued tile (implies MODE == 11, OFFSET is value)
+//    110 - no short/long encoding, all values < 0, -value stored in NBI0 + 1 bits
 //    111 - alternative encoding (reserved for future encoding schemes)
-// NB0    : base number of bits per encoded value = NB0 + 1 ( 5 bits )
+// NBI0   : base number of bits per encoded value = NBI0 + 1 ( 5 bits )
 //          (not used for constant valued tiles)
-// NBMI   : number of bits - 1 used to store offset
-// offset : minimum data value (2s complement) ( NBMI + 1 bits )
+// NBY0   : number of bytes - 6 used by tile ( 6/8/16/32 bits )
+// NBMI   : number of bits - 1 used to store 2s complement offset
+// OFFSET : minimum data value (2s complement) ( NBMI + 1 bits )
+// TSIZE  : number of bytes used by tile
+// NH     : number of bits used by tile header
 //
 // short / long encoding :
 //    a "short" value is a non negative value that can be represented using NSHORT bits or less
 //    any other value is considered as a "long" value
 //    short values : 0 followed by NSHORT bits ( token length = NSHORT + 1 bits)
-//    long values  : 1 followed by NB0 bits ( token length = NB0 + 1 bits)
+//    long values  : 1 followed by NBI0 bits ( token length = NBI0 + 1 bits)
 //    if values are signed, zigzag format is used for short/long data value encoding
 //
-// zero tile     : 2 + N0 bits, mode = 10
-//                 ( 10/12/20/36 bits)
-// constant tile : 2 + N0 bits, mode = 11, encode = 101, NBMI and offset used
-//                 (13/15/23/39 + 5 + NBMI+1 bits)
+// zero tile and constant tile only use the header
+//
+// zero tile     : 3 + 2 + 2 + 6/8/16/32 bits, MODE = 10
+//                 (13/15/23/39 useful bits) -> (2/2/3/5 bytes used)
+// constant tile : 3 + 2 + 2 + 6/8/16/32 bits, MODE = 11, ENCODE = 101, NBMI and OFFSET used
+//                 (16/18/26/42 + 5 + NBMI+1 useful bits) (roun up to next multiple of 8 bits used)
 //
 // ============================================= LAYOUT 1 (old) =============================================
 // (before 2024/08/06)
