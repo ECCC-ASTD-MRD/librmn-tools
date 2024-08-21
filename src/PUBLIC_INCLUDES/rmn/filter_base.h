@@ -46,7 +46,7 @@
 // generic filter metadata type, used for filter interface
 typedef struct{             // generic filter with metadata
   FILTER_PROLOG ;           // used for meta_out in forward mode
-  uint32_t meta[] ;        // and meta_in in reverse mode
+  uint32_t meta[] ;         // and meta_in in reverse mode
 } filter_meta ;             // type used by the filter API
 
 #endif

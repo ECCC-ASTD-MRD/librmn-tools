@@ -36,6 +36,7 @@
 int test_0(char *msg){
   fprintf(stderr, "============================ register pipe filters  ============================\n");
   pipe_filters_init() ;                                   // initialize filter table
+  fprintf(stderr, "============================ %s : SUCCESS ============================\n", msg);
   return 0 ;
 }
 
@@ -329,7 +330,7 @@ int main(int argc, char **argv){
 
   start_of_test("C pipe filters test") ;
 
-  if(argc == 1) return test_1((*argv)+1) ;
+  if(argc == 1) return test_1((*argv)) ;
   while(argc > 1){
     argc-- ;
     argv++ ;
