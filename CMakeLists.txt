@@ -302,6 +302,7 @@ set(PROJECT_H_FILES
   src/PUBLIC_INCLUDES/rmn/tools_plugins.hf
   src/PUBLIC_INCLUDES/rmn/sparse_concat.h
   src/PUBLIC_INCLUDES/rmn/simd_compare.h
+  src/PUBLIC_INCLUDES/rmn/move_blocks.h
 #   src/PUBLIC_INCLUDES/rmn/copy_swap.h
   src/PUBLIC_INCLUDES/rmn/misc_pack.h
   src/PUBLIC_INCLUDES/rmn/misc_pack.hf
@@ -328,6 +329,7 @@ set(PROJECT_H_FILES
   src/PUBLIC_INCLUDES/rmn/filter_254.h
   src/PUBLIC_INCLUDES/rmn/filter_255.h
   src/PUBLIC_INCLUDES/rmn/tracked_malloc.h
+  src/PUBLIC_INCLUDES/rmn/simd_functions.h
 )
 
 set(INCLUDE_DIRECTORIES ${CMAKE_SOURCE_DIR}/include ${CMAKE_SOURCE_DIR}/src/PUBLIC_INCLUDES ${libaec_INCLUDE_DIR})
