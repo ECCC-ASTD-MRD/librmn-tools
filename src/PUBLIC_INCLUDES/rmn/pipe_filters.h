@@ -36,10 +36,11 @@
 #define PIPE_VALIDATE   32
 #define PIPE_FWDSIZE    64
 
-#define PIPE_DATA_SIGNED    1
-#define PIPE_DATA_UNSIGNED  2
-#define PIPE_DATA_FP        3
-#define PIPE_DATA_DOUBLE    4
+// #define PIPE_DATA_SIGNED    1
+// #define PIPE_DATA_UNSIGNED  2
+// #define PIPE_DATA_FP        3
+// #define PIPE_DATA_DOUBLE    4
+typedef enum { UNKNOWN, PIPE_DATA_SIGNED, PIPE_DATA_UNSIGNED, PIPE_DATA_FP, PIPE_DATA_DOUBLE } pd_type ;
 static char *ptype[] = {"unknown", "int", "uint", "float", "double"} ;
 
 #define MAX_ARRAY_DIMENSIONS 5
@@ -50,27 +51,31 @@ typedef union{
 } p_iuf;
 
 #define PROP_VERSION      1
-#define PROP_MIN_MAX      1
+
+// #define PROP_MIN_MAX      1
+typedef enum { NONE, PROP_MIN_MAX } pr_kind ;
 
 #define MAX_ARRAY_PROPERTIES 8
 // N.B. arrays are stored Fortran style, 1st dimension varying first
 typedef struct{
-  void *data ;
-  uint32_t  version:8,  // structure version marker
-            ndims:8,    // number of dimensions
-            esize:8,    // array element size (1/2/4)
-            etype:8,    // element type (signed/unsigned/float)
-            nprop:8,    // number of used properties (prop[])
-            ptype:8,    // property type (allows to know what is in prop[n])
-            fid:8,      // id of last filter that modified properties
-            spare:8,
-            tilex:16,   // tiling block size along 1st dimension
-            tiley:16;   // tiling block size along 2nd dimension
-  uint32_t nx[MAX_ARRAY_DIMENSIONS] ;
-  uint32_t n0[2] ;      // tile start along 1st and 2nd dimension
-  p_iuf    prop[MAX_ARRAY_PROPERTIES] ;
+  void     *data ;
+  uint32_t  version ;  // version marker
+  uint32_t  ndims ;    // number of dimensions
+  uint32_t  esize ;    // array element size (1/2/4)
+  uint32_t  etype ;    // element type (signed/unsigned/float/double/...)
+  uint32_t  nprop ;    // number of used properties (prop[])
+  uint32_t  ptype ;    // property type (allows to know what is in prop[n])
+  uint32_t  fid ;      // id of last filter that modified properties
+  uint32_t  spare ;
+  uint32_t  tilex ;    // tiling block size along 1st dimension
+  uint32_t  tiley ;    // tiling block size along 2nd dimension
+  uint32_t  nx[MAX_ARRAY_DIMENSIONS] ;    // array dimensions
+  uint32_t  n0[2] ;    // tile start along 1st and 2nd dimension
+  p_iuf     prop[MAX_ARRAY_PROPERTIES] ;  // array properties (e.g. min value, max value, ...)
   uint32_t *extra ;    // normally NULL, pointer to extended information
 } array_descriptor ;
+// CT_ASSERT_(sizeof(array_descriptor) == 8 + 8 + 4 + MAX_ARRAY_DIMENSIONS*4 + 2*4 + MAX_ARRAY_PROPERTIES * sizeof(p_iuf) + 8)
+
 // static array_descriptor array_descriptor_null = {.data = NULL, .version = 0, .nx = {[0 ... MAX_ARRAY_DIMENSIONS-1] = 0 } } ;
 static array_descriptor array_descriptor_null = {.data = NULL, .version = 0 } ;
 // static array_descriptor array_descriptor_base = {.data = NULL, .version = PROP_VERSION, .nx = {[0 ... MAX_ARRAY_DIMENSIONS-1] = 1 } } ;
