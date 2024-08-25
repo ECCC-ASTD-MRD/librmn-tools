@@ -292,7 +292,7 @@ void v_less_than_4(int32_t *z, int32_t ref[4], int32_t count[4], int32_t n){
 // maxs    [OUT] : largest value (signed maximum)
 // min0    [OUT] : smallest NON ZERO absolute value
 // plain C version, slower than AVX2 version with some compilers on some platforms
-void v_minmax_c(int32_t *z, int32_t n, int32_t *mins, int32_t *maxs, uint32_t *min0){
+void v_minmax_c(int32_t *z, int32_t n, int32_t *mins, int32_t *maxs, uint32_t *min0, int32_t *zeros){
   int i, nvl ;
   int32_t vmins[VL2], vmaxs[VL2] ;  // signed min and max values
   uint32_t vmina[VL2] ;             // unsigned non zero min absolute values
@@ -342,12 +342,12 @@ void v_minmax_c(int32_t *z, int32_t n, int32_t *mins, int32_t *maxs, uint32_t *m
 #if defined(__AVX2__)
 #include <immintrin.h>
 // AVX2 version, faster than plain C version with some compilers on some platforms
-void v_minmax_simd(int32_t *z, int32_t n, int32_t *mins, int32_t *maxs, uint32_t *min0){
-  __m256i vdata, vdatb, vmin0, vmins, vmaxs, vtemp, vzero, vmask, vmas2, vxxxx ;
+void v_minmax_simd(int32_t *z, int32_t n, int32_t *mins, int32_t *maxs, uint32_t *min0, int32_t *zeros){
+  __m256i vdata, vdatb, vmin0, vmins, vmaxs, vtemp, v0000, vmask, vmas2, v1111 ;
   int nvl ;
 
   if(n < 16){          // less than 16 values, use pure C version
-    v_minmax_c(z, n, mins, maxs, min0) ;
+    v_minmax_c(z, n, mins, maxs, min0, zeros) ;
     return ;
   }
   nvl = (n & 15) ;
@@ -355,17 +355,17 @@ void v_minmax_simd(int32_t *z, int32_t n, int32_t *mins, int32_t *maxs, uint32_t
 
   vdata = _mm256_loadu_si256((__m256i *) z     ) ;  // first 8 values
   vdatb = _mm256_loadu_si256((__m256i *)(z + 8)) ;  // next 8 values
-  vzero = _mm256_xor_si256(vdata, vdata) ;
-  vxxxx = _mm256_set1_epi32(0x7FFFFFFFu) ;   // used to replace zero values when computing vmin0
+  v0000 = _mm256_xor_si256(vdata, vdata) ;
+  v1111 = _mm256_cmpeq_epi32(v0000, v0000) ; // used to replace zero values when computing vmin0
   vmins = vdata ;
   vmaxs = vdata ;
   vtemp = _mm256_abs_epi32(vdata) ;          // absolute value of vdata
-  vmask = _mm256_cmpeq_epi32(vzero, vdata) ; // 1s where vdata == 0, to be replaced with 0x7FFFFFFFu
-  vmin0 = (__m256i)_mm256_blendv_ps((__m256)vtemp, (__m256)vxxxx, (__m256)vmask) ;
+  vmask = _mm256_cmpeq_epi32(v0000, vdata) ; // 1s where vdata == 0, to be replaced with 0xFFFFFFFFu
+  vmin0 = (__m256i)_mm256_blendv_ps((__m256)vtemp, (__m256)v1111, (__m256)vmask) ;
   vmaxs = _mm256_max_epi32(vmaxs, vdatb) ;   // max of first 8 and next 8 values
   vmins = _mm256_min_epi32(vmins, vdatb) ;   // min of first 8 and next 8 values
   vtemp = _mm256_abs_epi32(vdatb) ;          // absolute value of vdatb
-  vmask = _mm256_cmpeq_epi32(vzero, vdatb) ; // 1s where vdatb == 0, to be replaced with 0x7FFFFFFFu
+  vmask = _mm256_cmpeq_epi32(v0000, vdatb) ; // 1s where vdatb == 0, to be replaced with 0xFFFFFFFFu
   vtemp = (__m256i)_mm256_blendv_ps((__m256)vtemp, (__m256)vmin0, (__m256)vmask) ;
   vmin0 = _mm256_min_epu32(vmin0, vtemp) ;   // non zero min abs of first 8 and next 8 values
   z += nvl ; n -= nvl ;                      // bump z, decrement n
@@ -374,11 +374,11 @@ void v_minmax_simd(int32_t *z, int32_t n, int32_t *mins, int32_t *maxs, uint32_t
     vdata = _mm256_loadu_si256((__m256i *)z) ;
     vdatb = _mm256_loadu_si256((__m256i *)(z+8)) ;
     z += 16 ; n -= 16 ;                      // bump z, decrement n
-    vmask = _mm256_cmpeq_epi32(vzero, vdata) ;
+    vmask = _mm256_cmpeq_epi32(v0000, vdata) ;
     vtemp = _mm256_abs_epi32(vdata) ;
     vmins = _mm256_min_epi32(vmins, vdata) ;
     vmaxs = _mm256_max_epi32(vmaxs, vdata) ;
-    vmas2 = _mm256_cmpeq_epi32(vzero, vdatb) ;
+    vmas2 = _mm256_cmpeq_epi32(v0000, vdatb) ;
     vmins = _mm256_min_epi32(vmins, vdatb) ;
     vmaxs = _mm256_max_epi32(vmaxs, vdatb) ;
     vtemp = (__m256i)_mm256_blendv_ps((__m256)vtemp, (__m256)vmin0, (__m256)vmask) ;
@@ -402,11 +402,152 @@ void v_minmax_simd(int32_t *z, int32_t n, int32_t *mins, int32_t *maxs, uint32_t
 }
 #endif
 // generic name
-void v_minmax(int32_t *z, int32_t n, int32_t *mins, int32_t *maxs, uint32_t *min0){
+void v_minmax(int32_t *z, int32_t n, int32_t *mins, int32_t *maxs, uint32_t *min0, int32_t *zeros){
 #if defined(__AVX2__)
-  v_minmax_simd(z, n, mins, maxs, min0) ;  // use SIMD version if processor permits it
+  v_minmax_simd(z, n, mins, maxs, min0, zeros) ;  // use SIMD version if processor permits it
 #else
-  v_minmax_c(z, n, mins, maxs, min0) ;     // otherwise use plain C version
+  v_minmax_c(z, n, mins, maxs, min0, zeros) ;     // otherwise use the plain C version
 #endif
 }
 
+void insert_tile(void *array, int lni, void *tile, int ni, int nj){
+  int32_t *a = (int32_t *)array, *t = (int32_t *)tile ;
+  int i ;
+  while(nj > 0){
+    for(i=0 ; i<ni ; i++){
+      a[i] = t[i] ;
+    }
+    a += lni ;
+    t += ni ;
+    nj-- ;
+  }
+}
+
+// gather ni x nj tile from array, compute signed min/max, and minimum non zero absolute value
+// this function is intended for use by the tile encoders
+// array [IN] : source array
+// lni   [IN] : storage length of rows in array
+// tile [OUT] : collected ni x nj tile, CONTIGUOUS STORAGE
+// ni    [IN] : row length of tile
+// nj    [IN] : number of rows
+// mins [OUT] : smallest value (signed minimum)
+// maxs [OUT] : largest value (signed maximum)
+// min0 [OUT] : smallest NON ZERO absolute value
+void gather_tile_c(void *array, int lni, void *tile, int ni, int nj, int32_t *mins, int32_t *maxs, uint32_t *min0, int32_t *zeros){
+  int32_t *a = (int32_t *)array, *t = (int32_t *)tile ;
+  int i ;
+  int32_t mis, mas ;
+  uint32_t mi0 ;
+  mis = 0x7FFFFFFF ;
+  mas = 0x80000000 ;
+  mi0 = 0xFFFFFFFFu ;
+  while(nj > 0){
+    for(i=0 ; i<ni ; i++){
+      int32_t data = a[i] ;
+      uint32_t temp = ABS(data) ;
+      temp = (temp == 0) ? mi0 : temp ;
+      mis = (data < mis) ? data : mis ;
+      mas = (data > mas) ? data : mas ;
+      mi0 = (temp < mi0) ? temp : mi0 ;
+      t[i] = data ;
+    }
+    a += lni ;
+    t += ni ;
+    nj-- ;
+  }
+  *mins = mis ;
+  *maxs = mas ;
+  *min0 = mi0 ;
+}
+
+// gather ni x nj tile from array, compute signed min/max, and minimum non zero absolute value
+// this function is intended for use by the tile encoders
+// array [IN] : source array
+// lni   [IN] : storage length of rows in array
+// tile [OUT] : collected ni x nj tile, CONTIGUOUS STORAGE
+// ni    [IN] : row length of tile ( 8 <= ni < 16 )
+// nj    [IN] : number of rows
+// mins [OUT] : smallest value (signed minimum)
+// maxs [OUT] : largest value (signed maximum)
+// min0 [OUT] : smallest NON ZERO absolute value
+// SIMD AVX2 version
+void gather_tile_simd(void *array, int lni, void *tile, int ni, int nj, int32_t *mins, int32_t *maxs, uint32_t *min0, int32_t *zeros){
+  int32_t *a = (int32_t *)array, *t = (int32_t *)tile ;
+  if(ni < 8) {
+    gather_tile_c(array, lni, tile, ni, nj, mins, maxs, min0, zeros) ;     // use the plain C version
+    return ;
+  }
+#if defined(__AVX2__)
+  int nim8 = ni - 8 ;
+  __m256i vmaxs, vmins, vmin0, v1111, v0000, vtemp, vmask, vzero ;
+  v0000 = _mm256_xor_si256(v0000, v0000) ;
+  vzero = v0000 ;
+  v1111 = _mm256_cmpeq_epi32(v0000, v0000) ;
+  vmin0 = v1111 ;
+  vmaxs = _mm256_set1_epi32(0x80000000) ;
+  vmins = _mm256_set1_epi32(0x7FFFFFFF) ;
+  while(nj > 0){
+    if(ni > 8){
+      __m256i data0 = _mm256_loadu_si256((__m256i *)(a       )) ;  // slice 1
+      __m256i data1 = _mm256_loadu_si256((__m256i *)(a + nim8)) ;  // slice 2
+
+      vtemp = _mm256_abs_epi32(data0) ;           // ABS(data)
+      vmask = _mm256_cmpeq_epi32(v0000, data0) ;  // 0xFFFFFFFF where data is zero
+      vmins = _mm256_min_epi32(vmins, data0) ;    // signed minimum
+      vmaxs = _mm256_max_epi32(vmaxs, data0) ;    // signed maximum
+      vzero = _mm256_add_epi32(vmask, vzero) ;
+      vtemp = (__m256i)_mm256_blendv_ps((__m256)vtemp, (__m256)vmin0, (__m256)vmask) ;   // plug vmin0 where data is zero
+      vmin0 = _mm256_min_epu32(vmin0, vtemp) ;    // minimum NON ZERO absolute value
+
+      vtemp = _mm256_abs_epi32(data1) ;
+      vmask = _mm256_cmpeq_epi32(v0000, data1) ;
+      vmins = _mm256_min_epi32(vmins, data1) ;
+      vmaxs = _mm256_max_epi32(vmaxs, data1) ;
+      vzero = _mm256_add_epi32(vmask, vzero) ;
+      vtemp = (__m256i)_mm256_blendv_ps((__m256)vtemp, (__m256)vmin0, (__m256)vmask) ;
+      vmin0 = _mm256_min_epu32(vmin0, vtemp) ;
+
+      _mm256_storeu_si256((__m256i *)(t     ), data0) ;
+      _mm256_storeu_si256((__m256i *)(t+nim8), data1) ;
+    }else{
+      __m256i data0 = _mm256_loadu_si256((__m256i *)(a       )) ;
+
+      vtemp = _mm256_abs_epi32(data0) ;
+      vmask = _mm256_cmpeq_epi32(v0000, data0) ;
+      vmins = _mm256_min_epi32(vmins, data0) ;
+      vmaxs = _mm256_max_epi32(vmaxs, data0) ;
+      vzero = _mm256_add_epi32(vmask, vzero) ;
+      vtemp = (__m256i)_mm256_blendv_ps((__m256)vtemp, (__m256)vmin0, (__m256)vmask) ;
+      vmin0 = _mm256_min_epu32(vmin0, vtemp) ;
+
+      _mm256_storeu_si256((__m256i *)(t     ), data0) ;
+    }
+    a += lni ; t += ni ; nj-- ;
+  }
+  //             fold 256 to 128
+  __m128i vmis = _mm_min_epi32( _mm256_extracti128_si256(vmins, 0) , _mm256_extracti128_si256(vmins, 1) ) ;
+  __m128i vmas = _mm_max_epi32( _mm256_extracti128_si256(vmaxs, 0) , _mm256_extracti128_si256(vmaxs, 1) ) ;
+  __m128i vmi0 = _mm_min_epu32( _mm256_extracti128_si256(vmin0, 0) , _mm256_extracti128_si256(vmin0, 1) ) ;
+  __m128i v000 = _mm_min_epu32( _mm256_extracti128_si256(vzero, 0) , _mm256_extracti128_si256(vzero, 1) ) ;
+  //     fold 128 to 64                                          fold 64 to 32
+  vmis = _mm_min_epi32( _mm_bsrli_si128(vmis, 8), vmis) ; vmis = _mm_min_epi32( _mm_bsrli_si128(vmis, 4), vmis) ;
+  vmas = _mm_max_epi32( _mm_bsrli_si128(vmas, 8), vmas) ; vmas = _mm_max_epi32( _mm_bsrli_si128(vmas, 4), vmas) ;
+  vmi0 = _mm_min_epu32( _mm_bsrli_si128(vmi0, 8), vmi0) ; vmi0 = _mm_min_epu32( _mm_bsrli_si128(vmi0, 4), vmi0) ;
+  v000 = _mm_min_epu32( _mm_bsrli_si128(v000, 8), v000) ; v000 = _mm_min_epu32( _mm_bsrli_si128(v000, 4), v000) ;
+  // store results
+  _mm_storeu_si32(mins  , vmis) ;
+  _mm_storeu_si32(maxs  , vmas) ;
+  _mm_storeu_si32(min0  , vmi0) ;
+  _mm_storeu_si32(zeros , v000) ;
+#else
+  gather_tile_c(array, lni, tile, ni, nj, mins, maxs, min0, zeros) ;     // use the plain C version
+#endif
+}
+
+void gather_tile(void *array, int lni, void *tile, int ni, int nj, int32_t *mins, int32_t *maxs, uint32_t *min0, int32_t *zeros){
+#if defined(__AVX2__)
+  gather_tile_simd(array, lni, tile, ni, nj, mins, maxs, min0, zeros) ;  // use SIMD version if processor permits it
+#else
+  gather_tile_c(array, lni, tile, ni, nj, mins, maxs, min0, zeros) ;     // otherwise use the plain C version
+#endif
+}

@@ -151,10 +151,11 @@ int main(int argc, char **argv){
 #define NPTS 7
   uint32_t mina = 0xFFFFFFFFu ;
   int32_t mins = 0x7FFFFFFF, maxs = -mins ;
+  int32_t zeros = 0 ;
   for(i=0 ; i<NPTS/2 ; i++) { array[i] = -(i + 5) ; array[i + NPTS/2] = (i + 5) ; }
   array[NPTS-1] = NPTS + 5 ;      // set max value
   array[0] = array[NPTS/2] = 0 ;  // eliminate smallest values as the > 0 min abs value
-  v_minmax(array, NPTS, &mins, &maxs, &mina) ;
+  v_minmax(array, NPTS, &mins, &maxs, &mina, &zeros) ;
   fprintf(stderr, "minimum = %6d, maximum = %6d, abs minimum = %6d, %d values\n", mins, maxs, mina, NPTS) ;
   if(mina != (uint32_t)array[1 + NPTS/2] ) exit(1) ;
   if(mina != (uint32_t)ABS(array[1])) exit(1) ;
@@ -167,10 +168,11 @@ int main(int argc, char **argv){
   mina = 0xFFFFFFFFu ;
   mins = 0x7FFFFFFF ;
   maxs = -mins ;
+  zeros = 0 ;
   for(i=0 ; i<NPTS/2 ; i++) { array[i] = -(i + 15) ; array[i + NPTS/2] = (i + 15) ; }
   array[NPTS-1] = NPTS + 5 ;      // set max value
   array[0] = array[NPTS/2] = 0 ;  // eliminate smallest values as the > 0 min abs value
-  v_minmax(array, NPTS, &mins, &maxs, &mina) ;
+  v_minmax(array, NPTS, &mins, &maxs, &mina, &zeros) ;
   fprintf(stderr, "minimum = %6d, maximum = %6d, abs minimum = %6d, %d values\n", mins, maxs, mina, NPTS) ;
   if(mina != (uint32_t)array[1 + NPTS/2] || mina != (uint32_t)ABS(array[1]) ) exit(1) ;
   if(mins != array[NPTS/2 - 1]) exit(1) ;
@@ -178,7 +180,7 @@ int main(int argc, char **argv){
   fprintf(stderr, "\n") ;
 
 #if defined(WITH_TIMING)
-  TIME_LOOP_EZ(NITER, NPTS,v_minmax(array, NPTS, &mins, &maxs, &mina) ; )
+  TIME_LOOP_EZ(NITER, NPTS,v_minmax(array, NPTS, &mins, &maxs, &mina, &zeros) ; )
   t0 = timer_min * NaNoSeC / (NPTS) ;
   if(timer_max > timer_min) timer_max = timer_avg ;
   fprintf(stderr, "v_minmax        : t(min) = %5.3f ns/pt, %ld ticks (%d pts)\n", t0, timer_min, NPTS) ;
