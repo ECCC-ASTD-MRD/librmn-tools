@@ -209,7 +209,8 @@
   BJ0 (16 bits) : dimension along J of chunks in the first row (chunks in first row)
   NPI = nb of points along i, NPJ = nb of points along j
   NCI = NPI/BCI, NCJ = NPJ/BCJ (number of chunks along i and j)
-  the first chunk (BI0, BJ0) may be larger than the following one(s)
+  the first chunk (BI0, BJ0) may be smaller or larger than the following one(s)
+  small blocks are unwanted (BI0 is expected to be >= BCI / 2, BJ0 is expected to be >= BCJ / 2)
   BCI <= BI0 < BCI * 2, BCJ <= BJ0 < BCJ * 2
   BI0 == 0 means BI0 == BCI (NPI is a multiple if BCI), BJ0 == 0 means BJ0 == BCJ (NPJ is a multiple if BCJ)
   data map size = (NCI * NCJ +1) / 2 + 3 (in 32 bit units)  N = NCI * NCJ
