@@ -129,7 +129,7 @@ void v_less_than_c_4(int32_t *z, int32_t ref[4], int32_t count[4], int32_t n){
 }
 
 #if defined(__AVX2__)
-#include <immintrin.h>
+#include <with_simd.h>
 
 #undef VL
 #define VL 8
@@ -340,7 +340,7 @@ void v_minmax_c(int32_t *z, int32_t n, int32_t *mins, int32_t *maxs, uint32_t *m
   }
 }
 #if defined(__AVX2__)
-#include <immintrin.h>
+#include <with_simd.h>
 // AVX2 version, faster than plain C version with some compilers on some platforms
 void v_minmax_simd(int32_t *z, int32_t n, int32_t *mins, int32_t *maxs, uint32_t *min0, int32_t *zeros){
   __m256i vdata, vdatb, vmin0, vmins, vmaxs, vtemp, v0000, vmask, vmas2, v1111 ;
