@@ -298,7 +298,7 @@ rmn_pixmap *pixmap_be_fp_01(float *array, rmn_pixmap *bmp, float special, int32_
 }
 
 #if defined(__x86_64__) && defined(__AVX2__)
-#include <immintrin.h>
+#include <with_simd.h>
 #endif
 // restore array from a 1 bit per element pixmap (big endian style)
 // array  [OUT] : destination array (32 bit elements)
