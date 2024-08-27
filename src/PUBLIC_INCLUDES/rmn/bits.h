@@ -23,7 +23,7 @@ Library General Public License for more details.
 
 #if ! defined(IN_FORTRAN_CODE) && ! defined(__GFORTRAN__)
 #if defined(__x86_64__)
-#include <immintrin.h>
+#include <with_simd.h>
 #endif
 // C interfaces and declarations
 
