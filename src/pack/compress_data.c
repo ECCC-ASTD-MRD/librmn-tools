@@ -203,6 +203,7 @@
   +-------+-------+-------+-------+--------------+--------------+     +--------------+
   <--32b--x--32b--x------32b------x-------------32b------------->     x-----16b------>
 
+  2024/08/xx
   evolution 4d (no 16GB limit on offsets, 256KB limit on chunk size) simpler map, no "small" chunks
   BCI (16 bits), BCJ (16 bits) : chunk dimensions (normally a multiple of 8)
   BI0 (16 bits) : dimension along I of the first chunk in all rows (chunks in first column)
@@ -214,6 +215,7 @@
   BCI <= BI0 < BCI * 2, BCJ <= BJ0 < BCJ * 2
   BI0 == 0 means BI0 == BCI (NPI is a multiple if BCI), BJ0 == 0 means BJ0 == BCJ (NPJ is a multiple if BCJ)
   data map size = (NCI * NCJ +1) / 2 + 3 (in 32 bit units)  N = NCI * NCJ
+  index to block number translation : blocki = (i - (BI0 - BCI)) / BCI, same method for blockj
   +-------+-------+-------+-------+-------+-------+--------------+--------------+     +--------------+
   |  NPI  |  NPJ  |  BI0  |  BCI  |  BJ0  |  BCJ  | Chunk 1 size | Chunk 2 size | ... | Chunk n size |
   +-------+-------+-------+-------+-------+-------+--------------+--------------+     +--------------+
