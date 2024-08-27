@@ -14,10 +14,12 @@
 
 #include <stdint.h>
 
-#include "with_simd.h"
-#include <rmn/simd_functions.h>
-// #include <rmn/misc_operators.h>
 #include <rmn/move_blocks.h>
+
+#define NO_SIMD_USED
+#undef WITH_SIMD
+#include <rmn/simd_functions.h>
+#undef WITH_SIMD
 
 uint32_t min0 ;
 int32_t mins, maxs, zeros ;
@@ -42,7 +44,11 @@ static inline void copy_and_properties_1d(void *s_, void *d_, uint32_t ni, block
   int32_t *di = (int32_t *) d_ , *d = di ;
   int n7 = ni & 7 ;
   V8I v, vmai, vmii, vmiu, v0, vzero, vmask ;
+  V8F vf ;
+
   ZERO8I(v0) ;
+//   vf = (V8F) _mm256_xor_si256(vf, (V8I) vf) ;
+//   ZERO8( vf, V8F) ;
   ZERO8I(vzero) ;
   MASK8I(vmask, n7) ;
   SET8I(vmii, 0x7FFFFFFF) ;
@@ -75,9 +81,9 @@ static inline void copy_and_properties_1d(void *s_, void *d_, uint32_t ni, block
     case 0 :
     default : ;
   }
-  FOLD8_IS(F4MAXI, vmai,  &(bp->maxs) ) ;    // fold 8 element vector into a scalar
-  FOLD8_IS(F4MINI, vmii,  &(bp->mins) ) ;
-  FOLD8_IS(F4MINU, vmiu,  &(bp->min0) ) ;
+  FOLD8_IS(F4MAXI, vmai,  &(bp->maxs.i) ) ;    // fold 8 element vector into a scalar
+  FOLD8_IS(F4MINI, vmii,  &(bp->mins.i) ) ;
+  FOLD8_IS(F4MINU, vmiu,  &(bp->min0.u) ) ;
   FOLD8_IS(F4ADDI, vzero, &(bp->zeros)) ;
 }
 

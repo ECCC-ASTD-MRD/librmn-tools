@@ -17,10 +17,17 @@
 
 #include <stdint.h>
 
+// generic signed/unsigned/float 32 bit word
+typedef union{
+  int32_t  i ;
+  uint32_t u ;
+  float    f ;
+} iuf32_t ;
+// basic block block properties, set while gathering block
 typedef struct{
-  int32_t  maxs ;    // max value in block
-  int32_t  mins ;    // min value in block
-  uint32_t min0 ;    // min NON ZERO absolute value in block
+  iuf32_t  maxs ;    // max value in block
+  iuf32_t  mins ;    // min value in block
+  iuf32_t  min0 ;    // min NON ZERO absolute value in block
   int32_t  zeros ;   // number of ZERO values in block
 } block_properties ;
 
