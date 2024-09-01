@@ -23,9 +23,9 @@
 #include <rmn/test_helpers.h>
 #include <rmn/move_blocks.h>
 
-#undef QUIET_SIMD_
+#define VERBOSE_SIMD
 #define NO_SIMD__
-#include <rmn/simd_functions.h>
+// #include <rmn/simd_functions.h>
 // #if defined(WITH_SIMD)
 // #warning "test_move_blocks : using Intel SIMD intrinsics, use -DNO_SIMD to use pure C code"
 // #else
@@ -63,26 +63,25 @@ static inline V8f _mm256_castsi256_ps_( V8i A){
 
 #define BLEND256(A,B,MASK)      (V8I)_mm256_blendv_ps_((V8F)A, (V8F)B, (V8F)MASK)
 
-
 // syntax test
 static void c_and_prop(/*void *s_, void *d_, uint32_t ni, block_properties *bp*/){
 //   int32_t *si = (int32_t *) s_ , *s = si ;
 //   int32_t *di = (int32_t *) d_ , *d = di ;
 //   int n7 = ni & 7 ;
-  V8i v0, v1, v2 ; __m256i vv0, vv1, vv2 ;
-  V8f vf, vx, vy, vm ; __m256 vvf, vvx, vvy, vvm ;
+  V8i v0, v1, v2 ; // __m256i vv0, vv1, vv2 ;
+  V8f vf, vx, vy, vm ; // __m256 vvf, vvx, vvy, vvm ;
   v0 = _mm256_xor_si256_(v0, v0) ;
   v0 = _mm256_xor_si256_(v1, v2) ;
   v0 = (V8i)_mm256_blendv_ps_((V8f)v0, (V8f)v1, (V8f)v2) ;
   v0 = (V8i)_mm256_blendv_ps_(v0, v1, v2) ;
-  vv0 = (__m256i) _mm256_blendv_ps((__m256) vv0, vvy, vvm) ;
+//   vv0 = (__m256i) _mm256_blendv_ps((__m256) vv0, vvy, vvm) ;
   vf = _mm256_blendv_ps_(vx, vy, vm) ;
   vf = _mm256_blendv_ps_(_mm256_castsi256_ps_(v0), _mm256_castsi256_ps_(v1), _mm256_castsi256_ps_(v2)) ;
-  __m256i i256 ;
-  __m256  f256 ;
-  f256 = _mm256_castsi256_ps(i256) ;
-  vf = _mm256_castsi256_ps_(v0) ;
-  f256 =  _mm256_blendv_ps((__m256) i256, (__m256) i256, (__m256) i256) ;
+// //   __m256i i256 ;
+// //   __m256  f256 ;
+// //   f256 = _mm256_castsi256_ps(i256) ;
+// //   vf = _mm256_castsi256_ps_(v0) ;
+// //   f256 =  _mm256_blendv_ps((__m256) i256, (__m256) i256, (__m256) i256) ;
 //   V8i vi = (V8i) _mm256_xor_si256_((V8i)vf, (V8i)vf) ;
 //   ZERO8(vf, V8F) ;
 //   ZERO8I(v0) ;

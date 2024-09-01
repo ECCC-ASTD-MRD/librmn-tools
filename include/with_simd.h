@@ -17,10 +17,13 @@
 
 // Intel SIMD intrinsics
 #if defined(__x86_64__)
-#if defined(__AVX2__) || defined(__SSE2__)
+#if defined(__AVX2__)
 #include <immintrin.h>
+#elif defined(__SSE2__)
+#include <emmintrin.h>
 #endif
 #endif
+
 #define WITH_SIMD
 
 #else    // NO_SIMD
@@ -31,9 +34,9 @@
 
 #endif   // WITH_SIMD_CONTROL_DONE
 
-#if ! defined(QUIET_SIMD)
+#if defined(VERBOSE_SIMD)
 #if defined(WITH_SIMD)
-#warning "with_simd.h : using Intel SIMD intrinsics, use -DNO_SIMD to use pure C code"
+#warning "with_simd.h : using Intel SIMD intrinsics, use -DNO_SIMD or #define NO_SIMD to use pure C code"
 #else
 #warning "with_simd.h : NOT using Intel SIMD intrinsics"
 #endif

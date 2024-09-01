@@ -14,27 +14,15 @@
 
 #include <stdint.h>
 
+#define NO_SIMD
+#undef WITH_SIMD_
+#define VERBOSE_SIMD
+#include <rmn/simd_functions.h>
+#undef WITH_SIMD_
+
 #include <rmn/move_blocks.h>
 
-#define NO_SIMD_USED
-#undef WITH_SIMD
-#include <rmn/simd_functions.h>
-#undef WITH_SIMD
-
-uint32_t min0 ;
-int32_t mins, maxs, zeros ;
-float xxx = 1.23f ;
-
-typedef struct{
-  int32_t v8[8] ;
-} v8i ;
-v8i vadd8(v8i a, v8i b){
-  int i ;
-  v8i r ;
-  for(i=0 ; i<8 ; i++) r.v8[i] = a.v8[i] + b.v8[i] ;
-  return r ;
-}
-
+#if 0
 // lowest non zero absolute value
 //                            -1 where V == 0    ABS value    bump zeros count  blend VMI0 where zero  unsigned minimum
 #define MIN08(V,VMI0,V0,VZ) { V8I z=VEQ8(V,V0) ; V=ABS8I(V) ; VZ=ADD8I(VZ,z) ;  V=BLEND8(V,VMI0,z) ;   VMI0=MINU8(V,VMI0) ; }
@@ -86,7 +74,7 @@ static inline void copy_and_properties_1d(void *s_, void *d_, uint32_t ni, block
   FOLD8_IS(F4MINU, vmiu,  &(bp->min0.u) ) ;
   FOLD8_IS(F4ADDI, vzero, &(bp->zeros)) ;
 }
-
+#endif
 // SIMD does not seem to be useful any more for these funtions
 #undef WITH_SIMD_
 
@@ -104,7 +92,7 @@ int put_word_block_07(void *restrict f, void *restrict blk, int ni, int lni, int
   uint32_t *restrict s = (uint32_t *) blk ;
   int i, ni7 ;
 #if defined(__x86_64__) && defined(__AVX2__) && defined(WITH_SIMD)
-  __m256i vm = _mm256_memmask_si256(ni) ;  // mask for load and store operations
+  __m256i vm = _mm256_memmask_epi32(ni) ;  // mask for load and store operations
 #endif
 
   if(ni > 7) return 1 ;
@@ -130,7 +118,7 @@ int get_word_block_07(void *restrict f, void *restrict blk, int ni, int lni, int
   uint32_t *restrict d = (uint32_t *) blk ;
   int i, ni7 ;
 #if defined(__x86_64__) && defined(__AVX2__) && defined(WITH_SIMD)
-  __m256i vm = _mm256_memmask_si256(ni) ;  // mask for load and store operations
+  __m256i vm = _mm256_memmask_epi32(ni) ;  // mask for load and store operations
 #endif
 
   if(ni > 7) return 1 ;
@@ -179,29 +167,60 @@ int put_word_block(void *restrict f, void *restrict blk, int ni, int lni, int nj
   return 0 ;
 }
 
-// extract a block (ni x nj) of 32 bit words from f and store it into blk
+// insert a contiguous block (ni x nj) of 32 bit words into array from blk
 // ni    : row size (row storage size in blk)
-// lni   : row storage size in f
+// lni   : row storage size in array
 // nj    : number of rows
-int get_int32_block(void *restrict f, void *restrict blk, int ni, int lni, int nj, block_properties *bp){
-  uint32_t *restrict s = (uint32_t *) f ;
-  uint32_t *restrict d = (uint32_t *) blk ;
+static int scatter_word_block_07(void *restrict array, void *restrict blk, int ni, int lni, int nj){
+  uint32_t *restrict s = (uint32_t *) blk ;
+  uint32_t *restrict d = (uint32_t *) array ;
+  return 0 ;
+}
+int scatter_word_block(void *restrict array, void *restrict blk, int ni, int lni, int nj){
+  uint32_t *restrict s = (uint32_t *) blk ;
+  uint32_t *restrict d = (uint32_t *) array ;
+
+  if(ni < 8){
+    return scatter_word_block_07(array, blk, ni, lni, nj) ;
+  }else{
+    while(nj--){
+    }
+  }
+
+  return 0 ;
+}
+
+// extract a block (ni x nj) of 32 bit integers from src and store it into blk
+// ni    : row size (row storage size in blk)
+// lni   : row storage size in src
+// nj    : number of rows
+static int gather_int32_block_07(int32_t *restrict src, void *restrict blk, int ni, int lni, int nj, block_properties *bp){
+  int32_t *restrict s = (int32_t *) src ;
+  int32_t *restrict d = (int32_t *) blk ;
+  return 0 ;
+}
+int gather_int32_block(int32_t *restrict src, void *restrict blk, int ni, int lni, int nj, block_properties *bp){
+  int32_t *restrict s = (int32_t *) src ;
+  int32_t *restrict d = (int32_t *) blk ;
   int i0, i, ni7 ;
 
-//   if(ni  <  8) return get_int32_block_07(f, blk, ni, lni, nj) ;
+  if(ni  <  8) {
+    return gather_int32_block_07(src, blk, ni, lni, nj, bp) ;
+  }else{
 
-  ni7 = (ni & 7) ;
-  ni7 = ni7 ? ni7 : 8 ;
-  while(nj--){
-#if defined(__x86_64__) && defined(__AVX2__) && defined(WITH_SIMD)
-    copy_and_properties_1d(s, d, ni, bp) ;
-#else
-    for(i=0 ; i<8 ; i++) d[i] = s[i] ;     // first and second chunk may overlap if ni not a multiple of 8
-    for(i0 = ni7 ; i0 < ni-7 ; i0 += 8 ){
-      for(i=0 ; i<8 ; i++) d[i0+i] = s[i0+i] ;
+    ni7 = (ni & 7) ;
+    ni7 = ni7 ? ni7 : 8 ;
+    while(nj--){
+  // #if defined(__x86_64__) && defined(__AVX2__) && defined(WITH_SIMD_)
+  //     copy_and_properties_1d(s, d, ni, bp) ;
+  // #else
+      for(i=0 ; i<8 ; i++) d[i] = s[i] ;     // first and second chunk may overlap if ni not a multiple of 8
+      for(i0 = ni7 ; i0 < ni-7 ; i0 += 8 ){
+        for(i=0 ; i<8 ; i++) d[i0+i] = s[i0+i] ;
+      }
+  // #endif
+      s += lni ; d += ni ;
     }
-#endif
-    s += lni ; d += ni ;
   }
   return 0 ;
 }
@@ -222,11 +241,11 @@ int get_word_block(void *restrict f, void *restrict blk, int ni, int lni, int nj
   ni7 = ni7 ? ni7 : 8 ;
   while(nj--){
 #if defined(__x86_64__) && defined(__AVX2__) && defined(WITH_SIMD)
-    copy_and_properties_1d(s, d, ni, &bp) ;
-//       _mm256_storeu_si256((__m256i *)(d), _mm256_loadu_si256((__m256i *)(s))) ;
-//     for(i0 = ni7 ; i0 < ni-7 ; i0 += 8 ){
-//       _mm256_storeu_si256((__m256i *)(d+i0), _mm256_loadu_si256((__m256i *)(s+i0))) ;
-//     }
+//     copy_and_properties_1d(s, d, ni, &bp) ;
+      _mm256_storeu_si256((__m256i *)(d), _mm256_loadu_si256((__m256i *)(s))) ;
+    for(i0 = ni7 ; i0 < ni-7 ; i0 += 8 ){
+      _mm256_storeu_si256((__m256i *)(d+i0), _mm256_loadu_si256((__m256i *)(s+i0))) ;
+    }
 #else
     for(i=0 ; i<8 ; i++) d[i] = s[i] ;     // first and second chunk may overlap if ni not a multiple of 8
     for(i0 = ni7 ; i0 < ni-7 ; i0 += 8 ){

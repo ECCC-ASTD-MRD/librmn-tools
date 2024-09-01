@@ -193,6 +193,7 @@ add_project_test(test_sparse_concat test_sparse_concat.c LINK_LIBS "rmn::rmn" NO
 
 add_project_test(test_stream_pack test_stream_pack.c LINK_LIBS "rmn::rmn" NODIAG)
 add_project_test(test_tracked_malloc test_tracked_malloc.c LINK_LIBS "rmn::rmn" NODIAG)
+add_project_test(test_simd_functions test_simd_functions.c LINK_LIBS "rmn::rmn" NODIAG)
 add_project_test(test_simd_compare test_simd_compare.c LINK_LIBS "rmn::rmn" NODIAG)
 add_project_test(test_move_blocks test_move_blocks.c LINK_LIBS "rmn::rmn" NODIAG)
 
