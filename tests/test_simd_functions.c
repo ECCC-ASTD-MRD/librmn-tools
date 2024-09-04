@@ -21,8 +21,10 @@
 #include <stdint.h>
 
 #include <rmn/test_helpers.h>
-#define NO_SIMD_
+// #define NO_SIMD
 #define VERBOSE_SIMD
+#define ALIAS_INTEL_INTRINSICS
+#define USE_INTEL_INTRINSICS_
 #include <rmn/simd_functions.h>
 
 static uint8_t cm[32], ca[32], cb[32] ;
@@ -42,17 +44,17 @@ int main(int argc, char **argv){
     start_of_test(argv[0]);
   }
 
-  fprintf(stderr, " _mm256_set1_epi64x(8) _mm_set1_epi64x(8/64/8/64)\n");
-  v8ia = _mm256_set1_epi64x(0x0807060504030201lu) ; _mm256_print_epu8("v8ia", v8ia) ;
-  v4ia = _mm_set1_epi64x(   0x0807060504030201lu) ; _mm_print_epu8("v4ia", v4ia) ;
-  v4ia = _mm_set1_epi64x(   0x0807060504030201lu) ; _mm_print_epu64("v4ia", v4ia) ;
-  v4ib = _mm_set1_epi64x(   0xF8F7F6F5F4F3F2F1lu) ; _mm_print_epu8("v4ib", v4ib) ;
-  v4ib = _mm_set1_epi64x(   0xF8F7F6F5F4F3F2F1lu) ; _mm_print_epu64("v4ib", v4ib) ;
+  fprintf(stderr, " set1_v4l(8) set1_v2l(8/64/8/64)\n");
+  v8ia = set1_v4l(0x0807060504030201lu) ; _mm256_print_epu8("v8ia", v8ia) ;
+  v4ia = set1_v2l(0x0807060504030201lu) ; _mm_print_epu8("v4ia", v4ia) ;
+  v4ia = set1_v2l(0x0807060504030201lu) ; _mm_print_epu64("v4ia", v4ia) ;
+  v4ib = set1_v2l(0xF8F7F6F5F4F3F2F1lu) ; _mm_print_epu8("v4ib", v4ib) ;
+  v4ib = set1_v2l(0xF8F7F6F5F4F3F2F1lu) ; _mm_print_epu64("v4ib", v4ib) ;
 
-  fprintf(stderr, " _mm256_cvtepi8_epi32 _mm_cvtepi8_epi32 _mm_cvtepi8_epi32\n");
-  v8ia = _mm256_cvtepi8_epi32(v4ia) ;               _mm256_print_epu32("v8ia", v8ia) ;
-  v4ia = _mm_cvtepi8_epi32(v4ia) ;                  _mm_print_epu32("v4ia", v4ia) ;
-  v4ib = _mm_cvtepi8_epi32(v4ib) ;                  _mm_print_epu32("v4ib", v4ib) ;
+  fprintf(stderr, " cvt_v8c_v8i cvt_v4c_v4i cvt_v4c_v4i\n");
+  v8ia = cvt_v8c_v8i(v4ia) ; _mm256_print_epu32("v8ia", v8ia) ;
+  v4ia = cvt_v4c_v4i(v4ia) ; _mm_print_epu32("v4ia", v4ia) ;
+  v4ib = cvt_v4c_v4i(v4ib) ; _mm_print_epu32("v4ib", v4ib) ;
 
   fprintf(stderr, " _mm_set1_ps _mm_set1_pd _mm256_set1_ps _mm256_set1_pd\n");
   v4fa = _mm_set1_ps(-1.23456f) ;                    _mm_print_ps("v4fa", v4fa) ;
@@ -68,7 +70,7 @@ int main(int argc, char **argv){
   _mm_print_epu8("v4ca", v4ca) ; _mm_print_epu8("v4cb", v4cb) ; _mm_print_epu8("v4cm", v4cm) ; _mm_print_epu8("v4cr", v4cr) ;
   v4ca = _mm_loadu_si128( (__m128i *) ca) ;    v4cb = _mm_loadu_si128( (__m128i *) cb) ;    v4cm = _mm_loadu_si128( (__m128i *) cm) ;
   fprintf(stderr, " _mm_blendv_ps\n");
-  v4cr = __M128i _mm_blendv_ps(__M128 v4ca, __M128 v4cb, __M128 v4cm) ;
+  v4cr = __V128i _mm_blendv_ps(__V128 v4ca, __V128 v4cb, __V128 v4cm) ;
   _mm_print_epu32("v4ca", v4ca) ; _mm_print_epu32("v4cb", v4cb) ; _mm_print_epu32("v4cm", v4cm) ; _mm_print_epu32("v4cr", v4cr) ;
   fprintf(stderr, "_mm_blendv_epi32\n");
   v4cm = _mm_loadu_si128( (__m128i *) im) ;
@@ -77,7 +79,7 @@ int main(int argc, char **argv){
 
   v8ca = _mm256_loadu_si256( (__m256i *) ia) ; v8cb = _mm256_loadu_si256( (__m256i *) ib) ; v8cm = _mm256_loadu_si256( (__m256i *) im) ;
   fprintf(stderr, " _mm256_blendv_ps\n");
-  v8cr = __M256i _mm256_blendv_ps(__M256 v8ca, __M256 v8cb, __M256 v8cm) ;
+  v8cr = __V256i _mm256_blendv_ps(__V256 v8ca, __V256 v8cb, __V256 v8cm) ;
   _mm256_print_epu32("v8ca", v8ca) ; _mm256_print_epu32("v8cb", v8cb) ; _mm256_print_epu32("v8cm", v8cm) ; _mm256_print_epu32("v8cr", v8cr) ;
   fprintf(stderr, " _mm256_blendv_epi32\n");
   v8cr = _mm256_blendv_epi32(v8ca, v8cb, v8cm) ;
