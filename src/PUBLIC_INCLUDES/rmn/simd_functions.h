@@ -177,6 +177,11 @@ typedef vec_128 __v128d ;
 #define _mm256_min_epu32     min_v8u
 #define _mm_min_epu32        min_v4u
 
+#define _mm256_castps_si256    v8f_2_v8i
+#define _mm256_castsi256_ps    v8i_2_v8f
+#define _mm256_castsi256_si128 v256_2_128
+#define _mm256_castsi128_si256 v128_2_256
+
 #endif
 
 #if defined(USE_SIMD_INTRINSICS)
@@ -225,6 +230,11 @@ __m128i _mm_setones_si128(void){ __m128i t = _mm_setzero_si128() ; return _mm_cm
 #define min_v8u     _mm256_min_epu32
 #define min_v4u     _mm_min_epu32
 
+#define v8f_2_v8i   _mm256_castps_si256
+#define v8i_2_v8f   _mm256_castsi256_ps
+#define v256_v128   _mm256_castsi256_si128
+#define v128_v256   _mm256_castsi128_si256
+
 #else
 SIMD_FN(STATIC, __m256,  8, set1_v8f( float    f32 ) , R.f[i] = f32 )
 SIMD_FN(STATIC, __m128,  4, set1_v4f( float    f32 ) , R.f[i] = f32 )
@@ -268,29 +278,30 @@ SIMD_FN(STATIC, __m128i, 4, max_v4u( __m128i A, __m128i B ) , R.u[i] = (A.u[i] >
 SIMD_FN(STATIC, __m256i, 8, min_v8u( __m256i A, __m256i B ) , R.u[i] = (A.u[i] < B.u[i]) ? A.u[i] : B.u[i] )
 SIMD_FN(STATIC, __m128i, 4, min_v4u( __m128i A, __m128i B ) , R.u[i] = (A.u[i] < B.u[i]) ? A.u[i] : B.u[i] )
 
+SIMD_FN(STATIC, __m256i, 8, _mm256_castps_si256(__m256 A) , R.i[i] = A.i[i] )      // float to integer
+SIMD_FN(STATIC, __m256i, 8, _mm256_castsi256_ps(__m256i A) , R.i[i] = A.i[i] )     // integer to float
+SIMD_FN(STATIC, __m128i, 4, _mm256_castsi256_si128(__m256i A) , R.i[i] = A.i[i] )  // 256 to 128 (upper part of 256 ignored)
+SIMD_FN(STATIC, __m256i, 4, _mm256_castsi128_si256(__m128i A) , R.i[i] = A.i[i] )  // 128 to 256 (upper part of 256 undefined)
+
 #endif
 
 #if defined(ALIAS_SIMD_INTRINSICS)
 // #define _mm256_set1_ps  set1_v8f
-#define _mm256_castps_si256 v8f_2_v8i
-#define _mm256_castsi256_ps v8i_2_v8f
-#define _mm256_castsi256_si128 v256_2_128
-#define _mm256_castsi128_si256 v128_2_256
+#define _mm256_extracti128_si256 extract_128
+#define _mm256_inserti128_si256  insert_128
 #endif
 #if defined(USE_SIMD_INTRINSICS)
 // #define  set1_v8f _mm256_set1_ps
-#define v8f_2_v8i _mm256_castps_si256
-#define v8i_2_v8f _mm256_castsi256_ps
-#define v256_v128 _mm256_castsi256_si128
-#define v128_v256 _mm256_castsi128_si256
+#define extract_128 _mm256_extracti128_si256
+#define insert_128  _mm256_inserti128_si256
 #else
-SIMD_FN(STATIC, __m256i, 8, _mm256_castps_si256(__m256 A) , R.i[i] = A.i[i] )   // float to integer
-SIMD_FN(STATIC, __m256i, 8, _mm256_castsi256_ps(__m256i A) , R.i[i] = A.i[i] )  // integer to float
-SIMD_FN(STATIC, __m128i, 4, _mm256_castsi256_si128(__m256i A) , R.i[i] = A.i[i] )
-SIMD_FN(STATIC, __m256i, 4, _mm256_castsi128_si256(__m128i A) , R.i[i] = A.i[i] )
 #endif
 
 #if ! defined(USE_SIMD_INTRINSICS)
+
+SIMD_FN(STATIC, __m128i, 4, _mm256_extracti128_si256(__m256i A, int upper) , R.i[i] = A.i[i + (upper ? 4 : 0)] )
+// SIMD_FN(STATIC, __m256i, 4, _mm256_inserti128_si256(__m256i A, __m128i B, int upper) , R.i[i + (upper ? 4 : 0)] = B.i[i] ; R.i[i + (upper ? 0 : 4)] = A.i[i] )
+SIMD_FN(STATIC, __m256i, 4, _mm256_inserti128_si256(__m256i A, __m128i B, int upper) , R.i[i] = upper ? B.i[i] : A.i[i] ; R.i[i+4] = upper ? A.i[i] : B.i[i] )
 
 SIMD_FN(STATIC, __m256i, 8, _mm256_abs_epi32(__m256i A) , R.i[i] = (A.i[i] < 0) ? -A.i[i] : A.i[i] )
 SIMD_FN(STATIC, __m128i, 4, _mm_abs_epi32(__m128i A)    , R.i[i] = (A.i[i] < 0) ? -A.i[i] : A.i[i] )
@@ -321,10 +332,6 @@ SIMD_FN(STATIC, __m128i, 16, _mm_blendv_epi8(__m128i A, __m128i B, __m128i MASK)
 
 SIMD_FN(STATIC, __m256i, 8, _mm256_cmpeq_epi32(__m256i A, __m256i B), R.i[i] = (A.i[i] == B.i[i]) ? -1 : 0)
 SIMD_FN(STATIC, __m128i, 4, _mm_cmpeq_epi32(__m128i A, __m128i B),    R.i[i] = (A.i[i] == B.i[i]) ? -1 : 0)
-
-SIMD_FN(STATIC, __m128i, 4, _mm256_extracti128_si256(__m256i A, int upper) , R.i[i] = A.i[i + (upper ? 4 : 0)] )
-// SIMD_FN(STATIC, __m256i, 4, _mm256_inserti128_si256(__m256i A, __m128i B, int upper) , R.i[i + (upper ? 4 : 0)] = B.i[i] ; R.i[i + (upper ? 0 : 4)] = A.i[i] )
-SIMD_FN(STATIC, __m256i, 4, _mm256_inserti128_si256(__m256i A, __m128i B, int upper) , R.i[i] = upper ? B.i[i] : A.i[i] ; R.i[i+4] = upper ? A.i[i] : B.i[i] )
 
 #endif
 
