@@ -18,7 +18,7 @@
 #undef WITH_SIMD_
 
 #define VERBOSE_SIMD
-#define USE_INTEL_INTRINSICS
+#define USE_SIMD_INTRINSICS
 #include <rmn/simd_functions.h>
 #undef WITH_SIMD_
 

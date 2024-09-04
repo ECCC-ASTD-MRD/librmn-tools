@@ -23,8 +23,8 @@
 #include <rmn/test_helpers.h>
 // #define NO_SIMD
 #define VERBOSE_SIMD
-#define ALIAS_INTEL_INTRINSICS
-#define USE_INTEL_INTRINSICS_
+#define ALIAS_SIMD_INTRINSICS_
+#define USE_SIMD_INTRINSICS
 #include <rmn/simd_functions.h>
 
 static uint8_t cm[32], ca[32], cb[32] ;
@@ -34,10 +34,10 @@ static uint32_t im[8] = {    0, 1<<31,    0, 1<<31,     0, 1<<31,    0, 1<<31 } 
 static uint32_t i0[8] = {    0,     0,    0,     0,     0,     0,    0,     0 } ;
 
 int main(int argc, char **argv){
-  __m128i v4ia, v4ib, v4ca, v4cb, v4cm, v4cr, v400, v411, v4ra ;
-  __m256i v8ia, v8ib, v8ca, v8cb, v8cm, v8cr, v800, v811, v8ra ;
-  __m128  v4fa, v4da ;
-  __m256  v8fa, v8da ;
+  __v128i v4ia, v4ib, v4ca, v4cb, v4cm, v4cr, v400, v411, v4ra ;
+  __v256i v8ia, v8ib, v8ca, v8cb, v8cm, v8cr, v800, v811, v8ra ;
+  __v128  v4fa, v4da ;
+  __v256  v8fa, v8da ;
   int i ;
 
   if(argc >= 0){
@@ -45,39 +45,39 @@ int main(int argc, char **argv){
   }
 
   fprintf(stderr, " set1_v4l(8) set1_v2l(8/64/8/64)\n");
-  v8ia = set1_v4l(0x0807060504030201lu) ; _mm256_print_epu8("v8ia", v8ia) ;
-  v4ia = set1_v2l(0x0807060504030201lu) ; _mm_print_epu8("v4ia", v4ia) ;
-  v4ia = set1_v2l(0x0807060504030201lu) ; _mm_print_epu64("v4ia", v4ia) ;
-  v4ib = set1_v2l(0xF8F7F6F5F4F3F2F1lu) ; _mm_print_epu8("v4ib", v4ib) ;
+  v8ia = set1_v4l(0x0807060504030201lu) ; print_v32c("v8ia", v8ia) ;
+  v4ia = set1_v2l(0x0807060504030201lu) ; print_v16c("v4ia", v4ia) ;
+  v4ia = set1_v2l(0x0807060504030201lu) ; print_v2l("v4ia", v4ia) ;
+  v4ib = set1_v2l(0xF8F7F6F5F4F3F2F1lu) ; print_v16c("v4ib", v4ib) ;
   v4ib = set1_v2l(0xF8F7F6F5F4F3F2F1lu) ; _mm_print_epu64("v4ib", v4ib) ;
 
   fprintf(stderr, " cvt_v8c_v8i cvt_v4c_v4i cvt_v4c_v4i\n");
-  v8ia = cvt_v8c_v8i(v4ia) ; _mm256_print_epu32("v8ia", v8ia) ;
-  v4ia = cvt_v4c_v4i(v4ia) ; _mm_print_epu32("v4ia", v4ia) ;
-  v4ib = cvt_v4c_v4i(v4ib) ; _mm_print_epu32("v4ib", v4ib) ;
+  v8ia = cvt_v8c_v8i(v4ia) ; print_v8i("v8ia", v8ia) ;
+  v4ia = cvt_v4c_v4i(v4ia) ; print_v4i("v4ia", v4ia) ;
+  v4ib = cvt_v4c_v4i(v4ib) ; print_v4i("v4ib", v4ib) ;
 
-  fprintf(stderr, " _mm_set1_ps _mm_set1_pd _mm256_set1_ps _mm256_set1_pd\n");
-  v4fa = _mm_set1_ps(-1.23456f) ;                    _mm_print_ps("v4fa", v4fa) ;
-  v4da = _mm_set1_pd(-2.3456789) ;                   _mm_print_pd("v4da", v4da) ;
-  v8fa = _mm256_set1_ps(1.23456f) ;                 _mm256_print_ps("v8fa", v8fa) ;
-  v8da = _mm256_set1_pd(2.3456789) ;                _mm256_print_pd("v8da", v8da) ;
+  fprintf(stderr, "set1_v4f set1_v2d set1_v8f set1_v4d\n");
+  v4fa = set1_v4f(-1.23456f) ;   _mm_print_ps("v4fa", v4fa) ;
+  v4da = set1_v2d(-2.3456789) ;  print_v2d("v4da", v4da) ;
+  v8fa = set1_v8f(1.23456f) ;    print_v8f("v8fa", v8fa) ;
+  v8da = set1_v4d(2.3456789) ;   _mm256_print_pd("v8da", v8da) ;
 
 //   for(i=0 ; i<16 ; i++) { ca[i] = i ; cb[i] = ca[i] + 0x10 ; cm[i] = (i & 1) ? 0xFF : 0x00 ; }
   for(i=0 ; i<32 ; i++) { ca[i] = i ; cb[i] = ca[i] + 0x40 ; cm[i] = (i & 1) ? 0xFF : 0x00 ; }
-  v4ca = _mm_loadu_si128( (__m128i *) ca) ; v4cb = _mm_loadu_si128( (__m128i *) cb) ; v4cm = _mm_loadu_si128( (__m128i *) cm) ;
+  v4ca = loadu_v128( (__m128i *) ca) ; v4cb = loadu_v128( (__m128i *) cb) ; v4cm = loadu_v128( (__m128i *) cm) ;
   fprintf(stderr, " _mm_blendv_epi8\n");
   v4cr = _mm_blendv_epi8(v4ca, v4cb, v4cm) ;
   _mm_print_epu8("v4ca", v4ca) ; _mm_print_epu8("v4cb", v4cb) ; _mm_print_epu8("v4cm", v4cm) ; _mm_print_epu8("v4cr", v4cr) ;
-  v4ca = _mm_loadu_si128( (__m128i *) ca) ;    v4cb = _mm_loadu_si128( (__m128i *) cb) ;    v4cm = _mm_loadu_si128( (__m128i *) cm) ;
+  v4ca = loadu_v128( (__m128i *) ca) ;    v4cb = loadu_v128( (__m128i *) cb) ;    v4cm = loadu_v128( (__m128i *) cm) ;
   fprintf(stderr, " _mm_blendv_ps\n");
   v4cr = __V128i _mm_blendv_ps(__V128 v4ca, __V128 v4cb, __V128 v4cm) ;
   _mm_print_epu32("v4ca", v4ca) ; _mm_print_epu32("v4cb", v4cb) ; _mm_print_epu32("v4cm", v4cm) ; _mm_print_epu32("v4cr", v4cr) ;
   fprintf(stderr, "_mm_blendv_epi32\n");
-  v4cm = _mm_loadu_si128( (__m128i *) im) ;
+  v4cm = loadu_v128( (__m128i *) im) ;
   v4cr = _mm_blendv_epi32(v4ca, v4cb, v4cm) ;
   _mm_print_epu32("v4ca", v4ca) ; _mm_print_epu32("v4cb", v4cb) ; _mm_print_epu32("v4cm", v4cm) ; _mm_print_epu32("v4cr", v4cr) ;
 
-  v8ca = _mm256_loadu_si256( (__m256i *) ia) ; v8cb = _mm256_loadu_si256( (__m256i *) ib) ; v8cm = _mm256_loadu_si256( (__m256i *) im) ;
+  v8ca = loadu_v256( (__m256i *) ia) ; v8cb = loadu_v256( (__m256i *) ib) ; v8cm = loadu_v256( (__m256i *) im) ;
   fprintf(stderr, " _mm256_blendv_ps\n");
   v8cr = __V256i _mm256_blendv_ps(__V256 v8ca, __V256 v8cb, __V256 v8cm) ;
   _mm256_print_epu32("v8ca", v8ca) ; _mm256_print_epu32("v8cb", v8cb) ; _mm256_print_epu32("v8cm", v8cm) ; _mm256_print_epu32("v8cr", v8cr) ;
@@ -102,12 +102,12 @@ int main(int argc, char **argv){
   v4ra = _mm_sub_epi32(v4cb, v4ca) ; _mm_print_epu32("v4ra", v4ra) ;
   v4ra = _mm_add_epi32(v4ra, v4ca) ; _mm_print_epu32("v4ra", v4ra) ;
 
-  fprintf(stderr, " _mm_max_epu32 (v4cb , v4ca)\n");
-  v4ra = _mm_max_epu32(v4ca, v4cb) ;
+  fprintf(stderr, " max_v4u (v4cb , v4ca)\n");
+  v4ra = max_v4u(v4ca, v4cb) ;
   _mm_print_epu32("v4ra", v4ra) ;
 
-  fprintf(stderr, " _mm_min_epi32 (v4cb , v4ca)\n");
-  v4ra = _mm_min_epi32(v4ca, v4cb) ;
+  fprintf(stderr, " min_v4i (v4cb , v4ca)\n");
+  v4ra = min_v4i(v4ca, v4cb) ;
   _mm_print_epu32("v4ra", v4ra) ;
 
   fprintf(stderr, " _mm256_abs_epi32 (v811)\n");
