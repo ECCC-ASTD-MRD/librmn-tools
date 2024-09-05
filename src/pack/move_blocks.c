@@ -51,14 +51,14 @@ int scatter_word_block(void *restrict array, void *restrict blk, int ni, int lni
 static void fold_properties(__v256i vmaxs, __v256i vmins, __v256i vminu, block_properties *bp){
   int32_t ti[8], tu[8], i ;
 
-  storeu_v128( (__v128i *)tu , min_v4u( extracti_128(vminu, 0), extracti_128(vminu, 1) ) ) ;
-  for(i=0 ; i<4 ; i++) tu[0] = (tu[i] < tu[0]) ? tu[i] : tu[0] ;
+  storeu_v256( (__v256i *)tu , vminu ) ;
+  for(i=0 ; i<8 ; i++) tu[0] = (tu[i] < tu[0]) ? tu[i] : tu[0] ;
   bp->minu.u = tu[0] ;
-  storeu_v128( (__v128i *)ti , min_v4i( extracti_128(vmins, 0), extracti_128(vmins, 1) ) ) ;
-  for(i=0 ; i<4 ; i++) ti[0] = (ti[i] < ti[0]) ? ti[i] : ti[0] ;
+  storeu_v256( (__v256i *)ti , vmins ) ;
+  for(i=0 ; i<8 ; i++) ti[0] = (ti[i] < ti[0]) ? ti[i] : ti[0] ;
   bp->mins.i = ti[0] ;
-  storeu_v128( (__v128i *)ti , max_v4i( extracti_128(vmaxs, 0), extracti_128(vmaxs, 1) ) ) ;
-  for(i=0 ; i<4 ; i++) ti[0] = (ti[i] > ti[0]) ? ti[i] : ti[0] ;
+  storeu_v256( (__v256i *)ti , vmaxs ) ;
+  for(i=0 ; i<8 ; i++) ti[0] = (ti[i] > ti[0]) ? ti[i] : ti[0] ;
   bp->maxs.i = ti[0] ;
 }
 
@@ -104,7 +104,7 @@ static int gather_float_block_07(int32_t *restrict src, void *restrict blk, int 
     storeu_v256((__v256i *)d, vdata) ;       // store into destination array (CONTIGUOUS)
     s += lni ; d += ni ;
   }
-  fold_properties(vmaxs, vmins, vminu, bp) ; // fold reults into a single scalar
+  fold_properties(vmaxs, vmins, vminu, bp) ; // fold results into a single scalar
   // translate signed values back into floats
   bp->maxs.i = unfake_float(bp->maxs.i) ;
   bp->mins.i = unfake_float(bp->mins.i) ;
