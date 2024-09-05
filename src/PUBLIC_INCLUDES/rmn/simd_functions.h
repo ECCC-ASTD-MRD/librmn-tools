@@ -17,9 +17,13 @@
 
 // #include <with_simd.h>
 // plain C code version using arrays for SIMD types
-typedef struct{ union{ double d[4]; int64_t l[4]; float f[8]; int32_t i[8]; uint32_t u[8]; int16_t hi[16]; uint16_t hu[16]; int8_t c[32]; uint8_t cu[32]; } ; } vec_256 ;
+typedef struct{
+  union{double d[4];int64_t l[4];uint64_t lu[2];float f[8];int32_t i[8];uint32_t u[8];int16_t h[16];uint16_t hu[16];int8_t c[32];uint8_t cu[32];};
+} vec_256 ;
 CT_ASSERT(sizeof(vec_256) == 32, "ERROR: sizeof(vec_256) MUST BE 32")
-typedef struct{ union{ double d[2]; int64_t l[2]; float f[4]; int32_t i[4]; uint32_t u[4]; int16_t hi[ 8]; uint16_t hu[ 8]; int8_t c[16]; uint8_t cu[16]; } ; } vec_128 ;
+typedef struct{
+  union{double d[2];int64_t l[2];uint64_t lu[2];float f[4];int32_t i[4];uint32_t u[4];int16_t h[ 8];uint16_t hu[ 8];int8_t c[16];uint8_t cu[16];};
+} vec_128 ;
 CT_ASSERT(sizeof(vec_128) == 16, "ERROR: sizeof(vec_128) MUST BE 16")
 
 #if defined(USE_INTEL_SIMD_INTRINSICS)
