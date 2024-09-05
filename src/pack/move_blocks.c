@@ -18,11 +18,102 @@
 #undef WITH_SIMD_
 
 #define VERBOSE_SIMD
-#define USE_SIMD_INTRINSICS
+#define ALIAS_INTEL_SIMD_INTRINSICS
+#define USE_INTEL_SIMD_INTRINSICS_
 #include <rmn/simd_functions.h>
-#undef WITH_SIMD_
 
 #include <rmn/move_blocks.h>
+
+// insert a contiguous block (ni x nj) of 32 bit words into array from blk
+// ni    : row size (row storage size in blk)
+// lni   : row storage size in array
+// nj    : number of rows
+static int scatter_word_block_07(void *restrict array, void *restrict blk, int ni, int lni, int nj){
+  uint32_t *restrict s = (uint32_t *) blk ;
+  uint32_t *restrict d = (uint32_t *) array ;
+  return 0 ;
+}
+int scatter_word_block(void *restrict array, void *restrict blk, int ni, int lni, int nj){
+  uint32_t *restrict s = (uint32_t *) blk ;
+  uint32_t *restrict d = (uint32_t *) array ;
+
+  if(ni < 8){
+    return scatter_word_block_07(array, blk, ni, lni, nj) ;
+  }else{
+    while(nj--){
+    }
+  }
+
+  return 0 ;
+}
+
+// extract a block (ni x nj) of 32 bit integers from src and store it into blk
+// ni    : row size (row storage size in blk)
+// lni   : row storage size in src
+// nj    : number of rows
+static int gather_int32_block_07(int32_t *restrict src, void *restrict blk, int ni, int lni, int nj, block_properties *bp){
+  int32_t *restrict s = (int32_t *) src ;
+  int32_t *restrict d = (int32_t *) blk ;
+  __v256i vmaxs, vmins, vminu, vdata, vmask, vsign ;
+  return ni * nj ;
+}
+static int gather_float_block_07(int32_t *restrict src, void *restrict blk, int ni, int lni, int nj, block_properties *bp){
+  int32_t *restrict s = (int32_t *) src ;
+  int32_t *restrict d = (int32_t *) blk ;
+  __v256i vmaxs, vmins, vminu, vdata, vmask, vsign, v1111, v0111, vfabs, vfake ;
+  __v128i t ;
+  int ni7 = (ni & 7) ;
+
+  if(ni7 == 0) return 0 ;
+
+  v1111 = ones_v256() ;
+  v0111 = srli_v8i(v1111, 1)  ;  // 0x7FFFFFFF sign mask to get absolute value
+  vmask = mask_v8i(ni7) ;        // load mask, n < vector length
+  vmins = srli_v8i(v1111, 1)  ;  // 0x7FFFFFFF  huge positive
+  vmaxs = slli_v8i(v1111, 31) ;  // 0x80000000  huge negative
+  vminu = vmins ;                // 0x7FFFFFFF  huge positive
+  while(nj--){
+    vdata = maskload_v8i(s, vmask) ;         // load data from source array
+    vfabs = abs_v8i(vdata) ;                 // absolute value
+    vsign = srai_v8i(vdata, 31) ;            // 0 / -1 for sign
+    vfake = xor_v256(vfabs, vsign) ;         // fake signed integer value representing float value
+    vminu = min_v8u(vminu, vfabs) ;          // minimum absolute value
+    vmaxs = max_v8i(vmaxs, vfake) ;          // maximum value
+    vmins = min_v8i(vmins, vfake) ;          // minimum value
+    storeu_v256((__v256i *)d, vdata) ;       // store into destination array (CONTIGUOUS)
+    s += lni ; d += ni ;
+  }
+  t = min_v4u( extracti_128(vminu, 0), extracti_128(vminu, 1) ) ;
+  t = min_v4i( extracti_128(vmins, 0), extracti_128(vmins, 1) ) ;
+  t = max_v4i( extracti_128(vmaxs, 0), extracti_128(vmaxs, 1) ) ;
+
+  return ni * nj ;
+}
+int gather_int32_block(int32_t *restrict src, void *restrict blk, int ni, int lni, int nj, block_properties *bp){
+  int32_t *restrict s = (int32_t *) src ;
+  int32_t *restrict d = (int32_t *) blk ;
+  int i0, i, ni7 ;
+
+  if(ni  <  8) {
+    return gather_int32_block_07(src, blk, ni, lni, nj, bp) ;
+  }else{
+
+    ni7 = (ni & 7) ;
+    ni7 = ni7 ? ni7 : 8 ;
+    while(nj--){
+  // #if defined(__x86_64__) && defined(__AVX2__) && defined(WITH_SIMD_)
+  //     copy_and_properties_1d(s, d, ni, bp) ;
+  // #else
+      for(i=0 ; i<8 ; i++) d[i] = s[i] ;     // first and second chunk may overlap if ni not a multiple of 8
+      for(i0 = ni7 ; i0 < ni-7 ; i0 += 8 ){
+        for(i=0 ; i<8 ; i++) d[i0+i] = s[i0+i] ;
+      }
+  // #endif
+      s += lni ; d += ni ;
+    }
+  }
+  return ni * nj ;
+}
 
 #if 0
 // lowest non zero absolute value
@@ -78,9 +169,10 @@ static inline void copy_and_properties_1d(void *s_, void *d_, uint32_t ni, block
 }
 #endif
 // SIMD does not seem to be useful any more for these funtions
-#undef WITH_SIMD_
+#undef WITH_SIMD
 
 #if ! defined(__INTEL_COMPILER_UPDATE) &&  ! defined(__PGI)
+// give an explicit hint to the gcc optimizer
 #pragma GCC optimize "tree-vectorize"
 #endif
 
@@ -165,64 +257,6 @@ int put_word_block(void *restrict f, void *restrict blk, int ni, int lni, int nj
     }
 #endif
     s += ni ; d += lni ;
-  }
-  return 0 ;
-}
-
-// insert a contiguous block (ni x nj) of 32 bit words into array from blk
-// ni    : row size (row storage size in blk)
-// lni   : row storage size in array
-// nj    : number of rows
-static int scatter_word_block_07(void *restrict array, void *restrict blk, int ni, int lni, int nj){
-  uint32_t *restrict s = (uint32_t *) blk ;
-  uint32_t *restrict d = (uint32_t *) array ;
-  return 0 ;
-}
-int scatter_word_block(void *restrict array, void *restrict blk, int ni, int lni, int nj){
-  uint32_t *restrict s = (uint32_t *) blk ;
-  uint32_t *restrict d = (uint32_t *) array ;
-
-  if(ni < 8){
-    return scatter_word_block_07(array, blk, ni, lni, nj) ;
-  }else{
-    while(nj--){
-    }
-  }
-
-  return 0 ;
-}
-
-// extract a block (ni x nj) of 32 bit integers from src and store it into blk
-// ni    : row size (row storage size in blk)
-// lni   : row storage size in src
-// nj    : number of rows
-static int gather_int32_block_07(int32_t *restrict src, void *restrict blk, int ni, int lni, int nj, block_properties *bp){
-  int32_t *restrict s = (int32_t *) src ;
-  int32_t *restrict d = (int32_t *) blk ;
-  return 0 ;
-}
-int gather_int32_block(int32_t *restrict src, void *restrict blk, int ni, int lni, int nj, block_properties *bp){
-  int32_t *restrict s = (int32_t *) src ;
-  int32_t *restrict d = (int32_t *) blk ;
-  int i0, i, ni7 ;
-
-  if(ni  <  8) {
-    return gather_int32_block_07(src, blk, ni, lni, nj, bp) ;
-  }else{
-
-    ni7 = (ni & 7) ;
-    ni7 = ni7 ? ni7 : 8 ;
-    while(nj--){
-  // #if defined(__x86_64__) && defined(__AVX2__) && defined(WITH_SIMD_)
-  //     copy_and_properties_1d(s, d, ni, bp) ;
-  // #else
-      for(i=0 ; i<8 ; i++) d[i] = s[i] ;     // first and second chunk may overlap if ni not a multiple of 8
-      for(i0 = ni7 ; i0 < ni-7 ; i0 += 8 ){
-        for(i=0 ; i<8 ; i++) d[i0+i] = s[i0+i] ;
-      }
-  // #endif
-      s += lni ; d += ni ;
-    }
   }
   return 0 ;
 }
