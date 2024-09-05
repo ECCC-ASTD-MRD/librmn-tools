@@ -47,6 +47,20 @@ int scatter_word_block(void *restrict array, void *restrict blk, int ni, int lni
   return 0 ;
 }
 
+static void fold_properties(__v256i vmaxs, __v256i vmins, __v256i vminu, block_properties *bp){
+  int32_t ti[8], tu[8], i ;
+
+  storeu_v128( (__v128i *)tu , min_v4u( extracti_128(vminu, 0), extracti_128(vminu, 1) ) ) ;
+  for(i=0 ; i<4 ; i++) tu[0] = (tu[i] < tu[0]) ? tu[i] : tu[0] ;
+  bp->minu.u = tu[0] ;
+  storeu_v128( (__v128i *)ti , min_v4i( extracti_128(vmins, 0), extracti_128(vmins, 1) ) ) ;
+  for(i=0 ; i<4 ; i++) ti[0] = (ti[i] < ti[0]) ? ti[i] : ti[0] ;
+  bp->mins.i = ti[0] ;
+  storeu_v128( (__v128i *)ti , max_v4i( extracti_128(vmaxs, 0), extracti_128(vmaxs, 1) ) ) ;
+  for(i=0 ; i<4 ; i++) ti[0] = (ti[i] > ti[0]) ? ti[i] : ti[0] ;
+  bp->maxs.i = ti[0] ;
+}
+
 // extract a block (ni x nj) of 32 bit integers from src and store it into blk
 // ni    : row size (row storage size in blk)
 // lni   : row storage size in src
@@ -61,8 +75,7 @@ static int gather_float_block_07(int32_t *restrict src, void *restrict blk, int 
   int32_t *restrict s = (int32_t *) src ;
   int32_t *restrict d = (int32_t *) blk ;
   __v256i vmaxs, vmins, vminu, vdata, vmask, vsign, v1111, v0111, vfabs, vfake ;
-  __v128i t ;
-  int ni7 = (ni & 7) ;
+  int i, ni7 = (ni & 7), ti, ts ;
 
   if(ni7 == 0) return 0 ;
 
@@ -83,10 +96,29 @@ static int gather_float_block_07(int32_t *restrict src, void *restrict blk, int 
     storeu_v256((__v256i *)d, vdata) ;       // store into destination array (CONTIGUOUS)
     s += lni ; d += ni ;
   }
-  t = min_v4u( extracti_128(vminu, 0), extracti_128(vminu, 1) ) ;
-  t = min_v4i( extracti_128(vmins, 0), extracti_128(vmins, 1) ) ;
-  t = max_v4i( extracti_128(vmaxs, 0), extracti_128(vmaxs, 1) ) ;
+  fold_properties(vmaxs, vmins, vminu, bp) ; // fold reults into a single scalar
+  // translate signed values back into floats
+  //                       sign  ^ value   OR   sign bit
+  ti = bp->maxs.i ; ti = ((ti >> 31) ^ ti) | (ti & 0x80000000) ;  bp->maxs.i = ti ;
+  ti = bp->mins.i ; ti = ((ti >> 31) ^ ti) | (ti & 0x80000000) ;  bp->mins.i = ti ;
 
+  return ni * nj ;
+}
+
+int gather_float_block(float *restrict src, void *restrict blk, int ni, int lni, int nj, block_properties *bp){
+  int32_t *restrict s = (int32_t *) src ;
+  int32_t *restrict d = (int32_t *) blk ;
+  int i, ni7 = (ni & 7) ;
+  __v256i vmaxs, vmins, vminu, vdata, vmask, vsign, v1111, v0111, vfabs, vfake ;
+  __v128i vt ;
+  int32_t ti[8], tu[8] ;
+
+  if(ni*nj == 0) return 0 ;
+
+  if(ni  <  8) {
+    return gather_float_block_07(s, d, ni, lni, nj, bp) ;
+  }else{
+  }
   return ni * nj ;
 }
 int gather_int32_block(int32_t *restrict src, void *restrict blk, int ni, int lni, int nj, block_properties *bp){

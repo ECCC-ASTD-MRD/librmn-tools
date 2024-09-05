@@ -27,7 +27,7 @@ typedef union{
 typedef struct{
   iuf32_t  maxs ;    // max value in block
   iuf32_t  mins ;    // min value in block
-  iuf32_t  min0 ;    // min NON ZERO absolute value in block
+  iuf32_t  minu ;    // min absolute value in block
   int32_t  zeros ;   // number of ZERO values in block
 } block_properties ;
 
