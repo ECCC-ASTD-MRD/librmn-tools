@@ -47,6 +47,7 @@ int scatter_word_block(void *restrict array, void *restrict blk, int ni, int lni
   return 0 ;
 }
 
+// fold 8 value vectors for min /max / min_abs into scalars and store into bp
 static void fold_properties(__v256i vmaxs, __v256i vmins, __v256i vminu, block_properties *bp){
   int32_t ti[8], tu[8], i ;
 
@@ -61,10 +62,17 @@ static void fold_properties(__v256i vmaxs, __v256i vmins, __v256i vminu, block_p
   bp->maxs.i = ti[0] ;
 }
 
+// restore integer representing flot to original float bit pattern
+static int32_t unfake_float(int32_t fake){
+  return ((fake >> 31) ^ fake) | (fake & 0x80000000) ;
+}
+
 // extract a block (ni x nj) of 32 bit integers from src and store it into blk
 // ni    : row size (row storage size in blk)
 // lni   : row storage size in src
 // nj    : number of rows
+// bp    : block properties (min / max / min abs)
+// return number of values processed
 static int gather_int32_block_07(int32_t *restrict src, void *restrict blk, int ni, int lni, int nj, block_properties *bp){
   int32_t *restrict s = (int32_t *) src ;
   int32_t *restrict d = (int32_t *) blk ;
@@ -98,9 +106,8 @@ static int gather_float_block_07(int32_t *restrict src, void *restrict blk, int 
   }
   fold_properties(vmaxs, vmins, vminu, bp) ; // fold reults into a single scalar
   // translate signed values back into floats
-  //                       sign  ^ value   OR   sign bit
-  ti = bp->maxs.i ; ti = ((ti >> 31) ^ ti) | (ti & 0x80000000) ;  bp->maxs.i = ti ;
-  ti = bp->mins.i ; ti = ((ti >> 31) ^ ti) | (ti & 0x80000000) ;  bp->mins.i = ti ;
+  bp->maxs.i = unfake_float(bp->maxs.i) ;
+  bp->mins.i = unfake_float(bp->mins.i) ;
 
   return ni * nj ;
 }
