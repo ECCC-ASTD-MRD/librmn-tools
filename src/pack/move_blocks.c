@@ -24,23 +24,95 @@
 
 #include <rmn/move_blocks.h>
 
-// insert a contiguous block (ni x nj) of 32 bit words into array from blk
-// ni    : row size (row storage size in blk)
-// lni   : row storage size in array
-// nj    : number of rows
-static int scatter_word_block_07(void *restrict array, void *restrict blk, int ni, int lni, int nj){
-  uint32_t *restrict s = (uint32_t *) blk ;
-  uint32_t *restrict d = (uint32_t *) array ;
+int gather_word32_block(void *restrict array, void *restrict blk, int ni, int lni, int nj){
+  uint32_t *restrict d = (uint32_t *) blk ;
+  uint32_t *restrict s = (uint32_t *) array ;
+
+  if(ni*nj == 0) return 0 ;
+
+  if(ni < 8){
+    while(nj--){
+      switch(ni & 7){   // switch on row length
+        //       copy value
+        case 7 : d[6] = s[6] ;
+        case 6 : d[5] = s[5] ;
+        case 5 : d[4] = s[4] ;
+        case 4 : d[3] = s[3] ;
+        case 3 : d[2] = s[2] ;
+        case 2 : d[1] = s[1] ;
+        case 1 : d[0] = s[0] ;
+        case 0 : d += ni ; s += lni ;   // pointers to next row
+      }
+    }
+  }else{
+    __v256i vdata ;
+    int i, ni7, n ;
+    ni7 = (ni & 7) ;               // modulo(ni , 8)
+    while(nj--){
+      uint32_t *s0, *d0 ;
+      n = ni ; s0 = s ; d0 = d ;
+      if(ni7){                                   // first slice with less thatn 8 elements
+        vdata = loadu_v256((__v256i *)s0) ;      // load data from source array
+        storeu_v256((__v256i *)d0, vdata) ;      // store into destination array (CONTIGUOUS)
+        n -= ni7 ; s0 += ni7 ; d0 += ni7 ;       // bump count and pointers
+      }
+      while(n > 7){                              // following slices with 8 elements
+        vdata = loadu_v256((__v256i *)s0) ;      // load data from source array
+        storeu_v256((__v256i *)d0, vdata) ;      // store into destination array (CONTIGUOUS)
+        n -= 8 ; s0 += 8 ; d0 += 8 ;
+      }
+      s += lni ; d += ni ;                       // pointers to next row
+    }
+  }
+
   return 0 ;
 }
-int scatter_word_block(void *restrict array, void *restrict blk, int ni, int lni, int nj){
+
+// insert a contiguous block (ni x nj) of 32 bit words into array from blk
+// array : array to receive extracted data
+// blk   : memory block to get data from
+// ni    : row size (row storage size of blk)
+// lni   : row storage size of array
+// nj    : number of rows
+// blk   : ni * nj block to scatter
+int scatter_word32_block(void *restrict array, void *restrict blk, int ni, int lni, int nj){
   uint32_t *restrict s = (uint32_t *) blk ;
   uint32_t *restrict d = (uint32_t *) array ;
 
+  if(ni*nj == 0) return 0 ;
+
   if(ni < 8){
-    return scatter_word_block_07(array, blk, ni, lni, nj) ;
-  }else{
     while(nj--){
+      switch(ni & 7){   // switch on row length
+        //       copy value
+        case 7 : d[6] = s[6] ;
+        case 6 : d[5] = s[5] ;
+        case 5 : d[4] = s[4] ;
+        case 4 : d[3] = s[3] ;
+        case 3 : d[2] = s[2] ;
+        case 2 : d[1] = s[1] ;
+        case 1 : d[0] = s[0] ;
+        case 0 : d += lni ; s += ni ;   // pointers to next row
+      }
+    }
+  }else{
+    __v256i vdata ;
+    int i, ni7, n ;
+    ni7 = (ni & 7) ;               // modulo(ni , 8)
+    while(nj--){
+      uint32_t *s0, *d0 ;
+      n = ni ; s0 = s ; d0 = d ;
+      if(ni7){                                   // first slice with less thatn 8 elements
+        vdata = loadu_v256((__v256i *)s0) ;      // load data from source array
+        storeu_v256((__v256i *)d0, vdata) ;      // store into destination array (CONTIGUOUS)
+        n -= ni7 ; s0 += ni7 ; d0 += ni7 ;       // bump count and pointers
+      }
+      while(n > 7){                              // following slices with 8 elements
+        vdata = loadu_v256((__v256i *)s0) ;      // load data from source array
+        storeu_v256((__v256i *)d0, vdata) ;      // store into destination array (CONTIGUOUS)
+        n -= 8 ; s0 += 8 ; d0 += 8 ;
+      }
+      s += ni ; d += lni ;                       // pointers to next row
     }
   }
 
@@ -67,22 +139,17 @@ static int32_t unfake_float(int32_t fake){
   return ((fake >> 31) ^ fake) | (fake & 0x80000000) ;
 }
 
+#define MIN(OLD,NEW) OLD = (NEW < OLD) ? NEW : OLD
+#define MAX(OLD,NEW) OLD = (NEW > OLD) ? NEW : OLD
+
 // extract a block (ni x nj) of 32 bit integers from src and store it into blk
+// src   : float array to extract data from (NON CONTIGUOUS storage)
+// blk   : array to put extracted data into (CONTIGUOUS storage)
 // ni    : row size (row storage size in blk)
 // lni   : row storage size in src
 // nj    : number of rows
 // bp    : block properties (min / max / min abs)
 // return number of values processed
-static int gather_int32_block_07(int32_t *restrict src, void *restrict blk, int ni, int lni, int nj, block_properties *bp){
-  int32_t *restrict s = (int32_t *) src ;
-  int32_t *restrict d = (int32_t *) blk ;
-  __v256i vmaxs, vmins, vminu, vdata, vmask, vsign ;
-  return ni * nj ;
-}
-
-#define MIN(OLD,NEW) OLD = (NEW < OLD) ? NEW : OLD
-#define MAX(OLD,NEW) OLD = (NEW > OLD) ? NEW : OLD
-#define FABS(V) V & 0x7FFFFFFF
 int gather_float_block(float *restrict src, void *restrict blk, int ni, int lni, int nj, block_properties *bp){
   int32_t *restrict s = (int32_t *) src ;
   int32_t *restrict d = (int32_t *) blk ;
@@ -95,20 +162,20 @@ int gather_float_block(float *restrict src, void *restrict blk, int ni, int lni,
     while(nj--){
       switch(ni & 7){   // switch on row length
         //       copy value        absolute value        fake integer   signed min    signed max    abs value min
-        case 7 : d[6] = t = s[6] ; ta = t & 0x7FFFFFFF ; t=ta^(t>>31) ; MIN(mins,t) ; MAX(maxs,t) ; MIN(minu,ta) ;
-        case 6 : d[5] = t = s[5] ; ta = t & 0x7FFFFFFF ; t=ta^(t>>31) ; MIN(mins,t) ; MAX(maxs,t) ; MIN(minu,ta) ;
-        case 5 : d[4] = t = s[4] ; ta = t & 0x7FFFFFFF ; t=ta^(t>>31) ; MIN(mins,t) ; MAX(maxs,t) ; MIN(minu,ta) ;
-        case 4 : d[3] = t = s[3] ; ta = t & 0x7FFFFFFF ; t=ta^(t>>31) ; MIN(mins,t) ; MAX(maxs,t) ; MIN(minu,ta) ;
-        case 3 : d[2] = t = s[2] ; ta = t & 0x7FFFFFFF ; t=ta^(t>>31) ; MIN(mins,t) ; MAX(maxs,t) ; MIN(minu,ta) ;
-        case 2 : d[1] = t = s[1] ; ta = t & 0x7FFFFFFF ; t=ta^(t>>31) ; MIN(mins,t) ; MAX(maxs,t) ; MIN(minu,ta) ;
-        case 1 : d[0] = t = s[0] ; ta = t & 0x7FFFFFFF ; t=ta^(t>>31) ; MIN(mins,t) ; MAX(maxs,t) ; MIN(minu,ta) ;
+        case 7 : d[6] = t = s[6] ; ta = (t < 0) ? -t : t ; t=ta^(t>>31) ; MIN(mins,t) ; MAX(maxs,t) ; MIN(minu,ta) ;
+        case 6 : d[5] = t = s[5] ; ta = (t < 0) ? -t : t ; t=ta^(t>>31) ; MIN(mins,t) ; MAX(maxs,t) ; MIN(minu,ta) ;
+        case 5 : d[4] = t = s[4] ; ta = (t < 0) ? -t : t ; t=ta^(t>>31) ; MIN(mins,t) ; MAX(maxs,t) ; MIN(minu,ta) ;
+        case 4 : d[3] = t = s[3] ; ta = (t < 0) ? -t : t ; t=ta^(t>>31) ; MIN(mins,t) ; MAX(maxs,t) ; MIN(minu,ta) ;
+        case 3 : d[2] = t = s[2] ; ta = (t < 0) ? -t : t ; t=ta^(t>>31) ; MIN(mins,t) ; MAX(maxs,t) ; MIN(minu,ta) ;
+        case 2 : d[1] = t = s[1] ; ta = (t < 0) ? -t : t ; t=ta^(t>>31) ; MIN(mins,t) ; MAX(maxs,t) ; MIN(minu,ta) ;
+        case 1 : d[0] = t = s[0] ; ta = (t < 0) ? -t : t ; t=ta^(t>>31) ; MIN(mins,t) ; MAX(maxs,t) ; MIN(minu,ta) ;
         case 0 : d += ni ; s += lni ;   // pointers to next row
       }
     }
     bp->maxs.i = maxs ; bp->mins.i = mins ; bp->minu.u = minu ;
   }else{      // (ni  <  8)
     __v256i vmaxs, vmins, vminu, vdata, vmask, vsign, v1111, v0111, vfabs, vfake ;
-    int32_t ti[8], tu[8], *s0, *d0 ;
+    int32_t *s0, *d0 ;
     int i, ni7, n ;
 
     v1111 = ones_v256() ;
@@ -121,7 +188,7 @@ int gather_float_block(float *restrict src, void *restrict blk, int ni, int lni,
       n = ni ; s0 = s ; d0 = d ;
       if(ni7){                                   // first slice with less thatn 8 elements
         vdata = loadu_v256((__v256i *)s0) ;      // load data from source array
-        vfabs = abs_v8i(vdata) ;                 // absolute value
+        vfabs = and_v256(vdata, v0111) ;         // absolute value (suppress sign bit)
         vsign = srai_v8i(vdata, 31) ;            // 0 / -1 for sign
         vfake = xor_v256(vfabs, vsign) ;         // fake signed integer value representing float value
         vminu = min_v8u(vminu, vfabs) ;          // minimum absolute value
@@ -132,7 +199,7 @@ int gather_float_block(float *restrict src, void *restrict blk, int ni, int lni,
       }
       while(n > 7){                              // following slices with 8 elements
         vdata = loadu_v256((__v256i *)s0) ;      // load data from source array
-        vfabs = abs_v8i(vdata) ;                 // absolute value
+        vfabs = and_v256(vdata, v0111) ;         // absolute value (suppress sign bit)
         vsign = srai_v8i(vdata, 31) ;            // 0 / -1 for sign
         vfake = xor_v256(vfabs, vsign) ;         // fake signed integer value representing float value
         vminu = min_v8u(vminu, vfabs) ;          // minimum absolute value
@@ -150,85 +217,107 @@ int gather_float_block(float *restrict src, void *restrict blk, int ni, int lni,
   bp->mins.i = unfake_float(bp->mins.i) ;
   return ni * nj ;
 }
+
+// extract a block (ni x nj) of 32 bit integers from src and store it into blk
+// src   : integer array to extract data from (NON CONTIGUOUS storage)
+// blk   : array to put extracted data into (CONTIGUOUS storage)
+// ni    : row size (row storage size in blk)
+// lni   : row storage size in src
+// nj    : number of rows
+// bp    : block properties (min / max / min abs)
+// return number of values processed
 int gather_int32_block(int32_t *restrict src, void *restrict blk, int ni, int lni, int nj, block_properties *bp){
   int32_t *restrict s = (int32_t *) src ;
   int32_t *restrict d = (int32_t *) blk ;
-  int i0, i, ni7 ;
+
+  if(ni*nj == 0) return 0 ;
 
   if(ni  <  8) {
-    return gather_int32_block_07(src, blk, ni, lni, nj, bp) ;
-  }else{
-
-    ni7 = (ni & 7) ;
-    ni7 = ni7 ? ni7 : 8 ;
+    int32_t maxs = 0x80000000, mins = 0x7FFFFFFF, t ;
+    uint32_t minu = 0x7FFFFFFF, ta ;
     while(nj--){
-  // #if defined(__x86_64__) && defined(__AVX2__) && defined(WITH_SIMD_)
-  //     copy_and_properties_1d(s, d, ni, bp) ;
-  // #else
-      for(i=0 ; i<8 ; i++) d[i] = s[i] ;     // first and second chunk may overlap if ni not a multiple of 8
-      for(i0 = ni7 ; i0 < ni-7 ; i0 += 8 ){
-        for(i=0 ; i<8 ; i++) d[i0+i] = s[i0+i] ;
+      switch(ni & 7){   // switch on row length
+        //       copy value        absolute value        signed min    signed max    abs value min
+        case 7 : d[6] = t = s[6] ; ta = t & 0x7FFFFFFF ; MIN(mins,t) ; MAX(maxs,t) ; MIN(minu,ta) ;
+        case 6 : d[5] = t = s[5] ; ta = t & 0x7FFFFFFF ; MIN(mins,t) ; MAX(maxs,t) ; MIN(minu,ta) ;
+        case 5 : d[4] = t = s[4] ; ta = t & 0x7FFFFFFF ; MIN(mins,t) ; MAX(maxs,t) ; MIN(minu,ta) ;
+        case 4 : d[3] = t = s[3] ; ta = t & 0x7FFFFFFF ; MIN(mins,t) ; MAX(maxs,t) ; MIN(minu,ta) ;
+        case 3 : d[2] = t = s[2] ; ta = t & 0x7FFFFFFF ; MIN(mins,t) ; MAX(maxs,t) ; MIN(minu,ta) ;
+        case 2 : d[1] = t = s[1] ; ta = t & 0x7FFFFFFF ; MIN(mins,t) ; MAX(maxs,t) ; MIN(minu,ta) ;
+        case 1 : d[0] = t = s[0] ; ta = t & 0x7FFFFFFF ; MIN(mins,t) ; MAX(maxs,t) ; MIN(minu,ta) ;
+        case 0 : d += ni ; s += lni ;   // pointers to next row
       }
-  // #endif
-      s += lni ; d += ni ;
     }
-  }
+    bp->maxs.i = maxs ; bp->mins.i = mins ; bp->minu.u = minu ;
+  }else{      // (ni  <  8)
+    __v256i vmaxs, vmins, vminu, vdata, vmask, v1111, viabs ;
+    int32_t *s0, *d0 ;
+    int i, ni7, n ;
+
+    v1111 = ones_v256() ;
+    vmins = srli_v8i(v1111, 1)  ;  // 0x7FFFFFFF  huge positive
+    vmaxs = slli_v8i(v1111, 31) ;  // 0x80000000  huge negative
+    vminu = vmins ;                // 0x7FFFFFFF  huge positive
+    ni7 = (ni & 7) ;               // modulo(ni , 8)
+    while(nj--){                                 // loop over rows
+      n = ni ; s0 = s ; d0 = d ;
+      if(ni7){                                   // first slice with less thatn 8 elements
+        vdata = loadu_v256((__v256i *)s0) ;      // load data from source array
+        viabs = abs_v8i(vdata) ;                 // absolute value
+        vminu = min_v8u(vminu, viabs) ;          // minimum absolute value
+        vmaxs = max_v8i(vmaxs, vdata) ;          // maximum signed value
+        vmins = min_v8i(vmins, vdata) ;          // minimum signed value
+        storeu_v256((__v256i *)d0, vdata) ;      // store into destination array (CONTIGUOUS)
+        n -= ni7 ; s0 += ni7 ; d0 += ni7 ;       // bump count and pointers
+      }
+      while(n > 7){                              // following slices with 8 elements
+        vdata = loadu_v256((__v256i *)s0) ;      // load data from source array
+        viabs = abs_v8i(vdata) ;                 // absolute value
+        vminu = min_v8u(vminu, viabs) ;          // minimum absolute value
+        vmaxs = max_v8i(vmaxs, vdata) ;          // maximum signed value
+        vmins = min_v8i(vmins, vdata) ;          // minimum signed value
+        storeu_v256((__v256i *)d0, vdata) ;      // store into destination array (CONTIGUOUS)
+        n -= 8 ; s0 += 8 ; d0 += 8 ;
+      }
+      s += lni ; d += ni ;                       // pointers to next row
+    }
+    fold_properties(vmaxs, vmins, vminu, bp) ; // fold results into a single scalar
+  }      // (ni  <  8)
+
   return ni * nj ;
 }
+// int gather_int32_block(int32_t *restrict src, void *restrict blk, int ni, int lni, int nj, block_properties *bp){
+//   int32_t *restrict s = (int32_t *) src ;
+//   int32_t *restrict d = (int32_t *) blk ;
+//   int i0, i, ni7 ;
+// 
+//   if(ni  <  8) {
+//     return gather_int32_block_07(src, blk, ni, lni, nj, bp) ;
+//   }else{
+// 
+//     ni7 = (ni & 7) ;
+//     ni7 = ni7 ? ni7 : 8 ;
+//     while(nj--){
+//   // #if defined(__x86_64__) && defined(__AVX2__) && defined(WITH_SIMD_)
+//   //     copy_and_properties_1d(s, d, ni, bp) ;
+//   // #else
+//       for(i=0 ; i<8 ; i++) d[i] = s[i] ;     // first and second chunk may overlap if ni not a multiple of 8
+//       for(i0 = ni7 ; i0 < ni-7 ; i0 += 8 ){
+//         for(i=0 ; i<8 ; i++) d[i0+i] = s[i0+i] ;
+//       }
+//   // #endif
+//       s += lni ; d += ni ;
+//     }
+//   }
+//   return ni * nj ;
+// }
 
 #if 0
 // lowest non zero absolute value
 //                            -1 where V == 0    ABS value    bump zeros count  blend VMI0 where zero  unsigned minimum
 #define MIN08(V,VMI0,V0,VZ) { V8I z=VEQ8(V,V0) ; V=ABS8I(V) ; VZ=ADD8I(VZ,z) ;  V=BLEND8(V,VMI0,z) ;   VMI0=MINU8(V,VMI0) ; }
-
-static inline void copy_and_properties_1d(void *s_, void *d_, uint32_t ni, block_properties *bp){
-  int32_t *si = (int32_t *) s_ , *s = si ;
-  int32_t *di = (int32_t *) d_ , *d = di ;
-  int n7 = ni & 7 ;
-  V8I v, vmai, vmii, vmiu, v0, vzero, vmask ;
-  V8F vf ;
-
-  ZERO8I(v0) ;
-//   vf = (V8F) _mm256_xor_si256(vf, (V8I) vf) ;
-//   ZERO8( vf, V8F) ;
-  ZERO8I(vzero) ;
-  MASK8I(vmask, n7) ;
-  SET8I(vmii, 0x7FFFFFFF) ;
-  SET8I(vmai, 0x80000000) ;
-  if(n7){
-    MOVE8I(v,s+ 0,d+ 0) ; MIMA8I(v,vmii,vmai) ; MIN08(v,vmiu,v0,vzero) ;
-    vzero = AND8I(vmask,vzero) ;
-    ni -= n7 ;
-    s += n7 ;
-    d += n7 ;
-  }
-  while(ni > 32) {
-    MOVE8I(v,s+ 0,d+ 0) ; MIMA8I(v,vmii,vmai) ; MIN08(v,vmiu,v0,vzero) ;
-    MOVE8I(v,s+ 8,d+ 8) ; MIMA8I(v,vmii,vmai) ; MIN08(v,vmiu,v0,vzero) ;
-    MOVE8I(v,s+16,d+16) ; MIMA8I(v,vmii,vmai) ; MIN08(v,vmiu,v0,vzero) ;
-    MOVE8I(v,s+24,d+24) ; MIMA8I(v,vmii,vmai) ; MIN08(v,vmiu,v0,vzero) ;
-    ni -= 32 ;
-    s += 32 ;
-    d += 32 ;
-  };
-  uint32_t n4 = ni / 8 ;
-  s = s - (4 - n4) * 8 ;
-  d = d - (4 - n4) * 8 ;
-  switch(n4)
-  {
-    case 4 : MOVE8I(v,s+ 0,d+ 0) ; MIMA8I(v,vmii,vmai) ; MIN08(v,vmiu,v0,vzero) ;
-    case 3 : MOVE8I(v,s+ 8,d+ 8) ; MIMA8I(v,vmii,vmai) ; MIN08(v,vmiu,v0,vzero) ;
-    case 2 : MOVE8I(v,s+16,d+16) ; MIMA8I(v,vmii,vmai) ; MIN08(v,vmiu,v0,vzero) ;
-    case 1 : MOVE8I(v,s+24,d+24) ; MIMA8I(v,vmii,vmai) ; MIN08(v,vmiu,v0,vzero) ;
-    case 0 :
-    default : ;
-  }
-  FOLD8_IS(F4MAXI, vmai,  &(bp->maxs.i) ) ;    // fold 8 element vector into a scalar
-  FOLD8_IS(F4MINI, vmii,  &(bp->mins.i) ) ;
-  FOLD8_IS(F4MINU, vmiu,  &(bp->min0.u) ) ;
-  FOLD8_IS(F4ADDI, vzero, &(bp->zeros)) ;
-}
 #endif
+
 // SIMD does not seem to be useful any more for these funtions
 #undef WITH_SIMD
 
@@ -242,7 +331,7 @@ static inline void copy_and_properties_1d(void *s_, void *d_, uint32_t ni, block
 // ni    : row size (row storage size in blk)
 // lni   : row storage size in f
 // nj    : number of rows
-int put_word_block_07(void *restrict f, void *restrict blk, int ni, int lni, int nj){
+static int put_word_block_07(void *restrict f, void *restrict blk, int ni, int lni, int nj){
   uint32_t *restrict d = (uint32_t *) f ;
   uint32_t *restrict s = (uint32_t *) blk ;
   int i, ni7 ;
@@ -250,7 +339,8 @@ int put_word_block_07(void *restrict f, void *restrict blk, int ni, int lni, int
   __m256i vm = _mm256_memmask_epi32(ni) ;  // mask for load and store operations
 #endif
 
-  if(ni > 7) return 1 ;
+  if(ni > 7 || ni < 0) return -1 ;
+
   ni7 = (ni & 7) ;
   while(nj--){
 #if defined(__x86_64__) && defined(__AVX2__) && defined(WITH_SIMD)
@@ -260,7 +350,7 @@ int put_word_block_07(void *restrict f, void *restrict blk, int ni, int lni, int
 #endif
     s += ni ; d += lni ;
   }
-  return 0 ;
+  return ni * nj ;
 }
 
 // special case for rows shorter than 8 elements
@@ -268,7 +358,7 @@ int put_word_block_07(void *restrict f, void *restrict blk, int ni, int lni, int
 // ni    : row size (row storage size in blk)
 // lni   : row storage size in f
 // nj    : number of rows
-int get_word_block_07(void *restrict f, void *restrict blk, int ni, int lni, int nj){
+static int get_word_block_07(void *restrict f, void *restrict blk, int ni, int lni, int nj){
   uint32_t *restrict s = (uint32_t *) f ;
   uint32_t *restrict d = (uint32_t *) blk ;
   int i, ni7 ;
@@ -276,7 +366,8 @@ int get_word_block_07(void *restrict f, void *restrict blk, int ni, int lni, int
   __m256i vm = _mm256_memmask_epi32(ni) ;  // mask for load and store operations
 #endif
 
-  if(ni > 7) return 1 ;
+  if(ni > 7 || ni < 0) return -1 ;
+
   ni7 = (ni & 7) ;
   while(nj--){
 #if defined(__x86_64__) && defined(__AVX2__) && defined(WITH_SIMD)
@@ -286,7 +377,7 @@ int get_word_block_07(void *restrict f, void *restrict blk, int ni, int lni, int
 #endif
     s += lni ; d += ni ;
   }
-  return 0 ;
+  return ni * nj ;
 }
 
 // insert a contiguous block (ni x nj) of 32 bit words into f from blk
@@ -338,8 +429,7 @@ int get_word_block(void *restrict f, void *restrict blk, int ni, int lni, int nj
   ni7 = ni7 ? ni7 : 8 ;
   while(nj--){
 #if defined(__x86_64__) && defined(__AVX2__) && defined(WITH_SIMD)
-//     copy_and_properties_1d(s, d, ni, &bp) ;
-      _mm256_storeu_si256((__m256i *)(d), _mm256_loadu_si256((__m256i *)(s))) ;
+    _mm256_storeu_si256((__m256i *)(d), _mm256_loadu_si256((__m256i *)(s))) ;
     for(i0 = ni7 ; i0 < ni-7 ; i0 += 8 ){
       _mm256_storeu_si256((__m256i *)(d+i0), _mm256_loadu_si256((__m256i *)(s+i0))) ;
     }

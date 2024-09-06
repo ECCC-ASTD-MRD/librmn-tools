@@ -37,4 +37,5 @@ int put_word_block(void *restrict f, void *restrict blk, int ni, int lni, int nj
 int gather_int32_block(int32_t *restrict src, void *restrict blk, int ni, int lni, int nj, block_properties *bp) ;
 int gather_float_block(float *restrict src, void *restrict blk, int ni, int lni, int nj, block_properties *bp) ;
 
-int scatter_word_block(void *restrict src, void *restrict blk, int ni, int lni, int nj) ;
+int scatter_word32_block(void *restrict src, void *restrict blk, int ni, int lni, int nj) ;
+int gather_word32_block(void *restrict src, void *restrict blk, int ni, int lni, int nj) ;
