@@ -79,53 +79,75 @@ static int gather_int32_block_07(int32_t *restrict src, void *restrict blk, int 
   __v256i vmaxs, vmins, vminu, vdata, vmask, vsign ;
   return ni * nj ;
 }
-static int gather_float_block_07(int32_t *restrict src, void *restrict blk, int ni, int lni, int nj, block_properties *bp){
-  int32_t *restrict s = (int32_t *) src ;
-  int32_t *restrict d = (int32_t *) blk ;
-  __v256i vmaxs, vmins, vminu, vdata, vmask, vsign, v1111, v0111, vfabs, vfake ;
-  int i, ni7 = (ni & 7), ti, ts ;
 
-  if(ni7 == 0) return 0 ;
-
-  v1111 = ones_v256() ;
-  v0111 = srli_v8i(v1111, 1)  ;  // 0x7FFFFFFF sign mask to get absolute value
-  vmask = mask_v8i(ni7) ;        // load mask, n < vector length
-  vmins = srli_v8i(v1111, 1)  ;  // 0x7FFFFFFF  huge positive
-  vmaxs = slli_v8i(v1111, 31) ;  // 0x80000000  huge negative
-  vminu = vmins ;                // 0x7FFFFFFF  huge positive
-  while(nj--){
-    vdata = maskload_v8i(s, vmask) ;         // load data from source array
-    vfabs = abs_v8i(vdata) ;                 // absolute value
-    vsign = srai_v8i(vdata, 31) ;            // 0 / -1 for sign
-    vfake = xor_v256(vfabs, vsign) ;         // fake signed integer value representing float value
-    vminu = min_v8u(vminu, vfabs) ;          // minimum absolute value
-    vmaxs = max_v8i(vmaxs, vfake) ;          // maximum value
-    vmins = min_v8i(vmins, vfake) ;          // minimum value
-    storeu_v256((__v256i *)d, vdata) ;       // store into destination array (CONTIGUOUS)
-    s += lni ; d += ni ;
-  }
-  fold_properties(vmaxs, vmins, vminu, bp) ; // fold results into a single scalar
-  // translate signed values back into floats
-  bp->maxs.i = unfake_float(bp->maxs.i) ;
-  bp->mins.i = unfake_float(bp->mins.i) ;
-
-  return ni * nj ;
-}
-
+#define MIN(OLD,NEW) OLD = (NEW < OLD) ? NEW : OLD
+#define MAX(OLD,NEW) OLD = (NEW > OLD) ? NEW : OLD
+#define FABS(V) V & 0x7FFFFFFF
 int gather_float_block(float *restrict src, void *restrict blk, int ni, int lni, int nj, block_properties *bp){
   int32_t *restrict s = (int32_t *) src ;
   int32_t *restrict d = (int32_t *) blk ;
-  int i, ni7 = (ni & 7) ;
-  __v256i vmaxs, vmins, vminu, vdata, vmask, vsign, v1111, v0111, vfabs, vfake ;
-  __v128i vt ;
-  int32_t ti[8], tu[8] ;
 
   if(ni*nj == 0) return 0 ;
 
   if(ni  <  8) {
-    return gather_float_block_07(s, d, ni, lni, nj, bp) ;
-  }else{
-  }
+    int32_t maxs = 0x80000000, mins = 0x7FFFFFFF, t ;
+    uint32_t minu = 0x7FFFFFFF, ta ;
+    while(nj--){
+      switch(ni & 7){   // switch on row length
+        //       copy value        absolute value        fake integer   signed min    signed max    abs value min
+        case 7 : d[6] = t = s[6] ; ta = t & 0x7FFFFFFF ; t=ta^(t>>31) ; MIN(mins,t) ; MAX(maxs,t) ; MIN(minu,ta) ;
+        case 6 : d[5] = t = s[5] ; ta = t & 0x7FFFFFFF ; t=ta^(t>>31) ; MIN(mins,t) ; MAX(maxs,t) ; MIN(minu,ta) ;
+        case 5 : d[4] = t = s[4] ; ta = t & 0x7FFFFFFF ; t=ta^(t>>31) ; MIN(mins,t) ; MAX(maxs,t) ; MIN(minu,ta) ;
+        case 4 : d[3] = t = s[3] ; ta = t & 0x7FFFFFFF ; t=ta^(t>>31) ; MIN(mins,t) ; MAX(maxs,t) ; MIN(minu,ta) ;
+        case 3 : d[2] = t = s[2] ; ta = t & 0x7FFFFFFF ; t=ta^(t>>31) ; MIN(mins,t) ; MAX(maxs,t) ; MIN(minu,ta) ;
+        case 2 : d[1] = t = s[1] ; ta = t & 0x7FFFFFFF ; t=ta^(t>>31) ; MIN(mins,t) ; MAX(maxs,t) ; MIN(minu,ta) ;
+        case 1 : d[0] = t = s[0] ; ta = t & 0x7FFFFFFF ; t=ta^(t>>31) ; MIN(mins,t) ; MAX(maxs,t) ; MIN(minu,ta) ;
+        case 0 : d += ni ; s += lni ;   // pointers to next row
+      }
+    }
+    bp->maxs.i = maxs ; bp->mins.i = mins ; bp->minu.u = minu ;
+  }else{      // (ni  <  8)
+    __v256i vmaxs, vmins, vminu, vdata, vmask, vsign, v1111, v0111, vfabs, vfake ;
+    int32_t ti[8], tu[8], *s0, *d0 ;
+    int i, ni7, n ;
+
+    v1111 = ones_v256() ;
+    v0111 = srli_v8i(v1111, 1)  ;  // 0x7FFFFFFF sign mask to get absolute value
+    vmins = srli_v8i(v1111, 1)  ;  // 0x7FFFFFFF  huge positive
+    vmaxs = slli_v8i(v1111, 31) ;  // 0x80000000  huge negative
+    vminu = vmins ;                // 0x7FFFFFFF  huge positive
+    ni7 = (ni & 7) ;               // modulo(ni , 8)
+    while(nj--){                                 // loop over rows
+      n = ni ; s0 = s ; d0 = d ;
+      if(ni7){                                   // first slice with less thatn 8 elements
+        vdata = loadu_v256((__v256i *)s0) ;      // load data from source array
+        vfabs = abs_v8i(vdata) ;                 // absolute value
+        vsign = srai_v8i(vdata, 31) ;            // 0 / -1 for sign
+        vfake = xor_v256(vfabs, vsign) ;         // fake signed integer value representing float value
+        vminu = min_v8u(vminu, vfabs) ;          // minimum absolute value
+        vmaxs = max_v8i(vmaxs, vfake) ;          // maximum signed value
+        vmins = min_v8i(vmins, vfake) ;          // minimum signed value
+        storeu_v256((__v256i *)d0, vdata) ;      // store into destination array (CONTIGUOUS)
+        n -= ni7 ; s0 += ni7 ; d0 += ni7 ;       // bump count and pointers
+      }
+      while(n > 7){                              // following slices with 8 elements
+        vdata = loadu_v256((__v256i *)s0) ;      // load data from source array
+        vfabs = abs_v8i(vdata) ;                 // absolute value
+        vsign = srai_v8i(vdata, 31) ;            // 0 / -1 for sign
+        vfake = xor_v256(vfabs, vsign) ;         // fake signed integer value representing float value
+        vminu = min_v8u(vminu, vfabs) ;          // minimum absolute value
+        vmaxs = max_v8i(vmaxs, vfake) ;          // maximum signed value
+        vmins = min_v8i(vmins, vfake) ;          // minimum signed value
+        storeu_v256((__v256i *)d0, vdata) ;      // store into destination array (CONTIGUOUS)
+        n -= 8 ; s0 += 8 ; d0 += 8 ;
+      }
+      s += lni ; d += ni ;                       // pointers to next row
+    }
+    fold_properties(vmaxs, vmins, vminu, bp) ; // fold results into a single scalar
+  }      // (ni  <  8)
+  // translate signed values back into floats
+  bp->maxs.i = unfake_float(bp->maxs.i) ;
+  bp->mins.i = unfake_float(bp->mins.i) ;
   return ni * nj ;
 }
 int gather_int32_block(int32_t *restrict src, void *restrict blk, int ni, int lni, int nj, block_properties *bp){
