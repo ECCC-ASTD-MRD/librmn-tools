@@ -24,6 +24,57 @@
 
 #include <rmn/move_blocks.h>
 
+// move a block (ni x nj) of 32 bit words from src to dst
+// src   : array the data comes from
+// lnis  : row storage size of src
+// dst   : array to receive data
+// lnid  : row storage size of dst
+// ni    : row size (row storage size of blk)
+// nj    : number of rows
+// return the number of words moved
+int move_word32_block(void *restrict src, int lnis, void *restrict dst, int lnid, int ni, int nj){
+  uint32_t *restrict d = (uint32_t *) dst ;
+  uint32_t *restrict s = (uint32_t *) src ;
+
+  if(ni*nj == 0) return 0 ;
+
+  if(ni < 8){
+    while(nj--){
+      switch(ni & 7){   // switch on row length
+        //       copy value
+        case 7 : d[6] = s[6] ;
+        case 6 : d[5] = s[5] ;
+        case 5 : d[4] = s[4] ;
+        case 4 : d[3] = s[3] ;
+        case 3 : d[2] = s[2] ;
+        case 2 : d[1] = s[1] ;
+        case 1 : d[0] = s[0] ;
+        case 0 : d += lnid ; s += lnis ;   // pointers to next row
+      }
+    }
+  }else{
+    __v256i vdata ;
+    int i, ni7, n ;
+    ni7 = (ni & 7) ;               // modulo(ni , 8)
+    while(nj--){
+      uint32_t *s0, *d0 ;
+      n = ni ; s0 = s ; d0 = d ;
+      if(ni7){                                   // first slice with less thatn 8 elements
+        vdata = loadu_v256((__v256i *)s0) ;      // load data from source array
+        storeu_v256((__v256i *)d0, vdata) ;      // store into destination array (CONTIGUOUS)
+        n -= ni7 ; s0 += ni7 ; d0 += ni7 ;       // bump count and pointers
+      }
+      while(n > 7){                              // following slices with 8 elements
+        vdata = loadu_v256((__v256i *)s0) ;      // load data from source array
+        storeu_v256((__v256i *)d0, vdata) ;      // store into destination array (CONTIGUOUS)
+        n -= 8 ; s0 += 8 ; d0 += 8 ;
+      }
+      s += lnis ; d += lnid ;                    // pointers to next row
+    }
+  }
+  return ni * nj ;
+}
+
 int gather_word32_block(void *restrict array, void *restrict blk, int ni, int lni, int nj){
   uint32_t *restrict d = (uint32_t *) blk ;
   uint32_t *restrict s = (uint32_t *) array ;
@@ -65,7 +116,7 @@ int gather_word32_block(void *restrict array, void *restrict blk, int ni, int ln
     }
   }
 
-  return 0 ;
+  return ni * nj ;
 }
 
 // insert a contiguous block (ni x nj) of 32 bit words into array from blk
@@ -150,6 +201,10 @@ static int32_t unfake_float(int32_t fake){
 // nj    : number of rows
 // bp    : block properties (min / max / min abs)
 // return number of values processed
+int move_float_block(float *restrict src, int lnis, void *restrict dst, int lnid, int ni, int nj, block_properties *bp){
+  if(bp == NULL) return move_word32_block(src, lnis, dst, lnid, ni, nj) ;
+  return ni * nj ;
+}
 int gather_float_block(float *restrict src, void *restrict blk, int ni, int lni, int nj, block_properties *bp){
   int32_t *restrict s = (int32_t *) src ;
   int32_t *restrict d = (int32_t *) blk ;
@@ -215,6 +270,9 @@ int gather_float_block(float *restrict src, void *restrict blk, int ni, int lni,
   // translate signed values back into floats
   bp->maxs.i = unfake_float(bp->maxs.i) ;
   bp->mins.i = unfake_float(bp->mins.i) ;
+  return ni * nj ;
+}
+int gather_float_block_(float *restrict src, void *restrict blk, int ni, int lni, int nj, block_properties *bp){
   return ni * nj ;
 }
 
