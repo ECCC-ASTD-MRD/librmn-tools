@@ -24,6 +24,8 @@
 
 #include <rmn/move_blocks.h>
 
+typedef enum {integer_data, float_data } int_or_float ;
+
 // move a block (ni x nj) of 32 bit words from src to dst
 // src   : array the data comes from
 // lnis  : row storage size of src
@@ -32,11 +34,13 @@
 // ni    : row size (row storage size of blk)
 // nj    : number of rows
 // return the number of words moved
-int move_word32_block(void *restrict src, int lnis, void *restrict dst, int lnid, int ni, int nj){
+int move_word32_block(void *restrict src, int lnis, void *restrict dst, int lnid, int ni, int nj, int_or_float blocktype, block_properties *bp){
   uint32_t *restrict d = (uint32_t *) dst ;
   uint32_t *restrict s = (uint32_t *) src ;
+  block_properties bp_ ;
 
   if(ni*nj == 0) return 0 ;
+  if(bp == NULL) bp = &bp_ ;
 
   if(ni < 8){
     while(nj--){
@@ -72,6 +76,16 @@ int move_word32_block(void *restrict src, int lnis, void *restrict dst, int lnid
       s += lnis ; d += lnid ;                    // pointers to next row
     }
   }
+  return ni * nj ;
+}
+
+int move_float_block(float *restrict src, int lnis, void *restrict dst, int lnid, int ni, int nj, block_properties *bp){
+  if(bp == NULL) return move_word32_block(src, lnis, dst, lnid, ni, nj, float_data, bp) ;
+  return ni * nj ;
+}
+
+int move_int32_block(float *restrict src, int lnis, void *restrict dst, int lnid, int ni, int nj, block_properties *bp){
+  if(bp == NULL) return move_word32_block(src, lnis, dst, lnid, ni, nj, integer_data, bp) ;
   return ni * nj ;
 }
 
@@ -201,10 +215,6 @@ static int32_t unfake_float(int32_t fake){
 // nj    : number of rows
 // bp    : block properties (min / max / min abs)
 // return number of values processed
-int move_float_block(float *restrict src, int lnis, void *restrict dst, int lnid, int ni, int nj, block_properties *bp){
-  if(bp == NULL) return move_word32_block(src, lnis, dst, lnid, ni, nj) ;
-  return ni * nj ;
-}
 int gather_float_block(float *restrict src, void *restrict blk, int ni, int lni, int nj, block_properties *bp){
   int32_t *restrict s = (int32_t *) src ;
   int32_t *restrict d = (int32_t *) blk ;
