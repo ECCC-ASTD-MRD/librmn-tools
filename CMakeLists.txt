@@ -158,7 +158,7 @@ set(LLVM_FFLAGS -fconvert=big-endian ${F_OPENMP})
 
 set(Intel_CFLAGS -march=native -diag-disable=10441,10121 ${Q_OPENMP})
 set(IntelLLVM_CFLAGS -Wno-static-in-inline -march=native ${Q_OPENMP})
-set(GNU_CFLAGS -march=native ${F_OPENMP})
+set(GNU_CFLAGS -march=native -Wno-implicit-fallthrough -Wno-unused-function ${F_OPENMP})
 set(Clang_CFLAGS -Wno-static-in-inline -march=native ${F_OPENMP})
 set(PGI_CFLAGS  -tp native ${M_OPENMP})
 set(LLVM_CFLAGS  ${F_OPENMP})

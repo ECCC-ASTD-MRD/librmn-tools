@@ -31,22 +31,34 @@ static int ADDRESS_MODE = -1 ;
 #endif
 
 #if defined(__INTEL_LLVM_COMPILER)
+// #warning "ICX detected"
+#define COMPILER_IS_ICX
   static char C_COMPILER[] = "INTEL_ICX" ;  // icx
 
 #elif defined(__INTEL_COMPILER)
+// #warning "ICC detected"
+#define COMPILER_IS_ICC
   static char C_COMPILER[] = "INTEL_ICC" ;  // icc
 
 #elif defined(__PGI)
-static char C_COMPILER[] = "PGI/Nvidia" ;   // pgcc nvcc
+// #warning "PGI detected"
+#define COMPILER_IS_PGI
+  static char C_COMPILER[] = "PGI/Nvidia" ;   // pgcc nvcc
 
 #elif defined(__clang__)
-static char C_COMPILER[] = "CLANG" ;        // llvm/aocc clang
+// #warning "CLANG detected"
+#define COMPILER_IS_CLANG
+  static char C_COMPILER[] = "CLANG" ;        // llvm/aocc clang
 
 #elif defined(__GNUC__)
-static char C_COMPILER[] = "GNU" ;          // gcc or lookalike
+// #warning "GNU detected"
+#define COMPILER_IS_GCC
+  static char C_COMPILER[] = "GNU" ;          // gcc or lookalike
 
 #else
-static char C_COMPILER[] = "UNKNOWN" ;      // unknown
+// #warning "UNKNOWN detected"
+#define COMPILER_IS_UNKNOWN
+  static char C_COMPILER[] = "UNKNOWN" ;      // unknown
 
 #endif
 
