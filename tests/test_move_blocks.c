@@ -119,9 +119,9 @@ int main(int argc, char **argv){
         blk[j][i] = 0xFFFF ;
       }
     }
-//     get_word_block(z, blk, ni, LNI, nj) ;
+    get_word_block(z, blk, ni, LNI, nj) ;
 //     gather_word32_block(z, blk, ni, LNI, nj) ;
-    gather_int32_block((int32_t *)z, blk, ni, LNI, nj, &bp) ;
+//     gather_int32_block((int32_t *)z, blk, ni, LNI, nj, &bp) ;
     errors = 0 ;
     for(j=0 ; j<nj ; j++){
       for(i=0 ; i<ni ; i++){
@@ -133,8 +133,8 @@ int main(int argc, char **argv){
     }
     fprintf(stderr, "get block errors = %d [%dx%d]\n", errors, ni, nj) ;
 
-//     put_word_block(r, blk, ni, LNI, nj) ;
-    scatter_word32_block(r, blk, ni, LNI, nj) ;
+    put_word_block(r, blk, ni, LNI, nj) ;
+//     scatter_word32_block(r, blk, ni, LNI, nj) ;
     errors = 0 ;
     for(j=0 ; j<nj ; j++){
       for(i=0 ; i<ni ; i++){
@@ -151,18 +151,18 @@ int main(int argc, char **argv){
     t0 = timer_min * NaNoSeC / (ni*nj) ;
     fprintf(stderr, "get block     : %4.2f ns/word\n", t0) ;
 
-    TIME_LOOP_EZ(NITER, ni*nj, gather_int32_block((int32_t *)z, blk, ni, LNI, nj, &bp) ) ;
-    if(timer_min == timer_max) timer_avg = timer_max ;
-    t0 = timer_min * NaNoSeC / (ni*nj) ;
-    fprintf(stderr, "gather + prop : %4.2f ns/word\n", t0) ;
+//     TIME_LOOP_EZ(NITER, ni*nj, gather_int32_block((int32_t *)z, blk, ni, LNI, nj, &bp) ) ;
+//     if(timer_min == timer_max) timer_avg = timer_max ;
+//     t0 = timer_min * NaNoSeC / (ni*nj) ;
+//     fprintf(stderr, "gather + prop : %4.2f ns/word\n", t0) ;
 
     TIME_LOOP_EZ(NITER, ni*nj, put_word_block(z, blk, ni, LNI, nj) ) ;
     t0 = timer_min * NaNoSeC / (ni*nj) ;
     fprintf(stderr, "put block     : %4.2f ns/word\n", t0) ;
 
-    TIME_LOOP_EZ(NITER, ni*nj, scatter_word32_block(z, blk, ni, LNI, nj) ) ;
-    t0 = timer_min * NaNoSeC / (ni*nj) ;
-    fprintf(stderr, "scatter block : %4.2f ns/word\n", t0) ;
+//     TIME_LOOP_EZ(NITER, ni*nj, scatter_word32_block(z, blk, ni, LNI, nj) ) ;
+//     t0 = timer_min * NaNoSeC / (ni*nj) ;
+//     fprintf(stderr, "scatter block : %4.2f ns/word\n", t0) ;
 
     if(errors > 0){
       for(j=nj-1 ; j>=0 ; j--){

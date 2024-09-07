@@ -32,7 +32,7 @@ typedef struct{
   int32_t  zeros ;   // number of ZERO values in block
 } block_properties ;
 
-typedef enum {int_data, float_data } int_or_float ;
+typedef enum {raw_data, int_data, float_data } int_or_float ;
 
 int move_word32_block(void *restrict src, int lnis, void *restrict dst, int lnid, int ni, int nj, int_or_float datatype, block_properties *bp);
 int move_int32_block(int32_t *restrict src, int lnis, void *restrict dst, int lnid, int ni, int nj, block_properties *bp);
