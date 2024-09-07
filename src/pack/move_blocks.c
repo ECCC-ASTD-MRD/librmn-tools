@@ -14,12 +14,33 @@
 
 #include <stdint.h>
 
-#define NO_SIMD
-#undef WITH_SIMD_
+// SIMD does not seem to be useful any more for these funtions with most compilers
+#undef WITH_SIMD
 
 #define VERBOSE_SIMD
+
 #define ALIAS_INTEL_SIMD_INTRINSICS
-#define USE_INTEL_SIMD_INTRINSICS_
+// use C version of the SIMD intrinsics (icx / llvm clang / aocc clang)
+#define USE_INTEL_SIMD_INTRINSICS_FALSE
+
+#if ! defined(__INTEL_COMPILER_UPDATE) &&  ! defined(__PGI)
+// give an explicit hint to the gcc optimizer
+#pragma GCC optimize "tree-vectorize"
+// gcc seems to do a poor vectorizing job when computing "properties"
+#define USE_INTEL_SIMD_INTRINSICS
+#endif
+
+#if defined(__INTEL_COMPILER_UPDATE) && ! defined(__INTEL_LLVM_COMPILER)
+// icc seems to do a poor vectorizing job, icx is O.K.
+#define USE_INTEL_SIMD_INTRINSICS    // for vector SIMD functions
+#define WITH_SIMD                    // activate intrinsics everywhere
+#endif
+
+#if defined(__PGI)
+// nvc seems to do a poor vectorizing job when using the C version of the SIMD intrinsics
+#define USE_INTEL_SIMD_INTRINSICS
+#endif
+
 #include <rmn/simd_functions.h>
 
 #include <rmn/move_blocks.h>
@@ -46,76 +67,6 @@ void fold_properties(__v256i vmaxs, __v256i vmins, __v256i vminu, block_properti
 // restore integer representing flot to original float bit pattern
 static int32_t unfake_float(int32_t fake){
   return ((fake >> 31) ^ fake) | (fake & 0x80000000) ;
-}
-
-int move_float_block__(float *restrict src, int lnis, void *restrict dst, int lnid, int ni, int nj, block_properties *bp){
-  int32_t *restrict s = (int32_t *) src ;
-  int32_t *restrict d = (int32_t *) dst ;
-  block_properties bp_ ;
-
-  if(ni*nj == 0) return 0 ;
-  if(bp == NULL) bp = &bp_ ;
-
-  if(ni  <  8) {
-    int32_t maxs = 0x80000000, mins = 0x7FFFFFFF, t ;
-    uint32_t minu = 0x7FFFFFFF, ta ;
-    while(nj--){
-      switch(ni & 7){   // switch on row length
-        //       copy value        absolute value        fake integer   signed min    signed max    abs value min
-        case 7 : d[6] = t = s[6] ; ta = t & 0x7FFFFFFF ; t=ta^(t>>31) ; MIN(mins,t) ; MAX(maxs,t) ; MIN(minu,ta) ;
-        case 6 : d[5] = t = s[5] ; ta = t & 0x7FFFFFFF ; t=ta^(t>>31) ; MIN(mins,t) ; MAX(maxs,t) ; MIN(minu,ta) ;
-        case 5 : d[4] = t = s[4] ; ta = t & 0x7FFFFFFF ; t=ta^(t>>31) ; MIN(mins,t) ; MAX(maxs,t) ; MIN(minu,ta) ;
-        case 4 : d[3] = t = s[3] ; ta = t & 0x7FFFFFFF ; t=ta^(t>>31) ; MIN(mins,t) ; MAX(maxs,t) ; MIN(minu,ta) ;
-        case 3 : d[2] = t = s[2] ; ta = t & 0x7FFFFFFF ; t=ta^(t>>31) ; MIN(mins,t) ; MAX(maxs,t) ; MIN(minu,ta) ;
-        case 2 : d[1] = t = s[1] ; ta = t & 0x7FFFFFFF ; t=ta^(t>>31) ; MIN(mins,t) ; MAX(maxs,t) ; MIN(minu,ta) ;
-        case 1 : d[0] = t = s[0] ; ta = t & 0x7FFFFFFF ; t=ta^(t>>31) ; MIN(mins,t) ; MAX(maxs,t) ; MIN(minu,ta) ;
-        case 0 : d += lnid ; s += lnis ;   // pointers to next row
-      }
-    }
-    bp->maxs.i = maxs ; bp->mins.i = mins ; bp->minu.u = minu ;
-  }else{      // (ni  <  8)
-    __v256i vmaxs, vmins, vminu, vdata, vsign, v1111, v0111, vfabs, vfake ;
-    int32_t *s0, *d0 ;
-    int ni7, n ;
-
-    v1111 = ones_v256() ;
-    v0111 = srli_v8i(v1111, 1)  ;  // 0x7FFFFFFF sign mask to get absolute value
-    vmins = srli_v8i(v1111, 1)  ;  // 0x7FFFFFFF  huge positive
-    vmaxs = slli_v8i(v1111, 31) ;  // 0x80000000  huge negative
-    vminu = vmins ;                // 0x7FFFFFFF  huge positive
-    ni7 = (ni & 7) ;               // modulo(ni , 8)
-    while(nj--){                                 // loop over rows
-      n = ni ; s0 = s ; d0 = d ;
-      if(ni7){                                   // first slice with less thatn 8 elements
-        vdata = loadu_v256((__v256i *)s0) ;      // load data from source array
-        vfabs = and_v256(vdata, v0111) ;         // absolute value (suppress sign bit)
-        vsign = srai_v8i(vdata, 31) ;            // 0 / -1 for sign
-        vfake = xor_v256(vfabs, vsign) ;         // fake signed integer value representing float value
-        vminu = min_v8u(vminu, vfabs) ;          // minimum absolute value
-        vmaxs = max_v8i(vmaxs, vfake) ;          // maximum signed value
-        vmins = min_v8i(vmins, vfake) ;          // minimum signed value
-        storeu_v256((__v256i *)d0, vdata) ;      // store into destination array (CONTIGUOUS)
-        n -= ni7 ; s0 += ni7 ; d0 += ni7 ;       // bump count and pointers
-      }
-      while(n > 7){                              // following slices with 8 elements
-        vdata = loadu_v256((__v256i *)s0) ;      // load data from source array
-        vfabs = and_v256(vdata, v0111) ;         // absolute value (suppress sign bit)
-        vsign = srai_v8i(vdata, 31) ;            // 0 / -1 for sign
-        vfake = xor_v256(vfabs, vsign) ;         // fake signed integer value representing float value
-        vminu = min_v8u(vminu, vfabs) ;          // minimum absolute value
-        vmaxs = max_v8i(vmaxs, vfake) ;          // maximum signed value
-        vmins = min_v8i(vmins, vfake) ;          // minimum signed value
-        storeu_v256((__v256i *)d0, vdata) ;      // store into destination array (CONTIGUOUS)
-        n -= 8 ; s0 += 8 ; d0 += 8 ;
-      }
-      s += lnis ; d += lnid ;                    // pointers to next row
-    }
-    fold_properties(vmaxs, vmins, vminu, bp) ; // fold results into a single scalar
-  }      // (ni  <  8)
-  // translate signed values back into floats
-  bp->maxs.i = unfake_float(bp->maxs.i) ;
-  bp->mins.i = unfake_float(bp->mins.i) ;
-  return ni * nj ;
 }
 
 // move a block (ni x nj) of 32 bit floats from src to dst, set moved block properties
@@ -334,7 +285,7 @@ int move_word32_block(void *restrict src, int lnis, void *restrict dst, int lnid
     return -1 ;
   }
 }
-
+#if 0
 int gather_word32_block(void *restrict array, void *restrict blk, int ni, int lni, int nj){
   uint32_t *restrict d = (uint32_t *) blk ;
   uint32_t *restrict s = (uint32_t *) array ;
@@ -578,45 +529,6 @@ int gather_int32_block(int32_t *restrict src, void *restrict blk, int ni, int ln
 
   return ni * nj ;
 }
-
-// int gather_int32_block(int32_t *restrict src, void *restrict blk, int ni, int lni, int nj, block_properties *bp){
-//   int32_t *restrict s = (int32_t *) src ;
-//   int32_t *restrict d = (int32_t *) blk ;
-//   int i0, i, ni7 ;
-// 
-//   if(ni  <  8) {
-//     return gather_int32_block_07(src, blk, ni, lni, nj, bp) ;
-//   }else{
-// 
-//     ni7 = (ni & 7) ;
-//     ni7 = ni7 ? ni7 : 8 ;
-//     while(nj--){
-//   // #if defined(__x86_64__) && defined(__AVX2__) && defined(WITH_SIMD_)
-//   //     copy_and_properties_1d(s, d, ni, bp) ;
-//   // #else
-//       for(i=0 ; i<8 ; i++) d[i] = s[i] ;     // first and second chunk may overlap if ni not a multiple of 8
-//       for(i0 = ni7 ; i0 < ni-7 ; i0 += 8 ){
-//         for(i=0 ; i<8 ; i++) d[i0+i] = s[i0+i] ;
-//       }
-//   // #endif
-//       s += lni ; d += ni ;
-//     }
-//   }
-//   return ni * nj ;
-// }
-
-#if 0
-// lowest non zero absolute value
-//                            -1 where V == 0    ABS value    bump zeros count  blend VMI0 where zero  unsigned minimum
-#define MIN08(V,VMI0,V0,VZ) { V8I z=VEQ8(V,V0) ; V=ABS8I(V) ; VZ=ADD8I(VZ,z) ;  V=BLEND8(V,VMI0,z) ;   VMI0=MINU8(V,VMI0) ; }
-#endif
-
-// SIMD does not seem to be useful any more for these funtions
-#undef WITH_SIMD
-
-#if ! defined(__INTEL_COMPILER_UPDATE) &&  ! defined(__PGI)
-// give an explicit hint to the gcc optimizer
-#pragma GCC optimize "tree-vectorize"
 #endif
 
 // special case for rows shorter than 8 elements

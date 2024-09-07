@@ -544,4 +544,8 @@ static inline __m256i mask_v8i(int n){
 // fold 8 elements into 1 using 4 element function FN4 and store result
 #define FOLD8_IS(FN4, V8, R) { __m128i v = FOLD8_I4(FN4, V8, v) ; FOLD4_IS(FN4, v, R) ; }
 #define FOLD8_FS(FN4, V8, R) { __m128 v = FOLD8_F4(FN4, V8, v) ; FOLD4_FS(FN4, v, R) ; }
+
+// lowest non zero absolute value
+//                            -1 where V == 0    ABS value    bump zeros count  blend VMI0 where zero  unsigned minimum
+#define MIN08(V,VMI0,V0,VZ) { V8I z=VEQ8(V,V0) ; V=ABS8I(V) ; VZ=ADD8I(VZ,z) ;  V=BLEND8(V,VMI0,z) ;   VMI0=MINU8(V,VMI0) ; }
 #endif

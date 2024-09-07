@@ -23,53 +23,6 @@
 #include <rmn/test_helpers.h>
 #include <rmn/move_blocks.h>
 
-#if defined(SYNTAX_TEST_ON)
-#define VERBOSE_SIMD
-#define NO_SIMD__
-
-typedef struct{ union{ float   f[8] ; int32_t  i[8] ; uint32_t u[8] ; } ; } V8f ;
-// typedef struct{ union{ float   f[8] ; int32_t  i[8] ; uint32_t u[8] ; } ; } V8i ;
-typedef V8f V8i ;
-
-
-V8f _mm256_blendv_ps_(V8f A, V8f B, V8f MASK){
-  int i ;
-  V8f R ;
-  for(i=0 ; i<8 ; i++) R.i[i] = (MASK.i[i] < 0) ? B.i[i] : A.i[i] ;
-  return R ;
-}
-static inline V8i _mm256_xor_si256_( V8i A,  V8i B){
-  int i ;
-  V8i R ;
-  for(i=0 ; i<8 ; i++) R.i[i] = A.i[i] ^ B.i[i] ;
-  return R ;
-}
-static inline V8f _mm256_castsi256_ps_( V8i A){
-  int i ;
-  V8f R ;
-  for(i=0 ; i<8 ; i++) R.i[i] = A.i[i] ;
-  return R ;
-}
-
-#define BLEND256(A,B,MASK)      (V8I)_mm256_blendv_ps_((V8F)A, (V8F)B, (V8F)MASK)
-
-// syntax test
-static void c_and_prop(/*void *s_, void *d_, uint32_t ni, block_properties *bp*/){
-//   int32_t *si = (int32_t *) s_ , *s = si ;
-//   int32_t *di = (int32_t *) d_ , *d = di ;
-//   int n7 = ni & 7 ;
-  V8i v0, v1, v2 ; // __m256i vv0, vv1, vv2 ;
-  V8f vf, vx, vy, vm ; // __m256 vvf, vvx, vvy, vvm ;
-  v0 = _mm256_xor_si256_(v0, v0) ;
-  v0 = _mm256_xor_si256_(v1, v2) ;
-  v0 = (V8i)_mm256_blendv_ps_((V8f)v0, (V8f)v1, (V8f)v2) ;
-  v0 = (V8i)_mm256_blendv_ps_(v0, v1, v2) ;
-//   vv0 = (__m256i) _mm256_blendv_ps((__m256) vv0, vvy, vvm) ;
-  vf = _mm256_blendv_ps_(vx, vy, vm) ;
-  vf = _mm256_blendv_ps_(_mm256_castsi256_ps_(v0), _mm256_castsi256_ps_(v1), _mm256_castsi256_ps_(v2)) ;
-}
-#endif
-
 #define NITER 100
 #define WITH_TIMING
 
@@ -119,9 +72,10 @@ int main(int argc, char **argv){
         blk[j][i] = 0xFFFF ;
       }
     }
-    get_word_block(z, blk, ni, LNI, nj) ;
+//     get_word_block(z, blk, ni, LNI, nj) ;
 //     gather_word32_block(z, blk, ni, LNI, nj) ;
 //     gather_int32_block((int32_t *)z, blk, ni, LNI, nj, &bp) ;
+    move_word32_block(z, LNI, blk, ni, ni, nj, int_data, &bp) ;
     errors = 0 ;
     for(j=0 ; j<nj ; j++){
       for(i=0 ; i<ni ; i++){
@@ -133,8 +87,9 @@ int main(int argc, char **argv){
     }
     fprintf(stderr, "get block errors = %d [%dx%d]\n", errors, ni, nj) ;
 
-    put_word_block(r, blk, ni, LNI, nj) ;
+//     put_word_block(r, blk, ni, LNI, nj) ;
 //     scatter_word32_block(r, blk, ni, LNI, nj) ;
+    move_word32_block(blk, ni, r, LNI, ni, nj, raw_data, NULL) ;
     errors = 0 ;
     for(j=0 ; j<nj ; j++){
       for(i=0 ; i<ni ; i++){
@@ -149,20 +104,27 @@ int main(int argc, char **argv){
     TIME_LOOP_EZ(NITER, ni*nj, get_word_block(z, blk, ni, LNI, nj) ) ;
     if(timer_min == timer_max) timer_avg = timer_max ;
     t0 = timer_min * NaNoSeC / (ni*nj) ;
-    fprintf(stderr, "get block     : %4.2f ns/word\n", t0) ;
+    fprintf(stderr, "get block      : %4.2f ns/word\n", t0) ;
 
 //     TIME_LOOP_EZ(NITER, ni*nj, gather_int32_block((int32_t *)z, blk, ni, LNI, nj, &bp) ) ;
-//     if(timer_min == timer_max) timer_avg = timer_max ;
-//     t0 = timer_min * NaNoSeC / (ni*nj) ;
-//     fprintf(stderr, "gather + prop : %4.2f ns/word\n", t0) ;
+    TIME_LOOP_EZ(NITER, ni*nj, move_word32_block(z, LNI, blk, ni, ni, nj, int_data, &bp) ) ;
+    if(timer_min == timer_max) timer_avg = timer_max ;
+    t0 = timer_min * NaNoSeC / (ni*nj) ;
+    fprintf(stderr, "move in + prop : %4.2f ns/word\n", t0) ;
+
+    TIME_LOOP_EZ(NITER, ni*nj, move_word32_block(z, LNI, blk, ni, ni, nj, raw_data, NULL) ) ;
+    if(timer_min == timer_max) timer_avg = timer_max ;
+    t0 = timer_min * NaNoSeC / (ni*nj) ;
+    fprintf(stderr, "move in        : %4.2f ns/word\n", t0) ;
 
     TIME_LOOP_EZ(NITER, ni*nj, put_word_block(z, blk, ni, LNI, nj) ) ;
     t0 = timer_min * NaNoSeC / (ni*nj) ;
-    fprintf(stderr, "put block     : %4.2f ns/word\n", t0) ;
+    fprintf(stderr, "put block      : %4.2f ns/word\n", t0) ;
 
 //     TIME_LOOP_EZ(NITER, ni*nj, scatter_word32_block(z, blk, ni, LNI, nj) ) ;
-//     t0 = timer_min * NaNoSeC / (ni*nj) ;
-//     fprintf(stderr, "scatter block : %4.2f ns/word\n", t0) ;
+    TIME_LOOP_EZ(NITER, ni*nj, move_word32_block(blk, ni, r, LNI, ni, nj, raw_data, NULL) ) ;
+    t0 = timer_min * NaNoSeC / (ni*nj) ;
+    fprintf(stderr, "move back      : %4.2f ns/word\n", t0) ;
 
     if(errors > 0){
       for(j=nj-1 ; j>=0 ; j--){

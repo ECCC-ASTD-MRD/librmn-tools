@@ -32,7 +32,7 @@ typedef struct{
   int32_t  zeros ;   // number of ZERO values in block
 } block_properties ;
 
-typedef enum {raw_data, int_data, float_data } int_or_float ;
+typedef enum { int_data = 1, float_data = 2, raw_data = 3 } int_or_float ;
 
 int move_word32_block(void *restrict src, int lnis, void *restrict dst, int lnid, int ni, int nj, int_or_float datatype, block_properties *bp);
 int move_int32_block(int32_t *restrict src, int lnis, void *restrict dst, int lnid, int ni, int nj, block_properties *bp);
@@ -41,8 +41,8 @@ int move_float_block(float *restrict src, int lnis, void *restrict dst, int lnid
 int get_word_block(void *restrict f, void *restrict blk, int ni, int lni, int nj) ;
 int put_word_block(void *restrict f, void *restrict blk, int ni, int lni, int nj) ;
 
-int gather_int32_block(int32_t *restrict src, void *restrict blk, int ni, int lni, int nj, block_properties *bp) ;
-int gather_float_block(float *restrict src, void *restrict blk, int ni, int lni, int nj, block_properties *bp) ;
+// int gather_int32_block(int32_t *restrict src, void *restrict blk, int ni, int lni, int nj, block_properties *bp) ;
+// int gather_float_block(float *restrict src, void *restrict blk, int ni, int lni, int nj, block_properties *bp) ;
 
-int scatter_word32_block(void *restrict src, void *restrict blk, int ni, int lni, int nj) ;
-int gather_word32_block(void *restrict src, void *restrict blk, int ni, int lni, int nj) ;
+// int scatter_word32_block(void *restrict src, void *restrict blk, int ni, int lni, int nj) ;
+// int gather_word32_block(void *restrict src, void *restrict blk, int ni, int lni, int nj) ;
