@@ -24,15 +24,16 @@ typedef union{
   float    f ;
 } iuf32_t ;
 
+typedef enum { bad_data = 0, int_data = 1, float_data = 2, raw_data = 3 } int_or_float ;
+
 // basic block block properties, set while gathering block
 typedef struct{
   iuf32_t  maxs ;    // max value in block
   iuf32_t  mins ;    // min value in block
   iuf32_t  minu ;    // min absolute value in block
-  int32_t  zeros ;   // number of ZERO values in block
+  int32_t  zeros ;   // number of ZERO values in block (-1 if not known)
+  int_or_float kind ;  // data type
 } block_properties ;
-
-typedef enum { int_data = 1, float_data = 2, raw_data = 3 } int_or_float ;
 
 int move_word32_block(void *restrict src, int lnis, void *restrict dst, int lnid, int ni, int nj, int_or_float datatype, block_properties *bp);
 int move_int32_block(int32_t *restrict src, int lnis, void *restrict dst, int lnid, int ni, int nj, block_properties *bp);

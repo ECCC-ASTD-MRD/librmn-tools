@@ -14,45 +14,60 @@
 
 #include <stdint.h>
 
+#include <rmn/identify_compiler_c.h>
+
 // SIMD does not seem to be useful any more for these funtions with most compilers
 #undef WITH_SIMD
 
 #define VERBOSE_SIMD
 
+// replace calls to Intel intrinsics with calls to SIMD functions
+// (ignored if USE_INTEL_SIMD_INTRINSICS is defined)
 #define ALIAS_INTEL_SIMD_INTRINSICS
-// use C version of the SIMD intrinsics (icx / llvm clang / aocc clang)
+// use C version of the SIMD intrinsics (llvm clang 19)
 #define USE_INTEL_SIMD_INTRINSICS_FALSE
 
-#if ! defined(__INTEL_COMPILER_UPDATE) &&  ! defined(__PGI)
+#if defined(COMPILER_IS_CLANG) && (__clang_major__ < 19)
+// aocc clang seems to do a poor vectorizing job when using the C version of the SIMD intrinsics
+#define USE_INTEL_SIMD_INTRINSICS   // for vector SIMD functions
+#endif
+
+#if defined(COMPILER_IS_GCC)
 // give an explicit hint to the gcc optimizer
 #pragma GCC optimize "tree-vectorize"
 // gcc seems to do a poor vectorizing job when computing "properties"
-#define USE_INTEL_SIMD_INTRINSICS
+#define USE_INTEL_SIMD_INTRINSICS   // for vector SIMD functions
 #endif
 
-#if defined(__INTEL_COMPILER_UPDATE) && ! defined(__INTEL_LLVM_COMPILER)
-// icc seems to do a poor vectorizing job, icx is O.K.
+#if defined(COMPILER_IS_ICX)
+// icx seems to do a poor vectorizing job when using the C version of the SIMD intrinsics
 #define USE_INTEL_SIMD_INTRINSICS    // for vector SIMD functions
-#define WITH_SIMD                    // activate intrinsics everywhere
 #endif
 
-#if defined(__PGI)
+#if defined(COMPILER_IS_ICC)
+// icc seems to do a poor vectorizing job
+#define USE_INTEL_SIMD_INTRINSICS    // for vector SIMD functions
+#define WITH_SIMD                    // re-activate SIMD intrinsics everywhere
+#endif
+
+#if defined(COMPILER_IS_PGI)
 // nvc seems to do a poor vectorizing job when using the C version of the SIMD intrinsics
-#define USE_INTEL_SIMD_INTRINSICS
+#define USE_INTEL_SIMD_INTRINSICS   // for vector SIMD functions
 #endif
 
 #include <rmn/simd_functions.h>
-
 #include <rmn/move_blocks.h>
 
 #define MIN(OLD,NEW) OLD = (NEW < OLD) ? NEW : OLD
 #define MAX(OLD,NEW) OLD = (NEW > OLD) ? NEW : OLD
 
 // fold 8 value vectors for min /max / min_abs into scalars and store into bp
+// this works whether int or float data was analyzed
 void fold_properties(__v256i vmaxs, __v256i vmins, __v256i vminu, block_properties *bp){
   int32_t ti[8], tu[8], i ;
-  int32_t *pti = ti, *ptu = tu ; // storeu_v256( (__v256i *tu , vminu ) causes an internal error with nvc compiler
+  int32_t *pti = ti, *ptu = tu ;
 
+  // storeu_v256( (__v256i *tu , vminu ) style code causes an internal error with nvc compiler
   storeu_v256( (__v256i *)ptu , vminu ) ;
   for(i=0 ; i<8 ; i++) tu[0] = (tu[i] < tu[0]) ? tu[i] : tu[0] ;
   bp->minu.u = tu[0] ;
@@ -83,8 +98,13 @@ int move_float_block(float *restrict src, int lnis, void *restrict dst, int lnid
   int32_t *restrict d = (int32_t *) dst ;
   block_properties bp_ ;
 
+  if(bp != NULL){
+    bp->zeros  = -1 ;
+    bp->kind   = bad_data ;
+  }
   if(ni*nj == 0) return 0 ;
   if(bp == NULL) bp = &bp_ ;
+  bp->zeros  = -1 ;
 
   if(ni  <  8) {
     int32_t maxs = 0x80000000, mins = 0x7FFFFFFF, t ;
@@ -145,6 +165,8 @@ int move_float_block(float *restrict src, int lnis, void *restrict dst, int lnid
   // translate signed values back into floats
   bp->maxs.i = unfake_float(bp->maxs.i) ;
   bp->mins.i = unfake_float(bp->mins.i) ;
+  bp->kind   = float_data ;
+
   return ni * nj ;
 }
 
@@ -162,8 +184,13 @@ int move_int32_block(int32_t *restrict src, int lnis, void *restrict dst, int ln
   int32_t *restrict d = (int32_t *) dst ;
   block_properties bp_ ;
 
+  if(bp != NULL){
+    bp->zeros  = -1 ;
+    bp->kind   = bad_data ;
+  }
   if(ni*nj == 0) return 0 ;
   if(bp == NULL) bp = &bp_ ;
+  bp->zeros  = -1 ;
 
   if(ni  <  8) {
     int32_t maxs = 0x80000000, mins = 0x7FFFFFFF, t ;
@@ -216,6 +243,7 @@ int move_int32_block(int32_t *restrict src, int lnis, void *restrict dst, int ln
     }
     fold_properties(vmaxs, vmins, vminu, bp) ; // fold results into a single scalar
   }      // (ni  <  8)
+  bp->kind   = int_data ;
 
   return ni * nj ;
 }
@@ -275,13 +303,25 @@ int move_mem32_block(void *restrict src, int lnis, void *restrict dst, int lnid,
 // bp    : pointer to block properties struct (min / max / min abs) (IGNORED if NULL)
 // return number of values processed
 int move_word32_block(void *restrict src, int lnis, void *restrict dst, int lnid, int ni, int nj, int_or_float datatype, block_properties *bp){
-  if(datatype == float_data){
+  if(datatype == float_data && bp != NULL){
     return move_float_block(src, lnis, dst, lnid, ni, nj, bp) ;
-  }else if(datatype == int_data){
+
+  }else if(datatype == int_data && bp != NULL){
     return move_int32_block(src, lnis, dst, lnid, ni, nj, bp) ;
-  }else if(datatype == raw_data){
-    return move_mem32_block(src, lnis, dst, lnid, ni, nj) ;
+
+  }else if(datatype == raw_data || bp == NULL){     // no data analysis will be performed
+    int nij = move_mem32_block(src, lnis, dst, lnid, ni, nj) ;
+    if(bp != NULL){
+      bp->kind   = (nij > 0) ? raw_data : bad_data ;
+      bp->zeros  = -1 ;
+    }
+    return nij ;
+
   }else{       // bad data type
+    if(bp != NULL){
+      bp->kind   = bad_data ;
+      bp->zeros  = -1 ;
+    }
     return -1 ;
   }
 }
