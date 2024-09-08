@@ -63,11 +63,14 @@
 
 // fold 8 value vectors for min /max / min_abs into scalars and store into bp
 // this works whether int or float data was analyzed
-void fold_properties(__v256i vmaxs, __v256i vmins, __v256i vminu, block_properties *bp){
+void fold_properties(__v256i vmaxs, __v256i vmins, __v256i vmaxu, __v256i vminu, block_properties *bp){
   int32_t ti[8], tu[8], i ;
   int32_t *pti = ti, *ptu = tu ;
 
   // storeu_v256( (__v256i *tu , vminu ) style code causes an internal error with nvc compiler
+  storeu_v256( (__v256i *)ptu , vmaxu ) ;
+  for(i=0 ; i<8 ; i++) tu[0] = (tu[i] > tu[0]) ? tu[i] : tu[0] ;
+  bp->maxu.u = tu[0] ;
   storeu_v256( (__v256i *)ptu , vminu ) ;
   for(i=0 ; i<8 ; i++) tu[0] = (tu[i] < tu[0]) ? tu[i] : tu[0] ;
   bp->minu.u = tu[0] ;
@@ -79,9 +82,17 @@ void fold_properties(__v256i vmaxs, __v256i vmins, __v256i vminu, block_properti
   bp->maxs.i = ti[0] ;
 }
 
+// transform a float into a fake signed integer
+int32_t fake_int(float f){
+  iuf32_t iuf ;
+  iuf.f = f ;
+  return (iuf.i & 0x7FFFFFFF) ^ (iuf.i >> 31) ;
+}
 // restore integer representing flot to original float bit pattern
-static int32_t unfake_float(int32_t fake){
-  return ((fake >> 31) ^ fake) | (fake & 0x80000000) ;
+float unfake_float(int32_t fake){
+  iuf32_t iuf ;
+  iuf.i = ((fake >> 31) ^ fake) | (fake & 0x80000000) ;
+  return iuf.f ;
 }
 
 // move a block (ni x nj) of 32 bit floats from src to dst, set moved block properties
@@ -108,23 +119,23 @@ int move_float_block(float *restrict src, int lnis, void *restrict dst, int lnid
 
   if(ni  <  8) {
     int32_t maxs = 0x80000000, mins = 0x7FFFFFFF, t ;
-    uint32_t minu = 0x7FFFFFFF, ta ;
+    uint32_t minu = 0x7FFFFFFF, maxu = 0, ta ;
     while(nj--){
       switch(ni & 7){   // switch on row length
-        //       copy value        absolute value        fake integer   signed min    signed max    abs value min
-        case 7 : d[6] = t = s[6] ; ta = t & 0x7FFFFFFF ; t=ta^(t>>31) ; MIN(mins,t) ; MAX(maxs,t) ; MIN(minu,ta) ;
-        case 6 : d[5] = t = s[5] ; ta = t & 0x7FFFFFFF ; t=ta^(t>>31) ; MIN(mins,t) ; MAX(maxs,t) ; MIN(minu,ta) ;
-        case 5 : d[4] = t = s[4] ; ta = t & 0x7FFFFFFF ; t=ta^(t>>31) ; MIN(mins,t) ; MAX(maxs,t) ; MIN(minu,ta) ;
-        case 4 : d[3] = t = s[3] ; ta = t & 0x7FFFFFFF ; t=ta^(t>>31) ; MIN(mins,t) ; MAX(maxs,t) ; MIN(minu,ta) ;
-        case 3 : d[2] = t = s[2] ; ta = t & 0x7FFFFFFF ; t=ta^(t>>31) ; MIN(mins,t) ; MAX(maxs,t) ; MIN(minu,ta) ;
-        case 2 : d[1] = t = s[1] ; ta = t & 0x7FFFFFFF ; t=ta^(t>>31) ; MIN(mins,t) ; MAX(maxs,t) ; MIN(minu,ta) ;
-        case 1 : d[0] = t = s[0] ; ta = t & 0x7FFFFFFF ; t=ta^(t>>31) ; MIN(mins,t) ; MAX(maxs,t) ; MIN(minu,ta) ;
+        //       copy value        absolute value        fake integer   signed min    signed max    abs value min  abs value max
+        case 7 : d[6] = t = s[6] ; ta = t & 0x7FFFFFFF ; t=ta^(t>>31) ; MIN(mins,t) ; MAX(maxs,t) ; MIN(minu,ta) ; MAX(maxu, ta) ;
+        case 6 : d[5] = t = s[5] ; ta = t & 0x7FFFFFFF ; t=ta^(t>>31) ; MIN(mins,t) ; MAX(maxs,t) ; MIN(minu,ta) ; MAX(maxu, ta) ;
+        case 5 : d[4] = t = s[4] ; ta = t & 0x7FFFFFFF ; t=ta^(t>>31) ; MIN(mins,t) ; MAX(maxs,t) ; MIN(minu,ta) ; MAX(maxu, ta) ;
+        case 4 : d[3] = t = s[3] ; ta = t & 0x7FFFFFFF ; t=ta^(t>>31) ; MIN(mins,t) ; MAX(maxs,t) ; MIN(minu,ta) ; MAX(maxu, ta) ;
+        case 3 : d[2] = t = s[2] ; ta = t & 0x7FFFFFFF ; t=ta^(t>>31) ; MIN(mins,t) ; MAX(maxs,t) ; MIN(minu,ta) ; MAX(maxu, ta) ;
+        case 2 : d[1] = t = s[1] ; ta = t & 0x7FFFFFFF ; t=ta^(t>>31) ; MIN(mins,t) ; MAX(maxs,t) ; MIN(minu,ta) ; MAX(maxu, ta) ;
+        case 1 : d[0] = t = s[0] ; ta = t & 0x7FFFFFFF ; t=ta^(t>>31) ; MIN(mins,t) ; MAX(maxs,t) ; MIN(minu,ta) ; MAX(maxu, ta) ;
         case 0 : d += lnid ; s += lnis ;   // pointers to next row
       }
     }
     bp->maxs.i = maxs ; bp->mins.i = mins ; bp->minu.u = minu ;
   }else{      // (ni  <  8)
-    __v256i vmaxs, vmins, vminu, vdata, vsign, v1111, v0111, vfabs, vfake ;
+    __v256i vmaxs, vmins, vmaxu, vminu, vdata, vsign, v1111, v0111, vfabs, vfake ;
     int32_t *s0, *d0 ;
     int ni7, n ;
 
@@ -133,6 +144,7 @@ int move_float_block(float *restrict src, int lnis, void *restrict dst, int lnid
     vmins = srli_v8i(v1111, 1)  ;  // 0x7FFFFFFF  huge positive
     vmaxs = slli_v8i(v1111, 31) ;  // 0x80000000  huge negative
     vminu = vmins ;                // 0x7FFFFFFF  huge positive
+    vmaxu = zero_v256() ;
     ni7 = (ni & 7) ;               // modulo(ni , 8)
     while(nj--){                                 // loop over rows
       n = ni ; s0 = s ; d0 = d ;
@@ -142,8 +154,9 @@ int move_float_block(float *restrict src, int lnis, void *restrict dst, int lnid
         vsign = srai_v8i(vdata, 31) ;            // 0 / -1 for sign
         vfake = xor_v256(vfabs, vsign) ;         // fake signed integer value representing float value
         vminu = min_v8u(vminu, vfabs) ;          // minimum absolute value
-        vmaxs = max_v8i(vmaxs, vfake) ;          // maximum signed value
         vmins = min_v8i(vmins, vfake) ;          // minimum signed value
+        vmaxu = max_v8u(vmaxu, vfabs) ;          // maximum absolute value
+        vmaxs = max_v8i(vmaxs, vfake) ;          // maximum signed value
         storeu_v256((__v256i *)d0, vdata) ;      // store into destination array (CONTIGUOUS)
         n -= ni7 ; s0 += ni7 ; d0 += ni7 ;       // bump count and pointers
       }
@@ -153,18 +166,19 @@ int move_float_block(float *restrict src, int lnis, void *restrict dst, int lnid
         vsign = srai_v8i(vdata, 31) ;            // 0 / -1 for sign
         vfake = xor_v256(vfabs, vsign) ;         // fake signed integer value representing float value
         vminu = min_v8u(vminu, vfabs) ;          // minimum absolute value
-        vmaxs = max_v8i(vmaxs, vfake) ;          // maximum signed value
         vmins = min_v8i(vmins, vfake) ;          // minimum signed value
+        vmaxu = max_v8u(vmaxu, vfabs) ;          // maximum absolute value
+        vmaxs = max_v8i(vmaxs, vfake) ;          // maximum signed value
         storeu_v256((__v256i *)d0, vdata) ;      // store into destination array (CONTIGUOUS)
         n -= 8 ; s0 += 8 ; d0 += 8 ;
       }
       s += lnis ; d += lnid ;                    // pointers to next row
     }
-    fold_properties(vmaxs, vmins, vminu, bp) ; // fold results into a single scalar
+    fold_properties(vmaxs, vmins, vmaxu, vminu, bp) ; // fold results into a single scalar
   }      // (ni  <  8)
   // translate signed values back into floats
-  bp->maxs.i = unfake_float(bp->maxs.i) ;
-  bp->mins.i = unfake_float(bp->mins.i) ;
+  bp->maxs.f = unfake_float(bp->maxs.i) ;
+  bp->mins.f = unfake_float(bp->mins.i) ;
   bp->kind   = float_data ;
 
   return ni * nj ;
@@ -194,23 +208,23 @@ int move_int32_block(int32_t *restrict src, int lnis, void *restrict dst, int ln
 
   if(ni  <  8) {
     int32_t maxs = 0x80000000, mins = 0x7FFFFFFF, t ;
-    uint32_t minu = 0x7FFFFFFF, ta ;
+    uint32_t minu = 0x7FFFFFFF, maxu = 0, ta ;
     while(nj--){
       switch(ni & 7){   // switch on row length
-        //       copy value        absolute value        signed min    signed max    abs value min
-        case 7 : d[6] = t = s[6] ; ta = (t<0) ? -t : t ; MIN(mins,t) ; MAX(maxs,t) ; MIN(minu,ta) ;
-        case 6 : d[5] = t = s[5] ; ta = (t<0) ? -t : t ; MIN(mins,t) ; MAX(maxs,t) ; MIN(minu,ta) ;
-        case 5 : d[4] = t = s[4] ; ta = (t<0) ? -t : t ; MIN(mins,t) ; MAX(maxs,t) ; MIN(minu,ta) ;
-        case 4 : d[3] = t = s[3] ; ta = (t<0) ? -t : t ; MIN(mins,t) ; MAX(maxs,t) ; MIN(minu,ta) ;
-        case 3 : d[2] = t = s[2] ; ta = (t<0) ? -t : t ; MIN(mins,t) ; MAX(maxs,t) ; MIN(minu,ta) ;
-        case 2 : d[1] = t = s[1] ; ta = (t<0) ? -t : t ; MIN(mins,t) ; MAX(maxs,t) ; MIN(minu,ta) ;
-        case 1 : d[0] = t = s[0] ; ta = (t<0) ? -t : t ; MIN(mins,t) ; MAX(maxs,t) ; MIN(minu,ta) ;
+        //       copy value        absolute value        signed min    signed max    abs value min  abs value max
+        case 7 : d[6] = t = s[6] ; ta = (t<0) ? -t : t ; MIN(mins,t) ; MAX(maxs,t) ; MIN(minu,ta) ; MAX(maxu, ((uint32_t) t)) ;
+        case 6 : d[5] = t = s[5] ; ta = (t<0) ? -t : t ; MIN(mins,t) ; MAX(maxs,t) ; MIN(minu,ta) ; MAX(maxu, ((uint32_t) t)) ;
+        case 5 : d[4] = t = s[4] ; ta = (t<0) ? -t : t ; MIN(mins,t) ; MAX(maxs,t) ; MIN(minu,ta) ; MAX(maxu, ((uint32_t) t)) ;
+        case 4 : d[3] = t = s[3] ; ta = (t<0) ? -t : t ; MIN(mins,t) ; MAX(maxs,t) ; MIN(minu,ta) ; MAX(maxu, ((uint32_t) t)) ;
+        case 3 : d[2] = t = s[2] ; ta = (t<0) ? -t : t ; MIN(mins,t) ; MAX(maxs,t) ; MIN(minu,ta) ; MAX(maxu, ((uint32_t) t)) ;
+        case 2 : d[1] = t = s[1] ; ta = (t<0) ? -t : t ; MIN(mins,t) ; MAX(maxs,t) ; MIN(minu,ta) ; MAX(maxu, ((uint32_t) t)) ;
+        case 1 : d[0] = t = s[0] ; ta = (t<0) ? -t : t ; MIN(mins,t) ; MAX(maxs,t) ; MIN(minu,ta) ; MAX(maxu, ((uint32_t) t)) ;
         case 0 : d += lnid ; s += lnis ;   // pointers to next row
       }
     }
     bp->maxs.i = maxs ; bp->mins.i = mins ; bp->minu.u = minu ;
   }else{      // (ni  <  8)
-    __v256i vmaxs, vmins, vminu, vdata, v1111, viabs ;
+    __v256i vmaxs, vmins, vmaxu, vminu, vdata, v1111, viabs ;
     int32_t *s0, *d0 ;
     int ni7, n ;
 
@@ -218,6 +232,7 @@ int move_int32_block(int32_t *restrict src, int lnis, void *restrict dst, int ln
     vmins = srli_v8i(v1111, 1)  ;  // 0x7FFFFFFF  huge positive
     vmaxs = slli_v8i(v1111, 31) ;  // 0x80000000  huge negative
     vminu = vmins ;                // 0x7FFFFFFF  huge positive
+    vmaxu = zero_v256() ;
     ni7 = (ni & 7) ;               // modulo(ni , 8)
     while(nj--){                                 // loop over rows
       n = ni ; s0 = s ; d0 = d ;
@@ -225,6 +240,7 @@ int move_int32_block(int32_t *restrict src, int lnis, void *restrict dst, int ln
         vdata = loadu_v256((__v256i *)s0) ;      // load data from source array
         viabs = abs_v8i(vdata) ;                 // absolute value
         vminu = min_v8u(vminu, viabs) ;          // minimum absolute value
+        vmaxu = max_v8u(vmaxu, vdata) ;          // max value with data treated as UNSIGNED
         vmaxs = max_v8i(vmaxs, vdata) ;          // maximum signed value
         vmins = min_v8i(vmins, vdata) ;          // minimum signed value
         storeu_v256((__v256i *)d0, vdata) ;      // store into destination array (CONTIGUOUS)
@@ -234,6 +250,7 @@ int move_int32_block(int32_t *restrict src, int lnis, void *restrict dst, int ln
         vdata = loadu_v256((__v256i *)s0) ;      // load data from source array
         viabs = abs_v8i(vdata) ;                 // absolute value
         vminu = min_v8u(vminu, viabs) ;          // minimum absolute value
+        vmaxu = max_v8u(vmaxu, vdata) ;          // max value with data treated as UNSIGNED
         vmaxs = max_v8i(vmaxs, vdata) ;          // maximum signed value
         vmins = min_v8i(vmins, vdata) ;          // minimum signed value
         storeu_v256((__v256i *)d0, vdata) ;      // store into destination array (CONTIGUOUS)
@@ -241,13 +258,21 @@ int move_int32_block(int32_t *restrict src, int lnis, void *restrict dst, int ln
       }
       s += lnis ; d += lnid ;                       // pointers to next row
     }
-    fold_properties(vmaxs, vmins, vminu, bp) ; // fold results into a single scalar
+    fold_properties(vmaxs, vmins, vmaxu, vminu, bp) ; // fold results into a single scalar
   }      // (ni  <  8)
   bp->kind   = int_data ;
 
   return ni * nj ;
 }
 
+// move a block (ni x nj) of 32 bit integers from src and store it into blk
+// src   : integer array to extract data from (NON CONTIGUOUS storage)
+// lnis  : row storage size in src
+// dst   : array to put extracted data into (NON CONTIGUOUS storage)
+// lnid  : row storage size in dst
+// ni    : row size (row storage size in blk)
+// nj    : number of rows
+// return number of values processed
 int move_mem32_block(void *restrict src, int lnis, void *restrict dst, int lnid, int ni, int nj){
   uint32_t *restrict d = (uint32_t *) dst ;
   uint32_t *restrict s = (uint32_t *) src ;
@@ -309,9 +334,16 @@ int move_word32_block(void *restrict src, int lnis, void *restrict dst, int lnid
   }else if(datatype == int_data && bp != NULL){
     return move_int32_block(src, lnis, dst, lnid, ni, nj, bp) ;
 
+  }else if(datatype == uint_data && bp != NULL){
+    return move_int32_block(src, lnis, dst, lnid, ni, nj, bp) ;
+
   }else if(datatype == raw_data || bp == NULL){     // no data analysis will be performed
     int nij = move_mem32_block(src, lnis, dst, lnid, ni, nj) ;
     if(bp != NULL){
+      bp->maxu.u = 0 ;
+      bp->maxs.u = 0 ;
+      bp->minu.u = 0 ;
+      bp->mins.u = 0 ;
       bp->kind   = (nij > 0) ? raw_data : bad_data ;
       bp->zeros  = -1 ;
     }
@@ -570,7 +602,7 @@ int gather_int32_block(int32_t *restrict src, void *restrict blk, int ni, int ln
   return ni * nj ;
 }
 #endif
-
+#if 0
 // special case for rows shorter than 8 elements
 // insert a contiguous block (ni x nj) of 32 bit words into f from blk
 // ni    : row size (row storage size in blk)
@@ -687,3 +719,4 @@ int get_word_block(void *restrict f, void *restrict blk, int ni, int lni, int nj
   }
   return 0 ;
 }
+#endif

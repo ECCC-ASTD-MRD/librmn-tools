@@ -11,6 +11,7 @@
 
 #include <rmn/test_helpers.h>
 #include <rmn/misc_operators.h>
+#include <rmn/move_blocks.h>
 #include <rmn/c_record_io.h>
 #include <rmn/ieee_quantize.h>
 #include <rmn/compress_data.h>
@@ -84,7 +85,8 @@ void process_data_2d(void *data, int ni, int nj, error_stats *e0, char *name){
       nblk++ ;
       in = (i0+BLK_I < ni) ? BLK_I : ni-i0 ;
       // step 0 : get a block (64 x 64 or smaller)
-      get_word_block(INDEX_F(f,i0,ni,j0), block0, in, ni, jn) ;
+//       get_word_block(INDEX_F(f,i0,ni,j0), block0, in, ni, jn) ;
+      move_word32_block(INDEX_F(f,i0,ni,j0), in, block0, ni, ni, jn, raw_data, NULL) ;
       // step 1 : quantize
       bzero(block2, sizeof(block2)) ;
       quantum = .01f ; nbits = 0 ;
@@ -104,7 +106,8 @@ void process_data_2d(void *data, int ni, int nj, error_stats *e0, char *name){
       // step 6 : analyze
       update_error_stats(block0, block1, in*jn, e0) ;
 // fprintf(stderr, "max error in block = %f (%d), avg error = %f\n", e0->max_error, e0->ndata, e0->abs_error/e0->ndata) ;
-      put_word_block(INDEX_F(t,i0,ni,j0), block1, in, ni, jn) ;
+//       put_word_block(INDEX_F(t,i0,ni,j0), block1, in, ni, jn) ;
+      move_word32_block(block1, ni, INDEX_F(t,i0,ni,j0), in, ni, jn, raw_data, NULL) ;
 //       fprintf(stderr, "%4d,",i0) ;
     }
 //     fprintf(stderr, "%4d]\n", i0) ;
@@ -135,7 +138,8 @@ return ;
 //    do something to data
 #if 1
       for(i=0 ; i<4096 ; i++) block0[i] = 999999.0f ;
-      get_word_block(f+i0+j0*ni, block0, in-i0, ni, jn-j0) ;
+//       get_word_block(f+i0+j0*ni, block0, in-i0, ni, jn-j0) ;
+      move_word32_block(f+i0+j0*ni, in-i0, block0, ni, ni, jn-j0, raw_data, NULL) ;
 //    alter block0
       for(j=0 ; j<jn-j0 ; j++){
         for(i=0 ; i<in-i0 ; i++){
@@ -143,7 +147,8 @@ return ;
         }
       }
 //    put block0 back
-      put_word_block(t+i0+j0*ni, block0, in-i0, ni, jn-j0) ;
+//       put_word_block(t+i0+j0*ni, block0, in-i0, ni, jn-j0) ;
+      move_word32_block(block0, ni, t+i0+j0*ni, in-i0, ni, jn-j0, raw_data, NULL) ;
 #else
       for(j=j0 ; j<jn ; j++){
         for(i=i0 ; i<in ; i++){
@@ -710,7 +715,8 @@ int count_encoded_bits(int32_t *q, int ni, int lni, int nj){
     base = j0 * lni ;
     for(i0 = 0 ; i0 < ni ; i0 += 8){
       i1 = (i0 + 8) > ni ? ni : (i0 + 8) ;
-      get_word_block(q + base, block, i1 - i0, ni, j1 - j0) ;     // get 8 x 8 block
+//       get_word_block(q + base, block, i1 - i0, ni, j1 - j0) ;     // get 8 x 8 block
+      move_word32_block(q + base, i1-i0, block, ni, ni, j1-j0, raw_data, NULL) ;
       nbp = (j1 - j0) * (i1 - i0) ;                               // number of points in block
       tot_bits += count_bits_of_max(block, nbp) ;
       tot_bits += 16 ;                                            // block overhead
@@ -899,9 +905,11 @@ int compress_2d_field(float *f, int ni, int nj, q_rules r){
       nbpj = j1 - j0 ;
       nbp = nbpj * nbpi ;
 
-      get_word_block(f + base, fblk, nbpi, ni, nbpj) ;           // get block
+//       get_word_block(f + base, fblk, nbpi, ni, nbpj) ;           // get block
+      move_word32_block(f + base, nbpi, fblk, ni, ni, nbpj, raw_data, NULL) ;
       qbts[iblk] = quantize_block(fblk, nbpi, nbpj, qblk, r) ;   // quantize according to rules
-      put_word_block(g    + base, fblk, nbpi, ni, nbpj) ;        // put original block into g
+//       put_word_block(g    + base, fblk, nbpi, ni, nbpj) ;        // put original block into g
+      move_word32_block(fblk, ni, g + base, nbpi, ni, nbpj, raw_data, NULL) ;
       if(qbts[iblk] < 0) {
         fprintf(stderr, "error while quantizing or restoring\n") ;
         exit(1) ;                                                // error while quantizing or restoring
@@ -938,7 +946,8 @@ int compress_2d_field(float *f, int ni, int nj, q_rules r){
       }
 
       if(qbts[iblk] != dequantize_block(rblk, nbpi, nbpj, ublk, r)) exit(1) ;  // dequantize unpredicted block
-      put_word_block(gblk + base, rblk, nbpi, ni, nbpj) ;  // put restored block into gblk
+//       put_word_block(gblk + base, rblk, nbpi, ni, nbpj) ;  // put restored block into gblk
+      move_word32_block(rblk, ni, gblk + base, nbpi, ni, nbpj, raw_data, NULL) ;
 
       qbts_p[iblk] = qbts[iblk] * 1.0f / nbp ;                   // bits per point
 //       enc_bits += count_encoded_bits(qblk, nbpi, nbpi, nbpj) ;

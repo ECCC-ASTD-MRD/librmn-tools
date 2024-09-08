@@ -24,23 +24,28 @@ typedef union{
   float    f ;
 } iuf32_t ;
 
-typedef enum { bad_data = 0, int_data = 1, float_data = 2, raw_data = 3 } int_or_float ;
+typedef enum { bad_data = 0, int_data = 1, uint_data = 2, float_data = 3, raw_data = 4 } int_or_float ;
 
 // basic block block properties, set while gathering block
 typedef struct{
   iuf32_t  maxs ;    // max value in block
   iuf32_t  mins ;    // min value in block
   iuf32_t  minu ;    // min absolute value in block
+  iuf32_t  maxu ;    // max absolute value in block (needed for uint_data)
   int32_t  zeros ;   // number of ZERO values in block (-1 if not known)
   int_or_float kind ;  // data type
 } block_properties ;
 
+int32_t fake_int(float f);
+float unfake_float(int32_t fake);
+
 int move_word32_block(void *restrict src, int lnis, void *restrict dst, int lnid, int ni, int nj, int_or_float datatype, block_properties *bp);
+int move_uint32_block(int32_t *restrict src, int lnis, void *restrict dst, int lnid, int ni, int nj, block_properties *bp);
 int move_int32_block(int32_t *restrict src, int lnis, void *restrict dst, int lnid, int ni, int nj, block_properties *bp);
 int move_float_block(float *restrict src, int lnis, void *restrict dst, int lnid, int ni, int nj, block_properties *bp);
 
-int get_word_block(void *restrict f, void *restrict blk, int ni, int lni, int nj) ;
-int put_word_block(void *restrict f, void *restrict blk, int ni, int lni, int nj) ;
+// int get_word_block(void *restrict f, void *restrict blk, int ni, int lni, int nj) ;
+// int put_word_block(void *restrict f, void *restrict blk, int ni, int lni, int nj) ;
 
 // int gather_int32_block(int32_t *restrict src, void *restrict blk, int ni, int lni, int nj, block_properties *bp) ;
 // int gather_float_block(float *restrict src, void *restrict blk, int ni, int lni, int nj, block_properties *bp) ;

@@ -39,8 +39,18 @@
 #define NJ  131
 #define LNI 129
 
+  void print_float_props(block_properties bp){
+    fprintf(stderr, "mins = %12f, maxs = %12f, minu = %12f, maxu = %12f\n", bp.mins.f, bp.maxs.f, bp.minu.f, bp.maxu.f) ;
+  }
+
+  void print_int_props(block_properties bp){
+    fprintf(stderr, "mins = %12.8x, maxs = %12.8x, minu = %12.8x, maxu = %12.8x\n", bp.mins.u, bp.maxs.u, bp.minu.u, bp.maxu.u) ;
+    fprintf(stderr, "mins = %12d, maxs = %12d, minu = %12d, maxu = %12d\n", bp.mins.i, bp.maxs.i, bp.minu.i, bp.maxu.i) ;
+  }
+
 int main(int argc, char **argv){
   uint32_t z[NJ*2][LNI], r[NJ*2][LNI] ;
+  float f[NJ*2][LNI] ;
   int i, j, ni, nj, errors ;
   block_properties bp ;
   float t0 ;
@@ -53,8 +63,22 @@ int main(int argc, char **argv){
   for(j=0 ; j<NJ ; j++){
     for(i=0 ; i<LNI ; i++){
       z[j][i] = (i << 8) + j ;
+      z[j][i] |= (i << 31) ;
+      f[j][i] = 1.0f * (i - ni/2) * (j - ni/2) + .5f ;
     }
   }
+  errors = 0 ;
+  for(j=0 ; j<NJ ; j++){
+    for(i=0 ; i<LNI ; i++){
+      int32_t fake = fake_int(f[j][i]) ;
+      float r = unfake_float(fake) ;
+      if(r != f[j][i]) {
+        fprintf(stderr, "ERROR: expecting %f, got %f, fake = %8.8x\n", f[j][i], r, fake) ;
+        exit(1) ;
+      }
+    }
+  }
+  fprintf(stderr, "SUCCESS : float -> fake int -> float test\n") ;
 //   fprintf(stderr, "original array \n") ;
 //   for(j=nj-1 ; j>=0 ; j--){
 //     for(i=0 ; i<ni ; i++){
@@ -67,6 +91,10 @@ int main(int argc, char **argv){
   ni = 127 ; nj = 125 ;
   {
     uint32_t blk[nj][ni] ;
+
+    move_word32_block(f, LNI, blk, ni, 2*ni/3, 2*nj/3, float_data, &bp) ;
+    print_float_props(bp) ;
+
     for(j=0 ; j<1 ; j++){
       for(i=0 ; i<ni ; i++){
         blk[j][i] = 0xFFFF ;
@@ -76,6 +104,7 @@ int main(int argc, char **argv){
 //     gather_word32_block(z, blk, ni, LNI, nj) ;
 //     gather_int32_block((int32_t *)z, blk, ni, LNI, nj, &bp) ;
     move_word32_block(z, LNI, blk, ni, ni, nj, int_data, &bp) ;
+    print_int_props(bp) ;
     errors = 0 ;
     for(j=0 ; j<nj ; j++){
       for(i=0 ; i<ni ; i++){
@@ -101,30 +130,35 @@ int main(int argc, char **argv){
     }
     fprintf(stderr, "put block errors = %d [%dx%d]\n", errors, ni, nj) ;
 
-    TIME_LOOP_EZ(NITER, ni*nj, get_word_block(z, blk, ni, LNI, nj) ) ;
-    if(timer_min == timer_max) timer_avg = timer_max ;
-    t0 = timer_min * NaNoSeC / (ni*nj) ;
-    fprintf(stderr, "get block      : %4.2f ns/word\n", t0) ;
+//     TIME_LOOP_EZ(NITER, ni*nj, get_word_block(z, blk, ni, LNI, nj) ) ;
+//     if(timer_min == timer_max) timer_avg = timer_max ;
+//     t0 = timer_min * NaNoSeC / (ni*nj) ;
+//     fprintf(stderr, "get block      : %4.2f ns/word\n", t0) ;
 
 //     TIME_LOOP_EZ(NITER, ni*nj, gather_int32_block((int32_t *)z, blk, ni, LNI, nj, &bp) ) ;
     TIME_LOOP_EZ(NITER, ni*nj, move_word32_block(z, LNI, blk, ni, ni, nj, int_data, &bp) ) ;
     if(timer_min == timer_max) timer_avg = timer_max ;
     t0 = timer_min * NaNoSeC / (ni*nj) ;
-    fprintf(stderr, "move in + prop : %4.2f ns/word\n", t0) ;
+    fprintf(stderr, "move int + prop : %4.2f ns/word\n", t0) ;
+
+    TIME_LOOP_EZ(NITER, ni*nj, move_word32_block(z, LNI, blk, ni, ni, nj, float_data, &bp) ) ;
+    if(timer_min == timer_max) timer_avg = timer_max ;
+    t0 = timer_min * NaNoSeC / (ni*nj) ;
+    fprintf(stderr, "move flt + prop : %4.2f ns/word\n", t0) ;
 
     TIME_LOOP_EZ(NITER, ni*nj, move_word32_block(z, LNI, blk, ni, ni, nj, raw_data, NULL) ) ;
     if(timer_min == timer_max) timer_avg = timer_max ;
     t0 = timer_min * NaNoSeC / (ni*nj) ;
-    fprintf(stderr, "move in        : %4.2f ns/word\n", t0) ;
+    fprintf(stderr, "move in         : %4.2f ns/word\n", t0) ;
 
-    TIME_LOOP_EZ(NITER, ni*nj, put_word_block(z, blk, ni, LNI, nj) ) ;
-    t0 = timer_min * NaNoSeC / (ni*nj) ;
-    fprintf(stderr, "put block      : %4.2f ns/word\n", t0) ;
+//     TIME_LOOP_EZ(NITER, ni*nj, put_word_block(z, blk, ni, LNI, nj) ) ;
+//     t0 = timer_min * NaNoSeC / (ni*nj) ;
+//     fprintf(stderr, "put block      : %4.2f ns/word\n", t0) ;
 
 //     TIME_LOOP_EZ(NITER, ni*nj, scatter_word32_block(z, blk, ni, LNI, nj) ) ;
     TIME_LOOP_EZ(NITER, ni*nj, move_word32_block(blk, ni, r, LNI, ni, nj, raw_data, NULL) ) ;
     t0 = timer_min * NaNoSeC / (ni*nj) ;
-    fprintf(stderr, "move back      : %4.2f ns/word\n", t0) ;
+    fprintf(stderr, "move back       : %4.2f ns/word\n", t0) ;
 
     if(errors > 0){
       for(j=nj-1 ; j>=0 ; j--){
