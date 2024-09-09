@@ -86,18 +86,20 @@ void split_block_dimension(uint32_t gdim, uint32_t ldim, uint32_t *nsub, uint32_
 // ni            : number of useful values in data rows
 // nj            : number of rows
 // fnargs        : reference point in sub-block, if NULL, data[0][0] is used
-static int diag_fn(int lni, int ni, int nj, void *data, fn_args *fnargs){
+// TODO add properties argument (it will just be checked for validity)
+static int diag_fn(int lni, int ni, int nj, block_properties *bp, void *data, fn_args *fnargs){
   void *args = fnargs ? fnargs : data ;
   uint64_t offset  = ((char *)data - (char *)args)/sizeof(uint32_t) ;
   uint64_t offsetj = offset / lni ;
   uint64_t offseti = offset - (offsetj * lni) ;
-  fprintf(stderr, "lni = %3d, ni = %3d, nj = %3d range = (%4ld,%4ld) (%4ld,%4ld)\n",
-          lni, ni, nj, offseti, offsetj, offseti+ni-1, offsetj+nj-1) ;
+  fprintf(stderr, "lni = %3d, ni = %3d, nj = %3d range = (%4ld,%4ld) (%4ld,%4ld), type = %s\n",
+          lni, ni, nj, offseti, offsetj, offseti+ni-1, offsetj+nj-1, printable_type[bp->kind]) ;
 //   fprintf(stderr, "lni = %3d, ni = %3d, nj = %3d, address = %p, args = %p, range = (%4ld,%4ld) (%4ld,%4ld)\n",
 //           lni, ni, nj, data, args, offseti, offsetj, offseti+ni-1, offsetj+nj-1) ;
   return 0 ;
 }
 
+// VLA (variable Length Array) style version
 // lgni   [IN] : storage length of rows in array
 // gni    [IN] : number of useful elements in an array row
 // gnj    [IN] : number of rows in array
@@ -107,9 +109,12 @@ static int diag_fn(int lni, int ni, int nj, void *data, fn_args *fnargs){
 // fnptr  [IN] : function to be called to process sub-block
 //               if NULL, private diagnostic function will be called
 // fnargs [IN] : argument list to be passed to function
-static int split_and_process_(uint32_t lgni, uint32_t gni, uint32_t gnj, uint32_t array[gnj][lgni], int ni, int nj, fnptr fn, fn_args *fnargs){
+// return error code from fn
+// TODO add data type to arguments
+static int split_and_process_(uint32_t lgni, uint32_t gni, uint32_t gnj, int_or_float datatype, uint32_t array[gnj][lgni], int ni, int nj, fnptr fn, fn_args *fnargs){
   uint32_t ni0, nj0, nbi, nbj, i, j, deltai, deltaj ;
   int status ;
+  block_properties bp ;
 
   split_block_dimension(gni, ni, &nbi, &ni0) ;
   split_block_dimension(gnj, nj, &nbj, &nj0) ;
@@ -123,15 +128,30 @@ static int split_and_process_(uint32_t lgni, uint32_t gni, uint32_t gnj, uint32_
   for(j=0 ; j<gnj ; j+=deltaj , deltaj=nj){
     deltai = ni0 ;
     for(i=0 ; i<gni ; i+=deltai , deltai = ni){
-      status = (*fn)(gni, deltai, deltaj, &(array[j][i]), fnargs) ;
+      // extract sub_block[deltaj][deltai]
+      // move_word32_block(&(array[j][i]), gni, sub_block, deltai, deltai, deltaj, datatype, &bp) ;
+      // status = (*fn)(deltai, deltai, deltaj, sub_block, fnargs) ;
+      bp.kind = datatype ;
+      status = (*fn)(gni, deltai, deltaj, &bp, &(array[j][i]), fnargs) ;
       if(status != 0) return status ;
     }
   }
   return 0 ;
 }
 
-int split_and_process(void *array,uint32_t lgni,  uint32_t gni, uint32_t gnj, int ni, int nj, fnptr fn, fn_args *fnargs){
-  return split_and_process_(lgni, gni, gnj, array, ni, nj, fn, fnargs) ;
+// lgni   [IN] : storage length of rows in array
+// gni    [IN] : number of useful elements in an array row
+// gnj    [IN] : number of rows in array
+// array  [IN] : data array (lgni * gnj elements)
+// ni     [IN] : number of elements in sub-block rows
+// nj     [IN] : number of rows in sub-block
+// fnptr  [IN] : function to be called to process sub-block
+//               if NULL, private diagnostic function will be called
+// fnargs [IN] : argument list to be passed to function
+// call VLA style version, return its status
+// TODO add data type to arguments
+int split_and_process(void *array, uint32_t lgni, uint32_t gni, uint32_t gnj, int_or_float datatype, int ni, int nj, fnptr fn, fn_args *fnargs){
+  return split_and_process_(lgni, gni, gnj, datatype, array, ni, nj, fn, fnargs) ;
 }
 
 // fold 8 value vectors for max / min / max_abs / min_abs into scalars and store into bp

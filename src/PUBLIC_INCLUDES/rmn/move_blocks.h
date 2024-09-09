@@ -43,6 +43,7 @@ typedef enum {
   float_data = 3,   // floats
   raw_data = 4      // any 32 bit quantities (block_properties meaningless in that case)
 } int_or_float ;
+static char *printable_type[] = { "BAD", "SIGNED", "UNSIGNED", "FLOAT", "RAW32" } ;
 
 // basic block block properties, set while gathering block
 typedef struct{
@@ -68,9 +69,9 @@ typedef struct{
   iuf64_t  args[] ;     // arguments ( [0] .. [nargs-1] )
 } fn_args ;             // processing function argument list
 
-typedef int (*fnptr)(int lni, int ni, int nj, void *data, fn_args *args) ;   // pointer to processing function
+typedef int (*fnptr)(int lni, int ni, int nj, block_properties *bp, void *data, fn_args *args) ;   // pointer to processing function
 
-int split_and_process(void *array, uint32_t lgni, uint32_t gni, uint32_t gnj, int ni, int nj, fnptr fn, fn_args *fnargs);
+int split_and_process(void *array, uint32_t lgni, uint32_t gni, uint32_t gnj, int_or_float datatype, int ni, int nj, fnptr fn, fn_args *fnargs);
 
 // int get_word_block(void *restrict f, void *restrict blk, int ni, int lni, int nj) ;
 // int put_word_block(void *restrict f, void *restrict blk, int ni, int lni, int nj) ;
