@@ -36,7 +36,7 @@
 #endif
 
 #define NI  127
-#define NJ  131
+#define NJ  128
 #define LNI 129
 
   void print_float_props(block_properties bp){
@@ -169,5 +169,8 @@ int main(int argc, char **argv){
       }
     }
   }
+
+  split_and_process(z, LNI, NI, NJ, 64, 64, NULL, NULL) ;  // demo mode 
+
   return 0 ;
 }

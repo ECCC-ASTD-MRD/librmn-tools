@@ -61,9 +61,83 @@
 #define MIN(OLD,NEW) OLD = (NEW < OLD) ? NEW : OLD
 #define MAX(OLD,NEW) OLD = (NEW > OLD) ? NEW : OLD
 
-// fold 8 value vectors for min /max / min_abs into scalars and store into bp
+// compute what is necessary to split a data block along one of its dimensions
+// gdim   [IN] : size of data block along a dimension
+// ldim   [IN] : desired size of sub-blocks along a dimension
+// nsub  [OUT] : number of sub-blocks needed
+// ldim0 [OUT] : size of first sub-block along that dimension
+// normally, ldim/2 <= ldim0 < ldim + ldim/2 (extra small blocks are deemed undesirable)
+// the only exception would be nsub ==1 because gdim < ldim/2
+void split_block_dimension(uint32_t gdim, uint32_t ldim, uint32_t *nsub, uint32_t *ldim0){
+  uint32_t nparts = gdim / ldim ;
+  uint32_t extra = gdim - (nparts * ldim) ;   // modulo( gdim , ldim )
+  if(extra < ldim/2){
+    *ldim0 = ldim + extra ;    // < ldim + ldim/2
+    *nsub = nparts ;
+  }else{
+    *ldim0 = extra ;           // >= ldim / 2
+    *nsub = nparts + 1 ;       // need one more sub-block
+  }
+}
+
+// demo diagnostic function for split_and_process
+// data[nj][lni] : sub-block
+// lni           : storage length of data rows
+// ni            : number of useful values in data rows
+// nj            : number of rows
+// fnargs        : reference point in sub-block, if NULL, data[0][0] is used
+static int diag_fn(int lni, int ni, int nj, void *data, fn_args *fnargs){
+  void *args = fnargs ? fnargs : data ;
+  uint64_t offset  = ((char *)data - (char *)args)/sizeof(uint32_t) ;
+  uint64_t offsetj = offset / lni ;
+  uint64_t offseti = offset - (offsetj * lni) ;
+  fprintf(stderr, "lni = %3d, ni = %3d, nj = %3d range = (%4ld,%4ld) (%4ld,%4ld)\n",
+          lni, ni, nj, offseti, offsetj, offseti+ni-1, offsetj+nj-1) ;
+//   fprintf(stderr, "lni = %3d, ni = %3d, nj = %3d, address = %p, args = %p, range = (%4ld,%4ld) (%4ld,%4ld)\n",
+//           lni, ni, nj, data, args, offseti, offsetj, offseti+ni-1, offsetj+nj-1) ;
+  return 0 ;
+}
+
+// lgni   [IN] : storage length of rows in array
+// gni    [IN] : number of useful elements in an array row
+// gnj    [IN] : number of rows in array
+// array  [IN] : data array (lgni * gnj elements)
+// ni     [IN] : number of elements in sub-block rows
+// nj     [IN] : number of rows in sub-block
+// fnptr  [IN] : function to be called to process sub-block
+//               if NULL, private diagnostic function will be called
+// fnargs [IN] : argument list to be passed to function
+static int split_and_process_(uint32_t lgni, uint32_t gni, uint32_t gnj, uint32_t array[gnj][lgni], int ni, int nj, fnptr fn, fn_args *fnargs){
+  uint32_t ni0, nj0, nbi, nbj, i, j, deltai, deltaj ;
+  int status ;
+
+  split_block_dimension(gni, ni, &nbi, &ni0) ;
+  split_block_dimension(gnj, nj, &nbj, &nj0) ;
+
+  if(fn == NULL){           // use private diagnostic function
+    fn = diag_fn ;          // point to diagnostic function
+    fnargs = NULL ;         // address of array[j][i] will be used
+  }
+
+  deltaj = nj0 ;
+  for(j=0 ; j<gnj ; j+=deltaj , deltaj=nj){
+    deltai = ni0 ;
+    for(i=0 ; i<gni ; i+=deltai , deltai = ni){
+      status = (*fn)(gni, deltai, deltaj, &(array[j][i]), fnargs) ;
+      if(status != 0) return status ;
+    }
+  }
+  return 0 ;
+}
+
+int split_and_process(void *array,uint32_t lgni,  uint32_t gni, uint32_t gnj, int ni, int nj, fnptr fn, fn_args *fnargs){
+  return split_and_process_(lgni, gni, gnj, array, ni, nj, fn, fnargs) ;
+}
+
+// fold 8 value vectors for max / min / max_abs / min_abs into scalars and store into bp
 // this works whether int or float data was analyzed
-void fold_properties(__v256i vmaxs, __v256i vmins, __v256i vmaxu, __v256i vminu, block_properties *bp){
+// bp  [OUT] : pointer to block properties struct (max / min / max_abs / min_abs) (IGNORED if NULL)
+static void fold_properties(__v256i vmaxs, __v256i vmins, __v256i vmaxu, __v256i vminu, block_properties *bp){
   int32_t ti[8], tu[8], i ;
   int32_t *pti = ti, *ptu = tu ;
 
@@ -82,13 +156,13 @@ void fold_properties(__v256i vmaxs, __v256i vmins, __v256i vmaxu, __v256i vminu,
   bp->maxs.i = ti[0] ;
 }
 
-// transform a float into a fake signed integer
+// transform a float into a fake signed integer (comparison order preserving)
 int32_t fake_int(float f){
   iuf32_t iuf ;
   iuf.f = f ;
   return (iuf.i & 0x7FFFFFFF) ^ (iuf.i >> 31) ;
 }
-// restore integer representing flot to original float bit pattern
+// restore float from fake integer representing float
 float unfake_float(int32_t fake){
   iuf32_t iuf ;
   iuf.i = ((fake >> 31) ^ fake) | (fake & 0x80000000) ;
@@ -96,13 +170,13 @@ float unfake_float(int32_t fake){
 }
 
 // move a block (ni x nj) of 32 bit floats from src to dst, set moved block properties
-// src   : float array to extract data from (NON CONTIGUOUS storage)
-// dst   : array to put extracted data into (NON CONTIGUOUS storage)
-// ni    : row size
-// lnis  : row storage size in src
-// lnid  : row storage size in dst
-// nj    : number of rows
-// bp    : pointer to block properties struct (min / max / min abs) (IGNORED if NULL)
+// src  [IN] : float array to extract data from (NON CONTIGUOUS storage)
+// dst [OUT] : array to put extracted data into (NON CONTIGUOUS storage)
+// ni   [IN] : row size
+// lnis [IN] : row storage size in src
+// lnid [IN] : row storage size in dst
+// nj   [IN] : number of rows
+// bp  [OUT] : pointer to block properties struct (min / max / min abs) (IGNORED if NULL)
 // return number of values processed
 int move_float_block(float *restrict src, int lnis, void *restrict dst, int lnid, int ni, int nj, block_properties *bp){
   int32_t *restrict s = (int32_t *) src ;
@@ -185,13 +259,13 @@ int move_float_block(float *restrict src, int lnis, void *restrict dst, int lnid
 }
 
 // move a block (ni x nj) of 32 bit integers from src and store it into blk, set moved block properties
-// src   : integer array to extract data from (NON CONTIGUOUS storage)
-// lnis  : row storage size in src
-// dst   : array to put extracted data into (NON CONTIGUOUS storage)
-// lnid  : row storage size in dst
-// ni    : row size (row storage size in blk)
-// nj    : number of rows
-// bp    : pointer to block properties struct (min / max / min abs) (IGNORED if NULL)
+// src  [IN] : integer array to extract data from (NON CONTIGUOUS storage)
+// lnis [IN] : row storage size in src
+// dst [OUT] : array to put extracted data into (NON CONTIGUOUS storage)
+// lnid [IN] : row storage size in dst
+// ni   [IN] : row size (row storage size in blk)
+// nj   [IN] : number of rows
+// bp  [OUT] : pointer to block properties struct (min / max / min abs) (IGNORED if NULL)
 // return number of values processed
 int move_int32_block(int32_t *restrict src, int lnis, void *restrict dst, int lnid, int ni, int nj, block_properties *bp){
   int32_t *restrict s = (int32_t *) src ;
@@ -264,14 +338,17 @@ int move_int32_block(int32_t *restrict src, int lnis, void *restrict dst, int ln
 
   return ni * nj ;
 }
+int move_uint32_block(int32_t *restrict src, int lnis, void *restrict dst, int lnid, int ni, int nj, block_properties *bp){
+  return move_int32_block(src, lnis, dst, lnid, ni, nj, bp) ;
+}
 
 // move a block (ni x nj) of 32 bit integers from src and store it into blk
-// src   : integer array to extract data from (NON CONTIGUOUS storage)
-// lnis  : row storage size in src
-// dst   : array to put extracted data into (NON CONTIGUOUS storage)
-// lnid  : row storage size in dst
-// ni    : row size (row storage size in blk)
-// nj    : number of rows
+// src  [IN] : integer array to extract data from (NON CONTIGUOUS storage)
+// lnis [IN] : row storage size in src
+// dst [OUT] : array to put extracted data into (NON CONTIGUOUS storage)
+// lnid [IN] : row storage size in dst
+// ni   [IN] : row size (row storage size in blk)
+// nj   [IN] : number of rows
 // return number of values processed
 int move_mem32_block(void *restrict src, int lnis, void *restrict dst, int lnid, int ni, int nj){
   uint32_t *restrict d = (uint32_t *) dst ;
@@ -318,14 +395,14 @@ int move_mem32_block(void *restrict src, int lnis, void *restrict dst, int lnid,
 }
 
 // move a block (ni x nj) of 32 bit items from src to dst
-// src   : array the data comes from
-// lnis  : row storage size of src
-// dst   : array to receive data
-// lnid  : row storage size of dst
-// ni    : row size (row storage size of blk)
-// nj    : number of rows
-// dtype : data type , float_data or int_data
-// bp    : pointer to block properties struct (min / max / min abs) (IGNORED if NULL)
+// src   [IN] : array the data comes from
+// lnis  [IN] : row storage size of src
+// dst  [OUT] : array to receive data
+// lnid  [IN] : row storage size of dst
+// ni    [IN] : row size (row storage size of blk)
+// nj    [IN] : number of rows
+// dtype [IN] : data type int_data / uint_data / float_data / raw_data
+// bp   [OUT] : pointer to block properties struct (min / max / min abs) (IGNORED if NULL)
 // return number of values processed
 int move_word32_block(void *restrict src, int lnis, void *restrict dst, int lnid, int ni, int nj, int_or_float datatype, block_properties *bp){
   if(datatype == float_data && bp != NULL){
