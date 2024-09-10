@@ -16,9 +16,10 @@
 #include <stdio.h>
 #include <stdint.h>
 
-#include <with_simd.h>
+// #include <with_simd.h>
 #include <rmn/tools_types.h>
 #include <rmn/misc_operators.h>
+
 #include <rmn/misc_pack.h>
 
 #if ! defined(__INTEL_COMPILER_UPDATE)

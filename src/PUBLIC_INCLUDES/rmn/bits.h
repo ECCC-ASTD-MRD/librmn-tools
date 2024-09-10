@@ -23,7 +23,10 @@ Library General Public License for more details.
 
 #if ! defined(IN_FORTRAN_CODE) && ! defined(__GFORTRAN__)
 #if defined(__x86_64__)
-#include <with_simd.h>
+#define USE_INTEL_SIMD_INTRINSICS
+#include <rmn/simd_functions.h>
+#define WITH_SIMD
+// #include <with_simd.h>
 #endif
 // C interfaces and declarations
 

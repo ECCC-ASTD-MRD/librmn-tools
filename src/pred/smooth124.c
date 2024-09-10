@@ -16,7 +16,9 @@
  */
 #include <stdint.h>
 
-#include <with_simd.h>
+// #define USE_INTEL_SIMD_INTRINSICS
+// #include <rmn/simd_functions.h>
+// #define WITH_SIMD
 
 // in place 1-2-1 / 4 smoothing
 extern inline void Ismooth_124_inplace(int32_t *f, int n){

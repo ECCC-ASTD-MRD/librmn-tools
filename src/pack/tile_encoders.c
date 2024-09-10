@@ -18,7 +18,10 @@
 #include <rmn/print_bitstream.h>
 #include <rmn/tile_encoders.h>
 
-#include <with_simd.h>
+#define USE_INTEL_SIMD_INTRINSICS
+#include <rmn/simd_functions.h>
+#define WITH_SIMD
+// #include <with_simd.h>
 
 #define NB0 (2)
 

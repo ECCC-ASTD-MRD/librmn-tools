@@ -20,7 +20,11 @@ Library General Public License for more details.
 
 #include <stdint.h>
 
-#include <with_simd.h>
+#define USE_INTEL_SIMD_INTRINSICS
+#include <rmn/simd_functions.h>
+#define WITH_SIMD
+// #include <with_simd.h>
+
 #include <rmn/tools_types.h>
 #include <rmn/bits.h>
 

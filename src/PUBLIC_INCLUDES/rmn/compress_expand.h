@@ -31,7 +31,7 @@
 #endif
 #define USE_INTEL_SIMD_INTRINSICS
 #include <rmn/simd_functions.h>
-#define WITH_SIMD
+// #define WITH_SIMD
 // #include <with_simd.h>
 #endif
 

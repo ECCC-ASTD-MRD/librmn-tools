@@ -22,7 +22,10 @@
 
 #include <stdint.h>
 
-#include <with_simd.h>
+// #define USE_INTEL_SIMD_INTRINSICS
+// #include <rmn/simd_functions.h>
+// #define WITH_SIMD
+// #include <with_simd.h>
 
 // static int b_conts = 0b01010101 ;
 

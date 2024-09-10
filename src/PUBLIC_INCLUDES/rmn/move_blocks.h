@@ -15,6 +15,7 @@
 //     M. Valin,   Recherche en Prevision Numerique, 2023
 //
 
+#include <stdlib.h>
 #include <stdint.h>
 
 // generic signed/unsigned/float 32 bit word
@@ -68,6 +69,9 @@ typedef struct{
   uint64_t nargs ;      // number of arguments
   iuf64_t  args[] ;     // arguments ( [0] .. [nargs-1] )
 } fn_args ;             // processing function argument list
+
+// allocate an argument list with room for at most nmax arguments
+static inline fn_args *malloc_fn_args(uint32_t nmax) { return (fn_args *) malloc(sizeof(fn_args) + nmax * sizeof(iuf64_t)) ; }
 
 typedef int (*fnptr)(int lni, int ni, int nj, block_properties *bp, void *data, fn_args *args) ;   // pointer to processing function
 

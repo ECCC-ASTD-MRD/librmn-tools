@@ -15,6 +15,11 @@
 #include <stdlib.h>
 #include <stdio.h>
 
+// #define USE_INTEL_SIMD_INTRINSICS
+// #include <rmn/simd_functions.h>
+// #define WITH_SIMD
+// #include <with_simd.h>
+
 #include <rmn/pixmaps.h>
 #include <rmn/bits.h>
 
@@ -297,9 +302,6 @@ rmn_pixmap *pixmap_be_fp_01(float *array, rmn_pixmap *bmp, float special, int32_
   return pixmap ;
 }
 
-#if defined(__x86_64__) && defined(__AVX2__)
-#include <with_simd.h>
-#endif
 // restore array from a 1 bit per element pixmap (big endian style)
 // array  [OUT] : destination array (32 bit elements)
 // bmp     [IN] : pointer to rmn_pixmap struct

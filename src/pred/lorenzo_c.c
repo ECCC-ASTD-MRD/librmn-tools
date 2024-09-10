@@ -16,7 +16,10 @@
 #include <stdint.h>
 #include <string.h>
 
-#include <with_simd.h>
+#define USE_INTEL_SIMD_INTRINSICS
+#include <rmn/simd_functions.h>
+#define WITH_SIMD
+// #include <with_simd.h>
 
 // #if ! defined(STATIC)
 #define STATIC static

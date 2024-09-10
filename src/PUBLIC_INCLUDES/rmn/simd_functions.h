@@ -15,6 +15,7 @@
 #if ! defined(SIMD_FN)
 
 #include <stdio.h>
+#include <stdint.h>
 #include <rmn/ct_assert.h>
 
 // #include <with_simd.h>
