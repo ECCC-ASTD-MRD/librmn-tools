@@ -137,7 +137,10 @@ limits_w32 IEEE32_extrema_missing_simd(void * restrict f, int np, void *missing,
 #endif
 
 // use Intel compatible intrinsics for SIMD instructions
-#include <with_simd.h>
+#define USE_INTEL_SIMD_INTRINSICS
+#include <rmn/simd_functions.h>
+#define WITH_SIMD
+// #include <with_simd.h>
 
 #define VL 8
 #define VLMASK (VL - 1)
