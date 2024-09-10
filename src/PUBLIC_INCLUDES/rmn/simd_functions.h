@@ -12,6 +12,8 @@
 // Library General Public License for more details.
 //
 
+#if ! defined(SIMD_FN)
+
 #include <stdio.h>
 #include <rmn/ct_assert.h>
 
@@ -56,7 +58,7 @@ CT_ASSERT(sizeof(vec_128) == 16, "ERROR: sizeof(vec_128) MUST BE 16")
 #endif
 #endif   // defined(ALIAS_INTEL_SIMD_INTRINSICS)
 
-#define STATIC static inline
+#define SIMD_STATIC static inline
 #define SIMD_LOOP(N, OPER) { int i ;  for(i=0 ; i<N ; i++) { OPER ; } ; }
 #define SIMD_FN(SCOPE, KIND, N, FN, OPER) SCOPE KIND FN { KIND R ; SIMD_LOOP(N, OPER) ; return R ; }
 #define VOID_FN(SCOPE, N, FN, OPER)       SCOPE void FN {          SIMD_LOOP(N, OPER) ;            }
@@ -275,70 +277,70 @@ static inline __m128i _mm_setones_si128(void){ __m128i t = _mm_setzero_si128() ;
 #define inserti_128    _mm256_inserti128_si256
 
 #else
-SIMD_FN(STATIC, __m256,  8, set1_v8f( float    f32 ) , R.f[i] = f32 )
-SIMD_FN(STATIC, __m128,  4, set1_v4f( float    f32 ) , R.f[i] = f32 )
-SIMD_FN(STATIC, __m256,  4, set1_v4d( double   f64 ) , R.d[i] = f64 )
-SIMD_FN(STATIC, __m128,  2, set1_v2d( double   f64 ) , R.d[i] = f64 )
-SIMD_FN(STATIC, __m256i, 4, set1_v4l( uint64_t i64 ) , R.i64[i] = i64 )
-SIMD_FN(STATIC, __m128i, 2, set1_v2l( uint64_t i64 ) , R.i64[i] = i64 )
-SIMD_FN(STATIC, __m256i, 8, set1_v8i( int32_t  i32 ) , R.i64[i] = i32 )
-SIMD_FN(STATIC, __m128i, 4, set1_v4i( int32_t  i32 ) , R.i64[i] = i32 )
-SIMD_FN(STATIC, __m256i, 8, zero_v256( void ) , R.u32[i] = 0 )
-SIMD_FN(STATIC, __m128i, 4, zero_v128( void ) , R.u32[i] = 0 )
-SIMD_FN(STATIC, __m256i, 8, ones_v256( void ) , R.u32[i] = 0xFFFFFFFFu )
-SIMD_FN(STATIC, __m128i, 4, ones_v128( void ) , R.u32[i] = 0xFFFFFFFFu )
+SIMD_FN(SIMD_STATIC, __m256,  8, set1_v8f( float    f32 ) , R.f[i] = f32 )
+SIMD_FN(SIMD_STATIC, __m128,  4, set1_v4f( float    f32 ) , R.f[i] = f32 )
+SIMD_FN(SIMD_STATIC, __m256,  4, set1_v4d( double   f64 ) , R.d[i] = f64 )
+SIMD_FN(SIMD_STATIC, __m128,  2, set1_v2d( double   f64 ) , R.d[i] = f64 )
+SIMD_FN(SIMD_STATIC, __m256i, 4, set1_v4l( uint64_t i64 ) , R.i64[i] = i64 )
+SIMD_FN(SIMD_STATIC, __m128i, 2, set1_v2l( uint64_t i64 ) , R.i64[i] = i64 )
+SIMD_FN(SIMD_STATIC, __m256i, 8, set1_v8i( int32_t  i32 ) , R.i64[i] = i32 )
+SIMD_FN(SIMD_STATIC, __m128i, 4, set1_v4i( int32_t  i32 ) , R.i64[i] = i32 )
+SIMD_FN(SIMD_STATIC, __m256i, 8, zero_v256( void ) , R.u32[i] = 0 )
+SIMD_FN(SIMD_STATIC, __m128i, 4, zero_v128( void ) , R.u32[i] = 0 )
+SIMD_FN(SIMD_STATIC, __m256i, 8, ones_v256( void ) , R.u32[i] = 0xFFFFFFFFu )
+SIMD_FN(SIMD_STATIC, __m128i, 4, ones_v128( void ) , R.u32[i] = 0xFFFFFFFFu )
 
-SIMD_FN(STATIC, __m256i, 8, cvt_v8c_v8i( __m128i A ) , R.i32[i] = A.i8[i] )     // convert signed 8 bit to 32 bit (8 values)
-SIMD_FN(STATIC, __m128i, 4, cvt_v4c_v4i( __m128i A ) , R.i32[i] = A.i8[i] )     // convert signed 8 bit to 32 bit (4 values)
+SIMD_FN(SIMD_STATIC, __m256i, 8, cvt_v8c_v8i( __m128i A ) , R.i32[i] = A.i8[i] )     // convert signed 8 bit to 32 bit (8 values)
+SIMD_FN(SIMD_STATIC, __m128i, 4, cvt_v4c_v4i( __m128i A ) , R.i32[i] = A.i8[i] )     // convert signed 8 bit to 32 bit (4 values)
 
-SIMD_FN(STATIC, __m256i, 8, loadu_v256( __m256i *mem ) , R.i32[i] = mem->i32[i] )
-SIMD_FN(STATIC, __m128i, 4, loadu_v128( __m128i *mem ) , R.i32[i] = mem->i32[i] )
-SIMD_FN(STATIC, __m256i, 8, loadu_v8f( float *mem ) , R.i32[i] = mem[i] )
-SIMD_FN(STATIC, __m128i, 4, loadu_v4f( float *mem ) , R.i32[i] = mem[i] )
-SIMD_FN(STATIC, __m256i, 8, maskload_v8i( int *mem, __m256i mask ) , R.i32[i] = (mask.i32[i] < 0) ? mem[i] : 0 )
-SIMD_FN(STATIC, __m128i, 4, maskload_v4i( int *mem, __m128i mask ) , R.i32[i] = (mask.i32[i] < 0) ? mem[i] : 0 )
+SIMD_FN(SIMD_STATIC, __m256i, 8, loadu_v256( __m256i *mem ) , R.i32[i] = mem->i32[i] )
+SIMD_FN(SIMD_STATIC, __m128i, 4, loadu_v128( __m128i *mem ) , R.i32[i] = mem->i32[i] )
+SIMD_FN(SIMD_STATIC, __m256i, 8, loadu_v8f( float *mem ) , R.i32[i] = mem[i] )
+SIMD_FN(SIMD_STATIC, __m128i, 4, loadu_v4f( float *mem ) , R.i32[i] = mem[i] )
+SIMD_FN(SIMD_STATIC, __m256i, 8, maskload_v8i( int *mem, __m256i mask ) , R.i32[i] = (mask.i32[i] < 0) ? mem[i] : 0 )
+SIMD_FN(SIMD_STATIC, __m128i, 4, maskload_v4i( int *mem, __m128i mask ) , R.i32[i] = (mask.i32[i] < 0) ? mem[i] : 0 )
 
-VOID_FN(STATIC, 8, storeu_v256( __m256i *mem, __m256i V ) , mem->i32[i] = V.i32[i] )
-VOID_FN(STATIC, 4, storeu_v128( __m128i *mem, __m128i V ) , mem->i32[i] = V.i32[i] )
-VOID_FN(STATIC, 8, storeu_v8f( float *mem, __m256 V ) , mem[i] = V.f[i] )
-VOID_FN(STATIC, 4, storeu_v4f( float *mem, __m128 V ) , mem[i] = V.f[i] )
-VOID_FN(STATIC, 8, maskstore_v8i( int *mem, __m256i mask, __m256 V ) , if(mask.i32[i] < 0) { mem[i] = V.i32[i] ; } )
-VOID_FN(STATIC, 4, maskstore_v4i( int *mem, __m128i mask, __m128 V ) , if(mask.i32[i] < 0) { mem[i] = V.i32[i] ; } )
+VOID_FN(SIMD_STATIC, 8, storeu_v256( __m256i *mem, __m256i V ) , mem->i32[i] = V.i32[i] )
+VOID_FN(SIMD_STATIC, 4, storeu_v128( __m128i *mem, __m128i V ) , mem->i32[i] = V.i32[i] )
+VOID_FN(SIMD_STATIC, 8, storeu_v8f( float *mem, __m256 V ) , mem[i] = V.f[i] )
+VOID_FN(SIMD_STATIC, 4, storeu_v4f( float *mem, __m128 V ) , mem[i] = V.f[i] )
+VOID_FN(SIMD_STATIC, 8, maskstore_v8i( int *mem, __m256i mask, __m256 V ) , if(mask.i32[i] < 0) { mem[i] = V.i32[i] ; } )
+VOID_FN(SIMD_STATIC, 4, maskstore_v4i( int *mem, __m128i mask, __m128 V ) , if(mask.i32[i] < 0) { mem[i] = V.i32[i] ; } )
 
-SIMD_FN(STATIC, __m256i, 8, slli_v8i( __m256i A, int count ) , R.u32[i] = (A.u32[i] << count) )
-SIMD_FN(STATIC, __m128i, 4, slli_v4i( __m128i A, int count ) , R.u32[i] = (A.u32[i] << count) )
-SIMD_FN(STATIC, __m256i, 8, srli_v8i( __m256i A, int count ) , R.u32[i] = (A.u32[i] >> count) )
-SIMD_FN(STATIC, __m128i, 4, srli_v4i( __m128i A, int count ) , R.u32[i] = (A.u32[i] >> count) )
-SIMD_FN(STATIC, __m256i, 8, srai_v8i( __m256i A, int count ) , R.i32[i] = (A.i32[i] >> count) )
-SIMD_FN(STATIC, __m128i, 4, srai_v4i( __m128i A, int count ) , R.i32[i] = (A.i32[i] >> count) )
+SIMD_FN(SIMD_STATIC, __m256i, 8, slli_v8i( __m256i A, int count ) , R.u32[i] = (A.u32[i] << count) )
+SIMD_FN(SIMD_STATIC, __m128i, 4, slli_v4i( __m128i A, int count ) , R.u32[i] = (A.u32[i] << count) )
+SIMD_FN(SIMD_STATIC, __m256i, 8, srli_v8i( __m256i A, int count ) , R.u32[i] = (A.u32[i] >> count) )
+SIMD_FN(SIMD_STATIC, __m128i, 4, srli_v4i( __m128i A, int count ) , R.u32[i] = (A.u32[i] >> count) )
+SIMD_FN(SIMD_STATIC, __m256i, 8, srai_v8i( __m256i A, int count ) , R.i32[i] = (A.i32[i] >> count) )
+SIMD_FN(SIMD_STATIC, __m128i, 4, srai_v4i( __m128i A, int count ) , R.i32[i] = (A.i32[i] >> count) )
 
-SIMD_FN(STATIC, __m256i, 8, max_v8i( __m256i A, __m256i B ) , R.i32[i] = (A.i32[i] > B.i32[i]) ? A.i32[i] : B.i32[i] )
-SIMD_FN(STATIC, __m128i, 4, max_v4i( __m128i A, __m128i B ) , R.i32[i] = (A.i32[i] > B.i32[i]) ? A.i32[i] : B.i32[i] )
-SIMD_FN(STATIC, __m256i, 8, min_v8i( __m256i A, __m256i B ) , R.i32[i] = (A.i32[i] < B.i32[i]) ? A.i32[i] : B.i32[i] )
-SIMD_FN(STATIC, __m128i, 4, min_v4i( __m128i A, __m128i B ) , R.i32[i] = (A.i32[i] < B.i32[i]) ? A.i32[i] : B.i32[i] )
-SIMD_FN(STATIC, __m256i, 8, max_v8u( __m256i A, __m256i B ) , R.u32[i] = (A.u32[i] > B.u32[i]) ? A.u32[i] : B.u32[i] )
-SIMD_FN(STATIC, __m128i, 4, max_v4u( __m128i A, __m128i B ) , R.u32[i] = (A.u32[i] > B.u32[i]) ? A.u32[i] : B.u32[i] )
-SIMD_FN(STATIC, __m256i, 8, min_v8u( __m256i A, __m256i B ) , R.u32[i] = (A.u32[i] < B.u32[i]) ? A.u32[i] : B.u32[i] )
-SIMD_FN(STATIC, __m128i, 4, min_v4u( __m128i A, __m128i B ) , R.u32[i] = (A.u32[i] < B.u32[i]) ? A.u32[i] : B.u32[i] )
-SIMD_FN(STATIC, __m256i, 8, abs_v8i(__m256i A) , R.i32[i] = (A.i32[i] < 0) ? -A.i32[i] : A.i32[i] )
-SIMD_FN(STATIC, __m128i, 4, abs_v4i(__m128i A) , R.i32[i] = (A.i32[i] < 0) ? -A.i32[i] : A.i32[i] )
+SIMD_FN(SIMD_STATIC, __m256i, 8, max_v8i( __m256i A, __m256i B ) , R.i32[i] = (A.i32[i] > B.i32[i]) ? A.i32[i] : B.i32[i] )
+SIMD_FN(SIMD_STATIC, __m128i, 4, max_v4i( __m128i A, __m128i B ) , R.i32[i] = (A.i32[i] > B.i32[i]) ? A.i32[i] : B.i32[i] )
+SIMD_FN(SIMD_STATIC, __m256i, 8, min_v8i( __m256i A, __m256i B ) , R.i32[i] = (A.i32[i] < B.i32[i]) ? A.i32[i] : B.i32[i] )
+SIMD_FN(SIMD_STATIC, __m128i, 4, min_v4i( __m128i A, __m128i B ) , R.i32[i] = (A.i32[i] < B.i32[i]) ? A.i32[i] : B.i32[i] )
+SIMD_FN(SIMD_STATIC, __m256i, 8, max_v8u( __m256i A, __m256i B ) , R.u32[i] = (A.u32[i] > B.u32[i]) ? A.u32[i] : B.u32[i] )
+SIMD_FN(SIMD_STATIC, __m128i, 4, max_v4u( __m128i A, __m128i B ) , R.u32[i] = (A.u32[i] > B.u32[i]) ? A.u32[i] : B.u32[i] )
+SIMD_FN(SIMD_STATIC, __m256i, 8, min_v8u( __m256i A, __m256i B ) , R.u32[i] = (A.u32[i] < B.u32[i]) ? A.u32[i] : B.u32[i] )
+SIMD_FN(SIMD_STATIC, __m128i, 4, min_v4u( __m128i A, __m128i B ) , R.u32[i] = (A.u32[i] < B.u32[i]) ? A.u32[i] : B.u32[i] )
+SIMD_FN(SIMD_STATIC, __m256i, 8, abs_v8i(__m256i A) , R.i32[i] = (A.i32[i] < 0) ? -A.i32[i] : A.i32[i] )
+SIMD_FN(SIMD_STATIC, __m128i, 4, abs_v4i(__m128i A) , R.i32[i] = (A.i32[i] < 0) ? -A.i32[i] : A.i32[i] )
 
-SIMD_FN(STATIC, __m256i, 8, _mm256_castps_si256(__m256 A) , R.i32[i] = A.i32[i] )      // float to integer
-SIMD_FN(STATIC, __m256i, 8, _mm256_castsi256_ps(__m256i A) , R.i32[i] = A.i32[i] )     // integer to float
-SIMD_FN(STATIC, __m128i, 4, _mm256_castsi256_si128(__m256i A) , R.i32[i] = A.i32[i] )  // 256 to 128 (upper part of 256 ignored)
-SIMD_FN(STATIC, __m256i, 4, _mm256_castsi128_si256(__m128i A) , R.i32[i] = A.i32[i] )  // 128 to 256 (upper part of 256 undefined)
+SIMD_FN(SIMD_STATIC, __m256i, 8, _mm256_castps_si256(__m256 A) , R.i32[i] = A.i32[i] )      // float to integer
+SIMD_FN(SIMD_STATIC, __m256i, 8, _mm256_castsi256_ps(__m256i A) , R.i32[i] = A.i32[i] )     // integer to float
+SIMD_FN(SIMD_STATIC, __m128i, 4, _mm256_castsi256_si128(__m256i A) , R.i32[i] = A.i32[i] )  // 256 to 128 (upper part of 256 ignored)
+SIMD_FN(SIMD_STATIC, __m256i, 4, _mm256_castsi128_si256(__m128i A) , R.i32[i] = A.i32[i] )  // 128 to 256 (upper part of 256 undefined)
 
-SIMD_FN(STATIC, __m256i, 8, xor_v256( __m256i A,  __m256i B), R.i32[i] = A.i32[i] ^ B.i32[i])
-SIMD_FN(STATIC, __m128i, 4, xor_v128( __m128i A,  __m128i B),    R.i32[i] = A.i32[i] ^ B.i32[i])
-SIMD_FN(STATIC, __m256i, 8, and_v256( __m256i A,  __m256i B), R.i32[i] = A.i32[i] & B.i32[i])
-SIMD_FN(STATIC, __m128i, 4, and_v128( __m128i A,  __m128i B),    R.i32[i] = A.i32[i] & B.i32[i])
-SIMD_FN(STATIC, __m256i, 8, andnot_v256( __m256i A,  __m256i B), R.i32[i] = A.i32[i] & (~B.i32[i]))
-SIMD_FN(STATIC, __m128i, 4, andnot_v128( __m128i A,  __m128i B),    R.i32[i] = A.i32[i] & (~B.i32[i]))
-SIMD_FN(STATIC, __m256i, 8, or_v256( __m256i A,  __m256i B), R.i32[i] = A.i32[i] | B.i32[i])
-SIMD_FN(STATIC, __m128i, 4, or_v128( __m128i A,  __m128i B),    R.i32[i] = A.i32[i] | B.i32[i])
+SIMD_FN(SIMD_STATIC, __m256i, 8, xor_v256( __m256i A,  __m256i B), R.i32[i] = A.i32[i] ^ B.i32[i])
+SIMD_FN(SIMD_STATIC, __m128i, 4, xor_v128( __m128i A,  __m128i B),    R.i32[i] = A.i32[i] ^ B.i32[i])
+SIMD_FN(SIMD_STATIC, __m256i, 8, and_v256( __m256i A,  __m256i B), R.i32[i] = A.i32[i] & B.i32[i])
+SIMD_FN(SIMD_STATIC, __m128i, 4, and_v128( __m128i A,  __m128i B),    R.i32[i] = A.i32[i] & B.i32[i])
+SIMD_FN(SIMD_STATIC, __m256i, 8, andnot_v256( __m256i A,  __m256i B), R.i32[i] = A.i32[i] & (~B.i32[i]))
+SIMD_FN(SIMD_STATIC, __m128i, 4, andnot_v128( __m128i A,  __m128i B),    R.i32[i] = A.i32[i] & (~B.i32[i]))
+SIMD_FN(SIMD_STATIC, __m256i, 8, or_v256( __m256i A,  __m256i B), R.i32[i] = A.i32[i] | B.i32[i])
+SIMD_FN(SIMD_STATIC, __m128i, 4, or_v128( __m128i A,  __m128i B),    R.i32[i] = A.i32[i] | B.i32[i])
 
-SIMD_FN(STATIC, __m128i, 4, extracti_128(__m256i A, int upper) , R.i32[i] = A.i32[i + (upper ? 4 : 0)] )
-SIMD_FN(STATIC, __m256i, 4, inserti_128(__m256i A, __m128i B, int upper) , R.i32[i] = upper ? B.i32[i] : A.i32[i] ; R.i32[i+4] = upper ? A.i32[i] : B.i32[i] )
+SIMD_FN(SIMD_STATIC, __m128i, 4, extracti_128(__m256i A, int upper) , R.i32[i] = A.i32[i + (upper ? 4 : 0)] )
+SIMD_FN(SIMD_STATIC, __m256i, 4, inserti_128(__m256i A, __m128i B, int upper) , R.i32[i] = upper ? B.i32[i] : A.i32[i] ; R.i32[i+4] = upper ? A.i32[i] : B.i32[i] )
 
 #endif
 
@@ -353,30 +355,30 @@ SIMD_FN(STATIC, __m256i, 4, inserti_128(__m256i A, __m128i B, int upper) , R.i32
 #if ! defined(USE_INTEL_SIMD_INTRINSICS)
 
 
-// SIMD_FN(STATIC, __m256i, 4, _mm256_inserti128_si256(__m256i A, __m128i B, int upper) , R.i32[i + (upper ? 4 : 0)] = B.i32[i] ; R.i32[i + (upper ? 0 : 4)] = A.i32[i] )
+// SIMD_FN(SIMD_STATIC, __m256i, 4, _mm256_inserti128_si256(__m256i A, __m128i B, int upper) , R.i32[i + (upper ? 4 : 0)] = B.i32[i] ; R.i32[i + (upper ? 0 : 4)] = A.i32[i] )
 
 
-SIMD_FN(STATIC, __m256i, 8, _mm256_add_epi32(__m256i A, __m256i B) , R.i32[i] = A.i32[i] + B.i32[i] )
-SIMD_FN(STATIC, __m128i, 4, _mm_add_epi32(__m128i A, __m128i B)    , R.i32[i] = A.i32[i] + B.i32[i] )
+SIMD_FN(SIMD_STATIC, __m256i, 8, _mm256_add_epi32(__m256i A, __m256i B) , R.i32[i] = A.i32[i] + B.i32[i] )
+SIMD_FN(SIMD_STATIC, __m128i, 4, _mm_add_epi32(__m128i A, __m128i B)    , R.i32[i] = A.i32[i] + B.i32[i] )
 
-SIMD_FN(STATIC, __m256i, 8, _mm256_sub_epi32(__m256i A, __m256i B) , R.i32[i] = A.i32[i] - B.i32[i] )
-SIMD_FN(STATIC, __m128i, 4, _mm_sub_epi32(__m128i A, __m128i B)    , R.i32[i] = A.i32[i] - B.i32[i] )
+SIMD_FN(SIMD_STATIC, __m256i, 8, _mm256_sub_epi32(__m256i A, __m256i B) , R.i32[i] = A.i32[i] - B.i32[i] )
+SIMD_FN(SIMD_STATIC, __m128i, 4, _mm_sub_epi32(__m128i A, __m128i B)    , R.i32[i] = A.i32[i] - B.i32[i] )
 
 
-SIMD_FN(STATIC, __m256, 8, _mm256_blendv_ps(__m256 A, __m256 B, __m256 MASK), R.i32[i] = ((MASK.i32[i] >> 31) & (B.i32[i] ^ A.i32[i])) ^  A.i32[i] )
-SIMD_FN(STATIC, __m128, 4, _mm_blendv_ps(__m128 A, __m128 B, __m128 MASK),    R.i32[i] = ((MASK.i32[i] >> 31) & (B.i32[i] ^ A.i32[i])) ^  A.i32[i] )
+SIMD_FN(SIMD_STATIC, __m256, 8, _mm256_blendv_ps(__m256 A, __m256 B, __m256 MASK), R.i32[i] = ((MASK.i32[i] >> 31) & (B.i32[i] ^ A.i32[i])) ^  A.i32[i] )
+SIMD_FN(SIMD_STATIC, __m128, 4, _mm_blendv_ps(__m128 A, __m128 B, __m128 MASK),    R.i32[i] = ((MASK.i32[i] >> 31) & (B.i32[i] ^ A.i32[i])) ^  A.i32[i] )
 
-SIMD_FN(STATIC, __m256i, 32, _mm256_blendv_epi8(__m256i A, __m256i B, __m256i MASK), R.u8[i] = ((MASK.i8[i] >> 7) & (B.u8[i] ^ A.u8[i])) ^  A.u8[i] )
-SIMD_FN(STATIC, __m128i, 16, _mm_blendv_epi8(__m128i A, __m128i B, __m128i MASK),    R.u8[i] = ((MASK.i8[i] >> 7) & (B.u8[i] ^ A.u8[i])) ^  A.u8[i] )
+SIMD_FN(SIMD_STATIC, __m256i, 32, _mm256_blendv_epi8(__m256i A, __m256i B, __m256i MASK), R.u8[i] = ((MASK.i8[i] >> 7) & (B.u8[i] ^ A.u8[i])) ^  A.u8[i] )
+SIMD_FN(SIMD_STATIC, __m128i, 16, _mm_blendv_epi8(__m128i A, __m128i B, __m128i MASK),    R.u8[i] = ((MASK.i8[i] >> 7) & (B.u8[i] ^ A.u8[i])) ^  A.u8[i] )
 
-SIMD_FN(STATIC, __m256i, 8, _mm256_cmpeq_epi32(__m256i A, __m256i B), R.i32[i] = (A.i32[i] == B.i32[i]) ? -1 : 0)
-SIMD_FN(STATIC, __m128i, 4, _mm_cmpeq_epi32(__m128i A, __m128i B),    R.i32[i] = (A.i32[i] == B.i32[i]) ? -1 : 0)
+SIMD_FN(SIMD_STATIC, __m256i, 8, _mm256_cmpeq_epi32(__m256i A, __m256i B), R.i32[i] = (A.i32[i] == B.i32[i]) ? -1 : 0)
+SIMD_FN(SIMD_STATIC, __m128i, 4, _mm_cmpeq_epi32(__m128i A, __m128i B),    R.i32[i] = (A.i32[i] == B.i32[i]) ? -1 : 0)
 
 #endif
 
 // integer blend, defined using float blend with type cast
-SIMD_FN(STATIC, __m256i, 8, _mm256_blendv_epi32(__m256i A, __m256i B, __m256i MASK), R = __V256i _mm256_blendv_ps(__V256 A, __V256 B, __V256 MASK) )
-SIMD_FN(STATIC, __m128i, 4, _mm_blendv_epi32(__m128i A, __m128i B, __m128i MASK),    R = __V128i _mm_blendv_ps(__V128 A, __V128 B, __V128 MASK) )
+SIMD_FN(SIMD_STATIC, __m256i, 8, _mm256_blendv_epi32(__m256i A, __m256i B, __m256i MASK), R = __V256i _mm256_blendv_ps(__V256 A, __V256 B, __V256 MASK) )
+SIMD_FN(SIMD_STATIC, __m128i, 4, _mm_blendv_epi32(__m128i A, __m128i B, __m128i MASK),    R = __V128i _mm_blendv_ps(__V128 A, __V128 B, __V128 MASK) )
 
 // print 128 bit vectors
 static void print_v2d(char *msg, __v128i vm){
@@ -549,3 +551,5 @@ static inline __m256i mask_v8i(int n){
 //                            -1 where V == 0    ABS value    bump zeros count  blend VMI0 where zero  unsigned minimum
 #define MIN08(V,VMI0,V0,VZ) { V8I z=VEQ8(V,V0) ; V=ABS8I(V) ; VZ=ADD8I(VZ,z) ;  V=BLEND8(V,VMI0,z) ;   VMI0=MINU8(V,VMI0) ; }
 #endif
+
+#endif // defined(SIMD_FN)
