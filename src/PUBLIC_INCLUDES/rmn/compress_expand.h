@@ -29,7 +29,10 @@
 #if defined(__AVX512VBMI2__)
 #define __BMI2__ 1
 #endif
-#include <with_simd.h>
+#define USE_INTEL_SIMD_INTRINSICS
+#include <rmn/simd_functions.h>
+#define WITH_SIMD
+// #include <with_simd.h>
 #endif
 
 typedef struct{

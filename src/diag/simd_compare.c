@@ -18,6 +18,11 @@
 
 #include <rmn/simd_compare.h>
 
+#if defined(__AVX2__)
+#define USE_INTEL_SIMD_INTRINSICS
+#include <rmn/simd_functions.h>
+#endif
+
 #define VL 16
 
 // increment count[j] when z[i] < ref[j] (0 <= j < 6, 0 <= i < n)
@@ -129,20 +134,20 @@ void v_less_than_c_4(int32_t *z, int32_t ref[4], int32_t count[4], int32_t n){
 }
 
 #if defined(__AVX2__)
-#include <with_simd.h>
+// #include <with_simd.h>
 
 #undef VL
 #define VL 8
 
 // build a 256 bit mask (8 x 32 bits) to keep n (0-8) elements in masked operations
 // mask is built as a 64 bit mask (8x8bit), then expanded to 256 bits (8x32bit)
-static inline __m256i _mm256_memmask_si256(int n){
-  __m128i vm ;
-  uint64_t i64 = ~0lu ;                                 // all 1s
-  i64 = (n&7) ? (i64 >> ( 8 * (8 - (n&7)) )) : i64 ;    // shift right to eliminate unneeded elements
-  vm = _mm_set1_epi64x(i64) ;                           // load into 128 bit register
-  return _mm256_cvtepi8_epi32(vm) ;                     // convert from 8 bit to 32 bit mask (8 elements)
-}
+// static inline __m256i _mm256_memmask_si256(int n){
+//   __m128i vm ;
+//   uint64_t i64 = ~0lu ;                                 // all 1s
+//   i64 = (n&7) ? (i64 >> ( 8 * (8 - (n&7)) )) : i64 ;    // shift right to eliminate unneeded elements
+//   vm = _mm_set1_epi64x(i64) ;                           // load into 128 bit register
+//   return _mm256_cvtepi8_epi32(vm) ;                     // convert from 8 bit to 32 bit mask (8 elements)
+// }
 
 // increment count[j] when z[i] < ref[j] (0 <= j < 6, 0 <= i < n)
 // z        [IN] : array of NON NEGATIVE SIGNED values
@@ -160,7 +165,8 @@ void v_less_than_simd_6(int32_t *z, int32_t ref[6], int32_t count[6], int32_t n)
   nvl = (n & (VL-1)) ;
   if(nvl == 0) nvl = VL ;
   xtra = 8 - nvl ;                         // xtra points will be counted twice
-  vm = _mm256_memmask_si256(nvl) ;
+//   vm = _mm256_memmask_si256(nvl) ;
+  vm  = mask_v8i(nvl) ;
   vr0 = _mm256_broadcastd_epi32( _mm_set1_epi32(ref[0]) ) ;
   vr1 = _mm256_broadcastd_epi32( _mm_set1_epi32(ref[1]) ) ;
   vr2 = _mm256_broadcastd_epi32( _mm_set1_epi32(ref[2]) ) ;
@@ -217,7 +223,8 @@ void v_less_than_simd_4(int32_t *z, int32_t ref[4], int32_t count[4], int32_t n)
   nvl = (n & (VL-1)) ;
   if(nvl == 0) nvl = VL ;
   xtra = 8 - nvl ;                         // xtra points will be counted twice
-  vm = _mm256_memmask_si256(nvl) ;
+//   vm = _mm256_memmask_si256(nvl) ;
+  vm  = mask_v8i(nvl) ;
   vr0 = _mm256_broadcastd_epi32( _mm_set1_epi32(ref[0]) ) ;
   vr1 = _mm256_broadcastd_epi32( _mm_set1_epi32(ref[1]) ) ;
   vr2 = _mm256_broadcastd_epi32( _mm_set1_epi32(ref[2]) ) ;
@@ -340,7 +347,6 @@ void v_minmax_c(int32_t *z, int32_t n, int32_t *mins, int32_t *maxs, uint32_t *m
   }
 }
 #if defined(__AVX2__)
-#include <with_simd.h>
 // AVX2 version, faster than plain C version with some compilers on some platforms
 void v_minmax_simd(int32_t *z, int32_t n, int32_t *mins, int32_t *maxs, uint32_t *min0, int32_t *zeros){
   __m256i vdata, vdatb, vmin0, vmins, vmaxs, vtemp, v0000, vmask, vmas2, v1111 ;

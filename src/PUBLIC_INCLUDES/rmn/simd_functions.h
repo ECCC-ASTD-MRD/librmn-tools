@@ -219,8 +219,8 @@ typedef vec_128 __v128d ;
 #define zero_v128     _mm_setzero_si128
 #define ones_v256     _mm256_setones_si256
 #define ones_v128     _mm_setones_si128
-__m256i _mm256_setones_si256(void){  __m256i t = _mm256_setzero_si256() ; return _mm256_cmpeq_epi32(t, t) ; }
-__m128i _mm_setones_si128(void){ __m128i t = _mm_setzero_si128() ; return _mm_cmpeq_epi32(t, t) ; }
+static inline __m256i _mm256_setones_si256(void){  __m256i t = _mm256_setzero_si256() ; return _mm256_cmpeq_epi32(t, t) ; }
+static inline __m128i _mm_setones_si128(void){ __m128i t = _mm_setzero_si128() ; return _mm_cmpeq_epi32(t, t) ; }
 
 #define cvt_v8c_v8i   _mm256_cvtepi8_epi32
 #define cvt_v4c_v4i   _mm_cvtepi8_epi32
