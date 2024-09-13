@@ -80,6 +80,16 @@ int main(int argc, char **argv){
   maskstore_v8i((int *)ra, mask_v8i(5), v811) ; v8ra = loadu_v256((__m256i *)ra) ; _mm256_print_epu32("v8ra1", v8ra) ;
   maskstore_v8i((int *)ra, mask_v8i(3), v800) ; v8ra = loadu_v256((__m256i *)ra) ; _mm256_print_epu32("v8ra2", v8ra) ;
 
+  fprintf(stderr, "- insert_128 (v400 -> v811 upper)\n");
+  _mm256_print_epu32("v811", v811) ; _mm_print_epu32("v400", v400) ;
+  v8ra = inserti_128(v811, v400, 1) ;
+  _mm256_print_epu32("v8ra", v8ra) ;
+
+  fprintf(stderr, "- insert_128 (v400 -> v811 lower)\n");
+  _mm256_print_epu32("v811", v811) ; _mm_print_epu32("v400", v400) ;
+  v8ra = inserti_128(v811, v400, 0) ;
+  _mm256_print_epu32("v8ra", v8ra) ;
+
   return 0 ;
 
 //   for(i=0 ; i<16 ; i++) { ca[i] = i ; cb[i] = ca[i] + 0x10 ; cm[i] = (i & 1) ? 0xFF : 0x00 ; }
@@ -143,16 +153,6 @@ int main(int argc, char **argv){
   _mm_print_epu32("v4ra", v4ra) ;
   v4ra = _mm256_castsi256_si128(v8ra) ;
   _mm_print_epu32("v4ra", v4ra) ;
-
-  fprintf(stderr, "- insert_128 (v400 -> v811 upper)\n");
-  _mm256_print_epu32("v811", v811) ; _mm_print_epu32("v400", v400) ;
-  v8ra = inserti_128(v811, v400, 1) ;
-  _mm256_print_epu32("v8ra", v8ra) ;
-
-  fprintf(stderr, "- insert_128 (v400 -> v811 lower)\n");
-  _mm256_print_epu32("v811", v811) ; _mm_print_epu32("v400", v400) ;
-  v8ra = inserti_128(v811, v400, 0) ;
-  _mm256_print_epu32("v8ra", v8ra) ;
 
   return 0 ;
 }

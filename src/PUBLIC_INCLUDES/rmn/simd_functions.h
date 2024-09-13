@@ -14,6 +14,19 @@
 
 #if ! defined(SIMD_FN)
 
+#if defined(NO_SIMD) || defined(EMULATE_SIMD)
+
+// do not attempt to use the Intel SIMD intrincics
+#undef USE_INTEL_SIMD_INTRINSICS
+// emulate them if found in code
+#define ALIAS_INTEL_SIMD_INTRINSICS
+
+#else // NO_SIMD EMULATE_SIMD
+
+#define WITH_SIMD
+
+#endif // NO_SIMD EMULATE_SIMD
+
 #include <stdio.h>
 #include <stdint.h>
 #include <rmn/ct_assert.h>
@@ -30,15 +43,16 @@ CT_ASSERT(sizeof(vec_128) == 16, "ERROR: sizeof(vec_128) MUST BE 16")
 
 #if defined(USE_INTEL_SIMD_INTRINSICS)
 
-#define WITH_SIMD
 #undef ALIAS_INTEL_SIMD_INTRINSICS
 
 #if defined(__x86_64__)
-#if defined(__AVX2__)
+
+#if defined(__AVX2__) || defined (__AVX512F__)
 #include <immintrin.h>
 #elif defined(__SSE2__)
 #include <emmintrin.h>
 #endif
+
 #endif    // __x86_64__
 
 #if defined(VERBOSE_SIMD)
@@ -53,10 +67,8 @@ CT_ASSERT(sizeof(vec_128) == 16, "ERROR: sizeof(vec_128) MUST BE 16")
 
 #endif    // defined(USE_INTEL_SIMD_INTRINSICS)
 
-#if defined(ALIAS_INTEL_SIMD_INTRINSICS)
-#if defined(VERBOSE_SIMD)
+#if defined(ALIAS_INTEL_SIMD_INTRINSICS) && defined(VERBOSE_SIMD)   // not true if defined(USE_INTEL_SIMD_INTRINSICS)
 #warning "simd_functions : ALIASING Intel SIMD intrinsics"
-#endif
 #endif   // defined(ALIAS_INTEL_SIMD_INTRINSICS)
 
 #define SIMD_STATIC static inline
@@ -77,6 +89,7 @@ CT_ASSERT(sizeof(vec_128) == 16, "ERROR: sizeof(vec_128) MUST BE 16")
 #define __V128i  (__m128i)
 #define __V128d  (__m128d)
 
+// define __vxxx types as the corresponding __mxxx
 typedef __m256  __v256  ;
 typedef __m256  __v256f ;
 typedef __m256i __v256i ;
@@ -86,9 +99,8 @@ typedef __m128  __v128f ;
 typedef __m128i __v128i ;
 typedef __m128d __v128d ;
 
-#endif    // defined(__x86_64__) && defined(USE_INTEL_SIMD_INTRINSICS)
+#else    // defined(USE_INTEL_SIMD_INTRINSICS)
 
-#if ! defined(USE_INTEL_SIMD_INTRINSICS)
 // use C version of SIMD functions
 
 // casts (fake casts with simulated SIMD intrinsics, all typedefs are the same)
@@ -119,7 +131,7 @@ typedef vec_128 __v128f ;
 typedef vec_128 __v128i ;
 typedef vec_128 __v128d ;
 
-#endif
+#endif    // defined(USE_INTEL_SIMD_INTRINSICS)
 
 // always "aliased"
 // print functions
@@ -206,7 +218,7 @@ typedef vec_128 __v128d ;
 #define _mm256_extracti128_si256 extracti_128
 #define _mm256_inserti128_si256  inserti_128
 
-#endif
+#endif   // defined(ALIAS_INTEL_SIMD_INTRINSICS)
 
 #if defined(USE_INTEL_SIMD_INTRINSICS)
 
@@ -277,7 +289,8 @@ static inline __m128i _mm_setones_si128(void){ __m128i t = _mm_setzero_si128() ;
 #define extracti_128   _mm256_extracti128_si256
 #define inserti_128    _mm256_inserti128_si256
 
-#else
+#else    // defined(USE_INTEL_SIMD_INTRINSICS)
+
 SIMD_FN(SIMD_STATIC, __m256,  8, set1_v8f( float    f32 ) , R.f[i] = f32 )
 SIMD_FN(SIMD_STATIC, __m128,  4, set1_v4f( float    f32 ) , R.f[i] = f32 )
 SIMD_FN(SIMD_STATIC, __m256,  4, set1_v4d( double   f64 ) , R.d[i] = f64 )
@@ -341,9 +354,9 @@ SIMD_FN(SIMD_STATIC, __m256i, 8, or_v256( __m256i A,  __m256i B), R.i32[i] = A.i
 SIMD_FN(SIMD_STATIC, __m128i, 4, or_v128( __m128i A,  __m128i B),    R.i32[i] = A.i32[i] | B.i32[i])
 
 SIMD_FN(SIMD_STATIC, __m128i, 4, extracti_128(__m256i A, int upper) , R.i32[i] = A.i32[i + (upper ? 4 : 0)] )
-SIMD_FN(SIMD_STATIC, __m256i, 4, inserti_128(__m256i A, __m128i B, int upper) , R.i32[i] = upper ? B.i32[i] : A.i32[i] ; R.i32[i+4] = upper ? A.i32[i] : B.i32[i] )
+SIMD_FN(SIMD_STATIC, __m256i, 4, inserti_128(__m256i A, __m128i B, int upper) , R.i32[i] = upper ? A.i32[i] : B.i32[i] ; R.i32[i+4] = upper ? B.i32[i] : A.i32[i+4] )
 
-#endif
+#endif    // defined(USE_INTEL_SIMD_INTRINSICS)
 
 #if defined(ALIAS_INTEL_SIMD_INTRINSICS)
 // #define _mm256_set1_ps  set1_v8f
