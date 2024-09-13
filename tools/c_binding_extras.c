@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <time.h>
+#include <sys/param.h>
 #include <sys/time.h>
 #include <sys/stat.h>
 #include <sys/types.h>
@@ -54,6 +55,7 @@ int main(){
   printf("integer, parameter :: RTLD_NOW = %d\n",RTLD_NOW);
   printf("integer, parameter :: RTLD_GLOBAL = %d\n",RTLD_GLOBAL);
   printf("integer, parameter :: RTLD_LOCAL = %d\n",RTLD_LOCAL);
+  printf("integer, parameter :: MAXPATHLEN = %d\n",MAXPATHLEN);
   printf("type, bind(C) :: CPU_SET_T\n  integer(C_INT32_T), dimension(0:%ld) :: set\nend type\n",sizeof(cpu_set_t)/sizeof(int32_t)-1);
   return 0;
 }
