@@ -36,19 +36,20 @@ void float_decode_4x4(float *f, int nbits, uint32_t *stream, int header);
 int main(){
   float array[32], decoded[32], ratio[32], error[32] ;
   uint32_t *iarray = (uint32_t *) &(array[0]) ;
-  uint32_t *idecoded = (uint32_t *) &(decoded[0]) ;
+//   uint32_t *idecoded = (uint32_t *) &(decoded[0]) ;
   uint32_t stream[64] ;
   int32_t header = 0 ;
   float epsilon = 0.012345678f ;
   int i ;
-  int nbits = 15 ;
-  uint64_t t0, t1 ;
+  int nbits = 11 ;
+  uint64_t t0, t1, u0, u1 ;
 
   for(i=0 ; i<16 ; i++) array[i] = 1.01f + epsilon + i / 15.97f ;
   array[15] *= 8.0f ;
   for(i=0 ; i<16 ; i++) array[i] = -array[i] ;        // all negative numbers
 //   for(i=0 ; i<16 ; i+=2) array[i] = -array[i] ;       // introduce some negative numbers
   header = float_encode_4x4(array, 4, nbits, stream) ;
+//   fprintf(stderr, "encoded header = %8.8x\n", header);
 //   for(i=0 ; i<16 ; i++) fprintf(stderr, "%9.8x ", stream[i]) ;
 //   fprintf(stderr, "\n") ;
   fprintf(stderr, "emin = %d, ", header >> 8) ;
@@ -59,6 +60,7 @@ int main(){
   if(sbits == 0) fprintf(stderr, "sign = %d, ", (header >> 4) & 1) ;
   fprintf(stderr, "mbits = %d, ", nbits - ebits - sbits) ;
   fprintf(stderr, "nbits = %d\n", nbits) ;
+//   fprintf(stderr, "to decode header = %8.8x\n", header);
   float_decode_4x4(decoded, nbits, stream, header) ;
 //   fprintf(stderr, "original   :");
 //   for(i=0 ; i<16 ; i++) fprintf(stderr, "%9.8x ", iarray[i]) ;
@@ -84,13 +86,18 @@ int main(){
   fprintf(stderr, "orig/error :");
   for(i=0 ; i<16 ; i++) fprintf(stderr, "%9.0f ", ratio[i]) ;
   fprintf(stderr, "\n") ;
-
+return 0 ;
+  u0 = elapsed_us() ;
   t0 = elapsed_cycles() ;
-  for(i=0 ; i<50000000 ; i++){
+  for(i=0 ; i<10000 ; i++){
     header = float_encode_4x4(array, 4, nbits, stream) ;
     iarray[0] ^= (i & 0xFFFF) ;
   }
   t1 = elapsed_cycles() ;
+  u1 = elapsed_us() ;
+  fprintf(stderr, "%ld cycles = %ld microseconds\n", t1-t0, u1-u0) ;
   float nano = cycles_to_ns(t1 - t0) ;
+  float nano2 = 1000.0f * (u1 - u0) ;
   fprintf(stderr, "ns/value = %5.2f\n", nano / i / 16) ;
+  fprintf(stderr, "ns/value = %5.2f\n", nano2 / i / 16) ;
 }
