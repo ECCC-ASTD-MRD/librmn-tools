@@ -41,7 +41,7 @@ int main(){
   int32_t header = 0 ;
   float epsilon = 0.012345678f ;
   int i ;
-  int nbits = 11 ;
+  int nbits = 15 ;
   uint64_t t0, t1, u0, u1 ;
 
   for(i=0 ; i<16 ; i++) array[i] = 1.01f + epsilon + i / 15.97f ;
