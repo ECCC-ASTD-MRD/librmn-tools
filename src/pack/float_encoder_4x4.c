@@ -217,8 +217,8 @@ void float_decode_4x4(float *f, int nbits, uint32_t *stream32, int header){
       vmant0 = _mm256_inserti128_si256(vmant0 , v4i1, 1) ;
       vmant1 = _mm256_srli_epi32(vmant0, 3) ;                                       // 8 x bits 2:0 ( 5:3 from vmant0)
       vmant0 = _mm256_slli_epi32(vmant0,29); vmant0 = _mm256_srli_epi32(vmant0,29); // 8 x bits 2:0 (lower 3 from vmant0)
-      _mm256_storeu_si256((__m256i *)(stream32+0), vmant0) ;                        // 8 x 3 bits (first 8 values)
-      _mm256_storeu_si256((__m256i *)(stream32+8), vmant1) ;                        // 8 more 3 bit values
+      _mm256_storeu_si256((__m256i *)(stream32+0), vmant0) ;                        // 8 x bits 2:0 (first 8 values)
+      _mm256_storeu_si256((__m256i *)(stream32+8), vmant1) ;                        // 8 more bits 2:0 values
       break ;
     case  4:
     case  5:
@@ -235,8 +235,8 @@ void float_decode_4x4(float *f, int nbits, uint32_t *stream32, int header){
       vmant0 = _mm256_inserti128_si256(vmant0 , v4i1, 1) ;
       vmant1 = _mm256_srli_epi32(vmant0,7) ;                                        // 8 x bits 6:0 ( 13:7 from vmant0)
       vmant0 = _mm256_slli_epi32(vmant0,25); vmant0 = _mm256_srli_epi32(vmant0,25); // 8 x bits 6:0 (lower 7 from vmant0)
-      _mm256_storeu_si256((__m256i *)(stream32+0), vmant0) ;                        // 8 x 3 bits (first 8 values)
-      _mm256_storeu_si256((__m256i *)(stream32+8), vmant1) ;                        // 8 more 3 bit values
+      _mm256_storeu_si256((__m256i *)(stream32+0), vmant0) ;                        // 8 x bits 6:0 (first 8 values)
+      _mm256_storeu_si256((__m256i *)(stream32+8), vmant1) ;                        // 8 more bits 6:0 values
       break ;
     case  8:
     case  9:
@@ -254,8 +254,8 @@ void float_decode_4x4(float *f, int nbits, uint32_t *stream32, int header){
       vmant0 = _mm256_inserti128_si256(vmant0 , v4i1, 1) ;
       vmant1 = _mm256_srli_epi32(vmant0, 11) ;
       vmant0 = _mm256_slli_epi32(vmant0,11) ; vmant0 = _mm256_srli_epi32(vmant0,11) ;
-      _mm256_storeu_si256((__m256i *)(stream32+0), vmant0) ;                        // 8 x 11 bits (first 8 values)
-      _mm256_storeu_si256((__m256i *)(stream32+8), vmant1) ;                        // 8 more 11 bit values
+      _mm256_storeu_si256((__m256i *)(stream32+0), vmant0) ;                        // 8 x bits 10:0 (first 8 values)
+      _mm256_storeu_si256((__m256i *)(stream32+8), vmant1) ;                        // 8 more bits 10:0 values
       break ;
     case 12:
     case 13:
@@ -285,39 +285,40 @@ void float_decode_4x4(float *f, int nbits, uint32_t *stream32, int header){
       t[0]   = stream64[4] & 0xFFF ;         t[1] = (stream64[4] >> 12) & 0xFFF ;   // 16-12-12-12-12 -> 12 , 12
       t[2]   = (stream64[4] >> 24) & 0xFFF ; t[3] = (stream64[4] >> 36) & 0xFFF ;   // 16-12-12-12-12 -> 12 , 12
       v8i0   = _mm256_loadu_si256((__m256i *)(stream64+0)) ;
-      vmant1 = _mm256_srli_epi32(v8i0,19) ;                                 // upper 13 bits -> lower 13 bits
-      v8i0   = _mm256_slli_epi32(v8i0,13) ;                                 // remove upper 13 bits
+      vmant1 = _mm256_srli_epi32(v8i0,19) ;                                         // upper 13 bits -> lower 13 bits
+      v8i0   = _mm256_slli_epi32(v8i0,13) ;                                         // remove upper 13 bits
       vmant0 = _mm256_srli_epi32(v8i0,13) ;
-      v4i0   = _mm_loadu_si128((__m128i *)(t)) ;                            // 12-12 , 12-12
-      v4i1   = _mm_srli_epi32(v4i0,6) ; v4i1 = _mm_slli_epi32(v4i1, 13) ;   // 4 x bits 18:13
-      v4i0   = _mm_slli_epi32(v4i0,26) ; v4i0 = _mm_srli_epi32(v4i0,13) ;   // 4 x bits 18:13
-      v8i1   = _mm256_inserti128_si256(v8i0 , v4i0, 0) ;                    // concatenate to 8 x bits 18:13
+      v4i0   = _mm_loadu_si128((__m128i *)(t)) ;                                    // 12-12 , 12-12
+      v4i1   = _mm_srli_epi32(v4i0,6) ; v4i1 = _mm_slli_epi32(v4i1, 13) ;           // 4 x bits 18:13
+      v4i0   = _mm_slli_epi32(v4i0,26) ; v4i0 = _mm_srli_epi32(v4i0,13) ;           // 4 x bits 18:13
+      v8i1   = _mm256_inserti128_si256(v8i0 , v4i0, 0) ;                            // concatenate to 8 x bits 18:13
       v8i1   = _mm256_inserti128_si256(v8i1 , v4i1, 1) ;
-      vmant1 = _mm256_or_si256(vmant1, v8i1) ;                              // or bits 12:0
-      _mm256_storeu_si256((__m256i *)(stream32+0), vmant0) ;                // 8 x 19 bits (first 8 values)
-      _mm256_storeu_si256((__m256i *)(stream32+8), vmant1) ;                // 8 more 19 bit values
+      vmant1 = _mm256_or_si256(vmant1, v8i1) ;                                      // or bits 12:0
+      _mm256_storeu_si256((__m256i *)(stream32+0), vmant0) ;                        // 8 x bits 18:0 (first 8 values)
+      _mm256_storeu_si256((__m256i *)(stream32+8), vmant1) ;                        // 8 more bits 18:0 values
       break ;
     case 20:
     case 21:
     case 22:
     case 23:
-      header = ((stream64[4] >> 56) & 0xFF) | ((stream64[5] >> 48) & 0xFF00) ;     // 8-28-28 8-28-28 -> 16 bits header
-      t[0]   = stream64[4] & 0xFFFFFFF ; t[1] = (stream64[4] >> 28) & 0xFFFFFFF ;  // 8-28-28 -> 28 , 28
-      t[2]   = stream64[5] & 0xFFFFFFF ; t[3] = (stream64[5] >> 28) & 0xFFFFFFF ;  // 8-28-28 -> 28 , 28
+      header = ((stream64[4] >> 56) & 0xFF) | ((stream64[5] >> 48) & 0xFF00) ;      // 8-28-28 8-28-28 -> 16 bits header
+      t[0]   = stream64[4] & 0xFFFFFFF ; t[1] = (stream64[4] >> 28) & 0xFFFFFFF ;   // 8-28-28 -> 28 , 28
+      t[2]   = stream64[5] & 0xFFFFFFF ; t[3] = (stream64[5] >> 28) & 0xFFFFFFF ;   // 8-28-28 -> 28 , 28
       v8i0   = _mm256_loadu_si256((__m256i *)(stream64+0)) ;
-      vmant1 = _mm256_srli_epi32(v8i0,23) ;                                 // upper 9 bits -> lower 9 bits
-      v8i0   = _mm256_slli_epi32(v8i0, 9) ;                                 // remove upper 9 bits
-      vmant0 = _mm256_srli_epi32(v8i0, 9) ;                                 // bits 22:0 left
-      v4i0   = _mm_loadu_si128((__m128i *)(t)) ;                            // 28-28 , 28-28
-      v4i1   = _mm_srli_epi32(v4i0,14) ; v4i1 = _mm_slli_epi32(v4i1, 9) ;   // 4 x bits 22:9
-      v4i0   = _mm_slli_epi32(v4i0,18) ; v4i0 = _mm_srli_epi32(v4i0, 9) ;   // 4 x bits 22:9
-      v8i1   = _mm256_inserti128_si256(v8i0 , v4i0, 0) ;                    // concatenate to 8 x bits 22:9
+      vmant1 = _mm256_srli_epi32(v8i0,23) ;                                         // upper 9 bits -> lower 9 bits
+      v8i0   = _mm256_slli_epi32(v8i0, 9) ;                                         // remove upper 9 bits
+      vmant0 = _mm256_srli_epi32(v8i0, 9) ;                                         // bits 22:0 left
+      v4i0   = _mm_loadu_si128((__m128i *)(t)) ;                                    // 28-28 , 28-28
+      v4i1   = _mm_srli_epi32(v4i0,14) ; v4i1 = _mm_slli_epi32(v4i1, 9) ;           // 4 x bits 22:9
+      v4i0   = _mm_slli_epi32(v4i0,18) ; v4i0 = _mm_srli_epi32(v4i0, 9) ;           // 4 x bits 22:9
+      v8i1   = _mm256_inserti128_si256(v8i0 , v4i0, 0) ;                            // concatenate to 8 x bits 22:9
       v8i1   = _mm256_inserti128_si256(v8i1 , v4i1, 1) ;
-      vmant1 = _mm256_or_si256(vmant1, v8i1) ;                              // or bits 8:0
-      _mm256_storeu_si256((__m256i *)(stream32+0), vmant0) ;                // 8 x 23 bits (first 8 values)
-      _mm256_storeu_si256((__m256i *)(stream32+8), vmant1) ;                // 8 more 23 bit values
+      vmant1 = _mm256_or_si256(vmant1, v8i1) ;                                      // or bits 8:0
+      _mm256_storeu_si256((__m256i *)(stream32+0), vmant0) ;                        // 8 x bits 22:0 (first 8 values)
+      _mm256_storeu_si256((__m256i *)(stream32+8), vmant1) ;                        // 8 more bits 22:0 values
       break ;
     default:
+      // we should never get here
       break ;
   }
   if(head != header){
