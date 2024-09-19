@@ -98,7 +98,7 @@ int32_t float_encode_4x4(float *f, int lni, int nbits, uint32_t *stream32){
   _mm256_storeu_si256((__m256i *)(stream32 + 0) , _mm256_srlv_epi32(vmant0, vshift) ) ;
   _mm256_storeu_si256((__m256i *)(stream32 + 8) , _mm256_srlv_epi32(vmant1, vshift) ) ;
 //   goto end ;
-  stream32 += 16 ; stream64 += 8 ;
+//   stream32 += 16 ; stream64 += 8 ;
   __m256i v8i0 ;
   __m128i v4i0, v4i1 ;
   uint32_t t[4] ;
@@ -187,20 +187,13 @@ int32_t float_encode_4x4(float *f, int lni, int nbits, uint32_t *stream32){
   return  header ;
 }
 
-void float_decode_4x4(float *f, int nbits, uint32_t *stream32, int header){
+void float_decode_4x4(float *f, int nbits, uint32_t *stream32){
   uint64_t *stream64 = (uint64_t *) stream32 ;
-  stream64 += 8 ;
-  int head = header ;
-  int i ;
+  int header ;
   __m256i v8i0, v8i1, vmant0, vmant1 ;
   __m128i v4i0, v4i1 ;
   uint32_t t[4] ;
 
-  fprintf(stderr, "float_decode_4x4\n");
-  for(i=0 ; i<8 ; i++) fprintf(stderr, "%8.8x ", stream32[i]) ;
-  fprintf(stderr, "\n") ;
-  for(i=0 ; i<8 ; i++) fprintf(stderr, "%8.8x ", stream32[i+8]) ;
-  fprintf(stderr, "\n") ;
   switch(nbits){
     case  0:
     case  1:
@@ -217,8 +210,6 @@ void float_decode_4x4(float *f, int nbits, uint32_t *stream32, int header){
       vmant0 = _mm256_inserti128_si256(vmant0 , v4i1, 1) ;
       vmant1 = _mm256_srli_epi32(vmant0, 3) ;                                       // 8 x bits 2:0 ( 5:3 from vmant0)
       vmant0 = _mm256_slli_epi32(vmant0,29); vmant0 = _mm256_srli_epi32(vmant0,29); // 8 x bits 2:0 (lower 3 from vmant0)
-      _mm256_storeu_si256((__m256i *)(stream32+0), vmant0) ;                        // 8 x bits 2:0 (first 8 values)
-      _mm256_storeu_si256((__m256i *)(stream32+8), vmant1) ;                        // 8 more bits 2:0 values
       break ;
     case  4:
     case  5:
@@ -235,8 +226,6 @@ void float_decode_4x4(float *f, int nbits, uint32_t *stream32, int header){
       vmant0 = _mm256_inserti128_si256(vmant0 , v4i1, 1) ;
       vmant1 = _mm256_srli_epi32(vmant0,7) ;                                        // 8 x bits 6:0 ( 13:7 from vmant0)
       vmant0 = _mm256_slli_epi32(vmant0,25); vmant0 = _mm256_srli_epi32(vmant0,25); // 8 x bits 6:0 (lower 7 from vmant0)
-      _mm256_storeu_si256((__m256i *)(stream32+0), vmant0) ;                        // 8 x bits 6:0 (first 8 values)
-      _mm256_storeu_si256((__m256i *)(stream32+8), vmant1) ;                        // 8 more bits 6:0 values
       break ;
     case  8:
     case  9:
@@ -254,8 +243,6 @@ void float_decode_4x4(float *f, int nbits, uint32_t *stream32, int header){
       vmant0 = _mm256_inserti128_si256(vmant0 , v4i1, 1) ;
       vmant1 = _mm256_srli_epi32(vmant0, 11) ;
       vmant0 = _mm256_slli_epi32(vmant0,11) ; vmant0 = _mm256_srli_epi32(vmant0,11) ;
-      _mm256_storeu_si256((__m256i *)(stream32+0), vmant0) ;                        // 8 x bits 10:0 (first 8 values)
-      _mm256_storeu_si256((__m256i *)(stream32+8), vmant1) ;                        // 8 more bits 10:0 values
       break ;
     case 12:
     case 13:
@@ -274,8 +261,6 @@ void float_decode_4x4(float *f, int nbits, uint32_t *stream32, int header){
       vmant0 = _mm256_inserti128_si256(vmant0 , v4i1, 1) ;
       vmant1 = _mm256_srli_epi32(vmant0, 15) ;                                      // bits 14:0 next 8 values
       vmant0 = _mm256_slli_epi32(vmant0,17); vmant0 = _mm256_srli_epi32(vmant0,17); // bits 14:0 first 8 values
-      _mm256_storeu_si256((__m256i *)(stream32+0), vmant0) ;                        // 8 x bits 14:0 (first 8 values)
-      _mm256_storeu_si256((__m256i *)(stream32+8), vmant1) ;                        // 8 more bits 14:0 values
       break ;
     case 16:
     case 17:
@@ -294,8 +279,6 @@ void float_decode_4x4(float *f, int nbits, uint32_t *stream32, int header){
       v8i1   = _mm256_inserti128_si256(v8i0 , v4i0, 0) ;                            // concatenate to 8 x bits 18:13
       v8i1   = _mm256_inserti128_si256(v8i1 , v4i1, 1) ;
       vmant1 = _mm256_or_si256(vmant1, v8i1) ;                                      // or bits 12:0
-      _mm256_storeu_si256((__m256i *)(stream32+0), vmant0) ;                        // 8 x bits 18:0 (first 8 values)
-      _mm256_storeu_si256((__m256i *)(stream32+8), vmant1) ;                        // 8 more bits 18:0 values
       break ;
     case 20:
     case 21:
@@ -314,17 +297,22 @@ void float_decode_4x4(float *f, int nbits, uint32_t *stream32, int header){
       v8i1   = _mm256_inserti128_si256(v8i0 , v4i0, 0) ;                            // concatenate to 8 x bits 22:9
       v8i1   = _mm256_inserti128_si256(v8i1 , v4i1, 1) ;
       vmant1 = _mm256_or_si256(vmant1, v8i1) ;                                      // or bits 8:0
-      _mm256_storeu_si256((__m256i *)(stream32+0), vmant0) ;                        // 8 x bits 22:0 (first 8 values)
-      _mm256_storeu_si256((__m256i *)(stream32+8), vmant1) ;                        // 8 more bits 22:0 values
       break ;
     default:
       // we should never get here
+      header = 0 ;
+      vmant0 = _mm256_setzero_si256() ;
+      vmant1 = _mm256_setzero_si256() ;
       break ;
   }
-  if(head != header){
-    fprintf(stderr, "ERROR: bad header, expected %8.8x, got %8.8x\n", head, header) ;
-    header = head ;
-  }
+// with most compilers, the SIMD version does not perform much better than the purely scalar one
+// uncomment the following line to use scalar version
+// #define USE_SCALAR_DECODE
+#if defined(USE_SCALAR_DECODE)
+  uint32_t stream32b[16] ;
+  _mm256_storeu_si256((__m256i *)(stream32b+0), vmant0) ;    // first 8 values
+  _mm256_storeu_si256((__m256i *)(stream32b+8), vmant1) ;    // next 8 values
+#endif
 
   nbits = (nbits > 23) ? 23 : nbits ;
   uint32_t *fi = (uint32_t *) f ;
@@ -335,16 +323,49 @@ void float_decode_4x4(float *f, int nbits, uint32_t *stream32, int header){
   int mbits = nbits - sbits - ebits ;
   uint32_t maskm = ~((~0u) << mbits) ;                    // mantissa mask
   uint32_t maske = (ebits == 0) ? 0 : ~((~0u) << ebits) ; // exponent mask
-  int sign  = (sbits == 0) ? esign : 0 ;            // 1 if sign bit is 1 everywhere
+  int sign  = (sbits == 0) ? esign : 0 ;                  // 1 if sign bit is 1 everywhere, 0 otherwise
+
+#if ! defined(USE_SCALAR_DECODE)
+  __m256i vs, vt, ve ;
+  __m256i vmaskm  = _mm256_set1_epi32(maskm) ;
+  __m256i vmaske  = _mm256_set1_epi32(maske) ;
+  __m256i vshift1 = _mm256_set1_epi32(23 - mbits) ;
+  __m256i vmbits  = _mm256_set1_epi32(mbits) ;
+  __m256i vemin   = _mm256_set1_epi32(emin) ;
+  __m256i vebits  = _mm256_set1_epi32(ebits) ;
+  __m256i vsign   = _mm256_set1_epi32(sign) ;
+
+    vs = vmant0 ;
+    vt = _mm256_and_si256(vs, vmaskm) ; vt = _mm256_sllv_epi32(vt, vshift1) ;
+    vs = _mm256_srlv_epi32(vs, vmbits) ;
+    ve = _mm256_add_epi32( vemin , _mm256_and_si256(vs , vmaske) ) ;
+    vt = _mm256_or_si256(vt , _mm256_slli_epi32(ve , 23) ) ;
+    vs = _mm256_srlv_epi32(vs, vebits) ;
+    vs = _mm256_or_si256(vs, vsign) ;
+    vt = _mm256_or_si256(vt , _mm256_slli_epi32(vs, 31) ) ;
+    _mm256_storeu_si256((__m256i *)(fi+0) , vt) ;
+
+    vs = vmant1 ;
+    vt = _mm256_and_si256(vs, vmaskm) ; vt = _mm256_sllv_epi32(vt, vshift1) ;
+    vs = _mm256_srlv_epi32(vs, vmbits) ;
+    ve = _mm256_add_epi32( vemin , _mm256_and_si256(vs , vmaske) ) ;
+    vt = _mm256_or_si256(vt , _mm256_slli_epi32(ve , 23) ) ;
+    vs = _mm256_srlv_epi32(vs, vebits) ;
+    vs = _mm256_or_si256(vs, vsign) ;
+    vt = _mm256_or_si256(vt , _mm256_slli_epi32(vs, 31) ) ;
+    _mm256_storeu_si256((__m256i *)(fi+8) , vt) ;
+#else
+  int i ;
   for(i=0 ; i<16 ; i++){
-    uint32_t s = stream32[i] ;
+    uint32_t s = stream32b[i] ;
     uint32_t t = (s & maskm) << (23 - mbits) ;
     s >>= mbits ;
     uint32_t e = emin + (s & maske) ;
     t |= (e << 23) ;
     s >>= ebits ;
     s |= sign ;
-     t |= (s << 31) ;
-     fi[i] = t ;
+    t |= (s << 31) ;
+    fi[i] = t ;
   }
+#endif
 }
