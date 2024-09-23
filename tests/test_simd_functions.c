@@ -212,10 +212,10 @@ int main(int argc, char **argv){
   v4ra = _mm_sub_epi32(v400, v4cr) ; _mm_print_epu32("v4cr", v4cr) ; _mm_print_epu32("    ", v4ra) ;
   v4ra = abs_v4i(v4ra) ; _mm_print_epu32("v4ra", v4ra) ;  _mm_print_epu32("O.K.", _mm_cmpeq_epi32(v4ra, v4cr)) ;
 
-  fprintf(stderr, "- _mm256_castsi128_si256 (v400 -> v811)\n");
+  fprintf(stderr, "- _mm256_castsi128_si256 (v4cm -> v811)\n");
   v8ra = v811 ;
   _mm256_print_epu32("v8ra", v8ra) ;
-  v8ra = _mm256_castsi128_si256(v400) ;
+  v8ra = _mm256_castsi128_si256(v4cm) ;
   _mm256_print_epu32("v8ra", v8ra) ;
   fprintf(stderr, "- _mm256_castsi256_si128 (v8cm -> v4ra)\n");
   _mm256_print_epu32("v811", v8cm) ;
