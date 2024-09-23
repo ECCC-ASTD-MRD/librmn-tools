@@ -51,7 +51,7 @@ int main(int argc, char **argv){
   int i ;
 
   if(argc >= 0){
-    start_of_test(argv[0]);
+    start_of_test_notime(argv[0]);
   }
 
   fprintf(stderr, "- constants\n");
@@ -152,16 +152,16 @@ int main(int argc, char **argv){
   print_v8f("v8fa", v8fa) ;
   v4fa = sub_v4f(v4f1, v4f2) ;
   print_v4f("v4fa", v4fa) ;
-  return 0 ;
-#if 0
+
 //   for(i=0 ; i<16 ; i++) { ca[i] = i ; cb[i] = ca[i] + 0x10 ; cm[i] = (i & 1) ? 0xFF : 0x00 ; }
   for(i=0 ; i<32 ; i++) { ca[i] = i ; cb[i] = ca[i] + 0x40 ; cm[i] = (i & 1) ? 0xFF : 0x00 ; }
   v4ca = loadu_v128( (__m128i *) ca) ; v4cb = loadu_v128( (__m128i *) cb) ; v4cm = loadu_v128( (__m128i *) cm) ;
   fprintf(stderr, "- _mm_blendv_epi8\n");
   v4cr = _mm_blendv_epi8(v4ca, v4cb, v4cm) ;
   _mm_print_epu8("v4ca", v4ca) ; _mm_print_epu8("v4cb", v4cb) ; _mm_print_epu8("v4cm", v4cm) ; _mm_print_epu8("v4cr", v4cr) ;
-  v4ca = loadu_v128( (__m128i *) ca) ;    v4cb = loadu_v128( (__m128i *) cb) ;    v4cm = loadu_v128( (__m128i *) cm) ;
+  v4ca = loadu_v128( (__m128i *) ca) ;    v4cb = loadu_v128( (__m128i *) cb) ;
   fprintf(stderr, "- _mm_blendv_ps\n");
+  v4cm = loadu_v128( (__m128i *) im) ;
   v4cr = __V128i _mm_blendv_ps(__V128 v4ca, __V128 v4cb, __V128 v4cm) ;
   _mm_print_epu32("v4ca", v4ca) ; _mm_print_epu32("v4cb", v4cb) ; _mm_print_epu32("v4cm", v4cm) ; _mm_print_epu32("v4cr", v4cr) ;
   fprintf(stderr, "- _mm_blendv_epi32\n");
@@ -181,14 +181,20 @@ int main(int argc, char **argv){
   _mm256_print_epu32("v8cm", v8cm) ;
   v8ra = _mm256_cmpeq_epi32(v800, v8cm) ; _mm256_print_epu32("v8ra", v8ra) ;
 
+  fprintf(stderr, " _mm256_cmpgt_epi32 signed (v800 > v8cm)\n");
+  v8ra = _mm256_cmpgt_epi32(v800, v8cm) ; _mm256_print_epu32("v8ra", v8ra) ;
+
   fprintf(stderr, "- _mm_cmpeq_epi32 (v400 == v4cm)\n");
   _mm_print_epu32("v4cm", v4cm) ;
   v4ra = _mm_cmpeq_epi32(v400, v4cm) ; _mm_print_epu32("v4ra", v4ra) ;
 
+  fprintf(stderr, "- _mm_cmpgt_epi32 signed (v400 > v4cm)\n");
+  v4ra = _mm_cmpgt_epi32(v400, v4cm) ; _mm_print_epu32("v4ra", v4ra) ;
+
   fprintf(stderr, "- _mm256_add_epi32 (v8ca + v8cb)\n");
   v8ra = _mm256_add_epi32(v8ca, v8cb) ; _mm256_print_epu32("v8ra", v8ra) ;
 
-  fprintf(stderr, "- _mm_sub_epi32 (v4cb - v4ca)\n");
+  fprintf(stderr, "- _mm_sub_epi32 (v4cb - v4ca) (v4cb - v4ca + v4ca)\n");
   v4ra = _mm_sub_epi32(v4cb, v4ca) ; _mm_print_epu32("v4ra", v4ra) ;
   v4ra = _mm_add_epi32(v4ra, v4ca) ; _mm_print_epu32("v4ra", v4ra) ;
 
@@ -211,10 +217,11 @@ int main(int argc, char **argv){
   _mm256_print_epu32("v8ra", v8ra) ;
   v8ra = _mm256_castsi128_si256(v400) ;
   _mm256_print_epu32("v8ra", v8ra) ;
-  fprintf(stderr, "- _mm256_castsi256_si128 (v8ra -> v4ra)\n");
+  fprintf(stderr, "- _mm256_castsi256_si128 (v8cm -> v4ra)\n");
+  _mm256_print_epu32("v811", v8cm) ;
+  v4ra = _mm256_castsi256_si128(v8cm) ;
   _mm_print_epu32("v4ra", v4ra) ;
-  v4ra = _mm256_castsi256_si128(v8ra) ;
-  _mm_print_epu32("v4ra", v4ra) ;
+#if 0
 #endif
   return 0 ;
 }
