@@ -16,3 +16,5 @@
 
 void end_of_test(void) ;
 void start_of_test(char *name) ;
+void end_of_test_notime(void) ;
+void start_of_test_notime(char *name) ;

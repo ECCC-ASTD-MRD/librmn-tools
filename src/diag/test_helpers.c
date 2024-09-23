@@ -24,10 +24,19 @@ void end_of_test(void){
   system("date '+%Y-%m-%d_%H.%M.%S' 1>&2") ;
 }
 
+void end_of_test_notime(void){
+  fprintf(stderr,"==================== end of test  ==================== \n") ;
+}
+
 void start_of_test(char *name){
   fprintf(stderr,"==================== test : %s ==================== ", name) ;
   system("date '+%Y-%m-%d_%H.%M.%S' 1>&2") ;
   atexit(end_of_test) ;
+}
+
+void start_of_test_notime(char *name){
+  fprintf(stderr,"==================== test : %s ==================== \n", name) ;
+  atexit(end_of_test_notime) ;
 }
 // common Fortran manglings
 void start_of_test_(char *name){ start_of_test(name) ; }
