@@ -23,8 +23,12 @@
 #include <rmn/test_helpers.h>
 // #define NO_SIMD
 #define VERBOSE_SIMD
-#define ALIAS_INTEL_SIMD_INTRINSICS
+
 #define USE_INTEL_SIMD_INTRINSICS_
+#if ! defined(USE_INTEL_SIMD_INTRINSICS)
+#define ALIAS_INTEL_SIMD_INTRINSICS
+#endif
+
 #include <rmn/simd_functions.h>
 
 static uint8_t cm[32], ca[32], cb[32] ;
@@ -33,12 +37,17 @@ static uint32_t ib[8] = { 0x11,  0x12, 0x13,  0x14,  0x15,  0x16, 0x17,  0x18 } 
 static uint32_t im[8] = {    0, 1<<31,    0, 1<<31,     0, 1<<31,    0, 1<<31 } ;
 static uint32_t i0[8] = {    0,     0,    0,     0,     0,     0,    0,     0 } ;
 static uint32_t ra[8] ;
-
+static uint32_t vs[] = {  0,  1,  2,  3,  4,  5,  6,  7,   8,  9,  10, 11, 12, 13, 14, 15,
+                         16, 17, 18, 19, 20, 21, 22, 23 , 24 , 25, 26, 27, 28, 29, 30, 31,
+                         32 } ;
+static float    vf[] = { 1.0f, 1.11f, 1.22f, 1.33f, 1.44f, 1.55f, 1.66f, 1.77f, 1.88f } ;
 int main(int argc, char **argv){
   __v128i v4ia, v4ib, v4ca, v4cb, v4cm, v4cr, v400, v411, v4ra, v4ma ;
   __v256i v8ia, v8ib, v8ca, v8cb, v8cm, v8cr, v800, v811, v8ra, v8ma ;
-  __v128  v4fa, v4da ;
-  __v256  v8fa, v8da ;
+  __v128  v4fa ;
+  __v128d v4da ;
+  __v256  v8fa ;
+  __v256d v8da ;
   int i ;
 
   if(argc >= 0){
@@ -90,8 +99,61 @@ int main(int argc, char **argv){
   v8ra = inserti_128(v811, v400, 0) ;
   _mm256_print_epu32("v8ra", v8ra) ;
 
-  return 0 ;
+  fprintf(stderr, "- alignr_v8i/alignr_v4i\n") ;
+  __v256i v8l = loadu_v256((__m256i *) &(vs[0])) ;
+  print_v8i("v8l ", v8l) ;
+  __v256i v8h = loadu_v256((__m256i *) &(vs[8])) ;
+  print_v8i("v8h ", v8h) ;
+  v8ra = alignr_v8i(v8h, v8l, 0) ;
+  print_v8i(">> 0", v8ra) ;
+  v8ra = alignr_v8i(v8h, v8l, 1) ;
+  print_v8i(">> 1", v8ra) ;
+  v8ra = alignr_v8i(v8h, v8l, 4) ;
+  print_v8i(">> 4", v8ra) ;
+  v8ra = alignr_v8i(v8h, v8l, 5) ;
+  print_v8i(">> 5", v8ra) ;
+  v8ra = alignr_v8i(v8h, v8l, 7) ;
+  print_v8i(">> 7", v8ra) ;
+  __v128i v4l = loadu_v128((__m128i *) &(vs[0])) ;
+  print_v4i("v4l ", v4l) ;
+  __v128i v4h = loadu_v128((__m128i *) &(vs[4])) ;
+  print_v4i("v4h ", v4h) ;
+  v4ra = alignr_v4i(v4h, v4l, 0) ;
+  print_v4i(">> 0", v4ra) ;
+  v4ra = alignr_v4i(v4h, v4l, 1) ;
+  print_v4i(">> 1", v4ra) ;
+  v4ra = alignr_v4i(v4h, v4l, 4) ;
+  print_v4i(">> 4", v4ra) ;
 
+  fprintf(stderr, "- add\n") ;
+  v8ra = add_v8i(v8h, v8l) ;
+  print_v8i("h+l ", v8ra) ;
+  v4ra = add_v4i(v4h, v4l) ;
+  print_v4i("h+l ", v4ra) ;
+  __v256 v8f1 = loadu_v8f( &(vf[0]) ) ;
+  __v256 v8f2 = loadu_v8f( &(vf[1]) ) ;
+  __v128 v4f1 = loadu_v4f( &(vf[4]) ) ;
+  __v128 v4f2 = loadu_v4f( &(vf[5]) ) ;
+  print_v8f("v8f1", v8f1) ;
+  print_v8f("v8f2", v8f2) ;
+  v8fa = add_v8f(v8f1, v8f2) ;
+  print_v8f("v8fa", v8fa) ;
+  print_v4f("v4f1", v4f1) ;
+  print_v4f("v4f2", v4f2) ;
+  v4fa = add_v4f(v4f1, v4f2) ;
+  print_v4f("v4fa", v4fa) ;
+
+  fprintf(stderr, "- sub\n") ;
+  v8ra = sub_v8i(v8h, v8l) ;
+  print_v8i("h-l ", v8ra) ;
+  v4ra = sub_v4i(v4h, v4l) ;
+  print_v4i("h-l ", v4ra) ;
+  v8fa = sub_v8f(v8f1, v8f2) ;
+  print_v8f("v8fa", v8fa) ;
+  v4fa = sub_v4f(v4f1, v4f2) ;
+  print_v4f("v4fa", v4fa) ;
+  return 0 ;
+#if 0
 //   for(i=0 ; i<16 ; i++) { ca[i] = i ; cb[i] = ca[i] + 0x10 ; cm[i] = (i & 1) ? 0xFF : 0x00 ; }
   for(i=0 ; i<32 ; i++) { ca[i] = i ; cb[i] = ca[i] + 0x40 ; cm[i] = (i & 1) ? 0xFF : 0x00 ; }
   v4ca = loadu_v128( (__m128i *) ca) ; v4cb = loadu_v128( (__m128i *) cb) ; v4cm = loadu_v128( (__m128i *) cm) ;
@@ -153,6 +215,6 @@ int main(int argc, char **argv){
   _mm_print_epu32("v4ra", v4ra) ;
   v4ra = _mm256_castsi256_si128(v8ra) ;
   _mm_print_epu32("v4ra", v4ra) ;
-
+#endif
   return 0 ;
 }
