@@ -271,7 +271,7 @@ STATIC inline uint32_t v_to_zigzag_32_inplace(int32_t * restrict src, int ni){
   uint32_t max = 0 ;
 
   if(ni < 8){
-    for(i0=0 ; i0<n7 ; i0++){ src[i0] = to_zigzag_32(src[i0]) ; max = (src[i0] > max) ? src[i0] : max ; }
+    for(i0=0 ; i0<n7 ; i0++){ src[i0] = to_zigzag_32(src[i0]) ; max = ((uint32_t)src[i0] > max) ? src[i0] : max ; }
     return max ;
   }
   n7 = n7 ? n7 : 8 ;
@@ -327,7 +327,7 @@ STATIC inline int32_t v_from_zigzag_32_inplace(int32_t * restrict src, int ni){
   uint32_t max = 0 ;
 
   if(ni < 8){
-    for(i0=0 ; i0<n7 ; i0++){ src[i0] = from_zigzag_32(src[i0]) ; max = (src[i0] > max) ? src[i0] : max ; }
+    for(i0=0 ; i0<n7 ; i0++){ src[i0] = from_zigzag_32(src[i0]) ; max = ((uint32_t)src[i0] > max) ? src[i0] : max ; }
     return max ;
   }
   n7 = n7 ? n7 : 8 ;

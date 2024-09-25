@@ -345,11 +345,11 @@ STATIC inline size_t StreamResize(bitstream *p, void *mem, size_t size){
   size_t old_size ;
 
 // fprintf(stderr, "new size = %ld, old size = %ld\n", size/sizeof(int32_t),  (p->limit - p->first)) ;
-  if(size/sizeof(int32_t) <= (p->limit - p->first) ) return 0 ;         // size if too small
+  old_size = sizeof(int32_t) * (p->limit - p->first) ;                  // size of current buffer
+  if(size <= old_size) return 0 ;                                       // size is smaller then size of current buffer
   if(mem == NULL) mem = malloc(size) ;                                  // allocate with malloc if mem is NULL
   if(mem == NULL) return 0 ;                                            // failed to allocate memory
 
-  old_size = sizeof(int32_t) * (p->limit - p->first) ;                  // size of current buffer
   memmove(mem, p->first, old_size)  ;                                   // copy old (p->first) buffer into new (mem)
   in  = p->in - p->first ;                                              // relative position of in pointer
   out = p->out - p->first ;                                             // relative position of out pointer
@@ -369,7 +369,8 @@ static inline int StreamSetFilledBits(bitstream *stream, size_t pos){
   if(! StreamIsValid(stream)) return 1 ;                    // invalid stream
   pos = (pos + 7) / 8 ;                                     // round up as bytes
   pos = (pos + sizeof(uint32_t) - 1) / sizeof(uint32_t) ;   // round up as 32 bit words
-  if(pos > (stream->limit - stream->first) ) return 1 ;     // check for potential buffer overrrun
+  size_t size = (stream->limit - stream->first) ;
+  if(pos > size) return 1 ;                                 // check for potential buffer overrrun
   stream->in = stream->first + pos ;                        // mark stream as filled up to stream->in
   return 0 ;
 }

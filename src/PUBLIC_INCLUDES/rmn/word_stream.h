@@ -278,7 +278,7 @@ static inline int WStreamSaveState(wordstream *stream, wordstream_state *state){
 // return 0 if O.K., -1 if error
 static inline int WStreamRestoreState(wordstream *stream, wordstream_state *state, int mode){
   int status = -1 ;
-  int new_in, new_out ;
+  uint32_t new_in, new_out ;
 
   if(ws32_is_valid(stream)){                                  // check that stream is valid
     if(mode == 0) mode = WS32_RW ;                            // 0 means both read and write
