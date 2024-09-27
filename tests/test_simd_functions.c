@@ -14,22 +14,24 @@
 // Author:
 //     M. Valin,   Recherche en Prevision Numerique, 2024
 //
-// test the memory block movers
+// test the SIMD functions
 //
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
 
 #include <rmn/test_helpers.h>
-// #define NO_SIMD
+// verbose mode for #include <rmn/simd_functions.h>
 #define VERBOSE_SIMD
 
+// comment following line to use emulated intrinsics
 #define USE_INTEL_SIMD_INTRINSICS_
 #if ! defined(USE_INTEL_SIMD_INTRINSICS)
 #define ALIAS_INTEL_SIMD_INTRINSICS
 #endif
 
 #include <rmn/simd_functions.h>
+#include <rmn/simd_functions.h>   // deliberate double inclusion
 
 static uint8_t cm[32], ca[32], cb[32] ;
 static uint32_t ia[8] = { 0x01,  0x02, 0x03,  0x04,  0x05,  0x06, 0x07,  0x08 } ;
@@ -40,6 +42,11 @@ static uint32_t ra[8] ;
 static uint32_t vs[] = {  0,  1,  2,  3,  4,  5,  6,  7,   8,  9,  10, 11, 12, 13, 14, 15,
                          16, 17, 18, 19, 20, 21, 22, 23 , 24 , 25, 26, 27, 28, 29, 30, 31,
                          32 } ;
+static uint8_t  cs[] = {  0,  1,  2,  3,  4,  5,  6,  7,  8,  9, 10, 11, 12, 13, 14, 15,
+                         16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31,
+                         32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47,
+                         48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63,
+                         64 } ;
 static float    vf[] = { 1.0f, 1.11f, 1.22f, 1.33f, 1.44f, 1.55f, 1.66f, 1.77f, 1.88f } ;
 int main(int argc, char **argv){
   __v128i v4ia, v4ib, v4ca, v4cb, v4cm, v4cr, v400, v411, v4ra, v4ma ;
@@ -125,6 +132,44 @@ int main(int argc, char **argv){
   v4ra = alignr_v4i(v4h, v4l, 4) ;
   print_v4i(">> 4", v4ra) ;
 
+  fprintf(stderr, "- alignr_v16c/bsrli2_v128\n") ;
+  __v128i v16l = loadu_v128((__m128i *) &(cs[ 0])) ;
+  __v128i v16h = loadu_v128((__m128i *) &(cs[ 16])) ;
+  print_v16c("v16l", v16l) ;
+  print_v16c("v16h", v16h) ;
+  __v128i v16r ;
+  v16r = _mm_alignr_epi8(v16h, v16l, 7) ;
+  print_v16c(">> 7", v16r) ;
+  v16r = _mm_alignr_epi8(v16h, v16l,15) ;
+  print_v16c(">>15", v16r) ;
+  v16r = _mm_alignr_epi8(v16h, v16l,16) ;
+  print_v16c(">>16", v16r) ;
+  v16r = _mm_alignr_epi8(v16h, v16l,17) ;
+  print_v16c(">>17", v16r) ;
+  v16r = _mm_alignr_epi8(v16h, v16l,31) ;
+  print_v16c(">>31", v16r) ;
+  v16r = _mm_alignr_epi8(v16h, v16l,32) ;
+  print_v16c(">>32", v16r) ;
+
+  fprintf(stderr, "- bsrli2_v256\n") ;
+  __v256i v32l = loadu_v256((__m256i *) &(cs[ 0])) ;
+  __v256i v32h = loadu_v256((__m256i *) &(cs[32])) ;
+  print_v32c("v32l", v32l) ;
+  print_v32c("v32h", v32h) ;
+  __v256i v32r ;
+  v32r = bsrli2_v256(v32h, v32l, 7) ;
+  print_v32c(">> 7", v32r) ;
+  v32r = bsrli2_v256(v32h, v32l, 15) ;
+  print_v32c(">>15", v32r) ;
+  v32r = bsrli2_v256(v32h, v32l, 16) ;
+  print_v32c(">>16", v32r) ;
+  v32r = bsrli2_v256(v32h, v32l, 24) ;
+  print_v32c(">>24", v32r) ;
+  v32r = bsrli2_v256(v32h, v32l, 31) ;
+  print_v32c(">>31", v32r) ;
+  v32r = bsrli2_v256(v32h, v32l, 32) ;
+  print_v32c(">>32", v32r) ;
+
   fprintf(stderr, "- add\n") ;
   v8ra = add_v8i(v8h, v8l) ;
   print_v8i("h+l ", v8ra) ;
@@ -171,32 +216,32 @@ int main(int argc, char **argv){
 
   v8ca = loadu_v256( (__m256i *) ia) ; v8cb = loadu_v256( (__m256i *) ib) ; v8cm = loadu_v256( (__m256i *) im) ;
   fprintf(stderr, "- _mm256_blendv_ps\n");
-  v8cr = __V256i _mm256_blendv_ps(__V256 v8ca, __V256 v8cb, __V256 v8cm) ;
+  v8cr = __V256i blendv_v8f(__V256 v8ca, __V256 v8cb, __V256 v8cm) ;
   _mm256_print_epu32("v8ca", v8ca) ; _mm256_print_epu32("v8cb", v8cb) ; _mm256_print_epu32("v8cm", v8cm) ; _mm256_print_epu32("v8cr", v8cr) ;
   fprintf(stderr, "- _mm256_blendv_epi32\n");
-  v8cr = _mm256_blendv_epi32(v8ca, v8cb, v8cm) ;
+  v8cr = blendv_v8i(v8ca, v8cb, v8cm) ;
   _mm256_print_epu32("v8ca", v8ca) ; _mm256_print_epu32("v8cb", v8cb) ; _mm256_print_epu32("v8cm", v8cm) ; _mm256_print_epu32("v8cr", v8cr) ;
 
   fprintf(stderr, " _mm256_cmpeq_epi32 (v800 == v8cm)\n");
   _mm256_print_epu32("v8cm", v8cm) ;
-  v8ra = _mm256_cmpeq_epi32(v800, v8cm) ; _mm256_print_epu32("v8ra", v8ra) ;
+  v8ra = cmpeq_v8i(v800, v8cm) ; _mm256_print_epu32("v8ra", v8ra) ;
 
   fprintf(stderr, " _mm256_cmpgt_epi32 signed (v800 > v8cm)\n");
-  v8ra = _mm256_cmpgt_epi32(v800, v8cm) ; _mm256_print_epu32("v8ra", v8ra) ;
+  v8ra = cmpgt_v8i(v800, v8cm) ; _mm256_print_epu32("v8ra", v8ra) ;
 
   fprintf(stderr, "- _mm_cmpeq_epi32 (v400 == v4cm)\n");
   _mm_print_epu32("v4cm", v4cm) ;
-  v4ra = _mm_cmpeq_epi32(v400, v4cm) ; _mm_print_epu32("v4ra", v4ra) ;
+  v4ra = cmpeq_v4i(v400, v4cm) ; _mm_print_epu32("v4ra", v4ra) ;
 
   fprintf(stderr, "- _mm_cmpgt_epi32 signed (v400 > v4cm)\n");
-  v4ra = _mm_cmpgt_epi32(v400, v4cm) ; _mm_print_epu32("v4ra", v4ra) ;
+  v4ra = cmpgt_v4i(v400, v4cm) ; _mm_print_epu32("v4ra", v4ra) ;
 
   fprintf(stderr, "- _mm256_add_epi32 (v8ca + v8cb)\n");
-  v8ra = _mm256_add_epi32(v8ca, v8cb) ; _mm256_print_epu32("v8ra", v8ra) ;
+  v8ra = add_v8i(v8ca, v8cb) ; _mm256_print_epu32("v8ra", v8ra) ;
 
   fprintf(stderr, "- _mm_sub_epi32 (v4cb - v4ca) (v4cb - v4ca + v4ca)\n");
-  v4ra = _mm_sub_epi32(v4cb, v4ca) ; _mm_print_epu32("v4ra", v4ra) ;
-  v4ra = _mm_add_epi32(v4ra, v4ca) ; _mm_print_epu32("v4ra", v4ra) ;
+  v4ra = sub_v4i(v4cb, v4ca) ; _mm_print_epu32("v4ra", v4ra) ;
+  v4ra = add_v4i(v4ra, v4ca) ; _mm_print_epu32("v4ra", v4ra) ;
 
   fprintf(stderr, " max_v4u (v4cb , v4ca)\n");
   v4ra = max_v4u(v4ca, v4cb) ;
@@ -209,18 +254,24 @@ int main(int argc, char **argv){
   fprintf(stderr, "- abs_v8i (v811)\n");
   v8ra = abs_v8i(v811) ; _mm256_print_epu32("v8ra", v8ra) ;
   fprintf(stderr, "- abs_v4i(-v4cr)\n");
-  v4ra = _mm_sub_epi32(v400, v4cr) ; _mm_print_epu32("v4cr", v4cr) ; _mm_print_epu32("    ", v4ra) ;
+  v4ra = sub_v4i(v400, v4cr) ; _mm_print_epu32("v4cr", v4cr) ; _mm_print_epu32("    ", v4ra) ;
   v4ra = abs_v4i(v4ra) ; _mm_print_epu32("v4ra", v4ra) ;  _mm_print_epu32("O.K.", _mm_cmpeq_epi32(v4ra, v4cr)) ;
 
-  fprintf(stderr, "- _mm256_castsi128_si256 (v4cm -> v811)\n");
+  fprintf(stderr, "- _mm256_castsi128_si256 (v4cm -> v811)\n");  // upper 4 undefined values different with aocc 4.2
   v8ra = v811 ;
   _mm256_print_epu32("v8ra", v8ra) ;
   v8ra = _mm256_castsi128_si256(v4cm) ;
+  v8ra = inserti_128(v8ra, v400, 1) ;  // zero upper part to avoid annoying difference (upper part is undefined)
   _mm256_print_epu32("v8ra", v8ra) ;
   fprintf(stderr, "- _mm256_castsi256_si128 (v8cm -> v4ra)\n");
-  _mm256_print_epu32("v811", v8cm) ;
+  _mm256_print_epu32("v8cm", v8cm) ;
   v4ra = _mm256_castsi256_si128(v8cm) ;
   _mm_print_epu32("v4ra", v4ra) ;
+
+  fprintf(stderr, "- cvt_i32_v4i\n") ;
+  v4ra = cvt_i32_v4i(0x12345678) ;
+  _mm_print_epu32("v4ra", v4ra) ;
+
 #if 0
 #endif
   return 0 ;

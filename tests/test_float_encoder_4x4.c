@@ -16,6 +16,7 @@
 //
 #include <stdint.h>
 #include <stdio.h>
+#include <stdlib.h>
 
 #include <rmn/test_helpers.h>
 
@@ -35,16 +36,71 @@ void float_decode_4x4(float *f, int nbits, uint32_t *stream);
 
 #define NTIMES 10000
 
-float array[32], decoded[32], ratio[32], error[32] ;
+static float array[32], decoded[32], ratio[32], error[32] ;
 
-int main(){
+#define LNI 1027
+#define LNJ 1025
+static float f[LNJ][LNI], r[LNJ][LNI] ;
+static uint32_t virt[LNJ*LNI] ;
+
+int32_t array_decode_by_4x4(int lni, int ni, int nj, float r[nj][lni], uint32_t *stream, int nbits){
+  int i, j, lng ;
+  int32_t header ;
+  float localf[4][4] ;
+  lng = 0 ;
+  for(j=0 ; j<nj-3 ; j+=4){
+    for(i=0 ; i<ni-3 ; i+=4){
+      float_decode_4x4(&(localf[0]), nbits, stream) ;
+      int ii, jj ;
+      for(jj=0 ; jj<4 ; jj++){
+        for(ii=0 ; ii<4 ; ii++){
+          r[j+jj][i+ii] = localf[jj][ii] ;
+        }
+      }
+      stream += (nbits+1) / 2 ; lng += (nbits+1) / 2 ;
+    }
+  }
+  return lng ;
+}
+
+int32_t array_encode_by_4x4(int lni, int ni, int nj, float f[nj][lni], uint32_t *stream, int nbits){
+  int i, j, lng ;
+  int32_t header ;
+  lng = 0 ;
+  for(j=0 ; j<nj-3 ; j+=4){
+    for(i=0 ; i<ni-3 ; i+=4){
+      header = float_encode_4x4(&(f[j][i]), lni, nbits, stream) ;
+      stream += (nbits+1) / 2 ; lng += (nbits+1) / 2 ;
+    }
+  }
+  return lng ;
+}
+
+int main(int argc, char **argv){
   uint32_t *iarray = (uint32_t *) &(array[0]) ;
   uint32_t stream[64] ;
   int32_t header = 0 ;
-  float epsilon = 0.012345678f ;
-  int i ;
-  int nbits = 7 ;
+  float epsilon = 0.012345678f, scale = 2.99f, xrand, xmax, xmin, bias = 0.0f ;
+  int i, j ;
+  int nbits = 15 ;
   uint64_t t0, t1, u0, u1 ;
+
+  srandom( (uint64_t)(&stream) & 0xFFFFFFFFu ) ;
+  srand( (uint64_t)(&stream) & 0xFFFFFFFFu ) ;
+  if(argc > 1) srand(atoi(argv[1])) ;
+
+  xmax = -1.0E+35 ;
+  xmin = 1.0E+35 ;
+  for(j=0 ; j<LNJ ; j++){
+    for(i=0 ; i<LNI ; i++){
+      xrand = (random() & 0xFFF) / 4096.0f ;     // 0.0 -> 1.0
+      f[j][i] = 1.0001f + xrand * scale ;           // 1.0 -> 1.0 + scale
+      xmax = (f[j][i] > xmax) ? f[j][i] : xmax ;
+      xmin = (f[j][i] < xmin) ? f[j][i] : xmin ;
+      r[j][i] = 0.0f ;
+    }
+  }
+  fprintf(stderr, "reference array : min = %10.5f, max = %10.5f\n\n", xmin, xmax) ;
 
   for(i=0 ; i<16 ; i++) array[i] = 1.01f + epsilon + i / 15.97f ;
   array[15] *= 8.0f ;
@@ -75,7 +131,9 @@ int main(){
   for(i=0 ; i<16 ; i++) fprintf(stderr, "%9f ", decoded[i]) ;
   fprintf(stderr, "\n") ;
 
-  for(i=0 ; i<16 ; i++) error[i] = decoded[i]-array[i] ;
+  for(i=0 ; i<16 ; i++) { error[i] = decoded[i]-array[i] ; bias += error[i] ; }
+  bias = bias / 16 ;
+  fprintf(stderr, "bias = %f\n", bias) ;
   fprintf(stderr, "error      :");
   for(i=0 ; i<16 ; i++) fprintf(stderr, "%9f ", error[i]) ;
   fprintf(stderr, "\n") ;
@@ -130,4 +188,60 @@ int main(){
   nano2 = 1000.0f * (u1 - u0) ;
   fprintf(stderr, "ns/value = %5.2f, ", nano / NTIMES / 16) ;
   fprintf(stderr, " %5.2f\n", nano2 / NTIMES / 16) ;
+  fprintf(stderr, "\n") ;
+
+  int ni = 4, nj = 4, lng ;
+  float err, rat, ratiomin = 999999.0f , ratiomax = 0.0f ;
+
+  nbits = 15 ;
+  lng = 0 ;
+  array_encode_by_4x4(LNI, ni, nj, &(f[0][0]), &(virt[0]), nbits) ;  // prime the memory pump
+  array_decode_by_4x4(LNI, ni, nj, &(r[0][0]), &(virt[0]), nbits) ;
+//   array_encode_by_4x4(LNI, ni, nj, array, &(virt[0]), nbits) ;  // prime the memory pump
+//   array_decode_by_4x4(LNI, ni, nj, &(r[0][0]), &(virt[0]), nbits) ;
+  for(j=0 ; j<nj ; j++){
+    for(i=0 ; i<ni ; i++){
+      fprintf(stderr, "%9f ", f[j][i]) ;
+//       fprintf(stderr, "%9f ", array[4*j+i]) ;
+    }
+  }
+  fprintf(stderr, "\n") ;
+  fprintf(stderr, "\n") ;
+  for(j=0 ; j<nj ; j++){
+    for(i=0 ; i<ni ; i++){
+      fprintf(stderr, "%9f ", r[j][i]) ;
+    }
+  }
+  fprintf(stderr, "\n") ;
+
+  ni = 1024 ;
+  nj = 1024 ;
+  nbits = 15 ;
+  t0 = elapsed_cycles() ;
+  lng += array_encode_by_4x4(LNI, ni, nj, &(f[0][0]), &(virt[0]), nbits) ;
+  t1 = elapsed_cycles() ;
+  fprintf(stderr, "encoding %d x %d [%d]: %ld cycles ", ni, nj, lng, t1-t0) ;
+  nano = cycles_to_ns(t1 - t0) ;
+  fprintf(stderr, "ns/value = %5.2f\n", nano / (ni*nj)) ;
+
+  lng = 0 ;
+  t0 = elapsed_cycles() ;
+  lng += array_decode_by_4x4(LNI, ni, nj, &(r[0][0]), &(virt[0]), nbits) ;
+  t1 = elapsed_cycles() ;
+  fprintf(stderr, "decoding %d x %d [%d]: %ld cycles ", ni, nj, lng, t1-t0) ;
+  nano = cycles_to_ns(t1 - t0) ;
+  fprintf(stderr, "ns/value = %5.2f\n", nano / (ni*nj)) ;
+
+  for(j=0 ; j<nj ; j++){
+    for(i=0 ; i<ni ; i++){
+      err = r[j][i] - f[j][i] ;
+      bias += err ;
+      err = (err < 0) ? -err : err ;
+      rat = f[j][i] / ((err == 0.0f) ? .0001f : err) ;
+      ratiomin = (rat < ratiomin) ? rat : ratiomin ;
+      ratiomax = (rat > ratiomax) ? rat : ratiomax ;
+    }
+  }
+  fprintf(stderr, "bias = %f\n", bias/(ni*nj)) ;
+  fprintf(stderr, "min error ratio = %8.0f, max error ratio = %8.0f\n", ratiomin, ratiomax) ;
 }

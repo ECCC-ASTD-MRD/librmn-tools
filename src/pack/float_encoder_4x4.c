@@ -27,6 +27,7 @@
 // return encoding header if successful, -1 if error
 int32_t float_encode_4x4(float *f, int lni, int nbits, uint32_t *stream32){
   uint64_t *stream64 = (uint64_t *) stream32 ;
+  uint16_t *stream16 = (uint16_t *) stream32 ;
   nbits = (nbits > 23) ? 23 : nbits ;   // at most 23 bits
   nbits = (nbits <  3) ?  3 : nbits ;   // at least 3 bits
   __m256i vdata0 = (__m256i) _mm256_loadu2_m128( f+lni , f ) ;   // first 8 values (2 rows of 4)

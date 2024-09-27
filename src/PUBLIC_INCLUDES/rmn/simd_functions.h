@@ -12,7 +12,8 @@
 // Library General Public License for more details.
 //
 
-#if ! defined(SIMD_FN)
+// protect the whole file againt double inclusion
+#if ! defined(SIMD_LOOP)
 
 #if defined(NO_SIMD) || defined(EMULATE_SIMD)
 
@@ -24,9 +25,10 @@
 #else // NO_SIMD EMULATE_SIMD
 
 #define WITH_SIMD
+#define ALIAS_INTEL_SIMD_INTRINSICS
 
 #endif // NO_SIMD EMULATE_SIMD
-
+// =================================================================================================================
 #include <stdio.h>
 #include <stdint.h>
 #include <rmn/ct_assert.h>
@@ -66,10 +68,11 @@ CT_ASSERT(sizeof(vec_128) == 16, "ERROR: sizeof(vec_128) MUST BE 16")
 #endif
 
 #endif    // defined(USE_INTEL_SIMD_INTRINSICS)
-
 #if defined(ALIAS_INTEL_SIMD_INTRINSICS) && defined(VERBOSE_SIMD)   // not true if defined(USE_INTEL_SIMD_INTRINSICS)
 #warning "simd_functions : ALIASING Intel SIMD intrinsics"
 #endif   // defined(ALIAS_INTEL_SIMD_INTRINSICS)
+
+// =================================================================================================================
 
 #define SIMD_STATIC static inline
 #define SIMD_LOOP(N, OPER) { int i ;  for(i=0 ; i<N ; i++) { OPER ; } ; }
@@ -85,7 +88,7 @@ CT_ASSERT(sizeof(vec_128) == 16, "ERROR: sizeof(vec_128) MUST BE 16")
 
 // use Intel X86_64 SIMD intrinsics
 
-// casts (true casts with native SIMD intrinsics)
+// casts (true casts when using native Intel SIMD intrinsics)
 #define __V256   (__m256)
 #define __V256f  (__m256)
 #define __V256i  (__m256i)
@@ -105,7 +108,9 @@ typedef __m128  __v128f ;
 typedef __m128i __v128i ;
 typedef __m128d __v128d ;
 
-// implementation of _mm256_alignr_epi32 and _mm_alignr_epi32 for AVX2
+
+// implementation of vector shifts
+// _mm256_alignr_epi32 and _mm_alignr_epi32 for AVX2
 // shift 64 byte vh|vl right by (imm8 & 7) * 32 bits
 #if ! defined(__AVX512F__) || ! defined(__AVX512VL__)
 #if defined(__AVX2__)
@@ -121,6 +126,17 @@ typedef __m128d __v128d ;
 
 #endif  // defined(__AVX2__)
 #endif  // ! defined(__AVX512F__) || ! defined(__AVX512VL__)
+
+// shift 32/64 byte vh|vl right by imm8 bytes
+#if defined(__AVX2__)
+#define _mm_bsrli2_epi128(VH, VL, IMM8) _mm_alignr_epi8(VH, VL, IMM8)
+#define _mm256_bsrli2_epi256(VH, VL, IMM8)  \
+  (IMM8 > 16) ? \
+  _mm256_alignr_epi8( VH , _mm256_permute2x128_si256(VL, VH, 0x21) , (IMM8-16) ) : \
+  _mm256_alignr_epi8( _mm256_permute2x128_si256(VL, VH, 0x21) , VL , (IMM8   ) ) ;
+#endif
+
+// =================================================================================================================
 
 #else    // defined(USE_INTEL_SIMD_INTRINSICS)
 
@@ -156,7 +172,9 @@ typedef vec_128 __v128d ;
 
 #endif    // defined(USE_INTEL_SIMD_INTRINSICS)
 
-// always "aliased"
+// =================================================================================================================
+
+// some functions are always "aliased"
 // print functions
 #define _mm_print_pd         print_v2d
 #define _mm_print_ps         print_v4f
@@ -174,6 +192,7 @@ typedef vec_128 __v128d ;
 #define _mm256_memmask_epi32 mask_v8i
 #define _mm_memmask_epi32    mask_v4i
 
+// =================================================================================================================
 #if defined(ALIAS_INTEL_SIMD_INTRINSICS)
 
 #define _mm256_set1_ps         set1_v8f
@@ -189,6 +208,7 @@ typedef vec_128 __v128d ;
 #define _mm256_setones_si256   ones_v256
 #define _mm_setones_si128      ones_v128
 
+#define _mm_cvtsi32_si128      cvt_i32_v4i
 #define _mm256_cvtepi8_epi32   cvt_v8c_v8i
 #define _mm_cvtepi8_epi32      cvt_v4c_v4i
 
@@ -199,6 +219,8 @@ typedef vec_128 __v128d ;
 #define _mm256_maskload_epi32  maskload_v8i 
 #define _mm_maskload_epi32     maskload_v4i 
 
+#define _mm_storeu_si64        storeu_si64
+#define _mm_storeu_si32        storeu_si32
 #define _mm256_storeu_si256    storeu_v256
 #define _mm_storeu_si128       storeu_v128
 #define _mm256_storeu_ps       storeu_v8f
@@ -212,6 +234,11 @@ typedef vec_128 __v128d ;
 #define _mm_srli_epi32         srli_v4i
 #define _mm256_srai_epi32      srai_v8i
 #define _mm_srai_epi32         srai_v4i
+#define _mm256_bsrli_epi128    bsrli_v256
+#define _mm_bsrli_si128        bsrli_v128
+#define _mm_alignr_epi8        alignr_v16c
+#define _mm_bsrli2_epi128      bsrli2_v128
+#define _mm256_bsrli2_epi256   bsrli2_v256
 #define _mm256_alignr_epi32    alignr_v8i
 #define _mm_alignr_epi32       alignr_v4i
 
@@ -233,8 +260,8 @@ typedef vec_128 __v128d ;
 
 #define _mm256_castps_si256    v8f_2_v8i
 #define _mm256_castsi256_ps    v8i_2_v8f
-#define _mm256_castsi256_si128 v256_2_128
-#define _mm256_castsi128_si256 v128_2_256
+#define _mm256_castsi256_si128 v256_v128
+#define _mm256_castsi128_si256 v128_v256
 
 #define  _mm256_xor_si256      xor_v256
 #define  _mm256_and_si256      and_v256
@@ -254,16 +281,18 @@ typedef vec_128 __v128d ;
 #define _mm_add_epi32          add_v4i
 #define _mm_sub_epi32          sub_v4i
 
+#define _mm256_permutevar8x32_epi32 permutev_v8i
 #define _mm256_extracti128_si256 extracti_128
 #define _mm256_inserti128_si256  inserti_128
 
+#define _mm256_blend_epi32     blend_v8i
 #define _mm256_blendv_ps       blendv_v8f
 #define _mm_blendv_ps          blendv_v4f
 #define _mm256_blendv_epi8     blendv_v32c
 #define _mm_blendv_epi8        blendv_v16c
 
 #endif   // defined(ALIAS_INTEL_SIMD_INTRINSICS)
-
+// =================================================================================================================
 #if defined(USE_INTEL_SIMD_INTRINSICS)
 
 #define set1_v8f      _mm256_set1_ps
@@ -278,9 +307,11 @@ typedef vec_128 __v128d ;
 #define zero_v128     _mm_setzero_si128
 #define ones_v256     _mm256_setones_si256
 #define ones_v128     _mm_setones_si128
+// setones is not in the official Intel intrinsics
 static inline __m256i _mm256_setones_si256(void){  __m256i t = _mm256_setzero_si256() ; return _mm256_cmpeq_epi32(t, t) ; }
 static inline __m128i _mm_setones_si128(void){ __m128i t = _mm_setzero_si128() ; return _mm_cmpeq_epi32(t, t) ; }
 
+#define cvt_i32_v4i   _mm_cvtsi32_si128
 #define cvt_v8c_v8i   _mm256_cvtepi8_epi32
 #define cvt_v4c_v4i   _mm_cvtepi8_epi32
 
@@ -291,6 +322,8 @@ static inline __m128i _mm_setones_si128(void){ __m128i t = _mm_setzero_si128() ;
 #define maskload_v8i  _mm256_maskload_epi32
 #define maskload_v4i  _mm_maskload_epi32
 
+#define storeu_si64   _mm_storeu_si64
+#define storeu_si32   _mm_storeu_si32
 #define storeu_v256   _mm256_storeu_si256
 #define storeu_v128   _mm_storeu_si128
 #define storeu_v8f    _mm256_storeu_ps
@@ -304,6 +337,11 @@ static inline __m128i _mm_setones_si128(void){ __m128i t = _mm_setzero_si128() ;
 #define srli_v4i      _mm_srli_epi32
 #define srai_v8i      _mm256_srai_epi32
 #define srai_v4i      _mm_srai_epi32
+#define alignr_v16c   _mm_alignr_epi8
+#define bsrli_v256    _mm256_bsrli_epi128
+#define bsrli_v128    _mm_bsrli_si128
+#define bsrli2_v128   _mm_bsrli2_epi128
+#define bsrli2_v256   _mm256_bsrli2_epi256
 #define alignr_v8i    _mm256_alignr_epi32
 #define alignr_v4i    _mm_alignr_epi32
 
@@ -346,16 +384,18 @@ static inline __m128i _mm_setones_si128(void){ __m128i t = _mm_setzero_si128() ;
 #define add_v4i       _mm_add_epi32
 #define sub_v4i       _mm_sub_epi32
 
+#define permutev_v8i   _mm256_permutevar8x32_epi32
 #define extracti_128   _mm256_extracti128_si256
 #define inserti_128    _mm256_inserti128_si256
 
+#define blend_v8i      _mm256_blend_epi32
 #define blendv_v8f     _mm256_blendv_ps
 #define blendv_v4f     _mm_blendv_ps
 #define blendv_v32c    _mm256_blendv_epi8
 #define blendv_v16c    _mm_blendv_epi8
 
+// =================================================================================================================
 #else    // defined(USE_INTEL_SIMD_INTRINSICS)
-
 SIMD_FN(SIMD_STATIC, __m256,  8, set1_v8f( float    f32 ) , R.f[i] = f32 )
 SIMD_FN(SIMD_STATIC, __m128,  4, set1_v4f( float    f32 ) , R.f[i] = f32 )
 SIMD_FN(SIMD_STATIC, __m256,  4, set1_v4d( double   f64 ) , R.d[i] = f64 )
@@ -366,9 +406,10 @@ SIMD_FN(SIMD_STATIC, __m256i, 8, set1_v8i( int32_t  i32 ) , R.i32[i] = i32 )
 SIMD_FN(SIMD_STATIC, __m128i, 4, set1_v4i( int32_t  i32 ) , R.i32[i] = i32 )
 SIMD_FN(SIMD_STATIC, __m256i, 8, zero_v256( void ) , R.u32[i] = 0 )
 SIMD_FN(SIMD_STATIC, __m128i, 4, zero_v128( void ) , R.u32[i] = 0 )
-SIMD_FN(SIMD_STATIC, __m256i, 8, ones_v256( void ) , R.u32[i] = 0xFFFFFFFFu )
-SIMD_FN(SIMD_STATIC, __m128i, 4, ones_v128( void ) , R.u32[i] = 0xFFFFFFFFu )
+SIMD_FN(SIMD_STATIC, __m256i, 8, ones_v256( void ) , R.u32[i] = 0xFFFFFFFFu )        // not part of official Intel intrinsics
+SIMD_FN(SIMD_STATIC, __m128i, 4, ones_v128( void ) , R.u32[i] = 0xFFFFFFFFu )        // not part of official Intel intrinsics
 
+SIMD_FN(SIMD_STATIC, __m128,  4, cvt_i32_v4i(int32_t  i32) , R.i32[i] = (i==0) ? i32 : 0 )  // integer to lower 32 bits of vector
 SIMD_FN(SIMD_STATIC, __m256i, 8, cvt_v8c_v8i( __m128i A ) , R.i32[i] = A.i8[i] )     // convert signed 8 bit to 32 bit (8 values)
 SIMD_FN(SIMD_STATIC, __m128i, 4, cvt_v4c_v4i( __m128i A ) , R.i32[i] = A.i8[i] )     // convert signed 8 bit to 32 bit (4 values)
 
@@ -379,6 +420,8 @@ SIMD_FN(SIMD_STATIC, __m128i, 4, loadu_v4f( float *mem ) ,    R.f[i] = mem[i] )
 SIMD_FN(SIMD_STATIC, __m256i, 8, maskload_v8i( int *mem, __m256i mask ) , R.i32[i] = (mask.i32[i] < 0) ? mem[i] : 0 )
 SIMD_FN(SIMD_STATIC, __m128i, 4, maskload_v4i( int *mem, __m128i mask ) , R.i32[i] = (mask.i32[i]>>31) ? mem[i] : 0 )
 
+VOID_FN(SIMD_STATIC, 1, storeu_si64(void *mem, __m128i V) , ((uint64_t *)mem)[0] =  V.u64[0] )
+VOID_FN(SIMD_STATIC, 1, storeu_si32(void *mem, __m128i V) , ((uint32_t *)mem)[0] =  V.u64[0] )
 VOID_FN(SIMD_STATIC, 8, storeu_v256( __m256i *mem, __m256i V ) , mem->i32[i] = V.i32[i] )
 VOID_FN(SIMD_STATIC, 4, storeu_v128( __m128i *mem, __m128i V ) , mem->i32[i] = V.i32[i] )
 VOID_FN(SIMD_STATIC, 8, storeu_v8f( float *mem, __m256 V ) , mem[i] = V.f[i] )
@@ -392,9 +435,14 @@ SIMD_FN(SIMD_STATIC, __m256i, 8, srli_v8i( __m256i A, int count ) , R.u32[i] = (
 SIMD_FN(SIMD_STATIC, __m128i, 4, srli_v4i( __m128i A, int count ) , R.u32[i] = (A.u32[i] >> count) )
 SIMD_FN(SIMD_STATIC, __m256i, 8, srai_v8i( __m256i A, int count ) , R.i32[i] = (A.i32[i] >> count) )
 SIMD_FN(SIMD_STATIC, __m128i, 4, srai_v4i( __m128i A, int count ) , R.i32[i] = (A.i32[i] >> count) )
-// shift a pair of concatenated registers
-SIMD_FN(SIMD_STATIC, __m256i, 8, _mm256_alignr_epi32(__m256i A, __m256i B, int imm8) , imm8 &= 7 ; R.i32[i] = (i+imm8)<8 ? B.i32[i+imm8] : A.i32[i+imm8-8] )
-SIMD_FN(SIMD_STATIC, __m128i, 4, _mm_alignr_epi32(__m128i A, __m128i B, int imm8) , imm8 &= 7 ; R.i32[i] = (i+imm8)<4 ? B.i32[i+imm8] : A.i32[i+imm8-4] )
+SIMD_FN(SIMD_STATIC, __m256i,32, bsrli_v256(__m256i A, int imm8), R.u8[i] = ((i+imm8)>31) ? 0 : A.u8[i+imm8] )
+SIMD_FN(SIMD_STATIC, __m128i,16, bsrli_v128(__m128i A, int imm8),    R.u8[i] = ((i+imm8)>15) ? 0 : A.u8[i+imm8] )
+// shift a pair of concatenated registers by a number of 8 bit or 32 bit elements
+SIMD_FN(SIMD_STATIC, __m128i,16, alignr_v16c(__m128i A, __m128i B, int imm8) , R.u8[i] = ((i+imm8)>31) ? 0 : (((i+imm8)<16) ? B.u8[i+imm8] : A.u8[i+imm8-16]) )
+SIMD_FN(SIMD_STATIC, __m128i,16, bsrli2_v128(__m128i A, __m128i B, int imm8) , R.u8[i] = ((i+imm8)>31) ? 0 : (((i+imm8)<16) ? B.u8[i+imm8] : A.u8[i+imm8-16]) )
+SIMD_FN(SIMD_STATIC, __m256i,32, bsrli2_v256(__m256i A, __m256i B, int imm8) , R.u8[i] = (i+imm8)<32 ? B.u8[i+imm8] : A.u8[i+imm8-32] )
+SIMD_FN(SIMD_STATIC, __m256i, 8, alignr_v8i(__m256i A, __m256i B, int imm8) , imm8 &= 7 ; R.i32[i] = (i+imm8)<8 ? B.i32[i+imm8] : A.i32[i+imm8-8] )
+SIMD_FN(SIMD_STATIC, __m128i, 4, alignr_v4i(__m128i A, __m128i B, int imm8) , imm8 &= 7 ; R.i32[i] = (i+imm8)<4 ? B.i32[i+imm8] : A.i32[i+imm8-4] )
 
 SIMD_FN(SIMD_STATIC, __m256i, 8, max_v8i( __m256i A, __m256i B ) , R.i32[i] = (A.i32[i] > B.i32[i]) ? A.i32[i] : B.i32[i] )
 SIMD_FN(SIMD_STATIC, __m128i, 4, max_v4i( __m128i A, __m128i B ) , R.i32[i] = (A.i32[i] > B.i32[i]) ? A.i32[i] : B.i32[i] )
@@ -407,15 +455,15 @@ SIMD_FN(SIMD_STATIC, __m128i, 4, min_v4u( __m128i A, __m128i B ) , R.u32[i] = (A
 SIMD_FN(SIMD_STATIC, __m256i, 8, abs_v8i(__m256i A) , R.i32[i] = (A.i32[i] < 0) ? -A.i32[i] : A.i32[i] )
 SIMD_FN(SIMD_STATIC, __m128i, 4, abs_v4i(__m128i A) , R.i32[i] = (A.i32[i] < 0) ? -A.i32[i] : A.i32[i] )
 
-SIMD_FN(SIMD_STATIC, __m256i, 8, _mm256_cmpeq_epi32(__m256i A, __m256i B), R.i32[i] = (A.i32[i] == B.i32[i]) ? -1 : 0)
-SIMD_FN(SIMD_STATIC, __m128i, 4, _mm_cmpeq_epi32(__m128i A, __m128i B),    R.i32[i] = (A.i32[i] == B.i32[i]) ? -1 : 0)
-SIMD_FN(SIMD_STATIC, __m256i, 8, _mm256_cmpgt_epi32(__m256i A, __m256i B), R.i32[i] = (A.i32[i] >  B.i32[i]) ? -1 : 0)
-SIMD_FN(SIMD_STATIC, __m128i, 4, _mm_cmpgt_epi32(__m128i A, __m128i B),    R.i32[i] = (A.i32[i] >  B.i32[i]) ? -1 : 0)
+SIMD_FN(SIMD_STATIC, __m256i, 8, cmpeq_v8i(__m256i A, __m256i B), R.i32[i] = (A.i32[i] == B.i32[i]) ? -1 : 0)
+SIMD_FN(SIMD_STATIC, __m128i, 4, cmpeq_v4i(__m128i A, __m128i B), R.i32[i] = (A.i32[i] == B.i32[i]) ? -1 : 0)
+SIMD_FN(SIMD_STATIC, __m256i, 8, cmpgt_v8i(__m256i A, __m256i B), R.i32[i] = (A.i32[i] >  B.i32[i]) ? -1 : 0)
+SIMD_FN(SIMD_STATIC, __m128i, 4, cmpgt_v4i(__m128i A, __m128i B), R.i32[i] = (A.i32[i] >  B.i32[i]) ? -1 : 0)
 
-SIMD_FN(SIMD_STATIC, __m256i, 8, _mm256_castps_si256(__m256 A) , R.i32[i] = A.i32[i] )      // float to integer
-SIMD_FN(SIMD_STATIC, __m256i, 8, _mm256_castsi256_ps(__m256i A) , R.i32[i] = A.i32[i] )     // integer to float
-SIMD_FN(SIMD_STATIC, __m128i, 4, _mm256_castsi256_si128(__m256i A) , R.i32[i] = A.i32[i]                  )  // 256 to 128 (upper part of 256 ignored)
-SIMD_FN(SIMD_STATIC, __m256i, 4, _mm256_castsi128_si256(__m128i A) , R.i32[i] = A.i32[i] ; R.i32[i+4] = 0 )  // 128 to 256 (upper part of 256 zeroed)
+SIMD_FN(SIMD_STATIC, __m256i, 8, v8f_2_v8i(__m256  A) , R.i32[i] = A.i32[i] )     // float to integer
+SIMD_FN(SIMD_STATIC, __m256i, 8, v8i_2_v8f(__m256i A) , R.i32[i] = A.i32[i] )     // integer to float
+SIMD_FN(SIMD_STATIC, __m128i, 4, v256_v128(__m256i A) , R.i32[i] = A.i32[i] )     // 256 to 128 (upper part of 256 ignored)
+SIMD_FN(SIMD_STATIC, __m256i, 4, v128_v256(__m128i A) , R.i32[i] = A.i32[i] )     // 128 to 256 (upper part of 256 undefined)
 
 SIMD_FN(SIMD_STATIC, __m256i, 8, xor_v256( __m256i A,  __m256i B), R.i32[i] = A.i32[i] ^ B.i32[i])
 SIMD_FN(SIMD_STATIC, __m128i, 4, xor_v128( __m128i A,  __m128i B),    R.i32[i] = A.i32[i] ^ B.i32[i])
@@ -426,24 +474,27 @@ SIMD_FN(SIMD_STATIC, __m128i, 4, andnot_v128( __m128i A,  __m128i B),    R.i32[i
 SIMD_FN(SIMD_STATIC, __m256i, 8, or_v256( __m256i A,  __m256i B), R.i32[i] = A.i32[i] | B.i32[i])
 SIMD_FN(SIMD_STATIC, __m128i, 4, or_v128( __m128i A,  __m128i B),    R.i32[i] = A.i32[i] | B.i32[i])
 
-SIMD_FN(SIMD_STATIC, __m256 , 8, _mm256_add_ps(__m256 A, __m256 B) ,      R.f[i]   = A.f[i]   + B.f[i] )
-SIMD_FN(SIMD_STATIC, __m256 , 8, _mm256_sub_ps(__m256 A, __m256 B) ,      R.f[i]   = A.f[i]   - B.f[i] )
-SIMD_FN(SIMD_STATIC, __m256i, 8, _mm256_add_epi32(__m256i A, __m256i B) , R.i32[i] = A.i32[i] + B.i32[i] )
-SIMD_FN(SIMD_STATIC, __m256i, 8, _mm256_sub_epi32(__m256i A, __m256i B) , R.i32[i] = A.i32[i] - B.i32[i] )
-SIMD_FN(SIMD_STATIC, __m128 , 4, _mm_add_ps(__m128  A, __m128  B)    ,    R.f[i]   = A.f[i]   + B.f[i] )
-SIMD_FN(SIMD_STATIC, __m128 , 4, _mm_sub_ps(__m128  A, __m128  B)    ,    R.f[i]   = A.f[i]   - B.f[i] )
-SIMD_FN(SIMD_STATIC, __m128i, 4, _mm_add_epi32(__m128i A, __m128i B)    , R.i32[i] = A.i32[i] + B.i32[i] )
-SIMD_FN(SIMD_STATIC, __m128i, 4, _mm_sub_epi32(__m128i A, __m128i B)    , R.i32[i] = A.i32[i] - B.i32[i] )
+SIMD_FN(SIMD_STATIC, __m256 , 8, add_v8f(__m256  A, __m256 B)  , R.f[i]   = A.f[i]   + B.f[i] )
+SIMD_FN(SIMD_STATIC, __m256 , 8, sub_v8f(__m256  A, __m256 B)  , R.f[i]   = A.f[i]   - B.f[i] )
+SIMD_FN(SIMD_STATIC, __m128 , 4, add_v4f(__m128  A, __m128  B) , R.f[i]   = A.f[i]   + B.f[i] )
+SIMD_FN(SIMD_STATIC, __m128 , 4, sub_v4f(__m128  A, __m128  B) , R.f[i]   = A.f[i]   - B.f[i] )
+SIMD_FN(SIMD_STATIC, __m256i, 8, add_v8i(__m256i A, __m256i B) , R.i32[i] = A.i32[i] + B.i32[i] )
+SIMD_FN(SIMD_STATIC, __m256i, 8, sub_v8i(__m256i A, __m256i B) , R.i32[i] = A.i32[i] - B.i32[i] )
+SIMD_FN(SIMD_STATIC, __m128i, 4, add_v4i(__m128i A, __m128i B) , R.i32[i] = A.i32[i] + B.i32[i] )
+SIMD_FN(SIMD_STATIC, __m128i, 4, sub_v4i(__m128i A, __m128i B) , R.i32[i] = A.i32[i] - B.i32[i] )
 
+SIMD_FN(SIMD_STATIC, __m256i, 8, permutev_v8i(__m256i A, __m256i IDX), R.i32[i] = A.i32[IDX.i32[i]] )
 SIMD_FN(SIMD_STATIC, __m128i, 4, extracti_128(__m256i A, int upper) , R.i32[i] = A.i32[i + (upper ? 4 : 0)] )
 SIMD_FN(SIMD_STATIC, __m256i, 4, inserti_128(__m256i A, __m128i B, int upper) , R.i32[i] = upper ? A.i32[i] : B.i32[i] ; R.i32[i+4] = upper ? B.i32[i] : A.i32[i+4] )
 
-SIMD_FN(SIMD_STATIC, __m256, 8, _mm256_blendv_ps(__m256 A, __m256 B, __m256 MASK), R.i32[i] = ((MASK.i32[i] >> 31) & (B.i32[i] ^ A.i32[i])) ^  A.i32[i] )
-SIMD_FN(SIMD_STATIC, __m128, 4, _mm_blendv_ps(__m128 A, __m128 B, __m128 MASK),    R.i32[i] = ((MASK.i32[i] >> 31) & (B.i32[i] ^ A.i32[i])) ^  A.i32[i] )
-SIMD_FN(SIMD_STATIC, __m256i, 32, _mm256_blendv_epi8(__m256i A, __m256i B, __m256i MASK), R.u8[i] = ((MASK.i8[i] >> 7) & (B.u8[i] ^ A.u8[i])) ^  A.u8[i] )
-SIMD_FN(SIMD_STATIC, __m128i, 16, _mm_blendv_epi8(__m128i A, __m128i B, __m128i MASK),    R.u8[i] = ((MASK.i8[i] >> 7) & (B.u8[i] ^ A.u8[i])) ^  A.u8[i] )
+SIMD_FN(SIMD_STATIC, __m256,   8, blend_v8i(__m256i A, __m256i B, const int imm8), R.i32[i] = ((imm8>>i) & 1) ? B.i32[i] : A.i32[i] )
+SIMD_FN(SIMD_STATIC, __m256,   8, blendv_v8f(__m256 A, __m256 B, __m256 MASK),     R.i32[i] = ((MASK.i32[i] >> 31) & (B.i32[i] ^ A.i32[i])) ^  A.i32[i] )
+SIMD_FN(SIMD_STATIC, __m128,   4, blendv_v4f(__m128 A, __m128 B, __m128 MASK),     R.i32[i] = ((MASK.i32[i] >> 31) & (B.i32[i] ^ A.i32[i])) ^  A.i32[i] )
+SIMD_FN(SIMD_STATIC, __m256i, 32, blendv_v32c(__m256i A, __m256i B, __m256i MASK), R.u8[i] = ((MASK.i8[i] >> 7) & (B.u8[i] ^ A.u8[i])) ^  A.u8[i] )
+SIMD_FN(SIMD_STATIC, __m128i, 16, blendv_v16c(__m128i A, __m128i B, __m128i MASK), R.u8[i] = ((MASK.i8[i] >> 7) & (B.u8[i] ^ A.u8[i])) ^  A.u8[i] )
 
 #endif    // defined(USE_INTEL_SIMD_INTRINSICS)
+// =================================================================================================================
 
 #if defined(ALIAS_INTEL_SIMD_INTRINSICS)
 // #define _mm256_set1_ps  set1_v8f
@@ -455,20 +506,15 @@ SIMD_FN(SIMD_STATIC, __m128i, 16, _mm_blendv_epi8(__m128i A, __m128i B, __m128i 
 
 #if ! defined(USE_INTEL_SIMD_INTRINSICS)
 
-
-
-// SIMD_FN(SIMD_STATIC, __m256i, 4, _mm256_inserti128_si256(__m256i A, __m128i B, int upper) , R.i32[i + (upper ? 4 : 0)] = B.i32[i] ; R.i32[i + (upper ? 0 : 4)] = A.i32[i] )
-
-
-
-
 #endif
 
 // ================================== derived functions ==================================
 
 // integer blend, defined using float blend with type cast
-SIMD_FN(SIMD_STATIC, __m256i, 8, _mm256_blendv_epi32(__m256i A, __m256i B, __m256i MASK), R = __V256i _mm256_blendv_ps(__V256 A, __V256 B, __V256 MASK) )
-SIMD_FN(SIMD_STATIC, __m128i, 4, _mm_blendv_epi32(__m128i A, __m128i B, __m128i MASK),    R = __V128i _mm_blendv_ps(__V128 A, __V128 B, __V128 MASK) )
+#define _mm256_blendv_epi32  blendv_v8i
+#define _mm_blendv_epi32     blendv_v4i
+SIMD_FN(SIMD_STATIC, __m256i, 8, blendv_v8i(__m256i A, __m256i B, __m256i MASK), R = __V256i blendv_v8f(__V256 A, __V256 B, __V256 MASK) )
+SIMD_FN(SIMD_STATIC, __m128i, 4, blendv_v4i(__m128i A, __m128i B, __m128i MASK), R = __V128i blendv_v4f(__V128 A, __V128 B, __V128 MASK) )
 
 // ================================== print vectors ==================================
 
@@ -586,8 +632,6 @@ static inline __m256i mask_v8i(int n){
   return cvt_v8c_v8i(vm) ;                        // convert from 8 bit to 32 bit mask (8 elements)
 }
 
-// ================================== vector shifts ==================================
-
 #if 0
 // #define F4ADDI _mm_add_epi32
 // #define F8ADDI _mm256_add_epi32
@@ -651,4 +695,4 @@ static inline __m256i mask_v8i(int n){
 #define MIN08(V,VMI0,V0,VZ) { V8I z=VEQ8(V,V0) ; V=ABS8I(V) ; VZ=ADD8I(VZ,z) ;  V=BLEND8(V,VMI0,z) ;   VMI0=MINU8(V,VMI0) ; }
 #endif
 
-#endif // defined(SIMD_FN)
+#endif // protect the whole file againt double inclusion with SIMD_LOOP
