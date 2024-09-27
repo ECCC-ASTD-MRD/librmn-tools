@@ -16,9 +16,12 @@
 #include <stdint.h>
 #include <string.h>
 
+// comment the following line to use emulated Intel SIMD intrinsics
 #define USE_INTEL_SIMD_INTRINSICS
+// comment the following line to activate SIMD code
+// #define NO_SIMD
 #include <rmn/simd_functions.h>
-#define WITH_SIMD
+// #define WITH_SIMD
 // #include <with_simd.h>
 
 // #if ! defined(STATIC)
@@ -156,6 +159,33 @@ STATIC inline void LorenzoPredictRow0_inplace(int32_t * restrict row, int n){
 // n    : number of points in row
 // this function WILL NOT WORK IN-PLACE (i.e. if diff == top)
 STATIC inline void LorenzoPredictRowJ(int32_t * restrict top, int32_t * restrict bot, int32_t * restrict diff, int n){
+  __m256i vi, vi1, vi1_, vj1, vij1, vij1_ ;
+
+  diff[0] = top[0] - bot[0] ;         // first point in row, 1D prediction using row below
+  vi1  = _mm256_loadu_si256((__m256i *) (top)) ;
+  vij1 = _mm256_loadu_si256((__m256i *) (bot)) ;
+  n-- ; diff += 1 ; top += 8 ; bot += 8 ;
+  while( n > 7){
+    vi1_  = _mm256_loadu_si256((__m256i *) (top)) ;
+    vij1_ = _mm256_loadu_si256((__m256i *) (bot)) ;
+    vi    = alignr_v8i(vi1_, vi1, 1) ;
+    vj1   = alignr_v8i(vij1_, vij1, 1) ;
+    __m256i vr = _mm256_sub_epi32( vi, _mm256_sub_epi32( _mm256_add_epi32(vi1, vj1) , vij1 ) ) ;
+    _mm256_storeu_si256( (__m256i *) (diff), vr) ;
+    vi1  = vi1_ ;
+    vij1 = vij1_ ;
+    n -=8 ; top += 8 ; bot +=8 ; diff += 8 ;
+  }
+  vi    = alignr_v8i(vi1, vi1, 1) ;
+  vj1   = alignr_v8i(vij1, vij1, 1) ;
+  __m256i vr = _mm256_sub_epi32( vi, _mm256_sub_epi32( _mm256_add_epi32(vi1, vj1) , vij1 ) ) ;
+  __m128i vt = extracti_128(vr, 0) ;
+  if(n & 4) { _mm_storeu_si128((__m128i *) diff, vt) ; vt = extracti_128(vr, 1) ; diff += 4 ; }
+  if(n & 2) { _mm_storeu_si64(diff, vt) ; vt = bsrli_v128(vt, 8) ; diff += 2 ; }
+  if(n & 1) { _mm_storeu_si32(diff, vt) ; }
+}
+
+STATIC inline void LorenzoPredictRowJ_(int32_t * restrict top, int32_t * restrict bot, int32_t * restrict diff, int n){
 #if defined(WITH_SIMD) && defined(__AVX2__) && defined(__x86_64__)
     __m256i vi, vi1, vj1, vij1 ;
     int i0, ii0 ;

@@ -6,7 +6,7 @@
 #include <rmn/test_helpers.h>
 
 #if !defined(NPTS)
-#define NPTS 128
+#define NPTS 67
 #endif
 
 #define NTIMES 100000
