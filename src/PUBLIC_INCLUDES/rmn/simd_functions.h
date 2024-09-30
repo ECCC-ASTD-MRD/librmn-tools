@@ -436,7 +436,7 @@ SIMD_FN(SIMD_STATIC, __m128i, 4, srli_v4i( __m128i A, int count ) , R.u32[i] = (
 SIMD_FN(SIMD_STATIC, __m256i, 8, srai_v8i( __m256i A, int count ) , R.i32[i] = (A.i32[i] >> count) )
 SIMD_FN(SIMD_STATIC, __m128i, 4, srai_v4i( __m128i A, int count ) , R.i32[i] = (A.i32[i] >> count) )
 SIMD_FN(SIMD_STATIC, __m256i,32, bsrli_v256(__m256i A, int imm8), R.u8[i] = ((i+imm8)>31) ? 0 : A.u8[i+imm8] )
-SIMD_FN(SIMD_STATIC, __m128i,16, bsrli_v128(__m128i A, int imm8),    R.u8[i] = ((i+imm8)>15) ? 0 : A.u8[i+imm8] )
+SIMD_FN(SIMD_STATIC, __m128i,16, bsrli_v128(__m128i A, int imm8), R.u8[i] = ((i+imm8)>15) ? 0 : A.u8[i+imm8] )
 // shift a pair of concatenated registers by a number of 8 bit or 32 bit elements
 SIMD_FN(SIMD_STATIC, __m128i,16, alignr_v16c(__m128i A, __m128i B, int imm8) , R.u8[i] = ((i+imm8)>31) ? 0 : (((i+imm8)<16) ? B.u8[i+imm8] : A.u8[i+imm8-16]) )
 SIMD_FN(SIMD_STATIC, __m128i,16, bsrli2_v128(__m128i A, __m128i B, int imm8) , R.u8[i] = ((i+imm8)>31) ? 0 : (((i+imm8)<16) ? B.u8[i+imm8] : A.u8[i+imm8-16]) )
