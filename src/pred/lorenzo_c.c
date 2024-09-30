@@ -158,6 +158,7 @@ STATIC inline void LorenzoPredictRow0_inplace(int32_t * restrict row, int n){
 // diff : prediction error for row j
 // n    : number of points in row
 // this function WILL NOT WORK IN-PLACE (i.e. if diff == top)
+// problem with PGI compiler : : undefined reference to `__builtin_ia32_palignr256' (bsrli_v128)
 STATIC inline void LorenzoPredictRowJ(int32_t * restrict top, int32_t * restrict bot, int32_t * restrict diff, int n){
   __m256i vi, vi1, vi1_, vj1, vij1, vij1_ ;
 
@@ -341,7 +342,11 @@ void LorenzoPredict(int32_t * restrict orig, int32_t * restrict diff, int ni, in
   while(--nj > 0){
     diff += lnid ; 
     orig += lnio ;
+#if defined(__PGI)
+    LorenzoPredictRowJ_(orig, orig-lnio, diff, ni) ;   // all other rows
+#else
     LorenzoPredictRowJ(orig, orig-lnio, diff, ni) ;   // all other rows
+#endif
   }
 }
 
