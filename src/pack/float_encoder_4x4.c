@@ -25,14 +25,36 @@
 // if all values have the same sign, the sign bit is not encoded, the header will provide it
 // if all values have the same exponent, the exponent is not encoded, the header will provide it
 // return encoding header if successful, -1 if error
-int32_t float_encode_4x4(float *f, int lni, int nbits, uint32_t *stream32){
-  uint64_t *stream64 = (uint64_t *) stream32 ;
-  uint16_t *stream16 = (uint16_t *) stream32 ;
+// effective dimensions of f : f[nj][lni]
+// effective size of block to extract [min(nj,4)][min(ni,4)]
+int32_t float_encode_4x4(float *f, int lni, int nbits, void *stream, uint32_t ni, uint32_t nj){
+  uint64_t *stream64 = (uint64_t *) stream ;
+   __m256i vdata0, vdata1 ;
+//   uint16_t *stream16 = (uint16_t *) stream32 ;
   nbits = (nbits > 23) ? 23 : nbits ;   // at most 23 bits
   nbits = (nbits <  3) ?  3 : nbits ;   // at least 3 bits
-  __m256i vdata0 = (__m256i) _mm256_loadu2_m128( f+lni , f ) ;   // first 8 values (2 rows of 4)
-  f += (lni+lni) ;
-  __m256i vdata1 = (__m256i) _mm256_loadu2_m128( f+lni , f ) ;   // next 8 values (2 rows of 4)
+  ni = (ni > 4) ? 4 : ni ;
+  nj = (nj > 4) ? 4 : nj ;
+
+  if(ni < 4 || nj < 4){                 // NOT a full 4x4 block
+    float fl[4][4] ;                    // local 4x4 block that will be used for encoding
+    uint32_t i, j ;
+    for(j=0 ; j<4 ; j++){               // fill local block with first value from f
+      for(i=0 ; i<4 ; i++){ fl[j][i] = f[0] ; }
+    }
+    for(j=0 ; j<4 && j<nj ; j++){       // copy useful part of block from source array f
+      for(i=0 ; i<4 && i<ni ; i++){ fl[j][i] = f[i] ; }   // copy row
+      f += lni ;                                          // next row from source array f
+    }
+    vdata0 = (__m256i) _mm256_loadu2_m128( &(fl[1][0]) , &(fl[0][0]) ) ;   // first 8 values (2 rows of 4)
+    vdata1 = (__m256i) _mm256_loadu2_m128( &(fl[3][0]) , &(fl[2][0]) ) ;   // next 8 values (2 rows of 4)
+
+  }else{                                // FULL 4x4 block
+
+    vdata0 = (__m256i) _mm256_loadu2_m128( f+lni , f ) ;   // first 8 values (2 rows of 4)
+    f += (lni+lni) ;
+    vdata1 = (__m256i) _mm256_loadu2_m128( f+lni , f ) ;   // next 8 values (2 rows of 4)
+  }
   // ===================================== analysis phase =====================================
   // signs == 0           means all values are >= 0
   // signs == 0xFF + 0xFF means all values are < 0
@@ -96,8 +118,8 @@ int32_t float_encode_4x4(float *f, int lni, int nbits, uint32_t *stream32){
   // shift to lower nbits
   vshift = _mm256_set1_epi32(32 - nbits) ;
   // pack and store
-  _mm256_storeu_si256((__m256i *)(stream32 + 0) , _mm256_srlv_epi32(vmant0, vshift) ) ;
-  _mm256_storeu_si256((__m256i *)(stream32 + 8) , _mm256_srlv_epi32(vmant1, vshift) ) ;
+//   _mm256_storeu_si256((__m256i *)(stream32 + 0) , _mm256_srlv_epi32(vmant0, vshift) ) ;
+//   _mm256_storeu_si256((__m256i *)(stream32 + 8) , _mm256_srlv_epi32(vmant1, vshift) ) ;
 //   goto end ;
 //   stream32 += 16 ; stream64 += 8 ;
   __m256i v8i0 ;
@@ -188,8 +210,8 @@ int32_t float_encode_4x4(float *f, int lni, int nbits, uint32_t *stream32){
   return  header ;
 }
 
-void float_decode_4x4(float *f, int nbits, uint32_t *stream32){
-  uint64_t *stream64 = (uint64_t *) stream32 ;
+void float_decode_4x4(float *f, int nbits, void *stream){
+  uint64_t *stream64 = (uint64_t *) stream ;
   int header ;
   __m256i v8i0, v8i1, vmant0, vmant1 ;
   __m128i v4i0, v4i1 ;

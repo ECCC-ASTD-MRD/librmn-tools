@@ -19,6 +19,7 @@
 #include <stdlib.h>
 
 #include <rmn/test_helpers.h>
+#include <rmn/ct_assert.h>
 
 #define WITH_TIMING
 
@@ -31,8 +32,14 @@
   float NaNoSeC = 0.0f ;
 #endif
 
-int32_t float_encode_4x4(float *f, int lni, int nbits, uint32_t *stream);
-void float_decode_4x4(float *f, int nbits, uint32_t *stream);
+// variable length array
+typedef float vla[] ;
+// pointer to variable lengtp array
+#define VLAP (float(*)[])
+// #define VLAP (vla *)
+
+int32_t float_encode_4x4(float *f, int lni, int nbits, void *stream, uint32_t ni, uint32_t nj);
+void float_decode_4x4(float *f, int nbits, void *stream);
 
 #define NTIMES 10000
 
@@ -43,14 +50,48 @@ static float array[32], decoded[32], ratio[32], error[32] ;
 static float f[LNJ][LNI], r[LNJ][LNI] ;
 static uint32_t virt[LNJ*LNI] ;
 
+typedef struct{
+  uint32_t version: 16 ,            // versioning indicator
+           spare:   16 ,
+           mode:    12 ,            // packing style
+           nbits:    6 ,            // number of bits per item in packed 4x4 block
+           bsize:    6 ,            // size of 4x4 blocks (including optional block header) in 16 bit units
+           ni0:      4 ,            // useful dimension along i of first block in rows
+           nj0:      4 ;            // useful dimension along j of blocks in first row
+} vprop_2d ;
+CT_ASSERT(sizeof(vprop_2d) == 2 * sizeof(uint32_t), "wrong size of struct vprop_2d")
+
+// return index of first point of block along a dimension
+static uint32_t block_2_indx(uint32_t block, uint32_t nx0){
+  return (block == 0) ? 0 : nx0 + (block - 1) * 4 ;
+}
+// return block number for index along a dimension
+static uint32_t indx_2_block(uint32_t indx,  uint32_t nx0){
+  return (indx < nx0) ? 0 : 1 + (indx - nx0) / 4 ;
+}
+// block number along i to i index of 1st point in block along i
+static uint32_t bi_2_i(uint32_t bi, vprop_2d p){
+  return block_2_indx(bi, p.ni0) ;
+}
+// block number along j to j index of 1st point in block along j
+static uint32_t bj_2_j(uint32_t bj, vprop_2d p){
+  return block_2_indx(bj, p.nj0) ;
+}
+
+typedef struct{
+  vprop_2d prop ;             // virtual array properties
+  uint32_t gni, gnj ;         // original float array dimensions
+  uint16_t data[] ;           // packed data, bsize * gni * gni * 16 bits
+}virtual_float_2d ;
+
 int32_t array_decode_by_4x4(int lni, int ni, int nj, float r[nj][lni], uint32_t *stream, int nbits){
   int i, j, lng ;
-  int32_t header ;
+//   int32_t header ;
   float localf[4][4] ;
   lng = 0 ;
   for(j=0 ; j<nj-3 ; j+=4){
     for(i=0 ; i<ni-3 ; i+=4){
-      float_decode_4x4(&(localf[0]), nbits, stream) ;
+      float_decode_4x4(&(localf[0][0]), nbits, stream) ;
       int ii, jj ;
       for(jj=0 ; jj<4 ; jj++){
         for(ii=0 ; ii<4 ; ii++){
@@ -69,21 +110,32 @@ int32_t array_encode_by_4x4(int lni, int ni, int nj, float f[nj][lni], uint32_t 
   lng = 0 ;
   for(j=0 ; j<nj-3 ; j+=4){
     for(i=0 ; i<ni-3 ; i+=4){
-      header = float_encode_4x4(&(f[j][i]), lni, nbits, stream) ;
-      stream += (nbits+1) / 2 ; lng += (nbits+1) / 2 ;
+      header = float_encode_4x4(&(f[j][i]), lni, nbits, stream, 4, 4) ;
+      if(header) stream += (nbits+1) / 2 ;
+      lng += (nbits+1) / 2 ;
     }
   }
   return lng ;
 }
 
+static float f55[5][5] ;
+static float f75[7][5] ;
+static float f57[5][7] ;
+
 int main(int argc, char **argv){
-  uint32_t *iarray = (uint32_t *) &(array[0]) ;
+//   uint32_t *iarray = (uint32_t *) &(array[0]) ;
   uint32_t stream[64] ;
   int32_t header = 0 ;
   float epsilon = 0.012345678f, scale = 2.99f, xrand, xmax, xmin, bias = 0.0f ;
   int i, j ;
   int nbits = 15 ;
   uint64_t t0, t1, u0, u1 ;
+
+  if(cycles_overhead == 0) cycles_overhead = 1 ;    // get rid of annoying warning
+
+  for(j=0 ; j<5 ; j++) for(i=0 ; i<5 ; i++) f55[j][i] = i*10.0f + j*1.0f ;
+  for(j=0 ; j<7 ; j++) for(i=0 ; i<5 ; i++) f75[j][i] = i*10.0f + j*1.0f ;
+  for(j=0 ; j<5 ; j++) for(i=0 ; i<7 ; i++) f57[j][i] = i*10.0f + j*1.0f ;
 
   srandom( (uint64_t)(&stream) & 0xFFFFFFFFu ) ;
   srand( (uint64_t)(&stream) & 0xFFFFFFFFu ) ;
@@ -107,7 +159,7 @@ int main(int argc, char **argv){
   for(i=0 ; i<16 ; i++) array[i] = -array[i] ;        // all negative numbers
 //   for(i=0 ; i<16 ; i+=2) array[i] = -array[i] ;       // introduce some negative numbers
 
-  header = float_encode_4x4(array, 4, nbits, stream) ;
+  header = float_encode_4x4(array, 4, nbits, stream, 4 ,4) ;
 
   fprintf(stderr, "emin = %d, ", header >> 8) ;
   int ebits = header & 7 ;
@@ -146,7 +198,7 @@ int main(int argc, char **argv){
   u0 = elapsed_us() ;
   t0 = elapsed_cycles() ;
   for(i=0 ; i<NTIMES ; i++){
-    header = float_encode_4x4(array, 4, nbits, stream) ;
+    header = float_encode_4x4(array, 4, nbits, stream, 4, 4) ;
 //     iarray[0] ^= (0x1) ;    // fool the optimizer to prevent loop modification
   }
   t1 = elapsed_cycles() ;
@@ -195,8 +247,8 @@ int main(int argc, char **argv){
 
   nbits = 15 ;
   lng = 0 ;
-  array_encode_by_4x4(LNI, ni, nj, &(f[0][0]), &(virt[0]), nbits) ;  // prime the memory pump
-  array_decode_by_4x4(LNI, ni, nj, &(r[0][0]), &(virt[0]), nbits) ;
+  array_encode_by_4x4(LNI, ni, nj, VLAP &(f[0][0]), &(virt[0]), nbits) ;  // prime the memory pump
+  array_decode_by_4x4(LNI, ni, nj, (float(*)[]) &(r[0][0]), &(virt[0]), nbits) ;
 //   array_encode_by_4x4(LNI, ni, nj, array, &(virt[0]), nbits) ;  // prime the memory pump
 //   array_decode_by_4x4(LNI, ni, nj, &(r[0][0]), &(virt[0]), nbits) ;
   for(j=0 ; j<nj ; j++){
@@ -218,7 +270,7 @@ int main(int argc, char **argv){
   nj = 1024 ;
   nbits = 15 ;
   t0 = elapsed_cycles() ;
-  lng += array_encode_by_4x4(LNI, ni, nj, &(f[0][0]), &(virt[0]), nbits) ;
+  lng += array_encode_by_4x4(LNI, ni, nj, (float(*)[]) &(f[0][0]), &(virt[0]), nbits) ;
   t1 = elapsed_cycles() ;
   fprintf(stderr, "encoding %d x %d [%d]: %ld cycles ", ni, nj, lng, t1-t0) ;
   nano = cycles_to_ns(t1 - t0) ;
@@ -226,7 +278,7 @@ int main(int argc, char **argv){
 
   lng = 0 ;
   t0 = elapsed_cycles() ;
-  lng += array_decode_by_4x4(LNI, ni, nj, &(r[0][0]), &(virt[0]), nbits) ;
+  lng += array_decode_by_4x4(LNI, ni, nj, (float(*)[]) &(r[0][0]), &(virt[0]), nbits) ;
   t1 = elapsed_cycles() ;
   fprintf(stderr, "decoding %d x %d [%d]: %ld cycles ", ni, nj, lng, t1-t0) ;
   nano = cycles_to_ns(t1 - t0) ;
