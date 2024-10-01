@@ -79,28 +79,43 @@ typedef struct{
   uint16_t data[] ;           // packed data, bsize * gni * gni * 16 bits
 }virtual_float_2d ;
 
+// gni    [IN] : row storage length of virtual array
+// lni    [IN] : row storage length of array r
+// ni     [IN] : number of values to get along i
+// nj     [IN] : number of values to get along j
+// r     [OUT] : array to store extracted section of original virtual array r[nj][lni]
+// ix0    [IN] : offset along i in virtual array
+// jx0    [IN] : offset along j in virtual array
+// stream [IN] : virtual array stream
+// nbits  [IN] : number of bits per packed value (virtual array)
 int32_t array_section_by_4x4(uint32_t gni, uint32_t lni, uint32_t ni, uint32_t nj, float r[nj][lni], uint32_t ix0, uint32_t jx0, uint16_t *stream0, uint32_t nbits){
   uint32_t ixn = ix0 + ni -1, jxn = jx0 + nj - 1, nbi = (gni+3)/4 ;
   uint32_t bi0 = ix0/4, bin = 1+ixn/4 , bj0 = jx0/4, bjn = 1+jxn/4 ;
   uint32_t bi, bj ;
   float localf[4][4] ;
   uint32_t bsize = nbits + 1 ;
-fprintf(stderr, "blocks[%d:%d,%d:%d]\n", bi0, bin-1, bj0, bjn-1);
+  int full, fullj ;
+// fprintf(stderr, "blocks[%d:%d,%d:%d]\n", bi0, bin-1, bj0, bjn-1);
   for(bj=bj0 ; bj<bjn ; bj++){
     int j0 = bj*4 ;
+    fullj = (j0 >= jx0) & (j0+3 <= jxn) ;
     for(bi=bi0 ; bi<bin ; bi++){
       int i0 = bi*4 ;
       uint16_t *stream = stream0 + (bi + (bj*nbi)) * bsize ;
-int part = j0 < jx0 || j0+3 > jxn || i0 < ix0 || i0+3 < ixn ;
-fprintf(stderr, "i0 = %2d, j0 = %2d, restoring[%2d:%2d,%2d:%2d], stream - stream0 = %4ld, %s\n",
-        i0, j0, ix0, ixn, jx0, jxn, stream - stream0, part ? "part" : "full") ;
+      full = fullj & (i0 >= ix0) & (i0+3 <= ixn) ;
+// fprintf(stderr, "i0 = %2d, j0 = %2d, restoring[%2d:%2d,%2d:%2d], stream - stream0 = %4ld, %s\n",
+//         i0, j0, ix0, ixn, jx0, jxn, stream - stream0, full ? "full" : "part") ;
       float_decode_4x4(&(localf[0][0]), nbits, stream, NULL) ;  // decode 4x4 block to local array
       int i, j ;
-      for(j=0 ; j<4 ; j++){                                     // copy relevant part into result
-        if( j0+j < jx0 || j0+j > jxn ) continue ;
-        for(i=0 ; i<4 ; i++){
-          if(i0+i < ix0 || i0+i > ixn ) continue ;
-          r[j0+j-jx0][i0+i-ix0] = localf[j][i] ;
+      if(full){
+        for(j=0 ; j<4 ; j++) for(i=0 ; i<4 ; i++) r[j0+j-jx0][i0+i-ix0] = localf[j][i] ;
+      }else{
+        for(j=0 ; j<4 ; j++){                                     // copy relevant part into result
+          if( j0+j < jx0 || j0+j > jxn ) continue ;
+          for(i=0 ; i<4 ; i++){
+            if(i0+i < ix0 || i0+i > ixn ) continue ;
+            r[j0+j-jx0][i0+i-ix0] = localf[j][i] ;
+          }
         }
       }
     }
@@ -154,7 +169,7 @@ static float f11[11][11], r11[11][11] ;
 
 int main(int argc, char **argv){
 //   uint32_t *iarray = (uint32_t *) &(array[0]) ;
-  uint16_t stream16[1024] ;
+  uint16_t stream77[1024], stream11[1024], stream16[1024] ;
   uint32_t *stream = (uint32_t *) &(stream16[0]) ;
   uint32_t header = 0 ;
   float epsilon = 0.012345678f, scale = 2.99f, xrand, xmax, xmin, bias = 0.0f ;
@@ -164,18 +179,19 @@ int main(int argc, char **argv){
 
   if(cycles_overhead == 0) cycles_overhead = 1 ;    // get rid of annoying warning
 
-  for(j=0 ; j<5 ; j++) for(i=0 ; i<5 ; i++) f55[j][i] = (i+1)*100.0f + (j+1)*1.0f + 10000.0f ;
-  for(j=0 ; j<7 ; j++) for(i=0 ; i<7 ; i++) f77[j][i] = (i+1)*100.0f + (j+1)*1.0f + 10000.0f ;
-  for(j=0 ; j<11; j++) for(i=0 ; i<11; i++) f11[j][i] = (i+1)*100.0f + (j+1)*1.0f + 10000.0f ;
+  for(j=0 ; j<5 ; j++) for(i=0 ; i<5 ; i++) f55[j][i] = (i+0)*100.0f + (j+0)*1.0f + 10000.0f ;
+  for(j=0 ; j<7 ; j++) for(i=0 ; i<7 ; i++) f77[j][i] = (i+0)*100.0f + (j+0)*1.0f + 10000.0f ;
+  for(j=0 ; j<11; j++) for(i=0 ; i<11; i++) f11[j][i] = (i+0)*100.0f + (j+0)*1.0f + 10000.0f ;
 
 //   int32_t lng55 = array_encode_by_4x4(5, 5, 5, FLOAT_VLAP &(f55[0][0]), &(stream16[0]), 23) ;
 //   fprintf(stderr, "lng55 = %d\n\n", lng55) ;
-  int32_t lng77 = array_encode_by_4x4(7, 7, 7, FLOAT_VLAP &(f77[0][0]), &(stream16[0]), nbits) ;
+  int32_t lng77 = array_encode_by_4x4(7, 7, 7, FLOAT_VLAP &(f77[0][0]), &(stream77[0]), nbits) ;
   fprintf(stderr, "lng77 = %d\n\n", lng77) ;
-  int32_t lng11 = array_encode_by_4x4(11, 11, 11, FLOAT_VLAP &(f11[0][0]), &(stream16[0]), nbits) ;
+  int32_t lng11 = array_encode_by_4x4(11, 11, 11, FLOAT_VLAP &(f11[0][0]), &(stream11[0]), nbits) ;
   fprintf(stderr, "lng11 = %d\n\n", lng11) ;
 
-  array_decode_by_4x4(7, 7, 7, FLOAT_VLAP &(r77[0][0]), stream, nbits) ;
+  array_decode_by_4x4(7, 7, 7, FLOAT_VLAP &(r77[0][0]), stream77, nbits) ;
+  fprintf(stderr, "7 x 7 r77 array\n");
   for(j=6 ; j>=0 ; j--){
     for(i=0 ; i<7 ; i++){
       fprintf(stderr, "%8.0f ", r77[j][i]) ;
@@ -184,7 +200,8 @@ int main(int argc, char **argv){
   }
   fprintf(stderr, "\n");
 
-  array_decode_by_4x4(11, 11, 11, FLOAT_VLAP &(r11[0][0]), stream, nbits) ;
+  fprintf(stderr, "11 x 11 r11 array\n");
+  array_decode_by_4x4(11, 11, 11, FLOAT_VLAP &(r11[0][0]), stream11, nbits) ;
   for(j=10 ; j>=0 ; j--){
     for(i=0 ; i<11 ; i++){
       fprintf(stderr, "%8.0f ", r11[j][i]) ;
@@ -193,8 +210,10 @@ int main(int argc, char **argv){
   }
   fprintf(stderr, "\n");
 
-  array_section_by_4x4(7, 5, 5, 5, FLOAT_VLAP &(r55[0][0]), 1, 1, stream, nbits) ;
-  for(j=4 ; j>=0 ; j--){
+  // get 5x5 section from 7x7 array
+  fprintf(stderr, "r77[1:5,3:6] array\n");
+  array_section_by_4x4(7, 5, 5, 4, FLOAT_VLAP &(r55[0][0]), 1, 3, stream77, nbits) ;
+  for(j=3 ; j>=0 ; j--){
     for(i=0 ; i<5 ; i++){
       fprintf(stderr, "%8.0f ", r55[j][i]) ;
     }
@@ -202,8 +221,10 @@ int main(int argc, char **argv){
   }
   fprintf(stderr, "\n");
 
-  array_section_by_4x4(11, 7, 7, 7, FLOAT_VLAP &(r77[0][0]), 3, 3, stream, nbits) ;
-  for(j=6 ; j>=0 ; j--){
+  // get 7x6 section from 11x11 array
+  fprintf(stderr, "r11[3:9,2:7] array\n");
+  array_section_by_4x4(11, 7, 7, 6, FLOAT_VLAP &(r77[0][0]), 3, 2, stream11, nbits) ;
+  for(j=5 ; j>=0 ; j--){
     for(i=0 ; i<7 ; i++){
       fprintf(stderr, "%8.0f ", r77[j][i]) ;
     }
