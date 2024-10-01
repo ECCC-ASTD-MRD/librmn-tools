@@ -91,7 +91,9 @@ fprintf(stderr, "blocks[%d:%d,%d:%d]\n", bi0, bin-1, bj0, bjn-1);
     for(bi=bi0 ; bi<bin ; bi++){
       int i0 = bi*4 ;
       uint16_t *stream = stream0 + (bi + (bj*nbi)) * bsize ;
-fprintf(stderr, "i0 = %2d, j0 = %2d, restoring[%2d:%2d,%2d:%2d], stream - stream0 = %ld\n", i0, j0, ix0, ixn, jx0, jxn, stream - stream0) ;
+int part = j0 < jx0 || j0+3 > jxn || i0 < ix0 || i0+3 < ixn ;
+fprintf(stderr, "i0 = %2d, j0 = %2d, restoring[%2d:%2d,%2d:%2d], stream - stream0 = %4ld, %s\n",
+        i0, j0, ix0, ixn, jx0, jxn, stream - stream0, part ? "part" : "full") ;
       float_decode_4x4(&(localf[0][0]), nbits, stream, NULL) ;  // decode 4x4 block to local array
       int i, j ;
       for(j=0 ; j<4 ; j++){                                     // copy relevant part into result
@@ -148,10 +150,11 @@ static float f55[5][5], r55[5][5] ;
 // static float f75[7][5] ;
 // static float f57[5][7] ;
 static float f77[7][7], r77[7][7] ;
+static float f11[11][11], r11[11][11] ;
 
 int main(int argc, char **argv){
 //   uint32_t *iarray = (uint32_t *) &(array[0]) ;
-  uint16_t stream16[128] ;
+  uint16_t stream16[1024] ;
   uint32_t *stream = (uint32_t *) &(stream16[0]) ;
   uint32_t header = 0 ;
   float epsilon = 0.012345678f, scale = 2.99f, xrand, xmax, xmin, bias = 0.0f ;
@@ -163,16 +166,28 @@ int main(int argc, char **argv){
 
   for(j=0 ; j<5 ; j++) for(i=0 ; i<5 ; i++) f55[j][i] = (i+1)*100.0f + (j+1)*1.0f + 10000.0f ;
   for(j=0 ; j<7 ; j++) for(i=0 ; i<7 ; i++) f77[j][i] = (i+1)*100.0f + (j+1)*1.0f + 10000.0f ;
+  for(j=0 ; j<11; j++) for(i=0 ; i<11; i++) f11[j][i] = (i+1)*100.0f + (j+1)*1.0f + 10000.0f ;
 
 //   int32_t lng55 = array_encode_by_4x4(5, 5, 5, FLOAT_VLAP &(f55[0][0]), &(stream16[0]), 23) ;
 //   fprintf(stderr, "lng55 = %d\n\n", lng55) ;
   int32_t lng77 = array_encode_by_4x4(7, 7, 7, FLOAT_VLAP &(f77[0][0]), &(stream16[0]), nbits) ;
   fprintf(stderr, "lng77 = %d\n\n", lng77) ;
+  int32_t lng11 = array_encode_by_4x4(11, 11, 11, FLOAT_VLAP &(f11[0][0]), &(stream16[0]), nbits) ;
+  fprintf(stderr, "lng11 = %d\n\n", lng11) ;
 
   array_decode_by_4x4(7, 7, 7, FLOAT_VLAP &(r77[0][0]), stream, nbits) ;
   for(j=6 ; j>=0 ; j--){
     for(i=0 ; i<7 ; i++){
       fprintf(stderr, "%8.0f ", r77[j][i]) ;
+    }
+    fprintf(stderr, "\n");
+  }
+  fprintf(stderr, "\n");
+
+  array_decode_by_4x4(11, 11, 11, FLOAT_VLAP &(r11[0][0]), stream, nbits) ;
+  for(j=10 ; j>=0 ; j--){
+    for(i=0 ; i<11 ; i++){
+      fprintf(stderr, "%8.0f ", r11[j][i]) ;
     }
     fprintf(stderr, "\n");
   }
@@ -185,6 +200,16 @@ int main(int argc, char **argv){
     }
     fprintf(stderr, "\n");
   }
+  fprintf(stderr, "\n");
+
+  array_section_by_4x4(11, 7, 7, 7, FLOAT_VLAP &(r77[0][0]), 3, 3, stream, nbits) ;
+  for(j=6 ; j>=0 ; j--){
+    for(i=0 ; i<7 ; i++){
+      fprintf(stderr, "%8.0f ", r77[j][i]) ;
+    }
+    fprintf(stderr, "\n");
+  }
+  fprintf(stderr, "\n");
 return 0 ;
   srandom( (uint64_t)(&stream) & 0xFFFFFFFFu ) ;
   srand( (uint64_t)(&stream) & 0xFFFFFFFFu ) ;
