@@ -83,7 +83,7 @@ typedef struct{
 // lni    [IN] : row storage length of array r
 // ni     [IN] : number of values to get along i
 // nj     [IN] : number of values to get along j
-// r     [OUT] : array to store extracted section of original virtual array r[nj][lni]
+// r     [OUT] : array to receive extracted section of original virtual array r[nj][lni]
 // ix0    [IN] : offset along i in virtual array
 // jx0    [IN] : offset along j in virtual array
 // stream [IN] : virtual array stream
@@ -95,28 +95,38 @@ int32_t array_section_by_4x4(uint32_t gni, uint32_t lni, uint32_t ni, uint32_t n
   float localf[4][4] ;
   uint32_t bsize = nbits + 1 ;
   int full, fullj ;
-// fprintf(stderr, "blocks[%d:%d,%d:%d]\n", bi0, bin-1, bj0, bjn-1);
+fprintf(stderr, "blocks[%d:%d,%d:%d]\n", bi0, bin-1, bj0, bjn-1);
   for(bj=bj0 ; bj<bjn ; bj++){
     int j0 = bj*4 ;
     fullj = (j0 >= jx0) & (j0+3 <= jxn) ;
+    int jl = (j0  >    jx0) ? j0  : jx0 ;        // max(j0,jx0)    row target range
+    int jh = (jxn < j0+4  ) ? jxn : j0+4 ;       // min(j0+4,jxn)
     for(bi=bi0 ; bi<bin ; bi++){
       int i0 = bi*4 ;
       uint16_t *stream = stream0 + (bi + (bj*nbi)) * bsize ;
+      int il = (i0  >    ix0) ? i0  : ix0 ;        // max(i0,ix0)  column target range
+      int ih = (ixn < i0+4  ) ? ixn : i0+4 ;       // min(i0+4,ixn)
       full = fullj & (i0 >= ix0) & (i0+3 <= ixn) ;
 // fprintf(stderr, "i0 = %2d, j0 = %2d, restoring[%2d:%2d,%2d:%2d], stream - stream0 = %4ld, %s\n",
 //         i0, j0, ix0, ixn, jx0, jxn, stream - stream0, full ? "full" : "part") ;
       float_decode_4x4(&(localf[0][0]), nbits, stream, NULL) ;  // decode 4x4 block to local array
       int i, j ;
-      if(full){
+fprintf(stderr, "[irange:jrange] = [%d:%d][%d:%d] block[%d,%d]\n", il-i0, ih-i0, jl-j0, jh-j0, bi, bj);
+      if(full){                                                 // full block, copy all into result
         for(j=0 ; j<4 ; j++) for(i=0 ; i<4 ; i++) r[j0+j-jx0][i0+i-ix0] = localf[j][i] ;
       }else{
-        for(j=0 ; j<4 ; j++){                                     // copy relevant part into result
-          if( j0+j < jx0 || j0+j > jxn ) continue ;
-          for(i=0 ; i<4 ; i++){
-            if(i0+i < ix0 || i0+i > ixn ) continue ;
+        for(j=jl-j0 ; j<=jh-j0 ; j++){                  // copy target range
+          for(i=il-i0 ; i<=ih-i0 ; i++){
             r[j0+j-jx0][i0+i-ix0] = localf[j][i] ;
           }
         }
+//         for(j=0 ; j<4 ; j++){                                   // only copy relevant part into result
+//           if( j0+j < jx0 || j0+j > jxn ) continue ;             // row not in target range
+//           for(i=0 ; i<4 ; i++){
+//             if(i0+i < ix0 || i0+i > ixn ) continue ;            // column not in target range
+//             r[j0+j-jx0][i0+i-ix0] = localf[j][i] ;
+//           }
+//         }
       }
     }
   }
@@ -222,9 +232,9 @@ int main(int argc, char **argv){
   fprintf(stderr, "\n");
 
   // get 7x6 section from 11x11 array
-  fprintf(stderr, "r11[3:9,2:7] array\n");
-  array_section_by_4x4(11, 7, 7, 6, FLOAT_VLAP &(r77[0][0]), 3, 2, stream11, nbits) ;
-  for(j=5 ; j>=0 ; j--){
+  fprintf(stderr, "r11[3:9,4:8] array\n");
+  array_section_by_4x4(11, 7, 7, 5, FLOAT_VLAP &(r77[0][0]), 3, 4, stream11, nbits) ;
+  for(j=4 ; j>=0 ; j--){
     for(i=0 ; i<7 ; i++){
       fprintf(stderr, "%8.0f ", r77[j][i]) ;
     }
