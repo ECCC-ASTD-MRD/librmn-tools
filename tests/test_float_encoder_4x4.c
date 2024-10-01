@@ -33,13 +33,14 @@
 #endif
 
 // variable length array
-typedef float vla[] ;
+typedef float float_vla[] ;
 // pointer to variable lengtp array
-#define VLAP (float(*)[])
-// #define VLAP (vla *)
+#define FLOAT_VLAP (float_vla *)
+// #define FLOAT_VLAP (float(*)[])
+// #define FLOAT_VLAP (vla *)
 
-int32_t float_encode_4x4(float *f, int lni, int nbits, void *stream, uint32_t ni, uint32_t nj);
-void float_decode_4x4(float *f, int nbits, void *stream);
+uint16_t *float_encode_4x4(float *f, int lni, int nbits, uint16_t *stream, uint32_t ni, uint32_t nj, uint32_t *head);
+uint16_t *float_decode_4x4(float *f, int nbits, void *stream, uint32_t *head);
 
 #define NTIMES 10000
 
@@ -48,84 +49,111 @@ static float array[32], decoded[32], ratio[32], error[32] ;
 #define LNI 1027
 #define LNJ 1025
 static float f[LNJ][LNI], r[LNJ][LNI] ;
-static uint32_t virt[LNJ*LNI] ;
+static uint16_t virt[LNJ*LNI*2] ;
 
 typedef struct{
-  uint32_t version: 16 ,            // versioning indicator
-           spare:   16 ,
-           mode:    12 ,            // packing style
-           nbits:    6 ,            // number of bits per item in packed 4x4 block
-           bsize:    6 ,            // size of 4x4 blocks (including optional block header) in 16 bit units
-           ni0:      4 ,            // useful dimension along i of first block in rows
-           nj0:      4 ;            // useful dimension along j of blocks in first row
+  uint32_t vrs1:     8 ,            // versioning indicator
+           spare1:   8 ,
+           spare2:   8 ,
+           spare3:   8 ,
+           mode:    12 ,            // packing mode (s/e/m, normalized mantissa, ...)
+           nbits:    6 ,            // number of bits per item in packed 4x4 block (0 -> 31)
+           bsize:    6 ,            // size of packed 4x4 blocks (including optional block header) in 16 bit units
+           ni0:      4 ,            // useful dimension along i of last block in row (0 -> 4)
+           nj0:      4 ;            // useful dimension along j of blocks in last(top) row (0 -> 4)
 } vprop_2d ;
 CT_ASSERT(sizeof(vprop_2d) == 2 * sizeof(uint32_t), "wrong size of struct vprop_2d")
 
-// return index of first point of block along a dimension
-static uint32_t block_2_indx(uint32_t block, uint32_t nx0){
-  return (block == 0) ? 0 : nx0 + (block - 1) * 4 ;
+// return index of first point of a block along a dimension
+static uint32_t block_2_indx(uint32_t block){
+  return block * 4 ;
 }
-// return block number for index along a dimension
-static uint32_t indx_2_block(uint32_t indx,  uint32_t nx0){
-  return (indx < nx0) ? 0 : 1 + (indx - nx0) / 4 ;
-}
-// block number along i to i index of 1st point in block along i
-static uint32_t bi_2_i(uint32_t bi, vprop_2d p){
-  return block_2_indx(bi, p.ni0) ;
-}
-// block number along j to j index of 1st point in block along j
-static uint32_t bj_2_j(uint32_t bj, vprop_2d p){
-  return block_2_indx(bj, p.nj0) ;
+// return block number containing index along a dimension
+static uint32_t indx_2_block(uint32_t indx){
+  return indx / 4 ;
 }
 
 typedef struct{
-  vprop_2d prop ;             // virtual array properties
+  vprop_2d desc ;             // virtual array properties
   uint32_t gni, gnj ;         // original float array dimensions
   uint16_t data[] ;           // packed data, bsize * gni * gni * 16 bits
 }virtual_float_2d ;
 
-int32_t array_decode_by_4x4(int lni, int ni, int nj, float r[nj][lni], uint32_t *stream, int nbits){
-  int i, j, lng ;
+int32_t array_section_by_4x4(uint32_t gni, uint32_t lni, uint32_t ni, uint32_t nj, float r[nj][lni], uint32_t ix0, uint32_t jx0, uint16_t *stream0, uint32_t nbits){
+  uint32_t ixn = ix0 + ni -1, jxn = jx0 + nj - 1, nbi = (gni+3)/4 ;
+  uint32_t bi0 = ix0/4, bin = 1+ixn/4 , bj0 = jx0/4, bjn = 1+jxn/4 ;
+  uint32_t bi, bj ;
+  float localf[4][4] ;
+  uint32_t bsize = nbits + 1 ;
+fprintf(stderr, "blocks[%d:%d,%d:%d]\n", bi0, bin-1, bj0, bjn-1);
+  for(bj=bj0 ; bj<bjn ; bj++){
+    int j0 = bj*4 ;
+    for(bi=bi0 ; bi<bin ; bi++){
+      int i0 = bi*4 ;
+      uint16_t *stream = stream0 + (bi + (bj*nbi)) * bsize ;
+fprintf(stderr, "i0 = %2d, j0 = %2d, restoring[%2d:%2d,%2d:%2d], stream - stream0 = %ld\n", i0, j0, ix0, ixn, jx0, jxn, stream - stream0) ;
+      float_decode_4x4(&(localf[0][0]), nbits, stream, NULL) ;  // decode 4x4 block to local array
+      int i, j ;
+      for(j=0 ; j<4 ; j++){                                     // copy relevant part into result
+        if( j0+j < jx0 || j0+j > jxn ) continue ;
+        for(i=0 ; i<4 ; i++){
+          if(i0+i < ix0 || i0+i > ixn ) continue ;
+          r[j0+j-jx0][i0+i-ix0] = localf[j][i] ;
+        }
+      }
+    }
+  }
+  return 0 ;
+}
+
+int32_t array_decode_by_4x4(int lni, int ni, int nj, float r[nj][lni], uint16_t *stream, int nbits){
+  int i0, j0, lng ;
 //   int32_t header ;
   float localf[4][4] ;
   lng = 0 ;
-  for(j=0 ; j<nj-3 ; j+=4){
-    for(i=0 ; i<ni-3 ; i+=4){
-      float_decode_4x4(&(localf[0][0]), nbits, stream) ;
-      int ii, jj ;
-      for(jj=0 ; jj<4 ; jj++){
-        for(ii=0 ; ii<4 ; ii++){
-          r[j+jj][i+ii] = localf[jj][ii] ;
+  for(j0=0 ; j0<nj ; j0+=4){
+    for(i0=0 ; i0<ni ; i0+=4){
+      stream = float_decode_4x4(&(localf[0][0]), nbits, stream, NULL) ;  // decode 4x4 block to local array
+      int i, j ;
+      for(j=0 ; j<4 && j0+j<nj ; j++){                          // copy relevant part into result
+        for(i=0 ; i<4 && i0+i<ni ; i++){
+          r[j0+j][i0+i] = localf[j][i] ;
         }
       }
-      stream += (nbits+1) / 2 ; lng += (nbits+1) / 2 ;
+//       stream += (nbits+1) ;
+      lng += (nbits+1) ;
     }
   }
   return lng ;
 }
 
-int32_t array_encode_by_4x4(int lni, int ni, int nj, float f[nj][lni], uint32_t *stream, int nbits){
-  int i, j, lng ;
+int32_t array_encode_by_4x4(int lni, int ni, int nj, float f[nj][lni], uint16_t *stream, int nbits){
+  int i0, j0, lng ;
   int32_t header ;
+  uint16_t *stream0 = stream ;
   lng = 0 ;
-  for(j=0 ; j<nj-3 ; j+=4){
-    for(i=0 ; i<ni-3 ; i+=4){
-      header = float_encode_4x4(&(f[j][i]), lni, nbits, stream, 4, 4) ;
-      if(header) stream += (nbits+1) / 2 ;
+  for(j0=0 ; j0<nj ; j0+=4){
+    for(i0=0 ; i0<ni ; i0+=4){
+fprintf(stderr, "encoding at i0 = %d, j0 = %d, [%6ld] ", i0, j0, stream - stream0) ;
+      stream = float_encode_4x4(&(f[j0][i0]), lni, nbits, stream, ni-i0, nj-j0, NULL) ;
+fprintf(stderr, "encoded  at i0 = %d, j0 = %d, [%6ld]\n\n", i0, j0, stream - stream0) ;
+//       if(header) stream += (nbits+1) / 2 ;
       lng += (nbits+1) / 2 ;
     }
   }
-  return lng ;
+  return stream - stream0 ;
 }
 
-static float f55[5][5] ;
-static float f75[7][5] ;
-static float f57[5][7] ;
+static float f55[5][5], r55[5][5] ;
+// static float f75[7][5] ;
+// static float f57[5][7] ;
+static float f77[7][7], r77[7][7] ;
 
 int main(int argc, char **argv){
 //   uint32_t *iarray = (uint32_t *) &(array[0]) ;
-  uint32_t stream[64] ;
-  int32_t header = 0 ;
+  uint16_t stream16[128] ;
+  uint32_t *stream = (uint32_t *) &(stream16[0]) ;
+  uint32_t header = 0 ;
   float epsilon = 0.012345678f, scale = 2.99f, xrand, xmax, xmin, bias = 0.0f ;
   int i, j ;
   int nbits = 15 ;
@@ -133,10 +161,31 @@ int main(int argc, char **argv){
 
   if(cycles_overhead == 0) cycles_overhead = 1 ;    // get rid of annoying warning
 
-  for(j=0 ; j<5 ; j++) for(i=0 ; i<5 ; i++) f55[j][i] = i*10.0f + j*1.0f ;
-  for(j=0 ; j<7 ; j++) for(i=0 ; i<5 ; i++) f75[j][i] = i*10.0f + j*1.0f ;
-  for(j=0 ; j<5 ; j++) for(i=0 ; i<7 ; i++) f57[j][i] = i*10.0f + j*1.0f ;
+  for(j=0 ; j<5 ; j++) for(i=0 ; i<5 ; i++) f55[j][i] = (i+1)*100.0f + (j+1)*1.0f + 10000.0f ;
+  for(j=0 ; j<7 ; j++) for(i=0 ; i<7 ; i++) f77[j][i] = (i+1)*100.0f + (j+1)*1.0f + 10000.0f ;
 
+//   int32_t lng55 = array_encode_by_4x4(5, 5, 5, FLOAT_VLAP &(f55[0][0]), &(stream16[0]), 23) ;
+//   fprintf(stderr, "lng55 = %d\n\n", lng55) ;
+  int32_t lng77 = array_encode_by_4x4(7, 7, 7, FLOAT_VLAP &(f77[0][0]), &(stream16[0]), nbits) ;
+  fprintf(stderr, "lng77 = %d\n\n", lng77) ;
+
+  array_decode_by_4x4(7, 7, 7, FLOAT_VLAP &(r77[0][0]), stream, nbits) ;
+  for(j=6 ; j>=0 ; j--){
+    for(i=0 ; i<7 ; i++){
+      fprintf(stderr, "%8.0f ", r77[j][i]) ;
+    }
+    fprintf(stderr, "\n");
+  }
+  fprintf(stderr, "\n");
+
+  array_section_by_4x4(7, 5, 5, 5, FLOAT_VLAP &(r55[0][0]), 1, 1, stream, nbits) ;
+  for(j=4 ; j>=0 ; j--){
+    for(i=0 ; i<5 ; i++){
+      fprintf(stderr, "%8.0f ", r55[j][i]) ;
+    }
+    fprintf(stderr, "\n");
+  }
+return 0 ;
   srandom( (uint64_t)(&stream) & 0xFFFFFFFFu ) ;
   srand( (uint64_t)(&stream) & 0xFFFFFFFFu ) ;
   if(argc > 1) srand(atoi(argv[1])) ;
@@ -159,7 +208,7 @@ int main(int argc, char **argv){
   for(i=0 ; i<16 ; i++) array[i] = -array[i] ;        // all negative numbers
 //   for(i=0 ; i<16 ; i+=2) array[i] = -array[i] ;       // introduce some negative numbers
 
-  header = float_encode_4x4(array, 4, nbits, stream, 4 ,4) ;
+  float_encode_4x4(array, 4, nbits, (uint16_t *)stream, 4 ,4, &header) ;
 
   fprintf(stderr, "emin = %d, ", header >> 8) ;
   int ebits = header & 7 ;
@@ -170,7 +219,7 @@ int main(int argc, char **argv){
   fprintf(stderr, "mbits = %d, ", nbits - ebits - sbits) ;
   fprintf(stderr, "nbits = %d\n", nbits) ;
 
-  float_decode_4x4(decoded, nbits, stream) ;
+  float_decode_4x4(decoded, nbits, stream, NULL) ;
 
   fprintf(stderr, "original   :");
   for(i=0 ; i<16 ; i++) fprintf(stderr, "%9f ", array[i]) ;
@@ -198,7 +247,7 @@ int main(int argc, char **argv){
   u0 = elapsed_us() ;
   t0 = elapsed_cycles() ;
   for(i=0 ; i<NTIMES ; i++){
-    header = float_encode_4x4(array, 4, nbits, stream, 4, 4) ;
+    float_encode_4x4(array, 4, nbits, (uint16_t *)stream, 4, 4, NULL) ;  // encode complete 4x4 blocks
 //     iarray[0] ^= (0x1) ;    // fool the optimizer to prevent loop modification
   }
   t1 = elapsed_cycles() ;
@@ -214,7 +263,7 @@ int main(int argc, char **argv){
   u0 = elapsed_us() ;
   t0 = elapsed_cycles() ;
   for(i=0 ; i<NTIMES ; i++){
-    float_decode_4x4(decoded, nbits, stream) ;
+    float_decode_4x4(decoded, nbits, (uint16_t *)stream, NULL) ;
   }
   t1 = elapsed_cycles() ;
   u1 = elapsed_us() ;
@@ -247,7 +296,7 @@ int main(int argc, char **argv){
 
   nbits = 15 ;
   lng = 0 ;
-  array_encode_by_4x4(LNI, ni, nj, VLAP &(f[0][0]), &(virt[0]), nbits) ;  // prime the memory pump
+  array_encode_by_4x4(LNI, ni, nj, FLOAT_VLAP &(f[0][0]), &(virt[0]), nbits) ;  // prime the memory pump
   array_decode_by_4x4(LNI, ni, nj, (float(*)[]) &(r[0][0]), &(virt[0]), nbits) ;
 //   array_encode_by_4x4(LNI, ni, nj, array, &(virt[0]), nbits) ;  // prime the memory pump
 //   array_decode_by_4x4(LNI, ni, nj, &(r[0][0]), &(virt[0]), nbits) ;

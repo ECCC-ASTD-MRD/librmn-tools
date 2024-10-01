@@ -24,11 +24,12 @@
 // delta exponent = value exponent - lowest exponent in block
 // if all values have the same sign, the sign bit is not encoded, the header will provide it
 // if all values have the same exponent, the exponent is not encoded, the header will provide it
-// return encoding header if successful, -1 if error
+// return encoding stream pointer, NULL if error
 // effective dimensions of f : f[nj][lni]
 // effective size of block to extract [min(nj,4)][min(ni,4)]
-int32_t float_encode_4x4(float *f, int lni, int nbits, void *stream, uint32_t ni, uint32_t nj){
-  uint64_t *stream64 = (uint64_t *) stream ;
+uint16_t *float_encode_4x4(float *f, int lni, int nbits, uint16_t *stream16, uint32_t ni, uint32_t nj, uint32_t *head){
+  uint64_t *stream64 = (uint64_t *) stream16 ;
+//   uint16_t *stream16 = (uint16_t *) stream ;
    __m256i vdata0, vdata1 ;
 //   uint16_t *stream16 = (uint16_t *) stream32 ;
   nbits = (nbits > 23) ? 23 : nbits ;   // at most 23 bits
@@ -37,6 +38,7 @@ int32_t float_encode_4x4(float *f, int lni, int nbits, void *stream, uint32_t ni
   nj = (nj > 4) ? 4 : nj ;
 
   if(ni < 4 || nj < 4){                 // NOT a full 4x4 block
+fprintf(stderr, "partial block lni = %4d, ni = %d, nj=%d, stream = %p\n", lni, ni, nj, stream16) ;
     float fl[4][4] ;                    // local 4x4 block that will be used for encoding
     uint32_t i, j ;
     for(j=0 ; j<4 ; j++){               // fill local block with first value from f
@@ -46,14 +48,24 @@ int32_t float_encode_4x4(float *f, int lni, int nbits, void *stream, uint32_t ni
       for(i=0 ; i<4 && i<ni ; i++){ fl[j][i] = f[i] ; }   // copy row
       f += lni ;                                          // next row from source array f
     }
+// for(j=3 ; j<4 ; j--){
+// for(i=0 ; i<4 ; i++){ fprintf(stderr, "%8.2f ", fl[j][i]) ; } ; fprintf(stderr, "\n" ) ;
+// }
     vdata0 = (__m256i) _mm256_loadu2_m128( &(fl[1][0]) , &(fl[0][0]) ) ;   // first 8 values (2 rows of 4)
     vdata1 = (__m256i) _mm256_loadu2_m128( &(fl[3][0]) , &(fl[2][0]) ) ;   // next 8 values (2 rows of 4)
 
   }else{                                // FULL 4x4 block
-
+// float fl[4][4] ;                    // local 4x4 block that will be used for encoding
+// uint32_t i, j ;
+fprintf(stderr, "full block lni = %4d, ni = %d, nj=%d, stream = %p\n", lni, 4, 4, stream16) ;
     vdata0 = (__m256i) _mm256_loadu2_m128( f+lni , f ) ;   // first 8 values (2 rows of 4)
     f += (lni+lni) ;
     vdata1 = (__m256i) _mm256_loadu2_m128( f+lni , f ) ;   // next 8 values (2 rows of 4)
+// _mm256_storeu_si256((__m256i *) &(fl[0][0]) , vdata0) ;
+// _mm256_storeu_si256((__m256i *) &(fl[2][0]) , vdata1) ;
+// for(j=3 ; j<4 ; j--){
+// for(i=0 ; i<4 ; i++){ fprintf(stderr, "%8.2f ", fl[j][i]) ; } ; fprintf(stderr, "\n" ) ;
+// }
   }
   // ===================================== analysis phase =====================================
   // signs == 0           means all values are >= 0
@@ -84,9 +96,9 @@ int32_t float_encode_4x4(float *f, int lni, int nbits, void *stream, uint32_t ni
   int emin = _mm_extract_epi32(vmin4, 0) >> 23 ;         // smallest IEEE exponent (with bias)
 //   emax = (emax - emin) ;                                 // largest IEEE exponent difference (bits 0:7)
   int ebits = 32 -lzcnt_32(emax - emin);                 // number of bits needed for largest difference
-  if(ebits > 7) return -1 ;                              // ERROR : largest value / smallest value > 2 ** 127
+  if(ebits > 7) return NULL ;                            // ERROR : largest value / smallest value > 2 ** 127
   int mbits = nbits - ebits - sbits ;                    // number of bits left for mantissa
-  if(mbits < 0) return -1 ;                              // ERROR: not enough mantisssa bits left
+  if(mbits < 0) return NULL ;                            // ERROR: not enough mantisssa bits left
   // ===================================== encoding phase =====================================
   int round = 1 << (23 - 1 - mbits) ;                    // rounding value
   __m256i vround = _mm256_set1_epi32(round) ;
@@ -207,11 +219,12 @@ int32_t float_encode_4x4(float *f, int lni, int nbits, void *stream, uint32_t ni
       break ;
   }
 // end:
-  return  header ;
+  if(head != NULL) *head = header ;
+  return  stream16 + nbits + 1 ;
 }
 
-void float_decode_4x4(float *f, int nbits, void *stream){
-  uint64_t *stream64 = (uint64_t *) stream ;
+uint16_t *float_decode_4x4(float *f, int nbits, uint16_t *stream16, uint32_t *head){
+  uint64_t *stream64 = (uint64_t *) stream16 ;
   int header ;
   __m256i v8i0, v8i1, vmant0, vmant1 ;
   __m128i v4i0, v4i1 ;
@@ -228,7 +241,7 @@ void float_decode_4x4(float *f, int nbits, void *stream){
       v4i0   = _mm_loadu_si128((__m128i *)(t)) ;                                    // 12-12 , 12-12
       v4i1   = _mm_srli_epi32(v4i0, 6) ;                                            // 4 x bits 5:0
       v4i0   = _mm_slli_epi32(v4i0,26) ; v4i0 = _mm_srli_epi32(v4i0,26) ;           // 4 x bits 5:0
-      vmant0 = _mm256_xor_si256(vmant0, vmant0) ;
+      vmant0 = _mm256_setzero_si256() ;
       vmant0 = _mm256_inserti128_si256(vmant0 , v4i0, 0) ;                          // concatenate to 8 x bits 5:0
       vmant0 = _mm256_inserti128_si256(vmant0 , v4i1, 1) ;
       vmant1 = _mm256_srli_epi32(vmant0, 3) ;                                       // 8 x bits 2:0 ( 5:3 from vmant0)
@@ -244,7 +257,7 @@ void float_decode_4x4(float *f, int nbits, void *stream){
       v4i0   = _mm_loadu_si128((__m128i *)(t)) ;                                    // 4 x 32 bits (28/28/28/28)
       v4i1   = _mm_srli_epi32(v4i0,14) ;                                            // 4 x bits 13:0
       v4i0   = _mm_slli_epi32(v4i0,18) ; v4i0 = _mm_srli_epi32(v4i0,18) ;           // 4 x bits 13:0
-      vmant0 = _mm256_xor_si256(vmant0, vmant0) ;
+      vmant0 = _mm256_setzero_si256() ;
       vmant0 = _mm256_inserti128_si256(vmant0 , v4i0, 0) ;                          // concatenate to 8 x bits 13:0
       vmant0 = _mm256_inserti128_si256(vmant0 , v4i1, 1) ;
       vmant1 = _mm256_srli_epi32(vmant0,7) ;                                        // 8 x bits 6:0 ( 13:7 from vmant0)
@@ -261,7 +274,7 @@ void float_decode_4x4(float *f, int nbits, void *stream){
       v4i1   = _mm_loadu_si128((__m128i *)(t)) ;                                    // 4 x 32 bits (12/12/12/12)
       v4i1   = _mm_slli_epi32(v4i1,10) ;                                            // bits 21:12 (4 top values)
       v4i1   = _mm_or_si128(v4i1, _mm_srli_epi32(v4i0,22)) ;                        // add bits 11:0 (from v4i0)
-      vmant0 = _mm256_xor_si256(vmant0, vmant0) ;
+      vmant0 = _mm256_setzero_si256() ;
       vmant0 = _mm256_inserti128_si256(vmant0 , v4i0, 0) ;                          // concatenate to 8 x bits 10:0
       vmant0 = _mm256_inserti128_si256(vmant0 , v4i1, 1) ;
       vmant1 = _mm256_srli_epi32(vmant0, 11) ;
@@ -279,7 +292,7 @@ void float_decode_4x4(float *f, int nbits, void *stream){
       v4i1   = _mm_slli_epi32(v4i1, 2) ;                                            // left aligned
       v4i1   = _mm_or_si128(v4i1, _mm_srli_epi32(v4i0,30) ) ;                       // 4 x bits 29:0
       v4i0   = _mm_slli_epi32(v4i0, 2) ; v4i0   = _mm_srli_epi32(v4i0, 2) ;         // 4 x bits 29:0
-      vmant0 = _mm256_xor_si256(vmant0, vmant0) ;
+      vmant0 = _mm256_setzero_si256() ;
       vmant0 = _mm256_inserti128_si256(vmant0 , v4i0, 0) ;                          // concatenate to 8 x bits 29:0
       vmant0 = _mm256_inserti128_si256(vmant0 , v4i1, 1) ;
       vmant1 = _mm256_srli_epi32(vmant0, 15) ;                                      // bits 14:0 next 8 values
@@ -339,10 +352,10 @@ void float_decode_4x4(float *f, int nbits, void *stream){
 
   nbits = (nbits > 23) ? 23 : nbits ;
   uint32_t *fi = (uint32_t *) f ;
-  int ebits = (header & 7) ;
+  int ebits = (header &  7) ;
   int sbits = (header >> 3) & 1 ;
   int emin  = (header >> 8) ;
-  int esign = ((header >> 4) & 1) ;
+  int esign = (header >> 4) & 1 ;
   int mbits = nbits - sbits - ebits ;
   uint32_t maskm = ~((~0u) << mbits) ;                    // mantissa mask
   uint32_t maske = (ebits == 0) ? 0 : ~((~0u) << ebits) ; // exponent mask
@@ -391,4 +404,6 @@ void float_decode_4x4(float *f, int nbits, void *stream){
     fi[i] = t ;
   }
 #endif
+  if(head) *head = header ;
+  return stream16 + nbits + 1 ;
 }
