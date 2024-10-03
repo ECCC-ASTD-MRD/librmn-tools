@@ -18,6 +18,7 @@
 #include <immintrin.h>
 
 #include <rmn/bits.h>
+#include <rmn/float_block_encoders.h>
 
 // encode a 4 x 4 block of floats using nbits bits per value
 // store result as sign  / delta exponent / mantissa
@@ -27,18 +28,26 @@
 // return encoding stream pointer, NULL if error
 // effective dimensions of f : f[nj][lni]
 // effective size of block to extract [min(nj,4)][min(ni,4)]
-uint16_t *float_encode_4x4(float *f, int lni, int nbits, uint16_t *stream16, uint32_t ni, uint32_t nj, uint32_t *head){
+//
+// f        [IN] : float array containing 4x4 block to encode
+// lni      [IN] : storage length of array rows
+// nbits     [IN] : number of bits to use for encoding values from array
+// stream16 [OUT] : encoded stream
+// ni        [IN] : number of useful points along i (set to 4 i > 4)
+// nj        [IN] : number of useful points along j (set to 4 i > 4)
+// head     [OUT] : if not NULL, encoding header
+// return pointer for next encoded block in stream
+uint16_t *float_block_encode_4x4(float *f, int lni, int nbits, uint16_t *stream16, uint32_t ni, uint32_t nj, uint32_t *head){
   uint64_t *stream64 = (uint64_t *) stream16 ;
-//   uint16_t *stream16 = (uint16_t *) stream ;
    __m256i vdata0, vdata1 ;
-//   uint16_t *stream16 = (uint16_t *) stream32 ;
+
   nbits = (nbits > 23) ? 23 : nbits ;   // at most 23 bits
   nbits = (nbits <  3) ?  3 : nbits ;   // at least 3 bits
   ni = (ni > 4) ? 4 : ni ;
   nj = (nj > 4) ? 4 : nj ;
 
   if(ni < 4 || nj < 4){                 // NOT a full 4x4 block
-fprintf(stderr, "partial block lni = %4d, ni = %d, nj=%d, stream = %p\n", lni, ni, nj, stream16) ;
+// fprintf(stderr, "partial block lni = %4d, ni = %d, nj=%d, stream = %p\n", lni, ni, nj, stream16) ;
     float fl[4][4] ;                    // local 4x4 block that will be used for encoding
     uint32_t i, j ;
     for(j=0 ; j<4 ; j++){               // fill local block with first value from f
@@ -57,7 +66,7 @@ fprintf(stderr, "partial block lni = %4d, ni = %d, nj=%d, stream = %p\n", lni, n
   }else{                                // FULL 4x4 block
 // float fl[4][4] ;                    // local 4x4 block that will be used for encoding
 // uint32_t i, j ;
-fprintf(stderr, "full block lni = %4d, ni = %d, nj=%d, stream = %p\n", lni, 4, 4, stream16) ;
+// fprintf(stderr, "full block lni = %4d, ni = %d, nj=%d, stream = %p\n", lni, 4, 4, stream16) ;
     vdata0 = (__m256i) _mm256_loadu2_m128( f+lni , f ) ;   // first 8 values (2 rows of 4)
     f += (lni+lni) ;
     vdata1 = (__m256i) _mm256_loadu2_m128( f+lni , f ) ;   // next 8 values (2 rows of 4)
@@ -223,7 +232,13 @@ fprintf(stderr, "full block lni = %4d, ni = %d, nj=%d, stream = %p\n", lni, 4, 4
   return  stream16 + nbits + 1 ;
 }
 
-uint16_t *float_decode_4x4(float *f, int nbits, uint16_t *stream16, uint32_t *head){
+// decode a block encoded with float_block_encode_4x4 into a [4][4] contiguous float array
+// f       [OUT] : decoded float values
+// nbits    [IN] : number of bits used to encode each value
+// stream16 [IN] : encoded stream (16 bit tokens)
+// head    [OUT] : if not NULL, encoding header
+// return pointer to next encoded block in stream
+uint16_t *float_block_decode_4x4(float *f, int nbits, uint16_t *stream16, uint32_t *head){
   uint64_t *stream64 = (uint64_t *) stream16 ;
   int header ;
   __m256i v8i0, v8i1, vmant0, vmant1 ;
@@ -406,4 +421,116 @@ uint16_t *float_decode_4x4(float *f, int nbits, uint16_t *stream16, uint32_t *he
 #endif
   if(head) *head = header ;
   return stream16 + nbits + 1 ;
+}
+
+static int32_t float_array_encode_4x4_vla(int lni, int ni, int nj, float f[nj][lni], uint16_t *stream, int nbits){
+  int i0, j0 ;
+  uint16_t *stream0 = stream ;
+  for(j0=0 ; j0<nj ; j0+=4){
+    for(i0=0 ; i0<ni ; i0+=4){
+// fprintf(stderr, "encoding at i0 = %d, j0 = %d, [%6ld] ", i0, j0, stream - stream0) ;
+      stream = float_block_encode_4x4(&(f[j0][i0]), lni, nbits, stream, ni-i0, nj-j0, NULL) ;
+// fprintf(stderr, "encoded  at i0 = %d, j0 = %d, [%6ld]\n\n", i0, j0, stream - stream0) ;
+    }
+  }
+  return stream - stream0 ;
+}
+
+int32_t float_array_encode_4x4(float *f, int lni, int ni, int nj, uint16_t *stream, int nbits){
+  return float_array_encode_4x4_vla(lni, ni, nj, FLOAT_VLA_PTR f, stream, nbits) ;
+}
+
+// gni    [IN] : row storage length of virtual array
+// lni    [IN] : row storage length of array r
+// ni     [IN] : number of values to get along i
+// nj     [IN] : number of values to get along j
+// r     [OUT] : array to receive extracted section of original virtual array r[nj][lni]
+// ix0    [IN] : offset along i in virtual array
+// jx0    [IN] : offset along j in virtual array
+// stream [IN] : virtual array stream
+// nbits  [IN] : number of bits per packed value (virtual array)
+// return address of r[0][0]
+static void *float_array_section_4x4_vla(uint32_t gni, uint32_t lni, uint32_t ni, uint32_t nj, float r[nj][lni], uint32_t ix0, uint32_t jx0, uint16_t *stream0, uint32_t nbits){
+  uint32_t ixn = ix0 + ni -1, jxn = jx0 + nj - 1, nbi = (gni+3)/4 ;
+  uint32_t bi0 = ix0/4, bin = 1+ixn/4 , bj0 = jx0/4, bjn = 1+jxn/4 ;
+  uint32_t bi, bj ;
+  float localf[4][4] ;
+  uint32_t bsize = nbits + 1 ;
+  int full, fullj ;
+// fprintf(stderr, "blocks[%d:%d,%d:%d]\n", bi0, bin-1, bj0, bjn-1);
+  for(bj=bj0 ; bj<bjn ; bj++){
+    uint32_t j0 = bj*4 ;
+    fullj = (j0 >= jx0) & (j0+3 <= jxn) ;
+    uint32_t jl = (j0  >    jx0) ? j0  : jx0 ;        // max(j0,jx0)    row target range
+    uint32_t jh = (jxn < j0+4  ) ? jxn : j0+4 ;       // min(j0+4,jxn)
+    for(bi=bi0 ; bi<bin ; bi++){
+      uint32_t i0 = bi*4 ;
+      uint16_t *stream = stream0 + (bi + (bj*nbi)) * bsize ;
+      uint32_t il = (i0  >    ix0) ? i0  : ix0 ;        // max(i0,ix0)  column target range
+      uint32_t ih = (ixn < i0+4  ) ? ixn : i0+4 ;       // min(i0+4,ixn)
+      full = fullj & (i0 >= ix0) & (i0+3 <= ixn) ;
+// fprintf(stderr, "i0 = %2d, j0 = %2d, restoring[%2d:%2d,%2d:%2d], stream - stream0 = %4ld, %s\n",
+//         i0, j0, ix0, ixn, jx0, jxn, stream - stream0, full ? "full" : "part") ;
+      float_block_decode_4x4(&(localf[0][0]), nbits, stream, NULL) ;  // decode 4x4 block to local array
+      uint32_t i, j ;
+// fprintf(stderr, "[irange:jrange] = [%d:%d][%d:%d] block[%d,%d]\n", il-i0, ih-i0, jl-j0, jh-j0, bi, bj);
+      if(full){                                                 // full block, copy all into result
+        for(j=0 ; j<4 ; j++) for(i=0 ; i<4 ; i++) r[j0+j-jx0][i0+i-ix0] = localf[j][i] ;
+      }else{
+        for(j=jl-j0 ; j<=jh-j0 ; j++){                  // copy target range
+          for(i=il-i0 ; i<=ih-i0 ; i++){
+            r[j0+j-jx0][i0+i-ix0] = localf[j][i] ;
+          }
+        }
+//         for(j=0 ; j<4 ; j++){                                   // only copy relevant part into result
+//           if( j0+j < jx0 || j0+j > jxn ) continue ;             // row not in target range
+//           for(i=0 ; i<4 ; i++){
+//             if(i0+i < ix0 || i0+i > ixn ) continue ;            // column not in target range
+//             r[j0+j-jx0][i0+i-ix0] = localf[j][i] ;
+//           }
+//         }
+      }
+    }
+  }
+  return &(r[0][0]) ;
+}
+
+// gni    [IN] : row storage length of virtual array
+// lni    [IN] : row storage length of array r
+// ni     [IN] : number of values to get along i
+// nj     [IN] : number of values to get along j
+// r     [OUT] : array to receive extracted section of original virtual array r[nj][lni]
+//               if NULL, a new array will be allocated
+// ix0    [IN] : offset along i in virtual array
+// jx0    [IN] : offset along j in virtual array
+// stream [IN] : virtual array stream
+// nbits  [IN] : number of bits per packed value (virtual array)
+// return the address of the array section that received the requested data
+void *float_array_section_4x4(float *r, uint32_t gni, uint32_t lni, uint32_t ni, uint32_t nj, uint32_t ix0, uint32_t jx0, uint16_t *stream0, uint32_t nbits){
+  if(r == NULL) r = malloc(ni*nj*sizeof(float)) ;
+  return float_array_section_4x4_vla(gni, lni, ni, nj, FLOAT_VLA_PTR r, ix0, jx0, stream0, nbits) ;
+}
+
+static int32_t float_array_decode_4x4_vla(int lni, int ni, int nj, float r[nj][lni], uint16_t *stream, int nbits){
+  int i0, j0, lng ;
+//   int32_t header ;
+  float localf[4][4] ;
+  lng = 0 ;
+  for(j0=0 ; j0<nj ; j0+=4){
+    for(i0=0 ; i0<ni ; i0+=4){
+      stream = float_block_decode_4x4(&(localf[0][0]), nbits, stream, NULL) ;  // decode 4x4 block to local array
+      int i, j ;
+      for(j=0 ; j<4 && j0+j<nj ; j++){                          // copy relevant part into result
+        for(i=0 ; i<4 && i0+i<ni ; i++){
+          r[j0+j][i0+i] = localf[j][i] ;
+        }
+      }
+      lng += (nbits+1) ;
+    }
+  }
+  return lng ;
+}
+
+int32_t float_array_decode_4x4(float *r, int lni, int ni, int nj, uint16_t *stream, int nbits){
+  return float_array_decode_4x4_vla(lni, ni, nj, FLOAT_VLA_PTR r, stream, nbits);
 }

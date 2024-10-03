@@ -19,7 +19,6 @@
 #include <stdlib.h>
 
 #include <rmn/test_helpers.h>
-#include <rmn/ct_assert.h>
 #include <rmn/float_block_encoders.h>
 
 #define WITH_TIMING
@@ -33,13 +32,6 @@
   float NaNoSeC = 0.0f ;
 #endif
 
-// variable length array
-typedef float float_vla[] ;
-// pointer to variable lengtp array
-#define FLOAT_VLAP (float_vla *)
-// #define FLOAT_VLAP (float(*)[])
-// #define FLOAT_VLAP (vla *)
-
 #define NTIMES 10000
 
 static float array[32], decoded[32], ratio[32], error[32] ;
@@ -49,142 +41,6 @@ static float array[32], decoded[32], ratio[32], error[32] ;
 static float f[LNJ][LNI], r[LNJ][LNI] ;
 static uint16_t virt[LNJ*LNI*2] ;
 
-typedef struct{
-  uint32_t vrs1:     8 ,            // versioning indicator
-           spare1:   8 ,
-           spare2:   8 ,
-           spare3:   8 ,
-           mode:    12 ,            // packing mode (s/e/m, normalized mantissa, ...)
-           nbits:    6 ,            // number of bits per item in packed 4x4 block (0 -> 31)
-           bsize:    6 ,            // size of packed 4x4 blocks (including optional block header) in 16 bit units
-           ni0:      4 ,            // useful dimension along i of last block in row (0 -> 4)
-           nj0:      4 ;            // useful dimension along j of blocks in last(top) row (0 -> 4)
-} vprop_2d ;
-CT_ASSERT(sizeof(vprop_2d) == 2 * sizeof(uint32_t), "wrong size of struct vprop_2d")
-
-// return index of first point of a block along a dimension
-static uint32_t block_2_indx(uint32_t block){
-  return block * 4 ;
-}
-// return block number containing index along a dimension
-static uint32_t indx_2_block(uint32_t indx){
-  return indx / 4 ;
-}
-
-typedef struct{
-  vprop_2d desc ;             // virtual array properties
-  uint32_t gni, gnj ;         // original float array dimensions
-  uint16_t data[] ;           // packed data, bsize * gni * gni * 16 bits
-}virtual_float_2d ;
-
-// gni    [IN] : row storage length of virtual array
-// lni    [IN] : row storage length of array r
-// ni     [IN] : number of values to get along i
-// nj     [IN] : number of values to get along j
-// r     [OUT] : array to receive extracted section of original virtual array r[nj][lni]
-// ix0    [IN] : offset along i in virtual array
-// jx0    [IN] : offset along j in virtual array
-// stream [IN] : virtual array stream
-// nbits  [IN] : number of bits per packed value (virtual array)
-static void *array_section_by_4x4_int(uint32_t gni, uint32_t lni, uint32_t ni, uint32_t nj, float r[nj][lni], uint32_t ix0, uint32_t jx0, uint16_t *stream0, uint32_t nbits){
-  uint32_t ixn = ix0 + ni -1, jxn = jx0 + nj - 1, nbi = (gni+3)/4 ;
-  uint32_t bi0 = ix0/4, bin = 1+ixn/4 , bj0 = jx0/4, bjn = 1+jxn/4 ;
-  uint32_t bi, bj ;
-  float localf[4][4] ;
-  uint32_t bsize = nbits + 1 ;
-  int full, fullj ;
-// fprintf(stderr, "blocks[%d:%d,%d:%d]\n", bi0, bin-1, bj0, bjn-1);
-  for(bj=bj0 ; bj<bjn ; bj++){
-    int j0 = bj*4 ;
-    fullj = (j0 >= jx0) & (j0+3 <= jxn) ;
-    int jl = (j0  >    jx0) ? j0  : jx0 ;        // max(j0,jx0)    row target range
-    int jh = (jxn < j0+4  ) ? jxn : j0+4 ;       // min(j0+4,jxn)
-    for(bi=bi0 ; bi<bin ; bi++){
-      int i0 = bi*4 ;
-      uint16_t *stream = stream0 + (bi + (bj*nbi)) * bsize ;
-      int il = (i0  >    ix0) ? i0  : ix0 ;        // max(i0,ix0)  column target range
-      int ih = (ixn < i0+4  ) ? ixn : i0+4 ;       // min(i0+4,ixn)
-      full = fullj & (i0 >= ix0) & (i0+3 <= ixn) ;
-// fprintf(stderr, "i0 = %2d, j0 = %2d, restoring[%2d:%2d,%2d:%2d], stream - stream0 = %4ld, %s\n",
-//         i0, j0, ix0, ixn, jx0, jxn, stream - stream0, full ? "full" : "part") ;
-      float_decode_4x4(&(localf[0][0]), nbits, stream, NULL) ;  // decode 4x4 block to local array
-      int i, j ;
-// fprintf(stderr, "[irange:jrange] = [%d:%d][%d:%d] block[%d,%d]\n", il-i0, ih-i0, jl-j0, jh-j0, bi, bj);
-      if(full){                                                 // full block, copy all into result
-        for(j=0 ; j<4 ; j++) for(i=0 ; i<4 ; i++) r[j0+j-jx0][i0+i-ix0] = localf[j][i] ;
-      }else{
-        for(j=jl-j0 ; j<=jh-j0 ; j++){                  // copy target range
-          for(i=il-i0 ; i<=ih-i0 ; i++){
-            r[j0+j-jx0][i0+i-ix0] = localf[j][i] ;
-          }
-        }
-//         for(j=0 ; j<4 ; j++){                                   // only copy relevant part into result
-//           if( j0+j < jx0 || j0+j > jxn ) continue ;             // row not in target range
-//           for(i=0 ; i<4 ; i++){
-//             if(i0+i < ix0 || i0+i > ixn ) continue ;            // column not in target range
-//             r[j0+j-jx0][i0+i-ix0] = localf[j][i] ;
-//           }
-//         }
-      }
-    }
-  }
-  return &(r[0][0]) ;
-}
-
-// gni    [IN] : row storage length of virtual array
-// lni    [IN] : row storage length of array r
-// ni     [IN] : number of values to get along i
-// nj     [IN] : number of values to get along j
-// r     [OUT] : array to receive extracted section of original virtual array r[nj][lni]
-//               if NULL, a new array will be allocated
-// ix0    [IN] : offset along i in virtual array
-// jx0    [IN] : offset along j in virtual array
-// stream [IN] : virtual array stream
-// nbits  [IN] : number of bits per packed value (virtual array)
-// return the address of the array section that received the requested data
-void *array_section_by_4x4(uint32_t gni, uint32_t lni, uint32_t ni, uint32_t nj, void *r, uint32_t ix0, uint32_t jx0, uint16_t *stream0, uint32_t nbits){
-  if(r == NULL) r = malloc(ni*nj*sizeof(float)) ;
-  return array_section_by_4x4_int(gni, lni, ni, nj, FLOAT_VLAP r, ix0, jx0, stream0, nbits) ;
-}
-
-int32_t array_decode_by_4x4(int lni, int ni, int nj, float r[nj][lni], uint16_t *stream, int nbits){
-  int i0, j0, lng ;
-//   int32_t header ;
-  float localf[4][4] ;
-  lng = 0 ;
-  for(j0=0 ; j0<nj ; j0+=4){
-    for(i0=0 ; i0<ni ; i0+=4){
-      stream = float_decode_4x4(&(localf[0][0]), nbits, stream, NULL) ;  // decode 4x4 block to local array
-      int i, j ;
-      for(j=0 ; j<4 && j0+j<nj ; j++){                          // copy relevant part into result
-        for(i=0 ; i<4 && i0+i<ni ; i++){
-          r[j0+j][i0+i] = localf[j][i] ;
-        }
-      }
-//       stream += (nbits+1) ;
-      lng += (nbits+1) ;
-    }
-  }
-  return lng ;
-}
-
-int32_t array_encode_by_4x4(int lni, int ni, int nj, float f[nj][lni], uint16_t *stream, int nbits){
-  int i0, j0, lng ;
-  int32_t header ;
-  uint16_t *stream0 = stream ;
-  lng = 0 ;
-  for(j0=0 ; j0<nj ; j0+=4){
-    for(i0=0 ; i0<ni ; i0+=4){
-fprintf(stderr, "encoding at i0 = %d, j0 = %d, [%6ld] ", i0, j0, stream - stream0) ;
-      stream = float_encode_4x4(&(f[j0][i0]), lni, nbits, stream, ni-i0, nj-j0, NULL) ;
-fprintf(stderr, "encoded  at i0 = %d, j0 = %d, [%6ld]\n\n", i0, j0, stream - stream0) ;
-//       if(header) stream += (nbits+1) / 2 ;
-      lng += (nbits+1) / 2 ;
-    }
-  }
-  return stream - stream0 ;
-}
-
 static float f55[5][5], r55[5][5] ;
 // static float f75[7][5] ;
 // static float f57[5][7] ;
@@ -192,7 +48,6 @@ static float f77[7][7], r77[7][7] ;
 static float f11[11][11], r11[11][11] ;
 
 int main(int argc, char **argv){
-//   uint32_t *iarray = (uint32_t *) &(array[0]) ;
   uint16_t stream77[1024], stream11[1024], stream16[1024] ;
   uint32_t *stream = (uint32_t *) &(stream16[0]) ;
   uint32_t header = 0 ;
@@ -207,14 +62,12 @@ int main(int argc, char **argv){
   for(j=0 ; j<7 ; j++) for(i=0 ; i<7 ; i++) f77[j][i] = (i+0)*100.0f + (j+0)*1.0f + 10000.0f ;
   for(j=0 ; j<11; j++) for(i=0 ; i<11; i++) f11[j][i] = (i+0)*100.0f + (j+0)*1.0f + 10000.0f ;
 
-//   int32_t lng55 = array_encode_by_4x4(5, 5, 5, FLOAT_VLAP &(f55[0][0]), &(stream16[0]), 23) ;
-//   fprintf(stderr, "lng55 = %d\n\n", lng55) ;
-  int32_t lng77 = array_encode_by_4x4(7, 7, 7, FLOAT_VLAP &(f77[0][0]), &(stream77[0]), nbits) ;
+  int32_t lng77 = float_array_encode_4x4(&(f77[0][0]), 7, 7, 7, &(stream77[0]), nbits) ;
   fprintf(stderr, "lng77 = %d\n\n", lng77) ;
-  int32_t lng11 = array_encode_by_4x4(11, 11, 11, FLOAT_VLAP &(f11[0][0]), &(stream11[0]), nbits) ;
+  int32_t lng11 = float_array_encode_4x4(&(f11[0][0]), 11, 11, 11, &(stream11[0]), nbits) ;
   fprintf(stderr, "lng11 = %d\n\n", lng11) ;
 
-  array_decode_by_4x4(7, 7, 7, FLOAT_VLAP &(r77[0][0]), stream77, nbits) ;
+  float_array_decode_4x4(&(r77[0][0]), 7, 7, 7, stream77, nbits) ;
   fprintf(stderr, "7 x 7 r77 array\n");
   for(j=6 ; j>=0 ; j--){
     for(i=0 ; i<7 ; i++){
@@ -225,7 +78,7 @@ int main(int argc, char **argv){
   fprintf(stderr, "\n");
 
   fprintf(stderr, "11 x 11 r11 array\n");
-  array_decode_by_4x4(11, 11, 11, FLOAT_VLAP &(r11[0][0]), stream11, nbits) ;
+  float_array_decode_4x4(&(r11[0][0]), 11, 11, 11, stream11, nbits) ;
   for(j=10 ; j>=0 ; j--){
     for(i=0 ; i<11 ; i++){
       fprintf(stderr, "%8.0f ", r11[j][i]) ;
@@ -236,7 +89,7 @@ int main(int argc, char **argv){
 
   // get 5x5 section from 7x7 array
   fprintf(stderr, "r77[1:5,3:6] array\n");
-  array_section_by_4x4(7, 5, 5, 4, FLOAT_VLAP &(r55[0][0]), 1, 3, stream77, nbits) ;
+  float_array_section_4x4(&(r55[0][0]), 7, 5, 5, 4, 1, 3, stream77, nbits) ;
   for(j=3 ; j>=0 ; j--){
     for(i=0 ; i<5 ; i++){
       fprintf(stderr, "%8.0f ", r55[j][i]) ;
@@ -247,7 +100,7 @@ int main(int argc, char **argv){
 
   // get 7x6 section from 11x11 array
   fprintf(stderr, "r11[3:9,4:8] array\n");
-  array_section_by_4x4(11, 7, 7, 5, FLOAT_VLAP &(r77[0][0]), 3, 4, stream11, nbits) ;
+  float_array_section_4x4(&(r77[0][0]), 11, 7, 7, 5, 3, 4, stream11, nbits) ;
   for(j=4 ; j>=0 ; j--){
     for(i=0 ; i<7 ; i++){
       fprintf(stderr, "%8.0f ", r77[j][i]) ;
@@ -278,7 +131,7 @@ return 0 ;
   for(i=0 ; i<16 ; i++) array[i] = -array[i] ;        // all negative numbers
 //   for(i=0 ; i<16 ; i+=2) array[i] = -array[i] ;       // introduce some negative numbers
 
-  float_encode_4x4(array, 4, nbits, (uint16_t *)stream, 4 ,4, &header) ;
+  float_block_encode_4x4(array, 4, nbits, (uint16_t *)stream, 4 ,4, &header) ;
 
   fprintf(stderr, "emin = %d, ", header >> 8) ;
   int ebits = header & 7 ;
@@ -289,7 +142,7 @@ return 0 ;
   fprintf(stderr, "mbits = %d, ", nbits - ebits - sbits) ;
   fprintf(stderr, "nbits = %d\n", nbits) ;
 
-  float_decode_4x4(decoded, nbits, stream, NULL) ;
+  float_block_decode_4x4(decoded, nbits, (uint16_t *)stream, NULL) ;
 
   fprintf(stderr, "original   :");
   for(i=0 ; i<16 ; i++) fprintf(stderr, "%9f ", array[i]) ;
@@ -317,7 +170,7 @@ return 0 ;
   u0 = elapsed_us() ;
   t0 = elapsed_cycles() ;
   for(i=0 ; i<NTIMES ; i++){
-    float_encode_4x4(array, 4, nbits, (uint16_t *)stream, 4, 4, NULL) ;  // encode complete 4x4 blocks
+    float_block_encode_4x4(array, 4, nbits, (uint16_t *)stream, 4, 4, NULL) ;  // encode complete 4x4 blocks
 //     iarray[0] ^= (0x1) ;    // fool the optimizer to prevent loop modification
   }
   t1 = elapsed_cycles() ;
@@ -333,7 +186,7 @@ return 0 ;
   u0 = elapsed_us() ;
   t0 = elapsed_cycles() ;
   for(i=0 ; i<NTIMES ; i++){
-    float_decode_4x4(decoded, nbits, (uint16_t *)stream, NULL) ;
+    float_block_decode_4x4(decoded, nbits, (uint16_t *)stream, NULL) ;
   }
   t1 = elapsed_cycles() ;
   u1 = elapsed_us() ;
@@ -366,10 +219,9 @@ return 0 ;
 
   nbits = 15 ;
   lng = 0 ;
-  array_encode_by_4x4(LNI, ni, nj, FLOAT_VLAP &(f[0][0]), &(virt[0]), nbits) ;  // prime the memory pump
-  array_decode_by_4x4(LNI, ni, nj, (float(*)[]) &(r[0][0]), &(virt[0]), nbits) ;
-//   array_encode_by_4x4(LNI, ni, nj, array, &(virt[0]), nbits) ;  // prime the memory pump
-//   array_decode_by_4x4(LNI, ni, nj, &(r[0][0]), &(virt[0]), nbits) ;
+  float_array_encode_4x4(&(f[0][0]), LNI, ni, nj, &(virt[0]), nbits) ;  // prime the memory pump
+  float_array_decode_4x4(&(r[0][0]), LNI, ni, nj, &(virt[0]), nbits) ;
+
   for(j=0 ; j<nj ; j++){
     for(i=0 ; i<ni ; i++){
       fprintf(stderr, "%9f ", f[j][i]) ;
@@ -389,7 +241,7 @@ return 0 ;
   nj = 1024 ;
   nbits = 15 ;
   t0 = elapsed_cycles() ;
-  lng += array_encode_by_4x4(LNI, ni, nj, (float(*)[]) &(f[0][0]), &(virt[0]), nbits) ;
+  lng += float_array_encode_4x4(&(f[0][0]), LNI, ni, nj, &(virt[0]), nbits) ;
   t1 = elapsed_cycles() ;
   fprintf(stderr, "encoding %d x %d [%d]: %ld cycles ", ni, nj, lng, t1-t0) ;
   nano = cycles_to_ns(t1 - t0) ;
@@ -397,7 +249,7 @@ return 0 ;
 
   lng = 0 ;
   t0 = elapsed_cycles() ;
-  lng += array_decode_by_4x4(LNI, ni, nj, (float(*)[]) &(r[0][0]), &(virt[0]), nbits) ;
+  lng += float_array_decode_4x4(&(r[0][0]), LNI, ni, nj, &(virt[0]), nbits) ;
   t1 = elapsed_cycles() ;
   fprintf(stderr, "decoding %d x %d [%d]: %ld cycles ", ni, nj, lng, t1-t0) ;
   nano = cycles_to_ns(t1 - t0) ;
