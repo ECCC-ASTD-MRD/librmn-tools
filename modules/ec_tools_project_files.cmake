@@ -28,7 +28,7 @@ set(PROJECT_C_FILES
   src/pack/filter_254.c
   src/pack/filter_255.c
   src/pack/tracked_malloc.c
-  src/pack/float_encoder_4x4.c
+  src/pack/float_block_encoder.c
   src/diag/tee_print.c
   src/diag/test_helpers.c
   src/diag/print_helpers.c

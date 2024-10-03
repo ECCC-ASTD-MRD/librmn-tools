@@ -196,7 +196,7 @@ add_project_test(test_tracked_malloc test_tracked_malloc.c LINK_LIBS "rmn::rmn" 
 add_project_test(test_simd_functions test_simd_functions.c LINK_LIBS "rmn::rmn" NODIAG)
 add_project_test(test_simd_compare test_simd_compare.c LINK_LIBS "rmn::rmn" NODIAG)
 add_project_test(test_move_blocks test_move_blocks.c LINK_LIBS "rmn::rmn" NODIAG)
-add_project_test(test_float_encoder_4x4 test_float_encoder_4x4.c LINK_LIBS "rmn::rmn" NODIAG)
+add_project_test(test_float_block_encoder test_float_block_encoder.c LINK_LIBS "rmn::rmn" NODIAG)
 
 add_project_test(test_syntax test_syntax.c NO_TOOLS DL )
 
