@@ -116,4 +116,5 @@ set(PROJECT_H_FILES
   src/PUBLIC_INCLUDES/rmn/filter_255.h
   src/PUBLIC_INCLUDES/rmn/tracked_malloc.h
   src/PUBLIC_INCLUDES/rmn/simd_functions.h
+  src/PUBLIC_INCLUDES/rmn/float_block_encoders.h
 )

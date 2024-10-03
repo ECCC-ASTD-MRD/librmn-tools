@@ -20,6 +20,7 @@
 
 #include <rmn/test_helpers.h>
 #include <rmn/ct_assert.h>
+#include <rmn/float_block_encoders.h>
 
 #define WITH_TIMING
 
@@ -38,9 +39,6 @@ typedef float float_vla[] ;
 #define FLOAT_VLAP (float_vla *)
 // #define FLOAT_VLAP (float(*)[])
 // #define FLOAT_VLAP (vla *)
-
-uint16_t *float_encode_4x4(float *f, int lni, int nbits, uint16_t *stream, uint32_t ni, uint32_t nj, uint32_t *head);
-uint16_t *float_decode_4x4(float *f, int nbits, void *stream, uint32_t *head);
 
 #define NTIMES 10000
 
