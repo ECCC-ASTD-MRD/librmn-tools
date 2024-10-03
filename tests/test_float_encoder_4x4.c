@@ -88,14 +88,14 @@ typedef struct{
 // jx0    [IN] : offset along j in virtual array
 // stream [IN] : virtual array stream
 // nbits  [IN] : number of bits per packed value (virtual array)
-int32_t array_section_by_4x4(uint32_t gni, uint32_t lni, uint32_t ni, uint32_t nj, float r[nj][lni], uint32_t ix0, uint32_t jx0, uint16_t *stream0, uint32_t nbits){
+static void *array_section_by_4x4_int(uint32_t gni, uint32_t lni, uint32_t ni, uint32_t nj, float r[nj][lni], uint32_t ix0, uint32_t jx0, uint16_t *stream0, uint32_t nbits){
   uint32_t ixn = ix0 + ni -1, jxn = jx0 + nj - 1, nbi = (gni+3)/4 ;
   uint32_t bi0 = ix0/4, bin = 1+ixn/4 , bj0 = jx0/4, bjn = 1+jxn/4 ;
   uint32_t bi, bj ;
   float localf[4][4] ;
   uint32_t bsize = nbits + 1 ;
   int full, fullj ;
-fprintf(stderr, "blocks[%d:%d,%d:%d]\n", bi0, bin-1, bj0, bjn-1);
+// fprintf(stderr, "blocks[%d:%d,%d:%d]\n", bi0, bin-1, bj0, bjn-1);
   for(bj=bj0 ; bj<bjn ; bj++){
     int j0 = bj*4 ;
     fullj = (j0 >= jx0) & (j0+3 <= jxn) ;
@@ -111,7 +111,7 @@ fprintf(stderr, "blocks[%d:%d,%d:%d]\n", bi0, bin-1, bj0, bjn-1);
 //         i0, j0, ix0, ixn, jx0, jxn, stream - stream0, full ? "full" : "part") ;
       float_decode_4x4(&(localf[0][0]), nbits, stream, NULL) ;  // decode 4x4 block to local array
       int i, j ;
-fprintf(stderr, "[irange:jrange] = [%d:%d][%d:%d] block[%d,%d]\n", il-i0, ih-i0, jl-j0, jh-j0, bi, bj);
+// fprintf(stderr, "[irange:jrange] = [%d:%d][%d:%d] block[%d,%d]\n", il-i0, ih-i0, jl-j0, jh-j0, bi, bj);
       if(full){                                                 // full block, copy all into result
         for(j=0 ; j<4 ; j++) for(i=0 ; i<4 ; i++) r[j0+j-jx0][i0+i-ix0] = localf[j][i] ;
       }else{
@@ -130,7 +130,23 @@ fprintf(stderr, "[irange:jrange] = [%d:%d][%d:%d] block[%d,%d]\n", il-i0, ih-i0,
       }
     }
   }
-  return 0 ;
+  return &(r[0][0]) ;
+}
+
+// gni    [IN] : row storage length of virtual array
+// lni    [IN] : row storage length of array r
+// ni     [IN] : number of values to get along i
+// nj     [IN] : number of values to get along j
+// r     [OUT] : array to receive extracted section of original virtual array r[nj][lni]
+//               if NULL, a new array will be allocated
+// ix0    [IN] : offset along i in virtual array
+// jx0    [IN] : offset along j in virtual array
+// stream [IN] : virtual array stream
+// nbits  [IN] : number of bits per packed value (virtual array)
+// return the address of the array section that received the requested data
+void *array_section_by_4x4(uint32_t gni, uint32_t lni, uint32_t ni, uint32_t nj, void *r, uint32_t ix0, uint32_t jx0, uint16_t *stream0, uint32_t nbits){
+  if(r == NULL) r = malloc(ni*nj*sizeof(float)) ;
+  return array_section_by_4x4_int(gni, lni, ni, nj, FLOAT_VLAP r, ix0, jx0, stream0, nbits) ;
 }
 
 int32_t array_decode_by_4x4(int lni, int ni, int nj, float r[nj][lni], uint16_t *stream, int nbits){
