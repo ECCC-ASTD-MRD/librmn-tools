@@ -534,3 +534,39 @@ static int32_t float_array_decode_4x4_vla(int lni, int ni, int nj, float r[nj][l
 int32_t float_array_decode_4x4(float *r, int lni, int ni, int nj, uint16_t *stream, int nbits){
   return float_array_decode_4x4_vla(lni, ni, nj, FLOAT_VLA_PTR r, stream, nbits);
 }
+
+
+// create new vfloat object
+// size  [IN] : desired data capacity in bytes
+// return pointer to vf struct (NULL if error)
+Vfloat_2d *new_vfloat_2d(size_t size){
+  Vfloat_2d *vf ;
+
+  if(size <= 0) return NULL ;
+  size = size + sizeof(Vfloat_2d) ;     // add base struct size
+  vf = (Vfloat_2d *) malloc(size) ;     // try to allocate
+  if(vf != NULL){                       // success
+    vf->version = 1 ;
+    vf->datasize = 0 ;
+    vf->datamax = size ;
+  }
+  return vf ;
+}
+
+// create a new 
+Vfloat_2d *vfloat_array(float *f, int lni, uint32_t ni, uint32_t nj, int nbits, tile_kind kind ){
+  size_t size ;
+  Vfloat_2d *vf = NULL ;
+  if(kind == IEEE_4x4){
+    ni = (ni+3)/4 ;  // tiles along i
+    nj = (nj+3)/4 ;  // tiles along j
+    size = ni * nj * 16 * (nbits+1) / 8 ;    // each tile size will be 16 * (nbits+1) bits
+    vf = new_vfloat_2d( size )  ;
+
+    if(vf != NULL){
+      float_array_encode_4x4(f, lni, ni,  nj, (uint16_t *)(&(vf->data[0])), nbits);
+      vf->bpi = nbits + 1 ;
+    }
+  }
+  return vf ;
+}
