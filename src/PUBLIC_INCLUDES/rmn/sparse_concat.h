@@ -18,5 +18,5 @@
 
 size_t CopyFileData(int fdi, int fdo, size_t nbytes) ;
 size_t SparseConcatFd(int fdi, int fdo, int diag) ;
-size_t SparseConcatFile(char *name1, char *name2, int diag) ;
+size_t SparseConcatFile(const char *name1, const char *name2, const int diag) ;
 int SparseConcat_main(int argc, char **argv) ;
