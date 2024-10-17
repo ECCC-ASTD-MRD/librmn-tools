@@ -14,14 +14,14 @@
 // Author:
 //     M. Valin,   Recherche en Prevision Numerique, 2024
 //
-// data tiles layout example
+// data zblocks layout example
 //
-// tiles along i (x) : 10   (NTI)
-// tiles along j (y) : 11   (NTJ)
+// zblocks along i (x) : 10   (NTI)
+// zblocks along j (y) : 11   (NTJ)
 // stripe factor : 4        (SF0)
 // top stripe factor        (SF1)  (may be smaller than SF0)
 //
-// the number (ZI) in the tiles is the sequential position in the data map (Z index)
+// the number (ZI) in the zblocks is the sequential position in the data map (Z index)
 //
 // SF1 = MODULO(NTJ , SF0)
 // if(SF1 == 0) then SF1 = SF0
@@ -80,23 +80,23 @@
 //
 // stripe delimiter =
 //
-// * delimited region, 12 tiles
+// * delimited region, 12 zblocks
 // option 1 : ( probably slowest )
-//   read tiles 2->3, 6->7, 10->11, 40->41, 44->45, 48->49 [ 12 tiles read, 6 IO requests ]
+//   read zblocks 2->3, 6->7, 10->11, 40->41, 44->45, 48->49 [ 12 zblocks read, 6 IO requests ]
 // option 2 :
-//   read tiles 2->11 and 40->49 [ 20 tiles read, 2 IO requests ]
+//   read zblocks 2->11 and 40->49 [ 20 zblocks read, 2 IO requests ]
 // option 3 : ( probably fastest)
-//   read tiles 2->49 [ 48 tiles read, 1 IO request ]
+//   read zblocks 2->49 [ 48 zblocks read, 1 IO request ]
 //
-// % delimited region, 6 tiles
+// % delimited region, 6 zblocks
 //  option 1 : ( probably slower )
-//    read tiles 13->14, 17->18, 21->22 [ 6 tiles read, 3 IO requests ]
+//    read zblocks 13->14, 17->18, 21->22 [ 6 zblocks read, 3 IO requests ]
 //  option 2 : ( probably fastest )
-//    read tiles 13->22 [ 10 tiles read, 1 IO request ]
+//    read zblocks 13->22 [ 10 zblocks read, 1 IO request ]
 //
-// # delimited region, 8 tiles
+// # delimited region, 8 zblocks
 //  option 1 : ( ideal case )
-//    read tiles 28->35 [ 8 tiles read, 1 IO request ]
+//    read zblocks 28->35 [ 8 zblocks read, 1 IO request ]
 # if ! defined(Z_DATA_MAP)
 # define Z_DATA_MAP
 #include <stdint.h>
