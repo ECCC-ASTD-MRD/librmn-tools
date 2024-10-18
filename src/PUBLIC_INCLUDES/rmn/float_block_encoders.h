@@ -24,8 +24,12 @@
 
 // float variable length array
 typedef float float_vla[] ;
-// pointer to variable length array
-#define FLOAT_VLA_PTR (float_vla *)
+// pointer to variable length array of floats
+typedef float_vla *fvla_ptr_ ;
+typedef float (*fvla_ptr)[] ;
+
+// cast WHAT to pointer to Variable Length Array of type KIND
+#define VLA_PTR(KIND, WHAT) ( KIND (*)[] ) WHAT
 
 // codes to identify encoding type
 typedef enum { IEEE_4x4 = 0x44,

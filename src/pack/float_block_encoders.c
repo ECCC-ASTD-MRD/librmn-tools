@@ -437,7 +437,14 @@ static int32_t float_array_encode_4x4_vla(int lni, int ni, int nj, float f[nj][l
 }
 
 int32_t float_array_encode_4x4(float *f, int lni, int ni, int nj, uint16_t *stream, int nbits){
-  return float_array_encode_4x4_vla(lni, ni, nj, FLOAT_VLA_PTR f, stream, nbits) ;
+// using VLA_PTR macro
+  return float_array_encode_4x4_vla(lni, ni, nj, VLA_PTR(float, f), stream, nbits) ;
+// warning : passing 'float *' to parameter of type 'float (*)[*]'
+//   return float_array_encode_4x4_vla(lni, ni, nj, f, stream, nbits) ;
+// using typedef
+//   return float_array_encode_4x4_vla(lni, ni, nj, (fvla_ptr) f, stream, nbits) ;
+// explicit cast to match float f[nj][lni]
+//   return float_array_encode_4x4_vla(lni, ni, nj, ( float (*)[] ) f, stream, nbits) ;
 }
 
 // gni    [IN] : row storage length of virtual array
@@ -508,7 +515,7 @@ static void *float_array_section_4x4_vla(uint32_t gni, uint32_t lni, uint32_t ni
 // return the address of the array section that received the requested data
 void *float_array_section_4x4(float *r, uint32_t gni, uint32_t lni, uint32_t ni, uint32_t nj, uint32_t ix0, uint32_t jx0, uint16_t *stream0, uint32_t nbits){
   if(r == NULL) r = malloc(ni*nj*sizeof(float)) ;
-  return float_array_section_4x4_vla(gni, lni, ni, nj, FLOAT_VLA_PTR r, ix0, jx0, stream0, nbits) ;
+  return float_array_section_4x4_vla(gni, lni, ni, nj, (fvla_ptr) r, ix0, jx0, stream0, nbits) ;
 }
 
 static int32_t float_array_decode_4x4_vla(int lni, int ni, int nj, float r[nj][lni], uint16_t *stream, int nbits){
@@ -532,7 +539,7 @@ static int32_t float_array_decode_4x4_vla(int lni, int ni, int nj, float r[nj][l
 }
 
 int32_t float_array_decode_4x4(float *r, int lni, int ni, int nj, uint16_t *stream, int nbits){
-  return float_array_decode_4x4_vla(lni, ni, nj, FLOAT_VLA_PTR r, stream, nbits);
+  return float_array_decode_4x4_vla(lni, ni, nj, (fvla_ptr) r, stream, nbits);
 }
 
 

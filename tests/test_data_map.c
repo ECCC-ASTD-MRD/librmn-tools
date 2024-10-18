@@ -29,6 +29,9 @@
 int main(int argc, char **argv){
   int i, j, x[NTI], y[NTI] ;
   ij_index ij ;
+
+  if(argc > 1 && argv[0] == NULL) return 1 ;  // useless code to get rid of compiler warning
+
   for(j=NTJ-1 ; j>=0 ; j--){ 
     for(i=0 ; i<NTI ; i++) { 
       x[i] = Zindex_from_i_j(i, j, NTI, NTJ, SF0) ;
@@ -50,4 +53,6 @@ int main(int argc, char **argv){
 //     for(i=0 ; i<NTI ; i++) { fprintf(stderr, "|      "             ) ; } fprintf(stderr, "|\n") ;
   }
   for(i=0 ; i<NTI ; i++) { fprintf(stderr, "+------"        ) ; } fprintf(stderr, "+\n") ;
+
+  return 0 ;
 }

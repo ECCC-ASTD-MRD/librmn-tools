@@ -15,12 +15,13 @@
 #include <stdio.h>
 #include <rmn/compress_data.h>
 
-// Fortran style indexing (column major)
+// Fortran style indexing (column major)  array(i,j) is array(col,row)
 #define INDEX2D_C(array, col, lrow, row) ((array) + (col) + (row)*(lrow))
 
 /*
                          a FIELD is subdivided into CHUNKS
-                         (basic chunk size = 256 x 64)
+                         (basic chunk size = 64/128/256 x 64/128/256)
+                         either
                          - (last chunk along a dimension may be shorter)
                          - (first chunk along a dimension may be longer [up to 511 x 127])
        <------ 256 ----->                                  <--- <= 256 ----->
@@ -38,15 +39,16 @@
        |                |                                  |                |
      ^ +----------------+----------------------------------+----------------+ ^
      | |                |                                  |                | |
-    64 | chunk(0,0)     |                                  | chunk(nci,0)   |64
+ >= 64 | chunk(0,0)     |                                  | chunk(nci,0)   |>= 64
      | |                |                                  |                | |
      v +----------------+----------------------------------+----------------+ v
-       <------ 256 ----->                                  <--- <= 256 ----->
+       <--- >= 256 ----->                                  <--- <= 256 ----->
 
          each CHUNK is then subdivided into quantization/prediction BLOCKS
          (basic block size = 64 x 64)
-         - (last block along a dimension may be shorter)
-         - (first block along a dimension may be longer [ up to 127 x 127])
+         either
+         - (last block along a dimension may be shorter [ normally at least 32 x 32])
+         - (first block along a dimension may be longer [ up to 95 x 95])
        HUGE chunk (or field with only a single chunk)
        <------ 64 ------>                                  <--- <= 64 ------>
      ^ +----------------+----------------------------------+----------------+ ^
@@ -63,10 +65,10 @@
        |                |                                  |                |
      ^ +----------------+----------------------------------+----------------+ ^
      | |                |                                  |                | |
-    64 | block(0,0)     |                                  | block(nbi,0)   |64
+ >= 64 | block(0,0)     |                                  | block(nbi,0)   |>= 64
      | |                |                                  |                | |
      v +----------------+----------------------------------+----------------+ v
-       <------ 64 ------>                                  <--- <= 64 ------>
+       <--- >= 64 ------>                                  <--- <= 64 ------>
 
        FULL chunk along J
      ^ +----------------+----------------------------------+----------------+ ^
@@ -74,7 +76,7 @@
     64 |   block(0)     |                                  |   block(nbi)   |64
      | |                |                                  |                | |
      v +----------------+----------------------------------+----------------+ v
-       <------ 64 ------>                                  <--- <= 64 ------>
+       <--- >= 64 ------>                                  <--- <= 64 ------>
 
        SHORT chunk along J
      ^ +----------------+----------------------------------+----------------+ ^
@@ -82,7 +84,7 @@
  <= 64 |   block(0)     |                                  |   block(nbi)   |<= 64
      | |                |                                  |                | |
      v +----------------+----------------------------------+----------------+ v
-       <------ 64 ------>                                  <--- <= 64 ------>
+       <--- >= 64 ------>                                  <--- <= 64 ------>
 
        SHORT chunk along I and J
      ^ +----------------+ ^
@@ -94,8 +96,10 @@
 
                   each BLOCK is then subdivided into encoding TILES
                   (basic tile size = 8 x 8)
-                  (last tile along a dimension may be shorter)
-       <------- 8 ------>                                  <---- <= 8 ------>
+                  either
+                  - (last tile along a dimension may be shorter [to be avoided normally])
+                  - (first tile along a dimension may be longer [up to 15 x 15])
+       <-- > 7 , < 16 -->                                  <---- <= 8 ------>
      ^ +----------------+----------------------------------+----------------+ ^
      | |                |                                  |                | |
   <= 8 |  tile(0,ntj)   |                                  |  tile(nti,ntj) |<= 8
@@ -110,10 +114,10 @@
        |                |                                  |                |
      ^ +----------------+----------------------------------+----------------+ ^
      | |                |                                  |                | |
-     8 |  tile(0,0)     |                                  |  tile(nti,0)   | 8
+   > 7 |  tile(0,0)     |                                  |  tile(nti,0)   |> 7 , < 16
      | |                |                                  |                | |
      v +----------------+----------------------------------+----------------+ v
-       <------- 8 ------>                                  <---- <= 8 ------>
+       <-- > 7 , < 16 -->                                  <---- <= 8 ------>
 
   field compression goes as follows:
   - loop over chunks
@@ -206,18 +210,18 @@
   2024/08/xx
   evolution 4d (no 16GB limit on offsets, 256KB limit on chunk size) simpler map, no "small" chunks
   BCI (16 bits), BCJ (16 bits) : chunk dimensions (normally a multiple of 8)
-  BI0 (16 bits) : dimension along I of the first chunk in all rows (chunks in first column)
-  BJ0 (16 bits) : dimension along J of chunks in the first row (chunks in first row)
+  BIX (16 bits) : dimension along I of the first/last chunk in all rows (chunks in first/last column)
+  BJX (16 bits) : dimension along J of chunks in the first/last row (chunks in first/last row)
   NPI = nb of points along i, NPJ = nb of points along j
   NCI = NPI/BCI, NCJ = NPJ/BCJ (number of chunks along i and j)
-  the first chunk (BI0, BJ0) may be smaller or larger than the following one(s)
-  small blocks are unwanted (BI0 is expected to be >= BCI / 2, BJ0 is expected to be >= BCJ / 2)
-  BCI <= BI0 < BCI * 2, BCJ <= BJ0 < BCJ * 2
-  BI0 == 0 means BI0 == BCI (NPI is a multiple if BCI), BJ0 == 0 means BJ0 == BCJ (NPJ is a multiple if BCJ)
+  the first chunk (BIX, BJX) may be smaller or larger than the following one(s)
+  small blocks are unwanted (BIX is expected to be >= BCI / 2, BJX is expected to be >= BCJ / 2)
+  BCI <= BIX < BCI * 2, BCJ <= BJX < BCJ * 2
+  BIX == 0 means BIX == BCI (NPI is a multiple if BCI), BJX == 0 means BJX == BCJ (NPJ is a multiple if BCJ)
   data map size = (NCI * NCJ +1) / 2 + 3 (in 32 bit units)  N = NCI * NCJ
-  index to block number translation : blocki = (i - (BI0 - BCI)) / BCI, same method for blockj
+  index to block number translation : blocki = (i - (BIX - BCI)) / BCI, same method for blockj
   +-------+-------+-------+-------+-------+-------+--------------+--------------+     +--------------+
-  |  NPI  |  NPJ  |  BI0  |  BCI  |  BJ0  |  BCJ  | Chunk 1 size | Chunk 2 size | ... | Chunk n size |
+  |  NPI  |  NPJ  |  BIX  |  BCI  |  BJX  |  BCJ  | Chunk 1 size | Chunk 2 size | ... | Chunk n size |
   +-------+-------+-------+-------+-------+-------+--------------+--------------+     +--------------+
   <--32b--x--32b--x------32b------x------32b------x-------------32b------------->     x-----16b------>
 
