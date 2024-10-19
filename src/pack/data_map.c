@@ -20,8 +20,8 @@
 // nti    [IN] : row size
 // ntj    [IN] : number of rows
 // sf0    [IN] : stripe width (last stripe may be narrower)
-// the function returns i and j coordinates in struct ij_index
-ij_index Zindex_to_i_j(int32_t zij, uint32_t nti, uint32_t ntj, uint32_t sf0){
+// the function returns i and j coordinates in struct ij_range
+ij_range Zindex_to_i_j(int32_t zij, uint32_t nti, uint32_t ntj, uint32_t sf0){
   return Zindex_to_i_j_(zij, nti, ntj, sf0) ;
 }
 

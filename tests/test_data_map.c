@@ -28,7 +28,7 @@
 
 int main(int argc, char **argv){
   int i, j, x[NTI], y[NTI] ;
-  ij_index ij ;
+  ij_range ij ;
 
   if(argc > 1 && argv[0] == NULL) return 1 ;  // useless code to get rid of compiler warning
 
@@ -37,8 +37,8 @@ int main(int argc, char **argv){
       x[i] = Zindex_from_i_j(i, j, NTI, NTJ, SF0) ;
       y[i] = Zindex_from_i_j_(i, j, NTI, NTJ, SF0) ;
       ij   = Zindex_to_i_j_(y[i], NTI, NTJ, SF0) ;
-      if(ij.i != i || ij.j != j){
-        fprintf(stderr, "ERROR: zij = %3d, expecting i,j = (%2d,%2d), got (%2d,%2d)\n", x[i], i, j, ij.i, ij.j) ;
+      if(ij.i0 != i || ij.j0 != j){
+        fprintf(stderr, "ERROR: zij = %3d, expecting i,j = (%2d,%2d), got (%2d,%2d)\n", x[i], i, j, ij.i0, ij.j0) ;
         exit(1) ;
       }
     }
@@ -48,7 +48,7 @@ int main(int argc, char **argv){
     for(i=0 ; i<NTI ; i++) { fprintf(stderr, "|%2d,%3d",    i,    j) ; } fprintf(stderr, "| (expected i,j)\n") ;
     for(i=0 ; i<NTI ; i++) { 
       ij   = Zindex_to_i_j(x[i], NTI, NTJ, SF0) ;
-      fprintf(stderr, "|%2d,%3d", ij.i, ij.j) ; 
+      fprintf(stderr, "|%2d,%3d", ij.i0, ij.j0) ; 
     } fprintf(stderr, "| (computed i,j)\n") ;
 //     for(i=0 ; i<NTI ; i++) { fprintf(stderr, "|      "             ) ; } fprintf(stderr, "|\n") ;
   }

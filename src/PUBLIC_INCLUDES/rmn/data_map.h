@@ -102,9 +102,11 @@
 #include <stdint.h>
 
 typedef struct{
-  int32_t i ;
-  int32_t j ;
-}ij_index ;
+  int64_t i0:20 ,
+          di:12 ,
+          j0:20 ,
+          dj:12 ;
+}ij_range ;
 
 // (lix,ljx) may differ from(li,lj)
 // either
@@ -145,13 +147,13 @@ typedef struct{
 // nti    [IN] : row size
 // ntj    [IN] : number of rows
 // sf0    [IN] : stripe width (last stripe may be narrower)
-// the function returns i and j coordinates in struct ij_index
-static inline ij_index Zindex_to_i_j_(int32_t zij, int32_t nti, int32_t ntj, int32_t sf0){
-  ij_index ij ;
+// the function returns i and j coordinates in struct ij_range
+static inline ij_range Zindex_to_i_j_(int32_t zij, int32_t nti, int32_t ntj, int32_t sf0){
+  ij_range ij ;
   int32_t sf1, i, j, st0, sz0, sti, stn, j0 ;
 
-  ij.i = -1 ;
-  ij.j = -1 ;
+  ij.i0 = -1 ;
+  ij.j0 = -1 ;
   if(zij < 0         ) goto end ;           // zij is out of bounds
   if(zij >= nti * ntj) goto end ;           // zij is out of bounds
 
@@ -167,8 +169,8 @@ static inline ij_index Zindex_to_i_j_(int32_t zij, int32_t nti, int32_t ntj, int
   i   = sti / sf1 ;                         // position along i
   j   = sti - (i * sf1) ;                   // modulo(sti, sf1) (j position in stripe)
   j  += st0 * sf0 ;                         // position along j (add stripe j start position)
-  ij.i = i ;
-  ij.j = j ;
+  ij.i0 = i ;
+  ij.j0 = j ;
 end:
   return ij ;
 }
@@ -204,12 +206,12 @@ static inline int32_t Zindex_from_i_j_(int32_t i, int32_t j, int32_t nti, int32_
 // i      [IN] : i (column) position in 2D grid
 // j      [IN] : j (row) position in 2D grid
 // return [i,j] block coordinates (different from z index)
-static inline ij_index block_index(zmap map, int32_t i, int32_t j){
-  ij_index ij = {.i = -1, .j = -1 } ;
-  ij.i = (i - map.lix) / map.lni ;
-  ij.j = (j - map.ljx) / map.lnj ;
-  ij.i = (ij.i < 0) ? 0 : ij.i ;
-  ij.j = (ij.j < 0) ? 0 : ij.j ;
+static inline ij_range block_index(zmap map, int32_t i, int32_t j){
+  ij_range ij = {.i0 = -1, .j0 = -1 } ;
+  ij.i0 = (i - map.lix) / map.lni ;
+  ij.j0 = (j - map.ljx) / map.lnj ;
+  ij.i0 = (ij.i0 < 0) ? 0 : ij.i0 ;
+  ij.j0 = (ij.j0 < 0) ? 0 : ij.j0 ;
   return ij ;
 }
 
@@ -219,12 +221,12 @@ static inline ij_index block_index(zmap map, int32_t i, int32_t j){
 // j      [IN] : j (row) position in 2D grid
 // return [ij] Z block index
 static inline int32_t Z_block_index(zmap map, int32_t i, int32_t j){
-  ij_index ij = block_index(map, i, j) ;
-  return Zindex_from_i_j_(ij.i, ij.j, map.zni, map.znj, map.stripe) ;
+  ij_range ij = block_index(map, i, j) ;
+  return Zindex_from_i_j_(ij.i0, ij.j0, map.zni, map.znj, map.stripe) ;
 }
 
 // external functions (same interface as inline functions)
 int32_t Zindex_from_i_j(int32_t i, int32_t j, uint32_t nti, uint32_t ntj, uint32_t sf0);
-ij_index Zindex_to_i_j(int32_t zij, uint32_t nti, uint32_t ntj, uint32_t sf0);
+ij_range Zindex_to_i_j(int32_t zij, uint32_t nti, uint32_t ntj, uint32_t sf0);
 
 #endif
