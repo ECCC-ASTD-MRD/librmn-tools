@@ -97,17 +97,45 @@
 // # delimited region, 8 zblocks
 //  option 1 : ( ideal case )
 //    read zblocks 28->35 [ 8 zblocks read, 1 IO request ]
-# if ! defined(Z_DATA_MAP)
-# define Z_DATA_MAP
+# if ! defined(Z_DATA_MAP_VERSION)
+
+# define Z_DATA_MAP_VERSION  10
+
 #include <stdint.h>
+#include <stdlib.h>
 
 typedef struct{
-  int64_t i0:20 ,
-          di:12 ,
-          j0:20 ,
-          dj:12 ;
+  int32_t i0  ;
+  int32_t in  ;
+  int32_t j0  ;
+  int32_t jn  ;
 }ij_range ;
 
+// packed data representation (as in buffer read from file or in memory)
+//
+//   <---------------- buffer_size ---------------------->
+//   <- sizeof(zmap) ->
+//                    <- 2*zni*znj ->
+//   +----------------+-------------+--------------------+
+//   |                |             |                    |
+//   |  zmap header   |   size[ ]   | packed data stream |
+//   |  (up to size)  |  [zni*znj]  |                    |
+//   +----------------+-------------+--------------------+
+//   |buffer                        |
+//   |data_map                      |data_ptr
+//
+// data map can be mapped directly to the beginning of the packed data representation
+// uint8_t buffer[buffer_size]
+// zmap *data_map = (zmap *) buffer ;
+// read(fd, buffer, buffer_size)
+// zij = zmap->zni * zmap->znj : number of blocks
+// zmap->size[zi]        : size of block with zigzag index zi
+// zmap->mem = malloc(zij * sizeof(void *))
+//    table of data block addresses, starting at data_ptr
+//    data_ptr = data_map + sizeof(zmap) + zmap->zni * zmap->znj * sizeof(int16_t)
+//    zmap->mem[0] = data_ptr, zmap->mem[i] = zmap->mem[i-1] + zmap->size[i-1]
+//    zmap->mem[zi] is the address of block with zigzag index zi
+//
 // (lix,ljx) may differ from(li,lj)
 // either
 // - the first block along a dimension will be larger
@@ -116,45 +144,40 @@ typedef struct{
 //   block[zni,znj] : (lix,ljx), block[i,znj] : (li,ljx), block[zni,j] : (lix,lj)
 // - all blocks have the same dimension 
 //   block[i,j] : (li,lj)
-typedef struct{
-  int32_t version ;     // version marker
-  int32_t stripe ;      // stripe width (last stripe may be narrower)
-  int32_t gni ;         // first dimension of data array
-  int32_t gnj ;         // second dimension of data array
-  int32_t zni ;         // number of blocks in a row
-  int32_t znj ;         // number of block rows
-  int32_t lni ;         // first dimension of a block (number of values)
-  int32_t lnj ;         // second dimension of a block (number of values)
-  int32_t lix ;         // first dimension of the first/last block in row
-  int32_t ljx ;         // second dimension of blocks in the first/last (bottom/top) row
-  union{
-    int64_t rel ;       // offset (in 32 bit units) of encoded block ( block[ij].rel )
-    void    *abs ;      // memory address of encoded block           ( block[ij].abs )
-  }zblock[] ;           // zblock[znj * zni] (indexed using z index)
-}zmap ;                 // in core data map
+//
+typedef uint32_t *zblocks ;   // zblocks[zi] is address of block[ zindex(i,j) ]
 
 typedef struct{
-  int16_t version ;
-  int16_t stripe ;
-  int32_t gni, gnj ;
-  int16_t zni, znj ;
-  int8_t li, lj ;
-  int8_t lix, ljx ;
-  int16_t size[] ;      // size (in 32 bit units) of encoded block ( size[znj][zni] )
-} zmaf_f ;              // file version of zmap
+  uint32_t version:16 ,  // version marker
+           stripe:16 ;   // stripe width (last stripe may be narrower)
+  uint32_t flags ;       // reserved for flags
+  uint32_t gni ;         // first dimension of data array   = lix + (zni - 1) * lni
+  uint32_t gnj ;         // second dimension of data array  = ljx + (znj - 1) * lnj
+  uint32_t zni ;         // number of blocks in a row
+  uint32_t znj ;         // number of block rows
+  uint32_t lni:16 ,      // first dimension of most blocks (number of values)
+           lnj:16 ;      // second dimension of most blocks (number of values)
+  uint32_t lix:16 ,      // first dimension of the first/last block in row
+           ljx:16 ;      // second dimension of blocks in the first/last (bottom/top) row
+  union{
+    uint64_t xtra ;      // reserved for future use
+    zblocks *mem ;       // pointer to table of memory addresses of encoded blocks
+  } ;
+  uint16_t size[] ;      // size (in 32 bit units) of encoded block ( size[znj*zni] )
+}zmap ;
 
 // zij    [IN] : Z (zigzag) index
 // nti    [IN] : row size
 // ntj    [IN] : number of rows
 // sf0    [IN] : stripe width (last stripe may be narrower)
 // the function returns i and j coordinates in struct ij_range
-static inline ij_range Zindex_to_i_j_(int32_t zij, int32_t nti, int32_t ntj, int32_t sf0){
+static inline ij_range Zindex_to_i_j_(uint32_t zij, uint32_t nti, uint32_t ntj, uint32_t sf0){
   ij_range ij ;
-  int32_t sf1, i, j, st0, sz0, sti, stn, j0 ;
+  uint32_t sf1, i, j, st0, sz0, sti, stn, j0 ;
 
   ij.i0 = -1 ;
   ij.j0 = -1 ;
-  if(zij < 0         ) goto end ;           // zij is out of bounds
+//   if(zij < 0         ) goto end ;           // zij is out of bounds
   if(zij >= nti * ntj) goto end ;           // zij is out of bounds
 
   stn = (ntj - 1) / sf0 ;                   // stripe number for last row
@@ -181,11 +204,11 @@ end:
 // ntj    [IN] : number of rows
 // sf0    [IN] : stripe width (last stripe may be narrower)
 // the function returns the Z (zigzag index associated to i and j
-static inline int32_t Zindex_from_i_j_(int32_t i, int32_t j, int32_t nti, int32_t ntj, int32_t sf0){
-  int32_t zi, sf1, j0, stj, stn ;
+static inline int32_t Zindex_from_i_j_(uint32_t i, uint32_t j, uint32_t nti, uint32_t ntj, uint32_t sf0){
+  uint32_t zi, sf1, j0, stj, stn ;
 
-  if( i < 0    || j < 0   ) return -1 ;     // i or j out of bounds
-  if( i >= nti || j >= ntj) return -1 ;     // i or j out of bounds
+//   if( i < 0    || j < 0   ) return -1 ;     // i or j out of bounds
+  if( i >= nti || j >= ntj) return 0xFFFFFFFFu ;     // i or j out of bounds
 
   stn = (ntj - 1) / sf0 ;                   // stripe number for last row
   j0  = stn * sf0 ;                         // j index of lowest row in last stripe
@@ -206,12 +229,14 @@ static inline int32_t Zindex_from_i_j_(int32_t i, int32_t j, int32_t nti, int32_
 // i      [IN] : i (column) position in 2D grid
 // j      [IN] : j (row) position in 2D grid
 // return [i,j] block coordinates (different from z index)
-static inline ij_range block_index(zmap map, int32_t i, int32_t j){
+static inline ij_range block_index(zmap map, uint32_t i, uint32_t j){
   ij_range ij = {.i0 = -1, .j0 = -1 } ;
-  ij.i0 = (i - map.lix) / map.lni ;
-  ij.j0 = (j - map.ljx) / map.lnj ;
-  ij.i0 = (ij.i0 < 0) ? 0 : ij.i0 ;
-  ij.j0 = (ij.j0 < 0) ? 0 : ij.j0 ;
+  if(map.gni > i && map.gnj > j){
+    ij.i0 = (i - map.lix) / map.lni ;
+    ij.j0 = (j - map.ljx) / map.lnj ;
+    ij.i0 = (ij.i0 < 0) ? 0 : ij.i0 ;
+    ij.j0 = (ij.j0 < 0) ? 0 : ij.j0 ;
+  }
   return ij ;
 }
 
@@ -220,7 +245,7 @@ static inline ij_range block_index(zmap map, int32_t i, int32_t j){
 // i      [IN] : i (column) position in 2D grid
 // j      [IN] : j (row) position in 2D grid
 // return [ij] Z block index
-static inline int32_t Z_block_index(zmap map, int32_t i, int32_t j){
+static inline int32_t Z_block_index(zmap map, uint32_t i, uint32_t j){
   ij_range ij = block_index(map, i, j) ;
   return Zindex_from_i_j_(ij.i0, ij.j0, map.zni, map.znj, map.stripe) ;
 }
@@ -228,5 +253,7 @@ static inline int32_t Z_block_index(zmap map, int32_t i, int32_t j){
 // external functions (same interface as inline functions)
 int32_t Zindex_from_i_j(int32_t i, int32_t j, uint32_t nti, uint32_t ntj, uint32_t sf0);
 ij_range Zindex_to_i_j(int32_t zij, uint32_t nti, uint32_t ntj, uint32_t sf0);
+
+zmap *new_zmap(uint32_t gni, uint32_t gnj, uint32_t stripe, size_t esize);
 
 #endif

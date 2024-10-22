@@ -54,5 +54,9 @@ int main(int argc, char **argv){
   }
   for(i=0 ; i<NTI ; i++) { fprintf(stderr, "+------"        ) ; } fprintf(stderr, "+\n") ;
 
+  int gni = 160, gnj = 161, stripe = 3 ;
+  zmap *map = new_zmap(gni, gnj, stripe, sizeof(uint8_t));
+  if(map == NULL) exit(1) ;
+
   return 0 ;
 }
