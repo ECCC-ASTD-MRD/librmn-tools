@@ -120,7 +120,7 @@ zmap *new_zmap(uint32_t gni, uint32_t gnj, uint32_t stripe, size_t esize){
   size_t hsize = size ;
   size_t lsize ;
   uint32_t i, j, lbi, lbj ;
-  uint32_t zij ;
+  uint32_t zij, znij ;
 fprintf(stderr, "bsize = %d, gni = %d, gnj = %d, zni = %d, znj = %d\n", bsize, gni, gnj, zni, znj);
   // compute worst case block sizes for packed data = size of data rounded up to uint32_t size
   // packed blocks are supposed to be aligned to uint32_t boundaries
@@ -152,9 +152,15 @@ fprintf(stderr, "data offset = %ld bytes, hsize = %ld[%ld+%ld]\n", (uint8_t *)da
     map->lix    = lix ;
     map->ljx    = ljx ;
     map->flags  = 0 ;
-    zij = zni * znj ;
-    map->mem    = (zblocks *)malloc( (zij + 1) * sizeof(uint32_t *) ) ;
-    map->mem[0] =  (uint32_t *)&(map->size[zij]) ;
+    znij        = zni * znj ;
+    map->mem    = (zblocks *)malloc( (znij + 1) * sizeof(uint32_t *) ) ;
+    if(map->mem == NULL){    // failed to allocate pointer table
+      free(map) ;
+      map = NULL ;
+      goto end ;
+    }
+    map->mem[0] =  data ;
+fprintf(stderr, "mem[0] offset : %ld\n",  (uint8_t *)map->mem[0] - (uint8_t *) map) ;
     for(j=0 ; j<znj ; j++){
       lbj = (j ==     0 && ljx > lnj) ? ljx : lnj ;      // longer second dimension
       lbj = (j == znj-1 && ljx < lnj) ? ljx : lnj ;      // shorter second dimension
@@ -166,19 +172,18 @@ fprintf(stderr, "data offset = %ld bytes, hsize = %ld[%ld+%ld]\n", (uint8_t *)da
         map->size[zij] = lsize ;                     // set worstcase size for this zigzag indexed block
       }
     }
-    zij = zni * znj ;
-    for(i=0 ; i<zij ; i++) map->mem[i+1] = map->mem[i] + map->size[i] ;
-fprintf(stderr, "map->size : ");
-for(i=0 ; i<zij ; i++)fprintf(stderr, "%6d", map->size[i]);
-fprintf(stderr, "\n");
+    for(i=0 ; i<znij ; i++) map->mem[i+1] = map->mem[i] + map->size[i] ;
 fprintf(stderr, "range     : ");
-for(i=0 ; i<zij ; i++)fprintf(stderr, "%6ld", map->mem[i] - map->mem[0]);
+for(i=0 ; i<znij ; i++)fprintf(stderr, "%6ld", map->mem[i] - map->mem[0]);
 fprintf(stderr, "\n");
 fprintf(stderr, "            ");
-for(i=0 ; i<zij ; i++)fprintf(stderr, "%6ld", map->mem[i+1] - map->mem[0]);
+for(i=0 ; i<znij ; i++)fprintf(stderr, "%6ld", map->mem[i+1] - map->mem[0] - 1);
 fprintf(stderr, "\n");
 fprintf(stderr, "span      : ");
-for(i=0 ; i<zij ; i++)fprintf(stderr, "%6ld", map->mem[i+1] - map->mem[i]);
+for(i=0 ; i<znij ; i++)fprintf(stderr, "%6ld", map->mem[i+1] - map->mem[i]);
+fprintf(stderr, "\n");
+fprintf(stderr, "map->size : ");
+for(i=0 ; i<znij ; i++)fprintf(stderr, "%6d", map->size[i]);
 fprintf(stderr, "\n");
 
 for(j=znj ; j>0 ; j--){
@@ -189,7 +194,7 @@ for(j=znj ; j>0 ; j--){
   fprintf(stderr, "\n");
 }
   }
-
+end:
   return map ;
 }
 
@@ -211,7 +216,7 @@ zblocks *mem_zmap(zmap *map, uint32_t *data){
   return mem ;
 }
 
-// ful/partial deallocation of data map and its components
+// full/partial deallocation of data map and its components
 // map  [INOUT] : pointer to data map
 // full    [IN] : if zero, only deallocate pointer table to packed blocks
 int free_zmap(zmap *map, int full){
@@ -225,4 +230,23 @@ fprintf(stderr, "FULL map free\n") ;
 fprintf(stderr, "PART map free\n") ;
   }
   return 0 ;
+}
+
+size_t repack_map(zmap *map){
+  int i, k ;
+  uint32_t *current, *stream ;
+  if(map == NULL)      return -1 ;
+  if(map->mem == NULL) return -1 ;
+
+  current = map->mem[0] ;
+  for(k=0 ; k < map->zni * map->znj ; k++){
+    stream = map->mem[k] ;
+fprintf(stderr, "copying from %6ld", current - map->mem[0]) ;
+    for(i=0 ; i < map->size[k] ; i++){
+      current[i] = stream[i] ;
+    }
+    current += map->size[k] ;
+fprintf(stderr, " to %6ld [%6d]\n", current - map->mem[0] -1, map->size[k]) ;
+  }
+  return current - map->mem[0] ;
 }

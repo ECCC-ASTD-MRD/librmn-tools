@@ -79,5 +79,11 @@ int main(int argc, char **argv){
   for(i=0 ; i < znij ; i++) fprintf(stderr, "%6d", map->size[i]) ;
   fprintf(stderr, "\n");
 
+  uint32_t oldsize = map->mem[znij] - map->mem[0] ;
+  fprintf(stderr, "initial data size = %6d\n", oldsize) ;
+  for(i=0 ; i<znij ; i++) map->size[i] -= 2 ;
+  uint32_t newsize = repack_map(map) ;
+  fprintf(stderr, "packed data size = %6d\n", newsize) ;
+
   return 0 ;
 }

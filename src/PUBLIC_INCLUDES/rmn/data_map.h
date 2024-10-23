@@ -173,6 +173,7 @@ ij_range block_index(zmap map, uint32_t i, uint32_t j);
 
 zmap *new_zmap(uint32_t gni, uint32_t gnj, uint32_t stripe, size_t esize);
 zblocks *mem_zmap(zmap *map, uint32_t *data);
+size_t repack_map(zmap *map);
 int free_zmap(zmap *map, int full);
 
 #endif
