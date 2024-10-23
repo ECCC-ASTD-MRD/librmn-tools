@@ -27,7 +27,7 @@
 // the function returns the i and j coordinates in struct ij_range
 ij_range Zindex_to_i_j(uint32_t zij, uint32_t nti, uint32_t ntj, uint32_t sf0){
   ij_range ij ;
-  uint32_t sf1, i, j, st0, sz0, sti, stn, j0 ; //, zij = zij_ ;
+  uint32_t sf1, i, j, st0, sz0, sti, stn, j0 ;
 
   ij.i0 = -1 ;                              // precondition for miserable failure
   ij.j0 = -1 ;
@@ -152,6 +152,9 @@ fprintf(stderr, "data offset = %ld bytes, hsize = %ld[%ld+%ld]\n", (uint8_t *)da
     map->lix    = lix ;
     map->ljx    = ljx ;
     map->flags  = 0 ;
+    zij = zni * znj ;
+    map->mem    = (zblocks *)malloc( (zij + 1) * sizeof(uint32_t *) ) ;
+    map->mem[0] =  (uint32_t *)&(map->size[zij]) ;
     for(j=0 ; j<znj ; j++){
       lbj = (j ==     0 && ljx > lnj) ? ljx : lnj ;      // longer second dimension
       lbj = (j == znj-1 && ljx < lnj) ? ljx : lnj ;      // shorter second dimension
@@ -163,9 +166,21 @@ fprintf(stderr, "data offset = %ld bytes, hsize = %ld[%ld+%ld]\n", (uint8_t *)da
         map->size[zij] = lsize ;                     // set worstcase size for this zigzag indexed block
       }
     }
+    zij = zni * znj ;
+    for(i=0 ; i<zij ; i++) map->mem[i+1] = map->mem[i] + map->size[i] ;
 fprintf(stderr, "map->size : ");
-for(i=0 ; i<zni*znj ; i++)fprintf(stderr, "%6d", map->size[i]);
+for(i=0 ; i<zij ; i++)fprintf(stderr, "%6d", map->size[i]);
 fprintf(stderr, "\n");
+fprintf(stderr, "range     : ");
+for(i=0 ; i<zij ; i++)fprintf(stderr, "%6ld", map->mem[i] - map->mem[0]);
+fprintf(stderr, "\n");
+fprintf(stderr, "            ");
+for(i=0 ; i<zij ; i++)fprintf(stderr, "%6ld", map->mem[i+1] - map->mem[0]);
+fprintf(stderr, "\n");
+fprintf(stderr, "span      : ");
+for(i=0 ; i<zij ; i++)fprintf(stderr, "%6ld", map->mem[i+1] - map->mem[i]);
+fprintf(stderr, "\n");
+
 for(j=znj ; j>0 ; j--){
   for(i=0 ; i<zni ; i++){
     zij = Zindex_from_i_j(i, j-1, zni, znj, stripe) ;
@@ -183,7 +198,7 @@ for(j=znj ; j>0 ; j--){
 // data    [IN] : pointer to start of packed data (if NULL, packed data follows map in memory)
 // return address of table of pointers to packed blocks, NULL if allocation failed
 zblocks *mem_zmap(zmap *map, uint32_t *data){
-  int32_t znij = map->zni * map->znj ;
+  int32_t znij = 1 + map->zni * map->znj ;
   zblocks *mem = (zblocks *)malloc(znij * sizeof(uint32_t *)) ;
 
   if(mem){          // allocation was successful
@@ -203,6 +218,11 @@ int free_zmap(zmap *map, int full){
   if(map == NULL) return -1 ;
   if(map->mem) free(map->mem) ;
   map->mem = NULL ;
-  if(full) free(map) ;
+  if(full) {
+    free(map) ;
+fprintf(stderr, "FULL map free\n") ;
+  }else{
+fprintf(stderr, "PART map free\n") ;
+  }
   return 0 ;
 }

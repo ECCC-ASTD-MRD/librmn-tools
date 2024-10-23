@@ -27,7 +27,7 @@
 // #define SF0  2
 
 int main(int argc, char **argv){
-  int i, j, x[NTI], y[NTI] ;
+  int i, j, x[NTI], y[NTI], znij ;
   ij_range ij ;
 
   if(argc > 1 && argv[0] == NULL) return 1 ;  // useless code to get rid of compiler warning
@@ -42,21 +42,42 @@ int main(int argc, char **argv){
         exit(1) ;
       }
     }
-    for(i=0 ; i<NTI ; i++) { fprintf(stderr, "+------"             ) ; } fprintf(stderr, "+\n") ;
-//     for(i=0 ; i<NTI ; i++) { fprintf(stderr, "|      "             ) ; } fprintf(stderr, "|\n") ;
-    for(i=0 ; i<NTI ; i++) { fprintf(stderr, "| %3d  " ,       x[i]) ; } fprintf(stderr, "| (Z index)\n") ;
-    for(i=0 ; i<NTI ; i++) { fprintf(stderr, "|%2d,%3d",    i,    j) ; } fprintf(stderr, "| (expected i,j)\n") ;
-    for(i=0 ; i<NTI ; i++) { 
-      ij   = Zindex_to_i_j(x[i], NTI, NTJ, SF0) ;
-      fprintf(stderr, "|%2d,%3d", ij.i0, ij.j0) ; 
-    } fprintf(stderr, "| (computed i,j)\n") ;
-//     for(i=0 ; i<NTI ; i++) { fprintf(stderr, "|      "             ) ; } fprintf(stderr, "|\n") ;
+    if(argc > 1){
+      for(i=0 ; i<NTI ; i++) { fprintf(stderr, "+------"             ) ; } fprintf(stderr, "+\n") ;
+      for(i=0 ; i<NTI ; i++) { fprintf(stderr, "| %3d  " ,       x[i]) ; } fprintf(stderr, "| (Z index)\n") ;
+      for(i=0 ; i<NTI ; i++) { fprintf(stderr, "|%2d,%3d",    i,    j) ; } fprintf(stderr, "| (expected i,j)\n") ;
+      for(i=0 ; i<NTI ; i++) { 
+        ij   = Zindex_to_i_j(x[i], NTI, NTJ, SF0) ;
+        fprintf(stderr, "|%2d,%3d", ij.i0, ij.j0) ; 
+      } fprintf(stderr, "| (computed i,j)\n") ;
+    }
   }
-  for(i=0 ; i<NTI ; i++) { fprintf(stderr, "+------"        ) ; } fprintf(stderr, "+\n") ;
+  if(argc > 1) {
+    for(i=0 ; i<NTI ; i++) { fprintf(stderr, "+------"        ) ; } fprintf(stderr, "+\n") ;
+  }
 
   int gni = 160, gnj = 161, stripe = 3 ;
   zmap *map = new_zmap(gni, gnj, stripe, sizeof(uint8_t));
   if(map == NULL) exit(1) ;
+
+  zblocks *mem = map->mem ;
+  znij = map->zni * map->znj ;
+  fprintf(stderr, "size from old pointer table[%d] :", znij);
+  for(i=0 ; i < znij ; i++) fprintf(stderr, "%6ld", mem[i+1] - mem[i]) ;
+  fprintf(stderr, "\n");
+  fprintf(stderr, "size from old sizes table  [%d] :", znij);
+  for(i=0 ; i < znij ; i++) fprintf(stderr, "%6d", map->size[i]) ;
+  fprintf(stderr, "\n");
+
+  free_zmap(map, 0) ;             // partial free (only mem table)
+  mem = mem_zmap(map, NULL) ;     // reallocate me table
+  znij = map->zni * map->znj ;
+  fprintf(stderr, "size from new pointer table[%d] :", znij);
+  for(i=0 ; i < znij ; i++) fprintf(stderr, "%6ld", mem[i+1] - mem[i]) ;
+  fprintf(stderr, "\n");
+  fprintf(stderr, "size from old sizes table  [%d] :", znij);
+  for(i=0 ; i < znij ; i++) fprintf(stderr, "%6d", map->size[i]) ;
+  fprintf(stderr, "\n");
 
   return 0 ;
 }

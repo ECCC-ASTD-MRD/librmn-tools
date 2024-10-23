@@ -160,10 +160,7 @@ typedef struct{          // data map
            lnj:16 ;      // second dimension of most blocks (number of values)
   uint32_t lix:16 ,      // first dimension of the first/last block in row
            ljx:16 ;      // second dimension of blocks in the first/last (bottom/top) row
-  union{
-    uint64_t xtra ;      // reserved for possible future use when in file
-    zblocks *mem ;       // table of memory addresses of encoded blocks when in memory
-  } ;
+  zblocks *mem ;         // table of memory addresses of encoded blocks when in memory
   // ---------------- end of header ----------------
   uint16_t size[] ;      // size (in 32 bit units) of encoded block ( size[znj*zni] )
 }zmap ;
@@ -175,5 +172,7 @@ int32_t Z_block_index(zmap map, uint32_t i, uint32_t j);
 ij_range block_index(zmap map, uint32_t i, uint32_t j);
 
 zmap *new_zmap(uint32_t gni, uint32_t gnj, uint32_t stripe, size_t esize);
+zblocks *mem_zmap(zmap *map, uint32_t *data);
+int free_zmap(zmap *map, int full);
 
 #endif
