@@ -35,8 +35,8 @@ int main(int argc, char **argv){
   for(j=NTJ-1 ; j>=0 ; j--){ 
     for(i=0 ; i<NTI ; i++) { 
       x[i] = Zindex_from_i_j(i, j, NTI, NTJ, SF0) ;
-      y[i] = Zindex_from_i_j_(i, j, NTI, NTJ, SF0) ;
-      ij   = Zindex_to_i_j_(y[i], NTI, NTJ, SF0) ;
+      y[i] = Zindex_from_i_j(i, j, NTI, NTJ, SF0) ;
+      ij   = Zindex_to_i_j(y[i], NTI, NTJ, SF0) ;
       if(ij.i0 != i || ij.j0 != j){
         fprintf(stderr, "ERROR: zij = %3d, expecting i,j = (%2d,%2d), got (%2d,%2d)\n", x[i], i, j, ij.i0, ij.j0) ;
         exit(1) ;
