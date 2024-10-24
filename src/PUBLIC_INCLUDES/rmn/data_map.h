@@ -170,6 +170,7 @@ ij_range Zindex_to_i_j(uint32_t zij, uint32_t nti, uint32_t ntj, uint32_t sf0);
 
 int32_t Z_block_index(zmap map, uint32_t i, uint32_t j);
 ij_range block_index(zmap map, uint32_t i, uint32_t j);
+ij_range block_limits(zmap map, uint32_t i, uint32_t j);
 
 zmap *new_zmap(uint32_t gni, uint32_t gnj, uint32_t stripe, size_t esize);
 zblocks *mem_zmap(zmap *map, uint32_t *data);

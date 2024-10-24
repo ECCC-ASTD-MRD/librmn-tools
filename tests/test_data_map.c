@@ -32,6 +32,7 @@ int main(int argc, char **argv){
 
   if(argc > 1 && argv[0] == NULL) return 1 ;  // useless code to get rid of compiler warning
 
+  fprintf(stderr, "=============== zigzag indexing check ===============\n") ;
   for(j=NTJ-1 ; j>=0 ; j--){ 
     for(i=0 ; i<NTI ; i++) { 
       x[i] = Zindex_from_i_j(i, j, NTI, NTJ, SF0) ;
@@ -50,15 +51,25 @@ int main(int argc, char **argv){
         ij   = Zindex_to_i_j(x[i], NTI, NTJ, SF0) ;
         fprintf(stderr, "|%2d,%3d", ij.i0, ij.j0) ; 
       } fprintf(stderr, "| (computed i,j)\n") ;
+    }else{
+      for(j = NTJ ; j > 0 ; j--){
+        for(i = 0 ; i < NTI ; i++){
+          fprintf(stderr, "%3d => [%2d,%2d] ", Zindex_from_i_j(i, j-1, NTI, NTJ, SF0), i, j-1) ;
+        }
+        fprintf(stderr, "\n");
+      }
     }
   }
   if(argc > 1) {
     for(i=0 ; i<NTI ; i++) { fprintf(stderr, "+------"        ) ; } fprintf(stderr, "+\n") ;
   }
+  fprintf(stderr, "SUCCESS\n") ;
 
-  int gni = 160, gnj = 161, stripe = 3 ;
+  fprintf(stderr, "=============== data map creation check ===============\n") ;
+  int gni = 128+66, gnj = 128+32, stripe = 2 ;
   zmap *map = new_zmap(gni, gnj, stripe, sizeof(uint8_t));
   if(map == NULL) exit(1) ;
+  if(map->zni != 3 || map->znj != 3) exit(1) ;
 
   zblocks *mem = map->mem ;
   znij = map->zni * map->znj ;
@@ -68,9 +79,11 @@ int main(int argc, char **argv){
   fprintf(stderr, "size from old sizes table  [%d] :", znij);
   for(i=0 ; i < znij ; i++) fprintf(stderr, "%6d", map->size[i]) ;
   fprintf(stderr, "\n");
+  for(i=0 ; i < znij ; i++) if(map->size[i] != (mem[i+1] - mem[i])) exit(1) ;
+  fprintf(stderr, "SUCCESS\n") ;
 
   free_zmap(map, 0) ;             // partial free (only mem table)
-  mem = mem_zmap(map, NULL) ;     // reallocate me table
+  mem = mem_zmap(map, NULL) ;     // reallocate mem table
   znij = map->zni * map->znj ;
   fprintf(stderr, "size from new pointer table[%d] :", znij);
   for(i=0 ; i < znij ; i++) fprintf(stderr, "%6ld", mem[i+1] - mem[i]) ;
@@ -78,12 +91,40 @@ int main(int argc, char **argv){
   fprintf(stderr, "size from old sizes table  [%d] :", znij);
   for(i=0 ; i < znij ; i++) fprintf(stderr, "%6d", map->size[i]) ;
   fprintf(stderr, "\n");
+  for(i=0 ; i < znij ; i++) if(map->size[i] != (mem[i+1] - mem[i])) exit(1) ;
+  fprintf(stderr, "SUCCESS\n") ;
 
   uint32_t oldsize = map->mem[znij] - map->mem[0] ;
   fprintf(stderr, "initial data size = %6d\n", oldsize) ;
   for(i=0 ; i<znij ; i++) map->size[i] -= 2 ;
   uint32_t newsize = repack_map(map) ;
   fprintf(stderr, "packed data size = %6d\n", newsize) ;
+  if(newsize != oldsize - 2*znij) exit(1) ;
+  fprintf(stderr, "SUCCESS\n") ;
+  fprintf(stderr, "size from new pointer table[%d] :", znij);
+  for(i=0 ; i < znij ; i++) fprintf(stderr, "%6ld", mem[i+1] - mem[i]) ;
+  fprintf(stderr, "\n");
+  fprintf(stderr, "size from new sizes table  [%d] :", znij);
+  for(i=0 ; i < znij ; i++) fprintf(stderr, "%6d", map->size[i]) ;
+  fprintf(stderr, "\n");
+  for(i=0 ; i < znij ; i++) if(map->size[i] != (mem[i+1] - mem[i])) exit(1) ;
+  fprintf(stderr, "SUCCESS\n") ;
 
+  fprintf(stderr, "=============== block limits check ===============\n") ;
+  fprintf(stderr, "blocks[%d,%d] => data[%4d,%4d]", map->zni, map->znj, map->gni, map->gnj) ;
+  fprintf(stderr, " %s ", map->lix > map->lni ? ", first block along i is longer" : ", last block along i may be shorter") ;
+  fprintf(stderr, " %s\n", map->ljx > map->lnj ? ", first block along j is longer" : ", last block along j may be shorter") ;
+  for(j = map->znj ; j > 0 ; j--){
+    for(i = 0 ; i < map->zni ; i++){
+      ij = block_limits(*map, i, j-1) ;
+      fprintf(stderr, "data[%4d:%4d,%4d:%4d]  ", ij.i0, ij.in, ij.j0, ij.jn) ;
+    }
+    fprintf(stderr, "j_range : %4d)\n", ij.jn - ij.j0 + 1);
+  }
+  for(i = 0 ; i < map->zni ; i++){
+    ij = block_limits(*map, i, 0) ;
+    fprintf(stderr, "i_range : %4d             ", ij.in - ij.i0 + 1);
+  }
+  fprintf(stderr, "\n");
   return 0 ;
 }
