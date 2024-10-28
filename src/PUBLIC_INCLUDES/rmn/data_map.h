@@ -148,10 +148,15 @@ typedef struct{
 typedef uint32_t *zblocks ;   // zblocks[zi] is address of block[ zindex(i,j) ]
 
 typedef struct{          // data map
-  // ---------------- start of header ----------------
-  uint32_t version:16 ,  // version marker
-           stripe:16 ;   // stripe width (last stripe may be narrower)
-  uint32_t flags ;       // reserved for flags
+  // ---------------- start of in memory header ----------------
+  uint64_t signature ;   // signature and version  0xBEBEFADAxxxxssss
+                         // (ssss same as version, xxxx freeable pointers flags)
+  zblocks *mem ;         // table[zni*znj] : memory addresses of encoded blocks in memory
+  uint8_t *options ;     // same dimension as size, options associated with each encoded block
+  // ---------------- start of file header ----------------
+  uint32_t version:8 ,  // version marker
+           stripe:8 ,   // stripe width (last stripe may be narrower)
+           flags:16 ;   // reserved for flags
   uint32_t gni ;         // first dimension of data array   = lix + (zni - 1) * lni
   uint32_t gnj ;         // second dimension of data array  = ljx + (znj - 1) * lnj
   uint32_t zni ;         // number of blocks in a row
@@ -160,7 +165,6 @@ typedef struct{          // data map
            lnj:16 ;      // second dimension of most blocks (number of values)
   uint32_t lix:16 ,      // first dimension of the first/last block in row
            ljx:16 ;      // second dimension of blocks in the first/last (bottom/top) row
-  zblocks *mem ;         // table of memory addresses of encoded blocks when in memory
   // ---------------- end of header ----------------
   uint16_t size[] ;      // size (in 32 bit units) of encoded block ( size[znj*zni] )
 }zmap ;
@@ -168,9 +172,9 @@ typedef struct{          // data map
 int32_t Zindex_from_i_j(uint32_t i, uint32_t j, uint32_t nti, uint32_t ntj, uint32_t sf0);
 ij_range Zindex_to_i_j(uint32_t zij, uint32_t nti, uint32_t ntj, uint32_t sf0);
 
-int32_t Z_block_index(zmap map, uint32_t i, uint32_t j);
-ij_range block_index(zmap map, uint32_t i, uint32_t j);
-ij_range block_limits(zmap map, uint32_t i, uint32_t j);
+int32_t Z_block_index(zmap *map, uint32_t i, uint32_t j);
+ij_range block_index(zmap *map, uint32_t i, uint32_t j);
+ij_range block_limits(zmap *map, uint32_t i, uint32_t j);
 
 zmap *new_zmap(uint32_t gni, uint32_t gnj, uint32_t stripe, size_t esize);
 zblocks *mem_zmap(zmap *map, uint32_t *data);

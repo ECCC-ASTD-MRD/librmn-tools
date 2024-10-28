@@ -116,13 +116,13 @@ int main(int argc, char **argv){
   fprintf(stderr, " %s\n", map->ljx > map->lnj ? ", first block along j is longer" : ", last block along j may be shorter") ;
   for(j = map->znj ; j > 0 ; j--){
     for(i = 0 ; i < map->zni ; i++){
-      ij = block_limits(*map, i, j-1) ;
+      ij = block_limits(map, i, j-1) ;
       fprintf(stderr, "data[%4d:%4d,%4d:%4d]  ", ij.i0, ij.in, ij.j0, ij.jn) ;
     }
     fprintf(stderr, "j_range : %4d)\n", ij.jn - ij.j0 + 1);
   }
   for(i = 0 ; i < map->zni ; i++){
-    ij = block_limits(*map, i, 0) ;
+    ij = block_limits(map, i, 0) ;
     fprintf(stderr, "i_range : %4d             ", ij.in - ij.i0 + 1);
   }
   fprintf(stderr, "\n");

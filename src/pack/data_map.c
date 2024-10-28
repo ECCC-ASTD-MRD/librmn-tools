@@ -87,9 +87,9 @@ end:
 // i      [IN] : i (column) position in 2D grid
 // j      [IN] : j (row) position in 2D grid
 // return [ij] Z block index
-int32_t Z_block_index(zmap map, uint32_t i, uint32_t j){
+int32_t Z_block_index(zmap *map, uint32_t i, uint32_t j){
   ij_range ij = block_index(map, i, j) ;
-  return Zindex_from_i_j(ij.i0, ij.j0, map.zni, map.znj, map.stripe) ;
+  return Zindex_from_i_j(ij.i0, ij.j0, map->zni, map->znj, map->stripe) ;
 }
 
 // block position from grid index, using data map
@@ -97,11 +97,11 @@ int32_t Z_block_index(zmap map, uint32_t i, uint32_t j){
 // i      [IN] : i (column) position in 2D grid
 // j      [IN] : j (row) position in 2D grid
 // return [i,j] block coordinates (different from z index)
-ij_range block_index(zmap map, uint32_t i, uint32_t j){
+ij_range block_index(zmap *map, uint32_t i, uint32_t j){
   ij_range ij = {.i0 = -1, .j0 = -1 } ;  // precondition for failure
-  if(map.gni > i && map.gnj > j){
-    ij.i0 = (i - map.lix) / map.lni ;
-    ij.j0 = (j - map.ljx) / map.lnj ;
+  if(map->gni > i && map->gnj > j){
+    ij.i0 = (i - map->lix) / map->lni ;
+    ij.j0 = (j - map->ljx) / map->lnj ;
     ij.i0 = (ij.i0 < 0) ? 0 : ij.i0 ;
     ij.j0 = (ij.j0 < 0) ? 0 : ij.j0 ;
   }
@@ -109,24 +109,28 @@ ij_range block_index(zmap map, uint32_t i, uint32_t j){
 }
 
 // area covered by block[j][i]
-ij_range block_limits(zmap map, uint32_t i, uint32_t j){
+// map    [IN] : data map
+// i      [IN] : block column index
+// j      [IN] : block row index
+// return i and j index limits for area covered by block[j][i]
+ij_range block_limits(zmap *map, uint32_t i, uint32_t j){
   ij_range ij = {.i0 = -1, .in = -1, .j0 = -1, .jn = -1 } ;  // precondition for failure
-  if(i < map.zni && j < map.znj){                            // inside limits
-    if(map.lix > map.lni){                                   // first block is longer
-      ij.i0 = (i == 0) ? 0 : map.lix + (i - 1) * map.lni ;   // first point in block
-      ij.in = ij.i0 + ((i == 0) ? map.lix : map.lni) - 1 ;   // last point in block
+  if(i < map->zni && j < map->znj){                            // inside limits
+    if(map->lix > map->lni){                                   // first block is longer
+      ij.i0 = (i == 0) ? 0 : map->lix + (i - 1) * map->lni ;   // first point in block
+      ij.in = ij.i0 + ((i == 0) ? map->lix : map->lni) - 1 ;   // last point in block
     }else{                                                   // last block may be shorter
-      ij.i0 = i * map.lni ;                                  // first point in block
-      ij.in = ij.i0 + map.lni - 1 ;
-      ij.in = (ij.in < map.gni) ? ij.in : map.gni - 1 ;      // last point in block
+      ij.i0 = i * map->lni ;                                  // first point in block
+      ij.in = ij.i0 + map->lni - 1 ;
+      ij.in = (ij.in < map->gni) ? ij.in : map->gni - 1 ;      // last point in block
     }
-    if(map.ljx > map.lnj){                                   // first block is longer
-      ij.j0 = (j == 0) ? 0 : map.ljx + (j - 1) * map.lnj ;   // first point in block
-      ij.jn = ij.j0 + ((j == 0) ? map.ljx : map.lnj) - 1 ;   // last point in block
+    if(map->ljx > map->lnj){                                   // first block is longer
+      ij.j0 = (j == 0) ? 0 : map->ljx + (j - 1) * map->lnj ;   // first point in block
+      ij.jn = ij.j0 + ((j == 0) ? map->ljx : map->lnj) - 1 ;   // last point in block
     }else{                                                   // last block may be shorter
-      ij.j0 = j * map.lnj ;                                  // first point in block
-      ij.jn = ij.j0 + map.lnj - 1 ;
-      ij.jn = (ij.jn < map.gnj) ? ij.jn : map.gnj - 1 ;      // last point in block
+      ij.j0 = j * map->lnj ;                                  // first point in block
+      ij.jn = ij.j0 + map->lnj - 1 ;
+      ij.jn = (ij.jn < map->gnj) ? ij.jn : map->gnj - 1 ;      // last point in block
     }
   }
   return ij ;
