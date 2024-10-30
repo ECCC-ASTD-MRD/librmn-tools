@@ -59,10 +59,10 @@ ssize_t FILTER_FUNCTION(ID)(uint32_t flags, array_descriptor *ap, const filter_m
 #endif
 
 // first element of metadata for ALL filters (MUST be present and be the FIRST element)
-// id    : filter ID (000 to 255)
-// flags : local flags for this filter
-// size  : size of the struct in 32 bit units (includes 32 bit prolog)
-// meta0 : used for size or metadata (if size == 63 , size = meta0)
+// id    : filter ID (000 -> 255)
+// flags : local flags for this filter (0 -> 3)
+// size  : size of the struct in 32 bit units (includes 32 bit prolog) (0 -> 62)
+// meta0 : used for size or metadata. if size == 63 , size = meta0 (0 -> 65535)
 #if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
 #define FILTER_PROLOG uint32_t id:8, flags:2, size:6, meta0:16
 #endif
@@ -71,7 +71,9 @@ ssize_t FILTER_FUNCTION(ID)(uint32_t flags, array_descriptor *ap, const filter_m
 #endif
 
 // check that size of filter struct is a multiple of 32 bits
-#define FILTER_SIZE_OK(name) (W32_SIZEOF(name)*sizeof(uint32_t) == sizeof(name))
+#define FILTER_SIZE_OK(name)    (W32_SIZEOF(name)*sizeof(uint32_t) == sizeof(name))
+#define FILTER_SIZE_OK_32(name) (W32_SIZEOF(name)*sizeof(uint32_t) == sizeof(name))
+#define FILTER_SIZE_OK_16(name) (W32_SIZEOF(name)*sizeof(uint16_t) == sizeof(name))
 
 // generic filter metadata type, used for filter interface
 typedef struct{             // generic type used with 32 bit based metadata,
@@ -89,6 +91,6 @@ typedef struct{             // generic type used with byte based metadata
   uint8_t meta[] ;
 } filter_meta_08 ;
 
-typedef filter_meta_32 filter_meta ;  // default metadata
+typedef filter_meta_32 filter_meta ;  // use 32 bit metadata as default metadata
 
 #endif

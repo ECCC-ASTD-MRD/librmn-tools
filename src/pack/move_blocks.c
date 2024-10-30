@@ -65,9 +65,10 @@
 // gdim   [IN] : size of data block along a dimension
 // ldim   [IN] : desired size of sub-blocks along a dimension
 // nsub  [OUT] : number of sub-blocks needed
-// ldim0 [OUT] : size of first sub-block along that dimension
+// ldim0 [OUT] : size of first/last sub-block along that dimension
 // normally, ldim/2 <= ldim0 < ldim + ldim/2 (extra small blocks are deemed undesirable)
 // the only exception would be nsub ==1 because gdim < ldim/2
+// the first block may be longer than ldim, the last block may be shorter than ldim
 void split_block_dimension(uint32_t gdim, uint32_t ldim, uint32_t *nsub, uint32_t *ldim0){
   uint32_t nparts = gdim / ldim ;
   uint32_t extra = gdim - (nparts * ldim) ;   // modulo( gdim , ldim )
@@ -111,6 +112,7 @@ static int diag_fn(int lni, int ni, int nj, block_properties *bp, void *data, fn
 // fnargs [IN] : argument list to be passed to function
 // return error code from fn
 // TODO add data type to arguments
+// TODO adjust for longer first block / shorter last block strategy
 static int split_and_process_(uint32_t lgni, uint32_t gni, uint32_t gnj, int_or_float datatype, uint32_t array[gnj][lgni], int ni, int nj, fnptr fn, fn_args *fnargs){
   uint32_t ni0, nj0, nbi, nbj, i, j, deltai, deltaj ;
   int status ;
@@ -124,10 +126,12 @@ static int split_and_process_(uint32_t lgni, uint32_t gni, uint32_t gnj, int_or_
     fnargs = NULL ;         // address of array[j][i] will be used
   }
 
-  deltaj = nj0 ;
+  deltaj = nj0 ;            // if nj0 > nj
   for(j=0 ; j<gnj ; j+=deltaj , deltaj=nj){
-    deltai = ni0 ;
+    // if j+deltaj > gnj, deltaj = gnj-j
+    deltai = ni0 ;          // if ni0 > ni
     for(i=0 ; i<gni ; i+=deltai , deltai = ni){
+      // if i+deltai > gni, deltai = gni-i
       // extract sub_block[deltaj][deltai]
       // move_word32_block(&(array[j][i]), gni, sub_block, deltai, deltai, deltaj, datatype, &bp) ;
       // status = (*fn)(deltai, deltai, deltaj, sub_block, fnargs) ;
@@ -214,7 +218,7 @@ int move_float_block(float *restrict src, int lnis, void *restrict dst, int lnid
   if(ni  <  8) {
     int32_t maxs = 0x80000000, mins = 0x7FFFFFFF, t ;
     uint32_t minu = 0x7FFFFFFF, maxu = 0, ta ;
-    while(nj--){
+    while(nj--){        // loop over rows
       switch(ni & 7){   // switch on row length
         //       copy value        absolute value        fake integer   signed min    signed max    abs value min  abs value max
         case 7 : d[6] = t = s[6] ; ta = t & 0x7FFFFFFF ; t=ta^(t>>31) ; MIN(mins,t) ; MAX(maxs,t) ; MIN(minu,ta) ; MAX(maxu, ta) ;

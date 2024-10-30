@@ -70,6 +70,7 @@ int main(int argc, char **argv){
   zmap *map = new_zmap(gni, gnj, stripe, sizeof(uint8_t));
   if(map == NULL) exit(1) ;
   if(map->zni != 3 || map->znj != 3) exit(1) ;
+  fprintf(stderr, "size of preamble = %ld\n", (uint8_t *)&(map->data_head) - (uint8_t *)&(map->signature)) ;
 
   zblocks *mem = map->mem ;
   znij = map->zni * map->znj ;

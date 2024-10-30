@@ -153,12 +153,20 @@ typedef struct{          // data map
                          // (ssss same as version, xxxx freeable pointers flags)
   zblocks *mem ;         // table[zni*znj] : memory addresses of encoded blocks in memory
   uint8_t *options ;     // same dimension as size, options associated with each encoded block
+  uint32_t *first ;      // start of compressed data stream
+  uint32_t *limit ;      // one past the end of compressed data stream
   // ---------------- start of file header ----------------
-  uint32_t version:8 ,  // version marker
-           stripe:8 ,   // stripe width (last stripe may be narrower)
-           flags:16 ;   // reserved for flags
+  union{
+   uint32_t data_head ;  // target for & operator
+   struct {
+    uint32_t version:8 , // version marker
+             stripe:8 ,  // stripe width (last stripe may be narrower)
+             flags:16 ;  // reserved for flags
+   } ;
+  } ;
   uint32_t gni ;         // first dimension of data array   = lix + (zni - 1) * lni
   uint32_t gnj ;         // second dimension of data array  = ljx + (znj - 1) * lnj
+//   uint32_t nk ;          // third dimension of data array and block array
   uint32_t zni ;         // number of blocks in a row
   uint32_t znj ;         // number of block rows
   uint32_t lni:16 ,      // first dimension of most blocks (number of values)
