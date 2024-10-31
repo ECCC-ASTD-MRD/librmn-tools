@@ -104,13 +104,6 @@
 #include <stdint.h>
 #include <stdlib.h>
 
-typedef struct{
-  int32_t i0  ;
-  int32_t in  ;
-  int32_t j0  ;
-  int32_t jn  ;
-}ij_range ;
-
 // packed data representation (as in buffer read from file or in memory)
 //
 //   <----------------- buffer_size ---------------------->
@@ -164,29 +157,183 @@ typedef struct{          // data map
              flags:16 ;  // reserved for flags
    } ;
   } ;
-  uint32_t gni ;         // first dimension of data array   = lix + (zni - 1) * lni
-  uint32_t gnj ;         // second dimension of data array  = ljx + (znj - 1) * lnj
+  int32_t gni ;          // first dimension of data array   = lix + (zni - 1) * lni
+  int32_t gnj ;          // second dimension of data array  = ljx + (znj - 1) * lnj
 //   uint32_t nk ;          // third dimension of data array and block array
-  uint32_t zni ;         // number of blocks in a row
-  uint32_t znj ;         // number of block rows
-  uint32_t lni:16 ,      // first dimension of most blocks (number of values)
-           lnj:16 ;      // second dimension of most blocks (number of values)
-  uint32_t lix:16 ,      // first dimension of the first/last block in row
-           ljx:16 ;      // second dimension of blocks in the first/last (bottom/top) row
+  int32_t zni ;          // number of blocks in a row
+  int32_t znj ;          // number of block rows
+  int32_t lni:16 ,       // first dimension of most blocks (number of values)
+          lnj:16 ;       // second dimension of most blocks (number of values)
+  int32_t lix:16 ,       // first dimension of the first/last block in row
+          ljx:16 ;       // second dimension of blocks in the first/last (bottom/top) row
   // ---------------- end of header ----------------
   uint16_t size[] ;      // size (in 32 bit units) of encoded block ( size[znj*zni] )
 }zmap ;
 
-int32_t Zindex_from_i_j(uint32_t i, uint32_t j, uint32_t nti, uint32_t ntj, uint32_t sf0);
-ij_range Zindex_to_i_j(uint32_t zij, uint32_t nti, uint32_t ntj, uint32_t sf0);
+typedef struct{
+  int32_t i0  ;
+  int32_t in  ;
+  int32_t j0  ;
+  int32_t jn  ;
+}ij_range ;
 
-int32_t Z_block_index(zmap *map, uint32_t i, uint32_t j);
-ij_range block_index(zmap *map, uint32_t i, uint32_t j);
-ij_range block_limits(zmap *map, uint32_t i, uint32_t j);
+typedef struct{
+  int32_t  ni ;          // number of elements stored along dimension
+  uint32_t stride ;      // distance between adjacent elements along dimension
+  int32_t  i0 ;          // index of first point along dimension ( 0 -> ni - 1 )
+  int32_t  lni ;         // number of elements used along dimension ( 0 -> ni )
+} dim_desc ;             // i0 = 0 , lni = ni : all elements are used
 
-zmap *new_zmap(uint32_t gni, uint32_t gnj, uint32_t stripe, size_t esize);
+typedef struct{
+  uint8_t *data ;        // starting address of array (byte pointer)
+  uint32_t esize ;       // size of array elements in bytes (1, 2, 4, 8, ..., )
+  uint8_t  type ;        // element type, float ('F'), signed integer ('I') , unsigned integer ('U'), ...)
+  uint8_t  ndim ;        // number of dimensions
+  uint16_t pad ;         // padding generated to align dim[] on a 64 bit boundary
+  dim_desc dim[] ;       // dimension descriptor
+} array_nd ;             // array with n dimensions
+// macro to initialize a struct of type array_nd
+#define ARRAY_ND(DATA,ESIZE,TYPE,ND) {.data = DATA, .esize = ESIZE, .type = TYPE, .ndim = ND }
+
+typedef struct{
+  uint8_t *data ;
+  uint32_t esize ;
+  uint8_t  type ;
+  uint8_t  ndim ;        // better be 1 or else
+  uint16_t pad ;
+  dim_desc dim[1] ;
+} array_1d ;             // 1D array
+
+typedef struct{
+  uint8_t *data ;
+  uint32_t esize ;
+  uint8_t  type ;
+  uint8_t  ndim ;        // better be 2 or else
+  uint16_t pad ;
+  dim_desc dim[2] ;
+} array_2d ;             // 2D array
+
+typedef struct{
+  uint8_t *data ;
+  uint32_t esize ;
+  uint8_t  type ;
+  uint8_t  ndim ;        // better be 3 or else
+  uint16_t pad ;
+  dim_desc dim[3] ;
+} array_3d ;             // 3D array
+
+// static const seems not to induce the warning
+// #pragma GCC diagnostic push
+// #pragma GCC diagnostic ignored "-Wunused-variable"
+// blank array descriptors for 1/2/3 Dimensions
+// defaults to 32 bit unsigned type
+static const array_1d array_1d_0 = ARRAY_ND(NULL, sizeof(int32_t), 'U', 1) ;
+static const array_2d array_2d_0 = ARRAY_ND(NULL, sizeof(int32_t), 'U', 2) ;
+static const array_3d array_3d_0 = ARRAY_ND(NULL, sizeof(int32_t), 'U', 3) ;
+// #pragma GCC diagnostic pop
+
+static inline void array_1d_init(array_1d *a, void *data, ssize_t esize, int type){
+  *a = (array_1d) ARRAY_ND(data, esize, type, 1) ;
+}
+
+static inline void array_2d_init(array_2d *a, void *data, ssize_t esize, int type){
+  *a = (array_2d) ARRAY_ND(data, esize, type, 2) ;
+}
+
+static inline void array_3d_init(array_3d *a, void *data, ssize_t esize, int type){
+  *a = (array_3d) ARRAY_ND(data, esize, type, 3) ;
+}
+
+static inline int32_t invalid_array(array_nd *a){
+  int i ;
+  if(a == NULL) return 1 ;
+  if(a->data == NULL) return 1 ;
+  for(i = 0 ; i < a->ndim ; i++){
+    if(a->dim[i].ni     <= 0) return 1 ;
+    if(a->dim[i].stride <= 0) return 1 ;
+    if(a->dim[i].i0  <  0 || a->dim[i].i0  >= a->dim[i].ni) return 1 ;
+    if(a->dim[i].lni <= 0 || a->dim[i].lni >  a->dim[i].ni) return 1 ;
+  }
+  return 0 ;
+}
+
+// get address of the first element of an array block
+static inline uint8_t *array_element(array_nd *a){
+  if(a == NULL) return NULL ;
+  uint32_t i, esize = a->esize ;
+  uint8_t *ptr = a->data ;                            // base address of array
+  if(ptr == NULL) return NULL ;
+  for(i = 0 ; i < a->ndim ; i++){
+    if(a->dim[i].stride <= 0) return NULL ;
+    if(a->dim[i].i0 < 0) return NULL ;
+    if(a->dim[i].i0 >= a->dim[i].ni) return NULL ;
+    ptr += esize * a->dim[i].stride * a->dim[i].i0 ;  // add displacement for this dimension
+  }
+  return ptr ;
+}
+
+// initialize a new descriptor representing a sub-array of a
+// TODO copy data from a to b
+static inline array_nd *array_block(array_nd *a, array_nd *b){
+  if(b == NULL){
+    b = (array_nd *) malloc(sizeof(array_nd) + a->ndim * sizeof(dim_desc)) ;
+    b->ndim = a->ndim ;
+  }
+  if(a->ndim != b->ndim) return NULL ;
+  b->esize = a->esize ;
+  b->type  = a->type ;
+  uint32_t stride = 1 ;
+  int i ;
+  ssize_t size = 1 ;
+  for(i = 0 ; i < a->ndim ; i++){
+    b->dim[i].ni     = a->dim[i].lni ;
+    b->dim[i].lni    = b->dim[i].ni ;
+    b->dim[i].i0     = 0 ;
+    b->dim[i].stride = stride ;
+    stride *= b->dim[i].ni ;
+    size *= b->dim[i].ni ;
+  }
+  b->data = malloc(b->esize * size) ;   // allocate data array
+  return b ;
+}
+
+// fill array descriptor dimensional information
+// address of data, element size, element type are left untouched
+// a    [INOUT] : pointer to nD array descriptor (if NULL a new descriptor will be created)
+// nd      [IN] : number of dimensions
+// dim[nd] [IN] : dimensions
+static inline array_nd *new_array_nd(array_nd *a, int nd, int32_t dim[nd]){
+  int i ;
+  if(nd <= 0) return NULL ;
+  for(i = 0 ; i < nd ; i++) { if(dim[i] <= 0) return NULL ; }
+  if(a == NULL) {
+    a = (array_nd *)malloc(sizeof(array_nd) + nd * sizeof(dim_desc)) ;
+  }else{
+    if(nd != a->ndim) return NULL ;  // number of dimension mismatch
+  }
+  if(a == NULL) return NULL ;
+  uint32_t stride = 1 ;          // first dimension has stride 1
+  a->ndim = nd ;
+  for(i = 0 ; i < nd ; i++) {
+    a->dim[i].ni = dim[i] ;      // this dimension
+    a->dim[i].i0 = 0 ;           // start at index 0
+    a->dim[i].lni = dim[i] ;     // full span along this dimension
+    a->dim[i].stride = stride ;  // distance to next element along this dimension
+    stride *= a->dim[i].ni ;     // stride for next dimension
+  }
+  return a ;
+}
+
+int32_t Zindex_from_i_j(int32_t i, int32_t j, int32_t nti, int32_t ntj, int32_t sf0);
+ij_range Zindex_to_i_j(int32_t zij, int32_t nti, int32_t ntj, int32_t sf0);
+
+int32_t Z_block_index(zmap *map, int32_t i, int32_t j);
+ij_range block_index(zmap *map, int32_t i, int32_t j);
+ij_range block_limits(zmap *map, int32_t i, int32_t j);
+
+zmap *new_zmap(int32_t gni, int32_t gnj, int32_t stripe, size_t esize);
 zblocks *mem_zmap(zmap *map, uint32_t *data);
-size_t repack_map(zmap *map);
+ssize_t repack_map(zmap *map);
 int free_zmap(zmap *map, int full);
 
 #endif

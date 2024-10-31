@@ -70,7 +70,12 @@ int main(int argc, char **argv){
   zmap *map = new_zmap(gni, gnj, stripe, sizeof(uint8_t));
   if(map == NULL) exit(1) ;
   if(map->zni != 3 || map->znj != 3) exit(1) ;
+
   fprintf(stderr, "size of preamble = %ld\n", (uint8_t *)&(map->data_head) - (uint8_t *)&(map->signature)) ;
+  fprintf(stderr, "size of array_nd = %ld\n", sizeof(array_nd));
+  fprintf(stderr, "size of array_1d = %ld\n", sizeof(array_1d));
+  fprintf(stderr, "size of array_2d = %ld\n", sizeof(array_2d));
+  fprintf(stderr, "size of array_3d = %ld\n", sizeof(array_3d));
 
   zblocks *mem = map->mem ;
   znij = map->zni * map->znj ;
@@ -115,14 +120,14 @@ int main(int argc, char **argv){
   fprintf(stderr, "blocks[%d,%d] => data[%4d,%4d]", map->zni, map->znj, map->gni, map->gnj) ;
   fprintf(stderr, " %s ", map->lix > map->lni ? ", first block along i is longer" : ", last block along i may be shorter") ;
   fprintf(stderr, " %s\n", map->ljx > map->lnj ? ", first block along j is longer" : ", last block along j may be shorter") ;
-  for(j = map->znj ; j > 0 ; j--){
-    for(i = 0 ; i < map->zni ; i++){
+  for(j = (int)map->znj ; j > 0 ; j--){
+    for(i = 0 ; i < (int)map->zni ; i++){
       ij = block_limits(map, i, j-1) ;
       fprintf(stderr, "data[%4d:%4d,%4d:%4d]  ", ij.i0, ij.in, ij.j0, ij.jn) ;
     }
     fprintf(stderr, "j_range : %4d)\n", ij.jn - ij.j0 + 1);
   }
-  for(i = 0 ; i < map->zni ; i++){
+  for(i = 0 ; i < (int)map->zni ; i++){
     ij = block_limits(map, i, 0) ;
     fprintf(stderr, "i_range : %4d             ", ij.in - ij.i0 + 1);
   }
