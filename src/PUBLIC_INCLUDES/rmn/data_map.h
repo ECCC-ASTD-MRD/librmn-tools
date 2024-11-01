@@ -186,39 +186,39 @@ typedef struct{
 
 typedef struct{
   uint8_t *data ;        // starting address of array (byte pointer)
-  uint32_t esize ;       // size of array elements in bytes (1, 2, 4, 8, ..., )
+  uint32_t size ;        // size of memory area pointed to by data
+  uint16_t esize ;       // size of array elements in bytes (1, 2, 4, 8, ..., )
   uint8_t  type ;        // element type, float ('F'), signed integer ('I') , unsigned integer ('U'), ...)
   uint8_t  ndim ;        // number of dimensions
-  uint16_t pad ;         // padding generated to align dim[] on a 64 bit boundary
   dim_desc dim[] ;       // dimension descriptor
 } array_nd ;             // array with n dimensions
 // macro to initialize a struct of type array_nd
-#define ARRAY_ND(DATA,ESIZE,TYPE,ND) {.data = DATA, .esize = ESIZE, .type = TYPE, .ndim = ND }
+#define ARRAY_ND(DATA,ESIZE,TYPE,NDIM,SIZE) {.data = DATA, .esize = ESIZE, .type = TYPE, .ndim = NDIM, .size = SIZE }
 
 typedef struct{
   uint8_t *data ;
-  uint32_t esize ;
+  uint32_t size ;
+  uint16_t esize ;
   uint8_t  type ;
   uint8_t  ndim ;        // better be 1 or else
-  uint16_t pad ;
   dim_desc dim[1] ;
 } array_1d ;             // 1D array
 
 typedef struct{
   uint8_t *data ;
-  uint32_t esize ;
+  uint32_t size ;
+  uint16_t esize ;
   uint8_t  type ;
   uint8_t  ndim ;        // better be 2 or else
-  uint16_t pad ;
   dim_desc dim[2] ;
 } array_2d ;             // 2D array
 
 typedef struct{
   uint8_t *data ;
-  uint32_t esize ;
+  uint32_t size ;
+  uint16_t esize ;
   uint8_t  type ;
   uint8_t  ndim ;        // better be 3 or else
-  uint16_t pad ;
   dim_desc dim[3] ;
 } array_3d ;             // 3D array
 
@@ -227,21 +227,21 @@ typedef struct{
 // #pragma GCC diagnostic ignored "-Wunused-variable"
 // blank array descriptors for 1/2/3 Dimensions
 // defaults to 32 bit unsigned type
-static const array_1d array_1d_0 = ARRAY_ND(NULL, sizeof(int32_t), 'U', 1) ;
-static const array_2d array_2d_0 = ARRAY_ND(NULL, sizeof(int32_t), 'U', 2) ;
-static const array_3d array_3d_0 = ARRAY_ND(NULL, sizeof(int32_t), 'U', 3) ;
+static const array_1d array_1d_0 = ARRAY_ND(NULL, sizeof(int32_t), 'U', 1, 0) ;
+static const array_2d array_2d_0 = ARRAY_ND(NULL, sizeof(int32_t), 'U', 2, 0) ;
+static const array_3d array_3d_0 = ARRAY_ND(NULL, sizeof(int32_t), 'U', 3, 0) ;
 // #pragma GCC diagnostic pop
 
 static inline void array_1d_init(array_1d *a, void *data, ssize_t esize, int type){
-  *a = (array_1d) ARRAY_ND(data, esize, type, 1) ;
+  *a = (array_1d) ARRAY_ND(data, esize, type, 1, 0) ;
 }
 
 static inline void array_2d_init(array_2d *a, void *data, ssize_t esize, int type){
-  *a = (array_2d) ARRAY_ND(data, esize, type, 2) ;
+  *a = (array_2d) ARRAY_ND(data, esize, type, 2, 0) ;
 }
 
 static inline void array_3d_init(array_3d *a, void *data, ssize_t esize, int type){
-  *a = (array_3d) ARRAY_ND(data, esize, type, 3) ;
+  *a = (array_3d) ARRAY_ND(data, esize, type, 3, 0) ;
 }
 
 static inline int32_t invalid_array(array_nd *a){
