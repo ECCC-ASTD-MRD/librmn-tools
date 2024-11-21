@@ -207,7 +207,7 @@ int move_float_block(float *restrict src, int lnis, void *restrict dst, int lnid
   int32_t *restrict d = (int32_t *) dst ;
   block_properties bp_ ;
 
-  if(bp != NULL){
+  if(bp != NULL){              // initialize for failure
     bp->zeros  = -1 ;
     bp->kind   = bad_data ;
   }
@@ -296,7 +296,7 @@ int move_int32_block(int32_t *restrict src, int lnis, void *restrict dst, int ln
   int32_t *restrict d = (int32_t *) dst ;
   block_properties bp_ ;
 
-  if(bp != NULL){
+  if(bp != NULL){              // initialize for failure
     bp->zeros  = -1 ;
     bp->kind   = bad_data ;
   }
@@ -363,7 +363,11 @@ int move_int32_block(int32_t *restrict src, int lnis, void *restrict dst, int ln
   return ni * nj ;
 }
 int move_uint32_block(int32_t *restrict src, int lnis, void *restrict dst, int lnid, int ni, int nj, block_properties *bp){
-  return move_int32_block(src, lnis, dst, lnid, ni, nj, bp) ;
+  int nn = move_int32_block(src, lnis, dst, lnid, ni, nj, bp) ;
+  if(bp) {
+    if(bp->kind == int_data) bp->kind = uint_data ;
+  }
+  return nn ;
 }
 
 // move a block (ni x nj) of 32 bit integers from src and store it into blk
@@ -375,6 +379,7 @@ int move_uint32_block(int32_t *restrict src, int lnis, void *restrict dst, int l
 // nj   [IN] : number of rows
 // bp   [IN] : pointer to block properties struct (min / max / min abs) (IGNORED if NULL)
 // return number of values processed
+// bp is really expected to be NULL
 int move_mem32_block(void *restrict src, int lnis, void *restrict dst, int lnid, int ni, int nj, block_properties *bp){
   uint32_t *restrict d = (uint32_t *) dst ;
   uint32_t *restrict s = (uint32_t *) src ;
@@ -382,7 +387,8 @@ int move_mem32_block(void *restrict src, int lnis, void *restrict dst, int lnid,
   if(ni*nj == 0) return 0 ;
   if(bp != NULL) {
     bp->kind   = raw_data ;
-    bp->mins.u = bp->maxs.u = bp->minu.u = bp->maxu.u = bp->zeros = 0 ;
+    bp->mins.u = bp->maxs.u = bp->minu.u = bp->maxu.u = 0 ;
+    bp->zeros = -1 ;    // consistent with other movers (for now)
   }
 
   if(ni < 8){
