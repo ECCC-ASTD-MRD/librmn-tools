@@ -61,9 +61,16 @@ float unfake_float(int32_t fake);
 
 int move_word32_block(void *restrict src, int lnis, void *restrict dst, int lnid, int ni, int nj, int_or_float datatype, block_properties *bp);
 
+#define move_w32_block(src,lnis,dst,lnid,ni,nj,bp) _Generic((src), \
+                                                   int32_t  *: move_int32_block,  \
+                                                   uint32_t *: move_uint32_block, \
+                                                   float    *: move_float_block,  \
+                                                   void     *: move_mem32_block  \
+                                                   ) (src,lnis,dst,lnid,ni,nj,bp)
 int move_uint32_block(int32_t *restrict src, int lnis, void *restrict dst, int lnid, int ni, int nj, block_properties *bp);
 int move_int32_block(int32_t  *restrict src, int lnis, void *restrict dst, int lnid, int ni, int nj, block_properties *bp);
 int move_float_block(float    *restrict src, int lnis, void *restrict dst, int lnid, int ni, int nj, block_properties *bp);
+int move_mem32_block(void     *restrict src, int lnis, void *restrict dst, int lnid, int ni, int nj, block_properties *bp);
 
 typedef struct{
   uint64_t nargs ;      // number of arguments

@@ -373,12 +373,17 @@ int move_uint32_block(int32_t *restrict src, int lnis, void *restrict dst, int l
 // lnid [IN] : row storage size in dst
 // ni   [IN] : row size (row storage size in blk)
 // nj   [IN] : number of rows
+// bp   [IN] : pointer to block properties struct (min / max / min abs) (IGNORED if NULL)
 // return number of values processed
-int move_mem32_block(void *restrict src, int lnis, void *restrict dst, int lnid, int ni, int nj){
+int move_mem32_block(void *restrict src, int lnis, void *restrict dst, int lnid, int ni, int nj, block_properties *bp){
   uint32_t *restrict d = (uint32_t *) dst ;
   uint32_t *restrict s = (uint32_t *) src ;
 
   if(ni*nj == 0) return 0 ;
+  if(bp != NULL) {
+    bp->kind   = raw_data ;
+    bp->mins.u = bp->maxs.u = bp->minu.u = bp->maxu.u = bp->zeros = 0 ;
+  }
 
   if(ni < 8){
     while(nj--){
@@ -439,7 +444,7 @@ int move_word32_block(void *restrict src, int lnis, void *restrict dst, int lnid
     return move_int32_block(src, lnis, dst, lnid, ni, nj, bp) ;
 
   }else if(datatype == raw_data || bp == NULL){     // no data analysis will be performed
-    int nij = move_mem32_block(src, lnis, dst, lnid, ni, nj) ;
+    int nij = move_mem32_block(src, lnis, dst, lnid, ni, nj, NULL) ;
     if(bp != NULL){
       bp->maxu.u = 0 ;
       bp->maxs.u = 0 ;

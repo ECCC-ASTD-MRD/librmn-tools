@@ -33,15 +33,16 @@
 #include <stdint.h>
 #include <rmn/ct_assert.h>
 
+typedef  struct{ uint64_t u64[2] ;} u128 ;
 // #include <with_simd.h>
 // plain C code version using arrays for SIMD types
-typedef struct{ union{ double d[4]; int64_t i64[4]; uint64_t u64[2]; float f[8]; int32_t i32[8]; uint32_t u32[8];
-                       int16_t i16[16]; uint16_t u16[16]; int8_t i8[32]; uint8_t u8[32] ; } ; } vec_256 ;
-CT_ASSERT(sizeof(vec_256) == 32, "ERROR: sizeof(vec_256) MUST BE 32")
-
 typedef struct{ union{ double d[2]; int64_t i64[2]; uint64_t u64[2]; float f[4]; int32_t i32[4]; uint32_t u32[4];
-                       int16_t i16[ 8]; uint16_t u16[ 8]; int8_t i8[16]; uint8_t u8[16] ; } ; } vec_128 ;
+                       int16_t i16[ 8]; uint16_t u16[ 8]; int8_t i8[16]; uint8_t u8[16] ; u128 v128[1] ; } ; } vec_128 ;
 CT_ASSERT(sizeof(vec_128) == 16, "ERROR: sizeof(vec_128) MUST BE 16")
+
+typedef struct{ union{ double d[4]; int64_t i64[4]; uint64_t u64[2]; float f[8]; int32_t i32[8]; uint32_t u32[8];
+                       int16_t i16[16]; uint16_t u16[16]; int8_t i8[32]; uint8_t u8[32] ; u128 v128[2] ; } ; } vec_256 ;
+CT_ASSERT(sizeof(vec_256) == 32, "ERROR: sizeof(vec_256) MUST BE 32")
 
 #if defined(USE_INTEL_SIMD_INTRINSICS)
 
@@ -485,7 +486,8 @@ SIMD_FN(SIMD_STATIC, __m128i, 4, sub_v4i(__m128i A, __m128i B) , R.i32[i] = A.i3
 
 SIMD_FN(SIMD_STATIC, __m256i, 8, permutev_v8i(__m256i A, __m256i IDX), R.i32[i] = A.i32[IDX.i32[i]] )
 SIMD_FN(SIMD_STATIC, __m128i, 4, extracti_128(__m256i A, int upper) , R.i32[i] = A.i32[i + (upper ? 4 : 0)] )
-SIMD_FN(SIMD_STATIC, __m256i, 4, inserti_128(__m256i A, __m128i B, int upper) , R.i32[i] = upper ? A.i32[i] : B.i32[i] ; R.i32[i+4] = upper ? B.i32[i] : A.i32[i+4] )
+// SIMD_FN(SIMD_STATIC, __m256i, 4, inserti_128(__m256i A, __m128i B, int upper) , R.i32[i] = upper ? A.i32[i] : B.i32[i] ; R.i32[i+4] = upper ? B.i32[i] : A.i32[i+4] )
+SIMD_FN(SIMD_STATIC, __m256i, 1, inserti_128(__m256i A, __m128i B, int upper) , R.v128[1-upper] = A.v128[1-upper] ; R.v128[upper] = B.v128[0] )
 
 SIMD_FN(SIMD_STATIC, __m256,   8, blend_v8i(__m256i A, __m256i B, const int imm8), R.i32[i] = ((imm8>>i) & 1) ? B.i32[i] : A.i32[i] )
 SIMD_FN(SIMD_STATIC, __m256,   8, blendv_v8f(__m256 A, __m256 B, __m256 MASK),     R.i32[i] = ((MASK.i32[i] >> 31) & (B.i32[i] ^ A.i32[i])) ^  A.i32[i] )

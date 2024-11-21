@@ -92,7 +92,14 @@ int main(int argc, char **argv){
   {
     uint32_t blk[nj][ni] ;
 
-    move_word32_block(f, LNI, blk, ni, 2*ni/3, 2*nj/3, float_data, &bp) ;
+//     move_word32_block(f, LNI, blk, ni, 2*ni/3, 2*nj/3, float_data, &bp) ;
+    move_w32_block(&f[0][0], LNI, blk, ni, 2*ni/3, 2*nj/3, &bp) ;
+    if(argc == 512) {
+      void *ff = &f[0][0] ;
+      move_w32_block(&f[0][0], LNI, blk, ni, 2*ni/3, 2*nj/3, &bp) ;
+      move_w32_block(&z[0][0], LNI, blk, ni, ni,     nj,     &bp) ;
+      move_w32_block(ff,  LNI, blk, ni, 2*ni/3, 2*nj/3, &bp) ;
+    }
     print_float_props(bp) ;
 
     for(j=0 ; j<1 ; j++){
@@ -103,7 +110,8 @@ int main(int argc, char **argv){
 //     get_word_block(z, blk, ni, LNI, nj) ;
 //     gather_word32_block(z, blk, ni, LNI, nj) ;
 //     gather_int32_block((int32_t *)z, blk, ni, LNI, nj, &bp) ;
-    move_word32_block(z, LNI, blk, ni, ni, nj, int_data, &bp) ;
+//     move_word32_block(z, LNI, blk, ni, ni, nj, int_data, &bp) ;
+    move_w32_block(&z[0][0], LNI, blk, ni, ni,     nj,     &bp) ;
     print_int_props(bp) ;
     errors = 0 ;
     for(j=0 ; j<nj ; j++){
@@ -118,7 +126,8 @@ int main(int argc, char **argv){
 
 //     put_word_block(r, blk, ni, LNI, nj) ;
 //     scatter_word32_block(r, blk, ni, LNI, nj) ;
-    move_word32_block(blk, ni, r, LNI, ni, nj, raw_data, NULL) ;
+//     move_word32_block(blk, ni, r, LNI, ni, nj, raw_data, NULL) ;
+    move_w32_block(&blk[0][0], ni, r, LNI, ni, nj, NULL) ;
     errors = 0 ;
     for(j=0 ; j<nj ; j++){
       for(i=0 ; i<ni ; i++){
