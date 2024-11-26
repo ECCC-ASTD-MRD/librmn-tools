@@ -25,7 +25,7 @@ typedef union{
   float    f ;    // float
 } iuf32_t ;
 
-// generic 64 bit word
+// generic 64 bit container
 typedef union{
   double    d ;    // double
   void   *ptr ;    // address
@@ -38,11 +38,11 @@ typedef union{
 
 // expected data types for block properties
 typedef enum {
-  bad_data = 0,     // invalid or unknown
-  int_data = 1,     // signed integers
-  uint_data = 2,    // unsigned integers
-  float_data = 3,   // floats
-  raw_data = 4      // any 32 bit quantities (block_properties can be meaningless in that case)
+  bad_data   = 0,     // invalid or unknown
+  int_data   = 1,     // signed integers
+  uint_data  = 2,     // unsigned integers
+  float_data = 3,     // floats
+  raw_data   = 4      // any 32 bit quantities (block_properties can be meaningless in that case)
 } int_or_float ;
 static char *printable_type[] = { "BAD", "SIGNED", "UNSIGNED", "FLOAT", "RAW32" } ;
 
@@ -85,12 +85,3 @@ static inline fn_args *malloc_fn_args(uint32_t nmax) { return (fn_args *) malloc
 typedef int (*fnptr)(int lni, int ni, int nj, block_properties *bp, void *data, fn_args *args) ;   // pointer to processing function
 
 int split_and_process(void *array, uint32_t lgni, uint32_t gni, uint32_t gnj, int_or_float datatype, int ni, int nj, fnptr fn, fn_args *fnargs);
-
-// int get_word_block(void *restrict f, void *restrict blk, int ni, int lni, int nj) ;
-// int put_word_block(void *restrict f, void *restrict blk, int ni, int lni, int nj) ;
-
-// int gather_int32_block(int32_t *restrict src, void *restrict blk, int ni, int lni, int nj, block_properties *bp) ;
-// int gather_float_block(float *restrict src, void *restrict blk, int ni, int lni, int nj, block_properties *bp) ;
-
-// int scatter_word32_block(void *restrict src, void *restrict blk, int ni, int lni, int nj) ;
-// int gather_word32_block(void *restrict src, void *restrict blk, int ni, int lni, int nj) ;
