@@ -39,14 +39,14 @@
 #define NJ  128
 #define LNI 129
 
-  void print_float_props(block_properties bp){
-    fprintf(stderr, "mins = %12f, maxs = %12f, minu = %12f, maxu = %12f\n", bp.mins.f, bp.maxs.f, bp.minu.f, bp.maxu.f) ;
-  }
+void print_float_props(block_properties bp){
+  fprintf(stderr, "float props : mins = %12f, maxs = %12f, minu = %12f, maxu = %12f\n", bp.mins.f, bp.maxs.f, bp.minu.f, bp.maxu.f) ;
+}
 
-  void print_int_props(block_properties bp){
-    fprintf(stderr, "mins = %12.8x, maxs = %12.8x, minu = %12.8x, maxu = %12.8x\n", bp.mins.u, bp.maxs.u, bp.minu.u, bp.maxu.u) ;
-    fprintf(stderr, "mins = %12d, maxs = %12d, minu = %12d, maxu = %12d\n", bp.mins.i, bp.maxs.i, bp.minu.i, bp.maxu.i) ;
-  }
+void print_int_props(block_properties bp){
+  fprintf(stderr, "int   props : mins = %12.8x, maxs = %12.8x, minu = %12.8x, maxu = %12.8x\n", bp.mins.u, bp.maxs.u, bp.minu.u, bp.maxu.u) ;
+  fprintf(stderr, "              mins = %12d, maxs = %12d, minu = %12u, maxu = %12u\n", bp.mins.i, bp.maxs.i, bp.minu.u, bp.maxu.u) ;
+}
 
 int main(int argc, char **argv){
   uint32_t z[NJ*2][LNI], r[NJ*2][LNI] ;
@@ -64,9 +64,13 @@ int main(int argc, char **argv){
     for(i=0 ; i<LNI ; i++){
       z[j][i] = (i << 8) + j ;
       z[j][i] |= (i << 31) ;
-      f[j][i] = 1.0f * (i - ni/2) * (j - ni/2) + .5f ;
+//       f[j][i] = 1.0f * (i - ni/2) * (j - ni/2) + .5f ;
+      f[j][i] = (j * LNI) + i ;
+      f[j][i] = -f[j][i] ;
     }
   }
+  f[0][0] = 0.5f ;
+//   f[0][1] = 2.5f ;
   errors = 0 ;
   for(j=0 ; j<NJ ; j++){
     for(i=0 ; i<LNI ; i++){
@@ -111,7 +115,9 @@ int main(int argc, char **argv){
 //     gather_word32_block(z, blk, ni, LNI, nj) ;
 //     gather_int32_block((int32_t *)z, blk, ni, LNI, nj, &bp) ;
 //     move_word32_block(z, LNI, blk, ni, ni, nj, int_data, &bp) ;
-    move_w32_block(&z[0][0], LNI, blk, ni, ni,     nj,     &bp) ;
+    move_w32_block(            &z[0][0], LNI, blk, ni, ni,     nj,     &bp) ;
+    print_int_props(bp) ;
+    move_w32_block((int32_t *) &z[0][0], LNI, blk, ni, ni,     nj,     &bp) ;
     print_int_props(bp) ;
     errors = 0 ;
     for(j=0 ; j<nj ; j++){
@@ -154,6 +160,16 @@ int main(int argc, char **argv){
     if(timer_min == timer_max) timer_avg = timer_max ;
     t0 = timer_min * NaNoSeC / (ni*nj) ;
     fprintf(stderr, "move flt + prop : %4.2f ns/word\n", t0) ;
+
+    TIME_LOOP_EZ(NITER, ni*nj, move_data32_block(z, LNI, blk, ni, ni, nj, NULL) ) ;
+    if(timer_min == timer_max) timer_avg = timer_max ;
+    t0 = timer_min * NaNoSeC / (ni*nj) ;
+    fprintf(stderr, "move datanoprop : %4.2f ns/word\n", t0) ;
+
+    TIME_LOOP_EZ(NITER, ni*nj, move_mem32_block(z, LNI, blk, ni, ni, nj, NULL) ) ;
+    if(timer_min == timer_max) timer_avg = timer_max ;
+    t0 = timer_min * NaNoSeC / (ni*nj) ;
+    fprintf(stderr, "move mem32      : %4.2f ns/word\n", t0) ;
 
     TIME_LOOP_EZ(NITER, ni*nj, move_word32_block(z, LNI, blk, ni, ni, nj, raw_data, NULL) ) ;
     if(timer_min == timer_max) timer_avg = timer_max ;
