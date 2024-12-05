@@ -42,7 +42,8 @@ typedef enum {
   int_data   = 1,     // signed integers
   uint_data  = 2,     // unsigned integers
   float_data = 3,     // floats
-  raw_data   = 4      // any 32 bit quantities (block_properties can be meaningless in that case)
+  raw_data   = 4,     // any 32 bit quantities (block_properties can be meaningless in that case)
+  any_data   = 5      // unknown or unspecified
 } int_or_float ;
 static char *printable_type[] = { "BAD", "SIGNED", "UNSIGNED", "FLOAT", "RAW32" } ;
 

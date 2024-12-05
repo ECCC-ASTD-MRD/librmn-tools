@@ -345,6 +345,52 @@ int move_data32_block(void *restrict src, int lnis, void *restrict dst, int lnid
   return ni * nj ;
 }
 
+void set_block_properties(block_properties *bp, int_or_float datatype){
+  if(bp == NULL) return ;
+  if(datatype == any_data) datatype = bp->kind ;
+  if(datatype == float_data){
+    if(bp->maxs.i < 0){           // all numbers are negative
+      float max = bp->minu.f ;
+      float min = bp->maxu.f ;
+      bp->mins.f =  min ;
+      bp->maxs.f =  max ;
+      bp->minu.f = -min ;
+      bp->maxu.f = -max ;
+    }else if(bp->mins.i < 0) {    // negative and non negative numbers
+      float max = bp->maxs.f ;    // most positive value
+      float min = bp->maxu.f ;    // most negative value
+      float mins = bp->mins.f ;   // negative value closest to zero
+      float minu = bp->minu.f ;   // positive value closest to zero
+      bp->mins.f =  min ;
+      bp->maxs.f =  max ;
+      bp->minu.f = (minu < (-mins)) ? minu : (-mins) ;
+      bp->maxu.f = ((max > (-min)) ? max : (-min) ) ;        // max is positive, is |max| > |min| ?
+    }
+    bp->kind = float_data ;
+  }else if(datatype == int_data){
+    if(bp->maxs.i < 0){           // all numbers are negative
+      uint32_t minu = -bp->maxu.i ;
+      uint32_t maxu = -bp->minu.i ;
+      bp->minu.u = minu ;
+      bp->maxu.u = maxu ;
+    }else if(bp->mins.i < 0) {    // negative and non negative numbers
+      uint32_t max1 = bp->maxs.i ;  // largest positive value
+      int64_t max2  = bp->mins.i ;  // largest negative value
+      max2 = -max2 ;
+      bp->minu.u = 0 ;
+      bp->maxu.u = ((max1 > max2) ? max1 : max2 ) ;
+    }
+    bp->kind = int_data ;
+  }else if(datatype == uint_data){
+    bp->kind = uint_data ;
+    bp->maxs.u = bp->mins.u = 0 ;
+  }else if(datatype == raw_data){
+    bp->kind = raw_data ;
+  }else{
+    bp->kind = bad_data ;
+  }
+}
+
 // move a block (ni x nj) of 32 bit floats from src to dst, set moved block properties
 // src  [IN] : float array to extract data from (NON CONTIGUOUS storage)
 // dst [OUT] : array to put extracted data into (NON CONTIGUOUS storage)
