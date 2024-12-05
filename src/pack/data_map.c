@@ -27,12 +27,12 @@
 // ntj    [IN] : number of rows
 // sf0    [IN] : stripe width, last (top) stripe may be narrower
 // the function returns the i and j coordinates in struct ij_range
-ij_range Zindex_to_i_j(int32_t zij, int32_t nti, int32_t ntj, int32_t sf0){
-  ij_range ij ;
+ij_pair Zindex_to_i_j(int32_t zij, int32_t nti, int32_t ntj, int32_t sf0){
+  ij_pair ij ;
   int32_t sf1, i, j, st0, sz0, sti, stn, j0 ;
 
-  ij.i0 = -1 ;                              // precondition for miserable failure
-  ij.j0 = -1 ;
+  ij.i = -1 ;                               // precondition for miserable failure
+  ij.j = -1 ;
   // a negative value for zij would translate into a huge unsigned number
   if(zij < 0) goto end ;
   if(zij >= nti * ntj) goto end ;           // zij is out of bounds
@@ -49,8 +49,8 @@ ij_range Zindex_to_i_j(int32_t zij, int32_t nti, int32_t ntj, int32_t sf0){
   i   = sti / sf1 ;                         // position along i
   j   = sti - (i * sf1) ;                   // modulo(sti, sf1) (j position in current stripe)
   j  += st0 * sf0 ;                         // position along j (add stripe j start position)
-  ij.i0 = i ;                               // i coordinate of block
-  ij.j0 = j ;                               // j coordinate of block
+  ij.i = i ;                                // i coordinate of block
+  ij.j = j ;                                // j coordinate of block
 end:
   return ij ;                               // return pair of coordinates
 }
@@ -84,56 +84,62 @@ end:
   return zi ;
 }
 
+// block position from grid index, using data map
+// map    [IN] : data map
+// i      [IN] : i (column) position in 2D grid
+// j      [IN] : j (row) position in 2D grid
+// return [i,j] block coordinates (different from z index)
+ij_pair block_index(zmap *map, int32_t i, int32_t j){
+  ij_pair ij = {.i = -1, .j = -1 } ;  // precondition for failure
+  if(map->gni > i && map->gnj > j){
+    ij.i = (i - map->lix) / map->lni ;
+    ij.j = (j - map->ljx) / map->lnj ;
+    ij.i = (ij.i < 0) ? 0 : ij.i ;
+    ij.j = (ij.j < 0) ? 0 : ij.j ;
+  }
+  return ij ;
+}
+
 // Z (zigzag) block index from grid index, using data map
 // map    [IN] : data map
 // i      [IN] : i (column) position in 2D grid
 // j      [IN] : j (row) position in 2D grid
 // return [ij] Z block index
 int32_t Z_block_index(zmap *map, int32_t i, int32_t j){
-  ij_range ij = block_index(map, i, j) ;
-  return Zindex_from_i_j(ij.i0, ij.j0, map->zni, map->znj, map->stripe) ;
-}
-
-// block position from grid index, using data map
-// map    [IN] : data map
-// i      [IN] : i (column) position in 2D grid
-// j      [IN] : j (row) position in 2D grid
-// return [i,j] block coordinates (different from z index)
-ij_range block_index(zmap *map, int32_t i, int32_t j){
-  ij_range ij = {.i0 = -1, .j0 = -1 } ;  // precondition for failure
-  if(map->gni > i && map->gnj > j){
-    ij.i0 = (i - map->lix) / map->lni ;
-    ij.j0 = (j - map->ljx) / map->lnj ;
-    ij.i0 = (ij.i0 < 0) ? 0 : ij.i0 ;
-    ij.j0 = (ij.j0 < 0) ? 0 : ij.j0 ;
-  }
-  return ij ;
+  ij_pair ij = block_index(map, i, j) ;
+  return Zindex_from_i_j(ij.i, ij.j, map->zni, map->znj, map->stripe) ;
 }
 
 // area covered by block[j][i]
 // map    [IN] : data map
-// i      [IN] : block column index
-// j      [IN] : block row index
+// bi     [IN] : block column index
+// bj     [IN] : block row index
 // return i and j index limits for area covered by block[j][i]
-ij_range block_limits(zmap *map, int32_t i, int32_t j){
+ij_range block_limits(zmap *map, int32_t bi, int32_t bj){
   ij_range ij = {.i0 = -1, .in = -1, .j0 = -1, .jn = -1 } ;  // precondition for failure
-  if(i < map->zni && j < map->znj){                            // inside limits
-    if(map->lix > map->lni){                                   // first block is longer
-      ij.i0 = (i == 0) ? 0 : map->lix + (i - 1) * map->lni ;   // first point in block
-      ij.in = ij.i0 + ((i == 0) ? map->lix : map->lni) - 1 ;   // last point in block
-    }else{                                                   // last block may be shorter
-      ij.i0 = i * map->lni ;                                  // first point in block
-      ij.in = ij.i0 + map->lni - 1 ;
-      ij.in = (ij.in < map->gni) ? ij.in : map->gni - 1 ;      // last point in block
-    }
-    if(map->ljx > map->lnj){                                   // first block is longer
-      ij.j0 = (j == 0) ? 0 : map->ljx + (j - 1) * map->lnj ;   // first point in block
-      ij.jn = ij.j0 + ((j == 0) ? map->ljx : map->lnj) - 1 ;   // last point in block
-    }else{                                                   // last block may be shorter
-      ij.j0 = j * map->lnj ;                                  // first point in block
-      ij.jn = ij.j0 + map->lnj - 1 ;
-      ij.jn = (ij.jn < map->gnj) ? ij.jn : map->gnj - 1 ;      // last point in block
-    }
+
+  if(bi < map->zni && bj < map->znj){                        // inside map limits
+    ij_pair ijp ;
+    ijp = b_limits(bi, map->lni, map->lix) ;
+    ij.i0 = ijp.i ; ij.in = ijp.j ;
+    ijp = b_limits(bj, map->lnj, map->ljx) ;
+    ij.j0 = ijp.i ; ij.jn = ijp.j ;
+//     if(map->lix > map->lni){                                   // first block is longer
+//       ij.i0 = (i == 0) ? 0 : map->lix + (i - 1) * map->lni ;   // first point in block
+//       ij.in = ij.i0 + ((i == 0) ? map->lix : map->lni) - 1 ;   // last point in block
+//     }else{                                                   // last block may be shorter
+//       ij.i0 = i * map->lni ;                                  // first point in block
+//       ij.in = ij.i0 + map->lni - 1 ;
+//       ij.in = (ij.in < map->gni) ? ij.in : map->gni - 1 ;      // last point in block
+//     }
+//     if(map->ljx > map->lnj){                                   // first block is longer
+//       ij.j0 = (j == 0) ? 0 : map->ljx + (j - 1) * map->lnj ;   // first point in block
+//       ij.jn = ij.j0 + ((j == 0) ? map->ljx : map->lnj) - 1 ;   // last point in block
+//     }else{                                                   // last block may be shorter
+//       ij.j0 = j * map->lnj ;                                  // first point in block
+//       ij.jn = ij.j0 + map->lnj - 1 ;
+//       ij.jn = (ij.jn < map->gnj) ? ij.jn : map->gnj - 1 ;      // last point in block
+//     }
   }
   return ij ;
 }
@@ -185,14 +191,14 @@ if(DEBUG) fprintf(stderr, "data offset = %ld bytes, hsize = %ld[%ld+%ld]\n", (ui
     map->ljx    = ljx ;
     map->flags  = 0 ;
     znij        = zni * znj ;
-    map->mem    = (zblocks *)malloc( (znij + 1) * sizeof(uint32_t *) ) ;
-    if(map->mem == NULL){    // failed to allocate pointer table
+    map->mh.mem = (zblocks *)malloc( (znij + 1) * sizeof(uint32_t *) ) ;
+    if(map->mh.mem == NULL){    // failed to allocate pointer table
       free(map) ;
       map = NULL ;
       goto end ;
     }
-    map->mem[0] =  (uint32_t *)data ;
-if(DEBUG) fprintf(stderr, "mem[0] offset : %ld\n",  (uint8_t *)map->mem[0] - (uint8_t *) map) ;
+    map->mh.mem[0] =  (uint32_t *)data ;
+if(DEBUG) fprintf(stderr, "mem[0] offset : %ld\n",  (uint8_t *)map->mh.mem[0] - (uint8_t *) map) ;
     for(j=0 ; j<znj ; j++){
       lbj = (j ==     0 && ljx > lnj) ? ljx : lnj ;      // longer second dimension
       lbj = (j == znj-1 && ljx < lnj) ? ljx : lnj ;      // shorter second dimension
@@ -204,16 +210,16 @@ if(DEBUG) fprintf(stderr, "mem[0] offset : %ld\n",  (uint8_t *)map->mem[0] - (ui
         map->size[zij] = lsize ;                     // set worstcase size for this zigzag indexed block
       }
     }
-    for(i=0 ; i<znij ; i++) map->mem[i+1] = map->mem[i] + map->size[i] ;
+    for(i=0 ; i<znij ; i++) map->mh.mem[i+1] = map->mh.mem[i] + map->size[i] ;
 if(DEBUG) {
 fprintf(stderr, "range     : ");
-for(i=0 ; i<znij ; i++)fprintf(stderr, "%6ld", map->mem[i] - map->mem[0]);
+for(i=0 ; i<znij ; i++)fprintf(stderr, "%6ld", map->mh.mem[i] - map->mh.mem[0]);
 fprintf(stderr, "\n");
 fprintf(stderr, "            ");
-for(i=0 ; i<znij ; i++)fprintf(stderr, "%6ld", map->mem[i+1] - map->mem[0] - 1);
+for(i=0 ; i<znij ; i++)fprintf(stderr, "%6ld", map->mh.mem[i+1] - map->mh.mem[0] - 1);
 fprintf(stderr, "\n");
 fprintf(stderr, "span      : ");
-for(i=0 ; i<znij ; i++)fprintf(stderr, "%6ld", map->mem[i+1] - map->mem[i]);
+for(i=0 ; i<znij ; i++)fprintf(stderr, "%6ld", map->mh.mem[i+1] - map->mh.mem[i]);
 fprintf(stderr, "\n");
 fprintf(stderr, "map->size : ");
 for(i=0 ; i<znij ; i++)fprintf(stderr, "%6d", map->size[i]);
@@ -242,7 +248,7 @@ zblocks *mem_zmap(zmap *map, uint32_t *data){
 
   if(mem){          // allocation was successful
     int i ;
-    map->mem = mem ;
+    map->mh.mem = mem ;
     mem[0] = data ? data : (uint32_t *)&(map->size[znij]) ;      // if data is NULL, packed data follows data map in memory
     for(i=1 ; i<znij ; i++) mem[i] = mem[i-1] + map->size[i-1] ;
   }
@@ -260,8 +266,8 @@ zblocks *mem_zmap(zmap *map, uint32_t *data){
 // full    [IN] : if zero, only deallocate pointer table to packed blocks
 int free_zmap(zmap *map, int full){
   if(map == NULL) return -1 ;
-  if(map->mem) free(map->mem) ;
-  map->mem = NULL ;
+  if(map->mh.mem) free(map->mh.mem) ;
+  map->mh.mem = NULL ;
   if(full) {
     free(map) ;
 if(DEBUG) fprintf(stderr, "FULL map free\n") ;
@@ -276,19 +282,19 @@ ssize_t repack_map(zmap *map){
   int i, k ;
   uint32_t *current, *stream ;
   if(map == NULL)      return -1 ;
-  if(map->mem == NULL) return -1 ;
+  if(map->mh.mem == NULL) return -1 ;
 
-  current = map->mem[0] ;          // initial target position
+  current = map->mh.mem[0] ;          // initial target position
   for(k=0 ; k < map->zni * map->znj ; k++){
-    stream = map->mem[k] ;         // copy from this position in memory
-    map->mem[k] = current ;        // update mem pointer to new position in memory
-    if(current < stream || map->size[k] != map->mem[k+1] - map->mem[k]) {  // need to copy ?
-      if(DEBUG) fprintf(stderr, "copying from %6ld", current - map->mem[0]) ;
+    stream = map->mh.mem[k] ;         // copy from this position in memory
+    map->mh.mem[k] = current ;        // update mem pointer to new position in memory
+    if(current < stream || map->size[k] != map->mh.mem[k+1] - map->mh.mem[k]) {  // need to copy ?
+      if(DEBUG) fprintf(stderr, "copying from %6ld", current - map->mh.mem[0]) ;
       for(i=0 ; i < map->size[k] ; i++){ current[i] = stream[i] ; }
-      if(DEBUG) fprintf(stderr, " to %6ld [%6d]\n", current + i - map->mem[0] -1, map->size[k]) ;
+      if(DEBUG) fprintf(stderr, " to %6ld [%6d]\n", current + i - map->mh.mem[0] -1, map->size[k]) ;
     }
     current += map->size[k] ;      // update target position
   }
-  map->mem[k] = current ;
-  return current - map->mem[0] ;
+  map->mh.mem[k] = current ;
+  return current - map->mh.mem[0] ;
 }

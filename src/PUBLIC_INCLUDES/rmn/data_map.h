@@ -104,18 +104,21 @@
 #include <stdint.h>
 #include <stdlib.h>
 
+#include <rmn/ct_assert.h>
+
 // packed data representation (as in buffer read from file or in memory)
 //
-//   <----------------- buffer_size ---------------------->
-//   <-- sizeof(zmap) ->
-//                     <- 2*zni*znj ->
-//   +-----------------+-------------+--------------------+
-//   |                 |             |                    |
-//   | data map header |    size     | packed data stream |
-//   |                 |  [zni*znj]  |                    |
-//   +-----------------+-------------+--------------------+
-//   |buffer                         |
-//   |data_map                       |data_ptr
+//   <----------------------------- in memory ----------------------------->
+//   <----------- sizeof(zmap) ---------->
+//   <- sizeof(mhead) ->                 <- 2*zni*znj ->
+//   +-----------------+-----------------+-------------+--------------------+
+//   |                 |                 |             |                    |
+//   |  memory header  | data map header |    size     | packed data stream |
+//   |                 |                 |  [zni*znj]  |                    |
+//   +-----------------+-----------------+-------------+--------------------+
+//                     |                 |             |
+//                     |data_head        |size[]       |data stream
+//                     <--------------------- in file ---------------------->
 //
 // data map can be mapped directly to the beginning of the packed data representation
 // uint8_t buffer[buffer_size]
@@ -129,110 +132,148 @@
 //    zmap->mem[0] = data_ptr, zmap->mem[i] = zmap->mem[i-1] + zmap->size[i-1]
 //    zmap->mem[zi] is the address of block with zigzag index zi
 //
-// (lix,ljx) may differ from(li,lj)
+// (lix,ljx) may differ from(li,lj)  (half size to size and a half - 1)
+//   li/2 <= lix < li + li/2
+//   lj/2 <= ljx < lj + lj/2
 // either
-// - the first block along a dimension will be larger
-//   block[1,1] : (lix,ljx), block[i,1] : (li,ljx), block[1,j] : (lix,lj)
-// - the last block along a dimension will be smaller
-//   block[zni,znj] : (lix,ljx), block[i,znj] : (li,ljx), block[zni,j] : (lix,lj)
+// - the first block along a dimension will be larger or smaller
+//   block[0,0] : (lix,ljx)          (first block of first row)
+//   block[i,0] : ( li,ljx)  (i > 0) (first row)
+//   block[0,j] : (lix, lj)  (j > 0) (first column)
 // - all blocks have the same dimension 
 //   block[i,j] : (li,lj)
 //
 typedef uint32_t *zblocks ;   // zblocks[zi] is address of block[ zindex(i,j) ]
 
-typedef struct{          // data map
-  // ---------------- start of in memory header ----------------
-  uint64_t signature ;   // signature and version  0xBEBEFADAxxxxssss
-                         // (ssss same as version, xxxx freeable pointers flags)
+typedef struct{
+  uint32_t signature ;   // 0xBEBEFADA
+  uint32_t version:8 ,   // same as file header
+            spare:8 ,
+            flags:16 ;   // freeable pointers flags
   zblocks *mem ;         // table[zni*znj] : memory addresses of encoded blocks in memory
   uint8_t *options ;     // same dimension as size, options associated with each encoded block
   uint32_t *first ;      // start of compressed data stream
   uint32_t *limit ;      // one past the end of compressed data stream
-  // ---------------- start of file header ----------------
+} mhead ;
+CT_ASSERT(sizeof(mhead) == 5 * sizeof(void *) , "unexpected size for in memory header")
+
+typedef struct{          // data map
+  // ---------------- start of in memory header ----------------
+  mhead mh ;
+  // ---------------- start of in file header ----------------
   union{
-   uint32_t data_head ;  // target for & operator
-   struct {
-    uint32_t version:8 , // version marker
-             stripe:8 ,  // stripe width (last stripe may be narrower)
-             flags:16 ;  // reserved for flags
-   } ;
+   uint32_t data_head ;  // target for & operator to get address of start of in file header
+   uint32_t signature ;
   } ;
-  int32_t gni ;          // first dimension of data array   = lix + (zni - 1) * lni
-  int32_t gnj ;          // second dimension of data array  = ljx + (znj - 1) * lnj
+  struct {
+    uint32_t version: 8, // version marker
+            stripe  : 8, // stripe width (last/top stripe may be narrower)
+            flags   :16; // reserved for flags
+  } ;
+  int32_t gni ;          // first dimension of data array   = lix + (zni - 1) * lni (row size)
+  int32_t gnj ;          // second dimension of data array  = ljx + (znj - 1) * lnj (column size)
 //   uint32_t nk ;          // third dimension of data array and block array
   int32_t zni ;          // number of blocks in a row
   int32_t znj ;          // number of block rows
-  int32_t lni:16 ,       // first dimension of most blocks (number of values)
-          lnj:16 ;       // second dimension of most blocks (number of values)
-  int32_t lix:16 ,       // first dimension of the first/last block in row
-          ljx:16 ;       // second dimension of blocks in the first/last (bottom/top) row
+  int32_t lni:16 ,       // first dimension of all but first block (number of values)
+          lnj:16 ;       // second dimension of all but first block (number of values)
+  int32_t lix:16 ,       // first dimension of the first block in row
+          ljx:16 ;       // second dimension of blocks in the first (bottom) row
   // ---------------- end of header ----------------
-  uint16_t size[] ;      // size (in 32 bit units) of encoded block ( size[znj*zni] )
+  uint16_t size[] ;      // size (in 32 bit units) of encoded blocks ( size[znj*zni] )
 }zmap ;
+CT_ASSERT(sizeof(zmap) == sizeof(mhead) + 8 * sizeof(int32_t) , "unexpected size for in memory header")
+
+// block index from index and sizes (along one dimension)
+// l   [IN] : index along a dimension of global array
+// ln  [IN] : size of all but first block along a dimension
+// ln0 [IN] : size of first block along a dimension (ln/2 <= ln0 < 2*ln -1 )
+// return block index along that dimension
+static inline int32_t b_index(int32_t l, int32_t ln, int32_t ln0){
+  return (l + ln - ln0)/ln ;
+}
 
 typedef struct{
-  int32_t i0  ;
-  int32_t in  ;
-  int32_t j0  ;
-  int32_t jn  ;
-}ij_range ;
+  int32_t i  ;
+  int32_t j  ;
+}ij_pair ;               // 2D coordinate pair
+
+// index range from block index and sizes (along one dimension)
+// bl  [IN] : block index along a dimension
+// ln  [IN] : size of all but first block along a dimension
+// ln0 [IN] : size of first block along a dimension (ln/2 <= ln0 < 2*ln -1 )
+// return index limits along a dimension for this block
+static inline ij_pair b_limits(int32_t bl, int32_t ln, int32_t ln0){
+  if(bl == 0){
+    return (ij_pair){.i = 0 , .j = ln0-1} ;
+  }else{
+    return (ij_pair){.i = (bl-1)*ln + ln0, .j = bl*ln + ln0 -1 } ;
+  }
+}
+
+typedef struct{
+  int32_t i0  ;          // index of first point along first dimension
+  int32_t in  ;          // index of last point along first dimension
+  int32_t j0  ;          // index of first point along second dimension
+  int32_t jn  ;          // index of last point along second dimension
+}ij_range ;              // 2D index range of coordinates
 
 typedef struct{
   int32_t  ni ;          // number of elements stored along dimension
   uint32_t stride ;      // distance between adjacent elements along dimension
   int32_t  i0 ;          // index of first point along dimension ( 0 -> ni - 1 )
-  int32_t  lni ;         // number of elements used along dimension ( 0 -> ni )
+  int32_t  lni ;         // number of elements used along dimension ( 0 -> ni - 1 - i0 )
 } dim_desc ;             // i0 = 0 , lni = ni : all elements are used
 
-typedef struct{
+typedef struct{          // generic struct for array with n dimensions
   uint8_t *data ;        // starting address of array (byte pointer)
   uint8_t *limit ;       // pointer to 1 byte beyond array (byte pointer)
   uint32_t esize ;       // size of array elements in bytes (1, 2, 4, 8, ..., )
   uint16_t reserved ;
   uint8_t  type ;        // element type, float ('F'), signed integer ('I') , unsigned integer ('U'), ...)
   uint8_t  ndim ;        // number of dimensions
-  dim_desc dim[] ;       // dimension descriptor
-} array_nd ;             // array with n dimensions
+  dim_desc dim[] ;       // dimension descriptor (flexible array member)
+} array_nd ;
 
-typedef struct{
+typedef struct{          // 1D array
   uint8_t *data ;
   uint8_t *limit ;
   uint32_t esize ;
   uint16_t reserved ;
   uint8_t  type ;
-  uint8_t  ndim ;        // better be 1 or else
+  uint8_t  ndim ;        // better be 1
   dim_desc dim[1] ;
-} array_1d ;             // 1D array
+} array_1d ;
 
-typedef struct{
+typedef struct{          // 2D array
   uint8_t *data ;
   uint8_t *limit ;
   uint32_t esize ;
   uint16_t reserved ;
   uint8_t  type ;
-  uint8_t  ndim ;        // better be 2 or else
+  uint8_t  ndim ;        // better be 2
   dim_desc dim[2] ;
-} array_2d ;             // 2D array
+} array_2d ;
 
-typedef struct{
+typedef struct{          // 3D array
   uint8_t *data ;
   uint8_t *limit ;
   uint32_t esize ;
   uint16_t reserved ;
   uint8_t  type ;
-  uint8_t  ndim ;        // better be 3 or else
+  uint8_t  ndim ;        // better be 3
   dim_desc dim[3] ;
-} array_3d ;             // 3D array
+} array_3d ;
 
-typedef struct{
+typedef struct{          // 4D array
   uint8_t *data ;
   uint8_t *limit ;
   uint32_t esize ;
   uint16_t reserved ;
   uint8_t  type ;
-  uint8_t  ndim ;        // better be 4 or else
-  dim_desc dim[3] ;
-} array_4d ;             // 4D array
+  uint8_t  ndim ;        // better be 4
+  dim_desc dim[4] ;
+} array_4d ;
 
 // static const seems not to induce the warning
 // #pragma GCC diagnostic push
@@ -346,15 +387,15 @@ static inline array_nd *new_array_nd(array_nd *a, int nd, int32_t dim[nd]){
 }
 
 int32_t Zindex_from_i_j(int32_t i, int32_t j, int32_t nti, int32_t ntj, int32_t sf0);
-ij_range Zindex_to_i_j(int32_t zij, int32_t nti, int32_t ntj, int32_t sf0);
+ij_pair Zindex_to_i_j(int32_t zij, int32_t nti, int32_t ntj, int32_t sf0);
 
-int32_t Z_block_index(zmap *map, int32_t i, int32_t j);
-ij_range block_index(zmap *map, int32_t i, int32_t j);
+int32_t  Z_block_index(zmap *map, int32_t i, int32_t j);
+ij_pair  block_index(zmap *map, int32_t i, int32_t j);
 ij_range block_limits(zmap *map, int32_t i, int32_t j);
 
-zmap *new_zmap(int32_t gni, int32_t gnj, int32_t stripe, size_t esize);
+zmap    *new_zmap(int32_t gni, int32_t gnj, int32_t stripe, size_t esize);
 zblocks *mem_zmap(zmap *map, uint32_t *data);
 ssize_t repack_map(zmap *map);
-int free_zmap(zmap *map, int full);
+int     free_zmap(zmap *map, int full);
 
 #endif
