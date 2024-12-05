@@ -100,14 +100,14 @@ ij_pair block_index(zmap *map, int32_t i, int32_t j){
   return ij ;
 }
 
-// Z (zigzag) block index from grid index, using data map
+// Z (zigzag) block index from block indexes, using data map
 // map    [IN] : data map
-// i      [IN] : i (column) position in 2D grid
-// j      [IN] : j (row) position in 2D grid
+// i      [IN] : i (column) position in 2D block grid
+// j      [IN] : j (row) position in 2D block grid
 // return [ij] Z block index
-int32_t Z_block_index(zmap *map, int32_t i, int32_t j){
-  ij_pair ij = block_index(map, i, j) ;
-  return Zindex_from_i_j(ij.i, ij.j, map->zni, map->znj, map->stripe) ;
+int32_t Z_map_index(zmap *map, int32_t i, int32_t j){
+//   ij_pair ij = block_index(map, i, j) ;
+  return Zindex_from_i_j(i, j, map->zni, map->znj, map->stripe) ;
 }
 
 // area covered by block[j][i]
@@ -118,41 +118,32 @@ int32_t Z_block_index(zmap *map, int32_t i, int32_t j){
 ij_range block_limits(zmap *map, int32_t bi, int32_t bj){
   ij_range ij = {.i0 = -1, .in = -1, .j0 = -1, .jn = -1 } ;  // precondition for failure
 
-  if(bi < map->zni && bj < map->znj){                        // inside map limits
-    ij_pair ijp ;
-    ijp = b_limits(bi, map->lni, map->lix) ;
-    ij.i0 = ijp.i ; ij.in = ijp.j ;
-    ijp = b_limits(bj, map->lnj, map->ljx) ;
-    ij.j0 = ijp.i ; ij.jn = ijp.j ;
-//     if(map->lix > map->lni){                                   // first block is longer
-//       ij.i0 = (i == 0) ? 0 : map->lix + (i - 1) * map->lni ;   // first point in block
-//       ij.in = ij.i0 + ((i == 0) ? map->lix : map->lni) - 1 ;   // last point in block
-//     }else{                                                   // last block may be shorter
-//       ij.i0 = i * map->lni ;                                  // first point in block
-//       ij.in = ij.i0 + map->lni - 1 ;
-//       ij.in = (ij.in < map->gni) ? ij.in : map->gni - 1 ;      // last point in block
-//     }
-//     if(map->ljx > map->lnj){                                   // first block is longer
-//       ij.j0 = (j == 0) ? 0 : map->ljx + (j - 1) * map->lnj ;   // first point in block
-//       ij.jn = ij.j0 + ((j == 0) ? map->ljx : map->lnj) - 1 ;   // last point in block
-//     }else{                                                   // last block may be shorter
-//       ij.j0 = j * map->lnj ;                                  // first point in block
-//       ij.jn = ij.j0 + map->lnj - 1 ;
-//       ij.jn = (ij.jn < map->gnj) ? ij.jn : map->gnj - 1 ;      // last point in block
-//     }
+  if(bi < map->zni && bj < map->znj){                        // inside map limits ?
+    ij_pair p ;
+    p = b_limits(bi, map->lni, map->lix) ;                   // get block limits along first dimension (row)
+    ij.i0 = p.i ; ij.in = p.j ;
+    p = b_limits(bj, map->lnj, map->ljx) ;                   // get block limits along second dimension (column)
+    ij.j0 = p.i ; ij.jn = p.j ;
   }
   return ij ;
 }
 
 // create a data map with a worst case buffer for map and packed data
+// gni    [IN] : first dimension of array (row size)
+// gnj    [IN] : second dimension of array (number of rows)
+// stripe [IN] : block stripe width for map
+// esize  [IN] : size in bytes of array elements (normally 1/2/4/8)
 zmap *new_zmap(int32_t gni, int32_t gnj, int32_t stripe, size_t esize){
   int32_t bsize = 64 ;   // use default size of 64
-  int32_t zni = (gni + bsize / 2) / bsize ;
-  int32_t znj = (gnj + bsize / 2) / bsize ;
+  ij_pair p ;
+  p = split_array_dimension(gni, bsize) ;
+  int32_t zni = p.i ;
   int32_t lni = bsize ;
+  int32_t lix = p.j ;
+  p = split_array_dimension(gnj, bsize) ;
+  int32_t znj = p.i ;
   int32_t lnj = bsize ;
-  int32_t lix = gni - (zni - 1) * bsize ;
-  int32_t ljx = gnj - (znj - 1) * bsize ;
+  int32_t ljx = p.j ;
   zmap *map = NULL ;
   ssize_t size = sizeof(zmap) + sizeof(uint16_t) * zni * znj ; // size of data map itself, header + table of sizes
   ssize_t hsize = size ;
@@ -162,17 +153,17 @@ zmap *new_zmap(int32_t gni, int32_t gnj, int32_t stripe, size_t esize){
 if(DEBUG) fprintf(stderr, "bsize = %d, gni = %d, gnj = %d, zni = %d, znj = %d\n", bsize, gni, gnj, zni, znj);
   // compute worst case block sizes for packed data = size of data rounded up to uint32_t size
   // packed blocks are supposed to be aligned to uint32_t boundaries
+  lbj = ljx ;                       // longer/shorter second dimension in first row
   for(j=0 ; j<znj ; j++){
-    lbj = (j ==     0 && ljx > lnj) ? ljx : lnj ;      // longer second dimension
-    lbj = (j == znj-1 && ljx < lnj) ? ljx : lnj ;      // shorter second dimension
+    lbi = lix ;                     // longer/shorter first dimension in first column
     for(i=0 ; i<zni ; i++){
-      lbi = (i ==     0 && lix > lni) ? lix : lni ;    // longer first dimension
-      lbi = (i == zni-1 && lix < lni) ? lix : lni ;    // shorter first dimension
-      lsize = lbi * lbj * esize ;
-      lsize = (lsize + sizeof(uint32_t) - 1) / sizeof(uint32_t) * sizeof(uint32_t) ;
-      size = size + lsize ;
+      lsize = lbi * lbj * esize ;   // worst case size for this block
+      lsize = (lsize + sizeof(uint32_t) - 1) / sizeof(uint32_t) ;   // round to multiple of uint32_t size
+      size = size + lsize * sizeof(uint32_t) ;
 if(DEBUG) fprintf(stderr, "block[%d,%d] (%d,%d) size = %ld\n", i, j, lbi, lbj, lsize/sizeof(uint32_t));
+      lbi = lni ;                   // after first column
     }
+    lbj = lnj ;                     // after first row
   }
 if(DEBUG) fprintf(stderr, "buffer size = %ld\n", size) ;
   map = (zmap *) malloc(size) ;
@@ -199,31 +190,32 @@ if(DEBUG) fprintf(stderr, "data offset = %ld bytes, hsize = %ld[%ld+%ld]\n", (ui
     }
     map->mh.mem[0] =  (uint32_t *)data ;
 if(DEBUG) fprintf(stderr, "mem[0] offset : %ld\n",  (uint8_t *)map->mh.mem[0] - (uint8_t *) map) ;
+    lbj = ljx ;                       // longer/shorter second dimension in first row
     for(j=0 ; j<znj ; j++){
-      lbj = (j ==     0 && ljx > lnj) ? ljx : lnj ;      // longer second dimension
-      lbj = (j == znj-1 && ljx < lnj) ? ljx : lnj ;      // shorter second dimension
+      lbi = lix ;                     // longer/shorter first dimension in first column
       for(i=0 ; i<zni ; i++){
-        lbi = (i ==     0 && lix > lni) ? lix : lni ;    // longer first dimension
-        lbi = (i == zni-1 && lix < lni) ? lix : lni ;    // shorter first dimension
-        lsize = lbi * lbj * esize ; lsize = (lsize + sizeof(uint32_t) - 1) / sizeof(uint32_t) ;
+        lsize = lbi * lbj * esize ;   // worst case size for this block
+        lsize = (lsize + sizeof(uint32_t) - 1) / sizeof(uint32_t) ;   // round to multiple of uint32_t size
         zij = Zindex_from_i_j(i, j, zni, znj, stripe) ;
-        map->size[zij] = lsize ;                     // set worstcase size for this zigzag indexed block
+        map->size[zij] = lsize ;      // set worstcase size for this zigzag indexed block
+        lbi = lni ;                   // after first column
       }
+      lbj = lnj ;                     // after first row
     }
     for(i=0 ; i<znij ; i++) map->mh.mem[i+1] = map->mh.mem[i] + map->size[i] ;
 if(DEBUG) {
-fprintf(stderr, "range     : ");
-for(i=0 ; i<znij ; i++)fprintf(stderr, "%6ld", map->mh.mem[i] - map->mh.mem[0]);
-fprintf(stderr, "\n");
-fprintf(stderr, "            ");
-for(i=0 ; i<znij ; i++)fprintf(stderr, "%6ld", map->mh.mem[i+1] - map->mh.mem[0] - 1);
-fprintf(stderr, "\n");
-fprintf(stderr, "span      : ");
-for(i=0 ; i<znij ; i++)fprintf(stderr, "%6ld", map->mh.mem[i+1] - map->mh.mem[i]);
-fprintf(stderr, "\n");
-fprintf(stderr, "map->size : ");
-for(i=0 ; i<znij ; i++)fprintf(stderr, "%6d", map->size[i]);
-fprintf(stderr, "\n");
+  fprintf(stderr, "range     : ");
+  for(i=0 ; i<znij ; i++)fprintf(stderr, "%6ld", map->mh.mem[i] - map->mh.mem[0]);
+  fprintf(stderr, "\n");
+  fprintf(stderr, "            ");
+  for(i=0 ; i<znij ; i++)fprintf(stderr, "%6ld", map->mh.mem[i+1] - map->mh.mem[0] - 1);
+  fprintf(stderr, "\n");
+  fprintf(stderr, "span      : ");
+  for(i=0 ; i<znij ; i++)fprintf(stderr, "%6ld", map->mh.mem[i+1] - map->mh.mem[i]);
+  fprintf(stderr, "\n");
+  fprintf(stderr, "map->size : ");
+  for(i=0 ; i<znij ; i++)fprintf(stderr, "%6d", map->size[i]);
+  fprintf(stderr, "\n");
 }
 
 for(j=znj ; j>0 ; j--){
@@ -249,7 +241,7 @@ zblocks *mem_zmap(zmap *map, uint32_t *data){
   if(mem){          // allocation was successful
     int i ;
     map->mh.mem = mem ;
-    mem[0] = data ? data : (uint32_t *)&(map->size[znij]) ;      // if data is NULL, packed data follows data map in memory
+    mem[0] = data ? data : (uint32_t *)&(map->size[znij]) ;      // if data is NULL, packed data stream follows data map in memory
     for(i=1 ; i<znij ; i++) mem[i] = mem[i-1] + map->size[i-1] ;
   }
 

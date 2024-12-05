@@ -198,6 +198,24 @@ typedef struct{
   int32_t j  ;
 }ij_pair ;               // 2D coordinate pair
 
+// compute first block dimension and number of blocks from size and desired block size
+// array_dimension [IN] : size of array along one dimension
+// block_size      [IN] : desired block size
+// return integer pair, .i = number of blocks, .j = dimension of first block
+static inline ij_pair split_array_dimension(int32_t array_dimension, int32_t block_size){
+  ij_pair ijp = (ij_pair){.i = 0 , .j = 0 } ;   // in case of failure
+  ijp.i = array_dimension / block_size ;
+  int extra = array_dimension - ijp.i  * block_size ;
+  if(extra < block_size/2){
+    ijp.j = block_size + extra ;    // first block will be longer than block_size
+  }else{
+    ijp.i++ ;                       // one more block, shorter than block_size
+    ijp.j = extra ;
+  }
+  return ijp ;
+}
+
+
 // index range from block index and sizes (along one dimension)
 // bl  [IN] : block index along a dimension
 // ln  [IN] : size of all but first block along a dimension
@@ -389,7 +407,7 @@ static inline array_nd *new_array_nd(array_nd *a, int nd, int32_t dim[nd]){
 int32_t Zindex_from_i_j(int32_t i, int32_t j, int32_t nti, int32_t ntj, int32_t sf0);
 ij_pair Zindex_to_i_j(int32_t zij, int32_t nti, int32_t ntj, int32_t sf0);
 
-int32_t  Z_block_index(zmap *map, int32_t i, int32_t j);
+int32_t  Z_map_index(zmap *map, int32_t i, int32_t j);
 ij_pair  block_index(zmap *map, int32_t i, int32_t j);
 ij_range block_limits(zmap *map, int32_t i, int32_t j);
 

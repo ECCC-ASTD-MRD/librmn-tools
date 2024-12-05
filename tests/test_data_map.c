@@ -16,7 +16,21 @@
 //
 #include <stdio.h>
 #include <stdlib.h>
+
 #include <rmn/data_map.h>
+#include <rmn/move_blocks.h>
+
+// process array and store it into zmap
+zmap *array_to_zmap(zmap *map, array_2d *a, fnptr fn, fn_args *fnargs){
+  int zx ;
+  fprintf(stderr, "array_to_zmap : stripe = %d\n", map->stripe) ;
+  for(zx=0 ; zx < map->zni * map->znj ; zx++){  // loop over zindex
+    ij_pair  ijp = Zindex_to_i_j(zx, map->zni, map->znj, map->stripe) ;
+    ij_range ijr = block_limits(map, ijp.i, ijp.j) ;
+    fprintf(stderr, "array_to_zmap : zblock %3d [%3d,%3d] (%3d:%3d,%3d:%3d)\n", zx, ijp.i, ijp.j, ijr.i0, ijr.in, ijr.j0, ijr.jn) ;
+  }
+  return map ;
+}
 
 #define NTI 10
 #define NTJ 11
@@ -154,18 +168,24 @@ int main(int argc, char **argv){
   fprintf(stderr, "blocks[%d,%d] => data[%4d,%4d]", map->zni, map->znj, map->gni, map->gnj) ;
   fprintf(stderr, ", first block along i is  %s"  , map->lix > map->lni ? "longer" : "shorter") ;
   fprintf(stderr, ", first block along j is  %s\n", map->ljx > map->lnj ? "longer" : "shorter") ;
+  int32_t zx ;
   for(j = (int)map->znj ; j > 0 ; j--){
     ijr = block_limits(map, 0, 0) ;       // no more warning about possibility of ijr.j0 to be uninitialized
     for(i = 0 ; i < (int)map->zni ; i++){
       ijr = block_limits(map, i, j-1) ;
-      fprintf(stderr, "data[%4d:%4d,%4d:%4d]  ", ijr.i0, ijr.in, ijr.j0, ijr.jn) ;
+//       zx = Zindex_from_i_j(i, j-1, map->zni, map->znj, map->stripe);
+      zx = Z_map_index(map, i, j-1) ;
+      fprintf(stderr, "data[%4d:%4d,%4d:%4d](Z %2d)  ", ijr.i0, ijr.in, ijr.j0, ijr.jn, zx) ;
     }
     fprintf(stderr, "j_range : %4d)\n", ijr.jn - ijr.j0 + 1);
   }
   for(i = 0 ; i < (int)map->zni ; i++){
     ijr = block_limits(map, i, 0) ;
-    fprintf(stderr, "i_range : %4d             ", ijr.in - ijr.i0 + 1);
+    fprintf(stderr, "i_range : %4d                   ", ijr.in - ijr.i0 + 1);
   }
   fprintf(stderr, "\n");
+
+  fprintf(stderr, "=============== split array according to map ===============\n") ;
+  zmap *result = array_to_zmap(map, NULL, NULL, NULL) ;
   return 0 ;
 }
