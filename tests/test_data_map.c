@@ -20,9 +20,30 @@
 #include <rmn/data_map.h>
 #include <rmn/move_blocks.h>
 
+// #define ARRAY_1D(ARRAY, MEM, ESIZE, TYPE, N1, N2, N3, N4, N5) new_array((array_nd *)ARRAY, MEM, ESIZE, TYPE, (__i32__5__) {N1,  0,  0,  0,  0} )
+// #define ARRAY_2D(ARRAY, MEM, ESIZE, TYPE, N1, N2, N3, N4, N5) new_array((array_nd *)ARRAY, MEM, ESIZE, TYPE, (__i32__5__) {N1, N2,  0,  0,  0} )
+// #define ARRAY_3D(ARRAY, MEM, ESIZE, TYPE, N1, N2, N3, N4, N5) new_array((array_nd *)ARRAY, MEM, ESIZE, TYPE, (__i32__5__) {N1, N2, N3,  0,  0} )
+// #define ARRAY_4D(ARRAY, MEM, ESIZE, TYPE, N1, N2, N3, N4, N5) new_array((array_nd *)ARRAY, MEM, ESIZE, TYPE, (__i32__5__) {N1, N2, N3, N4,  0} )
+// #define ARRAY_5D(ARRAY, MEM, ESIZE, TYPE, N1, N2, N3, N4, N5) new_array((array_nd *)ARRAY, MEM, ESIZE, TYPE, (__i32__5__) {N1, N2, N3, N4, N5} )
+// 
+
+// #define new_array(ARRAY, MEM, ESIZE, TYPE, N1, N2, N3, N4, N5) \
+//   _Generic((ARRAY), \
+//     array_1d *: new_array_nd((array_nd *)ARRAY, MEM, ESIZE, TYPE, (__i32__5__){ { N1,  0,  0,  0,  0 } }), \
+//     array_2d *: new_array_nd((array_nd *)ARRAY, MEM, ESIZE, TYPE, (__i32__5__){ { N1, N2,  0,  0,  0 } }), \
+//     array_3d *: new_array_nd((array_nd *)ARRAY, MEM, ESIZE, TYPE, (__i32__5__){ { N1, N2, N3,  0,  0 } }), \
+//     array_4d *: new_array_nd((array_nd *)ARRAY, MEM, ESIZE, TYPE, (__i32__5__){ { N1, N2, N3, N4,  0 } }), \
+//     array_5d *: new_array_nd((array_nd *)ARRAY, MEM, ESIZE, TYPE, (__i32__5__){ { N1, N2, N3, N4, N5 } })  \
+//   )
+
 // process array and store it into zmap
-zmap *array_to_zmap(zmap *map, array_2d *a, fnptr fn, fn_args *fnargs){
+zmap *array_to_zmap(zmap *map, array_2d *a_in, fnptr fn, fn_args *fnargs){
   int zx ;
+  array_2d a ;
+
+  if(a_in == NULL) return NULL ;
+  a = *a_in ;
+
   fprintf(stderr, "array_to_zmap : stripe = %d\n", map->stripe) ;
   for(zx=0 ; zx < map->zni * map->znj ; zx++){  // loop over zindex
     ij_pair  ijp = Zindex_to_i_j(zx, map->zni, map->znj, map->stripe) ;
@@ -186,6 +207,8 @@ int main(int argc, char **argv){
   fprintf(stderr, "\n");
 
   fprintf(stderr, "=============== split array according to map ===============\n") ;
-  zmap *result = array_to_zmap(map, NULL, NULL, NULL) ;
+  array_2d a2d = array_2d_null ;
+  new_array(&a2d, NULL, 4, 'U', map->gni, map->gnj) ;
+  zmap *result = array_to_zmap(map, &a2d, NULL, NULL) ;
   return 0 ;
 }

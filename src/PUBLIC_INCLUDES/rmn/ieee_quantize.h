@@ -94,7 +94,10 @@ typedef struct{
 #define Q_LINEAR_0     2
 #define Q_LINEAR_1     3
 #define Q_LINEAR_2     4
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-variable"
 static char *Q_NAMES[] = {"INVALID", "FAKE_LOG", "LINEAR_0", "LINEAR_1", "LINEAR_2" } ;
+#pragma GCC diagnostic pop
 
 // structs q_rules/q_encode/q_decode should have a matching layout for common elements
 // (state, allm, allp, mbits, nbits, clip, type)

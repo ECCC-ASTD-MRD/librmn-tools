@@ -187,7 +187,10 @@ static inline uint64_t elapsed_cycles_fenced(void) {
 // elapsed timer ticks, NO serializing, LOCAL fencing before
 // default version
 // elapsed_cycles_fast is used by get_cycles_overhead
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-variable"
 static uint64_t cycles_overhead = 0 ;
+#pragma GCC diagnostic pop
 STATIC inline uint64_t elapsed_cycles_raw(void) {
 #if defined(__x86_64__)
   uint64_t lo, hi ;

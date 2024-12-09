@@ -45,7 +45,10 @@ typedef enum {
   raw_data   = 4,     // any 32 bit quantities (block_properties can be meaningless in that case)
   any_data   = 5      // unknown or unspecified
 } int_or_float ;
-static char *printable_type[] = { "BAD", "SIGNED", "UNSIGNED", "FLOAT", "RAW32" } ;
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-variable"
+static char *printable_type[5] = { "BAD", "SIGNED", "UNSIGNED", "FLOAT", "RAW32" } ;
+#pragma GCC diagnostic pop
 
 // basic block block properties, set while gathering block
 typedef struct{
