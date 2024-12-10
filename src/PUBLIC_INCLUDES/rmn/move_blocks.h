@@ -47,7 +47,7 @@ typedef enum {
 } int_or_float ;
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-variable"
-static char *printable_type[5] = { "BAD", "SIGNED", "UNSIGNED", "FLOAT", "RAW32" } ;
+static const char *printable_type[5] = { "BAD", "SIGNED", "UNSIGNED", "FLOAT", "RAW32" } ;
 #pragma GCC diagnostic pop
 
 // basic block block properties, set while gathering block

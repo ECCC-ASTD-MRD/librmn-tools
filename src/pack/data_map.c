@@ -157,10 +157,11 @@ if(DEBUG) fprintf(stderr, "bsize = %d, gni = %d, gnj = %d, zni = %d, znj = %d\n"
   for(j=0 ; j<znj ; j++){
     lbi = lix ;                     // longer/shorter first dimension in first column
     for(i=0 ; i<zni ; i++){
-      lsize = lbi * lbj * esize ;   // worst case size for this block
+      lsize = esize ;
+      lsize = lbi * lbj * lsize ;   // worst case size for this block
       lsize = (lsize + sizeof(uint32_t) - 1) / sizeof(uint32_t) ;   // round to multiple of uint32_t size
       size = size + lsize * sizeof(uint32_t) ;
-if(DEBUG) fprintf(stderr, "block[%d,%d] (%d,%d) size = %ld\n", i, j, lbi, lbj, lsize/sizeof(uint32_t));
+if(DEBUG) fprintf(stderr, "block[%d,%d] (%d,%d) size = %ld, esize = %ld\n", i, j, lbi, lbj, lsize, esize);
       lbi = lni ;                   // after first column
     }
     lbj = lnj ;                     // after first row
@@ -188,13 +189,14 @@ if(DEBUG) fprintf(stderr, "data offset = %ld bytes, hsize = %ld[%ld+%ld]\n", (ui
       map = NULL ;
       goto end ;
     }
-    map->mh.mem[0] =  (uint32_t *)data ;
+    map->mh.mem[0] = map->mh.first = (uint32_t *)data ;
 if(DEBUG) fprintf(stderr, "mem[0] offset : %ld\n",  (uint8_t *)map->mh.mem[0] - (uint8_t *) map) ;
     lbj = ljx ;                       // longer/shorter second dimension in first row
     for(j=0 ; j<znj ; j++){
       lbi = lix ;                     // longer/shorter first dimension in first column
       for(i=0 ; i<zni ; i++){
-        lsize = lbi * lbj * esize ;   // worst case size for this block
+        lsize = esize ;
+        lsize = lbi * lbj * lsize ;   // worst case size for this block
         lsize = (lsize + sizeof(uint32_t) - 1) / sizeof(uint32_t) ;   // round to multiple of uint32_t size
         zij = Zindex_from_i_j(i, j, zni, znj, stripe) ;
         map->size[zij] = lsize ;      // set worstcase size for this zigzag indexed block
@@ -203,6 +205,7 @@ if(DEBUG) fprintf(stderr, "mem[0] offset : %ld\n",  (uint8_t *)map->mh.mem[0] - 
       lbj = lnj ;                     // after first row
     }
     for(i=0 ; i<znij ; i++) map->mh.mem[i+1] = map->mh.mem[i] + map->size[i] ;
+    map->mh.limit = map->mh.mem[znij] ;
 if(DEBUG) {
   fprintf(stderr, "range     : ");
   for(i=0 ; i<znij ; i++)fprintf(stderr, "%6ld", map->mh.mem[i] - map->mh.mem[0]);
@@ -227,6 +230,14 @@ for(j=znj ; j>0 ; j--){
 }
   }
 end:
+  uint32_t *current = map->mh.mem[0] ;          // initial position
+  if(current != map->mh.first){
+    int32_t *data = (int32_t *)&(map->size[map->zni*map->znj]) ;
+    fprintf(stderr, "ERROR new_map : first map entry not pointing to start of stream\n") ;
+    fprintf(stderr, "      first = %16p, start = %16p, data = %16p\n", map->mh.first, current, data) ;
+//   }else{
+//     fprintf(stderr, "DEBUG new_map : first map entry points to start of stream\n") ;
+  }
   return map ;
 }
 
@@ -235,16 +246,27 @@ end:
 // data    [IN] : pointer to start of packed data (if NULL, packed data follows map in memory)
 // return address of table of pointers to packed blocks, NULL if allocation failed
 zblocks *mem_zmap(zmap *map, uint32_t *data){
-  int32_t znij = 1 + map->zni * map->znj ;
-  zblocks *mem = (zblocks *)malloc(znij * sizeof(uint32_t *)) ;
+  int32_t znij = map->zni * map->znj ;
+  zblocks *mem = (zblocks *)malloc((znij+1) * sizeof(uint32_t *)) ;
 
   if(mem){          // allocation was successful
     int i ;
     map->mh.mem = mem ;
     mem[0] = data ? data : (uint32_t *)&(map->size[znij]) ;      // if data is NULL, packed data stream follows data map in memory
-    for(i=1 ; i<znij ; i++) mem[i] = mem[i-1] + map->size[i-1] ;
+    for(i=1 ; i<znij+1 ; i++) mem[i] = mem[i-1] + map->size[i-1] ;
+  }
+  if(data != NULL){
+    map->mh.first = mem[0] ;
+    map->mh.limit = mem[znij] ;
+    fprintf(stderr, "DEBUG mem_zmap, switching data buffer to %16p -> %16p\n", map->mh.first, map->mh.limit) ;
   }
 
+//   uint32_t *current = map->mh.mem[0] ;          // initial position
+//   if(current != map->mh.first){
+//     int32_t *data = (int32_t *)&(map->size[map->zni*map->znj]) ;
+//     fprintf(stderr, "ERROR mem_map : first map entry not pointing to start of stream\n") ;
+//     fprintf(stderr, "      first = %16p, start = %16p, data = %16p\n", map->mh.first, current, data) ;
+//   }
   return mem ;
 }
 
@@ -269,6 +291,27 @@ if(DEBUG) fprintf(stderr, "PART map free\n") ;
   return 0 ;
 }
 
+ssize_t resize_map(zmap *map){
+  int k ;
+  uint32_t *current ;
+
+  current = map->mh.mem[0] ;          // initial position
+  if(current != map->mh.first){
+    int32_t *data = (int32_t *)&(map->size[map->zni*map->znj]) ;
+    fprintf(stderr, "ERROR resize_map : first map entry not pointing to start of stream\n") ;
+    fprintf(stderr, "      first = %16p, start = %16p, data = %16p\n", map->mh.first, current, data) ;
+  }
+  for(k=0 ; k < map->zni * map->znj ; k++){
+    map->mh.mem[k] = current ;
+    current += map->size[k] ;
+    if(current > map->mh.limit){
+      fprintf(stderr, "ERROR: cannot resize map, not enough space occording to size table\n") ;
+      return -1 ;
+    }
+  }
+  return current - map->mh.mem[0] ;
+}
+
 // remove holes from data buffer, update list of memory addresses using updated sizes
 ssize_t repack_map(zmap *map){
   int i, k ;
@@ -277,6 +320,11 @@ ssize_t repack_map(zmap *map){
   if(map->mh.mem == NULL) return -1 ;
 
   current = map->mh.mem[0] ;          // initial target position
+  if(current != map->mh.first){
+    int32_t *data = (int32_t *)&(map->size[map->zni*map->znj]) ;
+    fprintf(stderr, "ERROR resize_map : first map entry not pointing to start of stream\n") ;
+    fprintf(stderr, "       first = %16p, start = %16p, data = %16p\n", map->mh.first, current, data) ;
+  }
   for(k=0 ; k < map->zni * map->znj ; k++){
     stream = map->mh.mem[k] ;         // copy from this position in memory
     map->mh.mem[k] = current ;        // update mem pointer to new position in memory

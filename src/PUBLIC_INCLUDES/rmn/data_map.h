@@ -242,7 +242,7 @@ typedef struct{
   int32_t  i0 ;          // index of first point along dimension ( 0 -> ni - 1 )
   int32_t  lni ;         // number of elements used along dimension ( 0 -> ni - 1 - i0 )
 } dim_desc ;             // i0 = 0 , lni = ni : all elements are used
-#if defined(__PGI)
+#if defined(__PGI) || defined(__INTEL_COMPILER) || defined(__clang__)
 // initializer element is not constant according to gcc in the folloeing line
 #define dim_null (dim_desc) {.ni=0, .stride=0, .i0=0, .lni=0 }
 #else
@@ -486,6 +486,7 @@ ij_range block_limits(zmap *map, int32_t i, int32_t j);
 zmap    *new_zmap(int32_t gni, int32_t gnj, int32_t stripe, size_t esize);
 zblocks *mem_zmap(zmap *map, uint32_t *data);
 ssize_t repack_map(zmap *map);
+ssize_t resize_map(zmap *map);
 int     free_zmap(zmap *map, int full);
 
 #endif
