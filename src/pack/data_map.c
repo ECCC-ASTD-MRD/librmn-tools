@@ -150,6 +150,8 @@ zmap *new_zmap(int32_t gni, int32_t gnj, int32_t stripe, size_t esize){
   ssize_t lsize ;
   int32_t i, j, lbi, lbj ;
   int32_t zij, znij ;
+  uint32_t *current ;
+
 if(DEBUG) fprintf(stderr, "bsize = %d, gni = %d, gnj = %d, zni = %d, znj = %d\n", bsize, gni, gnj, zni, znj);
   // compute worst case block sizes for packed data = size of data rounded up to uint32_t size
   // packed blocks are supposed to be aligned to uint32_t boundaries
@@ -230,7 +232,7 @@ for(j=znj ; j>0 ; j--){
 }
   }
 end:
-  uint32_t *current = map->mh.mem[0] ;          // initial position
+  current = map->mh.mem[0] ;          // initial position
   if(current != map->mh.first){
     int32_t *data = (int32_t *)&(map->size[map->zni*map->znj]) ;
     fprintf(stderr, "ERROR new_map : first map entry not pointing to start of stream\n") ;

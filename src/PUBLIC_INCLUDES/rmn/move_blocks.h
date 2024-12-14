@@ -43,7 +43,8 @@ typedef enum {
   uint_data  = 2,     // unsigned integers
   float_data = 3,     // floats
   raw_data   = 4,     // any 32 bit quantities (block_properties can be meaningless in that case)
-  any_data   = 5      // unknown or unspecified
+  large_data = 5,     // multiple of 32 bit quantities (block_properties are meaningless in that case)
+  any_data   = 6      // unknown or unspecified
 } int_or_float ;
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-variable"
@@ -81,11 +82,11 @@ int move_mem32_block(void     *restrict src, int lnis, void *restrict dst, int l
 typedef struct{
   uint64_t nargs ;      // number of arguments
   iuf64_t  args[] ;     // arguments ( [0] .. [nargs-1] )
-} fn_args ;             // processing function argument list
+} sfn_args ;            // processing function argument list
 
 // allocate an argument list with room for at most nmax arguments
-static inline fn_args *malloc_fn_args(uint32_t nmax) { return (fn_args *) malloc(sizeof(fn_args) + nmax * sizeof(iuf64_t)) ; }
+static inline sfn_args *malloc_fn_args(uint32_t nmax) { return (sfn_args *) malloc(sizeof(sfn_args) + nmax * sizeof(iuf64_t)) ; }
 
-typedef int (*fnptr)(int lni, int ni, int nj, block_properties *bp, void *data, fn_args *args) ;   // pointer to processing function
+typedef int (*sfn_ptr)(int lni, int ni, int nj, block_properties *bp, void *data, sfn_args *args) ;   // pointer to processing function
 
-int split_and_process(void *array, uint32_t lgni, uint32_t gni, uint32_t gnj, int_or_float datatype, int ni, int nj, fnptr fn, fn_args *fnargs);
+int split_and_process(void *array, uint32_t lgni, uint32_t gni, uint32_t gnj, int_or_float datatype, int ni, int nj, sfn_ptr fn, sfn_args *fnargs);

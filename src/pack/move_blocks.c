@@ -88,7 +88,7 @@ void split_block_dimension(uint32_t gdim, uint32_t ldim, uint32_t *nsub, uint32_
 // nj            : number of rows
 // fnargs        : reference point in sub-block, if NULL, data[0][0] is used
 // TODO add properties argument (it will just be checked for validity)
-static int diag_fn(int lni, int ni, int nj, block_properties *bp, void *data, fn_args *fnargs){
+static int diag_fn(int lni, int ni, int nj, block_properties *bp, void *data, sfn_args *fnargs){
   void *args = fnargs ? fnargs : data ;
   uint64_t offset  = ((char *)data - (char *)args)/sizeof(uint32_t) ;
   uint64_t offsetj = offset / lni ;
@@ -113,7 +113,7 @@ static int diag_fn(int lni, int ni, int nj, block_properties *bp, void *data, fn
 // return error code from fn
 // TODO add data type to arguments
 // TODO adjust for longer first block / shorter last block strategy
-static int split_and_process_(uint32_t lgni, uint32_t gni, uint32_t gnj, int_or_float datatype, uint32_t array[gnj][lgni], int ni, int nj, fnptr fn, fn_args *fnargs){
+static int split_and_process_(uint32_t lgni, uint32_t gni, uint32_t gnj, int_or_float datatype, uint32_t array[gnj][lgni], int ni, int nj, sfn_ptr fn, sfn_args *fnargs){
   uint32_t ni0, nj0, nbi, nbj, i, j, deltai, deltaj ;
   int status ;
   block_properties bp ;
@@ -154,7 +154,7 @@ static int split_and_process_(uint32_t lgni, uint32_t gni, uint32_t gnj, int_or_
 // fnargs [IN] : argument list to be passed to function
 // call VLA style version, return its status
 // TODO add data type to arguments
-int split_and_process(void *array, uint32_t lgni, uint32_t gni, uint32_t gnj, int_or_float datatype, int ni, int nj, fnptr fn, fn_args *fnargs){
+int split_and_process(void *array, uint32_t lgni, uint32_t gni, uint32_t gnj, int_or_float datatype, int ni, int nj, sfn_ptr fn, sfn_args *fnargs){
   return split_and_process_(lgni, gni, gnj, datatype, array, ni, nj, fn, fnargs) ;
 }
 

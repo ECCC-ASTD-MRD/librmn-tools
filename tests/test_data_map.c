@@ -26,15 +26,16 @@
 // #define ARRAY_4D(ARRAY, MEM, ESIZE, TYPE, N1, N2, N3, N4, N5) new_array((array_nd *)ARRAY, MEM, ESIZE, TYPE, (__i32__5__) {N1, N2, N3, N4,  0} )
 // #define ARRAY_5D(ARRAY, MEM, ESIZE, TYPE, N1, N2, N3, N4, N5) new_array((array_nd *)ARRAY, MEM, ESIZE, TYPE, (__i32__5__) {N1, N2, N3, N4, N5} )
 // 
-
-// #define new_array(ARRAY, MEM, ESIZE, TYPE, N1, N2, N3, N4, N5) \
-//   _Generic((ARRAY), \
-//     array_1d *: new_array_nd((array_nd *)ARRAY, MEM, ESIZE, TYPE, (__i32__5__){ { N1,  0,  0,  0,  0 } }), \
-//     array_2d *: new_array_nd((array_nd *)ARRAY, MEM, ESIZE, TYPE, (__i32__5__){ { N1, N2,  0,  0,  0 } }), \
-//     array_3d *: new_array_nd((array_nd *)ARRAY, MEM, ESIZE, TYPE, (__i32__5__){ { N1, N2, N3,  0,  0 } }), \
-//     array_4d *: new_array_nd((array_nd *)ARRAY, MEM, ESIZE, TYPE, (__i32__5__){ { N1, N2, N3, N4,  0 } }), \
-//     array_5d *: new_array_nd((array_nd *)ARRAY, MEM, ESIZE, TYPE, (__i32__5__){ { N1, N2, N3, N4, N5 } })  \
-//   )
+#if 0
+#define new_array(ARRAY, MEM, ESIZE, TYPE, N1, N2, N3, N4, N5) \
+  _Generic((ARRAY), \
+    array_1d *: new_array_nd((array_nd *)ARRAY, MEM, ESIZE, TYPE, (__i32__5__){ { N1,  0,  0,  0,  0 } }), \
+    array_2d *: new_array_nd((array_nd *)ARRAY, MEM, ESIZE, TYPE, (__i32__5__){ { N1, N2,  0,  0,  0 } }), \
+    array_3d *: new_array_nd((array_nd *)ARRAY, MEM, ESIZE, TYPE, (__i32__5__){ { N1, N2, N3,  0,  0 } }), \
+    array_4d *: new_array_nd((array_nd *)ARRAY, MEM, ESIZE, TYPE, (__i32__5__){ { N1, N2, N3, N4,  0 } }), \
+    array_5d *: new_array_nd((array_nd *)ARRAY, MEM, ESIZE, TYPE, (__i32__5__){ { N1, N2, N3, N4, N5 } })  \
+  )
+#endif
 
 void fill_2d_array(int32_t ni, int32_t nj, int32_t z[nj][ni]){
   int i, j ;
@@ -63,10 +64,15 @@ int32_t check_2d_block(int32_t ni, int32_t nj, int32_t block[nj][ni], int32_t i0
   return errors ;
 }
 
+int zmap_to_array(zmap *map, array_2d *a_in, sfn_ptr fn, sfn_args *fnargs){
+  return 0 ;
+}
+
 // process array and store it into zmap
-zmap *array_to_zmap(zmap *map, array_2d *a_in, fnptr fn, fn_args *fnargs){
+zmap *array_to_zmap(zmap *map, array_2d *a_in, sfn_ptr fn, sfn_args *fnargs){
   int zx ;
   array_2d a ;
+  (void) (fn) ; (void) (fnargs) ;      // unused for now
 
   if(a_in == NULL) return NULL ;
   a = *a_in ;
@@ -90,18 +96,20 @@ zmap *array_to_zmap(zmap *map, array_2d *a_in, fnptr fn, fn_args *fnargs){
     if( ( ni == map->lix || ni == map->lni) && ( nj == map->ljx || nj == map->lnj) ){
       block_properties bp ;
       int32_t block[nj][ni] ;
-      fprintf(stderr, "array_to_zmap : allocated block[%3d][%3d]\n", nj, ni) ;
+      fprintf(stderr, "array_to_zmap : automatically allocated block[%3d][%3d]\n", nj, ni) ;
       uint8_t *start_of_data = a.data + ((gni * j0) + i0) * esize ;  // lower left corner of data
       int32_t nelem = move_data32_block(start_of_data , gni, &block[0][0], ijr.in-ijr.i0+1, ijr.in-ijr.i0+1, ijr.jn-ijr.j0+1, &bp) ;
+      if(nelem <= 0) return NULL ;
       int errors = check_2d_block(ni, nj, (int32_t (*)[]) &block[0][0], i0, j0, bp) ;
+      if(errors > 0) return NULL ;
     }else{
       fprintf(stderr, "array_to_zmap : ERROR, wrong block dimensions, ni = %3d, must be %d or %d, nj = %3d, must be %3d or %3d\n",
                        ni, map->lix, map->lni, nj, map->ljx, map->lnj) ;
       return NULL ;
     }
     // check compressed stream size in map for this block
-    if(bsize < ni * nj){
-      fprintf(stderr, "array_to_zmap : ERROR, compressed stream area is too small, size = %d, should be at least %ld\n", bsize , ni * nj) ;
+    if(bsize * esize < ni * nj * sizeof(uint32_t)){
+      fprintf(stderr, "array_to_zmap : ERROR, compressed stream area is too small, size = %d, should be at least %ld\n", bsize , ni * nj * sizeof(uint32_t)) ;
     }
     fprintf(stderr, "\n") ;
   }
@@ -270,8 +278,10 @@ int main(int argc, char **argv){
 
   fprintf(stderr, "=============== split array according to map ===============\n") ;
   array_2d a2d = array_2d_null ;
-  new_array(&a2d, NULL, 4, 'U', map->gni, map->gnj) ;  // create 2D array, map->gni x map->gnj
+//   new_array(&a2d, NULL, 4, 'U', map->gni, map->gnj) ;  // create 2D array, map->gni x map->gnj
+  new_array(&a2d, NULL, 4, uint_data, map->gni, map->gnj) ;  // create 2D array, map->gni x map->gnj
   fill_array(&a2d) ;
   zmap *result = array_to_zmap(map, &a2d, NULL, NULL) ;
+  if(result == NULL) exit(1) ;
   return 0 ;
 }

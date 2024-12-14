@@ -308,16 +308,16 @@ typedef struct{          // 4D array
 static const array_4d array_4d_null = {.data=NULL, .limit=NULL, .esize=0, .reserved=0, .type='\0', .ndim=4,
                                        .dim[0]=dim_null, .dim[1]=dim_null, .dim[2]=dim_null, .dim[3]=dim_null } ;
 
-typedef struct{          // 4D array
+typedef struct{          // 5D array
   uint8_t *data ;
   uint8_t *limit ;
   uint32_t esize ;
   uint16_t reserved ;
   uint8_t  type ;
-  uint8_t  ndim ;        // better be 4
+  uint8_t  ndim ;        // better be 5
   dim_desc dim[5] ;
 } array_5d ;
-static const array_5d array_5d_null = {.data=NULL, .limit=NULL, .esize=0, .reserved=0, .type='\0', .ndim=4,
+static const array_5d array_5d_null = {.data=NULL, .limit=NULL, .esize=0, .reserved=0, .type='\0', .ndim=5,
                                        .dim[0]=dim_null, .dim[1]=dim_null, .dim[2]=dim_null, .dim[3]=dim_null, .dim[4]=dim_null } ;
 
 // static const seems not to induce the warning
@@ -351,6 +351,10 @@ static inline void array_4d_init(array_4d *a, void *data, ssize_t esize, int typ
   *a = (array_4d) ARRAY_ND(data, esize, type, 4, 0) ;
 }
 
+static inline void array_5d_init(array_5d *a, void *data, ssize_t esize, int type){
+  *a = (array_5d) ARRAY_ND(data, esize, type, 5, 0) ;
+}
+
 static inline int32_t invalid_array(array_nd *a){
   int i ;
   if(a == NULL) return 1 ;
@@ -379,7 +383,7 @@ static inline uint8_t *array_element(array_nd *a){
   return ptr ;
 }
 
-// initialize a new descriptor representing a sub-array of a
+// initialize a new descriptor representing a sub-array of array a
 // TODO copy data from a to b
 static inline array_nd *array_block(array_nd *a, array_nd *b){
   if(b == NULL){
@@ -454,27 +458,6 @@ fprintf(stderr,"%d", a->dim[0].ni) ;
 for(i=1 ; i<a->ndim ; i++) fprintf(stderr,",%d", a->dim[i].ni) ;
 fprintf(stderr,"]\n");
 }
-// static inline array_nd *new_array_nd_old(array_nd *a, int nd, int32_t dim[nd]){
-//   int i ;
-//   if(nd <= 0) return NULL ;
-//   for(i = 0 ; i < nd ; i++) { if(dim[i] <= 0) return NULL ; }
-//   if(a == NULL) {
-//     a = (array_nd *)malloc(sizeof(array_nd) + nd * sizeof(dim_desc)) ;
-//   }else{
-//     if(nd != a->ndim) return NULL ;  // number of dimension mismatch
-//   }
-//   if(a == NULL) return NULL ;
-//   uint32_t stride = 1 ;          // first dimension has stride 1
-//   a->ndim = nd ;
-//   for(i = 0 ; i < nd ; i++) {
-//     a->dim[i].ni = dim[i] ;      // this dimension
-//     a->dim[i].i0 = 0 ;           // start at index 0
-//     a->dim[i].lni = dim[i] ;     // full span along this dimension
-//     a->dim[i].stride = stride ;  // distance to next element along this dimension
-//     stride *= a->dim[i].ni ;     // stride for next dimension
-//   }
-//   return a ;
-// }
 
 int32_t Zindex_from_i_j(int32_t i, int32_t j, int32_t nti, int32_t ntj, int32_t sf0);
 ij_pair Zindex_to_i_j(int32_t zij, int32_t nti, int32_t ntj, int32_t sf0);
