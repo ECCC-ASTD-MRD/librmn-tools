@@ -6,6 +6,7 @@ set(PROJECT_C_FILES
   src/pred/lorenzo_c.c
   src/pred/smooth124.c
   src/pred/average_2x2.c
+  src/pack/array_nd.c
   src/pack/bits.c
   src/pack/bi_endian_pack.c
   src/pack/data_map.c
@@ -60,6 +61,7 @@ set(PROJECT_F_FILES
 set(PROJECT_H_FILES
   src/PUBLIC_INCLUDES/rmntools.h
   src/PUBLIC_INCLUDES/rmn/atomic_functions.h
+  src/PUBLIC_INCLUDES/rmn/array_nd.h
   src/PUBLIC_INCLUDES/rmn/ct_assert.h
   src/PUBLIC_INCLUDES/rmn/function_pointers.h
   src/PUBLIC_INCLUDES/rmn/lorenzo.h
