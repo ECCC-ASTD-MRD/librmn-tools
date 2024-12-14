@@ -16,6 +16,7 @@
 //
 
 #include <stdio.h>
+#include <string.h>
 
 #include <rmn/data_map.h>
 
@@ -316,8 +317,9 @@ ssize_t resize_map(zmap *map){
 
 // remove holes from data buffer, update list of memory addresses using updated sizes
 ssize_t repack_map(zmap *map){
-  int i, k ;
+  int k ;
   uint32_t *current, *stream ;
+
   if(map == NULL)      return -1 ;
   if(map->mh.mem == NULL) return -1 ;
 
@@ -332,8 +334,10 @@ ssize_t repack_map(zmap *map){
     map->mh.mem[k] = current ;        // update mem pointer to new position in memory
     if(current < stream || map->size[k] != map->mh.mem[k+1] - map->mh.mem[k]) {  // need to copy ?
       if(DEBUG) fprintf(stderr, "copying from %6ld", current - map->mh.mem[0]) ;
-      for(i=0 ; i < map->size[k] ; i++){ current[i] = stream[i] ; }
-      if(DEBUG) fprintf(stderr, " to %6ld [%6d]\n", current + i - map->mh.mem[0] -1, map->size[k]) ;
+      memmove(current, stream, map->size[k] * sizeof(uint32_t)) ;    // PGI/Nvidia compile problems with DEBUG =0 and copy loop
+//       int i ;
+//       for(i=0 ; i < map->size[k] ; i++){ current[i] = stream[i] ; }
+      if(DEBUG) fprintf(stderr, " to %6ld [%6d]\n", current + map->size[k] - map->mh.mem[0] -1, map->size[k]) ;
     }
     current += map->size[k] ;      // update target position
   }
