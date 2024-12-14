@@ -17,6 +17,9 @@
 
 #include <rmn/array_nd.h>
 
+// is this array_nd invalid ?
+// a  [IN] : pointer to array_nd struct
+// return 1 if invalid, 0 otherwise
 int32_t invalid_array(array_nd *a){
   int i ;
   if(a == NULL) return 1 ;
@@ -31,6 +34,8 @@ int32_t invalid_array(array_nd *a){
 }
 
 // get address of the first element of an array block
+// a  [IN] : pointer to array_nd struct
+// return address of first element of array (NULL if error)
 uint8_t *array_element(array_nd *a){
   if(a == NULL) return NULL ;
   uint32_t i, esize = a->esize ;
@@ -46,7 +51,12 @@ uint8_t *array_element(array_nd *a){
 }
 
 // initialize a new descriptor representing a sub-array of array a
+// a  [IN] : pointer to existing array_nd struct
+// b [OUT] : pointer to array_nd struct (may be NULL)
+// return pointer to array_nd struct of result (b or new allocated array_nd struct)
+// return NULL in case of error
 // TODO copy data from a to b
+// TODO conditional malloc of b->data
 array_nd *array_block(array_nd *a, array_nd *b){
   if(b == NULL){
     b = (array_nd *) malloc(sizeof(array_nd) + a->ndim * sizeof(dim_desc)) ;

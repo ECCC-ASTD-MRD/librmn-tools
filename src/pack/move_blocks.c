@@ -220,8 +220,12 @@ float unfake_float(int32_t fake){
 int move_mem32_block(void *restrict src, int lnis, void *restrict dst, int lnid, int ni, int nj, block_properties *bp){
   uint32_t *restrict d = (uint32_t *) dst ;
   uint32_t *restrict s = (uint32_t *) src ;
+  int32_t ninj = ni * nj ;
 
-  if(ni*nj == 0) return 0 ;
+  if(lnis <= 0 || lnid <= 0 || ni <= 0 || nj <= 0){
+    fprintf(stderr, "ERROR move_mem32_block : lnis = %d, lnid = %d, ni = %d, nj = %d\n", lnis, lnid, ni, nj);
+    return -1 ;
+  }
   if(bp != NULL) {
     bp->kind   = raw_data ;
     bp->mins.u = bp->maxs.u = bp->minu.u = bp->maxu.u = 0 ;
@@ -263,7 +267,7 @@ int move_mem32_block(void *restrict src, int lnis, void *restrict dst, int lnid,
     }
   }
 
-  return ni * nj ;
+  return ninj ;
 }
 
 // move a block (ni x nj) of 32 bit elements from src and store it into blk,
@@ -279,14 +283,17 @@ int move_mem32_block(void *restrict src, int lnis, void *restrict dst, int lnid,
 int move_data32_block(void *restrict src, int lnis, void *restrict dst, int lnid, int ni, int nj, block_properties *bp){
   int32_t *restrict s = (int32_t *) src ;
   int32_t *restrict d = (int32_t *) dst ;
+  int32_t ninj = ni * nj ;
 
   if(bp == NULL) return move_mem32_block(src, lnis, dst, lnid, ni, nj, NULL) ;
 
-  if(bp != NULL) {
-    bp->zeros  = -1 ;          // initialize for failure
-    bp->kind   = bad_data ;
+  if(lnis <= 0 || lnid <= 0 || ni <= 0 || nj <= 0){
+    fprintf(stderr, "ERROR move_data32_block : lnis = %d, lnid = %d, ni = %d, nj = %d\n", lnis, lnid, ni, nj);
+    return -1 ;
   }
-  if(ni <= 0 || nj <= 0 || lnis <= 0 || lnid <= 0) return -1 ;
+
+  bp->zeros  = -1 ;          // initialize for failure
+  bp->kind   = bad_data ;
 
   if(ni  <  8) {
     int32_t maxs = 0x80000000, mins = 0x7FFFFFFF, t ;
@@ -304,7 +311,7 @@ int move_data32_block(void *restrict src, int lnis, void *restrict dst, int lnid
         case 0 : d += lnid ; s += lnis ;   // pointers to next row
       }
     }
-    if(bp != NULL) { bp->maxs.i = maxs ; bp->mins.i = mins ; bp->minu.u = minu ; bp->maxu.u = maxu ; }
+    bp->maxs.i = maxs ; bp->mins.i = mins ; bp->minu.u = minu ; bp->maxu.u = maxu ;
   }else{      // (ni  <  8)
     __v256i vmaxs, vmins, vmaxu, vminu, vdata, v1111 ;
     int32_t *s0, *d0 ;
@@ -338,11 +345,11 @@ int move_data32_block(void *restrict src, int lnis, void *restrict dst, int lnid
       }
       s += lnis ; d += lnid ;                    // pointers to next row (can be NON CONTIGUOUS)
     }
-    if(bp != NULL) fold_properties(vmaxs, vmins, vmaxu, vminu, bp) ; // fold results into a single scalar
+    fold_properties(vmaxs, vmins, vmaxu, vminu, bp) ; // fold results into a single scalar
   }      // (ni  <  8)
-  if(bp != NULL) bp->kind   = raw_data ;
+  bp->kind   = raw_data ;
 // fprintf(stderr,"move_data32_block : mins = %8.8x, maxs = %8.8x, minu = %8.8x, maxu = %8.8x\n",bp->mins.u, bp->maxs.u, bp->minu.u, bp->maxu.u);
-  return ni * nj ;
+  return ninj ;
 }
 
 void set_block_properties(block_properties *bp, int_or_float datatype){

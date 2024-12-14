@@ -97,9 +97,9 @@
 // # delimited region, 8 zblocks
 //  option 1 : ( ideal case )
 //    read zblocks 28->35 [ 8 zblocks read, 1 IO request ]
-# if ! defined(Z_DATA_MAP_VERSION)
+#if ! defined(Z_DATA_MAP_VERSION)
 
-# define Z_DATA_MAP_VERSION  10
+#define Z_DATA_MAP_VERSION  10
 
 #include <stdint.h>
 #include <stdlib.h>
@@ -198,6 +198,13 @@ typedef struct{
   int32_t j  ;
 }ij_pair ;               // 2D coordinate pair
 
+typedef struct{
+  int32_t i0  ;          // index of first point along first dimension
+  int32_t in  ;          // index of last point along first dimension
+  int32_t j0  ;          // index of first point along second dimension
+  int32_t jn  ;          // index of last point along second dimension
+}ij_range ;              // 2D index range of coordinates
+
 // compute first block dimension and number of blocks from size and desired block size
 // array_dimension [IN] : size of array along one dimension
 // block_size      [IN] : desired block size
@@ -227,236 +234,6 @@ static inline ij_pair b_limits(int32_t bl, int32_t ln, int32_t ln0){
   }else{
     return (ij_pair){.i = (bl-1)*ln + ln0, .j = bl*ln + ln0 -1 } ;
   }
-}
-
-typedef struct{
-  int32_t i0  ;          // index of first point along first dimension
-  int32_t in  ;          // index of last point along first dimension
-  int32_t j0  ;          // index of first point along second dimension
-  int32_t jn  ;          // index of last point along second dimension
-}ij_range ;              // 2D index range of coordinates
-
-typedef struct{
-  int32_t  ni ;          // number of elements stored along dimension
-  uint32_t stride ;      // distance between adjacent elements along dimension
-  int32_t  i0 ;          // index of first point along dimension ( 0 -> ni - 1 )
-  int32_t  lni ;         // number of elements used along dimension ( 0 -> ni - 1 - i0 )
-} dim_desc ;             // i0 = 0 , lni = ni : all elements are used
-#if defined(__PGI) || defined(__INTEL_COMPILER) || defined(__clang__)
-// initializer element is not constant according to gcc in the folloeing line
-#define dim_null (dim_desc) {.ni=0, .stride=0, .i0=0, .lni=0 }
-#else
-// what follows is not a constant value according to the PGI compiler
-static const dim_desc  dim_null = {.ni=0, .stride=0, .i0=0, .lni=0 } ;
-#endif
-
-typedef struct{          // generic struct for array with n dimensions
-  uint8_t *data ;        // starting address of array (byte pointer)
-  uint8_t *limit ;       // pointer to 1 byte beyond array (byte pointer)
-  uint32_t esize ;       // size of array elements in bytes (1, 2, 4, 8, ..., )
-  uint16_t reserved ;
-  uint8_t  type ;        // element type, float ('F'), signed integer ('I') , unsigned integer ('U'), ...)
-  uint8_t  ndim ;        // number of dimensions
-  dim_desc dim[] ;       // dimension descriptor (flexible array member)
-} array_nd ;
-
-typedef struct{          // 1D array
-  uint8_t *data ;
-  uint8_t *limit ;
-  uint32_t esize ;
-  uint16_t reserved ;
-  uint8_t  type ;
-  uint8_t  ndim ;        // better be 1
-  dim_desc dim[1] ;
-} array_1d ;
-static const array_1d array_1d_null = {.data=NULL, .limit=NULL, .esize=0, .reserved=0, .type='\0', .ndim=1,
-                                       .dim[0]=dim_null } ;
-
-typedef struct{          // 2D array
-  uint8_t *data ;
-  uint8_t *limit ;
-  uint32_t esize ;
-  uint16_t reserved ;
-  uint8_t  type ;
-  uint8_t  ndim ;        // better be 2
-  dim_desc dim[2] ;
-} array_2d ;
-static const array_2d array_2d_null = {.data=NULL, .limit=NULL, .esize=0, .reserved=0, .type='\0', .ndim=2,
-                                       .dim[0]=dim_null, .dim[1]=dim_null } ;
-
-typedef struct{          // 3D array
-  uint8_t *data ;
-  uint8_t *limit ;
-  uint32_t esize ;
-  uint16_t reserved ;
-  uint8_t  type ;
-  uint8_t  ndim ;        // better be 3
-  dim_desc dim[3] ;
-} array_3d ;
-static const array_3d array_3d_null = {.data=NULL, .limit=NULL, .esize=0, .reserved=0, .type='\0', .ndim=3,
-                                       .dim[0]=dim_null, .dim[1]=dim_null, .dim[2]=dim_null } ;
-
-typedef struct{          // 4D array
-  uint8_t *data ;
-  uint8_t *limit ;
-  uint32_t esize ;
-  uint16_t reserved ;
-  uint8_t  type ;
-  uint8_t  ndim ;        // better be 4
-  dim_desc dim[4] ;
-} array_4d ;
-static const array_4d array_4d_null = {.data=NULL, .limit=NULL, .esize=0, .reserved=0, .type='\0', .ndim=4,
-                                       .dim[0]=dim_null, .dim[1]=dim_null, .dim[2]=dim_null, .dim[3]=dim_null } ;
-
-typedef struct{          // 5D array
-  uint8_t *data ;
-  uint8_t *limit ;
-  uint32_t esize ;
-  uint16_t reserved ;
-  uint8_t  type ;
-  uint8_t  ndim ;        // better be 5
-  dim_desc dim[5] ;
-} array_5d ;
-static const array_5d array_5d_null = {.data=NULL, .limit=NULL, .esize=0, .reserved=0, .type='\0', .ndim=5,
-                                       .dim[0]=dim_null, .dim[1]=dim_null, .dim[2]=dim_null, .dim[3]=dim_null, .dim[4]=dim_null } ;
-
-// static const seems not to induce the warning
-// #pragma GCC diagnostic push
-// #pragma GCC diagnostic ignored "-Wunused-variable"
-// blank array descriptors for 1/2/3 Dimensions
-// defaults to 32 bit unsigned type
-
-// macro to initialize a struct of type array_nd
-#define ARRAY_ND(DATA,ESIZE,TYPE,NDIM,SIZE) {.data = DATA, .limit = NULL, .esize = ESIZE, .type = TYPE, .ndim = NDIM }
-
-static const array_1d array_1d_0 = ARRAY_ND(NULL, sizeof(int32_t), 'U', 1, 0) ;
-static const array_2d array_2d_0 = ARRAY_ND(NULL, sizeof(int32_t), 'U', 2, 0) ;
-static const array_3d array_3d_0 = ARRAY_ND(NULL, sizeof(int32_t), 'U', 3, 0) ;
-static const array_4d array_4d_0 = ARRAY_ND(NULL, sizeof(int32_t), 'U', 4, 0) ;
-// #pragma GCC diagnostic pop
-
-static inline void array_1d_init(array_1d *a, void *data, ssize_t esize, int type){
-  *a = (array_1d) ARRAY_ND(data, esize, type, 1, 0) ;
-}
-
-static inline void array_2d_init(array_2d *a, void *data, ssize_t esize, int type){
-  *a = (array_2d) ARRAY_ND(data, esize, type, 2, 0) ;
-}
-
-static inline void array_3d_init(array_3d *a, void *data, ssize_t esize, int type){
-  *a = (array_3d) ARRAY_ND(data, esize, type, 3, 0) ;
-}
-
-static inline void array_4d_init(array_4d *a, void *data, ssize_t esize, int type){
-  *a = (array_4d) ARRAY_ND(data, esize, type, 4, 0) ;
-}
-
-static inline void array_5d_init(array_5d *a, void *data, ssize_t esize, int type){
-  *a = (array_5d) ARRAY_ND(data, esize, type, 5, 0) ;
-}
-
-static inline int32_t invalid_array(array_nd *a){
-  int i ;
-  if(a == NULL) return 1 ;
-  if(a->data == NULL) return 1 ;
-  for(i = 0 ; i < a->ndim ; i++){
-    if(a->dim[i].ni     <= 0) return 1 ;
-    if(a->dim[i].stride <= 0) return 1 ;
-    if(a->dim[i].i0  <  0 || a->dim[i].i0  >= a->dim[i].ni) return 1 ;
-    if(a->dim[i].lni <= 0 || a->dim[i].lni >  a->dim[i].ni) return 1 ;
-  }
-  return 0 ;
-}
-
-// get address of the first element of an array block
-static inline uint8_t *array_element(array_nd *a){
-  if(a == NULL) return NULL ;
-  uint32_t i, esize = a->esize ;
-  uint8_t *ptr = a->data ;                            // base address of array
-  if(ptr == NULL) return NULL ;
-  for(i = 0 ; i < a->ndim ; i++){
-    if(a->dim[i].stride <= 0) return NULL ;
-    if(a->dim[i].i0 < 0) return NULL ;
-    if(a->dim[i].i0 >= a->dim[i].ni) return NULL ;
-    ptr += esize * a->dim[i].stride * a->dim[i].i0 ;  // add displacement for this dimension
-  }
-  return ptr ;
-}
-
-// initialize a new descriptor representing a sub-array of array a
-// TODO copy data from a to b
-static inline array_nd *array_block(array_nd *a, array_nd *b){
-  if(b == NULL){
-    b = (array_nd *) malloc(sizeof(array_nd) + a->ndim * sizeof(dim_desc)) ;
-    b->ndim = a->ndim ;
-  }
-  if(a->ndim != b->ndim) return NULL ;
-  b->esize = a->esize ;
-  b->type  = a->type ;
-  uint32_t stride = 1 ;
-  int i ;
-  ssize_t size = 1 ;
-  for(i = 0 ; i < a->ndim ; i++){
-    b->dim[i].ni     = a->dim[i].lni ;
-    b->dim[i].lni    = b->dim[i].ni ;
-    b->dim[i].i0     = 0 ;
-    b->dim[i].stride = stride ;
-    stride *= b->dim[i].ni ;
-    size *= b->dim[i].ni ;
-  }
-  b->data = malloc(b->esize * size) ;   // allocate data array
-  return b ;
-}
-
-typedef struct{   // struct containing an array of 6 integers (the first 5 may get used)
-  int32_t n0[6] ;
-}__i32__5__ ;
-
-// generic version for 1/2/3/4/5 D arrays ... is 1/2/3/4/5 values, one per dimension
-#define new_array(ARRAY, MEM, ESIZE, TYPE, ...) \
-  _Generic((ARRAY), \
-    array_1d *: new_array_nd((array_nd *)ARRAY, MEM, ESIZE, TYPE, (__i32__5__) { { __VA_ARGS__ , 0 } }), \
-    array_2d *: new_array_nd((array_nd *)ARRAY, MEM, ESIZE, TYPE, (__i32__5__) { { __VA_ARGS__ , 0 } }), \
-    array_3d *: new_array_nd((array_nd *)ARRAY, MEM, ESIZE, TYPE, (__i32__5__) { { __VA_ARGS__ , 0 } }), \
-    array_4d *: new_array_nd((array_nd *)ARRAY, MEM, ESIZE, TYPE, (__i32__5__) { { __VA_ARGS__ , 0 } }), \
-    array_5d *: new_array_nd((array_nd *)ARRAY, MEM, ESIZE, TYPE, (__i32__5__) { { __VA_ARGS__ , 0 } })  \
-  )
-
-// fill array descriptor dimensional information (representing a FULL array)
-// address of data, element size, element type are left untouched
-// a    [INOUT] : pointer to nD array descriptor (if NULL a new descriptor will be created)
-// mem     [IN] : in memory address for array. allocate automatically if NULL
-// esize   [IN] : size of array elements in bytes
-// type    [IN] : data type, see type in array_nd struct
-// nd      [IN] : number of dimensions
-// dim[nd] [IN] : dimensions
-static inline void new_array_nd(array_nd *a, void *mem, int32_t esize, int8_t type, __i32__5__ dim){
-  int32_t i, nelem, stride, n ;
-  a->reserved = 0 ;
-  a->type = type ;
-  a->esize = esize ;
-  nelem = 1 ;
-  stride = 1 ;
-  for(i=0 ; i<5 ; i++){
-    if(dim.n0[i] <= 0) break ;
-    n = (dim.n0[i] <= 0) ? 1 : dim.n0[i] ;
-    nelem = nelem * n ;
-    a->dim[i].ni = n ;
-    a->dim[i].stride = stride ;
-    a->dim[i].i0 = 0 ;
-    a->dim[i].lni = n ;
-    stride = nelem ;
-  }
-  size_t size = esize ;
-  size *= nelem ;
-  if(mem == NULL) mem = malloc(size) ;
-  a->ndim = i ;
-  a->data = mem ;
-  a->limit = a->data + size ;
-fprintf(stderr, "%d dimensional array, size = %ld [", a->ndim, size/esize) ;
-fprintf(stderr,"%d", a->dim[0].ni) ;
-for(i=1 ; i<a->ndim ; i++) fprintf(stderr,",%d", a->dim[i].ni) ;
-fprintf(stderr,"]\n");
 }
 
 int32_t Zindex_from_i_j(int32_t i, int32_t j, int32_t nti, int32_t ntj, int32_t sf0);

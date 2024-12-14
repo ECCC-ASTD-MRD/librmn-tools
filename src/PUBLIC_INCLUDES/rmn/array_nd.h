@@ -21,20 +21,24 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+// global   dimension index space : n0 -> n0 + ni - 1  ( ni elements)
+// subarray dimension index range : i0 -> n0 + ni - 1  ( ni - (i0 - n0) elements)
 typedef struct{
   int32_t  ni ;          // number of elements stored along dimension
+  int32_t  n0 ;          // global index of first point along dimension (usually 0)
+  int32_t  nn ;          // global index of first point along dimension (usually ni - 1)
   uint32_t stride ;      // distance between adjacent elements along dimension
-  int32_t  i0 ;          // index of first point along dimension ( 0 -> ni - 1 )
-  int32_t  lni ;         // number of elements used along dimension ( 0 -> ni - 1 - i0 )
+  int32_t  i0 ;          // index of first point along dimension ( n0 -> n0 + ni - 1 )
+  int32_t  lni ;         // number of elements used along dimension ( ni - (i0 - n0) - 1 )
 } dim_desc ;             // i0 = 0 , lni = ni : all elements are used
 
 // clang and intel compiler do ne seem to care
 #if defined(__PGI) || defined(__INTEL_COMPILERx) || defined(__clang__x) || defined(__INTEL_LLVM_COMPILERx)
 // initializer element is not constant according to gcc in the following line
-#define dim_null (dim_desc) {.ni=0, .stride=0, .i0=0, .lni=0 }
+#define dim_null (dim_desc) {.ni=0, .n0 = 0, .nn = -1, .stride=0, .i0=0, .lni=0 }
 #else
 // what follows is not a constant value according to some compilers (PGI for now)
-static const dim_desc  dim_null = {.ni=0, .stride=0, .i0=0, .lni=0 } ;
+static const dim_desc  dim_null = {.ni=0, .n0 = 0, .nn = -1, .stride=0, .i0=0, .lni=0 } ;
 #endif
 
 typedef struct{          // generic struct for array with n dimensions

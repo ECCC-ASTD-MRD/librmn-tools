@@ -18,6 +18,7 @@
 #include <stdlib.h>
 
 #include <rmn/data_map.h>
+#include <rmn/array_nd.h>
 #include <rmn/move_blocks.h>
 
 // #define ARRAY_1D(ARRAY, MEM, ESIZE, TYPE, N1, N2, N3, N4, N5) new_array((array_nd *)ARRAY, MEM, ESIZE, TYPE, (__i32__5__) {N1,  0,  0,  0,  0} )
@@ -64,9 +65,9 @@ int32_t check_2d_block(int32_t ni, int32_t nj, int32_t block[nj][ni], int32_t i0
   return errors ;
 }
 
-int zmap_to_array(zmap *map, array_2d *a_in, sfn_ptr fn, sfn_args *fnargs){
-  return 0 ;
-}
+// int zmap_to_array(zmap *map, array_2d *a_in, sfn_ptr fn, sfn_args *fnargs){
+//   return 0 ;
+// }
 
 // process array and store it into zmap
 zmap *array_to_zmap(zmap *map, array_2d *a_in, sfn_ptr fn, sfn_args *fnargs){
@@ -99,7 +100,11 @@ zmap *array_to_zmap(zmap *map, array_2d *a_in, sfn_ptr fn, sfn_args *fnargs){
       fprintf(stderr, "array_to_zmap : automatically allocated block[%3d][%3d]\n", nj, ni) ;
       uint8_t *start_of_data = a.data + ((gni * j0) + i0) * esize ;  // lower left corner of data
       int32_t nelem = move_data32_block(start_of_data , gni, &block[0][0], ijr.in-ijr.i0+1, ijr.in-ijr.i0+1, ijr.jn-ijr.j0+1, &bp) ;
-      if(nelem <= 0) return NULL ;
+      if(nelem <= 0) {
+        fprintf(stderr, "array_to_zmap : ERROR, move_data32_block failed (%d), zblock %d\n", nelem, zx);
+        fprintf(stderr, "                lnis = %d, lnid = %d, ni = %d, nj = %d\n", gni, ijr.in-ijr.i0+1, ijr.in-ijr.i0+1, ijr.jn-ijr.j0+1);
+        return NULL ;
+      }
       int errors = check_2d_block(ni, nj, (int32_t (*)[]) &block[0][0], i0, j0, bp) ;
       if(errors > 0) return NULL ;
     }else{
@@ -130,6 +135,7 @@ int main(int argc, char **argv){
   ij_range ijr ;
 
   if(argc > 1 && argv[0] == NULL) return 1 ;  // useless code to get rid of compiler warning
+//   if(argc > 0) return 0 ;
 
   fprintf(stderr, "=============== block indexing ===============\n") ;
 
@@ -283,5 +289,6 @@ int main(int argc, char **argv){
   fill_array(&a2d) ;
   zmap *result = array_to_zmap(map, &a2d, NULL, NULL) ;
   if(result == NULL) exit(1) ;
+  fprintf(stderr, "SUCCESS\n") ;
   return 0 ;
 }
