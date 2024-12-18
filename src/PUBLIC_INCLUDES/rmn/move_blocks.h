@@ -18,6 +18,8 @@
 #include <stdlib.h>
 #include <stdint.h>
 
+#include <rmn/data_kind.h>
+
 // generic signed/unsigned/float 32 bit word
 typedef union{
   int32_t  i ;    // signed integer
@@ -36,21 +38,6 @@ typedef union{
   float     f ;    // float
 } iuf64_t ;
 
-// expected data types for block properties
-typedef enum {
-  bad_data   = 0,     // invalid or unknown
-  int_data   = 1,     // signed integers
-  uint_data  = 2,     // unsigned integers
-  float_data = 3,     // floats
-  raw_data   = 4,     // any 32 bit quantities (block_properties can be meaningless in that case)
-  large_data = 5,     // multiple of 32 bit quantities (block_properties are meaningless in that case)
-  any_data   = 6      // unknown or unspecified
-} int_or_float ;
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wunused-variable"
-static const char *printable_type[5] = { "BAD", "SIGNED", "UNSIGNED", "FLOAT", "RAW32" } ;
-#pragma GCC diagnostic pop
-
 // basic block block properties, set while gathering block
 typedef struct{
   iuf32_t  maxs ;      // max value in block
@@ -58,13 +45,13 @@ typedef struct{
   iuf32_t  minu ;      // min absolute value in block
   iuf32_t  maxu ;      // max absolute value in block (needed for uint_data)
   int32_t  zeros ;     // number of ZERO values in block (-1 if unknown)
-  int_or_float kind ;  // data type (signed / unsigned / float / unknown)
+  data_kind kind ;  // data type (signed / unsigned / float / unknown)
 } block_properties ;
 
 int32_t fake_int(float f);
 float unfake_float(int32_t fake);
 
-int move_word32_block(void *restrict src, int lnis, void *restrict dst, int lnid, int ni, int nj, int_or_float datatype, block_properties *bp);
+int move_word32_block(void *restrict src, int lnis, void *restrict dst, int lnid, int ni, int nj, data_kind datatype, block_properties *bp);
 
 #define move_w32_block(src,lnis,dst,lnid,ni,nj,bp) _Generic((src), \
                                                    int32_t  *: move_int32_block,  \
@@ -89,4 +76,4 @@ static inline sfn_args *malloc_fn_args(uint32_t nmax) { return (sfn_args *) mall
 
 typedef int (*sfn_ptr)(int lni, int ni, int nj, block_properties *bp, void *data, sfn_args *args) ;   // pointer to processing function
 
-int split_and_process(void *array, uint32_t lgni, uint32_t gni, uint32_t gnj, int_or_float datatype, int ni, int nj, sfn_ptr fn, sfn_args *fnargs);
+int split_and_process(void *array, uint32_t lgni, uint32_t gni, uint32_t gnj, data_kind datatype, int ni, int nj, sfn_ptr fn, sfn_args *fnargs);

@@ -25,10 +25,10 @@ int32_t invalid_array(array_nd *a){
   if(a == NULL) return 1 ;
   if(a->data == NULL) return 1 ;
   for(i = 0 ; i < a->ndim ; i++){
-    if(a->dim[i].ni     <= 0) return 1 ;
-    if(a->dim[i].stride <= 0) return 1 ;
-    if(a->dim[i].i0  <  0 || a->dim[i].i0  >= a->dim[i].ni) return 1 ;
-    if(a->dim[i].lni <= 0 || a->dim[i].lni >  a->dim[i].ni) return 1 ;
+    if(a->dim[i].gni     <= 0) return 1 ;
+//     if(a->dim[i].stride <= 0) return 1 ;
+    if(a->dim[i].ln0  <  0 || a->dim[i].ln0  >= a->dim[i].gni) return 1 ;
+    if(a->dim[i].lni <= 0 || a->dim[i].lni >  a->dim[i].gni) return 1 ;
   }
   return 0 ;
 }
@@ -40,12 +40,16 @@ uint8_t *array_element(array_nd *a){
   if(a == NULL) return NULL ;
   uint32_t i, esize = a->esize ;
   uint8_t *ptr = a->data ;                            // base address of array
+  int32_t stride = 1 ;
+
   if(ptr == NULL) return NULL ;
   for(i = 0 ; i < a->ndim ; i++){
-    if(a->dim[i].stride <= 0) return NULL ;
-    if(a->dim[i].i0 < 0) return NULL ;
-    if(a->dim[i].i0 >= a->dim[i].ni) return NULL ;
-    ptr += esize * a->dim[i].stride * a->dim[i].i0 ;  // add displacement for this dimension
+//     if(a->dim[i].stride <= 0) return NULL ;
+    if(a->dim[i].ln0 < 0) return NULL ;
+    if(a->dim[i].ln0 >= a->dim[i].gni) return NULL ;
+//     ptr += esize * a->dim[i].stride * a->dim[i].ln0 ;  // add displacement for this dimension
+    ptr += esize * stride * a->dim[i].ln0 ;  // add displacement for this dimension
+    stride *= a->dim[i].gni ;                // stride for next dimension
   }
   return ptr ;
 }
@@ -69,12 +73,12 @@ array_nd *array_block(array_nd *a, array_nd *b){
   int i ;
   ssize_t size = 1 ;
   for(i = 0 ; i < a->ndim ; i++){
-    b->dim[i].ni     = a->dim[i].lni ;
-    b->dim[i].lni    = b->dim[i].ni ;
-    b->dim[i].i0     = 0 ;
-    b->dim[i].stride = stride ;
-    stride *= b->dim[i].ni ;
-    size *= b->dim[i].ni ;
+    b->dim[i].gni     = a->dim[i].lni ;
+    b->dim[i].lni    = b->dim[i].gni ;
+    b->dim[i].ln0     = 0 ;
+//     b->dim[i].stride = stride ;
+    stride *= b->dim[i].gni ;
+    size *= b->dim[i].gni ;
   }
   b->data = malloc(b->esize * size) ;   // allocate data array
   return b ;
@@ -87,23 +91,24 @@ array_nd *array_block(array_nd *a, array_nd *b){
 // esize   [IN] : size of array elements in bytes
 // type    [IN] : data type, see type in array_nd struct
 // nd      [IN] : number of dimensions
-// dim[nd] [IN] : dimensions
-void new_array_nd(array_nd *a, void *mem, int32_t esize, int8_t type, __i32__5__ dim){
-  int32_t i, nelem, stride, n ;
+// dm5[nd] [IN] : dimensions
+void new_array_nd(array_nd *a, void *mem, int32_t esize, int8_t type, __i32__5__ dm5){
+  int32_t i, nelem, n ;
+//   int32_t stride ;
   a->reserved = 0 ;
   a->type = type ;
   a->esize = esize ;
   nelem = 1 ;
-  stride = 1 ;
+//   stride = 1 ;
   for(i=0 ; i<5 ; i++){
-    if(dim.n0[i] <= 0) break ;
-    n = (dim.n0[i] <= 0) ? 1 : dim.n0[i] ;
+    if(dm5.i32[i] <= 0) break ;
+    n = (dm5.i32[i] <= 0) ? 1 : dm5.i32[i] ;
     nelem = nelem * n ;
-    a->dim[i].ni = n ;
-    a->dim[i].stride = stride ;
-    a->dim[i].i0 = 0 ;
+    a->dim[i].gni = n ;
+//     a->dim[i].stride = stride ;
+    a->dim[i].ln0 = 0 ;
     a->dim[i].lni = n ;
-    stride = nelem ;
+//     stride = nelem ;
   }
   size_t size = esize ;
   size *= nelem ;
@@ -112,7 +117,7 @@ void new_array_nd(array_nd *a, void *mem, int32_t esize, int8_t type, __i32__5__
   a->data = mem ;
   a->limit = a->data + size ;
 fprintf(stderr, "%d dimensional array, size = %ld [", a->ndim, size/esize) ;
-fprintf(stderr,"%d", a->dim[0].ni) ;
-for(i=1 ; i<a->ndim ; i++) fprintf(stderr,",%d", a->dim[i].ni) ;
+fprintf(stderr,"%d", a->dim[0].gni) ;
+for(i=1 ; i<a->ndim ; i++) fprintf(stderr,",%d", a->dim[i].gni) ;
 fprintf(stderr,"]\n");
 }

@@ -49,7 +49,7 @@ fprintf(stderr, "z[0][0] = %8.8x, z[%3d][%3d] = %8.8x (%3d %3d)\n", z[0][0], ni-
 }
 
 void  fill_array(array_2d *a){
-  fill_2d_array(a->dim[0].ni, a->dim[1].ni, ( int32_t (*)[] )a->data) ;
+  fill_2d_array(a->dim[0].gni, a->dim[1].gni, ( int32_t (*)[] )a->data) ;
 }
 
 int32_t check_2d_block(int32_t ni, int32_t nj, int32_t block[nj][ni], int32_t i0, int32_t j0, block_properties bp){
@@ -84,7 +84,7 @@ zmap *array_to_zmap(zmap *map, array_2d *a_in, sfn_ptr fn, sfn_args *fnargs){
   for(zx=0 ; zx < map->zni * map->znj ; zx++){  // loop over zindex
     ij_pair  ijp = Zindex_to_i_j(zx, map->zni, map->znj, map->stripe) ;
     ij_range ijr = block_limits(map, ijp.i, ijp.j) ;
-    int32_t gni = a.dim[0].ni ;
+    int32_t gni = a.dim[0].gni ;
     int32_t i0 = ijr.i0 ;
     int32_t in = ijr.in ;
     int32_t ni = in-i0+1 ;
@@ -214,6 +214,8 @@ int main(int argc, char **argv){
   fprintf(stderr, "size of array_1d = %ld\n", sizeof(array_1d));
   fprintf(stderr, "size of array_2d = %ld\n", sizeof(array_2d));
   fprintf(stderr, "size of array_3d = %ld\n", sizeof(array_3d));
+  fprintf(stderr, "size of array_4d = %ld\n", sizeof(array_4d));
+  fprintf(stderr, "size of array_5d = %ld\n", sizeof(array_5d));
 
   zblocks *mem = map->mh.mem ;
   znij = map->zni * map->znj ;

@@ -113,7 +113,7 @@ static int diag_fn(int lni, int ni, int nj, block_properties *bp, void *data, sf
 // return error code from fn
 // TODO add data type to arguments
 // TODO adjust for longer first block / shorter last block strategy
-static int split_and_process_(uint32_t lgni, uint32_t gni, uint32_t gnj, int_or_float datatype, uint32_t array[gnj][lgni], int ni, int nj, sfn_ptr fn, sfn_args *fnargs){
+static int split_and_process_(uint32_t lgni, uint32_t gni, uint32_t gnj, data_kind datatype, uint32_t array[gnj][lgni], int ni, int nj, sfn_ptr fn, sfn_args *fnargs){
   uint32_t ni0, nj0, nbi, nbj, i, j, deltai, deltaj ;
   int status ;
   block_properties bp ;
@@ -154,7 +154,7 @@ static int split_and_process_(uint32_t lgni, uint32_t gni, uint32_t gnj, int_or_
 // fnargs [IN] : argument list to be passed to function
 // call VLA style version, return its status
 // TODO add data type to arguments
-int split_and_process(void *array, uint32_t lgni, uint32_t gni, uint32_t gnj, int_or_float datatype, int ni, int nj, sfn_ptr fn, sfn_args *fnargs){
+int split_and_process(void *array, uint32_t lgni, uint32_t gni, uint32_t gnj, data_kind datatype, int ni, int nj, sfn_ptr fn, sfn_args *fnargs){
   return split_and_process_(lgni, gni, gnj, datatype, array, ni, nj, fn, fnargs) ;
 }
 
@@ -352,7 +352,7 @@ int move_data32_block(void *restrict src, int lnis, void *restrict dst, int lnid
   return ninj ;
 }
 
-void set_block_properties(block_properties *bp, int_or_float datatype){
+void set_block_properties(block_properties *bp, data_kind datatype){
   if(bp == NULL) return ;
   if(datatype == any_data) datatype = bp->kind ;
   if(datatype == float_data){
@@ -489,7 +489,7 @@ int move_uint32_block(int32_t *restrict src, int lnis, void *restrict dst, int l
 // dtype [IN] : data type int_data / uint_data / float_data / raw_data
 // bp   [OUT] : pointer to block properties struct (min / max / min abs) (IGNORED if NULL)
 // return number of values processed
-int move_word32_block(void *restrict src, int lnis, void *restrict dst, int lnid, int ni, int nj, int_or_float datatype, block_properties *bp){
+int move_word32_block(void *restrict src, int lnis, void *restrict dst, int lnid, int ni, int nj, data_kind datatype, block_properties *bp){
   if(datatype == float_data && bp != NULL){
     return move_float_block(src, lnis, dst, lnid, ni, nj, bp) ;
 
