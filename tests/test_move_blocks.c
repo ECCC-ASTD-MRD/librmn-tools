@@ -195,7 +195,7 @@ int main(int argc, char **argv){
     }
   }
 
-  split_and_process(z, LNI, NI, NJ, int_data, 64, 64, NULL, NULL) ;  // demo mode 
+//   split_and_process(z, LNI, NI, NJ, int_data, 64, 64, NULL, NULL) ;  // demo mode 
 
   return 0 ;
 }

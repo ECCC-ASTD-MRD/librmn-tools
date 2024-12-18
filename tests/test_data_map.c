@@ -21,23 +21,6 @@
 #include <rmn/array_nd.h>
 #include <rmn/move_blocks.h>
 
-// #define ARRAY_1D(ARRAY, MEM, ESIZE, TYPE, N1, N2, N3, N4, N5) new_array((array_nd *)ARRAY, MEM, ESIZE, TYPE, (__i32__5__) {N1,  0,  0,  0,  0} )
-// #define ARRAY_2D(ARRAY, MEM, ESIZE, TYPE, N1, N2, N3, N4, N5) new_array((array_nd *)ARRAY, MEM, ESIZE, TYPE, (__i32__5__) {N1, N2,  0,  0,  0} )
-// #define ARRAY_3D(ARRAY, MEM, ESIZE, TYPE, N1, N2, N3, N4, N5) new_array((array_nd *)ARRAY, MEM, ESIZE, TYPE, (__i32__5__) {N1, N2, N3,  0,  0} )
-// #define ARRAY_4D(ARRAY, MEM, ESIZE, TYPE, N1, N2, N3, N4, N5) new_array((array_nd *)ARRAY, MEM, ESIZE, TYPE, (__i32__5__) {N1, N2, N3, N4,  0} )
-// #define ARRAY_5D(ARRAY, MEM, ESIZE, TYPE, N1, N2, N3, N4, N5) new_array((array_nd *)ARRAY, MEM, ESIZE, TYPE, (__i32__5__) {N1, N2, N3, N4, N5} )
-// 
-#if 0
-#define new_array(ARRAY, MEM, ESIZE, TYPE, N1, N2, N3, N4, N5) \
-  _Generic((ARRAY), \
-    array_1d *: new_array_nd((array_nd *)ARRAY, MEM, ESIZE, TYPE, (__i32__5__){ { N1,  0,  0,  0,  0 } }), \
-    array_2d *: new_array_nd((array_nd *)ARRAY, MEM, ESIZE, TYPE, (__i32__5__){ { N1, N2,  0,  0,  0 } }), \
-    array_3d *: new_array_nd((array_nd *)ARRAY, MEM, ESIZE, TYPE, (__i32__5__){ { N1, N2, N3,  0,  0 } }), \
-    array_4d *: new_array_nd((array_nd *)ARRAY, MEM, ESIZE, TYPE, (__i32__5__){ { N1, N2, N3, N4,  0 } }), \
-    array_5d *: new_array_nd((array_nd *)ARRAY, MEM, ESIZE, TYPE, (__i32__5__){ { N1, N2, N3, N4, N5 } })  \
-  )
-#endif
-
 void fill_2d_array(int32_t ni, int32_t nj, int32_t z[nj][ni]){
   int i, j ;
   for(j=0 ; j<nj ; j++){

@@ -27,17 +27,6 @@ typedef union{
   float    f ;    // float
 } iuf32_t ;
 
-// generic 64 bit container
-typedef union{
-  double    d ;    // double
-  void   *ptr ;    // address
-  int64_t   l ;    // long long signed integer
-  uint64_t lu ;    // long long unsigned integer
-  int32_t   i ;    // signed integer
-  uint32_t  u ;    // unsigned integer
-  float     f ;    // float
-} iuf64_t ;
-
 // basic block block properties, set while gathering block
 typedef struct{
   iuf32_t  maxs ;      // max value in block
@@ -66,6 +55,17 @@ int move_float_block(float    *restrict src, int lnis, void *restrict dst, int l
 int move_data32_block(void    *restrict src, int lnis, void *restrict dst, int lnid, int ni, int nj, block_properties *bp);
 int move_mem32_block(void     *restrict src, int lnis, void *restrict dst, int lnid, int ni, int nj, block_properties *bp);
 
+// generic 64 bit container
+typedef union{
+  double    d ;    // double
+  void     *p ;    // address
+  int64_t   l ;    // long long signed integer
+  uint64_t lu ;    // long long unsigned integer
+  int32_t   i ;    // signed integer
+  uint32_t  u ;    // unsigned integer
+  float     f ;    // float
+} iuf64_t ;
+
 typedef struct{
   uint64_t nargs ;      // number of arguments
   iuf64_t  args[] ;     // arguments ( [0] .. [nargs-1] )
@@ -76,4 +76,4 @@ static inline sfn_args *malloc_fn_args(uint32_t nmax) { return (sfn_args *) mall
 
 typedef int (*sfn_ptr)(int lni, int ni, int nj, block_properties *bp, void *data, sfn_args *args) ;   // pointer to processing function
 
-int split_and_process(void *array, uint32_t lgni, uint32_t gni, uint32_t gnj, data_kind datatype, int ni, int nj, sfn_ptr fn, sfn_args *fnargs);
+// int split_and_process(void *array, uint32_t lgni, uint32_t gni, uint32_t gnj, data_kind datatype, int ni, int nj, sfn_ptr fn, sfn_args *fnargs);

@@ -100,6 +100,7 @@ static int diag_fn(int lni, int ni, int nj, block_properties *bp, void *data, sf
   return 0 ;
 }
 
+#if 0
 // VLA (variable Length Array) style version
 // lgni   [IN] : storage length of rows in array
 // gni    [IN] : number of useful elements in an array row
@@ -142,6 +143,7 @@ static int split_and_process_(uint32_t lgni, uint32_t gni, uint32_t gnj, data_ki
   }
   return 0 ;
 }
+#endif
 
 // lgni   [IN] : storage length of rows in array
 // gni    [IN] : number of useful elements in an array row
@@ -154,9 +156,9 @@ static int split_and_process_(uint32_t lgni, uint32_t gni, uint32_t gnj, data_ki
 // fnargs [IN] : argument list to be passed to function
 // call VLA style version, return its status
 // TODO add data type to arguments
-int split_and_process(void *array, uint32_t lgni, uint32_t gni, uint32_t gnj, data_kind datatype, int ni, int nj, sfn_ptr fn, sfn_args *fnargs){
-  return split_and_process_(lgni, gni, gnj, datatype, array, ni, nj, fn, fnargs) ;
-}
+// int split_and_process(void *array, uint32_t lgni, uint32_t gni, uint32_t gnj, data_kind datatype, int ni, int nj, sfn_ptr fn, sfn_args *fnargs){
+//   return split_and_process_(lgni, gni, gnj, datatype, array, ni, nj, fn, fnargs) ;
+// }
 
 // fold 8 value vectors for max / min / max_abs / min_abs into scalars and store into bp
 // this works whether int or float data was analyzed
