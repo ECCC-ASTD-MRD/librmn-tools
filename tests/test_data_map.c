@@ -49,7 +49,7 @@ fprintf(stderr, "z[0][0] = %8.8x, z[%3d][%3d] = %8.8x (%3d %3d)\n", z[0][0], ni-
 }
 
 void  fill_array(array_2d *a){
-  fill_2d_array(a->dim[0].gni, a->dim[1].gni, ( int32_t (*)[] )a->data) ;
+  fill_2d_array(a->dim[0].gnn, a->dim[1].gnn, ( int32_t (*)[] )a->data) ;
 }
 
 int32_t check_2d_block(int32_t ni, int32_t nj, int32_t block[nj][ni], int32_t i0, int32_t j0, block_properties bp){
@@ -69,11 +69,38 @@ int32_t check_2d_block(int32_t ni, int32_t nj, int32_t block[nj][ni], int32_t i0
 //   return 0 ;
 // }
 
+int process_2d_block(array_2d *a_in, sfn_ptr fn, sfn_args *fnargs){
+  (void) (fn) ; (void) (fnargs) ;      // unused for now
+  if(a_in == NULL) return -1 ;
+  if(a_in->ndim != 2) return -1 ;
+  int32_t ni = a_in->dim[0].lnn, nj = a_in->dim[1].lnn ;
+
+  block_properties bp ;
+  // allocate local block for subarray copy
+  int32_t block[nj][ni] ;
+  // find base address of subarrray
+  uint8_t *start_of_data = subarray_address((array_nd *)a_in) ;
+  // get local copy of subarray
+  int32_t nelem = move_data32_block(start_of_data , a_in->dim[0].gnn, &block[0][0], ni, ni, nj, &bp) ;
+
+  fprintf(stderr, "process_2d_block : automatically allocated block[%3d][%3d], subarray offset = %ld\n"
+                , nj, ni, start_of_data - a_in->data ) ;
+  if(nelem <= 0){
+    fprintf(stderr, "process_2d_block : ERROR, move_data32_block failed (%d)\n", nelem);
+    fprintf(stderr, "                   lnis = %d, lnid = %d, ni = %d, nj = %d\n", a_in->dim[0].gnn, ni, ni, nj);
+    return nelem ;
+  }
+  int errors = check_2d_block(ni, nj, (int32_t (*)[]) &block[0][0], a_in->dim[0].ln0, a_in->dim[1].ln0, bp) ;
+  if(errors > 0) return (-errors) ;
+
+  return nelem ;
+}
+
 // process array and store it into zmap
 zmap *array_to_zmap(zmap *map, array_2d *a_in, sfn_ptr fn, sfn_args *fnargs){
   int zx ;
   array_2d a ;
-  (void) (fn) ; (void) (fnargs) ;      // unused for now
+//   (void) (fn) ; (void) (fnargs) ;      // unused for now
 
   if(a_in == NULL) return NULL ;
   a = *a_in ;
@@ -84,7 +111,7 @@ zmap *array_to_zmap(zmap *map, array_2d *a_in, sfn_ptr fn, sfn_args *fnargs){
   for(zx=0 ; zx < map->zni * map->znj ; zx++){  // loop over zindex
     ij_pair  ijp = Zindex_to_i_j(zx, map->zni, map->znj, map->stripe) ;
     ij_range ijr = block_limits(map, ijp.i, ijp.j) ;
-    int32_t gni = a.dim[0].gni ;
+    int32_t gni = a.dim[0].gnn ;
     int32_t i0 = ijr.i0 ;
     int32_t in = ijr.in ;
     int32_t ni = in-i0+1 ;
@@ -95,18 +122,27 @@ zmap *array_to_zmap(zmap *map, array_2d *a_in, sfn_ptr fn, sfn_args *fnargs){
     fprintf(stderr, "array_to_zmap : zblock %3d [%3d,%3d] (%3d:%3d,%3d:%3d), gni = %3d, i0 = %3d, j0 = %3d, bsize = %d\n",
                      zx, ijp.i, ijp.j, i0, in, j0, jn, gni, i0, j0, bsize) ;
     if( ( ni == map->lix || ni == map->lni) && ( nj == map->ljx || nj == map->lnj) ){
-      block_properties bp ;
-      int32_t block[nj][ni] ;
-      fprintf(stderr, "array_to_zmap : automatically allocated block[%3d][%3d]\n", nj, ni) ;
-      uint8_t *start_of_data = a.data + ((gni * j0) + i0) * esize ;  // lower left corner of data
-      int32_t nelem = move_data32_block(start_of_data , gni, &block[0][0], ijr.in-ijr.i0+1, ijr.in-ijr.i0+1, ijr.jn-ijr.j0+1, &bp) ;
-      if(nelem <= 0) {
-        fprintf(stderr, "array_to_zmap : ERROR, move_data32_block failed (%d), zblock %d\n", nelem, zx);
-        fprintf(stderr, "                lnis = %d, lnid = %d, ni = %d, nj = %d\n", gni, ijr.in-ijr.i0+1, ijr.in-ijr.i0+1, ijr.jn-ijr.j0+1);
+      a.dim[0].ln0 = i0 ;  // set subarray limits
+      a.dim[1].ln0 = j0 ;
+      a.dim[0].lnn = ni ;
+      a.dim[1].lnn = nj ;
+      if(process_2d_block(&a, fn, fnargs) <= 0){
+        fprintf(stderr, "array_to_zmap : ERROR in process_2d_block\n") ;
         return NULL ;
       }
-      int errors = check_2d_block(ni, nj, (int32_t (*)[]) &block[0][0], i0, j0, bp) ;
-      if(errors > 0) return NULL ;
+//       block_properties bp ;
+//       int32_t block[nj][ni] ;
+//       uint8_t *start_of_data = a.data + ((gni * j0) + i0) * esize ;  // lower left corner of data
+//       fprintf(stderr, "array_to_zmap : automatically allocated block[%3d][%3d], subarray offset = %ld\n"
+//                     , nj, ni, start_of_data - a.data) ;
+//       int32_t nelem = move_data32_block(start_of_data , gni, &block[0][0], ijr.in-ijr.i0+1, ijr.in-ijr.i0+1, ijr.jn-ijr.j0+1, &bp) ;
+//       if(nelem <= 0) {
+//         fprintf(stderr, "array_to_zmap : ERROR, move_data32_block failed (%d), zblock %d\n", nelem, zx);
+//         fprintf(stderr, "                lnis = %d, lnid = %d, ni = %d, nj = %d\n", gni, ijr.in-ijr.i0+1, ijr.in-ijr.i0+1, ijr.jn-ijr.j0+1);
+//         return NULL ;
+//       }
+//       int errors = check_2d_block(ni, nj, (int32_t (*)[]) &block[0][0], i0, j0, bp) ;
+//       if(errors > 0) return NULL ;
     }else{
       fprintf(stderr, "array_to_zmap : ERROR, wrong block dimensions, ni = %3d, must be %d or %d, nj = %3d, must be %3d or %3d\n",
                        ni, map->lix, map->lni, nj, map->ljx, map->lnj) ;

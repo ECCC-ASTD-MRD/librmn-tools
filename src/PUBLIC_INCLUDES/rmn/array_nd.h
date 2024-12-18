@@ -23,31 +23,31 @@
 
 #include <rmn/data_kind.h>
 
-// global   dimension index space : gn0 -> gn0 + gni - 1  ( gni elements)
-// subarray dimension index range : ln0 -> ln0 + lni - 1  ( lni elements)
-// ln0 >= gn0 , ln0 + lni - 1 <= gn0 + gni - 1
+// global   dimension index space : gn0 -> gn0 + gnn - 1  ( gnn elements)
+// subarray dimension index range : ln0 -> ln0 + lnn - 1  ( lnn elements)
+// ln0 >= gn0 , ln0 + lnn - 1 <= gn0 + gnn - 1
 typedef struct{
-  int32_t  gni ;          // number of elements stored along dimension
+  int32_t  gnn ;          // number of elements stored along dimension
   int32_t  gn0 ;          // global index of first point along dimension (usually 0)
-//   int32_t  g1 ;          // global index of last point along dimension (usually gni - 1)
+//   int32_t  g1 ;          // global index of last point along dimension (usually gnn - 1)
 //   uint32_t stride ;      // distance between adjacent elements along dimension
-  int32_t  ln0 ;          // index of first point along dimension ( gn0 -> gn0 + gni - 1 )
-  int32_t  lni ;         // number of elements used along dimension ( gni - (ln0 - gn0) - 1 )
-} dim_desc ;             // ln0 = 0 , lni = gni : all elements are used
+  int32_t  lnn ;          // number of elements used along dimension ( gnn - (ln0 - gn0) - 1 )
+  int32_t  ln0 ;          // index of first point along dimension ( gn0 -> gn0 + gnn - 1 )
+} dim_desc ;              // ln0 = 0 , lnn = gnn : all elements are used
 
 // recent LLVM based compilers seem not to care, older compilers seem to need the define way
 // PGI compilers seem to need the define way
 // gcc seems to prefer the const way (emits a warning with the define way)
 #if defined(__PGI) || defined(__INTEL_COMPILER) || defined(__clang__) || defined(__INTEL_LLVM_COMPILERx)
 // initializer element is not constant according to gcc in the following line
-// #define dim_null (dim_desc) {.gni=0, .gn0 = 0, .g1 = -1, .stride=0, .ln0=0, .lni=0 }
-// #define dim_null (dim_desc) {.gni=0, .gn0 = 0, .stride=0, .ln0=0, .lni=0 }
-#define dim_null (dim_desc) {.gni=0, .gn0 = 0, .ln0=0, .lni=0 }
+// #define dim_null (dim_desc) {.gnn=0, .gn0 = 0, .g1 = -1, .stride=0, .ln0=0, .lnn=0 }
+// #define dim_null (dim_desc) {.gnn=0, .gn0 = 0, .stride=0, .ln0=0, .lnn=0 }
+#define dim_null (dim_desc) {.gnn=0, .gn0 = 0, .ln0=0, .lnn=0 }
 #else
 // what follows is not a constant value according to some compilers
-// static const dim_desc  dim_null = {.gni=0, .gn0 = 0, .g1 = -1, .stride=0, .ln0=0, .lni=0 } ;
-// static const dim_desc  dim_null = {.gni=0, .gn0 = 0, .stride=0, .ln0=0, .lni=0 } ;
-static const dim_desc  dim_null = {.gni=0, .gn0 = 0, .ln0=0, .lni=0 } ;
+// static const dim_desc  dim_null = {.gnn=0, .gn0 = 0, .g1 = -1, .stride=0, .ln0=0, .lnn=0 } ;
+// static const dim_desc  dim_null = {.gnn=0, .gn0 = 0, .stride=0, .ln0=0, .lnn=0 } ;
+static const dim_desc  dim_null = {.gnn=0, .gn0 = 0, .ln0=0, .lnn=0 } ;
 #endif
 
 typedef struct{          // generic struct for array with n dimensions
@@ -163,6 +163,6 @@ void new_array_nd(array_nd *a, void *mem, int32_t esize, int8_t type, __i32__5__
 
 int32_t invalid_array(array_nd *a);
 array_nd *array_block(array_nd *a, array_nd *b);
-uint8_t *array_element(array_nd *a);
+uint8_t *subarray_address(array_nd *a);
 
 #endif
