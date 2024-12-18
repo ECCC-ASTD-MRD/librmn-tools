@@ -35,14 +35,16 @@ typedef struct{
   int32_t  lni ;         // number of elements used along dimension ( gni - (ln0 - gn0) - 1 )
 } dim_desc ;             // ln0 = 0 , lni = gni : all elements are used
 
-// clang and intel compiler do not seem to care
-#if defined(__PGI) || defined(__INTEL_COMPILERx) || defined(__clang__x) || defined(__INTEL_LLVM_COMPILERx)
+// recent LLVM based compilers seem not to care, older compilers seem to need the define way
+// PGI compilers seem to need the define way
+// gcc seems to prefer the const way (emits a warning with the define way)
+#if defined(__PGI) || defined(__INTEL_COMPILER) || defined(__clang__) || defined(__INTEL_LLVM_COMPILERx)
 // initializer element is not constant according to gcc in the following line
 // #define dim_null (dim_desc) {.gni=0, .gn0 = 0, .g1 = -1, .stride=0, .ln0=0, .lni=0 }
 // #define dim_null (dim_desc) {.gni=0, .gn0 = 0, .stride=0, .ln0=0, .lni=0 }
 #define dim_null (dim_desc) {.gni=0, .gn0 = 0, .ln0=0, .lni=0 }
 #else
-// what follows is not a constant value according to some compilers (PGI for now)
+// what follows is not a constant value according to some compilers
 // static const dim_desc  dim_null = {.gni=0, .gn0 = 0, .g1 = -1, .stride=0, .ln0=0, .lni=0 } ;
 // static const dim_desc  dim_null = {.gni=0, .gn0 = 0, .stride=0, .ln0=0, .lni=0 } ;
 static const dim_desc  dim_null = {.gni=0, .gn0 = 0, .ln0=0, .lni=0 } ;

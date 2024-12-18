@@ -14,7 +14,8 @@
 // Author:
 //     M. Valin,   Recherche en Prevision Numerique, 2024
 //
-
+// used by block movers and array_nd
+//
 #if ! defined(DATA_KINDS_DEFINED)
 #define DATA_KINDS_DEFINED
 

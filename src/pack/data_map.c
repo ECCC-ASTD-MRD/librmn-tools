@@ -136,15 +136,15 @@ ij_range block_limits(zmap *map, int32_t bi, int32_t bj){
 // esize  [IN] : size in bytes of array elements (normally 1/2/4/8)
 zmap *new_zmap(int32_t gni, int32_t gnj, int32_t stripe, size_t esize){
   int32_t bsize = 64 ;   // use default size of 64
-  ij_pair p ;
+  int_pair p ;
   p = split_array_dimension(gni, bsize) ;
-  int32_t zni = p.i ;
+  int32_t zni = p.i1 ;
   int32_t lni = bsize ;
-  int32_t lix = p.j ;
+  int32_t lix = p.i2 ;
   p = split_array_dimension(gnj, bsize) ;
-  int32_t znj = p.i ;
+  int32_t znj = p.i1 ;
   int32_t lnj = bsize ;
-  int32_t ljx = p.j ;
+  int32_t ljx = p.i2 ;
   zmap *map = NULL ;
   ssize_t size = sizeof(zmap) + sizeof(uint16_t) * zni * znj ; // size of data map itself, header + table of sizes
   ssize_t hsize = size ;
@@ -237,7 +237,7 @@ end:
   if(current != map->mh.first){
     int32_t *data = (int32_t *)&(map->size[map->zni*map->znj]) ;
     fprintf(stderr, "ERROR new_map : first map entry not pointing to start of stream\n") ;
-    fprintf(stderr, "      first = %16p, start = %16p, data = %16p\n", map->mh.first, current, data) ;
+    fprintf(stderr, "      first = %16p, start = %16p, data = %16p\n", (void *)map->mh.first, (void *)current, (void *)data) ;
 //   }else{
 //     fprintf(stderr, "DEBUG new_map : first map entry points to start of stream\n") ;
   }
@@ -261,7 +261,7 @@ zblocks *mem_zmap(zmap *map, uint32_t *data){
   if(data != NULL){
     map->mh.first = mem[0] ;
     map->mh.limit = mem[znij] ;
-    fprintf(stderr, "DEBUG mem_zmap, switching data buffer to %16p -> %16p\n", map->mh.first, map->mh.limit) ;
+    fprintf(stderr, "DEBUG mem_zmap, switching data buffer to %16p -> %16p\n", (void *)map->mh.first, (void *)map->mh.limit) ;
   }
 
 //   uint32_t *current = map->mh.mem[0] ;          // initial position
@@ -302,7 +302,7 @@ ssize_t resize_map(zmap *map){
   if(current != map->mh.first){
     int32_t *data = (int32_t *)&(map->size[map->zni*map->znj]) ;
     fprintf(stderr, "ERROR resize_map : first map entry not pointing to start of stream\n") ;
-    fprintf(stderr, "      first = %16p, start = %16p, data = %16p\n", map->mh.first, current, data) ;
+    fprintf(stderr, "      first = %16p, start = %16p, data = %16p\n", (void *)map->mh.first, (void *)current, (void *)data) ;
   }
   for(k=0 ; k < map->zni * map->znj ; k++){
     map->mh.mem[k] = current ;
@@ -327,7 +327,7 @@ ssize_t repack_map(zmap *map){
   if(current != map->mh.first){
     int32_t *data = (int32_t *)&(map->size[map->zni*map->znj]) ;
     fprintf(stderr, "ERROR resize_map : first map entry not pointing to start of stream\n") ;
-    fprintf(stderr, "       first = %16p, start = %16p, data = %16p\n", map->mh.first, current, data) ;
+    fprintf(stderr, "       first = %16p, start = %16p, data = %16p\n", (void *)map->mh.first, (void *)current, (void *)data) ;
   }
   for(k=0 ; k < map->zni * map->znj ; k++){
     stream = map->mh.mem[k] ;         // copy from this position in memory

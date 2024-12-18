@@ -194,6 +194,11 @@ static inline int32_t b_index(int32_t l, int32_t ln, int32_t ln0){
 }
 
 typedef struct{
+  int32_t i1 ;
+  int32_t i2 ;
+}int_pair ;              // pair of integers
+
+typedef struct{
   int32_t i  ;
   int32_t j  ;
 }ij_pair ;               // 2D coordinate pair
@@ -208,16 +213,16 @@ typedef struct{
 // compute first block dimension and number of blocks from size and desired block size
 // array_dimension [IN] : size of array along one dimension
 // block_size      [IN] : desired block size
-// return integer pair, .i = number of blocks, .j = dimension of first block
-static inline ij_pair split_array_dimension(int32_t array_dimension, int32_t block_size){
-  ij_pair ijp = (ij_pair){.i = 0 , .j = 0 } ;   // in case of failure
-  ijp.i = array_dimension / block_size ;
-  int extra = array_dimension - ijp.i  * block_size ;
+// return integer pair, .i1 = number of blocks, .i2 = dimension of first block
+static inline int_pair split_array_dimension(int32_t array_dimension, int32_t block_size){
+  int_pair ijp = {.i1 = 0 , .i2 = 0 } ;   // in case of failure
+  ijp.i1 = array_dimension / block_size ;
+  int extra = array_dimension - ijp.i1  * block_size ;
   if(extra < block_size/2){
-    ijp.j = block_size + extra ;    // first block will be longer than block_size
+    ijp.i2 = block_size + extra ;    // first block will be longer than block_size
   }else{
-    ijp.i++ ;                       // one more block, shorter than block_size
-    ijp.j = extra ;
+    ijp.i1++ ;                       // one more block, shorter than block_size
+    ijp.i2 = extra ;
   }
   return ijp ;
 }
