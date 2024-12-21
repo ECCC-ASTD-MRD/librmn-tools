@@ -89,10 +89,10 @@ zmap *array_to_zmap(zmap *map, array_2d *a_in, sfn_ptr fn, sfn_args *fnargs){
   a = *a_in ;
   int32_t esize = a.esize ;
 
-  fprintf(stderr, "array_to_zmap : stripe = %d, esize = %d\n", map->stripe, esize) ;
-  fprintf(stderr, "map block sizes : ") ;for(zx=0 ; zx < map->zni * map->znj ; zx++){ fprintf(stderr, "%4d ",map->size[zx]);}  fprintf(stderr, "\n") ;
-  for(zx=0 ; zx < map->zni * map->znj ; zx++){  // loop over zindex
-    ij_pair  ijp = Zindex_to_i_j(zx, map->zni, map->znj, map->stripe) ;
+  fprintf(stderr, "array_to_zmap : stripe = %d, esize = %d\n", map->fhead.stripe, esize) ;
+  fprintf(stderr, "map block sizes : ") ;for(zx=0 ; zx < map->fhead.zni * map->fhead.znj ; zx++){ fprintf(stderr, "%4d ",map->size[zx]);}  fprintf(stderr, "\n") ;
+  for(zx=0 ; zx < map->fhead.zni * map->fhead.znj ; zx++){  // loop over zindex
+    ij_pair  ijp = Zindex_to_i_j(zx, map->fhead.zni, map->fhead.znj, map->fhead.stripe) ;
     ij_range ijr = block_limits(map, ijp.i, ijp.j) ;
     int32_t gni = a.dim[0].gnn ;
     int32_t i0 = ijr.i0 ;
@@ -104,7 +104,7 @@ zmap *array_to_zmap(zmap *map, array_2d *a_in, sfn_ptr fn, sfn_args *fnargs){
     uint32_t bsize = map->size[zx] ;
     fprintf(stderr, "array_to_zmap : zblock %3d [%3d,%3d] (%3d:%3d,%3d:%3d), gni = %3d, i0 = %3d, j0 = %3d, bsize = %d\n",
                      zx, ijp.i, ijp.j, i0, in, j0, jn, gni, i0, j0, bsize) ;
-    if( ( ni == map->lix || ni == map->lni) && ( nj == map->ljx || nj == map->lnj) ){
+    if( ( ni == map->fhead.lix || ni == map->fhead.lni) && ( nj == map->fhead.ljx || nj == map->fhead.lnj) ){
       a.dim[0].ln0 = i0 ;  // set subarray limits
       a.dim[1].ln0 = j0 ;
       a.dim[0].lnn = ni ;
@@ -128,7 +128,7 @@ zmap *array_to_zmap(zmap *map, array_2d *a_in, sfn_ptr fn, sfn_args *fnargs){
 //       if(errors > 0) return NULL ;
     }else{
       fprintf(stderr, "array_to_zmap : ERROR, wrong block dimensions, ni = %3d, must be %d or %d, nj = %3d, must be %3d or %3d\n",
-                       ni, map->lix, map->lni, nj, map->ljx, map->lnj) ;
+                       ni, map->fhead.lix, map->fhead.lni, nj, map->fhead.ljx, map->fhead.lnj) ;
       return NULL ;
     }
     // check compressed stream size in map for this block
@@ -223,12 +223,12 @@ int main(int argc, char **argv){
   fprintf(stderr, "SUCCESS\n") ;
 
   fprintf(stderr, "=============== data map creation ===============\n") ;
-  int gni = 128+66, gnj = 128+32, stripe = 2 ;
-  zmap *map = new_zmap(gni, gnj, stripe, sizeof(uint32_t));
+  int gni = 128+65, gnj = 128+33, stripe = 2 ;
+  zmap *map = new_zmap(gni, gnj, stripe, sizeof(uint32_t), 0);
   if(map == NULL) exit(1) ;
-  if(map->zni != 3 || map->znj != 3) exit(1) ;
+  if(map->fhead.zni != 3 || map->fhead.znj != 3) exit(1) ;
 
-  fprintf(stderr, "size of preamble = %ld\n", (uint8_t *)&(map->data_head) - (uint8_t *)&(map->mh.signature)) ;
+  fprintf(stderr, "size of preamble = %ld\n", (uint8_t *)&(map->fhead.signature) - (uint8_t *)&(map->mhead.signature)) ;
   fprintf(stderr, "size of array_nd = %ld\n", sizeof(array_nd));
   fprintf(stderr, "size of array_1d = %ld\n", sizeof(array_1d));
   fprintf(stderr, "size of array_2d = %ld\n", sizeof(array_2d));
@@ -236,8 +236,8 @@ int main(int argc, char **argv){
   fprintf(stderr, "size of array_4d = %ld\n", sizeof(array_4d));
   fprintf(stderr, "size of array_5d = %ld\n", sizeof(array_5d));
 
-  zblocks *mem = map->mh.mem ;
-  znij = map->zni * map->znj ;
+  zblocks *mem = map->mhead.mem ;
+  znij = map->fhead.zni * map->fhead.znj ;
   fprintf(stderr, "size from old pointer table[%d] :", znij);
   for(i=0 ; i < znij ; i++) fprintf(stderr, "%6ld", mem[i+1] - mem[i]) ;
   fprintf(stderr, "\n");
@@ -249,7 +249,7 @@ int main(int argc, char **argv){
 
   free_zmap(map, 0) ;             // partial free (only mem table)
   mem = mem_zmap(map, NULL) ;     // reallocate mem table
-  znij = map->zni * map->znj ;
+  znij = map->fhead.zni * map->fhead.znj ;
   fprintf(stderr, "size from new pointer table[%d] :", znij);
   for(i=0 ; i < znij ; i++) fprintf(stderr, "%6ld", mem[i+1] - mem[i]) ;
   fprintf(stderr, "\n");
@@ -260,7 +260,7 @@ int main(int argc, char **argv){
   fprintf(stderr, "SUCCESS\n") ;
 
   fprintf(stderr, "=============== data map sizes reduce ===============\n") ;
-  uint32_t oldsize = map->mh.mem[znij] - map->mh.mem[0] ;
+  uint32_t oldsize = map->mhead.mem[znij] - map->mhead.mem[0] ;
   fprintf(stderr, "initial data size = %6d\n", oldsize) ;
   for(i=0 ; i<znij ; i++) map->size[i] -= 2 ;
   uint32_t newsize = repack_map(map) ;
@@ -283,21 +283,21 @@ int main(int argc, char **argv){
   if(newsize == oldsize) fprintf(stderr, "SUCCESS\n") ;
 
   fprintf(stderr, "=============== block limits ===============\n") ;
-  fprintf(stderr, "blocks[%d,%d] => data[%4d,%4d]", map->zni, map->znj, map->gni, map->gnj) ;
-  fprintf(stderr, ", first block along i is  %s"  , map->lix > map->lni ? "longer" : "shorter") ;
-  fprintf(stderr, ", first block along j is  %s\n", map->ljx > map->lnj ? "longer" : "shorter") ;
+  fprintf(stderr, "blocks[%d,%d] => data[%4d,%4d]", map->fhead.zni, map->fhead.znj, map->fhead.gni, map->fhead.gnj) ;
+  fprintf(stderr, ", first block along i is  %s"  , map->fhead.lix > map->fhead.lni ? "longer" : "shorter") ;
+  fprintf(stderr, ", first block along j is  %s\n", map->fhead.ljx > map->fhead.lnj ? "longer" : "shorter") ;
   int32_t zx ;
-  for(j = (int)map->znj ; j > 0 ; j--){
+  for(j = (int)map->fhead.znj ; j > 0 ; j--){
     ijr = block_limits(map, 0, 0) ;       // no more warning about possibility of ijr.j0 to be uninitialized
-    for(i = 0 ; i < (int)map->zni ; i++){
+    for(i = 0 ; i < (int)map->fhead.zni ; i++){
       ijr = block_limits(map, i, j-1) ;
-//       zx = Zindex_from_i_j(i, j-1, map->zni, map->znj, map->stripe);
+//       zx = Zindex_from_i_j(i, j-1, map->fhead.zni, map->fhead.znj, map->fhead.stripe);
       zx = Z_map_index(map, i, j-1) ;
       fprintf(stderr, "data[%4d:%4d,%4d:%4d](Z %2d)  ", ijr.i0, ijr.in, ijr.j0, ijr.jn, zx) ;
     }
     fprintf(stderr, "j_range : %4d)\n", ijr.jn - ijr.j0 + 1);
   }
-  for(i = 0 ; i < (int)map->zni ; i++){
+  for(i = 0 ; i < (int)map->fhead.zni ; i++){
     ijr = block_limits(map, i, 0) ;
     fprintf(stderr, "i_range : %4d                   ", ijr.in - ijr.i0 + 1);
   }
@@ -305,8 +305,8 @@ int main(int argc, char **argv){
 
   fprintf(stderr, "=============== split array according to map ===============\n") ;
   array_2d a2d = array_2d_null ;
-//   new_array(&a2d, NULL, 4, 'U', map->gni, map->gnj) ;  // create 2D array, map->gni x map->gnj
-  new_array(&a2d, NULL, 4, uint_data, map->gni, map->gnj) ;  // create 2D array, map->gni x map->gnj
+//   new_array(&a2d, NULL, 4, 'U', map->fhead.gni, map->fhead.gnj) ;  // create 2D array, map->fhead.gni x map->fhead.gnj
+  new_array(&a2d, NULL, 4, uint_data, map->fhead.gni, map->fhead.gnj) ;  // create 2D array, map->fhead.gni x map->fhead.gnj
   fill_array(&a2d) ;
   zmap *result = array_to_zmap(map, &a2d, NULL, NULL) ;
   if(result == NULL) exit(1) ;

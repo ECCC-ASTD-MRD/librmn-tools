@@ -108,27 +108,30 @@
 
 // packed data representation (as in buffer read from file or in memory)
 //
-//   <----------------------------- in memory ----------------------------->
-//   <----------- sizeof(zmap) ---------->
+//   <----------------------------------- in memory ---------------------------------->
+//   <----------- sizeof(zmap) ---------->             <- extra ->
 //   <- sizeof(mhead) ->                 <- 2*zni*znj ->
-//   +-----------------+-----------------+-------------+--------------------+
-//   |                 |                 |             |                    |
-//   |  memory header  | data map header |    size     | packed data stream |
-//   |                 |                 |  [zni*znj]  |                    |
-//   +-----------------+-----------------+-------------+--------------------+
-//                     |                 |             |
-//                     |data_head        |size[]       |data stream
-//                     <--------------------- in file ---------------------->
+//   +-----------------+-----------------+-------------+---------+--------------------+
+//   |                 |                 |   size      |  global |                    |
+//   |  memory header  | data map header |   table     |  info   | packed data stream |
+//   |                 |                 |   [znij]    |         |                    |
+//   +-----------------+-----------------+-------------+---------+--------------------+
+//                     |                 |
+//                     |data_head        |size[]                 |data stream
+//                     <-------------------------- in file --------------------------->
 //
 // data map can be mapped directly to the beginning of the packed data representation
 // uint8_t buffer[buffer_size]
 // zmap *data_map = (zmap *) buffer ;
 // read(fd, buffer, buffer_size)
 // zij = zmap->zni * zmap->znj : number of blocks
+// znij = zij rounded up to even number
+// extra : size of global info in 32 bit words
 // zmap->size[zi]        : size of block with zigzag index zi
 // zmap->mem = malloc(zij * sizeof(void *))
 //    table of data block addresses, starting at data_ptr
 //    data_ptr = data_map + sizeof(zmap) + zmap->zni * zmap->znj * sizeof(int16_t)
+//               zmap->zni * zmap->znj rounded to multiple of 32 bits
 //    zmap->mem[0] = data_ptr, zmap->mem[i] = zmap->mem[i-1] + zmap->size[i-1]
 //    zmap->mem[zi] is the address of block with zigzag index zi
 //
@@ -145,44 +148,48 @@
 //
 typedef uint32_t *zblocks ;   // zblocks[zi] is address of block[ zindex(i,j) ]
 
+// in memory data map struct
+// the first part (mhead) is only present in memory
+// the second part (fhead) is the file data map
 typedef struct{
-  uint32_t signature ;   // 0xBEBEFADA
-  uint32_t version:8 ,   // same as file header
-            spare:8 ,
-            flags:16 ;   // freeable pointers flags
-  zblocks *mem ;         // table[zni*znj] : memory addresses of encoded blocks in memory
-  uint8_t *options ;     // same dimension as size, options associated with each encoded block
-  uint32_t *first ;      // start of compressed data stream
-  uint32_t *limit ;      // one past the end of compressed data stream
-} mhead ;
-CT_ASSERT(sizeof(mhead) == 5 * sizeof(void *) , "unexpected size for in memory header")
-
-typedef struct{          // data map
   // ---------------- start of in memory header ----------------
-  mhead mh ;
+  struct{
+    uint32_t signature ;   // 0xBEBEFADA
+    uint32_t version:8 ,   // same as file header
+              spare:8 ,
+              flags:16 ;   // freeable pointers flags
+    zblocks *mem ;         // table[zni*znj] : memory addresses of encoded blocks in memory
+    uint8_t *options ;     // same dimension as size, options associated with each encoded block
+    uint32_t *first ;      // start of compressed data stream
+    uint32_t *limit ;      // one past the end of compressed data stream
+  } mhead ;
   // ---------------- start of in file header ----------------
-  union{
-   uint32_t data_head ;  // target for & operator to get address of start of in file header
-   uint32_t signature ;
-  } ;
-  struct {
-    uint32_t version: 8, // version marker
-            stripe  : 8, // stripe width (last/top stripe may be narrower)
-            flags   :16; // reserved for flags
-  } ;
-  int32_t gni ;          // first dimension of data array   = lix + (zni - 1) * lni (row size)
-  int32_t gnj ;          // second dimension of data array  = ljx + (znj - 1) * lnj (column size)
-//   uint32_t nk ;          // third dimension of data array and block array
-  int32_t zni ;          // number of blocks in a row
-  int32_t znj ;          // number of block rows
-  int32_t lni:16 ,       // first dimension of all but first block (number of values)
-          lnj:16 ;       // second dimension of all but first block (number of values)
-  int32_t lix:16 ,       // first dimension of the first block in row
-          ljx:16 ;       // second dimension of blocks in the first (bottom) row
-  // ---------------- end of header ----------------
-  uint16_t size[] ;      // size (in 32 bit units) of encoded blocks ( size[znj*zni] )
+  struct{
+    union{
+      uint32_t data_head ;  // target for & operator to get address of start of in file header
+      uint32_t signature ;
+    } ;
+    struct{
+      uint32_t version : 8, // version marker
+               stripe  : 8, // stripe width (last/top stripe may be narrower)
+               extra   : 8, // extra global info length (in 32 bit units) (after size table)
+               flags   : 8; // reserved for flags
+    } ;
+    int32_t gni ;          // first dimension of data array   = lix + (zni - 1) * lni (row size)
+    int32_t gnj ;          // second dimension of data array  = ljx + (znj - 1) * lnj (column size)
+  //   uint32_t nk ;          // third dimension of data array and block array
+    int32_t zni ;          // number of blocks in a row
+    int32_t znj ;          // number of block rows
+    int32_t lni:16 ,       // first dimension of all but first block (number of values)
+            lnj:16 ;       // second dimension of all but first block (number of values)
+    int32_t lix:16 ,       // first dimension of the first block in row
+            ljx:16 ;       // second dimension of blocks in the first (bottom) row
+  }fhead ;
+  // ---------------- end of in file header ----------------
+  uint16_t size[] ;        // size (in 32 bit units) of encoded blocks ( size[znj*zni] )
+  // ---------------- data map ends at size[zni*znj] ----------------
 }zmap ;
-CT_ASSERT(sizeof(zmap) == sizeof(mhead) + 8 * sizeof(int32_t) , "unexpected size for in memory header")
+CT_ASSERT(sizeof(zmap) == 5*sizeof(void *) + 8*sizeof(int32_t) , "unexpected size of zmap structure")
 
 // block index from index and sizes (along one dimension)
 // l   [IN] : index along a dimension of global array
@@ -248,7 +255,7 @@ int32_t  Z_map_index(zmap *map, int32_t i, int32_t j);
 ij_pair  block_index(zmap *map, int32_t i, int32_t j);
 ij_range block_limits(zmap *map, int32_t i, int32_t j);
 
-zmap    *new_zmap(int32_t gni, int32_t gnj, int32_t stripe, size_t esize);
+zmap    *new_zmap(int32_t gni, int32_t gnj, int32_t stripe, size_t esize, int32_t extra);
 zblocks *mem_zmap(zmap *map, uint32_t *data);
 ssize_t repack_map(zmap *map);
 ssize_t resize_map(zmap *map);
