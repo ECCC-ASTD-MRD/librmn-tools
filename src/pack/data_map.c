@@ -180,12 +180,14 @@ if(DEBUG) fprintf(stderr, "buffer size = %ld\n", size) ;
     int32_t *data = (int32_t *)&(map->size[zni*znj]) ;
     data += extra ;   // allow for global decoding information
     znij  = zni * znj ;
-if(DEBUG) fprintf(stderr, "data offset = %ld bytes, hsize = %ld[%ld+%ld]\n", (uint8_t *)data - (uint8_t *)map, hsize, sizeof(zmap), sizeof(uint16_t) * znij) ;
+if(DEBUG) fprintf(stderr, "data offset = %ld bytes, hsize = %ld[%ld+%ld]\n",
+                (uint8_t *)data - (uint8_t *)map, hsize, sizeof(zmap), sizeof(uint16_t) * znij) ;
     map->fhead.signature = 0xBEBEFADA ;
     map->fhead.version   = Z_DATA_MAP_VERSION ;
     map->fhead.stripe    = stripe ;
     map->fhead.extra     = extra ;
     map->fhead.flags     = 0 ;
+    map->fhead.meta      = (zmeta) { .m = { {0}, {0} } } ;
     map->fhead.gni       = gni ;
     map->fhead.gnj       = gnj ;
     map->fhead.zni       = zni ;
@@ -194,7 +196,7 @@ if(DEBUG) fprintf(stderr, "data offset = %ld bytes, hsize = %ld[%ld+%ld]\n", (ui
     map->fhead.lnj       = lnj ;
     map->fhead.lix       = lix ;
     map->fhead.ljx       = ljx ;
-    map->mhead.signature = 0xBEBEFADA ;
+    map->mhead.signature = 0x1AD0FADA ;
     map->mhead.mem = (zblocks *)malloc( (znij + 1) * sizeof(uint32_t *) ) ;
     if(map->mhead.mem == NULL){    // failed to allocate pointer table
       free(map) ;

@@ -126,7 +126,7 @@
 // read(fd, buffer, buffer_size)
 // zij = zmap->zni * zmap->znj : number of blocks
 // znij = zij rounded up to even number
-// extra : size of global info in 32 bit words
+// extra : size of extra global info in 32 bit words (may be 0)
 // zmap->size[zi]        : size of block with zigzag index zi
 // zmap->mem = malloc(zij * sizeof(void *))
 //    table of data block addresses, starting at data_ptr
@@ -147,6 +147,14 @@
 //   block[i,j] : (li,lj)
 //
 typedef uint32_t *zblocks ;   // zblocks[zi] is address of block[ zindex(i,j) ]
+
+typedef struct{
+  union{
+    float    f ;
+    int32_t  i ;
+    uint32_t u ;
+  } m[2] ;
+} zmeta ;
 
 // in memory data map struct
 // the first part (mhead) is only present in memory
@@ -175,6 +183,7 @@ typedef struct{
                extra   : 8, // extra global info length (in 32 bit units) (after size table)
                flags   : 8; // reserved for flags
     } ;
+    zmeta   meta ;         // global metadata (applies to all blocks)
     int32_t gni ;          // first dimension of data array   = lix + (zni - 1) * lni (row size)
     int32_t gnj ;          // second dimension of data array  = ljx + (znj - 1) * lnj (column size)
   //   uint32_t nk ;          // third dimension of data array and block array
@@ -189,7 +198,7 @@ typedef struct{
   uint16_t size[] ;        // size (in 32 bit units) of encoded blocks ( size[znj*zni] )
   // ---------------- data map ends at size[zni*znj] ----------------
 }zmap ;
-CT_ASSERT(sizeof(zmap) == 5*sizeof(void *) + 8*sizeof(int32_t) , "unexpected size of zmap structure")
+CT_ASSERT(sizeof(zmap) == 5*sizeof(void *) + 8*sizeof(int32_t) + sizeof(zmeta), "unexpected size of zmap structure")
 
 // block index from index and sizes (along one dimension)
 // l   [IN] : index along a dimension of global array
