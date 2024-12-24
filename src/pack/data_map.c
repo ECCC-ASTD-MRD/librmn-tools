@@ -134,9 +134,11 @@ ij_range block_limits(zmap *map, int32_t bi, int32_t bj){
 // gnj    [IN] : second dimension of array (number of rows)
 // stripe [IN] : block stripe width for map
 // esize  [IN] : size in bytes of array elements (normally 1/2/4/8)
-// extra  [IN] : size of extra global information for data decoding (in bytes)
+// mextra [IN] : size of extra global information for data decoding (in bytes)
+//               mextra will be roubded up to a multiple of sizeof(uint32_t)
 // NOTE: array dimensions are Fortran ordered (i index varying first)
-zmap *new_zmap(int32_t gni, int32_t gnj, int32_t stripe, size_t esize, int32_t extra){
+zmap *new_zmap(int32_t gni, int32_t gnj, int32_t stripe, size_t esize, int32_t mextra){
+  mextra = (mextra + sizeof(uint32_t) - 1) / sizeof(uint32_t) ; // round to multiple of uint32_t size
   int32_t bsize = 64 ;   // default block size of 64 x 64
   int_pair p ;
   p = split_array_dimension(gni, bsize) ;   // split first dimension of array
@@ -148,10 +150,9 @@ zmap *new_zmap(int32_t gni, int32_t gnj, int32_t stripe, size_t esize, int32_t e
   int32_t lnj = bsize ;
   int32_t ljx = p.i2 ;
   zmap *map = NULL ;
-  ssize_t size = sizeof(zmap) + sizeof(uint16_t) * zni * znj ; // size of data map itself, header + table of sizes
-  extra = (extra + sizeof(uint32_t) - 1) / sizeof(uint32_t) ;  // round to multiple of uint32_t size
-  size = size + extra * sizeof(uint32_t) ;                     // size of global information
-  size = (size + sizeof(uint32_t) - 1) / sizeof(uint32_t) ;    // round to multiple of uint32_t size
+  ssize_t size = sizeof(zmap) + sizeof(uint16_t) * zni * znj ;  // size of data map itself, header + table of sizes
+  size = size + mextra * sizeof(uint32_t) ;                     // size of global information
+  size = (size + sizeof(uint32_t) - 1) / sizeof(uint32_t) ;     // round to multiple of uint32_t size
   ssize_t hsize = size ;
   ssize_t lsize ;
   int32_t i, j, lbi, lbj ;
@@ -178,16 +179,17 @@ if(DEBUG) fprintf(stderr, "buffer size = %ld\n", size) ;
   map = (zmap *) malloc(size) ;
   if(map){         // allocation was successful
     int32_t *data = (int32_t *)&(map->size[zni*znj]) ;
-    data += extra ;   // allow for global decoding information
+    data += mextra ;   // allow for global decoding information
     znij  = zni * znj ;
 if(DEBUG) fprintf(stderr, "data offset = %ld bytes, hsize = %ld[%ld+%ld]\n",
                 (uint8_t *)data - (uint8_t *)map, hsize, sizeof(zmap), sizeof(uint16_t) * znij) ;
     map->fhead.signature = 0xBEBEFADA ;
     map->fhead.version   = Z_DATA_MAP_VERSION ;
     map->fhead.stripe    = stripe ;
-    map->fhead.extra     = extra ;
+    map->fhead.mextra     = mextra ;
     map->fhead.flags     = 0 ;
-    map->fhead.meta      = (zmeta) { .m = { {0}, {0} } } ;
+//     map->fhead.meta      = (zmeta) { .m = { {0}, {0} } } ;
+    map->fhead.meta      = zmeta_null ;
     map->fhead.gni       = gni ;
     map->fhead.gnj       = gnj ;
     map->fhead.zni       = zni ;
@@ -248,7 +250,7 @@ end:
   if(current != map->mhead.first){
     // data starts after the size table
     int32_t *data = (int32_t *)&(map->size[map->fhead.zni*map->fhead.znj]) ;
-    data += extra ;
+    data += mextra ;
     fprintf(stderr, "ERROR new_map : first map entry not pointing to start of stream\n") ;
     fprintf(stderr, "      first = %16p, start = %16p, data = %16p\n", (void *)map->mhead.first, (void *)current, (void *)data) ;
 //   }else{

@@ -109,12 +109,12 @@
 // packed data representation (as in buffer read from file or in memory)
 //
 //   <----------------------------------- in memory ---------------------------------->
-//   <----------- sizeof(zmap) ---------->             <- extra ->
+//   <----------- sizeof(zmap) ---------->             <-mextra ->
 //   <- sizeof(mhead) ->                 <- 2*zni*znj ->
 //   +-----------------+-----------------+-------------+---------+--------------------+
-//   |                 |                 |   size      |  global |                    |
-//   |  memory header  | data map header |   table     |  info   | packed data stream |
-//   |                 |                 |   [znij]    |         |                    |
+//   |                 |                 |   size      |  extra  |                    |
+//   |  memory header  | data map header |   table     |  global | packed data stream |
+//   |                 |                 |   [znij]    |  info   |                    |
 //   +-----------------+-----------------+-------------+---------+--------------------+
 //                     |                 |
 //                     |data_head        |size[]                 |data stream
@@ -148,13 +148,15 @@
 //
 typedef uint32_t *zblocks ;   // zblocks[zi] is address of block[ zindex(i,j) ]
 
+// global metadata, in the data map
 typedef struct{
   union{
     float    f ;
     int32_t  i ;
     uint32_t u ;
-  } m[2] ;
+  } m[4] ;
 } zmeta ;
+#define zmeta_null (zmeta) { .m = { {0}, {0}, {0}, {0} } }
 
 // in memory data map struct
 // the first part (mhead) is only present in memory
@@ -162,10 +164,13 @@ typedef struct{
 typedef struct{
   // ---------------- start of in memory header ----------------
   struct{
-    uint32_t signature ;   // 0xBEBEFADA
-    uint32_t version:8 ,   // same as file header
-              spare:8 ,
-              flags:16 ;   // freeable pointers flags
+    union{
+      uint32_t data_head ; // target for & operator to get address of header
+      uint32_t signature ; // should be 0x1AD0FADA
+    } ;
+    uint32_t version: 8,   // same as in file header
+              spare :16,
+              flags : 8 ;  // reserved for internal use flags
     zblocks *mem ;         // table[zni*znj] : memory addresses of encoded blocks in memory
     uint8_t *options ;     // same dimension as size, options associated with each encoded block
     uint32_t *first ;      // start of compressed data stream
@@ -174,14 +179,13 @@ typedef struct{
   // ---------------- start of in file header ----------------
   struct{
     union{
-      uint32_t data_head ;  // target for & operator to get address of start of in file header
-      uint32_t signature ;
-    } ;
-    struct{
-      uint32_t version : 8, // version marker
-               stripe  : 8, // stripe width (last/top stripe may be narrower)
-               extra   : 8, // extra global info length (in 32 bit units) (after size table)
-               flags   : 8; // reserved for flags
+      uint32_t data_head ;  // target for & operator to get address of header
+      struct{
+        uint32_t version : 8, // version marker
+                 stripe  : 8, // stripe width (last/top stripe may be narrower)
+                 mextra  : 8, // extra global info length (in 32 bit units) (after size table)
+                 flags   : 8; // reserved for flags
+      } ;
     } ;
     zmeta   meta ;         // global metadata (applies to all blocks)
     int32_t gni ;          // first dimension of data array   = lix + (zni - 1) * lni (row size)
@@ -193,12 +197,24 @@ typedef struct{
             lnj:16 ;       // second dimension of all but first block (number of values)
     int32_t lix:16 ,       // first dimension of the first block in row
             ljx:16 ;       // second dimension of blocks in the first (bottom) row
+    uint32_t signature ;   // should be 0xBEBEFADA (position allows to check that the size of meta is as expected)
   }fhead ;
   // ---------------- end of in file header ----------------
   uint16_t size[] ;        // size (in 32 bit units) of encoded blocks ( size[znj*zni] )
-  // ---------------- data map ends at size[zni*znj] ----------------
+  // if znj*zni is odd, there is a supplementary uint16_t (padding to multiple of uint32_t length)
+  // if extra is not 0, mextra uint32_t items are added after the size table
+  // ---------------- end of data map ----------------
 }zmap ;
+//                        mhead              fhead - zemta       zmeta
 CT_ASSERT(sizeof(zmap) == 5*sizeof(void *) + 8*sizeof(int32_t) + sizeof(zmeta), "unexpected size of zmap structure")
+
+static inline int invalid_zmap(zmap *map){
+  if(map->mhead.signature != 0x1AD0FADA || map->fhead.signature != 0xBEBEFADA) return 1 ;
+  if(map->mhead.version != Z_DATA_MAP_VERSION || map->fhead.version != Z_DATA_MAP_VERSION) return 1 ;
+  return 0 ;
+is_invalid:
+  return 1 ;
+}
 
 // block index from index and sizes (along one dimension)
 // l   [IN] : index along a dimension of global array
