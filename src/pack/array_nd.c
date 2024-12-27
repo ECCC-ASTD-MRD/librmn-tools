@@ -90,34 +90,74 @@ array_nd *array_block(array_nd *a, array_nd *b){
 // mem     [IN] : in memory address for array. allocate automatically if NULL
 // esize   [IN] : size of array elements in bytes
 // type    [IN] : data type, see type in array_nd struct
-// nd      [IN] : number of dimensions
+// ndim    [IN] : number of dimensions
 // dm5[nd] [IN] : dimensions
-void new_array_nd(array_nd *a, void *mem, int32_t esize, int8_t type, __i32__5__ dm5){
+void new_array_nd(array_nd *a, void *mem, int32_t esize, int8_t type, int32_t ndim, __i32__5__ dm5){
   int32_t i, nelem, n ;
 //   int32_t stride ;
   a->reserved = 0 ;
   a->type = type ;
   a->esize = esize ;
+  a->ndim = ndim ;
   nelem = 1 ;
 //   stride = 1 ;
-  for(i=0 ; i<5 ; i++){
-    if(dm5.i32[i] <= 0) break ;
+  for(i = 0 ; i < ndim ; i++){
+//     if(dm5.i32[i] <= 0) break ;
     n = (dm5.i32[i] <= 0) ? 1 : dm5.i32[i] ;
     nelem = nelem * n ;
-    a->dim[i].gnn = n ;
+    a->dim[i].gnn = n ;      // number of elements stored along this dimension
+    a->dim[i].gn0 = 0 ;      // default lower bound for indexing
 //     a->dim[i].stride = stride ;
-    a->dim[i].ln0 = 0 ;
-    a->dim[i].lnn = n ;
+    a->dim[i].lnn = n ;      // number of elements used along this dimension
+    a->dim[i].ln0 = 0 ;      // default lower bound for indexing ( >= a->dim[i].gn0)
 //     stride = nelem ;
   }
   size_t size = esize ;
   size *= nelem ;
   if(mem == NULL) mem = malloc(size) ;
-  a->ndim = i ;
   a->data = mem ;
   a->limit = a->data + size ;
 fprintf(stderr, "%d dimensional array, size = %ld [", a->ndim, size/esize) ;
 fprintf(stderr,"%d", a->dim[0].gnn) ;
 for(i=1 ; i<a->ndim ; i++) fprintf(stderr,",%d", a->dim[i].gnn) ;
 fprintf(stderr,"]\n");
+}
+
+// set global indexing lower bounds for all dimensions of array
+// a    [INOUT] : pointer to nD array descriptor (if NULL a new descriptor will be created)
+// ndim    [IN] : number of dimensions
+// lb5[nd] [IN] : lower bounds for dimensions
+int array_gbounds_nd(array_nd *a, int32_t ndim, __i32__5__ lb5){
+  int32_t i ;
+
+  if(ndim != a->ndim) return 0 ;    // wrong number of dimensions
+
+  for(i = 0 ; i < ndim ; i++){
+    a->dim[i].gn0 = lb5.i32[i] ;
+  }
+  return ndim ;
+}
+
+int array_lbounds_nd(array_nd *a, int32_t narg, __i32__5x2__ lb5){
+  int32_t i, ndim = narg/2 ;
+
+  if(ndim != a->ndim) return 0 ;    // wrong number of dimensions
+  for(i = 0 ; i < ndim*2 ; i+=2){
+    if(lb5.i32[i+1] <= lb5.i32[i])                       return 0 ;  // upper bound <= lower bound
+    if(lb5.i32[i+1] > a->dim[i].gn0 + a->dim[i].gnn - 1) return 0 ;  // upper bound beyond limits
+  }
+
+  for(i = 0 ; i < ndim*2 ; i+=-2){
+    a->dim[i].ln0 = lb5.i32[i] ;                       // lower bound
+    a->dim[i].lnn = lb5.i32[i+1] - lb5.i32[i] + 1 ;    // number of values from upper bound
+  }
+  return ndim ;
+}
+
+static void syntax_check(int low, int high){
+  array_1d a1 ;
+  array_2d a2 ;
+
+  array_lbounds(&a1 , low, high) ;
+  array_lbounds(&a2 , low, high, low, high) ;
 }

@@ -212,8 +212,6 @@ static inline int invalid_zmap(zmap *map){
   if(map->mhead.signature != 0x1AD0FADA || map->fhead.signature != 0xBEBEFADA) return 1 ;
   if(map->mhead.version != Z_DATA_MAP_VERSION || map->fhead.version != Z_DATA_MAP_VERSION) return 1 ;
   return 0 ;
-is_invalid:
-  return 1 ;
 }
 
 // block index from index and sizes (along one dimension)

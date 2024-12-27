@@ -136,29 +136,81 @@ static const array_4d array_4d_0 = ARRAY_ND(NULL, sizeof(int32_t), 0, 4, 0) ;
 static const array_5d array_5d_0 = ARRAY_ND(NULL, sizeof(int32_t), 0, 5, 0) ;
 // #pragma GCC diagnostic pop
 
-static inline void array_1d_init(array_1d *a, void *data, ssize_t esize, int type){ *a = array_1d_null ; }
-static inline void array_2d_init(array_2d *a, void *data, ssize_t esize, int type){ *a = array_2d_null ; }
-static inline void array_3d_init(array_3d *a, void *data, ssize_t esize, int type){ *a = array_3d_null ; }
-static inline void array_4d_init(array_4d *a, void *data, ssize_t esize, int type){ *a = array_4d_null ; }
-static inline void array_5d_init(array_5d *a, void *data, ssize_t esize, int type){ *a = array_5d_null ; }
+static inline void array_1d_init(array_1d *a, void *data, ssize_t esize, int type){
+  *a = array_1d_null ; a->esize = esize ; a->type = type ; a->data = data ;
+}
+static inline void array_2d_init(array_2d *a, void *data, ssize_t esize, int type){
+  *a = array_2d_null ; a->esize = esize ; a->type = type ; a->data = data ;
+}
+static inline void array_3d_init(array_3d *a, void *data, ssize_t esize, int type){
+  *a = array_3d_null ; a->esize = esize ; a->type = type ; a->data = data ;
+}
+static inline void array_4d_init(array_4d *a, void *data, ssize_t esize, int type){
+  *a = array_4d_null ; a->esize = esize ; a->type = type ; a->data = data ;
+}
+static inline void array_5d_init(array_5d *a, void *data, ssize_t esize, int type){
+  *a = array_5d_null ; a->esize = esize ; a->type = type ; a->data = data ;
+}
 
-typedef struct{   // struct containing an array of 6 integers (only the first 5 may get used)
-  int32_t i32[6] ;
+typedef struct{   // struct containing an array of 5 integers
+  int32_t i32[5] ;
 }__i32__5__ ;
 
+typedef struct{   // struct containing 6 pairs of integers (only the first 5 are used)
+  int32_t i32[10] ;
+}__i32__5x2__ ;
+
+// static __i32__5x2__ __i32__5x2__null = { 0, 1, 0, 1, 0, 1, 0, 1, 0, 1 } ;
+// static __i32__5x2__ __i32__5x2__null = {{ {{0, 1}} , {{0, 1}}, {{0, 1}}, {{0, 1}}, {{0, 1}} }} ;
+
+#define NuMvArG(...)  (sizeof((int[]){__VA_ARGS__})/sizeof(int))
+
 // users should call the generic function new_array rather than new_array_nd
-void new_array_nd(array_nd *a, void *mem, int32_t esize, int8_t type, __i32__5__ dim);
+void new_array_nd(array_nd *a, void *mem, int32_t esize, int8_t type, int32_t ndims, __i32__5__ lb5);
 
 // generic version for 1/2/3/4/5 D arrays ... is 1/2/3/4/5 values, one per dimension
 // array_1d a1 ; new_array(a1, mem, esize, type, ni)
 // array_5d a5 ; new_array(a5, mem, esize, type, ni, nj, nk, nl, nm)
 #define new_array(ARRAY, MEM, ESIZE, TYPE, ...) \
   _Generic((ARRAY), \
-    array_1d *: new_array_nd((array_nd *)ARRAY, MEM, ESIZE, TYPE, (__i32__5__) { { __VA_ARGS__ , 0 } }), \
-    array_2d *: new_array_nd((array_nd *)ARRAY, MEM, ESIZE, TYPE, (__i32__5__) { { __VA_ARGS__ , 0 } }), \
-    array_3d *: new_array_nd((array_nd *)ARRAY, MEM, ESIZE, TYPE, (__i32__5__) { { __VA_ARGS__ , 0 } }), \
-    array_4d *: new_array_nd((array_nd *)ARRAY, MEM, ESIZE, TYPE, (__i32__5__) { { __VA_ARGS__ , 0 } }), \
-    array_5d *: new_array_nd((array_nd *)ARRAY, MEM, ESIZE, TYPE, (__i32__5__) { { __VA_ARGS__ , 0 } })  \
+    array_1d *: new_array_nd((array_nd *)ARRAY, MEM, ESIZE, TYPE, 1, (__i32__5__) { { __VA_ARGS__ } }), \
+    array_2d *: new_array_nd((array_nd *)ARRAY, MEM, ESIZE, TYPE, 2, (__i32__5__) { { __VA_ARGS__ } }), \
+    array_3d *: new_array_nd((array_nd *)ARRAY, MEM, ESIZE, TYPE, 3, (__i32__5__) { { __VA_ARGS__ } }), \
+    array_4d *: new_array_nd((array_nd *)ARRAY, MEM, ESIZE, TYPE, 4, (__i32__5__) { { __VA_ARGS__ } }), \
+    array_5d *: new_array_nd((array_nd *)ARRAY, MEM, ESIZE, TYPE, 5, (__i32__5__) { { __VA_ARGS__ } })  \
+  )
+
+// users should call the generic function array_gbounds rather than array_gbounds_nd
+int array_gbounds_nd(array_nd *a, int32_t ndims, __i32__5__ lower_bounds);
+
+// generic version for 1/2/3/4/5 D arrays ... is 1/2/3/4/5 values, one per dimension
+// set global lower bounds for dimension indexing, dimension is not altered
+// array_1d a1 ; array_gbounds(a1, glbi)
+// array_5d a5 ; array_gbounds(a5, glbi, glbj, glbk, glbl, glbm)
+#define array_gbounds(ARRAY, ...) \
+  _Generic((ARRAY), \
+    array_1d *: array_gbounds_nd((array_nd *)ARRAY, NuMvArG(__VA_ARGS__), (__i32__5__) { { __VA_ARGS__ } }), \
+    array_2d *: array_gbounds_nd((array_nd *)ARRAY, NuMvArG(__VA_ARGS__), (__i32__5__) { { __VA_ARGS__ } }), \
+    array_3d *: array_gbounds_nd((array_nd *)ARRAY, NuMvArG(__VA_ARGS__), (__i32__5__) { { __VA_ARGS__ } }), \
+    array_4d *: array_gbounds_nd((array_nd *)ARRAY, NuMvArG(__VA_ARGS__), (__i32__5__) { { __VA_ARGS__ } }), \
+    array_5d *: array_gbounds_nd((array_nd *)ARRAY, NuMvArG(__VA_ARGS__), (__i32__5__) { { __VA_ARGS__ } })  \
+  )
+
+// users should call the generic function array_lbounds rather than array_lbounds_nd
+int array_lbounds_nd(array_nd *a, int32_t ndims, __i32__5x2__ bounds);
+
+// generic version for 1/2/3/4/5 D arrays ... is 1/2/3/4/5 values, one per dimension
+// set subarray bounds, global bounds are not altered
+// array_1d a1 ; array_lbounds(a1, lbi, ubi)
+// array_5d a5 ; array_lbounds(a5, lbi, ubi, ......, lbm, ubm)
+// a 0, 0 pair is added at the end of the arguments as a validity marker
+#define array_lbounds(ARRAY, ...) \
+  _Generic((ARRAY), \
+    array_1d *: array_lbounds_nd((array_nd *)ARRAY, NuMvArG(__VA_ARGS__), (__i32__5x2__) { { __VA_ARGS__ }}), \
+    array_2d *: array_lbounds_nd((array_nd *)ARRAY, NuMvArG(__VA_ARGS__), (__i32__5x2__) { { __VA_ARGS__ }}), \
+    array_3d *: array_lbounds_nd((array_nd *)ARRAY, NuMvArG(__VA_ARGS__), (__i32__5x2__) { { __VA_ARGS__ }}), \
+    array_4d *: array_lbounds_nd((array_nd *)ARRAY, NuMvArG(__VA_ARGS__), (__i32__5x2__) { { __VA_ARGS__ }}), \
+    array_5d *: array_lbounds_nd((array_nd *)ARRAY, NuMvArG(__VA_ARGS__), (__i32__5x2__) { { __VA_ARGS__ }})  \
   )
 
 int32_t invalid_array(array_nd *a);
