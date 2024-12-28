@@ -120,4 +120,5 @@ set(PROJECT_H_FILES
   src/PUBLIC_INCLUDES/rmn/tracked_malloc.h
   src/PUBLIC_INCLUDES/rmn/simd_functions.h
   src/PUBLIC_INCLUDES/rmn/float_block_encoders.h
+  src/PUBLIC_INCLUDES/rmn/va_args_num.h
 )

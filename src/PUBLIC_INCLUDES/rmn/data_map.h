@@ -190,7 +190,8 @@ typedef struct{
     zmeta   meta ;         // global metadata (applies to all blocks)
     int32_t gni ;          // first dimension of data array   = lix + (zni - 1) * lni (row size)
     int32_t gnj ;          // second dimension of data array  = ljx + (znj - 1) * lnj (column size)
-  //   uint32_t nk ;          // third dimension of data array and block array
+//     uint32_t nk ;          // third dimension of data array and block array
+//     uint32_t nl ;          // fourth dimension of data array and block array
     int32_t zni ;          // number of blocks in a row
     int32_t znj ;          // number of block rows
     int32_t lni:16 ,       // first dimension of all but first block (number of values)

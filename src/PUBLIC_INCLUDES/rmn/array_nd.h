@@ -22,6 +22,7 @@
 #include <stdlib.h>
 
 #include <rmn/data_kind.h>
+#include <rmn/va_args_num.h>
 
 // global   dimension index space : gn0 -> gn0 + gnn - 1  ( gnn elements)
 // subarray dimension index range : ln0 -> ln0 + lnn - 1  ( lnn elements)
@@ -163,6 +164,7 @@ typedef struct{   // struct containing 6 pairs of integers (only the first 5 are
 // static __i32__5x2__ __i32__5x2__null = { 0, 1, 0, 1, 0, 1, 0, 1, 0, 1 } ;
 // static __i32__5x2__ __i32__5x2__null = {{ {{0, 1}} , {{0, 1}}, {{0, 1}}, {{0, 1}}, {{0, 1}} }} ;
 
+// this will work if all arguments are integers and there is at least one argument
 #define NuMvArG(...)  (sizeof((int[]){__VA_ARGS__})/sizeof(int))
 
 // users should call the generic function new_array rather than new_array_nd
@@ -189,11 +191,11 @@ int array_gbounds_nd(array_nd *a, int32_t ndims, __i32__5__ lower_bounds);
 // array_5d a5 ; array_gbounds(a5, glbi, glbj, glbk, glbl, glbm)
 #define array_gbounds(ARRAY, ...) \
   _Generic((ARRAY), \
-    array_1d *: array_gbounds_nd((array_nd *)ARRAY, NuMvArG(__VA_ARGS__), (__i32__5__) { { __VA_ARGS__ } }), \
-    array_2d *: array_gbounds_nd((array_nd *)ARRAY, NuMvArG(__VA_ARGS__), (__i32__5__) { { __VA_ARGS__ } }), \
-    array_3d *: array_gbounds_nd((array_nd *)ARRAY, NuMvArG(__VA_ARGS__), (__i32__5__) { { __VA_ARGS__ } }), \
-    array_4d *: array_gbounds_nd((array_nd *)ARRAY, NuMvArG(__VA_ARGS__), (__i32__5__) { { __VA_ARGS__ } }), \
-    array_5d *: array_gbounds_nd((array_nd *)ARRAY, NuMvArG(__VA_ARGS__), (__i32__5__) { { __VA_ARGS__ } })  \
+    array_1d *: array_gbounds_nd((array_nd *)ARRAY, VA_ARGS_NUM(__VA_ARGS__), (__i32__5__) { { __VA_ARGS__ } }), \
+    array_2d *: array_gbounds_nd((array_nd *)ARRAY, VA_ARGS_NUM(__VA_ARGS__), (__i32__5__) { { __VA_ARGS__ } }), \
+    array_3d *: array_gbounds_nd((array_nd *)ARRAY, VA_ARGS_NUM(__VA_ARGS__), (__i32__5__) { { __VA_ARGS__ } }), \
+    array_4d *: array_gbounds_nd((array_nd *)ARRAY, VA_ARGS_NUM(__VA_ARGS__), (__i32__5__) { { __VA_ARGS__ } }), \
+    array_5d *: array_gbounds_nd((array_nd *)ARRAY, VA_ARGS_NUM(__VA_ARGS__), (__i32__5__) { { __VA_ARGS__ } })  \
   )
 
 // users should call the generic function array_lbounds rather than array_lbounds_nd
@@ -206,11 +208,11 @@ int array_lbounds_nd(array_nd *a, int32_t ndims, __i32__5x2__ bounds);
 // a 0, 0 pair is added at the end of the arguments as a validity marker
 #define array_lbounds(ARRAY, ...) \
   _Generic((ARRAY), \
-    array_1d *: array_lbounds_nd((array_nd *)ARRAY, NuMvArG(__VA_ARGS__), (__i32__5x2__) { { __VA_ARGS__ }}), \
-    array_2d *: array_lbounds_nd((array_nd *)ARRAY, NuMvArG(__VA_ARGS__), (__i32__5x2__) { { __VA_ARGS__ }}), \
-    array_3d *: array_lbounds_nd((array_nd *)ARRAY, NuMvArG(__VA_ARGS__), (__i32__5x2__) { { __VA_ARGS__ }}), \
-    array_4d *: array_lbounds_nd((array_nd *)ARRAY, NuMvArG(__VA_ARGS__), (__i32__5x2__) { { __VA_ARGS__ }}), \
-    array_5d *: array_lbounds_nd((array_nd *)ARRAY, NuMvArG(__VA_ARGS__), (__i32__5x2__) { { __VA_ARGS__ }})  \
+    array_1d *: array_lbounds_nd((array_nd *)ARRAY, VA_ARGS_NUM(__VA_ARGS__), (__i32__5x2__) { { __VA_ARGS__ }}), \
+    array_2d *: array_lbounds_nd((array_nd *)ARRAY, VA_ARGS_NUM(__VA_ARGS__), (__i32__5x2__) { { __VA_ARGS__ }}), \
+    array_3d *: array_lbounds_nd((array_nd *)ARRAY, VA_ARGS_NUM(__VA_ARGS__), (__i32__5x2__) { { __VA_ARGS__ }}), \
+    array_4d *: array_lbounds_nd((array_nd *)ARRAY, VA_ARGS_NUM(__VA_ARGS__), (__i32__5x2__) { { __VA_ARGS__ }}), \
+    array_5d *: array_lbounds_nd((array_nd *)ARRAY, VA_ARGS_NUM(__VA_ARGS__), (__i32__5x2__) { { __VA_ARGS__ }})  \
   )
 
 int32_t invalid_array(array_nd *a);

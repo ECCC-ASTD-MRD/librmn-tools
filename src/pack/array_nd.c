@@ -100,6 +100,11 @@ void new_array_nd(array_nd *a, void *mem, int32_t esize, int8_t type, int32_t nd
   a->esize = esize ;
   a->ndim = ndim ;
   nelem = 1 ;
+// fprintf(stderr, "ndim = %d, ", ndim) ;
+// for(i = 0 ; i < ndim ; i++){
+//   fprintf(stderr, "dm5.i32[%d] = %d ", i, dm5.i32[i]);
+// }
+// fprintf(stderr, "\n");
 //   stride = 1 ;
   for(i = 0 ; i < ndim ; i++){
 //     if(dm5.i32[i] <= 0) break ;
@@ -139,25 +144,22 @@ int array_gbounds_nd(array_nd *a, int32_t ndim, __i32__5__ lb5){
 }
 
 int array_lbounds_nd(array_nd *a, int32_t narg, __i32__5x2__ lb5){
-  int32_t i, ndim = narg/2 ;
+  int32_t i, j, ndim = narg/2 ;
 
-  if(ndim != a->ndim) return 0 ;    // wrong number of dimensions
-  for(i = 0 ; i < ndim*2 ; i+=2){
+  if(ndim != a->ndim){
+    fprintf(stderr, "array_lbounds_nd, ndim = %d, a->ndim = %d\n", ndim, a->ndim) ;
+    return 0 ;    // wrong number of dimensions
+  }
+  for(i=j=0 ; i < ndim*2 ; i+=2, j++){
+fprintf(stderr, "gbounds = %d %d, lbounds= %d %d\n", a->dim[j].gn0, a->dim[j].gnn - 1, lb5.i32[i], lb5.i32[i+1]) ;
     if(lb5.i32[i+1] <= lb5.i32[i])                       return 0 ;  // upper bound <= lower bound
-    if(lb5.i32[i+1] > a->dim[i].gn0 + a->dim[i].gnn - 1) return 0 ;  // upper bound beyond limits
+    if(lb5.i32[i+1] > a->dim[j].gn0 + a->dim[j].gnn - 1) return 0 ;  // upper bound beyond limits
   }
 
-  for(i = 0 ; i < ndim*2 ; i+=-2){
-    a->dim[i].ln0 = lb5.i32[i] ;                       // lower bound
-    a->dim[i].lnn = lb5.i32[i+1] - lb5.i32[i] + 1 ;    // number of values from upper bound
+  for(i=j=0 ; i < ndim*2 ; i+=2, j++){
+    a->dim[i/2].ln0 = lb5.i32[i] ;                       // lower bound
+    a->dim[i/2].lnn = lb5.i32[i+1] - lb5.i32[i] + 1 ;    // number of values from upper bound
   }
+fprintf(stderr, "array_lbounds_nd, narg = %d, ndim = %d\n", narg, ndim) ;
   return ndim ;
-}
-
-static void syntax_check(int low, int high){
-  array_1d a1 ;
-  array_2d a2 ;
-
-  array_lbounds(&a1 , low, high) ;
-  array_lbounds(&a2 , low, high, low, high) ;
 }
