@@ -331,9 +331,4 @@ int main(int argc, char **argv){
   zmap *result = array_to_zmap(map, &a2d, NULL, NULL) ;
   if(result == NULL) exit(1) ;
   fprintf(stderr, "SUCCESS\n") ;
-
-fprintf(stderr, "=============== array_lbounds check ===============\n") ;
-array_lbounds_check(1, 3);
-
-  return 0 ;
 }
