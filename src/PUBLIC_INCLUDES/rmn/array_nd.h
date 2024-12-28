@@ -183,36 +183,36 @@ void new_array_nd(array_nd *a, void *mem, int32_t esize, int8_t type, int32_t nd
   )
 
 // users should call the generic function array_gbounds rather than array_gbounds_nd
-int array_gbounds_nd(array_nd *a, int32_t ndims, __i32__5__ lower_bounds);
+int set_array_gbounds_nd(array_nd *a, int32_t ndims, __i32__5__ lower_bounds);
 
 // generic version for 1/2/3/4/5 D arrays ... is 1/2/3/4/5 values, one per dimension
 // set global lower bounds for dimension indexing, dimension is not altered
 // array_1d a1 ; array_gbounds(a1, glbi)
 // array_5d a5 ; array_gbounds(a5, glbi, glbj, glbk, glbl, glbm)
-#define array_gbounds(ARRAY, ...) \
+#define set_array_gbounds(ARRAY, ...) \
   _Generic((ARRAY), \
-    array_1d *: array_gbounds_nd((array_nd *)ARRAY, VA_ARGS_NUM(__VA_ARGS__), (__i32__5__) { { __VA_ARGS__ } }), \
-    array_2d *: array_gbounds_nd((array_nd *)ARRAY, VA_ARGS_NUM(__VA_ARGS__), (__i32__5__) { { __VA_ARGS__ } }), \
-    array_3d *: array_gbounds_nd((array_nd *)ARRAY, VA_ARGS_NUM(__VA_ARGS__), (__i32__5__) { { __VA_ARGS__ } }), \
-    array_4d *: array_gbounds_nd((array_nd *)ARRAY, VA_ARGS_NUM(__VA_ARGS__), (__i32__5__) { { __VA_ARGS__ } }), \
-    array_5d *: array_gbounds_nd((array_nd *)ARRAY, VA_ARGS_NUM(__VA_ARGS__), (__i32__5__) { { __VA_ARGS__ } })  \
+    array_1d *: set_array_gbounds_nd((array_nd *)ARRAY, VA_ARGS_NUM(__VA_ARGS__), (__i32__5__) { { __VA_ARGS__ } }), \
+    array_2d *: set_array_gbounds_nd((array_nd *)ARRAY, VA_ARGS_NUM(__VA_ARGS__), (__i32__5__) { { __VA_ARGS__ } }), \
+    array_3d *: set_array_gbounds_nd((array_nd *)ARRAY, VA_ARGS_NUM(__VA_ARGS__), (__i32__5__) { { __VA_ARGS__ } }), \
+    array_4d *: set_array_gbounds_nd((array_nd *)ARRAY, VA_ARGS_NUM(__VA_ARGS__), (__i32__5__) { { __VA_ARGS__ } }), \
+    array_5d *: set_array_gbounds_nd((array_nd *)ARRAY, VA_ARGS_NUM(__VA_ARGS__), (__i32__5__) { { __VA_ARGS__ } })  \
   )
 
 // users should call the generic function array_lbounds rather than array_lbounds_nd
-int array_lbounds_nd(array_nd *a, int32_t ndims, __i32__5x2__ bounds);
+int set_array_lbounds_nd(array_nd *a, int32_t ndims, __i32__5x2__ bounds);
 
 // generic version for 1/2/3/4/5 D arrays ... is 1/2/3/4/5 values, one per dimension
 // set subarray bounds, global bounds are not altered
 // array_1d a1 ; array_lbounds(a1, lbi, ubi)
 // array_5d a5 ; array_lbounds(a5, lbi, ubi, ......, lbm, ubm)
 // a 0, 0 pair is added at the end of the arguments as a validity marker
-#define array_lbounds(ARRAY, ...) \
+#define set_array_lbounds(ARRAY, ...) \
   _Generic((ARRAY), \
-    array_1d *: array_lbounds_nd((array_nd *)ARRAY, VA_ARGS_NUM(__VA_ARGS__), (__i32__5x2__) { { __VA_ARGS__ }}), \
-    array_2d *: array_lbounds_nd((array_nd *)ARRAY, VA_ARGS_NUM(__VA_ARGS__), (__i32__5x2__) { { __VA_ARGS__ }}), \
-    array_3d *: array_lbounds_nd((array_nd *)ARRAY, VA_ARGS_NUM(__VA_ARGS__), (__i32__5x2__) { { __VA_ARGS__ }}), \
-    array_4d *: array_lbounds_nd((array_nd *)ARRAY, VA_ARGS_NUM(__VA_ARGS__), (__i32__5x2__) { { __VA_ARGS__ }}), \
-    array_5d *: array_lbounds_nd((array_nd *)ARRAY, VA_ARGS_NUM(__VA_ARGS__), (__i32__5x2__) { { __VA_ARGS__ }})  \
+    array_1d *: set_array_lbounds_nd((array_nd *)ARRAY, VA_ARGS_NUM(__VA_ARGS__), (__i32__5x2__) {{ __VA_ARGS__ }}), \
+    array_2d *: set_array_lbounds_nd((array_nd *)ARRAY, VA_ARGS_NUM(__VA_ARGS__), (__i32__5x2__) {{ __VA_ARGS__ }}), \
+    array_3d *: set_array_lbounds_nd((array_nd *)ARRAY, VA_ARGS_NUM(__VA_ARGS__), (__i32__5x2__) {{ __VA_ARGS__ }}), \
+    array_4d *: set_array_lbounds_nd((array_nd *)ARRAY, VA_ARGS_NUM(__VA_ARGS__), (__i32__5x2__) {{ __VA_ARGS__ }}), \
+    array_5d *: set_array_lbounds_nd((array_nd *)ARRAY, VA_ARGS_NUM(__VA_ARGS__), (__i32__5x2__) {{ __VA_ARGS__ }})  \
   )
 
 int32_t invalid_array(array_nd *a);

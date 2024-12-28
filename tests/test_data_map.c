@@ -140,25 +140,25 @@ zmap *array_to_zmap(zmap *map, array_2d *a_in, sfn_ptr fn, sfn_args *fnargs){
   return map ;
 }
 
-void array_lbounds_check(int low, int high){
-  array_1d a1 = array_1d_0 ;
-  array_2d a2 = array_2d_0 ;
-  array_3d a3 = array_3d_0 ;
-  array_4d a4 = array_4d_0 ;
-  array_5d a5 = array_5d_0 ;
-  int32_t scrap[1024*1024] ;
-
-  new_array(&a1, scrap, sizeof(int32_t), 1, 8) ;
-  array_lbounds(&a1 , low, high) ;
-  new_array(&a2, scrap, sizeof(int32_t), 1, 8, 7) ;
-  array_lbounds(&a2 , low, high, low, high) ;
-  new_array(&a3, scrap, sizeof(int32_t), 1, 8, 7, 6) ;
-  array_lbounds(&a3 , low, high, low, high, low, high) ;
-  new_array(&a4, scrap, sizeof(int32_t), 1, 8, 7, 6, 5) ;
-  array_lbounds(&a4 , low, high, low, high, low, high, low, high) ;
-  new_array(&a5, scrap, sizeof(int32_t), 1, 8, 7, 6, 5, 4) ;
-  array_lbounds(&a5 , low, high, low, high, low, high, low, high, low, high) ;
-}
+// void array_lbounds_check(int low, int high){
+//   array_1d a1 = array_1d_0 ;
+//   array_2d a2 = array_2d_0 ;
+//   array_3d a3 = array_3d_0 ;
+//   array_4d a4 = array_4d_0 ;
+//   array_5d a5 = array_5d_0 ;
+//   int32_t scrap[1024*1024] ;
+// 
+//   new_array(&a1, scrap, sizeof(int32_t), 1, 8) ;
+//   array_lbounds(&a1 , low, high) ;
+//   new_array(&a2, scrap, sizeof(int32_t), 1, 8, 7) ;
+//   array_lbounds(&a2 , low, high, low, high) ;
+//   new_array(&a3, scrap, sizeof(int32_t), 1, 8, 7, 6) ;
+//   array_lbounds(&a3 , low, high, low, high, low, high) ;
+//   new_array(&a4, scrap, sizeof(int32_t), 1, 8, 7, 6, 5) ;
+//   array_lbounds(&a4 , low, high, low, high, low, high, low, high) ;
+//   new_array(&a5, scrap, sizeof(int32_t), 1, 8, 7, 6, 5, 4) ;
+//   array_lbounds(&a5 , low, high, low, high, low, high, low, high, low, high) ;
+// }
 
 #define NTI 10
 #define NTJ 11

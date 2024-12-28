@@ -28,15 +28,15 @@ void array_lbounds_check(int low, int high){
   int32_t scrap[1024*1024] ;
 
   new_array(&a1, scrap, sizeof(int32_t), 1, 8) ;
-  array_lbounds(&a1 , low, high) ;
+  set_array_lbounds(&a1 , low, high) ;
   new_array(&a2, scrap, sizeof(int32_t), 1, 8, 7) ;
-  array_lbounds(&a2 , low, high, low, high) ;
+  set_array_lbounds(&a2 , low, high, low, high) ;
   new_array(&a3, scrap, sizeof(int32_t), 1, 8, 7, 6) ;
-  array_lbounds(&a3 , low, high, low, high, low, high) ;
+  set_array_lbounds(&a3 , low, high, low, high, low, high) ;
   new_array(&a4, scrap, sizeof(int32_t), 1, 8, 7, 6, 5) ;
-  array_lbounds(&a4 , low, high, low, high, low, high, low, high) ;
+  set_array_lbounds(&a4 , low, high, low, high, low, high, low, high) ;
   new_array(&a5, scrap, sizeof(int32_t), 1, 8, 7, 6, 5, 4) ;
-  array_lbounds(&a5 , low, high, low, high, low, high, low, high, low, high) ;
+  set_array_lbounds(&a5 , low, high, low, high, low, high, low, high, low, high) ;
 }
 
 int main(int argc, char **argv){
@@ -46,6 +46,6 @@ int main(int argc, char **argv){
   fprintf(stderr, "=============== array_lbounds check ===============\n") ;
   array_lbounds_check(1, 3);
 
-  fprintf(stderr, "SUCCESS\n") ;
   return 0 ;
+
 }
