@@ -153,6 +153,10 @@ static inline void array_5d_init(array_5d *a, void *data, ssize_t esize, int typ
   *a = array_5d_null ; a->esize = esize ; a->type = type ; a->data = data ;
 }
 
+typedef struct{   // struct containing an array of 2 integers
+  int32_t i32[2] ;
+}__i32__2__ ;
+
 typedef struct{   // struct containing an array of 5 integers
   int32_t i32[5] ;
 }__i32__5__ ;
@@ -213,6 +217,34 @@ int set_array_lbounds_nd(array_nd *a, int32_t ndims, __i32__5x2__ bounds);
     array_3d *: set_array_lbounds_nd((array_nd *)ARRAY, VA_ARGS_NUM(__VA_ARGS__), (__i32__5x2__) {{ __VA_ARGS__ }}), \
     array_4d *: set_array_lbounds_nd((array_nd *)ARRAY, VA_ARGS_NUM(__VA_ARGS__), (__i32__5x2__) {{ __VA_ARGS__ }}), \
     array_5d *: set_array_lbounds_nd((array_nd *)ARRAY, VA_ARGS_NUM(__VA_ARGS__), (__i32__5x2__) {{ __VA_ARGS__ }})  \
+  )
+
+// users should call the generic function subarray_bounds rather than subarray_bounds_nd
+__i32__2__ subarray_lbounds_nd(array_nd *a, int32_t dim, int32_t ndims);
+// TODO: inline version
+// check ndims == a->ndim, dim < a->ndim, dim > 0
+
+#define subarray_lbounds(ARRAY, DIM) \
+  _Generic((ARRAY), \
+    array_1d *: subarray_lbounds_nd((array_nd *)ARRAY, DIM, 1), \
+    array_2d *: subarray_lbounds_nd((array_nd *)ARRAY, DIM, 2), \
+    array_3d *: subarray_lbounds_nd((array_nd *)ARRAY, DIM, 3), \
+    array_4d *: subarray_lbounds_nd((array_nd *)ARRAY, DIM, 4), \
+    array_5d *: subarray_lbounds_nd((array_nd *)ARRAY, DIM, 5)  \
+  )
+
+// users should call the generic function subarray_bounds rather than subarray_bounds_nd
+__i32__2__ subarray_gbounds_nd(array_nd *a, int32_t dim, int32_t ndims);
+// TODO: inline version
+// check ndims == a->ndim, dim < a->ndim, dim > 0
+
+#define subarray_gbounds(ARRAY, DIM) \
+  _Generic((ARRAY), \
+    array_1d *: subarray_gbounds_nd((array_nd *)ARRAY, DIM, 1), \
+    array_2d *: subarray_gbounds_nd((array_nd *)ARRAY, DIM, 2), \
+    array_3d *: subarray_gbounds_nd((array_nd *)ARRAY, DIM, 3), \
+    array_4d *: subarray_gbounds_nd((array_nd *)ARRAY, DIM, 4), \
+    array_5d *: subarray_gbounds_nd((array_nd *)ARRAY, DIM, 5)  \
   )
 
 int32_t invalid_array(array_nd *a);
