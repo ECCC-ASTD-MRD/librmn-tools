@@ -177,6 +177,7 @@ typedef struct{
     uint32_t *limit ;      // one past the end of compressed data stream
   } mhead ;
   // ---------------- start of in file header ----------------
+  // TODO: add flags for 3D/4D storage ni/nj/nk/nl vs nk/ni/nj/nl vs ...
   struct{
     union{
       uint32_t data_head ;  // target for & operator to get address of header

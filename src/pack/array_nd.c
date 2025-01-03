@@ -92,9 +92,14 @@ array_nd *array_block(array_nd *a, array_nd *b){
 // type    [IN] : data type, see type in array_nd struct
 // ndim    [IN] : number of dimensions
 // dm5[nd] [IN] : dimensions
-void new_array_nd(array_nd *a, void *mem, int32_t esize, int8_t type, int32_t ndim, __i32__5__ dm5){
+void new_array_nd(array_nd *a, void *mem, int32_t esize, int8_t type, int32_t ndim, int32_t ndm5, __i32__5__ dm5){
   int32_t i, nelem, n ;
 //   int32_t stride ;
+  if(ndim != ndm5){
+    fprintf(stderr, "new_array_nd ERROR: %d dimensions, %d sizes\n", ndim, ndm5) ;
+    a->ndim = 0 ;
+    return ;
+  }
   a->reserved = 0 ;
   a->type = type ;
   a->esize = esize ;

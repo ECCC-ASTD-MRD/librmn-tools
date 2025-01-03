@@ -172,18 +172,18 @@ typedef struct{   // struct containing 6 pairs of integers (only the first 5 are
 #define NuMvArG(...)  (sizeof((int[]){__VA_ARGS__})/sizeof(int))
 
 // users should call the generic function new_array rather than new_array_nd
-void new_array_nd(array_nd *a, void *mem, int32_t esize, int8_t type, int32_t ndims, __i32__5__ lb5);
+void new_array_nd(array_nd *a, void *mem, int32_t esize, int8_t type, int32_t ndims, int32_t nlb5, __i32__5__ lb5);
 
 // generic version for 1/2/3/4/5 D arrays ... is 1/2/3/4/5 values, one per dimension
 // array_1d a1 ; new_array(a1, mem, esize, type, ni)
 // array_5d a5 ; new_array(a5, mem, esize, type, ni, nj, nk, nl, nm)
-#define new_array(ARRAY, MEM, ESIZE, TYPE, ...) \
+#define new_array(ARRAY, MEM, ESIZE, TYP, ...) \
   _Generic((ARRAY), \
-    array_1d *: new_array_nd((array_nd *)ARRAY, MEM, ESIZE, TYPE, 1, (__i32__5__) { { __VA_ARGS__ } }), \
-    array_2d *: new_array_nd((array_nd *)ARRAY, MEM, ESIZE, TYPE, 2, (__i32__5__) { { __VA_ARGS__ } }), \
-    array_3d *: new_array_nd((array_nd *)ARRAY, MEM, ESIZE, TYPE, 3, (__i32__5__) { { __VA_ARGS__ } }), \
-    array_4d *: new_array_nd((array_nd *)ARRAY, MEM, ESIZE, TYPE, 4, (__i32__5__) { { __VA_ARGS__ } }), \
-    array_5d *: new_array_nd((array_nd *)ARRAY, MEM, ESIZE, TYPE, 5, (__i32__5__) { { __VA_ARGS__ } })  \
+    array_1d *: new_array_nd((array_nd *)ARRAY,MEM,ESIZE,TYP,1,VA_ARGS_NUM(__VA_ARGS__),(__i32__5__){{ __VA_ARGS__ }}), \
+    array_2d *: new_array_nd((array_nd *)ARRAY,MEM,ESIZE,TYP,2,VA_ARGS_NUM(__VA_ARGS__),(__i32__5__){{ __VA_ARGS__ }}), \
+    array_3d *: new_array_nd((array_nd *)ARRAY,MEM,ESIZE,TYP,3,VA_ARGS_NUM(__VA_ARGS__),(__i32__5__){{ __VA_ARGS__ }}), \
+    array_4d *: new_array_nd((array_nd *)ARRAY,MEM,ESIZE,TYP,4,VA_ARGS_NUM(__VA_ARGS__),(__i32__5__){{ __VA_ARGS__ }}), \
+    array_5d *: new_array_nd((array_nd *)ARRAY,MEM,ESIZE,TYP,5,VA_ARGS_NUM(__VA_ARGS__),(__i32__5__){{ __VA_ARGS__ }})  \
   )
 
 // users should call the generic function array_gbounds rather than array_gbounds_nd
