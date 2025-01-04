@@ -10,6 +10,7 @@ set(PROJECT_C_FILES
   src/pack/bits.c
   src/pack/bi_endian_pack.c
   src/pack/data_map.c
+  src/pack/dmapfilters.c
   src/pack/misc_pack.c
   src/pack/stream_pack.c
 #   src/pack/copy_swap.c
@@ -74,6 +75,7 @@ set(PROJECT_H_FILES
   src/PUBLIC_INCLUDES/rmn/bi_endian_pack.h
   src/PUBLIC_INCLUDES/rmn/data_kind.h
   src/PUBLIC_INCLUDES/rmn/data_map.h
+  src/PUBLIC_INCLUDES/rmn/dmapfilters.h
   src/PUBLIC_INCLUDES/rmn/word_stream.h
   src/PUBLIC_INCLUDES/rmn/bit_stream.h
   src/PUBLIC_INCLUDES/rmn/stream_pack.h
