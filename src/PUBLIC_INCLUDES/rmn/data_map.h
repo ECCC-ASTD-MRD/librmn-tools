@@ -286,4 +286,8 @@ ssize_t repack_map(zmap *map);
 ssize_t resize_map(zmap *map);
 int     free_zmap(zmap *map, int full);
 
+static inline int zmap_index_invalid(zmap *map, int index){
+  return (index < 0 || index >= map->fhead.zni * map->fhead.znj) ;
+}
+
 #endif
