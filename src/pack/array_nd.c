@@ -253,7 +253,7 @@ static size_t subarray_set_3d(int gni, int gnj, int lni, int lnj, int lnk,
   return lni * lnj * lnk ;
 }
 
-size_t subarray_get(array_nd *a, void *dest_address, size_t dest_size){
+size_t subarray_get_nd(array_nd *a, void *dest_address, size_t dest_size){
   size_t    data_size    = subarray_size(a) ;
   if(data_size > dest_size) goto fail ;
 

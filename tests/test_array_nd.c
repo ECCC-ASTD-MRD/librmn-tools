@@ -63,7 +63,6 @@ int subarray_check(int gni, int gnj, int gnk, int32_t f[gnk][gnj][gni], int i0, 
       for(i=0 ; i<in ; i++){
         if(f[k][j][i] != fijk(i+i0, j+j0, k+k0)){
           errors++ ;
-// fprintf(stderr, "check [%3d,%3d,%3d] error %d\n", i, j, k, errors) ;
         }
       }
     }
@@ -116,7 +115,7 @@ int main(int argc, char **argv){
           exit(1) ;
         }
         // get block from a3
-        subsize = subarray_get((array_nd *)&a3, copy, sizeof(copy)) ;
+        subsize = subarray_get(&a3, copy, sizeof(copy)) ;
         if(subsize != 1000){
           fprintf(stderr, "subsize(get) = %ld, expected 1000\n", subsize) ;
           fprintf(stderr, "FAILED\n") ;

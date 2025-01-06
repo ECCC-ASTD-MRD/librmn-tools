@@ -251,7 +251,14 @@ int32_t invalid_array(array_nd *a);
 array_nd *array_block(array_nd *a, array_nd *b);
 uint8_t *subarray_address(array_nd *a);
 int subarray_size(array_nd *a);
-size_t subarray_get(array_nd *a, void *address, size_t copy_size);
+size_t subarray_get_nd(array_nd *a, void *address, size_t copy_size);
 size_t subarray_set(array_nd *a, void *address, size_t copy_size);
+
+#define subarray_get(ARRAY, dest_address, dest_size) \
+  _Generic((ARRAY), \
+    array_1d *: subarray_get_nd((array_nd *)ARRAY,dest_address, dest_size), \
+    array_2d *: subarray_get_nd((array_nd *)ARRAY,dest_address, dest_size), \
+    array_3d *: subarray_get_nd((array_nd *)ARRAY,dest_address, dest_size)  \
+  )
 
 #endif

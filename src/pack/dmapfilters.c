@@ -36,7 +36,7 @@ int dmapfilter_000(zmap *map, int index, array_nd *array, dmapfilter_args *args)
 //   uint8_t  *data_address = subarray_address(array) ;
 
   if(data_size > dest_size) goto fail ;
-  subarray_get(array, dest_address, dest_size) ;
+  subarray_get_nd(array, dest_address, dest_size) ;
 
   return 0 ;
 
