@@ -44,12 +44,11 @@ uint8_t *subarray_address(array_nd *a){
 
   if(ptr == NULL) return NULL ;
   for(i = 0 ; i < a->ndim ; i++){
-//     if(a->dim[i].stride <= 0) return NULL ;
-    if(a->dim[i].ln0 < 0) return NULL ;
-    if(a->dim[i].ln0 >= a->dim[i].gnn) return NULL ;
-//     ptr += esize * a->dim[i].stride * a->dim[i].ln0 ;  // add displacement for this dimension
-    ptr += esize * stride * a->dim[i].ln0 ;  // add displacement for this dimension
-    stride *= a->dim[i].gnn ;                // stride for next dimension
+    int offset = a->dim[i].ln0 - a->dim[i].gn0 ;
+    if(offset < 0) return NULL ;                                                // below global lower bound
+    if(a->dim[i].ln0+a->dim[i].lnn > a->dim[i].gn0+a->dim[i].gnn) return NULL ; // above global upper bound
+    ptr += esize * stride * offset ;                                 // add displacement for this dimension
+    stride *= a->dim[i].gnn ;                                        // stride for next dimension
   }
   return ptr ;
 }
@@ -167,7 +166,7 @@ int set_array_lbounds_nd(array_nd *a, int32_t narg, __i32__5x2__ lb5){
   for(i=j=0 ; i < narg ; i+=2, j++){
     if(lb5.i32[i+1] < lb5.i32[i])                        return 0 ;  // upper bound < lower bound
     if(lb5.i32[i+1] > a->dim[j].gn0 + a->dim[j].gnn - 1) return 0 ;  // upper bound beyond limits
-fprintf(stderr, "[%d] gbounds = %d %d, lbounds= %d %d\n", j, a->dim[j].gn0, a->dim[j].gnn - 1, lb5.i32[i], lb5.i32[i+1]) ;
+// fprintf(stderr, "[%d] gbounds = %d %d, lbounds= %d %d\n", j, a->dim[j].gn0, a->dim[j].gnn - 1, lb5.i32[i], lb5.i32[i+1]) ;
   }
 
   for(i=j=0 ; i < narg ; i+=2, j++){
@@ -192,7 +191,7 @@ fail:
   return 0 ;
 }
 
-static size_t subarray_copy_1d(int lni, uint32_t src[lni], uint32_t dst[lni]){
+static size_t subarray_get_1d(int lni, uint32_t src[lni], uint32_t dst[lni]){
   int i ;
   for(i = 0 ; i < lni ; i++){
     dst[i] = src[i] ;
@@ -200,7 +199,15 @@ static size_t subarray_copy_1d(int lni, uint32_t src[lni], uint32_t dst[lni]){
   return lni ;
 }
 
-static size_t subarray_copy_2d(int gni, int lni, int lnj, uint32_t src[lnj][gni], uint32_t dst[lnj][lni]){
+static size_t subarray_set_1d(int lni, uint32_t dst[lni], uint32_t src[lni]){
+  int i ;
+  for(i = 0 ; i < lni ; i++){
+    dst[i] = src[i] ;
+  }
+  return lni ;
+}
+
+static size_t subarray_get_2d(int gni, int lni, int lnj, uint32_t src[lnj][gni], uint32_t dst[lnj][lni]){
   int i, j ;
   for(j = 0 ; j < lnj ; j++){
     for(i = 0 ; i < lni ; i++){
@@ -210,7 +217,17 @@ static size_t subarray_copy_2d(int gni, int lni, int lnj, uint32_t src[lnj][gni]
   return lni * lnj ;
 }
 
-static size_t subarray_copy_3d(int gni, int gnj, int lni, int lnj, int lnk,
+static size_t subarray_set_2d(int gni, int lni, int lnj, uint32_t dst[lnj][gni], uint32_t src[lnj][lni]){
+  int i, j ;
+  for(j = 0 ; j < lnj ; j++){
+    for(i = 0 ; i < lni ; i++){
+      dst[j][i] = src[j][i] ;
+    }
+  }
+  return lni * lnj ;
+}
+
+static size_t subarray_get_3d(int gni, int gnj, int lni, int lnj, int lnk,
                                uint32_t src[lnk][gnj][gni], uint32_t dst[lnk][lnj][lni]){
   int i, j, k ;
   for(k = 0 ; k < lnk ; k++){
@@ -223,7 +240,20 @@ static size_t subarray_copy_3d(int gni, int gnj, int lni, int lnj, int lnk,
   return lni * lnj * lnk ;
 }
 
-size_t subarray_copy(array_nd *a, void *dest_address, size_t dest_size){
+static size_t subarray_set_3d(int gni, int gnj, int lni, int lnj, int lnk,
+                               uint32_t dst[lnk][gnj][gni], uint32_t src[lnk][lnj][lni]){
+  int i, j, k ;
+  for(k = 0 ; k < lnk ; k++){
+    for(j = 0 ; j < lnj ; j++){
+      for(i = 0 ; i < lni ; i++){
+        dst[k][j][i] = src[k][j][i] ;
+      }
+    }
+  }
+  return lni * lnj * lnk ;
+}
+
+size_t subarray_get(array_nd *a, void *dest_address, size_t dest_size){
   size_t    data_size    = subarray_size(a) ;
   if(data_size > dest_size) goto fail ;
 
@@ -238,14 +268,14 @@ size_t subarray_copy(array_nd *a, void *dest_address, size_t dest_size){
 
   if(a->ndim == 1){
     int lni = esize*a->dim[0].lnn ;
-    return subarray_copy_1d(lni, (uint32_t *)data_address, (uint32_t *)dest_address) ;
+    return subarray_get_1d(lni, (uint32_t *)data_address, (uint32_t *)dest_address) ;
   }
 
   if(a->ndim == 2){
     int gni = esize*a->dim[0].gnn ;
     int lni = esize*a->dim[0].lnn ;
     int lnj = a->dim[1].lnn ;
-    return subarray_copy_2d(gni, lni, lnj, (uint32_t (*)[])data_address, (uint32_t (*)[])dest_address) ;
+    return subarray_get_2d(gni, lni, lnj, (uint32_t (*)[gni])data_address, (uint32_t (*)[lni])dest_address) ;
   }
 
   if(a->ndim == 3){
@@ -254,7 +284,45 @@ size_t subarray_copy(array_nd *a, void *dest_address, size_t dest_size){
     int lni = esize*a->dim[0].lnn ;
     int lnj = a->dim[1].lnn ;
     int lnk = a->dim[2].lnn ;
-    return subarray_copy_3d(gni, gnj, lni, lnj, lnk, (void *)data_address, (void *)dest_address) ;
+    return subarray_get_3d(gni, gnj, lni, lnj, lnk, (uint32_t (*)[gnj][gni])data_address, (uint32_t (*)[lnj][lni])dest_address) ;
+  }
+
+fail:
+  return 0 ;
+}
+
+size_t subarray_set(array_nd *a, void *src_address, size_t src_size){
+  size_t    data_size    = subarray_size(a) ;
+  if(data_size > src_size) goto fail ;
+
+  if(invalid_array(a)) goto fail ;
+  if(a->ndim > 3) goto fail ;            // 1D/2D/3D array copy only for now
+
+  uint32_t esize = a->esize ;
+  if(esize & 0x3) goto fail ;            // esize == multiple of 4 only for now
+  esize /= 4 ;
+
+  uint32_t *data_address = (void *)subarray_address(a) ;
+
+  if(a->ndim == 1){
+    int lni = esize*a->dim[0].lnn ;
+    return subarray_set_1d(lni, (uint32_t *)data_address, (uint32_t *)src_address) ;
+  }
+
+  if(a->ndim == 2){
+    int gni = esize*a->dim[0].gnn ;
+    int lni = esize*a->dim[0].lnn ;
+    int lnj = a->dim[1].lnn ;
+    return subarray_set_2d(gni, lni, lnj, (uint32_t (*)[gni])data_address, (uint32_t (*)[lni])src_address) ;
+  }
+
+  if(a->ndim == 3){
+    int gni = esize*a->dim[0].gnn ;
+    int gnj = a->dim[1].gnn ;
+    int lni = esize*a->dim[0].lnn ;
+    int lnj = a->dim[1].lnn ;
+    int lnk = a->dim[2].lnn ;
+    return subarray_set_3d(gni, gnj, lni, lnj, lnk, (uint32_t (*)[gnj][gni])data_address, (uint32_t (*)[lnj][lni])src_address) ;
   }
 
 fail:

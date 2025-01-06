@@ -251,6 +251,7 @@ int32_t invalid_array(array_nd *a);
 array_nd *array_block(array_nd *a, array_nd *b);
 uint8_t *subarray_address(array_nd *a);
 int subarray_size(array_nd *a);
-size_t subarray_copy(array_nd *a, void *copy_address, size_t copy_size);
+size_t subarray_get(array_nd *a, void *address, size_t copy_size);
+size_t subarray_set(array_nd *a, void *address, size_t copy_size);
 
 #endif
