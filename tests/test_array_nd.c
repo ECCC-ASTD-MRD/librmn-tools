@@ -129,7 +129,7 @@ int main(int argc, char **argv){
           exit(1) ;
         }
         // copy block into b3
-        subsize = subarray_set((array_nd *)&b3, copy, sizeof(copy)) ;
+        subsize = subarray_set(&b3, copy, sizeof(copy)) ;
         if(subsize != 1000){
           fprintf(stderr, "subsize(set) = %ld, expected 1000\n", subsize) ;
           fprintf(stderr, "FAILED\n") ;
