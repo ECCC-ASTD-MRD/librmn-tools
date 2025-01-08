@@ -58,6 +58,7 @@ int move_mem32_block(void      *restrict src, int lnis, void *restrict dst, int 
 
 int anal_data32_block(void *restrict src, int lnis, int ni, int nj, block_properties *bp);
 void set_block_properties(block_properties *bp, data_kind datatype);
+void fuse_block_properties(block_properties *bp, block_properties *bp_extra);
 
 // generic 64 bit container
 typedef union{

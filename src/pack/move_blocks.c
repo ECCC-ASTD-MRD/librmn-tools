@@ -164,6 +164,7 @@ static int split_and_process_(uint32_t lgni, uint32_t gni, uint32_t gnj, data_ki
 // this works whether int or float data was analyzed
 // bp  [OUT] : pointer to block properties struct (max / min / max_abs / min_abs) (IGNORED if NULL)
 
+// signed part
 static inline void fold_properties_s(__m256i vmaxs, __m256i vmins, block_properties *bp){
   int32_t ti[8], i, *p = ti ;
 
@@ -176,6 +177,7 @@ static inline void fold_properties_s(__m256i vmaxs, __m256i vmins, block_propert
   bp->mins.i = ti[0] ;
 }
 
+// unsigned part
 static inline void fold_properties_u(__m256i vmaxu, __m256i vminu, block_properties *bp){
   int32_t i ;
   uint32_t tu[8], *p=tu ;
@@ -189,9 +191,10 @@ static inline void fold_properties_u(__m256i vmaxu, __m256i vminu, block_propert
   bp->minu.u = tu[0] ;
 }
 
+// signed and unsigned parts
 static inline void fold_properties(__v256i vmaxs, __v256i vmins, __v256i vmaxu, __v256i vminu, block_properties *bp){
-  fold_properties_s(vmaxs, vmins, bp) ;
-  fold_properties_u(vmaxu, vminu, bp) ;
+  fold_properties_s(vmaxs, vmins, bp) ;   // signed part
+  fold_properties_u(vmaxu, vminu, bp) ;   // unsigned part
 }
 
 // transform a float into a fake signed integer (comparison order preserving)
@@ -479,6 +482,28 @@ void set_block_properties(block_properties *bp, data_kind datatype){
     bp->kind = raw_data ;
   }else{
     bp->kind = bad_data ;
+  }
+}
+
+// fuse properties from bp_extra into bp
+void fuse_block_properties(block_properties *bp, block_properties *bp_extra){
+  if(bp == NULL || bp_extra == NULL) return ;
+  data_kind datatype = bp->kind ;
+  if(bp_extra->kind != datatype) return ;
+
+  if(datatype == float_data){
+    bp->maxs.f = (bp_extra->maxs.f > bp->maxs.f) ? bp_extra->maxs.f : bp->maxs.f ;
+    bp->mins.f = (bp_extra->mins.f < bp->mins.f) ? bp_extra->mins.f : bp->mins.f ;
+    bp->maxu.f = (bp_extra->maxu.f > bp->maxu.f) ? bp_extra->maxu.f : bp->maxu.f ;
+    bp->minu.f = (bp_extra->minu.f < bp->minu.f) ? bp_extra->minu.f : bp->minu.f ;
+  }else if(datatype == int_data){
+    bp->maxs.i = (bp_extra->maxs.i > bp->maxs.i) ? bp_extra->maxs.i : bp->maxs.i ;
+    bp->mins.i = (bp_extra->mins.i < bp->mins.i) ? bp_extra->mins.i : bp->mins.i ;
+    bp->maxu.u = (bp_extra->maxu.u > bp->maxu.u) ? bp_extra->maxu.u : bp->maxu.u ;
+    bp->minu.u = (bp_extra->minu.u < bp->minu.u) ? bp_extra->minu.u : bp->minu.u ;
+  }else if(datatype == uint_data){
+    bp->maxu.u = (bp_extra->maxu.u > bp->maxu.u) ? bp_extra->maxu.u : bp->maxu.u ;
+    bp->minu.u = (bp_extra->minu.u < bp->minu.u) ? bp_extra->minu.u : bp->minu.u ;
   }
 }
 
