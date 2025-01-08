@@ -40,12 +40,12 @@
 #define LNI 129
 
 void print_float_props(block_properties bp){
-  fprintf(stderr, "float props : mins = %12f, maxs = %12f, minu = %12f, maxu = %12f\n", bp.mins.f, bp.maxs.f, bp.minu.f, bp.maxu.f) ;
+  fprintf(stderr, "float props : mins = %13f, maxs = %12f, minu = %12f, maxu = %12f\n", bp.mins.f, bp.maxs.f, bp.minu.f, bp.maxu.f) ;
 }
 
 void print_int_props(block_properties bp){
-  fprintf(stderr, "int   props : mins = %12.8x, maxs = %12.8x, minu = %12.8x, maxu = %12.8x\n", bp.mins.u, bp.maxs.u, bp.minu.u, bp.maxu.u) ;
-  fprintf(stderr, "              mins = %12d, maxs = %12d, minu = %12u, maxu = %12u\n", bp.mins.i, bp.maxs.i, bp.minu.u, bp.maxu.u) ;
+  fprintf(stderr, "int   props : mins = %13.8x, maxs = %12.8x, minu = %12.8x, maxu = %12.8x\n", bp.mins.u, bp.maxs.u, bp.minu.u, bp.maxu.u) ;
+  fprintf(stderr, "              mins = %13d, maxs = %12d, minu = %12u, maxu = %12u\n", bp.mins.i, bp.maxs.i, bp.minu.u, bp.maxu.u) ;
 }
 
 int main(int argc, char **argv){
@@ -156,10 +156,20 @@ int main(int argc, char **argv){
     t0 = timer_min * NaNoSeC / (ni*nj) ;
     fprintf(stderr, "move int + prop : %4.2f ns/word\n", t0) ;
 
+    TIME_LOOP_EZ(NITER, ni*nj, move_word32_block(z, LNI, z, LNI, ni, nj, int_data, &bp) ) ;
+    if(timer_min == timer_max) timer_avg = timer_max ;
+    t0 = timer_min * NaNoSeC / (ni*nj) ;
+    fprintf(stderr, "nomove int prop : %4.2f ns/word\n", t0) ;
+
     TIME_LOOP_EZ(NITER, ni*nj, move_word32_block(z, LNI, blk, ni, ni, nj, float_data, &bp) ) ;
     if(timer_min == timer_max) timer_avg = timer_max ;
     t0 = timer_min * NaNoSeC / (ni*nj) ;
     fprintf(stderr, "move flt + prop : %4.2f ns/word\n", t0) ;
+
+    TIME_LOOP_EZ(NITER, ni*nj, move_word32_block(z, LNI, z, LNI, ni, nj, float_data, &bp) ) ;
+    if(timer_min == timer_max) timer_avg = timer_max ;
+    t0 = timer_min * NaNoSeC / (ni*nj) ;
+    fprintf(stderr, "nomove flt prop : %4.2f ns/word\n", t0) ;
 
     TIME_LOOP_EZ(NITER, ni*nj, move_data32_block(z, LNI, blk, ni, ni, nj, NULL) ) ;
     if(timer_min == timer_max) timer_avg = timer_max ;

@@ -49,11 +49,15 @@ int move_word32_block(void *restrict src, int lnis, void *restrict dst, int lnid
                                                    void     *: move_data32_block  \
                                                    ) (src,lnis,dst,lnid,ni,nj,bp)
 
-int move_uint32_block(int32_t *restrict src, int lnis, void *restrict dst, int lnid, int ni, int nj, block_properties *bp);
-int move_int32_block(int32_t  *restrict src, int lnis, void *restrict dst, int lnid, int ni, int nj, block_properties *bp);
-int move_float_block(float    *restrict src, int lnis, void *restrict dst, int lnid, int ni, int nj, block_properties *bp);
-int move_data32_block(void    *restrict src, int lnis, void *restrict dst, int lnid, int ni, int nj, block_properties *bp);
-int move_mem32_block(void     *restrict src, int lnis, void *restrict dst, int lnid, int ni, int nj, block_properties *bp);
+int move_uint32_block(uint32_t *restrict src, int lnis, void *restrict dst, int lnid, int ni, int nj, block_properties *bp);
+int move_int32_block(int32_t   *restrict src, int lnis, void *restrict dst, int lnid, int ni, int nj, block_properties *bp);
+int move_float_block(float     *restrict src, int lnis, void *restrict dst, int lnid, int ni, int nj, block_properties *bp);
+
+int move_data32_block(void     *restrict src, int lnis, void *restrict dst, int lnid, int ni, int nj, block_properties *bp);
+int move_mem32_block(void      *restrict src, int lnis, void *restrict dst, int lnid, int ni, int nj, block_properties *bp);
+
+int anal_data32_block(void *restrict src, int lnis, int ni, int nj, block_properties *bp);
+void set_block_properties(block_properties *bp, data_kind datatype);
 
 // generic 64 bit container
 typedef union{
