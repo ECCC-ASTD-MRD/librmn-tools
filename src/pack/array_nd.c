@@ -197,7 +197,7 @@ fail:
   return 0 ;
 }
 
-// move 1D sub array into contiguous block
+// move 1D sub array into block
 // src  [IN] : points to starting address of sub array
 // lni  [IN] : first dimension of block and sub array
 // dst [OUT] : points to contiguous block
@@ -240,7 +240,7 @@ static size_t subarray_get_2d(int gni, int lni, int lnj, uint32_t src[lnj][gni],
   return lni * lnj ;
 }
 
-// move 2D block back into sub array
+// move 2D contiguous block back into sub array
 // src  [IN] : points to contiguous block
 // gni  [IN] : first storage dimension of sub array
 // lni  [IN] : first dimension of block
@@ -279,7 +279,7 @@ static size_t subarray_get_3d(int gni, int gnj, int lni, int lnj, int lnk,
   return lni * lnj * lnk ;
 }
 
-// move 3D block back into sub array
+// move 3D contiguous block back into sub array
 // src  [IN] : points to contiguous block
 // gni  [IN] : first storage dimension of sub array
 // gnj  [IN] : second storage dimension of sub array
@@ -313,7 +313,7 @@ static size_t subarray_set_3d(int gni, int gnj, int lni, int lnj, int lnk,
 // dst [OUT] : points to contiguous block
 // returns number of elements transferred
 static size_t subarray_get_4d(int gni, int gnj, int gnk, int lni, int lnj, int lnk, int lnl,
-                               uint32_t src[lnl][lnk][gnj][gni], uint32_t dst[lnl][lnk][lnj][lni]){
+                               uint32_t src[lnl][gnk][gnj][gni], uint32_t dst[lnl][lnk][lnj][lni]){
   int i, j, k, l ;
   for(l = 0 ; l < lnl ; l++){
     for(k = 0 ; k < lnk ; k++){
@@ -327,7 +327,7 @@ static size_t subarray_get_4d(int gni, int gnj, int gnk, int lni, int lnj, int l
   return lni * lnj * lnk ;
 }
 
-// move 3D block back into sub array
+// move 4D contiguous block back into sub array
 // src  [IN] : points to contiguous block
 // gni  [IN] : first storage dimension of sub array
 // gnj  [IN] : second storage dimension of sub array
@@ -339,7 +339,7 @@ static size_t subarray_get_4d(int gni, int gnj, int gnk, int lni, int lnj, int l
 // dst [OUT] : points to starting address of sub array
 // returns number of elements transferred
 static size_t subarray_set_4d(int gni, int gnj, int gnk, int lni, int lnj, int lnk, int lnl,
-                               uint32_t dst[lnl][lnk][gnj][gni], uint32_t src[lnl][lnk][lnj][lni]){
+                               uint32_t dst[lnl][gnk][gnj][gni], uint32_t src[lnl][lnk][lnj][lni]){
   int i, j, k, l ;
   for(l = 0 ; l < lnl ; l++){
     for(k = 0 ; k < lnk ; k++){

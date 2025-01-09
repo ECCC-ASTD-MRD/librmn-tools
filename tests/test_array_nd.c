@@ -20,11 +20,11 @@
 #include <rmn/array_nd.h>
 
 void array_lbounds_check(int low, int high){
-  array_1d a1 = array_1d_0 ;
-  array_2d a2 = array_2d_0 ;
-  array_3d a3 = array_3d_0 ;
-  array_4d a4 = array_4d_0 ;
-  array_5d a5 = array_5d_0 ;
+  array_1d a1 = array_1d_null ;
+  array_2d a2 = array_2d_null ;
+  array_3d a3 = array_3d_null ;
+  array_4d a4 = array_4d_null ;
+  array_5d a5 = array_5d_null ;
   int32_t scrap[1024*1024] ;
 
   new_array(&a1, scrap, sizeof(int32_t), 1, 8) ;
@@ -81,10 +81,10 @@ int main(int argc, char **argv){
   fprintf(stderr, "SUCCESS\n") ;
 
   fprintf(stderr, "=============== sub array test ===============\n") ;
-  array_1d a1 = array_1d_0 ;
-  array_2d a2 = array_2d_0 ;
-  array_3d a3 = array_3d_0 ;
-  array_3d b3 = array_3d_0 ;
+  array_1d a1 = array_1d_null ;
+  array_2d a2 = array_2d_null ;
+  array_3d a3 = array_3d_null ;
+  array_3d b3 = array_3d_null ;
   new_array(&a1, ref, sizeof(int32_t), 1, GNI) ;
   new_array(&a2, ref, sizeof(int32_t), 1, GNI, GNJ) ;
   new_array(&a3, ref, sizeof(int32_t), 1, GNI, GNJ, GNK) ;
