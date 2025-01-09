@@ -199,6 +199,7 @@ add_project_test(test_simd_compare test_simd_compare.c LINK_LIBS "rmn::rmn" NODI
 add_project_test(test_move_blocks test_move_blocks.c LINK_LIBS "rmn::rmn" NODIAG)
 add_project_test(test_float_block_encoders test_float_block_encoders.c LINK_LIBS "rmn::rmn" NODIAG)
 
+add_project_test(test_eval_compress test_eval_compress.c LINK_LIBS "rmn::rmn" NODIAG)
 add_project_test(test_va_args test_va_args.c LINK_LIBS "rmn::rmn" NODIAG)
 add_project_test(test_syntax test_syntax.c NO_TOOLS DL )
 

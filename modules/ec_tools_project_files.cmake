@@ -41,6 +41,7 @@ set(PROJECT_C_FILES
   src/diag/entropy.c
   src/diag/sparse_concat.c
   src/diag/simd_compare.c
+  src/diag/eval_compress.c
   src/plugins/plugin_code.c
 )
 
@@ -123,4 +124,5 @@ set(PROJECT_H_FILES
   src/PUBLIC_INCLUDES/rmn/simd_functions.h
   src/PUBLIC_INCLUDES/rmn/float_block_encoders.h
   src/PUBLIC_INCLUDES/rmn/va_args_num.h
+  src/PUBLIC_INCLUDES/rmn/eval_compress.h
 )
