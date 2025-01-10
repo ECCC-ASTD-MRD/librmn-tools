@@ -14,7 +14,7 @@
 // Author:
 //     M. Valin,   Recherche en Prevision Numerique, 2024
 //
-// data zblocks layout example
+// data zblocks layout example (2D example)
 //
 // zblocks along i (x) : 10   (ZNI)
 // zblocks along j (y) : 11   (ZNJ)
@@ -78,7 +78,7 @@
 //     +=====+=====+=====+=====+=====+=====+=====+=====+=====+=====+=======
 //        0     1     2     3     4     5     6     7     8     9    column (I)
 //
-// stripe delimiter =
+// stripe delimiter : '='
 //
 // * delimited region, 12 zblocks
 // option 1 : ( probably slowest )
@@ -97,6 +97,12 @@
 // # delimited region, 8 zblocks
 //  option 1 : ( ideal case )
 //    read zblocks 28->35 [ 8 zblocks read, 1 IO request ]
+//
+// the 3D extension is simple
+// each block has dimensions lni|lix x lnj|ljx x lnk|lkx
+// mem and size have dimensions zni x znj x znk
+// there is no striping along z
+//  compression may be 2D (lnk blocks lni x lnj) or 3D (1 block lni x lnj x lnk)
 #if ! defined(Z_DATA_MAP_VERSION)
 
 #define Z_DATA_MAP_VERSION  10
@@ -177,7 +183,8 @@ typedef struct{
     uint32_t *limit ;      // one past the end of compressed data stream
   } mhead ;
   // ---------------- start of in file header ----------------
-  // TODO: add flags for 3D/4D storage ni/nj/nk/nl vs nk/ni/nj/nl vs ...
+  // TODO: add flags for 3D storage ni/nj/nk vs nk/ni/nj vs ... and compression(2D/3D)
+  // TODO: add flags for Z ordering algorithm kind (Morton order, stripes, ...)
   struct{
     union{
       uint32_t data_head ;  // target for & operator to get address of header
@@ -191,14 +198,16 @@ typedef struct{
     zmeta   meta ;         // global metadata (applies to all blocks)
     int32_t gni ;          // first dimension of data array   = lix + (zni - 1) * lni (row size)
     int32_t gnj ;          // second dimension of data array  = ljx + (znj - 1) * lnj (column size)
-//     uint32_t nk ;          // third dimension of data array and block array
-//     uint32_t nl ;          // fourth dimension of data array and block array
+    int32_t gnk ;          // third dimension of data array
     int32_t zni ;          // number of blocks in a row
     int32_t znj ;          // number of block rows
     int32_t lni:16 ,       // first dimension of all but first block (number of values)
             lnj:16 ;       // second dimension of all but first block (number of values)
     int32_t lix:16 ,       // first dimension of the first block in row
             ljx:16 ;       // second dimension of blocks in the first (bottom) row
+    int32_t znk:16 ,       // number of block planes
+            lnk: 8 ,       // third dimension of data blocks
+            lkx: 8 ;       // third dimension of data blocks in the first(bottom) plane
     uint32_t signature ;   // should be 0xBEBEFADA (position allows to check that the size of meta is as expected)
   }fhead ;
   // ---------------- end of in file header ----------------
@@ -208,7 +217,7 @@ typedef struct{
   // ---------------- end of data map ----------------
 }zmap ;
 //                        mhead              fhead - zemta       zmeta
-CT_ASSERT(sizeof(zmap) == 5*sizeof(void *) + 8*sizeof(int32_t) + sizeof(zmeta), "unexpected size of zmap structure")
+CT_ASSERT(sizeof(zmap) == 5*sizeof(void *) + 10*sizeof(int32_t) + sizeof(zmeta), "unexpected size of zmap structure")
 
 static inline int invalid_zmap(zmap *map){
   if(map->mhead.signature != 0x1AD0FADA || map->fhead.signature != 0xBEBEFADA) return 1 ;
