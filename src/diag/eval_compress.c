@@ -17,6 +17,15 @@
 
 #define BLOCK 64
 
+static void get_block(int lni, int lnj, int i0, int j0, int src[lnj][lni], int ni, int nj, int dst[nj][ni]){
+  int i, j ;
+  for(j=0 ; j<nj ; j++){
+    for(i=0 ; i<ni ; i++){
+      dst[j][i] = src[j0+j][i0+i] ;
+    }
+  }
+}
+
 static int count_bits(int ni, int nj, int block[nj][ni]){
   int i, j, max, min, nbits, range, range0 ;
   max = min = block[0][0] ;
@@ -32,7 +41,7 @@ static int count_bits(int ni, int nj, int block[nj][ni]){
     nbits++ ;
     range >>= 1 ;
   }
-fprintf(stderr, "min = %6d, max=%6d, range = %6d, nbits = %6d\n", min, max, range0, nbits) ;
+// fprintf(stderr, "min = %6d, max=%6d, range = %6d, nbits = %6d\n", min, max, range0, nbits) ;
   return ni * nj * nbits ;
 }
 
@@ -49,13 +58,15 @@ static void lorenzo(int ni, int nj, int block[nj][ni], int pred[nj][ni]){
 int float_compressed_bits(int ni, int nj, float f[nj][ni], float errmax, int predict){
   int block[BLOCK*BLOCK] ;
   int pred[BLOCK*BLOCK] ;
-  int nbits = ni * nj * .25 ;   //  estimated overhead
-  int i0, j0, i, j, in, jn, ix ;
+  int block8[8*8] ;
+  int nbits = 0 ;
+  int i0, j0, i, j, in, jn, ix, i8, j8 ;
   for(j0=0 ; j0<nj ; j0+=BLOCK){
     jn = ((j0 + BLOCK) > nj) ? (nj - j0) : BLOCK ;
     for(i0=0 ; i0<ni ; i0+=BLOCK){
       in = ((i0 + BLOCK) > ni) ? (ni - i0) : BLOCK ;
       ix = 0 ;
+      nbits += 64 ; // block overhead
       // quantize
       for(j=0 ; j<jn ; j++){
         for(i=0 ; i<in ; i++){
@@ -70,7 +81,16 @@ int float_compressed_bits(int ni, int nj, float f[nj][ni], float errmax, int pre
         nbits += 32 ;
       }
       // count bits
-      nbits += count_bits(in, jn, (void *)pred) ;
+      // TODO subdivide into 8 x 8 encoding blocks, collect distribution of nbits
+      for(j8=0 ; j8<jn ; j8+=8){
+        int j8n = ((j8+8) > jn) ? (jn - j8) : 8 ;
+        for(i8=0 ; i8<in ; i8+=8){
+          int i8n = ((i8+8) > in) ? (in - i8) : 8 ;
+          nbits += 16 ; // block overhead
+          get_block(in, jn, i8, j8, (void *)pred, i8n, j8n, (void *)block8) ;
+          nbits += count_bits(i8n, j8n, (void *)block8) ;
+        }
+      }
     }
   }
   return nbits ;
