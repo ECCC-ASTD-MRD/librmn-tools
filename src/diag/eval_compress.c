@@ -104,7 +104,12 @@ int float_compressed_bits(int ni, int nj, float f[nj][ni], float errmax, int *bt
       }
     }
   }
-  btab[0] = nblocks ; btab[1] = nblock8 ; btab[2] = nbits64 ; btab[3] = nbits8 ; btab[4] = npred ; btab[5] = npred8 ;
+  btab[0] = nblocks ;   // number of quantization/prediction blocks
+  btab[1] = nblock8 ;   // number of encoding blocks
+  btab[2] = nbits64 ;   // number of bits for quantized only blocks
+  btab[3] = nbits8 ;    // number of bits for quantized encoded blocks
+  btab[4] = npred ;     // number of bits for quantized predicted blocks
+  btab[5] = npred8 ;    // number of bits for quantized predicted encoded blocks
 //   fprintf(stderr, "float_compressed_bits: %d large blocks, %d encoding blocks, nbits64 = %d, nbits8 = %d, npred = %d, npred8 = %d\n",
 //                   nblocks, nblock8, nbits64, nbits8, npred, npred8) ;
   return npred8 ;
