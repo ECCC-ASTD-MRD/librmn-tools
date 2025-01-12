@@ -57,7 +57,7 @@ int main(int argc, char **argv){
       for(j=0 ; j<ndim ; j++) { fprintf(stderr, "%d ", dims[j]) ; } ;
       fprintf(stderr, ") [%d]\n", ndata);
       nij = dims[0]*dims[1] ; npts = nij ;
-      nbits = float_compressed_bits(dims[0], dims[1], (void *)buf, errmax, btab);
+      nbits = float_compressed_bits(dims[0], dims[1], (void *)buf, errmax, btab, 64);
       bpp = nbits ; bpp = bpp / nij ;
       fprintf(stderr, "with prediction : error = %5.2f, nbits = %d (%5.2f bits/value)\n", errmax, nbits, bpp) ;
       fprintf(stderr, "float_compressed_bits: %d large blocks, %d encoding blocks, nbits64 = %d, nbits8 = %d, npred = %d, npred8 = %d\n",
@@ -81,13 +81,13 @@ return 0 ;
   }
   fprintf(stderr, "min = %12G, max = %12G, max error = %12G\n", min, max, errmax) ;
   fprintf(stderr, "================= without predictor =================\n") ;
-  nbits = float_compressed_bits(NI, NJ, (void *)f, errmax, btab);
+  nbits = float_compressed_bits(NI, NJ, (void *)f, errmax, btab, 64);
   bpp = nbits ;
   bpp = bpp / (NI*NJ) ;
   fprintf(stderr, " error = %5.2f, nbits = %d (%5.2f bits/value)\n", errmax, nbits, bpp) ;
 
   fprintf(stderr, "================= with predictor ====================\n") ;
-  nbits = float_compressed_bits(NI, NJ, (void *)f, errmax, btab);
+  nbits = float_compressed_bits(NI, NJ, (void *)f, errmax, btab, 64);
   bpp = nbits ;
   bpp = bpp / (NI*NJ) ;
   fprintf(stderr, " error = %5.2f, nbits = %d (%5.2f bits/value)\n", errmax, nbits, bpp) ;

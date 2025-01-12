@@ -15,8 +15,6 @@
 
 #include <rmn/eval_compress.h>
 
-#define BLOCK 64
-
 static void get_block(int lni, int lnj, int i0, int j0, int src[lnj][lni], int ni, int nj, int dst[nj][ni]){
   int i, j ;
   for(j=0 ; j<nj ; j++){
@@ -55,19 +53,19 @@ static void lorenzo(int ni, int nj, int block[nj][ni], int pred[nj][ni]){
   }
 }
 
-int float_compressed_bits(int ni, int nj, float f[nj][ni], float errmax, int *btab){
-  int block[BLOCK*BLOCK] ;
-  int pred[BLOCK*BLOCK] ;
+int float_compressed_bits(int ni, int nj, float f[nj][ni], float errmax, int *btab, int bsize){
+  int block[bsize*bsize] ;
+  int pred[bsize*bsize] ;
   int block8[8*8] ;
   int nbits = 0, nblocks = 0, nblock8 = 0, nbits64 = 0, npred = 0, nbits8 = 0 , npred8 = 0 ;
   int i0, j0, i, j, in, jn, ix, i8, j8 ;
-  for(j0=0 ; j0<nj ; j0+=BLOCK){
-    jn = ((j0 + BLOCK) > nj) ? (nj - j0) : BLOCK ;
-    for(i0=0 ; i0<ni ; i0+=BLOCK){
-      nblocks++ ;
-      in = ((i0 + BLOCK) > ni) ? (ni - i0) : BLOCK ;
+  for(j0=0 ; j0<nj ; j0+=bsize){
+    jn = ((j0 + bsize) > nj) ? (nj - j0) : bsize ;
+    for(i0=0 ; i0<ni ; i0+=bsize){
+      nblocks++ ;    // count large blocks
+      in = ((i0 + bsize) > ni) ? (ni - i0) : bsize ;
       ix = 0 ;
-      nbits += 64 ; // block overhead
+      nbits += 64 ; // large block overhead
       // quantize
       for(j=0 ; j<jn ; j++){
         for(i=0 ; i<in ; i++){
@@ -76,13 +74,13 @@ int float_compressed_bits(int ni, int nj, float f[nj][ni], float errmax, int *bt
         }
       }
       nbits64 = nbits64 + 64 + count_bits(in, jn, (void *)block) ;
-      // subdivide into 8 x 8 encoding blocks, count bits
+      // subdivide large block into 8 x 8 encoding blocks, count bits
       nbits8 += 64 ;
       for(j8=0 ; j8<jn ; j8+=8){
         int j8n = ((j8+8) > jn) ? (jn - j8) : 8 ;
         for(i8=0 ; i8<in ; i8+=8){
           int i8n = ((i8+8) > in) ? (in - i8) : 8 ;
-          nbits8 += 16 ; // block overhead
+          nbits8 += 16 ; // encoding block overhead
           get_block(in, jn, i8, j8, (void *)block, i8n, j8n, (void *)block8) ;
           nbits8 += count_bits(i8n, j8n, (void *)block8) ;
         }
@@ -91,20 +89,15 @@ int float_compressed_bits(int ni, int nj, float f[nj][ni], float errmax, int *bt
       lorenzo(in, jn, (void *)block, (void *)pred) ;
       pred[0] = 0 ;
       npred = npred + 64 + 32 + count_bits(in, jn, (void *)pred) ;
-      npred8 = npred8 + 64 + 32 ;
-//       if(predict){
-//         lorenzo(in, jn, (void *)block, (void *)pred) ;
-//         pred[0] = 0 ;
-//         nbits += 32 ;
-//       }
-      // subdivide into 8 x 8 encoding blocks, count bits
+      npred8 = npred8 + 64 + 32 ;  // large block overhead
+      // subdivide predicted large blocks into 8 x 8 encoding blocks, count bits
       // TODO collect distribution of nbits
       for(j8=0 ; j8<jn ; j8+=8){
         int j8n = ((j8+8) > jn) ? (jn - j8) : 8 ;
         for(i8=0 ; i8<in ; i8+=8){
-          nblock8++ ;
+          nblock8++ ;   // count encoding blocks
           int i8n = ((i8+8) > in) ? (in - i8) : 8 ;
-          npred8 += 16 ; // block overhead
+          npred8 += 16 ; // encoding block overhead
           get_block(in, jn, i8, j8, (void *)pred, i8n, j8n, (void *)block8) ;
           npred8 += count_bits(i8n, j8n, (void *)block8) ;
         }
