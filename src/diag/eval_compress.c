@@ -55,43 +55,64 @@ static void lorenzo(int ni, int nj, int block[nj][ni], int pred[nj][ni]){
   }
 }
 
-int float_compressed_bits(int ni, int nj, float f[nj][ni], float errmax, int predict){
+int float_compressed_bits(int ni, int nj, float f[nj][ni], float errmax, int *btab){
   int block[BLOCK*BLOCK] ;
   int pred[BLOCK*BLOCK] ;
   int block8[8*8] ;
-  int nbits = 0 ;
+  int nbits = 0, nblocks = 0, nblock8 = 0, nbits64 = 0, npred = 0, nbits8 = 0 , npred8 = 0 ;
   int i0, j0, i, j, in, jn, ix, i8, j8 ;
   for(j0=0 ; j0<nj ; j0+=BLOCK){
     jn = ((j0 + BLOCK) > nj) ? (nj - j0) : BLOCK ;
     for(i0=0 ; i0<ni ; i0+=BLOCK){
+      nblocks++ ;
       in = ((i0 + BLOCK) > ni) ? (ni - i0) : BLOCK ;
       ix = 0 ;
       nbits += 64 ; // block overhead
       // quantize
       for(j=0 ; j<jn ; j++){
         for(i=0 ; i<in ; i++){
-          block[ix] = pred[ix] = f[j0+j][i0+i] / errmax + .5f ;
+          block[ix] = f[j0+j][i0+i] / errmax + .5f ;
           ix++ ;
         }
       }
-      // apply predictor
-      if(predict){
-        lorenzo(in, jn, (void *)block, (void *)pred) ;
-        pred[0] = 0 ;
-        nbits += 32 ;
-      }
-      // count bits
-      // TODO subdivide into 8 x 8 encoding blocks, collect distribution of nbits
+      nbits64 = nbits64 + 64 + count_bits(in, jn, (void *)block) ;
+      // subdivide into 8 x 8 encoding blocks, count bits
+      nbits8 += 64 ;
       for(j8=0 ; j8<jn ; j8+=8){
         int j8n = ((j8+8) > jn) ? (jn - j8) : 8 ;
         for(i8=0 ; i8<in ; i8+=8){
           int i8n = ((i8+8) > in) ? (in - i8) : 8 ;
-          nbits += 16 ; // block overhead
+          nbits8 += 16 ; // block overhead
+          get_block(in, jn, i8, j8, (void *)block, i8n, j8n, (void *)block8) ;
+          nbits8 += count_bits(i8n, j8n, (void *)block8) ;
+        }
+      }
+      // apply predictor
+      lorenzo(in, jn, (void *)block, (void *)pred) ;
+      pred[0] = 0 ;
+      npred = npred + 64 + 32 + count_bits(in, jn, (void *)pred) ;
+      npred8 = npred8 + 64 + 32 ;
+//       if(predict){
+//         lorenzo(in, jn, (void *)block, (void *)pred) ;
+//         pred[0] = 0 ;
+//         nbits += 32 ;
+//       }
+      // subdivide into 8 x 8 encoding blocks, count bits
+      // TODO collect distribution of nbits
+      for(j8=0 ; j8<jn ; j8+=8){
+        int j8n = ((j8+8) > jn) ? (jn - j8) : 8 ;
+        for(i8=0 ; i8<in ; i8+=8){
+          nblock8++ ;
+          int i8n = ((i8+8) > in) ? (in - i8) : 8 ;
+          npred8 += 16 ; // block overhead
           get_block(in, jn, i8, j8, (void *)pred, i8n, j8n, (void *)block8) ;
-          nbits += count_bits(i8n, j8n, (void *)block8) ;
+          npred8 += count_bits(i8n, j8n, (void *)block8) ;
         }
       }
     }
   }
-  return nbits ;
+  btab[0] = nblocks ; btab[1] = nblock8 ; btab[2] = nbits64 ; btab[3] = nbits8 ; btab[4] = npred ; btab[5] = npred8 ;
+//   fprintf(stderr, "float_compressed_bits: %d large blocks, %d encoding blocks, nbits64 = %d, nbits8 = %d, npred = %d, npred8 = %d\n",
+//                   nblocks, nblock8, nbits64, nbits8, npred, npred8) ;
+  return npred8 ;
 }
