@@ -1,0 +1,268 @@
++ cmake --build gnu14_1 --
+[1/2] Generating rmntools_build_info.h
+CMake Deprecation Warning at /home/software/GITHUB-ECCC/librmn-tools/cmake_rpn/modules/ec_git_version.cmake:94 (message):
+  BUILD_TIMESTAMP is deprecated and should no longer be used.
+
+          Use GIT_COMMIT_TIMESTAMP instead.
+          BUILD_TIMESTAMP will be removed in version 2.0.0.
+          It is only kept for backward compatibility and no longer contains
+          the actual build date but instead the date of the latest commit.
+Call Stack (most recent call first):
+  /home/software/GITHUB-ECCC/librmn-tools/cmake_rpn/modules/ec_build_info_maketime.cmake:12 (ec_git_version)
+
+
+[2/2] c_binding_extras.hf
+================= test eval_compress ================
+
+number of dimensions = 2 : (2560 1310 ) [3353600], min =   -55.9715, max =    32.7668, range =    88.7383, Q = 0.0078125, f16(Q = 0.00135404), f12(Q = 0.0216646)
+compressed_bits : 840 blocks, 52480 encoding blocks, quant = 46950464, quant64 = 30988672, quant64-8 = 21481120, pred64 = 13719168, pred64-8 = 8638768
+bits/value      : quant = 14.00, pred = 5.00, pred-8 = 2.32, quant64 =  9.24, quant64-8 =  6.41, pred64 =  4.09, pred64-8 =  2.58
+
+number of dimensions = 2 : (2560 1310 ) [3353600], min =   -39.5327, max =    44.6069, range =    84.1396, Q = 0.0078125, f16(Q = 0.00128387), f12(Q = 0.0205419)
+compressed_bits : 840 blocks, 52480 encoding blocks, quant = 46950464, quant64 = 37662592, quant64-8 = 29852448, pred64 = 27094400, pred64-8 = 19195680
+bits/value      : quant = 14.00, pred =11.00, pred-8 = 5.45, quant64 = 11.23, quant64-8 =  8.90, pred64 =  8.08, pred64-8 =  5.72
+
+number of dimensions = 2 : (2560 1310 ) [3353600], min =   -36.1872, max =    12.3239, range =    48.5111, Q = 0.0078125, f16(Q = 0.00074022), f12(Q = 0.0118435)
+compressed_bits : 840 blocks, 52480 encoding blocks, quant = 43596864, quant64 = 29952000, quant64-8 = 20606976, pred64 = 13464448, pred64-8 = 8522240
+bits/value      : quant = 13.00, pred = 5.00, pred-8 = 2.32, quant64 =  8.93, quant64-8 =  6.14, pred64 =  4.01, pred64-8 =  2.54
+
+number of dimensions = 2 : (2560 1310 ) [3353600], min =   -44.7355, max =    17.4461, range =    62.1816, Q = 0.0078125, f16(Q = 0.000948816), f12(Q = 0.0151811)
+compressed_bits : 840 blocks, 52480 encoding blocks, quant = 43596864, quant64 = 30411904, quant64-8 = 20990752, pred64 = 13587840, pred64-8 = 8584544
+bits/value      : quant = 13.00, pred = 5.00, pred-8 = 2.32, quant64 =  9.07, quant64-8 =  6.26, pred64 =  4.05, pred64-8 =  2.56
+
+number of dimensions = 2 : (2560 1310 ) [3353600], min =   -46.1475, max =    43.8133, range =    89.9608, Q = 0.0078125, f16(Q = 0.00137269), f12(Q = 0.0219631)
+compressed_bits : 840 blocks, 52480 encoding blocks, quant = 46950464, quant64 = 37947136, quant64-8 = 30067232, pred64 = 27388288, pred64-8 = 19548336
+bits/value      : quant = 14.00, pred =11.00, pred-8 = 5.56, quant64 = 11.32, quant64-8 =  8.97, pred64 =  8.17, pred64-8 =  5.83
+
+number of dimensions = 2 : (2560 1310 ) [3353600], min =   -32.7905, max =    10.7534, range =     43.544, Q = 0.0078125, f16(Q = 0.000664428), f12(Q = 0.0106309)
+compressed_bits : 840 blocks, 52480 encoding blocks, quant = 43596864, quant64 = 29193088, quant64-8 = 19924048, pred64 = 13396480, pred64-8 = 8453120
+bits/value      : quant = 13.00, pred = 5.00, pred-8 = 2.32, quant64 =  8.70, quant64-8 =  5.94, pred64 =  3.99, pred64-8 =  2.52
+
+number of dimensions = 2 : (2560 1310 ) [3353600], min =   -33.8073, max =     13.047, range =    46.8542, Q = 0.0078125, f16(Q = 0.000714939), f12(Q = 0.011439)
+compressed_bits : 840 blocks, 52480 encoding blocks, quant = 43596864, quant64 = 30129536, quant64-8 = 20969488, pred64 = 14251776, pred64-8 = 8597680
+bits/value      : quant = 13.00, pred = 5.00, pred-8 = 2.32, quant64 =  8.98, quant64-8 =  6.25, pred64 =  4.25, pred64-8 =  2.56
+
+number of dimensions = 2 : (2560 1310 ) [3353600], min =   -49.7065, max =    42.2542, range =    91.9607, Q = 0.0078125, f16(Q = 0.00140321), f12(Q = 0.0224513)
+compressed_bits : 840 blocks, 52480 encoding blocks, quant = 46950464, quant64 = 38113408, quant64-8 = 30314384, pred64 = 27781248, pred64-8 = 19799776
+bits/value      : quant = 14.00, pred =11.00, pred-8 = 5.64, quant64 = 11.36, quant64-8 =  9.04, pred64 =  8.28, pred64-8 =  5.90
+
+number of dimensions = 2 : (2560 1310 ) [3353600], min =   -19.3361, max =    7.98177, range =    27.3179, Q = 0.0078125, f16(Q = 0.000416837), f12(Q = 0.0066694)
+compressed_bits : 840 blocks, 52480 encoding blocks, quant = 40243264, quant64 = 30558848, quant64-8 = 21501312, pred64 = 15488384, pred64-8 = 8828912
+bits/value      : quant = 12.00, pred = 5.00, pred-8 = 2.35, quant64 =  9.11, quant64-8 =  6.41, pred64 =  4.62, pred64-8 =  2.63
+
+number of dimensions = 2 : (2560 1310 ) [3353600], min =   -23.7381, max =    9.89944, range =    33.6376, Q = 0.0078125, f16(Q = 0.000513269), f12(Q = 0.0082123)
+compressed_bits : 840 blocks, 52480 encoding blocks, quant = 43596864, quant64 = 28923008, quant64-8 = 19816224, pred64 = 13456512, pred64-8 = 8475696
+bits/value      : quant = 13.00, pred = 5.00, pred-8 = 2.32, quant64 =  8.62, quant64-8 =  5.91, pred64 =  4.01, pred64-8 =  2.53
+
+number of dimensions = 2 : (2560 1310 ) [3353600], min =   -44.8583, max =    39.6576, range =    84.5158, Q = 0.0078125, f16(Q = 0.00128961), f12(Q = 0.0206338)
+compressed_bits : 840 blocks, 52480 encoding blocks, quant = 46950464, quant64 = 38235776, quant64-8 = 30476048, pred64 = 28299904, pred64-8 = 20158208
+bits/value      : quant = 14.00, pred =11.00, pred-8 = 5.75, quant64 = 11.40, quant64-8 =  9.09, pred64 =  8.44, pred64-8 =  6.01
+
+number of dimensions = 2 : (2560 1310 ) [3353600], min =   -17.6935, max =    13.9984, range =    31.6919, Q = 0.0078125, f16(Q = 0.000483581), f12(Q = 0.00773729)
+compressed_bits : 840 blocks, 52480 encoding blocks, quant = 40243264, quant64 = 31532544, quant64-8 = 22781328, pred64 = 17111552, pred64-8 = 9290384
+bits/value      : quant = 12.00, pred = 6.00, pred-8 = 2.42, quant64 =  9.40, quant64-8 =  6.79, pred64 =  5.10, pred64-8 =  2.77
+
+number of dimensions = 2 : (2560 1310 ) [3353600], min =   -13.2808, max =    8.57694, range =    21.8577, Q = 0.0078125, f16(Q = 0.000333523), f12(Q = 0.00533636)
+compressed_bits : 840 blocks, 52480 encoding blocks, quant = 40243264, quant64 = 30626176, quant64-8 = 21871024, pred64 = 16015104, pred64-8 = 8979472
+bits/value      : quant = 12.00, pred = 6.00, pred-8 = 2.37, quant64 =  9.13, quant64-8 =  6.52, pred64 =  4.78, pred64-8 =  2.68
+
+number of dimensions = 2 : (2560 1310 ) [3353600], min =   -36.3848, max =    36.1181, range =    72.5029, Q = 0.0078125, f16(Q = 0.00110631), f12(Q = 0.0177009)
+compressed_bits : 840 blocks, 52480 encoding blocks, quant = 46950464, quant64 = 37957504, quant64-8 = 30352976, pred64 = 28629504, pred64-8 = 20708432
+bits/value      : quant = 14.00, pred =11.00, pred-8 = 5.94, quant64 = 11.32, quant64-8 =  9.05, pred64 =  8.54, pred64-8 =  6.17
+
+number of dimensions = 2 : (2560 1310 ) [3353600], min =   -19.4277, max =    26.4497, range =    45.8774, Q = 0.0078125, f16(Q = 0.000700033), f12(Q = 0.0112005)
+compressed_bits : 840 blocks, 52480 encoding blocks, quant = 43596864, quant64 = 32406400, quant64-8 = 23818272, pred64 = 18032256, pred64-8 = 9929216
+bits/value      : quant = 13.00, pred = 6.00, pred-8 = 2.58, quant64 =  9.66, quant64-8 =  7.10, pred64 =  5.38, pred64-8 =  2.96
+
+number of dimensions = 2 : (2560 1310 ) [3353600], min =   -17.4901, max =    21.2787, range =    38.7688, Q = 0.0078125, f16(Q = 0.000591564), f12(Q = 0.00946503)
+compressed_bits : 840 blocks, 52480 encoding blocks, quant = 43596864, quant64 = 32279680, quant64-8 = 23667200, pred64 = 17853696, pred64-8 = 9753024
+bits/value      : quant = 13.00, pred = 6.00, pred-8 = 2.53, quant64 =  9.63, quant64-8 =  7.06, pred64 =  5.32, pred64-8 =  2.91
+
+number of dimensions = 2 : (2560 1310 ) [3353600], min =   -19.2475, max =    34.9677, range =    54.2151, Q = 0.0078125, f16(Q = 0.000827258), f12(Q = 0.0132361)
+compressed_bits : 840 blocks, 52480 encoding blocks, quant = 43596864, quant64 = 32669952, quant64-8 = 24034896, pred64 = 18276992, pred64-8 = 10277488
+bits/value      : quant = 13.00, pred = 7.00, pred-8 = 2.69, quant64 =  9.74, quant64-8 =  7.17, pred64 =  5.45, pred64-8 =  3.06
+
+number of dimensions = 2 : (2560 1310 ) [3353600], min =   -18.1589, max =    31.5813, range =    49.7402, Q = 0.0078125, f16(Q = 0.000758976), f12(Q = 0.0121436)
+compressed_bits : 840 blocks, 52480 encoding blocks, quant = 43596864, quant64 = 32447104, quant64-8 = 23828560, pred64 = 18140416, pred64-8 = 10102976
+bits/value      : quant = 13.00, pred = 6.00, pred-8 = 2.64, quant64 =  9.68, quant64-8 =  7.11, pred64 =  5.41, pred64-8 =  3.01
+
+number of dimensions = 2 : (2560 1310 ) [3353600], min =    -29.529, max =    31.7563, range =    61.2852, Q = 0.0078125, f16(Q = 0.000935139), f12(Q = 0.0149622)
+compressed_bits : 840 blocks, 52480 encoding blocks, quant = 43596864, quant64 = 36912128, quant64-8 = 29736752, pred64 = 30475648, pred64-8 = 23651472
+bits/value      : quant = 13.00, pred =12.00, pred-8 = 6.91, quant64 = 11.01, quant64-8 =  8.87, pred64 =  9.09, pred64-8 =  7.05
+
+number of dimensions = 2 : (2560 1310 ) [3353600], min =   -18.9025, max =    44.2927, range =    63.1952, Q = 0.0078125, f16(Q = 0.000964282), f12(Q = 0.0154285)
+compressed_bits : 840 blocks, 52480 encoding blocks, quant = 43596864, quant64 = 33118336, quant64-8 = 24467728, pred64 = 18695552, pred64-8 = 10569824
+bits/value      : quant = 13.00, pred = 7.00, pred-8 = 2.76, quant64 =  9.88, quant64-8 =  7.30, pred64 =  5.57, pred64-8 =  3.15
+
+number of dimensions = 2 : (2560 1310 ) [3353600], min =   -18.7788, max =    38.5233, range =    57.3021, Q = 0.0078125, f16(Q = 0.000874361), f12(Q = 0.0139898)
+compressed_bits : 840 blocks, 52480 encoding blocks, quant = 43596864, quant64 = 32881920, quant64-8 = 24233008, pred64 = 18418944, pred64-8 = 10431104
+bits/value      : quant = 13.00, pred = 7.00, pred-8 = 2.73, quant64 =  9.80, quant64-8 =  7.23, pred64 =  5.49, pred64-8 =  3.11
+
+number of dimensions = 2 : (2560 1310 ) [3353600], min =   -19.9091, max =    49.4099, range =    69.3191, Q = 0.0078125, f16(Q = 0.00105773), f12(Q = 0.0169236)
+compressed_bits : 840 blocks, 52480 encoding blocks, quant = 46950464, quant64 = 33526400, quant64-8 = 24888496, pred64 = 19080064, pred64-8 = 10893136
+bits/value      : quant = 14.00, pred = 8.00, pred-8 = 2.86, quant64 = 10.00, quant64-8 =  7.42, pred64 =  5.69, pred64-8 =  3.25
+
+number of dimensions = 2 : (2560 1310 ) [3353600], min =    -19.371, max =     47.244, range =    66.6151, Q = 0.0078125, f16(Q = 0.00101647), f12(Q = 0.0162634)
+compressed_bits : 840 blocks, 52480 encoding blocks, quant = 46950464, quant64 = 33482112, quant64-8 = 24731376, pred64 = 18825600, pred64-8 = 10727344
+bits/value      : quant = 14.00, pred = 7.00, pred-8 = 2.81, quant64 =  9.98, quant64-8 =  7.37, pred64 =  5.61, pred64-8 =  3.20
+
+number of dimensions = 2 : (2560 1310 ) [3353600], min =   -23.7714, max =    52.6771, range =    76.4486, Q = 0.0078125, f16(Q = 0.00116651), f12(Q = 0.0186642)
+compressed_bits : 840 blocks, 52480 encoding blocks, quant = 46950464, quant64 = 34140800, quant64-8 = 25385632, pred64 = 19585792, pred64-8 = 11236928
+bits/value      : quant = 14.00, pred = 9.00, pred-8 = 2.95, quant64 = 10.18, quant64-8 =  7.57, pred64 =  5.84, pred64-8 =  3.35
+
+number of dimensions = 2 : (2560 1310 ) [3353600], min =   -21.7023, max =    50.8491, range =    72.5514, Q = 0.0078125, f16(Q = 0.00110705), f12(Q = 0.0177127)
+compressed_bits : 840 blocks, 52480 encoding blocks, quant = 46950464, quant64 = 33849728, quant64-8 = 25078352, pred64 = 19286272, pred64-8 = 11039184
+bits/value      : quant = 14.00, pred = 8.00, pred-8 = 2.90, quant64 = 10.09, quant64-8 =  7.48, pred64 =  5.75, pred64-8 =  3.29
+
+number of dimensions = 2 : (2560 1310 ) [3353600], min =   -33.1167, max =    62.6739, range =    95.7906, Q = 0.0078125, f16(Q = 0.00146165), f12(Q = 0.0233864)
+compressed_bits : 840 blocks, 52480 encoding blocks, quant = 46950464, quant64 = 34877056, quant64-8 = 26007872, pred64 = 20293632, pred64-8 = 11768496
+bits/value      : quant = 14.00, pred =12.00, pred-8 = 3.10, quant64 = 10.40, quant64-8 =  7.76, pred64 =  6.05, pred64-8 =  3.51
+
+number of dimensions = 2 : (2560 1310 ) [3353600], min =   -25.9481, max =    57.9887, range =    83.9368, Q = 0.0078125, f16(Q = 0.00128077), f12(Q = 0.0204924)
+compressed_bits : 840 blocks, 52480 encoding blocks, quant = 46950464, quant64 = 34412800, quant64-8 = 25680000, pred64 = 19954176, pred64-8 = 11488192
+bits/value      : quant = 14.00, pred =12.00, pred-8 = 3.02, quant64 = 10.26, quant64-8 =  7.66, pred64 =  5.95, pred64-8 =  3.43
+
+number of dimensions = 2 : (2560 1310 ) [3353600], min =   -39.3197, max =    78.4407, range =     117.76, Q = 0.0078125, f16(Q = 0.00179688), f12(Q = 0.0287501)
+compressed_bits : 840 blocks, 52480 encoding blocks, quant = 46950464, quant64 = 35855488, quant64-8 = 26967056, pred64 = 21344128, pred64-8 = 12543296
+bits/value      : quant = 14.00, pred =11.00, pred-8 = 3.31, quant64 = 10.69, quant64-8 =  8.04, pred64 =  6.36, pred64-8 =  3.74
+
+number of dimensions = 2 : (2560 1310 ) [3353600], min =   -38.8368, max =    68.4233, range =     107.26, Q = 0.0078125, f16(Q = 0.00163666), f12(Q = 0.0261865)
+compressed_bits : 840 blocks, 52480 encoding blocks, quant = 46950464, quant64 = 35184000, quant64-8 = 26388160, pred64 = 20803200, pred64-8 = 12142432
+bits/value      : quant = 14.00, pred =12.00, pred-8 = 3.20, quant64 = 10.49, quant64-8 =  7.87, pred64 =  6.20, pred64-8 =  3.62
+
+number of dimensions = 2 : (2560 1310 ) [3353600], min =    -49.023, max =    87.7395, range =    136.763, Q = 0.0078125, f16(Q = 0.00208683), f12(Q = 0.0333893)
+compressed_bits : 840 blocks, 52480 encoding blocks, quant = 50304064, quant64 = 37014400, quant64-8 = 28008032, pred64 = 22256768, pred64-8 = 13214720
+bits/value      : quant = 15.00, pred =11.00, pred-8 = 3.49, quant64 = 11.04, quant64-8 =  8.35, pred64 =  6.64, pred64-8 =  3.94
+
+number of dimensions = 2 : (2560 1310 ) [3353600], min =   -42.5685, max =      83.82, range =    126.389, Q = 0.0078125, f16(Q = 0.00192854), f12(Q = 0.0308566)
+compressed_bits : 840 blocks, 52480 encoding blocks, quant = 46950464, quant64 = 36419456, quant64-8 = 27511328, pred64 = 21845120, pred64-8 = 12886800
+bits/value      : quant = 14.00, pred =11.00, pred-8 = 3.40, quant64 = 10.86, quant64-8 =  8.20, pred64 =  6.51, pred64-8 =  3.84
+
+number of dimensions = 2 : (2560 1310 ) [3353600], min =    -62.595, max =    92.3969, range =    154.992, Q = 0.0078125, f16(Q = 0.00236499), f12(Q = 0.0378398)
+compressed_bits : 840 blocks, 52480 encoding blocks, quant = 50304064, quant64 = 38035072, quant64-8 = 28896992, pred64 = 23257984, pred64-8 = 13831296
+bits/value      : quant = 15.00, pred =11.00, pred-8 = 3.65, quant64 = 11.34, quant64-8 =  8.62, pred64 =  6.94, pred64-8 =  4.12
+
+number of dimensions = 2 : (2560 1310 ) [3353600], min =    -56.918, max =    89.8855, range =    146.804, Q = 0.0078125, f16(Q = 0.00224004), f12(Q = 0.0358407)
+compressed_bits : 840 blocks, 52480 encoding blocks, quant = 50304064, quant64 = 37485824, quant64-8 = 28458000, pred64 = 22796672, pred64-8 = 13566304
+bits/value      : quant = 15.00, pred =11.00, pred-8 = 3.58, quant64 = 11.18, quant64-8 =  8.49, pred64 =  6.80, pred64-8 =  4.05
+
+number of dimensions = 2 : (2560 1310 ) [3353600], min =   -62.0776, max =    93.7647, range =    155.842, Q = 0.0078125, f16(Q = 0.00237797), f12(Q = 0.0380474)
+compressed_bits : 840 blocks, 52480 encoding blocks, quant = 50304064, quant64 = 38422912, quant64-8 = 29311184, pred64 = 23805824, pred64-8 = 14111728
+bits/value      : quant = 15.00, pred =10.00, pred-8 = 3.73, quant64 = 11.46, quant64-8 =  8.74, pred64 =  7.10, pred64-8 =  4.21
+
+number of dimensions = 2 : (2560 1310 ) [3353600], min =   -62.0723, max =    97.6172, range =     159.69, Q = 0.0078125, f16(Q = 0.00243667), f12(Q = 0.0389867)
+compressed_bits : 840 blocks, 52480 encoding blocks, quant = 50304064, quant64 = 38243200, quant64-8 = 29173232, pred64 = 23525120, pred64-8 = 14011232
+bits/value      : quant = 15.00, pred =10.00, pred-8 = 3.70, quant64 = 11.40, quant64-8 =  8.70, pred64 =  7.01, pred64-8 =  4.18
+
+number of dimensions = 2 : (2560 1310 ) [3353600], min =   -66.7056, max =    82.2918, range =    148.997, Q = 0.0078125, f16(Q = 0.00227352), f12(Q = 0.0363763)
+compressed_bits : 840 blocks, 52480 encoding blocks, quant = 50304064, quant64 = 38505856, quant64-8 = 29372240, pred64 = 24003840, pred64-8 = 14234288
+bits/value      : quant = 15.00, pred =11.00, pred-8 = 3.77, quant64 = 11.48, quant64-8 =  8.76, pred64 =  7.16, pred64-8 =  4.24
+
+number of dimensions = 2 : (2560 1310 ) [3353600], min =   -64.1475, max =     86.374, range =    150.522, Q = 0.0078125, f16(Q = 0.00229678), f12(Q = 0.0367484)
+compressed_bits : 840 blocks, 52480 encoding blocks, quant = 50304064, quant64 = 38556160, quant64-8 = 29404688, pred64 = 23916160, pred64-8 = 14171744
+bits/value      : quant = 15.00, pred =11.00, pred-8 = 3.74, quant64 = 11.50, quant64-8 =  8.77, pred64 =  7.13, pred64-8 =  4.23
+
+number of dimensions = 2 : (2560 1310 ) [3353600], min =   -67.6195, max =    79.2351, range =    146.855, Q = 0.0078125, f16(Q = 0.00224082), f12(Q = 0.0358532)
+compressed_bits : 840 blocks, 52480 encoding blocks, quant = 50304064, quant64 = 38207872, quant64-8 = 29186880, pred64 = 24054784, pred64-8 = 14325920
+bits/value      : quant = 15.00, pred =11.00, pred-8 = 3.81, quant64 = 11.39, quant64-8 =  8.70, pred64 =  7.17, pred64-8 =  4.27
+
+number of dimensions = 2 : (2560 1310 ) [3353600], min =   -67.7166, max =    82.5694, range =    150.286, Q = 0.0078125, f16(Q = 0.00229318), f12(Q = 0.0366909)
+compressed_bits : 840 blocks, 52480 encoding blocks, quant = 50304064, quant64 = 38291200, quant64-8 = 29299504, pred64 = 24086272, pred64-8 = 14274208
+bits/value      : quant = 15.00, pred =11.00, pred-8 = 3.79, quant64 = 11.42, quant64-8 =  8.74, pred64 =  7.18, pred64-8 =  4.26
+
+number of dimensions = 2 : (2560 1310 ) [3353600], min =   -63.2211, max =    68.1779, range =    131.399, Q = 0.0078125, f16(Q = 0.00200499), f12(Q = 0.0320798)
+compressed_bits : 840 blocks, 52480 encoding blocks, quant = 50304064, quant64 = 37895168, quant64-8 = 28881024, pred64 = 23921024, pred64-8 = 14353728
+bits/value      : quant = 15.00, pred =11.00, pred-8 = 3.84, quant64 = 11.30, quant64-8 =  8.61, pred64 =  7.13, pred64-8 =  4.28
+
+number of dimensions = 2 : (2560 1310 ) [3353600], min =   -66.1565, max =    71.8894, range =    138.046, Q = 0.0078125, f16(Q = 0.00210641), f12(Q = 0.0337026)
+compressed_bits : 840 blocks, 52480 encoding blocks, quant = 50304064, quant64 = 38005504, quant64-8 = 29083248, pred64 = 23968256, pred64-8 = 14370544
+bits/value      : quant = 15.00, pred =11.00, pred-8 = 3.83, quant64 = 11.33, quant64-8 =  8.67, pred64 =  7.15, pred64-8 =  4.29
+
+number of dimensions = 2 : (2560 1310 ) [3353600], min =    -52.853, max =    59.6108, range =    112.464, Q = 0.0078125, f16(Q = 0.00171606), f12(Q = 0.027457)
+compressed_bits : 840 blocks, 52480 encoding blocks, quant = 46950464, quant64 = 37433088, quant64-8 = 28448064, pred64 = 23847552, pred64-8 = 14410592
+bits/value      : quant = 14.00, pred =11.00, pred-8 = 3.88, quant64 = 11.16, quant64-8 =  8.48, pred64 =  7.11, pred64-8 =  4.30
+
+number of dimensions = 2 : (2560 1310 ) [3353600], min =   -58.5425, max =    63.4609, range =    122.003, Q = 0.0078125, f16(Q = 0.00186162), f12(Q = 0.029786)
+compressed_bits : 840 blocks, 52480 encoding blocks, quant = 46950464, quant64 = 37615232, quant64-8 = 28644992, pred64 = 23878400, pred64-8 = 14392048
+bits/value      : quant = 14.00, pred =11.00, pred-8 = 3.86, quant64 = 11.22, quant64-8 =  8.54, pred64 =  7.12, pred64-8 =  4.29
+
+number of dimensions = 2 : (2560 1310 ) [3353600], min =   -45.7135, max =    59.0738, range =    104.787, Q = 0.0078125, f16(Q = 0.00159893), f12(Q = 0.0255828)
+compressed_bits : 840 blocks, 52480 encoding blocks, quant = 46950464, quant64 = 37043456, quant64-8 = 28211792, pred64 = 23924736, pred64-8 = 14637040
+bits/value      : quant = 14.00, pred =11.00, pred-8 = 3.97, quant64 = 11.05, quant64-8 =  8.41, pred64 =  7.13, pred64-8 =  4.36
+
+number of dimensions = 2 : (2560 1310 ) [3353600], min =   -47.4776, max =    57.9407, range =    105.418, Q = 0.0078125, f16(Q = 0.00160855), f12(Q = 0.0257369)
+compressed_bits : 840 blocks, 52480 encoding blocks, quant = 46950464, quant64 = 37215744, quant64-8 = 28282624, pred64 = 23895808, pred64-8 = 14495600
+bits/value      : quant = 14.00, pred =11.00, pred-8 = 3.92, quant64 = 11.10, quant64-8 =  8.43, pred64 =  7.13, pred64-8 =  4.32
+
+number of dimensions = 2 : (2560 1310 ) [3353600], min =   -40.3405, max =     59.171, range =    99.5115, Q = 0.0078125, f16(Q = 0.00151842), f12(Q = 0.0242948)
+compressed_bits : 840 blocks, 52480 encoding blocks, quant = 46950464, quant64 = 36859136, quant64-8 = 28156096, pred64 = 24191488, pred64-8 = 15036464
+bits/value      : quant = 14.00, pred =11.00, pred-8 = 4.11, quant64 = 10.99, quant64-8 =  8.40, pred64 =  7.21, pred64-8 =  4.48
+
+number of dimensions = 2 : (2560 1310 ) [3353600], min =   -42.1449, max =    59.7052, range =     101.85, Q = 0.0078125, f16(Q = 0.00155411), f12(Q = 0.0248658)
+compressed_bits : 840 blocks, 52480 encoding blocks, quant = 46950464, quant64 = 36924672, quant64-8 = 28171088, pred64 = 24026880, pred64-8 = 14828512
+bits/value      : quant = 14.00, pred =11.00, pred-8 = 4.04, quant64 = 11.01, quant64-8 =  8.40, pred64 =  7.16, pred64-8 =  4.42
+
+number of dimensions = 2 : (2560 1310 ) [3353600], min =   -36.7795, max =    58.0062, range =    94.7857, Q = 0.0078125, f16(Q = 0.00144631), f12(Q = 0.023141)
+compressed_bits : 840 blocks, 52480 encoding blocks, quant = 46950464, quant64 = 36800640, quant64-8 = 28250624, pred64 = 24588032, pred64-8 = 15522672
+bits/value      : quant = 14.00, pred =11.00, pred-8 = 4.27, quant64 = 10.97, quant64-8 =  8.42, pred64 =  7.33, pred64-8 =  4.63
+
+number of dimensions = 2 : (2560 1310 ) [3353600], min =   -38.4398, max =    59.0713, range =    97.5111, Q = 0.0078125, f16(Q = 0.0014879), f12(Q = 0.0238064)
+compressed_bits : 840 blocks, 52480 encoding blocks, quant = 46950464, quant64 = 36810240, quant64-8 = 28183216, pred64 = 24387584, pred64-8 = 15267296
+bits/value      : quant = 14.00, pred =11.00, pred-8 = 4.19, quant64 = 10.98, quant64-8 =  8.40, pred64 =  7.27, pred64-8 =  4.55
+
+number of dimensions = 2 : (2560 1310 ) [3353600], min =   -35.2792, max =     54.097, range =    89.3762, Q = 0.0078125, f16(Q = 0.00136377), f12(Q = 0.0218204)
+compressed_bits : 840 blocks, 52480 encoding blocks, quant = 46950464, quant64 = 36768384, quant64-8 = 28340784, pred64 = 24994048, pred64-8 = 16058592
+bits/value      : quant = 14.00, pred =11.00, pred-8 = 4.45, quant64 = 10.96, quant64-8 =  8.45, pred64 =  7.45, pred64-8 =  4.79
+
+number of dimensions = 2 : (2560 1310 ) [3353600], min =   -36.4034, max =    55.5344, range =    91.9378, Q = 0.0078125, f16(Q = 0.00140286), f12(Q = 0.0224458)
+compressed_bits : 840 blocks, 52480 encoding blocks, quant = 46950464, quant64 = 36796544, quant64-8 = 28312832, pred64 = 24796928, pred64-8 = 15790032
+bits/value      : quant = 14.00, pred =11.00, pred-8 = 4.36, quant64 = 10.97, quant64-8 =  8.44, pred64 =  7.39, pred64-8 =  4.71
+
+number of dimensions = 2 : (2560 1310 ) [3353600], min =   -33.5229, max =    50.1924, range =    83.7153, Q = 0.0078125, f16(Q = 0.00127739), f12(Q = 0.0204383)
+compressed_bits : 840 blocks, 52480 encoding blocks, quant = 46950464, quant64 = 36958464, quant64-8 = 28619360, pred64 = 25494272, pred64-8 = 16736480
+bits/value      : quant = 14.00, pred =11.00, pred-8 = 4.67, quant64 = 11.02, quant64-8 =  8.53, pred64 =  7.60, pred64-8 =  4.99
+
+number of dimensions = 2 : (2560 1310 ) [3353600], min =   -33.8282, max =    52.8269, range =    86.6551, Q = 0.0078125, f16(Q = 0.00132225), f12(Q = 0.021156)
+compressed_bits : 840 blocks, 52480 encoding blocks, quant = 46950464, quant64 = 36766464, quant64-8 = 28430752, pred64 = 25205120, pred64-8 = 16369056
+bits/value      : quant = 14.00, pred =11.00, pred-8 = 4.55, quant64 = 10.96, quant64-8 =  8.48, pred64 =  7.52, pred64-8 =  4.88
+
+number of dimensions = 2 : (2560 1310 ) [3353600], min =   -32.4563, max =    47.9686, range =    80.4249, Q = 0.0078125, f16(Q = 0.00122719), f12(Q = 0.019635)
+compressed_bits : 840 blocks, 52480 encoding blocks, quant = 46950464, quant64 = 37329024, quant64-8 = 29201168, pred64 = 26184576, pred64-8 = 17498256
+bits/value      : quant = 14.00, pred =10.00, pred-8 = 4.90, quant64 = 11.13, quant64-8 =  8.71, pred64 =  7.81, pred64-8 =  5.22
+
+number of dimensions = 2 : (2560 1310 ) [3353600], min =   -32.1427, max =    48.0534, range =    80.1961, Q = 0.0078125, f16(Q = 0.0012237), f12(Q = 0.0195791)
+compressed_bits : 840 blocks, 52480 encoding blocks, quant = 46950464, quant64 = 37114112, quant64-8 = 28919792, pred64 = 25904128, pred64-8 = 17132864
+bits/value      : quant = 14.00, pred =11.00, pred-8 = 4.79, quant64 = 11.07, quant64-8 =  8.62, pred64 =  7.72, pred64-8 =  5.11
+
+number of dimensions = 2 : (2560 1310 ) [3353600], min =   -31.8367, max =    49.1708, range =    81.0075, Q = 0.0078125, f16(Q = 0.00123608), f12(Q = 0.0197772)
+compressed_bits : 840 blocks, 52480 encoding blocks, quant = 46950464, quant64 = 37581056, quant64-8 = 29711968, pred64 = 26646400, pred64-8 = 18136176
+bits/value      : quant = 14.00, pred =10.00, pred-8 = 5.10, quant64 = 11.21, quant64-8 =  8.86, pred64 =  7.95, pred64-8 =  5.41
+
+number of dimensions = 2 : (2560 1310 ) [3353600], min =   -32.7459, max =    48.3734, range =    81.1193, Q = 0.0078125, f16(Q = 0.00123778), f12(Q = 0.0198045)
+compressed_bits : 840 blocks, 52480 encoding blocks, quant = 46950464, quant64 = 37528320, quant64-8 = 29511952, pred64 = 26395648, pred64-8 = 17842304
+bits/value      : quant = 14.00, pred =10.00, pred-8 = 5.01, quant64 = 11.19, quant64-8 =  8.80, pred64 =  7.87, pred64-8 =  5.32
+
+number of dimensions = 2 : (2560 1310 ) [3353600], min =    -31.805, max =     48.772, range =    80.5769, Q = 0.0078125, f16(Q = 0.00122951), f12(Q = 0.0196721)
+compressed_bits : 840 blocks, 52480 encoding blocks, quant = 46950464, quant64 = 37516928, quant64-8 = 29765712, pred64 = 26668800, pred64-8 = 18346304
+bits/value      : quant = 14.00, pred =10.00, pred-8 = 5.16, quant64 = 11.19, quant64-8 =  8.88, pred64 =  7.95, pred64-8 =  5.47
+
+number of dimensions = 2 : (2560 1310 ) [3353600], min =   -31.8935, max =    45.9506, range =    77.8441, Q = 0.0078125, f16(Q = 0.00118781), f12(Q = 0.0190049)
+compressed_bits : 840 blocks, 52480 encoding blocks, quant = 46950464, quant64 = 37422720, quant64-8 = 29736576, pred64 = 26610688, pred64-8 = 18444416
+bits/value      : quant = 14.00, pred =10.00, pred-8 = 5.20, quant64 = 11.16, quant64-8 =  8.87, pred64 =  7.93, pred64-8 =  5.50
+
+number of dimensions = 2 : (2560 1310 ) [3353600], min =   -32.1382, max =    45.6027, range =    77.7409, Q = 0.0078125, f16(Q = 0.00118623), f12(Q = 0.0189797)
+compressed_bits : 840 blocks, 52480 encoding blocks, quant = 46950464, quant64 = 37326080, quant64-8 = 29674880, pred64 = 26593280, pred64-8 = 18490576
+bits/value      : quant = 14.00, pred =10.00, pred-8 = 5.22, quant64 = 11.13, quant64-8 =  8.85, pred64 =  7.93, pred64-8 =  5.51
+
+number of dimensions = 2 : (2560 1310 ) [3353600], min =   -31.6584, max =     46.085, range =    77.7434, Q = 0.0078125, f16(Q = 0.00118627), f12(Q = 0.0189803)
+compressed_bits : 840 blocks, 52480 encoding blocks, quant = 46950464, quant64 = 37313536, quant64-8 = 29626640, pred64 = 26553728, pred64-8 = 18550368
+bits/value      : quant = 14.00, pred =10.00, pred-8 = 5.24, quant64 = 11.13, quant64-8 =  8.83, pred64 =  7.92, pred64-8 =  5.53
+
+number of dimensions = 2 : (2560 1310 ) [3353600], min =   -31.3629, max =    45.8823, range =    77.2452, Q = 0.0078125, f16(Q = 0.00117867), f12(Q = 0.0188587)
+compressed_bits : 840 blocks, 52480 encoding blocks, quant = 46950464, quant64 = 37360000, quant64-8 = 29618112, pred64 = 26600960, pred64-8 = 18656352
+bits/value      : quant = 14.00, pred =10.00, pred-8 = 5.27, quant64 = 11.14, quant64-8 =  8.83, pred64 =  7.93, pred64-8 =  5.56
+
+number of dimensions = 2 : (2560 1310 ) [3353600], min =   -34.0107, max =    45.4984, range =    79.5091, Q = 0.0078125, f16(Q = 0.00121321), f12(Q = 0.0194114)
+compressed_bits : 840 blocks, 52480 encoding blocks, quant = 46950464, quant64 = 37421184, quant64-8 = 29705696, pred64 = 26793216, pred64-8 = 18884128
+bits/value      : quant = 14.00, pred =10.00, pred-8 = 5.35, quant64 = 11.16, quant64-8 =  8.86, pred64 =  7.99, pred64-8 =  5.63
+INFO : EOF
