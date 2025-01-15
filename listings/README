@@ -1,0 +1,9 @@
+bits/value      :
+
+quant     : quantification du tableau complet (1 morceau)
+quant64   : quantification du tableau par morceaux de 64 x 64
+pred      : prediction de Lorenzo du tableau complet (1 morceau)
+pred64    : prediction de Lorenzo par morceaux de 64 x 64
+pred-8    : codage apres prediction du tableau complet en morceaux de 8 x 8
+quant64-8 : codage apres quantification des morceaux de 64 x 64 en morceaux de 8 x 8
+pred64-8  : codage apres prediction des morceaux de 64 x 64 en morceaux de 8 x 8
