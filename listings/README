@@ -11,6 +11,7 @@ pred64-8  : codage apres prediction des morceaux de 64 x 64 en morceaux de 8 x 8
 f16(Q = x.yyyyy)  : intervalle de quantification avec 16 bits par item
 f12(Q = x.yyyyy)  : intervalle de quantification avec 12 bits par item
     Q = x.yyyyy   : intervalle de quantification pour l'essai en question
+    E = x.yyyyy   : erreur absolue maximale pour l'essai en question
 
 number of dimensions = 2 : (2560 1310 ) [3353600]
                                         nb de points
