@@ -107,15 +107,16 @@ static float power2_err(float err){
     float    f ;
   } uf ;
   uf.f = err ;
+  uf.u += 0x007FFFFFu ;
   uf.u &= 0xFF800000u ;
   return uf.f ;
 }
 
 // return estimate of number of bits necessary to quantize and encode float array f with prediction
-// bsize   [IN]: dimension of quantization/prediction blocks
-// errmax  [IN]: quantization interval (power of 2 <= errmax will be used)
-// btab   [OUT]: more detailed information
-int float_compressed_bits(int ni, int nj, float f[nj][ni], float errmax, int *btab, int bsize){
+// bsize  [IN]: dimension of quantization/prediction blocks
+// quant  [IN]: quantization interval (power of 2 <= quant will be used)
+// btab  [OUT]: more detailed information
+int float_compressed_bits(int ni, int nj, float f[nj][ni], float quant, int *btab, int bsize, float *diffmax){
   int q[nj][ni] ;
   int p[nj][ni] ;
   int block[bsize*bsize] ;
@@ -124,11 +125,16 @@ int float_compressed_bits(int ni, int nj, float f[nj][ni], float errmax, int *bt
   int nbits = 0, nblocks = 0, nblock8 = 0, nbits64 = 0, npred = 0, nbits8 = 0 , npred8 = 0, nbitsg = 0, nbitsp = 0, asym = 0, rawp8 = 0, nraw8 = 0 ;
   int i0, j0, i, j, in, jn, ix, i8, j8, min, max ;
 
-  errmax = power2_err(errmax) ;  // power of 2 <= errmax
+  quant = power2_err(quant) ;  // power of 2 <= quant
+  *diffmax = 0.0f ;
   // quantize the whole array
   for(j=0 ; j<nj ; j++){
     for(i=0 ; i<ni ; i++){
-      q[j][i] = f[j][i] / errmax + .5f ;
+      float diff ;
+      q[j][i] = f[j][i] / quant + ((f[j][i] < 0.0f) ? (-.5f) : .5f) ;
+      diff = f[j][i] - (q[j][i] * quant) ;
+      diff = (diff < 0) ? -diff : diff ;
+      *diffmax = (diff > *diffmax) ? diff : *diffmax ;
     }
   }
   get_min_max_i((void *)q, ni*nj, &min, &max);
@@ -161,7 +167,7 @@ int float_compressed_bits(int ni, int nj, float f[nj][ni], float errmax, int *bt
       // get small quantized block
       for(j=0 ; j<jn ; j++){
         for(i=0 ; i<in ; i++){
-//           block[ix] = f[j0+j][i0+i] / errmax + .5f ;
+//           block[ix] = f[j0+j][i0+i] / quant + .5f ;
           block[ix] = q[j0+j][i0+i] ;
           ix++ ;
         }

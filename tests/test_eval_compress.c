@@ -36,6 +36,7 @@ static float power2_err(float err){
     float    f ;
   } uf ;
   uf.f = err ;
+  uf.u += 0x007FFFFFu ;
   uf.u &= 0xFF800000u ;
   return uf.f ;
 }
@@ -52,7 +53,7 @@ void get_min_max(float *buf, int ninj, float *min, float *max){
 }
 
 int main(int argc, char **argv){
-  float f[NJ][NI], bpp, errmax = .125f, min, max, npts ;
+  float f[NJ][NI], bpp, errmax = .125f, min, max, npts, diffmax ;
   char *filename = NULL ;
   int i, j, nbits, fd = 0, ndim = 0, ndata, nij ;
   int dims[10], btab[10] ;
@@ -73,6 +74,7 @@ int main(int argc, char **argv){
 #endif
   if(argc > 1) errmax = atof(argv[1]) ;
   errmax = power2_err(errmax) ;
+  fprintf(stderr, "errmax = %G\n", errmax) ;
   if(argc < 3) goto synthetic ;
   filename = argv[2] ;
 
@@ -84,8 +86,9 @@ int main(int argc, char **argv){
     fprintf(stderr, ") [%d]", ndata);
     nij = dims[0]*dims[1] ; npts = nij ;
     get_min_max(buf, nij, &min, &max) ;
-    fprintf(stderr, ", min = %10G, max = %10G, range = %10G, Q = %G, f16(Q = %G), f12(Q = %G)\n", min, max, max-min, errmax, (max-min)/65536, (max-min)/4096) ;
-    nbits = float_compressed_bits(dims[0], dims[1], (void *)buf, errmax, btab, 64);
+    diffmax = 0.0f ;
+    nbits = float_compressed_bits(dims[0], dims[1], (void *)buf, errmax, btab, 64, &diffmax);
+    fprintf(stderr, ", min = %G, max = %G, range = %G, Q = %G, E = %4.2f, f16(Q = %G), f12(Q = %G)\n", min, max, max-min, errmax, diffmax/errmax, (max-min)/65536, (max-min)/4096) ;
     bpp = nbits ; bpp = bpp / npts ;
     fprintf(stderr, "compressed_bits : %d blocks, %d encoding blocks, quant = %d, quant64 = %d, quant64-8 = %d, pred64 = %d, pred64-8 = %d\n",
                     btab[0], btab[1], btab[6], btab[2], btab[3], btab[4], btab[5]) ;
@@ -112,7 +115,7 @@ synthetic:     // in case no filename is given
   fprintf(stderr, "min = %12G, max = %12G, max error = %12G\n", min, max, errmax) ;
 
   fprintf(stderr, "================= with predictor ====================\n") ;
-  nbits = float_compressed_bits(NI, NJ, (void *)f, errmax, btab, 64);
+  nbits = float_compressed_bits(NI, NJ, (void *)f, errmax, btab, 64, &diffmax);
   bpp = nbits ;
   bpp = bpp / (NI*NJ) ;
   fprintf(stderr, " error = %5.2f, nbits = %d (%5.2f bits/value)\n", errmax, nbits, bpp) ;
