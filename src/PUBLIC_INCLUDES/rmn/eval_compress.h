@@ -12,4 +12,5 @@
 // Library General Public License for more details.
 //
 
-int float_compressed_bits(int ni, int nj, float f[nj][ni], float errmax, int *btab, int bsize, float *diffmax);
+#define MAXBTAB 10
+int float_compressed_bits(int ni, int nj, float f[nj][ni], float errmax, int btab[MAXBTAB], int bsize, float *diffmax);

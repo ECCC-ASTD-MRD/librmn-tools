@@ -30,13 +30,25 @@ typedef union{
 #define ABS(X) (((X)>0) ? (X) : -(X))
 #define XOR 0x7
 
+// power of 2 >= q
+static float power2_q(float q){
+  union{
+    uint32_t u ;
+    float    f ;
+  } uf ;
+  uf.f = q ;
+  uf.u += 0x007FFFFFu ;
+  uf.u &= 0xFF800000u ;
+  return uf.f ;
+}
+
+// power of 2 <= err
 static float power2_err(float err){
   union{
     uint32_t u ;
     float    f ;
   } uf ;
   uf.f = err ;
-  uf.u += 0x007FFFFFu ;
   uf.u &= 0xFF800000u ;
   return uf.f ;
 }
@@ -53,10 +65,10 @@ void get_min_max(float *buf, int ninj, float *min, float *max){
 }
 
 int main(int argc, char **argv){
-  float f[NJ][NI], bpp, errmax = .125f, min, max, npts, diffmax ;
+  float f[NJ][NI], bpp, quant = .125f, min, max, npts, diffmax ;
   char *filename = NULL ;
   int i, j, nbits, fd = 0, ndim = 0, ndata, nij ;
-  int dims[10], btab[10] ;
+  int dims[10], btab[MAXBTAB] ;
   void *buf ;
 
   fprintf(stderr, "================= test eval_compress ================\n") ;
@@ -72,23 +84,26 @@ int main(int argc, char **argv){
     f1.f *= 10 ; f2.f *= 10 ; f3.f *= 10 ;
   }
 #endif
-  if(argc > 1) errmax = atof(argv[1]) ;
-  errmax = power2_err(errmax) ;
-  fprintf(stderr, "errmax = %G\n", errmax) ;
+  if(argc > 1) quant = atof(argv[1]) ;
+  quant = 2.0f * power2_err(quant) ;
+  fprintf(stderr, "quant = %G\n", quant) ;
   if(argc < 3) goto synthetic ;
   filename = argv[2] ;
 
   // ndim == number of dimensions, dims[] == dimensions, ndata == number of data elements, fd == file descriptor
   buf = read_32bit_data_record(filename, &fd, dims, &ndim, &ndata) ;  // get data record
   while(buf != NULL){
-    fprintf(stderr, "\nnumber of dimensions = %d : (", ndim) ;
-    for(j=0 ; j<ndim ; j++) { fprintf(stderr, "%d ", dims[j]) ; } ;
-    fprintf(stderr, ") [%d]", ndata);
     nij = dims[0]*dims[1] ; npts = nij ;
     get_min_max(buf, nij, &min, &max) ;
     diffmax = 0.0f ;
-    nbits = float_compressed_bits(dims[0], dims[1], (void *)buf, errmax, btab, 64, &diffmax);
-    fprintf(stderr, ", min = %G, max = %G, range = %G, Q = %G, E = %4.2f, f16(Q = %G), f12(Q = %G)\n", min, max, max-min, errmax, diffmax/errmax, (max-min)/65536, (max-min)/4096) ;
+    nbits = float_compressed_bits(dims[0], dims[1], (void *)buf, quant, btab, 64, &diffmax);
+    float f16q, f12q ;
+    f16q = power2_q(max-min) / 65536 ; 
+    f12q = power2_q(max-min) / 4096 ;
+    fprintf(stderr, "\nnumber of dimensions = %d : (", ndim) ;
+    for(j=0 ; j<ndim ; j++) { fprintf(stderr, "%d ", dims[j]) ; } ;
+    fprintf(stderr, ") [%d]", ndata);
+    fprintf(stderr, ", min = %G, max = %G, range = %G, Q = %G, E = %G, f16(Q = %G), f12(Q = %G)\n", min, max, max-min, quant, diffmax, f16q, f12q) ;
     bpp = nbits ; bpp = bpp / npts ;
     fprintf(stderr, "compressed_bits : %d blocks, %d encoding blocks, quant = %d, quant64 = %d, quant64-8 = %d, pred64 = %d, pred64-8 = %d\n",
                     btab[0], btab[1], btab[6], btab[2], btab[3], btab[4], btab[5]) ;
@@ -112,13 +127,13 @@ synthetic:     // in case no filename is given
       min = (f[j][i] < min) ? f[j][i] : min ;
     }
   }
-  fprintf(stderr, "min = %12G, max = %12G, max error = %12G\n", min, max, errmax) ;
+  fprintf(stderr, "min = %12G, max = %12G, max error = %12G\n", min, max, quant) ;
 
   fprintf(stderr, "================= with predictor ====================\n") ;
-  nbits = float_compressed_bits(NI, NJ, (void *)f, errmax, btab, 64, &diffmax);
+  nbits = float_compressed_bits(NI, NJ, (void *)f, quant, btab, 64, &diffmax);
   bpp = nbits ;
   bpp = bpp / (NI*NJ) ;
-  fprintf(stderr, " error = %5.2f, nbits = %d (%5.2f bits/value)\n", errmax, nbits, bpp) ;
+  fprintf(stderr, " error = %5.2f, nbits = %d (%5.2f bits/value)\n", quant, nbits, bpp) ;
   return 0 ;
 }
 
