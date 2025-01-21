@@ -120,107 +120,106 @@ static void print_block(int ni, int nj, int block[nj][ni]){
   fprintf(stderr, "\n");
 }
 
-// return estimate of number of bits needed to encode block
+// return estimate of number of bits needed to encode a block of size ni X nj
 static int count_encoded_bits(int ni, int nj, int block[nj][ni], int *info){
-  int i, j, max, min, nbits, extra = 0, btab[33], maxbits, blockij, nshort, nij = ni * nj, nbits_i, allneg = 0, delta ;
+  int i, j, max, min, nbits, extra = 0, btab[33], maxbits, blockij, nshort, nij = ni * nj, nbits_i, allneg = 0, delta, tmp ;
+
   max = min = block[0][0] ;
-  for(j=nj-1 ; j>=0 ; j--){
+  for(j=0 ; j<nj ; j++){       // get extrema
     for(i=0 ; i<ni ; i++){
       max = (block[j][i] > max) ? block[j][i] : max ;
       min = (block[j][i] < min) ? block[j][i] : min ;
     }
   }
-  if(max == min){                   // constant block
+  if(max == min){                         // constant block
     info[36]++ ;
-    if(max == 0) return 8 ;         // zero block
     max = (max < 0) ? -max : max ;
-    return 16 + 5 + bits_needed(max) ;
+    info[37] = info[37] + (1 + bits_needed(max)) * (nij - 1) ;   // bits gained
+    if(max == 0) return 9 ;               // special case, zero block
+    return 8 + 1 + bits_needed(max) ;
   }
 
   if(max > 0 && min < 0){   // positive and negative values are present, use zigzag encoding
-    max = min = 0 ;
-    for(j=nj-1 ; j>=0 ; j--){
+    max = 0 ;
+    for(j=0 ; j<nj ; j++){
       for(i=0 ; i<ni ; i++){
         block[j][i] = to_zigzag_32(block[j][i]) ;
         max = (block[j][i] > max) ? block[j][i] : max ;
       }
     }
+    min = 0 ;  // min is assumed to be 0 for zigzag encoding
   }else if(max <= 0){   // all values <= 0
     allneg = 1 ;
-    for(j=nj-1 ; j>=0 ; j--){
+    for(j=0 ; j<nj ; j++){
       for(i=0 ; i<ni ; i++){
-        block[j][i] = block[j][i] - min ;  // subtract offset
+        block[j][i] = (-block[j][i]) ;  // negate number to make it positive
+      }
+    }
+    tmp = max ;      // swap min and max values after talin absolute values
+    max = (-min) ;   // largest absolute value
+    min = (-tmp) ;   // smallest absolute value
+  }
+
+  // at this point, all values are >= 0, min is always >= 0
+
+  if(bits_needed((max-min)) < bits_needed(max)){  // will we save bits by using an offset ?
+    extra = 5 + 1 + bits_needed(min) ;     // offset is stored as 2's complement
+    for(j=j=0 ; j<nj ; j++){
+      for(i=0 ; i<ni ; i++){
+        block[j][i] = block[j][i] - min ;  // subtract minimum value
       }
     }
     max = max - min ;
-    extra = 5 + bits_needed((-min)) ;  // an offset will be used
     min = 0 ;
   }
 
-  // at this point, min is always >= 0
-  if(max > 0 && min >= 0){   // candidate for short/long encoding
-    for(i=0 ; i<33 ; i++){ btab[i] = 0 ; }
-    maxbits = 0 ;
-    for(j=nj-1 ; j>=0 ; j--){
-      for(i=0 ; i<ni ; i++){
-        nbits = bits_needed(block[j][i]) ;
-        maxbits = (nbits > maxbits) ? nbits : maxbits ;
-        btab[nbits]++ ;
+  // is short/long encoding appropriate ?
+  for(i=0 ; i<33 ; i++){ btab[i] = 0 ; }
+  maxbits = 0 ;
+  for(j=0 ; j<nj ; j++){        // tabulate bits needed per sample
+    for(i=0 ; i<ni ; i++){
+      nbits = bits_needed(block[j][i]) ;
+      maxbits = (nbits > maxbits) ? nbits : maxbits ;
+      btab[nbits]++ ;
+    }
+  }
+  for(i=1 ; i<33 ; i++) { btab[i] = btab[i] + btab[i-1] ; }  // btab[i] == nb of values needing i bits or less
+  nbits = maxbits * nij ;   // worst case, maxbits per value
+  if(maxbits < 2){          // maxbits is 1, no point in short/long encoding, no bits gained
+    info[34]++ ;
+    return nbits + 8 + extra ;
+  }
+  nshort = 32 ;                 // impossible value
+  nbits_i = btab[0] + (maxbits + 1) * (nij - btab[0]) ;    // bits needed if nshort == 0
+  if(nbits_i < nbits){
+    nbits = nbits_i ;
+    nshort = 0 ;
+  }
+  delta = 1000 ;
+  for(i=1 ; i<maxbits-1 ; i++){
+    if( (i >= maxbits/2-0) && (i <= maxbits/2+2) ){     // limited range of 3 values around maxbits/2
+      //        btab[i] elements i bits long (or shorter)
+      nbits_i = (i + 1) * btab[i] + (maxbits + 1) * (nij - btab[i]) ; // short/long encoding
+      //                            nij - btab[i] elements need more than i bits
+      if(nbits_i < nbits){        // is nshort == i better than previous cases ?
+        nbits = nbits_i ;
+        nshort = i ;
+        delta = (maxbits/2) - nshort ;
       }
     }
-    for(i=1 ; i<33 ; i++) { btab[i] = btab[i] + btab[i-1] ; }  // btab[i] == nb of values needing i bits or less
-    nbits = maxbits * nij ;   // worst case
-    if(maxbits < 3){          // maxbits is 2 or less, no point in short/long encoding
-      info[34]++ ;
-      return nbits + 8 ;
-    }
-    nshort = 32 ;                 // impossible value
-    nbits_i = btab[0] + (maxbits + 1) * (nij - btab[0]) ;
-    if(nbits_i < nbits){
-      nbits = nbits_i ;
-      nshort = 0 ;
-    }
-    delta = 0 ;
-    for(i=1 ; i<maxbits-1 ; i++){
-//       if(i < maxbits/2-0) continue ;
-//       if(i > maxbits/2+2) continue ;
-      if( (i >= maxbits/2-3) && (i <= maxbits/2+3) ){
-        //             btab[i] elements i bits long (or shorter)
-        nbits_i = (i + 1) * btab[i] + (maxbits + 1) * (nij - btab[i]) ; // short/long encoding
-        //                                nij - btab[i] elements need more than i bits
-        if(nbits_i < nbits){        // nshort == i is better than previous cases
-          nbits = nbits_i ;
-          nshort = i ;
-          delta = (maxbits/2) - nshort ;
-        }
-      }
-    }
+  }
+  if(nshort < 32){  // is short/long encoding appropriate ?
     info[nshort]++ ;
-    if(nshort < 32){
-      info[33]++ ;  // short/long encoding is appropriate
-      info[64 - delta] = info[64 - delta] + 1 ;
-      info[64-6] = info[0] ;
-    }else{
-      info[35]++ ;  // short/long encoding is not appropriate
-    }
-//     if(maxbits > 3 && nshort < 32) info[64 - (maxbits/2 - nshort)] ++ ;
-    extra = 10 ;
-    return nbits + extra ;
-//   }else if(allneg){       // all values <= 0
-//     info[34]++ ;
-//   }else if(max > 0 && min > 0){
-//     if(bits_needed(max - min) < bits_needed(max)){
-//       extra = 5 + bits_needed(min) ;   // an offset will be used
-//     }else{
-//       min = 0 ;
-//     }
-//     info[35]++ ;
-//   }else{
-//     info[36]++ ;
+    info[33]++ ;
+    if(delta < 6) info[64 - delta] = info[64 - delta] + 1 ;
+    info[64-6] = info[0] ;
+    info[37] = info[37] + maxbits * nij - (nbits + 4) ;   // bits gained by encoding
+    extra += 12 ;
+  }else{
+    info[35]++ ;  // short/long encoding is not appropriate
   }
 
-end:
-  return nij * bits_needed(max - min) + extra ;
+  return nbits + extra ;
 }
 
 // return estimate of number of bits needed to represent block
@@ -388,16 +387,17 @@ for(i=0 ; i<16 ; i++){ fprintf(stderr, "%4d ", info[i]) ; } ;
 fprintf(stderr, " |%d,%d,%d,%d,%d,%d, %d ,%d,%d,%d,%d,%d,%d|\n",info[58],info[59],info[60],info[61],info[62],info[63],info[64],info[65],info[66],info[67],info[68],info[69],info[70]) ;
   if(nraw8 != nblock8) exit(1);
   // detailed stats
-  btab[0] = nblocks ;   // number of quantization/prediction blocks
-  btab[1] = nblock8 ;   // number of encoding blocks
-  btab[2] = nbits64 ;   // number of bits for quantized only blocks
-  btab[3] = nbits8 ;    // number of bits for quantized encoded blocks
-  btab[4] = npred ;     // number of bits for quantized predicted blocks
-  btab[5] = npred8 ;    // number of bits for quantized predicted encoded blocks
-  btab[6] = nbitsg ;    // number of bits for global quantized array
-  btab[7] = nbitsp ;    // number of bits for global predicted array
-  btab[8] = asym ;      // number of "asymmetric" blocks
-  btab[9] = rawp8 ;     // number of bits for quantized encoded 8x8 global array
+  btab[ 0] = nblocks ;   // number of quantization/prediction blocks
+  btab[ 1] = nblock8 ;   // number of encoding blocks
+  btab[ 2] = nbits64 ;   // number of bits for quantized only blocks
+  btab[ 3] = nbits8 ;    // number of bits for quantized encoded blocks
+  btab[ 4] = npred ;     // number of bits for quantized predicted blocks
+  btab[ 5] = npred8 ;    // number of bits for quantized predicted encoded blocks
+  btab[ 6] = nbitsg ;    // number of bits for global quantized array
+  btab[ 7] = nbitsp ;    // number of bits for global predicted array
+  btab[ 8] = asym ;      // number of "asymmetric" blocks
+  btab[ 9] = rawp8 ;     // number of bits for quantized encoded 8x8 global array
+  btab[10] = info[37] ;  // bits gained
 //   fprintf(stderr, "float_compressed_bits: %d large blocks, %d encoding blocks, nbits64 = %d, nbits8 = %d, npred = %d, npred8 = %d\n",
 //                   nblocks, nblock8, nbits64, nbits8, npred, npred8) ;
   return npred8 ;
