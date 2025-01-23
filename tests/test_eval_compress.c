@@ -65,7 +65,7 @@ void get_min_max(float *buf, int ninj, float *min, float *max){
 }
 
 int main(int argc, char **argv){
-  float f[NJ][NI], bpp, quant = .125f, min, max, npts, diffmax, bpptot ;
+  float f[NJ][NI], bpp, quant = .125f, quant0, min, max, npts, diffmax, bpptot, bpptotg ;
   char *filename = NULL ;
   int i, j, nbits, fd = 0, ndim = 0, ndata, nij, ncases = 0, gained = 0 ;
   int dims[10], btab[MAXBTAB] ;
@@ -85,22 +85,25 @@ int main(int argc, char **argv){
   }
 #endif
   if(argc > 1) quant = atof(argv[1]) ;
-  quant = 2.0f * power2_err(quant) ;
+  if(quant > 0) quant = 2.0f * power2_err(quant) ;
   fprintf(stderr, "quant = %G\n", quant) ;
   if(argc < 3) goto synthetic ;
   filename = argv[2] ;
+  quant0 = quant ;
 
   // ndim == number of dimensions, dims[] == dimensions, ndata == number of data elements, fd == file descriptor
   buf = read_32bit_data_record(filename, &fd, dims, &ndim, &ndata) ;  // get data record
-  bpptot = 0.0f ;
+  nij = dims[0]*dims[1] ; npts = nij ;
+  bpptot = bpptotg = 0.0f ;
   while(buf != NULL){
     nij = dims[0]*dims[1] ; npts = nij ;
     get_min_max(buf, nij, &min, &max) ;
     diffmax = 0.0f ;
-    nbits = float_compressed_bits(dims[0], dims[1], (void *)buf, quant, btab, 64, &diffmax);
+    quant = quant0 ;
+    nbits = float_compressed_bits(dims[0], dims[1], (void *)buf, &quant, btab, 64, &diffmax);
     gained += btab[10] ;
     float f16q, f12q ;
-    f16q = power2_q(max-min) / 65536 ; 
+    f16q = power2_q(max-min) / 65536 ;
     f12q = power2_q(max-min) / 4096 ;
     fprintf(stderr, "\nnumber of dimensions = %d : (", ndim) ;
     for(j=0 ; j<ndim ; j++) { fprintf(stderr, "%d ", dims[j]) ; } ;
@@ -113,14 +116,15 @@ int main(int argc, char **argv){
                     btab[6]/npts, btab[7]/npts, btab[9]/npts, btab[2]/npts, btab[3]/npts, btab[4]/npts, btab[5]/npts, btab[10]/npts) ;
 
     free(buf) ;
-    bpptot = bpptot + btab[5]/npts ;
+    bpptot  = bpptot  + btab[5]/npts ;
+    bpptotg = bpptotg + btab[9]/npts ;
     ncases++ ;
 
     buf = read_32bit_data_record(filename, &fd, dims, &ndim, &ndata) ;   // try to get next data record
   }
   bpp = gained ;
   bpp = gained / npts / ncases ;
-  fprintf(stderr, "\nbits/value (avg) : %6.3f, %d samples, gain/value (avg) = %G\n", bpptot/ncases, ncases, bpp) ;
+  fprintf(stderr, "\nbits/value (avg) : by chunk = %5.2f, whole = %5.2f, %d samples, gain/value (avg) = %G\n", bpptot/ncases, bpptotg/ncases, ncases, bpp) ;
   return 0 ;
 
   fprintf(stderr, "================= synthetic data =====================\n") ;
@@ -137,7 +141,7 @@ synthetic:     // in case no filename is given
   fprintf(stderr, "min = %12G, max = %12G, max error = %12G\n", min, max, quant) ;
 
   fprintf(stderr, "================= with predictor ====================\n") ;
-  nbits = float_compressed_bits(NI, NJ, (void *)f, quant, btab, 64, &diffmax);
+  nbits = float_compressed_bits(NI, NJ, (void *)f, &quant, btab, 64, &diffmax);
   bpp = nbits ;
   bpp = bpp / (NI*NJ) ;
   fprintf(stderr, " error = %5.2f, nbits = %d (%5.2f bits/value)\n", quant, nbits, bpp) ;

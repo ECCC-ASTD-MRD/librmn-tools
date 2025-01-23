@@ -136,7 +136,9 @@ static int count_encoded_bits(int ni, int nj, int block[nj][ni], int *info){
     max = (max < 0) ? -max : max ;
     info[37] = info[37] + (1 + bits_needed(max)) * (nij - 1) ;   // bits gained
     if(max == 0) return 9 ;               // special case, zero block
-    return 8 + 1 + bits_needed(max) ;
+    int needed = BitsNeeded_32(max) ;
+    needed = (needed > 16) ? (needed + 13) : (needed + 8) ;   // long header if more thatn 16 bits
+    return needed ;
   }
 
   if(max > 0 && min < 0){   // positive and negative values are present, use zigzag encoding
@@ -155,18 +157,18 @@ static int count_encoded_bits(int ni, int nj, int block[nj][ni], int *info){
         block[j][i] = (-block[j][i]) ;  // negate number to make it positive
       }
     }
-    tmp = max ;      // swap min and max values after talin absolute values
+    tmp = max ;      // swap min and max values after taking absolute values
     max = (-min) ;   // largest absolute value
     min = (-tmp) ;   // smallest absolute value
   }
 
   // at this point, all values are >= 0, min is always >= 0
 
-  if(bits_needed((max-min)) < bits_needed(max)){  // will we save bits by using an offset ?
-    extra = 5 + 1 + bits_needed(min) ;     // offset is stored as 2's complement
-    for(j=j=0 ; j<nj ; j++){
+  if(BitsNeeded_u32((max-min)) < BitsNeeded_u32(max)){  // will we save bits by using an offset ?
+    extra = extra + 5 + BitsNeeded_32(min) ;            // offset is stored as 2's complement
+    for(j=0 ; j<nj ; j++){
       for(i=0 ; i<ni ; i++){
-        block[j][i] = block[j][i] - min ;  // subtract minimum value
+        block[j][i] = block[j][i] - min ;               // subtract minimum value
       }
     }
     max = max - min ;
@@ -178,25 +180,27 @@ static int count_encoded_bits(int ni, int nj, int block[nj][ni], int *info){
   maxbits = 0 ;
   for(j=0 ; j<nj ; j++){        // tabulate bits needed per sample
     for(i=0 ; i<ni ; i++){
-      nbits = bits_needed(block[j][i]) ;
+      nbits = BitsNeeded_u32(block[j][i]) ;
       maxbits = (nbits > maxbits) ? nbits : maxbits ;
-      btab[nbits]++ ;
+      btab[nbits]++ ;           // bump count for nbits
     }
   }
   for(i=1 ; i<33 ; i++) { btab[i] = btab[i] + btab[i-1] ; }  // btab[i] == nb of values needing i bits or less
   nbits = maxbits * nij ;   // worst case, maxbits per value
   if(maxbits < 2){          // maxbits is 1, no point in short/long encoding, no bits gained
     info[34]++ ;
-    return nbits + 8 + extra ;
+    return nbits + 8 + extra ;    // nbits < 16, short header
   }
-  nshort = 32 ;                 // impossible value
+  nshort = 32 ;                   // impossible value
+  //        btab[0] elements 0 bits long
   nbits_i = btab[0] + (maxbits + 1) * (nij - btab[0]) ;    // bits needed if nshort == 0
-  if(nbits_i < nbits){
-    nbits = nbits_i ;
+  //                   nij - btab[0] elements need more than 0 bits
+  if(nbits_i < nbits){            // any gain ?
+    nbits = nbits_i ;             // yes
     nshort = 0 ;
   }
   delta = 1000 ;
-  for(i=1 ; i<maxbits-1 ; i++){
+  for(i=1 ; i<maxbits-1 ; i++){           // nshort == maxbits-1 cold not profide any gain
     if( (i >= maxbits/2-0) && (i <= maxbits/2+2) ){     // limited range of 3 values around maxbits/2
       //        btab[i] elements i bits long (or shorter)
       nbits_i = (i + 1) * btab[i] + (maxbits + 1) * (nij - btab[i]) ; // short/long encoding
@@ -214,12 +218,13 @@ static int count_encoded_bits(int ni, int nj, int block[nj][ni], int *info){
     if(delta < 6) info[64 - delta] = info[64 - delta] + 1 ;
     info[64-6] = info[0] ;
     info[37] = info[37] + maxbits * nij - (nbits + 4) ;   // bits gained by encoding
-    extra += 12 ;
+    extra += 2 ;  // ee field needed
   }else{
     info[35]++ ;  // short/long encoding is not appropriate
+    if(maxbits > 16) extra += 4 ; // long header
   }
 
-  return nbits + extra ;
+  return 8 + nbits + extra ;   // base header + extra header fields
 }
 
 // return estimate of number of bits needed to represent block
@@ -261,7 +266,7 @@ static void lorenzo(int ni, int nj, int block[nj][ni], int pred[nj][ni]){
   }
 }
 
-// return power of 2 <= err
+// return power of 2 >= err
 static float power2_err(float err){
   union{
     uint32_t u ;
@@ -274,11 +279,13 @@ static float power2_err(float err){
 }
 
 // return estimate of number of bits necessary to quantize and encode float array f with prediction
-// bsize  [IN]: dimension of quantization/prediction blocks
-// quant  [IN]: quantization interval (power of 2 <= quant will be used)
-// btab  [OUT]: more detailed information
-// dmax  [OUT]: largest absolute difference when restoring quantized float values
-int float_compressed_bits(int ni, int nj, float f[nj][ni], float quant, int btab[MAXBTAB], int bsize, float *dmax){
+// bsize    [IN]: dimension of quantization/prediction blocks
+// quant [INOUT]: quantization interval (power of 2 <= quant will be used)
+//                if quant < 0, it is interpreted as a number of significant bits
+// btab    [OUT]: more detailed information
+// dmax    [OUT]: largest absolute difference when restoring quantized float values
+int float_compressed_bits(int ni, int nj, float f[nj][ni], float *quant_, int btab[MAXBTAB], int bsize, float *dmax){
+  float quant = *quant_ ;
   int q[nj][ni] ;
   int p[nj][ni] ;
   int block[bsize*bsize] ;
@@ -286,10 +293,29 @@ int float_compressed_bits(int ni, int nj, float f[nj][ni], float quant, int btab
   int block8[8*8] ;
   int info[1024] ;
   int nbits = 0, nblocks = 0, nblock8 = 0, nbits64 = 0, npred = 0, nbits8 = 0 , npred8 = 0, nbitsg = 0, nbitsp = 0, asym = 0, rawp8 = 0, nraw8 = 0 ;
-  int i0, j0, i, j, in, jn, ix, i8, j8, min, max, nbi ;
+  int i0, j0, i, j, in, jn, ix, i8, j8, min, max, nbi, range ;
+
+  if(quant < 0){
+    nbits = (-quant) ;
+    range = 1 << (nbits -1) ;
+fprintf(stderr, "\nnbits = %d, intervals = %d", nbits, range) ;
+    float minf, maxf ;
+    minf = maxf = f[0][0] ;
+    for(j=0 ; j<nj ; j++){
+      for(i=0 ; i<ni ; i++){
+        maxf = (f[j][i] > maxf) ? f[j][i] : maxf ;
+        minf = (f[j][i] < minf) ? f[j][i] : minf ;
+      }
+    }
+    quant = (maxf - minf) / range / 2 ;
+    quant = power2_err(quant) ;  // power of 2 >= quant
+fprintf(stderr, ", err = %G", quant*.5f) ;
+fprintf(stderr, ", quant = %G\n", quant) ;
+  }else{
+    quant = power2_err(quant) ;  // power of 2 >= quant
+  }
 
   for(i=0 ; i<sizeof(info)/sizeof(int) ; i++){ info[i] = 0 ; }
-  quant = power2_err(quant) ;  // power of 2 <= quant
   *dmax = 0.0f ;
   // quantize the whole array, unquantize and get max absolute difference
   for(j=0 ; j<nj ; j++){
@@ -301,6 +327,7 @@ int float_compressed_bits(int ni, int nj, float f[nj][ni], float quant, int btab
       *dmax = (diff > *dmax) ? diff : *dmax ;
     }
   }
+  *quant_ = quant ;
   get_min_max_i((void *)q, ni*nj, &min, &max);
   nbitsg = 64 + count_bits(ni, nj, (void *)q) ;  // nbits for the whole array
   // predict the whole array
@@ -323,7 +350,7 @@ int float_compressed_bits(int ni, int nj, float f[nj][ni], float quant, int btab
       rawp8 += nbi ;
     }
   }
-fprintf(stderr, "\n[%d,%d,%d,%d]: ",info[33],info[34],info[35],info[36]) ;
+fprintf(stderr, "%s[%d,%d,%d,%d]: ", nbits ? "" : "\n", info[33], info[34], info[35], info[36]) ;
 for(i=0 ; i<16 ; i++){ fprintf(stderr, "%4d ", info[i]) ; } ;
 fprintf(stderr, " |%d,%d,%d,%d,%d,%d, %d ,%d,%d,%d,%d,%d,%d|\n",info[58],info[59],info[60],info[61],info[62],info[63],info[64],info[65],info[66],info[67],info[68],info[69],info[70]) ;
 
@@ -384,7 +411,7 @@ fprintf(stderr, " |%d,%d,%d,%d,%d,%d, %d ,%d,%d,%d,%d,%d,%d|\n",info[58],info[59
   }
 fprintf(stderr, "[%d,%d,%d,%d]: ",info[33],info[34],info[35],info[36]) ;
 for(i=0 ; i<16 ; i++){ fprintf(stderr, "%4d ", info[i]) ; } ;
-fprintf(stderr, " |%d,%d,%d,%d,%d,%d, %d ,%d,%d,%d,%d,%d,%d|\n",info[58],info[59],info[60],info[61],info[62],info[63],info[64],info[65],info[66],info[67],info[68],info[69],info[70]) ;
+fprintf(stderr, " |%d,%d,%d,%d,%d,%d, %d ,%d,%d,%d,%d,%d,%d|",info[58],info[59],info[60],info[61],info[62],info[63],info[64],info[65],info[66],info[67],info[68],info[69],info[70]) ;
   if(nraw8 != nblock8) exit(1);
   // detailed stats
   btab[ 0] = nblocks ;   // number of quantization/prediction blocks

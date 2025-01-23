@@ -13,4 +13,4 @@
 //
 
 #define MAXBTAB 16
-int float_compressed_bits(int ni, int nj, float f[nj][ni], float errmax, int btab[MAXBTAB], int bsize, float *diffmax);
+int float_compressed_bits(int ni, int nj, float f[nj][ni], float *quant, int btab[MAXBTAB], int bsize, float *diffmax);
