@@ -342,7 +342,7 @@ fprintf(stderr, ", quant = %G\n", quant) ;
     for(i8=0 ; i8<ni ; i8+=8){
       nraw8++ ;
       int i8n = ((i8+8) > ni) ? (ni - i8) : 8 ;
-      rawp8 += 20 ; // average encoding block overhead
+//       rawp8 += 20 ; // average encoding block overhead
       get_block(ni, nj, i8, j8, (void *)p, i8n, j8n, (void *)block8) ;
 // if(i8 == 512 && j8 == 512) print_block(i8n, j8n, (void *)block8) ;
 //       nbi = count_bits(i8n, j8n, (void *)block8) ;
@@ -378,7 +378,7 @@ fprintf(stderr, " |%d,%d,%d,%d,%d,%d, %d ,%d,%d,%d,%d,%d,%d|\n",info[58],info[59
         int j8n = ((j8+8) > jn) ? (jn - j8) : 8 ;
         for(i8=0 ; i8<in ; i8+=8){
           int i8n = ((i8+8) > in) ? (in - i8) : 8 ;
-          nbits8 += 20 ; // average encoding block overhead
+//           nbits8 += 20 ; // average encoding block overhead
           get_block(in, jn, i8, j8, (void *)block, i8n, j8n, (void *)block8) ;
 // if(i0 == 512 && j0 == 512 && j8 == 0 && i8 == 0) print_block(i8n, j8n, (void *)block8) ;
           nbits8 += count_bits(i8n, j8n, (void *)block8) ;
@@ -397,7 +397,7 @@ fprintf(stderr, " |%d,%d,%d,%d,%d,%d, %d ,%d,%d,%d,%d,%d,%d|\n",info[58],info[59
         for(i8=0 ; i8<in ; i8+=8){
           nblock8++ ;   // count encoding blocks
           int i8n = ((i8+8) > in) ? (in - i8) : 8 ;
-          npred8 += 20 ; // average encoding block overhead
+//           npred8 += 20 ; // average encoding block overhead
           get_block(in, jn, i8, j8, (void *)pred, i8n, j8n, (void *)block8) ;
 // if(i0 == 512 && j0 == 512 && j8 == 0 && i8 == 0) print_block(i8n, j8n, (void *)block8) ;
 //           nbi = count_bits(i8n, j8n, (void *)block8) ;
