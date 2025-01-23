@@ -258,12 +258,12 @@ int move_mem32_block(void *restrict src, int lnis, void *restrict dst, int lnid,
     while(nj--){
       uint32_t *s0, *d0 ;
       n = ni ; s0 = s ; d0 = d ;
-      if(ni7){                                   // first slice with less thatn 8 elements
+      if(ni7){                                   // first slice has less than 8 elements
         vdata = loadu_v256((__v256i *)s0) ;      // load data from source array
         storeu_v256((__v256i *)d0, vdata) ;      // store into destination array (CONTIGUOUS)
         n -= ni7 ; s0 += ni7 ; d0 += ni7 ;       // bump count and pointers
       }
-      while(n > 7){                              // following slices with 8 elements
+      while(n > 7){                              // following slice(s) have 8 elements
         vdata = loadu_v256((__v256i *)s0) ;      // load data from source array
         storeu_v256((__v256i *)d0, vdata) ;      // store into destination array (CONTIGUOUS)
         n -= 8 ; s0 += 8 ; d0 += 8 ;
@@ -327,7 +327,7 @@ int anal_data32_block(void *restrict src, int lnis, int ni, int nj, block_proper
     ni7 = (ni & 7) ;               // modulo(ni , 8)
     while(nj--){                                 // loop over rows
       n = ni ; s0 = s ;
-      if(ni7){                                   // first slice with less than 8 elements
+      if(ni7){                                   // first slice has less than 8 elements
         vdata = loadu_v256((__v256i *)s0) ;      // load data from source array (CONTIGUOUS)
         vminu = min_v8u(vminu, vdata) ;          // minimum absolute value
         vmaxu = max_v8u(vmaxu, vdata) ;          // max value with data treated as UNSIGNED
@@ -335,7 +335,7 @@ int anal_data32_block(void *restrict src, int lnis, int ni, int nj, block_proper
         vmins = min_v8i(vmins, vdata) ;          // minimum signed value
         n -= ni7 ; s0 += ni7 ;                   // bump count and pointer
       }
-      while(n > 7){                              // following slices with 8 elements
+      while(n > 7){                              // following slice(s) have 8 elements
         vdata = loadu_v256((__v256i *)s0) ;      // load data from source array (CONTIGUOUS)
         vminu = min_v8u(vminu, vdata) ;          // min value with data treated as UNSIGNED
         vmaxu = max_v8u(vmaxu, vdata) ;          // max value with data treated as UNSIGNED
@@ -367,7 +367,9 @@ int move_data32_block(void *restrict src, int lnis, void *restrict dst, int lnid
   int32_t *restrict d = (int32_t *) dst ;
   int32_t ninj = ni * nj ;
 
-  if(src == dst && lnis == lnid) return anal_data32_block(src, lnis, ni, nj, bp) ;
+  if(src == dst){   // no data copy, lnis MUST BE EQUAL to lnid
+    return (lnis == lnid) ? anal_data32_block(src, lnis, ni, nj, bp) : 0 ;
+  }
 
   if(bp == NULL) return move_mem32_block(src, lnis, dst, lnid, ni, nj, NULL) ;
 
@@ -409,7 +411,7 @@ int move_data32_block(void *restrict src, int lnis, void *restrict dst, int lnid
     ni7 = (ni & 7) ;               // modulo(ni , 8)
     while(nj--){                                 // loop over rows
       n = ni ; s0 = s ; d0 = d ;
-      if(ni7){                                   // first slice with less than 8 elements
+      if(ni7){                                   // first slice has less than 8 elements (may overlap next slice)
         vdata = loadu_v256((__v256i *)s0) ;      // load data from source array (CONTIGUOUS)
         storeu_v256((__v256i *)d0, vdata) ;      // store into destination array (CONTIGUOUS)
         vminu = min_v8u(vminu, vdata) ;          // minimum absolute value
@@ -418,7 +420,7 @@ int move_data32_block(void *restrict src, int lnis, void *restrict dst, int lnid
         vmins = min_v8i(vmins, vdata) ;          // minimum signed value
         n -= ni7 ; s0 += ni7 ; d0 += ni7 ;       // bump count and pointers
       }
-      while(n > 7){                              // following slices with 8 elements
+      while(n > 7){                              // following slice(s) have 8 elements
         vdata = loadu_v256((__v256i *)s0) ;      // load data from source array (CONTIGUOUS)
         storeu_v256((__v256i *)d0, vdata) ;      // store into destination array (CONTIGUOUS)
         vminu = min_v8u(vminu, vdata) ;          // min value with data treated as UNSIGNED
@@ -522,7 +524,7 @@ int move_float_block(float *restrict src, int lnis, void *restrict dst, int lnid
 
   int rc = move_data32_block(src, lnis, dst, lnid, ni, nj, bp) ;
 // fprintf(stderr,"move_float_block     : mins = %8.8x, maxs = %8.8x, minu = %8.8x, maxu = %8.8x\n",bp->mins.u, bp->maxs.u, bp->minu.u, bp->maxu.u);
-  set_block_properties(bp, float_data) ;
+  if(rc != 0) set_block_properties(bp, float_data) ;
   return rc ;
 }
 
@@ -541,7 +543,7 @@ int move_int32_block(int32_t *restrict src, int lnis, void *restrict dst, int ln
 
   int rc = move_data32_block(src, lnis, dst, lnid, ni, nj, bp) ;
 // fprintf(stderr,"move_int32_block      : mins = %8.8x, maxs = %8.8x, minu = %8.8x, maxu = %8.8x\n",bp->mins.u, bp->maxs.u, bp->minu.u, bp->maxu.u);
-  set_block_properties(bp, int_data) ;
+  if(rc != 0) set_block_properties(bp, int_data) ;
   return rc ;
 }
 
@@ -552,7 +554,7 @@ int move_uint32_block(uint32_t *restrict src, int lnis, void *restrict dst, int 
   if(bp == NULL) return move_mem32_block(src, lnis, dst, lnid, ni, nj, NULL) ;
 
   int rc = move_data32_block(src, lnis, dst, lnid, ni, nj, bp) ;
-  set_block_properties(bp, uint_data) ;
+  if(rc != 0) set_block_properties(bp, uint_data) ;
   return rc ;
 }
 
