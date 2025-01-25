@@ -75,27 +75,26 @@ void fwd_1d_cdf53(int *tmp, int N){
 
 	// predict 1 + update 1
 	for(int i=1; i<N-2+(N&1); i+=2){     // predict odd
-		tmp[i] -= (tmp[i-1] + tmp[i+1]) >> 1 ;
+		tmp[i] -= (tmp[i-1] + tmp[i+1] + 1) >> 1 ;
   }
 
 	if(is_odd(N))
 		tmp[N-1] += (tmp[N-2] + 1) >> 1 ;   // last is even, update
 	else
-		tmp[N-1] -= tmp[N-2];              // last is odd, predict
+		tmp[N-1] -= tmp[N-2];              // last is odd, predict (tmp[N] == tmp[N-2] by symmetry)
 
-	tmp[0] += (tmp[1] + 1) >> 1;         // update even
+	tmp[0] += (tmp[1] + 1) >> 1;         // update even (tmp[-1] == tmp[1] by symmetry)
 	for(int i=2; i<N-(N&1); i+=2){
 		tmp[i] += ( (tmp[i-1] + tmp[i+1]) + 2 ) >> 2;
   }
 }
-// #define A      (-0.5f)
-// #define B      0.25f
+
 void fwd_1d_cdf53_split_even(int *x, int *e, int *o, int n){
   int i;
   int neven = (n+1) >> 1;
   int nodd  = neven;
 
-  for(i = 0 ; i < nodd-1 ; i++) o[i] = x[i+i+1] - ((x[i+i] + x[i+i+2]) >> 1);  // predict odd terms
+  for(i = 0 ; i < nodd-1 ; i++) o[i] = x[i+i+1] - ((x[i+i] + x[i+i+2] + 1) >> 1);  // predict odd terms
   o[nodd-1] = x[n-1] - x[n-2] ;
 
   e[0 ] = x[0] + ((o[0] + 1) >> 1) ;
@@ -106,7 +105,7 @@ void fwd_1d_cdf53_split_odd(int *x, int *e, int *o, int n){
   int neven = (n+1) >> 1;
   int nodd  = n >> 1;
 
-  for(i = 0 ; i < nodd ; i++) o[i] = x[i+i+1] - ((x[i+i] + x[i+i+2]) >> 1);    // predict odd terms
+  for(i = 0 ; i < nodd ; i++) o[i] = x[i+i+1] - ((x[i+i] + x[i+i+2] + 1) >> 1);    // predict odd terms
 
   e[0 ] = x[0] + ((o[0] + 1) >> 1) ;
   for(i = 1; i < neven-1 ; i++) e[i] = x[i+i] + ((o[i] + o[i-1] + 2) >> 2) ;   // update even terms
@@ -141,7 +140,7 @@ void inv_1d_cdf53(int *tmp, int N){
 		tmp[N-1] += tmp[N-2];              // last is odd, unpredict
 
 	for(int i=1; i<N-2+(N&1); i+=2){     // unpredict odd
-		tmp[i] += ( tmp[i-1] + tmp[i+1] ) >> 1;
+		tmp[i] += ( tmp[i-1] + tmp[i+1] + 1) >> 1;
   }
 }
 void inv_1d_cdf53_split_even(int *x, int *e, int *o, int n){
@@ -154,7 +153,7 @@ void inv_1d_cdf53_split_even(int *x, int *e, int *o, int n){
   x[0] -= ((x[1] + 1) >> 1) ;
 
   x[n - 1] += x[n - 2] ;
-  for (i = 1; i < n - 2; i += 2) x[i] += ((x[i-1] + x[i+1]) >> 1) ;  // unpredict odd terms
+  for (i = 1; i < n - 2; i += 2) x[i] += ((x[i-1] + x[i+1] + 1) >> 1) ;  // unpredict odd terms
 }
 void inv_1d_cdf53_split_odd(int *x, int *e, int *o, int n){
   int i;
@@ -168,7 +167,7 @@ void inv_1d_cdf53_split_odd(int *x, int *e, int *o, int n){
   for (i = 2; i < n - 2; i += 2) x[i] -= ((x[i+1] + x[i-1] + 2) >> 2) ;
   x[n - 1] -= ((x[n - 2] + 1) >> 1) ;
 
-  for (i = 1; i < n - 1; i += 2) x[i] += ((x[i-1] + x[i+1]) >> 1) ;  // unpredict odd terms
+  for (i = 1; i < n - 1; i += 2) x[i] += ((x[i-1] + x[i+1] + 1) >> 1) ;  // unpredict odd terms
 }
 void inv_1d_cdf53_split(int *x, int *e, int *o, int n){
   if(n < 3) {   // 3 points minimum

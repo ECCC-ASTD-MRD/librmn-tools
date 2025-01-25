@@ -3,7 +3,7 @@
 
 int main(int argc, char **argv){
   int i ;
-  int tmp[16] = {-1, 11, 2, 23, 3, 32, 1, 0, 10, 1, 22, 3, 44, 5, 66, 8 } ;
+  int tmp[16] = {-1, 11, 2, -23, 3, 32, 1, 0, 10, 1, -22, -3, 44, 5, -66, 8 } ;
   int e[16], o[16] ;
 
   fprintf(stderr, "original data\n") ;
