@@ -295,13 +295,14 @@ static void tile_population_64(void *tile_in, int32_t pop[4], void *ref_in){
   s0 = _mm256_add_epi32(s0, _mm256_cmpgt_epi32(t0, v5)) ; s1 = _mm256_add_epi32(s1, _mm256_cmpgt_epi32(t1, v5)) ;
   s0 = _mm256_add_epi32(s0, _mm256_cmpgt_epi32(t0, v6)) ; s1 = _mm256_add_epi32(s1, _mm256_cmpgt_epi32(t1, v6)) ;
   s0 = _mm256_add_epi32(s0, _mm256_cmpgt_epi32(t0, v7)) ; s1 = _mm256_add_epi32(s1, _mm256_cmpgt_epi32(t1, v7)) ;
+  // fold sums
   i0 = _mm_add_epi32(_mm256_extracti128_si256(s0, 0) , _mm256_extracti128_si256(s0, 1)) ;
   i1 = _mm_add_epi32(_mm256_extracti128_si256(s1, 0) , _mm256_extracti128_si256(s1, 1)) ;
   i0 = _mm_add_epi32(i0, _mm_shuffle_epi32(i0, 0b11101110)) ;
   i1 = _mm_add_epi32(i1, _mm_shuffle_epi32(i1, 0b11101110)) ;
   i0 = _mm_add_epi32(i0, _mm_shuffle_epi32(i0, 0b01010101)) ;
   i1 = _mm_add_epi32(i1, _mm_shuffle_epi32(i1, 0b01010101)) ;
-  _mm_storeu_si32(pop+2, i0) ; pop[2] = -pop[2] ;
+  _mm_storeu_si32(pop+2, i0) ; pop[2] = -pop[2] ;  // make sum positive
   _mm_storeu_si32(pop+3, i1) ; pop[3] = -pop[3] ;
 
 #else
