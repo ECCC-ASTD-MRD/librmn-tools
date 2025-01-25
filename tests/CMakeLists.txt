@@ -198,6 +198,7 @@ add_project_test(test_simd_functions test_simd_functions.c LINK_LIBS "rmn::rmn" 
 add_project_test(test_simd_compare test_simd_compare.c LINK_LIBS "rmn::rmn" NODIAG)
 add_project_test(test_move_blocks test_move_blocks.c LINK_LIBS "rmn::rmn" NODIAG)
 add_project_test(test_float_block_encoders test_float_block_encoders.c LINK_LIBS "rmn::rmn" NODIAG)
+add_project_test(test_cdf53 test_cdf53.c LINK_LIBS "rmn::rmn" NODIAG)
 
 add_project_test(test_eval_compress test_eval_compress.c LINK_LIBS "rmn::rmn" NODIAG)
 add_project_test(test_va_args test_va_args.c LINK_LIBS "rmn::rmn" NODIAG)

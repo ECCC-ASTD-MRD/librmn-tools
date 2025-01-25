@@ -126,4 +126,5 @@ set(PROJECT_H_FILES
   src/PUBLIC_INCLUDES/rmn/float_block_encoders.h
   src/PUBLIC_INCLUDES/rmn/va_args_num.h
   src/PUBLIC_INCLUDES/rmn/eval_compress.h
+  src/PUBLIC_INCLUDES/rmn/dwt_i_cdf53.h
 )
