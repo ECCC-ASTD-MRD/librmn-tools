@@ -3,6 +3,7 @@ set(PROJECT_C_FILES
   src/id/identify_compiler.c
   src/id/identify_mpi_child.c
   src/timers/rmn_timers.c
+  src/pred/dwt_i_cdf53.c
   src/pred/lorenzo_c.c
   src/pred/smooth124.c
   src/pred/average_2x2.c
