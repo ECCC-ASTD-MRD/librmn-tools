@@ -26,6 +26,7 @@ int main(int argc, char **argv){
   inv_1d_cdf53(tmp, 16) ;
   for(i=0; i<16 ; i++){ fprintf(stderr, "%4d ", tmp[i]) ; } fprintf(stderr, ", errors = %d\n\n", errors(ref, tmp, 16));
 
+
 //   for(i=0; i<15 ; i++){ fprintf(stderr, "%4d ", tmp[i]) ; } fprintf(stderr, "\n");
   fprintf(stderr, "odd number of points\n") ;
   fwd_1d_cdf53(tmp, 15) ;
@@ -35,6 +36,12 @@ int main(int argc, char **argv){
   inv_1d_cdf53(tmp, 15) ;
   for(i=0; i<15 ; i++){ fprintf(stderr, "%4d ", tmp[i]) ; } fprintf(stderr, ", errors = %d\n\n", errors(ref, tmp, 15));
 
+  fprintf(stderr, "odd number of points, split\n") ;
+  fwd_1d_cdf53_split_odd(tmp, e, o, 15) ;
+  for(i=0; i<7 ; i++){ fprintf(stderr, "%4d %4d ", e[i], o[i]) ; } ; fprintf(stderr, "%4d ", e[7]) ; fprintf(stderr, "\n");
+  inv_1d_cdf53_split(tmp, e, o, 15) ;
+  for(i=0; i<15 ; i++){ fprintf(stderr, "%4d ", tmp[i]) ; } fprintf(stderr, ", errors = %d\n\n", errors(ref, tmp, 15));
+
   fprintf(stderr, "even number of points, split\n") ;
   for(i=0; i<8 ; i++){ e[i] = o[i] = 8888 ; }
   fwd_1d_cdf53_split(tmp, e, o, 16) ;
@@ -42,9 +49,15 @@ int main(int argc, char **argv){
   inv_1d_cdf53_split_even(tmp, e, o, 16) ;
   for(i=0; i<16 ; i++){ fprintf(stderr, "%4d ", tmp[i]) ; } fprintf(stderr, ", errors = %d\n\n", errors(ref, tmp, 16));
 
-  fprintf(stderr, "odd number of points, split\n") ;
-  fwd_1d_cdf53_split_odd(tmp, e, o, 15) ;
-  for(i=0; i<7 ; i++){ fprintf(stderr, "%4d %4d ", e[i], o[i]) ; } ; fprintf(stderr, "%4d ", e[7]) ; fprintf(stderr, "\n");
-  inv_1d_cdf53_split(tmp, e, o, 15) ;
+  fprintf(stderr, "split in place, odd number of points\n") ;
+  fwd_1d_cdf53_split_inplace(tmp, 15);
+  for(i=0; i<7 ; i++){ fprintf(stderr, "%4d %4d ", tmp[i], tmp[8+i]) ; } ; fprintf(stderr, "%4d\n", tmp[7]);
+  inv_1d_cdf53_split_inplace(tmp, 15);
   for(i=0; i<15 ; i++){ fprintf(stderr, "%4d ", tmp[i]) ; } fprintf(stderr, ", errors = %d\n\n", errors(ref, tmp, 15));
+
+  fprintf(stderr, "split in place, even number of points\n") ;
+  fwd_1d_cdf53_split_inplace(tmp, 16);
+  for(i=0; i<8 ; i++){ fprintf(stderr, "%4d %4d ", tmp[i], tmp[8+i]) ; } ; fprintf(stderr, "\n");
+  inv_1d_cdf53_split_inplace(tmp, 16);
+  for(i=0; i<16 ; i++){ fprintf(stderr, "%4d ", tmp[i]) ; } fprintf(stderr, ", errors = %d\n\n", errors(ref, tmp, 16));
 }
