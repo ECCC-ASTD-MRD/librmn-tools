@@ -80,24 +80,38 @@ static inline int un_predict_edge(int o0, int e0   ){ return o0 + e0 ; }
 static inline int un_update(int e1, int o0, int o1){ return e1 - ((o0 + o1 + 2) >> 2) ; }
 static inline int un_update_edge(int e1, int o0   ){ return e1 - ((o0 + 1) >> 1) ; }
 
-void fwd_1d_cdf53_split_inplace(int *tmp, int n){
+// split array x into even and odd indexes
+void split_even_odd(int *x, int *e, int *o, int n){
+  int i, neven = (n+1) >> 1, nodd = n >> 1 ;
+  for(i = 0 ; i < nodd ; i++){ e[i] = x[i+i] ; o[i] = x[i+i+1] ; }        // move from x
+  if(is_odd(n)) e[neven-1] = x[n-1] ;
 }
 
-void fwd_1d_cdf53(int *tmp, int n){
+// recompose array x from even and odd indexes
+void unsplit_even_odd(int *x, int *e, int *o, int n){
+  int i, neven = (n+1) >> 1, nodd = n >> 1 ;
+  for(i = 0 ; i < nodd ; i++){ x[i+i] = e[i] ; x[i+i+1] = o[i] ; }        // move to x
+  if(is_odd(n)) x[n-1] = e[neven-1] ;
+}
+
+void fwd_1d_cdf53_split_inplace(int *x, int n){
+}
+
+void fwd_1d_cdf53(int *x, int n){
 	if(n < 2) return ;       // fix for small n
 
 	for(int i=1; i<n-2+(n&1); i+=2){     // predict odd
-    tmp[i] = predict(tmp[i], tmp[i-1], tmp[i+1]) ;
+    x[i] = predict(x[i], x[i-1], x[i+1]) ;
   }
 
 	if(is_odd(n))
-    tmp[n-1] = update_edge(tmp[n-1], tmp[n-2]) ;   // last is even, update
+    x[n-1] = update_edge(x[n-1], x[n-2]) ;   // last is even, update
 	else
-    tmp[n-1] = predict_edge(tmp[n-1], tmp[n-2]) ;  // last is odd, predict
+    x[n-1] = predict_edge(x[n-1], x[n-2]) ;  // last is odd, predict
 
-	tmp[0] = update_edge(tmp[0], tmp[1]) ;           // update first even
+	x[0] = update_edge(x[0], x[1]) ;           // update first even
 	for(int i=2; i<n-(n&1); i+=2){
-    tmp[i] = update(tmp[i], tmp[i-1], tmp[i+1]) ;  // update even
+    x[i] = update(x[i], x[i-1], x[i+1]) ;  // update even
   }
 }
 
@@ -137,31 +151,30 @@ void fwd_1d_cdf53_split(int *x, int *e, int *o, int n){
   }
 }
 
-void inv_1d_cdf53_split_inplace(int *tmp, int n){
+void inv_1d_cdf53_split_inplace(int *x, int n){
 }
 
-void inv_1d_cdf53(int *tmp, int n){
+void inv_1d_cdf53(int *x, int n){
 	if(n < 2) return ;    // fix for small n
 
 	for(int i=2; i<n-(n&1); i+=2){                      // unupdate even
-    tmp[i] = un_update(tmp[i], tmp[i-1], tmp[i+1]) ;
+    x[i] = un_update(x[i], x[i-1], x[i+1]) ;
   }
-  tmp[0] = un_update_edge(tmp[0], tmp[1]) ;           // unupdate first even
+  x[0] = un_update_edge(x[0], x[1]) ;           // unupdate first even
 
 	if(is_odd(n))
-    tmp[n-1] = un_update_edge(tmp[n-1], tmp[n-2]) ;   // last is even, unupdate
+    x[n-1] = un_update_edge(x[n-1], x[n-2]) ;   // last is even, unupdate
 	else
-    tmp[n-1] = un_predict_edge(tmp[n-1], tmp[n-2]) ;  // last is odd, unpredict
+    x[n-1] = un_predict_edge(x[n-1], x[n-2]) ;  // last is odd, unpredict
 
 	for(int i=1; i<n-2+(n&1); i+=2){                    // unpredict odd
-    tmp[i] = un_predict(tmp[i], tmp[i-1], tmp[i+1]) ;
+    x[i] = un_predict(x[i], x[i-1], x[i+1]) ;
   }
 }
 void inv_1d_cdf53_split_even(int *x, int *e, int *o, int n){
   int i;
-  int neven = (n+1) >> 1;
 
-  for(i = 0 ; i < neven ; i++){ x[i+i] = e[i] ; x[i+i+1] = o[i] ; }        // move to x
+  unsplit_even_odd(x, e, o, n) ;                                           // move to x
 
   for (i = 2; i < n; i += 2) x[i] = un_update(x[i], x[i+1], x[i-1]) ;      // unupdate even terms
   x[0] = un_update_edge(x[0], x[1]) ;
@@ -171,11 +184,8 @@ void inv_1d_cdf53_split_even(int *x, int *e, int *o, int n){
 }
 void inv_1d_cdf53_split_odd(int *x, int *e, int *o, int n){
   int i;
-  int neven = (n+1) >> 1;
-  int nodd  = n >> 1;
 
-  for(i = 0 ; i < nodd ; i++){ x[i+i] = e[i] ; x[i+i+1] = o[i] ; }         // move to x
-  x[n-1] = e[neven-1] ;
+  unsplit_even_odd(x, e, o, n) ;                                           // move to x
 
   x[0] = un_update_edge(x[0], x[1]) ;
   for (i = 2; i < n - 2; i += 2) x[i] = un_update(x[i], x[i+1], x[i-1]) ;  // unupdate even terms
