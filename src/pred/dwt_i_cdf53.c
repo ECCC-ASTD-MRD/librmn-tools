@@ -209,7 +209,7 @@ static void fwd_2d_cdf53_(int lni, int ni, int nj, int x[nj][lni]){
 
   // 1d transform in the i direction, move to bottom part of array x (x[j+j][] : even rows)
   fwd_1d_cdf53_split_inplace(&x[0][0], ni) ;   // first even row has to be done in place
-  for(j=1 ; j<nje ; j++){ fwd_1d_cdf53_split(&x[j+j][0], &x[j][0], &x[0][nie], ni) ; }
+  for(j=1 ; j<nje ; j++){ fwd_1d_cdf53_split(&x[j+j][0], &x[j][0], &x[j][nie], ni) ; }
 
   if(is_odd(nj)){       // last row is even
 
@@ -347,6 +347,11 @@ static void row_un_update(int *e, int *e0, int *o0, int *o1, int ni){
 static void row_un_update_edge(int *e, int *e0, int *o0, int ni){
   int i ;
   for(i=0 ; i<ni ; i++){ e[i] = un_update_edge(e0[i], o0[i]) ; }
+}
+
+void row_move(int *d, int *s, int n){
+  int i ;
+  for(i=0 ; i<n ; i++){ d[i] = s[i] ; }
 }
 
 static void inv_2d_cdf53_(int lni, int ni, int nj, int x[nj][lni]){

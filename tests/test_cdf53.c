@@ -11,12 +11,22 @@ static int errors(int *a, int *b, int n){
 }
 
 int main(int argc, char **argv){
-  int i ;
+  int i, j ;
   int tmp[16] = {-1, 11, 2, -23, 3, 32, 1, 0, 10, 1, -22, -3, 44, 5, -66, 8 } ;
   int ref[16] ;
+  int sin[16] = {0, 1, 2, 1, 0, -1, -2, -1, 0, 1, 2, 1, 0, -1, -2, -1 } ;
+  int cos[16] = {2, 1, 0, -1, -2, -1, 0, 1, 2, 1, 0, -1, -2, -1, 0, 1 } ;
+  int t2d[16][16] ;
+  int r2d[16][16] ;
   int e[16], o[16] ;
 
   for(i=0; i<16 ; i++){ ref[i] = tmp[i] ; }
+  for(j=0 ; j<16 ; j++){
+    for(i=0; i<16 ; i++){
+      t2d[j][i] = r2d[j][i] = sin[i] * cos[j] ;
+//       t2d[j][i] = r2d[j][i] = tmp[j] + i ;
+    }
+  }
 
   fprintf(stderr, "original data\n") ;
   for(i=0; i<16 ; i++){ fprintf(stderr, "%4d ", tmp[i]) ; } fprintf(stderr, "\n\n");
@@ -88,4 +98,30 @@ int main(int argc, char **argv){
   fwd_2d_cdf53_n(tmp, 1, 1, 16, 3);
   inv_2d_cdf53_n(tmp, 1, 1, 16, 3);
   for(i=0; i<16 ; i++){ fprintf(stderr, "%4d ", tmp[i]) ; } fprintf(stderr, ", errors = %d\n\n", errors(ref, tmp, 16));
+
+  fprintf(stderr, "2D, even number of points along i and j\n") ;
+//   for(j=7 ; j>=0 ; j--){
+//     for(i=0 ; i<8 ; i++){
+//       fprintf(stderr, "%4d ", t2d[j][i]) ;
+//     }
+//     fprintf(stderr, "\n") ;
+//   }
+//   fprintf(stderr, "\n") ;
+  fwd_2d_cdf53((void *)t2d, 16, 16, 16) ;
+//   for(j=7 ; j>=0 ; j--){
+//     for(i=0 ; i<8 ; i++){
+//       fprintf(stderr, "%4d ", t2d[j][i]) ;
+//     }
+//     fprintf(stderr, "\n") ;
+//   }
+//   fprintf(stderr, "\n") ;
+  inv_2d_cdf53((void *)t2d, 16, 16, 16) ;
+//   for(j=7 ; j>=0 ; j--){
+//     for(i=0 ; i<8 ; i++){
+//       fprintf(stderr, "%4d ", t2d[j][i]) ;
+// //       fprintf(stderr, "%4d ", t2d[j][i] == r2d[j][i] ? 1 : 0) ;
+//     }
+//     fprintf(stderr, "\n") ;
+//   }
+  fprintf(stderr, "errors = %d\n\n", errors((void *)r2d, (void *)t2d, 16*16));
 }
