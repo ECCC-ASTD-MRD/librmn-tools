@@ -32,19 +32,19 @@ int main(int argc, char **argv){
   for(i=0; i<16 ; i++){ fprintf(stderr, "%4d ", tmp[i]) ; } fprintf(stderr, "\n\n");
 
   fprintf(stderr, "in place, even number of points\n") ;
-  fwd_1d_cdf53(tmp, 16) ;
+  fwd_1d_cdf53_asis(tmp, 16) ;
   for(i=0; i<16 ; i++){ fprintf(stderr, "%4d ", tmp[i]) ; } fprintf(stderr, "\n");
-  inv_1d_cdf53(tmp, 16) ;
+  inv_1d_cdf53_asis(tmp, 16) ;
   for(i=0; i<16 ; i++){ fprintf(stderr, "%4d ", tmp[i]) ; } fprintf(stderr, ", errors = %d\n\n", errors(ref, tmp, 16));
 
 
 //   for(i=0; i<15 ; i++){ fprintf(stderr, "%4d ", tmp[i]) ; } fprintf(stderr, "\n");
   fprintf(stderr, "in place, odd number of points\n") ;
-  fwd_1d_cdf53(tmp, 15) ;
+  fwd_1d_cdf53_asis(tmp, 15) ;
   for(i=0; i<15 ; i++){ fprintf(stderr, "%4d ", tmp[i]) ; } fprintf(stderr, "\n");
 //   for(i=0; i<7 ; i++){ fprintf(stderr, "%4d ", tmp[i+i+1]) ; } fprintf(stderr, "\n");
 //   for(i=0; i<8 ; i++){ fprintf(stderr, "%4d ", tmp[i+i]) ; } fprintf(stderr, "\n");
-  inv_1d_cdf53(tmp, 15) ;
+  inv_1d_cdf53_asis(tmp, 15) ;
   for(i=0; i<15 ; i++){ fprintf(stderr, "%4d ", tmp[i]) ; } fprintf(stderr, ", errors = %d\n\n", errors(ref, tmp, 15));
 
   fprintf(stderr, "split, odd number of points\n") ;
@@ -61,15 +61,15 @@ int main(int argc, char **argv){
   for(i=0; i<16 ; i++){ fprintf(stderr, "%4d ", tmp[i]) ; } fprintf(stderr, ", errors = %d\n\n", errors(ref, tmp, 16));
 
   fprintf(stderr, "split, in place, odd number of points\n") ;
-  fwd_1d_cdf53_split_inplace(tmp, 15);
+  fwd_1d_cdf53(tmp, 15);
   for(i=0; i<7 ; i++){ fprintf(stderr, "%4d %4d ", tmp[i], tmp[8+i]) ; } ; fprintf(stderr, "%4d\n", tmp[7]);
-  inv_1d_cdf53_split_inplace(tmp, 15);
+  inv_1d_cdf53(tmp, 15);
   for(i=0; i<15 ; i++){ fprintf(stderr, "%4d ", tmp[i]) ; } fprintf(stderr, ", errors = %d\n\n", errors(ref, tmp, 15));
 
   fprintf(stderr, "split, in place, even number of points\n") ;
-  fwd_1d_cdf53_split_inplace(tmp, 16);
+  fwd_1d_cdf53(tmp, 16);
   for(i=0; i<8 ; i++){ fprintf(stderr, "%4d %4d ", tmp[i], tmp[8+i]) ; } ; fprintf(stderr, "\n");
-  inv_1d_cdf53_split_inplace(tmp, 16);
+  inv_1d_cdf53(tmp, 16);
   for(i=0; i<16 ; i++){ fprintf(stderr, "%4d ", tmp[i]) ; } fprintf(stderr, ", errors = %d\n\n", errors(ref, tmp, 16));
 
   fprintf(stderr, "2D, even number of points along j, ni == 1\n") ;
@@ -85,13 +85,13 @@ int main(int argc, char **argv){
   for(i=0; i<15 ; i++){ fprintf(stderr, "%4d ", tmp[i]) ; } fprintf(stderr, ", errors = %d\n\n", errors(ref, tmp, 15));
 
   fprintf(stderr, "split, in place, even number of points, 3 levels\n") ;
-  fwd_1d_cdf53_split_inplace_n(tmp, 16, 2);
-  inv_1d_cdf53_split_inplace_n(tmp, 16, 2);
+  fwd_1d_cdf53_n(tmp, 16, 2);
+  inv_1d_cdf53_n(tmp, 16, 2);
   for(i=0; i<16 ; i++){ fprintf(stderr, "%4d ", tmp[i]) ; } fprintf(stderr, ", errors = %d\n\n", errors(ref, tmp, 16));
 
   fprintf(stderr, "split, in place, odd number of points, 3 levels\n") ;
-  fwd_1d_cdf53_split_inplace_n(tmp, 15, 2);
-  inv_1d_cdf53_split_inplace_n(tmp, 15, 2);
+  fwd_1d_cdf53_n(tmp, 15, 2);
+  inv_1d_cdf53_n(tmp, 15, 2);
   for(i=0; i<15 ; i++){ fprintf(stderr, "%4d ", tmp[i]) ; } fprintf(stderr, ", errors = %d\n\n", errors(ref, tmp, 15));
 
   fprintf(stderr, "2D, even number of points along j, ni == 1, 3 levels\n") ;
@@ -124,4 +124,9 @@ int main(int argc, char **argv){
 //     fprintf(stderr, "\n") ;
 //   }
   fprintf(stderr, "errors = %d\n\n", errors((void *)r2d, (void *)t2d, 16*16));
+
+  fprintf(stderr, "2D, odd number of points along i and j\n") ;
+  fwd_2d_cdf53((void *)t2d, 16, 15, 15) ;
+  inv_2d_cdf53((void *)t2d, 16, 15, 15) ;
+  fprintf(stderr, "errors = %d\n\n", errors((void *)r2d, (void *)t2d, 15*16));
 }

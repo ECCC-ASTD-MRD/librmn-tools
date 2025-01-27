@@ -95,7 +95,7 @@ void unsplit_even_odd(int *x, int *e, int *o, int n){
 }
 
 // forward LeGall transform, in place, split layout
-void fwd_1d_cdf53_split_inplace(int *x, int n){
+void fwd_1d_cdf53(int *x, int n){
 	if(n < 2) return ;       // nothing to do
 
   int i, neven = (n+1) >> 1, nodd = n >> 1 ;
@@ -118,15 +118,15 @@ void fwd_1d_cdf53_split_inplace(int *x, int n){
 }
 
 // forward LeGall transform, in place, split layout, multiple levels
-void fwd_1d_cdf53_split_inplace_n(int *x, int n, int levels){
+void fwd_1d_cdf53_n(int *x, int n, int levels){
 int i ;
-  fwd_1d_cdf53_split_inplace(x, n) ;
+  fwd_1d_cdf53(x, n) ;
   if(levels > 0){
-    fwd_1d_cdf53_split_inplace_n(x, (n+1)/2, levels -1) ;
+    fwd_1d_cdf53_n(x, (n+1)/2, levels -1) ;
   }
 }
 
-void fwd_1d_cdf53(int *x, int n){
+void fwd_1d_cdf53_asis(int *x, int n){
 	if(n < 2) return ;       // nothing to do
 
 	for(int i=1; i<n-2+(n&1); i+=2){     // predict odd
@@ -208,7 +208,7 @@ static void fwd_2d_cdf53_(int lni, int ni, int nj, int x[nj][lni]){
   for(j=0 ; j<njo ; j++){ fwd_1d_cdf53_split(&x[j+j+1][0], &o[j][0], &o[j][nie], ni) ; }
 
   // 1d transform in the i direction, move to bottom part of array x (x[j+j][] : even rows)
-  fwd_1d_cdf53_split_inplace(&x[0][0], ni) ;   // first even row has to be done in place
+  fwd_1d_cdf53(&x[0][0], ni) ;   // first even row has to be done in place
   for(j=1 ; j<nje ; j++){ fwd_1d_cdf53_split(&x[j+j][0], &x[j][0], &x[j][nie], ni) ; }
 
   if(is_odd(nj)){       // last row is even
@@ -244,7 +244,7 @@ void fwd_2d_cdf53_n(int *x, int lni, int ni, int nj, int levels){
 }
 
 // inverse LeGall transform, in place, split layout
-void inv_1d_cdf53_split_inplace(int *x, int n){
+void inv_1d_cdf53(int *x, int n){
 	if(n < 2) return ;    // nothing to do
 
 	int i, neven = (n+1) >> 1, nodd = n >> 1 ;
@@ -268,14 +268,14 @@ void inv_1d_cdf53_split_inplace(int *x, int n){
 }
 
 // inverse LeGall transform, in place, split layout, multiple levels
-void inv_1d_cdf53_split_inplace_n(int *x, int n, int levels){
+void inv_1d_cdf53_n(int *x, int n, int levels){
   if(levels > 0){
-    inv_1d_cdf53_split_inplace_n(x, (n+1)/2, levels-1) ;
+    inv_1d_cdf53_n(x, (n+1)/2, levels-1) ;
   }
-  inv_1d_cdf53_split_inplace(x, n) ;
+  inv_1d_cdf53(x, n) ;
 }
 
-void inv_1d_cdf53(int *x, int n){
+void inv_1d_cdf53_asis(int *x, int n){
 	if(n < 2) return ;    // nothing to do
 
 	int i ;
@@ -383,7 +383,7 @@ static void inv_2d_cdf53_(int lni, int ni, int nj, int x[nj][lni]){
   }else{             // last row is odd
     // odd rows
     for(j=0 ; j<njo-1 ; j++){ inv_1d_cdf53_split(&x[j+j+1][0], &x[nje+j][0], &x[nje+j][nie], ni) ; }
-    inv_1d_cdf53_split_inplace(&x[nj-1][0], ni) ;    // last odd row
+    inv_1d_cdf53(&x[nj-1][0], ni) ;    // last odd row
     // even rows
     for(j=0 ; j<nje ; j++) { inv_1d_cdf53_split(&x[j+j][0], &e[j][0],  &e[j][nie], ni) ; }
   }
