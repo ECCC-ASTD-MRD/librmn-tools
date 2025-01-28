@@ -25,6 +25,9 @@
 //   |                  n data                                |
 //   +--------------------------------------------------------+
 //
+//   void fwd_1d_cdf53_asis(int *x, int n);
+//   void inv_1d_cdf53_asis(int *x, int n);
+//
 //   transformed data (in place, no split, even number of data)
 //   +--------------------------------------------------------+
 //   |   n data, even/odd, even/odd, ..... , even/odd         +
@@ -35,10 +38,20 @@
 //   |   n data, even/odd, even/odd, ..... , even/odd, even   +
 //   +--------------------------------------------------------+
 //
+//   void fwd_1d_cdf53(int *x, int n);
+//   void inv_1d_cdf53(int *x, int n);
+//
 //   transformed data, in place with even/odd split
 //   +--------------------------------------------------------+
 //   | (n+1)/2 even data            |    (n/2) odd data       |
 //   +--------------------------------------------------------+
+//
+//   the process can be applied again to the even transformed part to achieve a multi level transform
+//   void fwd_1d_cdf53_n(int *x, int n, int levels);
+//   void inv_1d_cdf53_n(int *x, int n, int levels);
+//
+//   void fwd_1d_cdf53_split(int *x, int *e, int *o, int n);
+//   void inv_1d_cdf53_split(int *x, int *e, int *o, int n);
 //
 //   original data                     transformed data (2 output arrays)
 //   +------------------------------+  +-------------------+  +------------------+
@@ -48,21 +61,28 @@
 //   even data are the "approximation" terms ("low frequency" terms)
 //   odd data are the "detail" terms         ("high frequency" terms)
 //
+//   void fwd_2d_cdf53(int *x, int lni, int ni, int nj);
+//   void inv_2d_cdf53(int *x, int lni, int ni, int nj);
+//
 // 2 dimensional in place with 2 D split
 //   original data                               transformed data (in same array)
-//   +------------------------------------+      +-------------------+----------------+
-//   |                  ^                 |      +                   |                |
-//   |                  |                 |      +   even i/odd j    |  odd i/odd j   |
-//   |                  |                 |      +                   |                |
-//   |                  |                 |      +                   |                |
-//   |                  |                 |      +-------------------+----------------+
-//   |               NJ data              |      +                   |                |
-//   |                  |                 |      +                   |                |
-//   |                  |                 |      +   even i/even j   |  odd i/even j  |
-//   |<----- NI data ---|---------------->|      +                   |                |
-//   |                  v                 |      +                   |                |
-//   +------------------------------------+      +-------------------+----------------+
+//   +------------------------------------+--+      +-------------------+----------------+--+
+//   |                  ^                 |  |      +                   |                |  |
+//   |                  |                 |  |      +   even i/odd j    |  odd i/odd j   |  |
+//   |                  |                 |  |      +                   |                |  |
+//   |                  |                 |  |      +                   |                |  |
+//   |                  |                 |  +      +-------------------+----------------+  +
+//   |               NJ data              |  |      +                   |                |  |
+//   |                  |                 |  |      +                   |                |  |
+//   |                  |                 |  |      +   even i/even j   |  odd i/even j  |  |
+//   |<----- NI data ---|---------------->|  |      +                   |                |  |
+//   |                  v                 |  |      +                   |                |  |
+//   +------------------------------------+--+      +-------------------+----------------+--+
+//   <---------------- LNI data ------------->      <---------------- LNI data ------------->
+//
 //   the process can be applied again to the even/even transformed part to achieve a multi level transform
+//   void fwd_2d_cdf53_n(int *x, int lni, int ni, int nj, int levels);
+//   void inv_2d_cdf53_n(int *x, int lni, int ni, int nj, int levels);
 //
 #include <stdio.h>
 
