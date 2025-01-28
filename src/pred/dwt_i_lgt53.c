@@ -12,9 +12,14 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * Library General Public License for more details.
  */
+// see
 //
 // Cohen-Daubechies-Feauveau 5/3 wavelets
+// Le GAll / Tabatabai transform
+// (reversible, using integers, similar to JPEG 2000)
+//
 // https://en.wikipedia.org/wiki/Cohen%E2%80%93Daubechies%E2%80%93Feauveau_wavelet
+// https://en.wikipedia.org/wiki/Discrete_wavelet_transform
 //
 // this code is using a lifting implementation
 // https://en.wikipedia.org/wiki/Lifting_scheme
@@ -25,8 +30,8 @@
 //   |                  n data                                |
 //   +--------------------------------------------------------+
 //
-//   void fwd_1d_cdf53_asis(int *x, int n);
-//   void inv_1d_cdf53_asis(int *x, int n);
+//   void fwd_1d_lgt53_asis(int *x, int n);
+//   void inv_1d_lgt53_asis(int *x, int n);
 //
 //   transformed data (in place, no split, even number of data)
 //   +--------------------------------------------------------+
@@ -38,8 +43,8 @@
 //   |   n data, even/odd, even/odd, ..... , even/odd, even   +
 //   +--------------------------------------------------------+
 //
-//   void fwd_1d_cdf53(int *x, int n);
-//   void inv_1d_cdf53(int *x, int n);
+//   void fwd_1d_lgt53(int *x, int n);
+//   void inv_1d_lgt53(int *x, int n);
 //
 //   transformed data, in place with even/odd split
 //   +--------------------------------------------------------+
@@ -47,11 +52,11 @@
 //   +--------------------------------------------------------+
 //
 //   the process can be applied again to the even transformed part to achieve a multi level transform
-//   void fwd_1d_cdf53_n(int *x, int n, int levels);
-//   void inv_1d_cdf53_n(int *x, int n, int levels);
+//   void fwd_1d_lgt53_n(int *x, int n, int levels);
+//   void inv_1d_lgt53_n(int *x, int n, int levels);
 //
-//   void fwd_1d_cdf53_split(int *x, int *e, int *o, int n);
-//   void inv_1d_cdf53_split(int *x, int *e, int *o, int n);
+//   void fwd_1d_lgt53_split(int *x, int *e, int *o, int n);
+//   void inv_1d_lgt53_split(int *x, int *e, int *o, int n);
 //
 //   original data                     transformed data (2 output arrays)
 //   +------------------------------+  +-------------------+  +------------------+
@@ -61,8 +66,8 @@
 //   even data are the "approximation" terms ("low frequency" terms)
 //   odd data are the "detail" terms         ("high frequency" terms)
 //
-//   void fwd_2d_cdf53(int *x, int lni, int ni, int nj);
-//   void inv_2d_cdf53(int *x, int lni, int ni, int nj);
+//   void fwd_2d_lgt53(int *x, int lni, int ni, int nj);
+//   void inv_2d_lgt53(int *x, int lni, int ni, int nj);
 //
 // 2 dimensional in place with 2 D split
 //   original data                               transformed data (in same array)
@@ -81,33 +86,38 @@
 //   <---------------- LNI data ------------->      <---------------- LNI data ------------->
 //
 //   the process can be applied again to the even/even transformed part to achieve a multi level transform
-//   void fwd_2d_cdf53_n(int *x, int lni, int ni, int nj, int levels);
-//   void inv_2d_cdf53_n(int *x, int lni, int ni, int nj, int levels);
+//   void fwd_2d_lgt53_n(int *x, int lni, int ni, int nj, int levels);
+//   void inv_2d_lgt53_n(int *x, int lni, int ni, int nj, int levels);
 //
 #include <stdio.h>
 
+// utility functions used by main functions
 static inline int is_odd(int n) { return (n & 1) ; }
 
+// predict odd terms using even terms
 static inline int predict(int o0, int e0, int e1){ return o0 - ((e0 + e1 + 1) >> 1) ; }
 static inline int predict_edge(int o0, int e0   ){ return o0 - e0 ; }
 
+// update even terms using odd terms
 static inline int update(int e1, int o0, int o1){ return e1 + ((o0 + o1 + 2) >> 2) ; }
 static inline int update_edge(int e1, int o0   ){ return e1 + ((o0 + 1) >> 1) ; }
 
+// inverse predict odd terms using even terms
 static inline int un_predict(int o0, int e0, int e1){ return o0 + ((e0 + e1 + 1) >> 1) ; }
 static inline int un_predict_edge(int o0, int e0   ){ return o0 + e0 ; }
 
+// inverse update even terms using odd terms
 static inline int un_update(int e1, int o0, int o1){ return e1 - ((o0 + o1 + 2) >> 2) ; }
 static inline int un_update_edge(int e1, int o0   ){ return e1 - ((o0 + 1) >> 1) ; }
 
-// split array x into even and odd indexes
+// split array x into separate even and odd arrays
 void split_even_odd(int *x, int *e, int *o, int n){
   int i, neven = (n+1) >> 1, nodd = n >> 1 ;
   for(i = 0 ; i < nodd ; i++){ e[i] = x[i+i] ; o[i] = x[i+i+1] ; }        // move from x
   if(is_odd(n)) e[neven-1] = x[n-1] ;
 }
 
-// recompose array x from even and odd indexes
+// recompose array x from separate even and odd arays
 void unsplit_even_odd(int *x, int *e, int *o, int n){
   int i, neven = (n+1) >> 1, nodd = n >> 1 ;
   for(i = 0 ; i < nodd ; i++){ x[i+i] = e[i] ; x[i+i+1] = o[i] ; }        // move to x
@@ -115,7 +125,9 @@ void unsplit_even_odd(int *x, int *e, int *o, int n){
 }
 
 // forward LeGall transform, in place, split layout
-void fwd_1d_cdf53(int *x, int n){
+// x [INOUT] : 1D array to transform
+// n    [IN] : dimension of x
+void fwd_1d_lgt53(int *x, int n){
 	if(n < 2) return ;       // nothing to do
 
   int i, neven = (n+1) >> 1, nodd = n >> 1 ;
@@ -137,16 +149,21 @@ void fwd_1d_cdf53(int *x, int n){
   for(i=0 ; i<nodd ; i++) x[neven+i] = o[i] ;       // copy o back into x
 }
 
-// forward LeGall transform, in place, split layout, multiple levels
-void fwd_1d_cdf53_n(int *x, int n, int levels){
-int i ;
-  fwd_1d_cdf53(x, n) ;
-  if(levels > 0){
-    fwd_1d_cdf53_n(x, (n+1)/2, levels -1) ;
+// forward LeGall transform, in place, split layout, multiple successive transforms
+// x [INOUT] : 1D array to transform
+// n    [IN] : dimension of x
+// nl   [IN} : number of successive transforms
+void fwd_1d_lgt53_n(int *x, int n, int nl){
+  fwd_1d_lgt53(x, n) ;
+  if(nl > 0){
+    fwd_1d_lgt53_n(x, (n+1)/2, nl -1) ;
   }
 }
 
-void fwd_1d_cdf53_asis(int *x, int n){
+// forward LeGall transform, in place, evn/odd pairs
+// x [INOUT] : 1D array to transform
+// n    [IN] : dimension of x
+void fwd_1d_lgt53_asis(int *x, int n){
 	if(n < 2) return ;       // nothing to do
 
 	for(int i=1; i<n-2+(n&1); i+=2){     // predict odd
@@ -164,7 +181,7 @@ void fwd_1d_cdf53_asis(int *x, int n){
   }
 }
 
-static void fwd_1d_cdf53_split_even(int *x, int *e, int *o, int n){
+static void fwd_1d_lgt53_split_even(int *x, int *e, int *o, int n){
   int i;
   int neven = (n+1) >> 1;
   int nodd  = neven;
@@ -175,7 +192,7 @@ static void fwd_1d_cdf53_split_even(int *x, int *e, int *o, int n){
   e[0 ] = update_edge(x[0], o[0]) ;
   for(i = 1; i < neven ; i++) e[i] = update(x[i+i], o[i], o[i-1]) ;           // update even terms
 }
-static void fwd_1d_cdf53_split_odd(int *x, int *e, int *o, int n){
+static void fwd_1d_lgt53_split_odd(int *x, int *e, int *o, int n){
   int i;
   int neven = (n+1) >> 1;
   int nodd  = n >> 1;
@@ -187,16 +204,16 @@ static void fwd_1d_cdf53_split_odd(int *x, int *e, int *o, int n){
   e[neven-1] = update_edge(x[n-1], o[nodd-1]) ;
 }
 
-void fwd_1d_cdf53_split(int *x, int *e, int *o, int n){
+void fwd_1d_lgt53_split(int *x, int *e, int *o, int n){
   if(n < 3){
     if(n > 0) e[0] = x[0];
     if(n > 1) o[0] = x[1];
     return;
   }
   if(n & 1){
-    fwd_1d_cdf53_split_odd(x, e, o, n);
+    fwd_1d_lgt53_split_odd(x, e, o, n);
   }else{
-    fwd_1d_cdf53_split_even(x, e, o, n);
+    fwd_1d_lgt53_split_even(x, e, o, n);
   }
 }
 
@@ -220,16 +237,16 @@ static void row_update_edge(int *e, int *e0, int *o0, int ni){
   for(i=0 ; i<ni ; i++){ e[i] = update_edge(e0[i], o0[i]) ; }
 }
 
-static void fwd_2d_cdf53_(int lni, int ni, int nj, int x[nj][lni]){
-  int i, j, nio = ni/2, nie = (ni+1)/2 , njo = nj/2, nje = (nj+1)/2 ;
+static void fwd_2d_lgt53_(int lni, int ni, int nj, int x[nj][lni]){
+  int j, nie = (ni+1)/2 , njo = nj/2, nje = (nj+1)/2 ;
   int o[njo][ni] ;   // local temporary copy of odd terms
 
   // 1d transform in the i direction, move to temporary array o (x[j+j+1][] : odd rows)
-  for(j=0 ; j<njo ; j++){ fwd_1d_cdf53_split(&x[j+j+1][0], &o[j][0], &o[j][nie], ni) ; }
+  for(j=0 ; j<njo ; j++){ fwd_1d_lgt53_split(&x[j+j+1][0], &o[j][0], &o[j][nie], ni) ; }
 
   // 1d transform in the i direction, move to bottom part of array x (x[j+j][] : even rows)
-  fwd_1d_cdf53(&x[0][0], ni) ;   // first even row has to be done in place
-  for(j=1 ; j<nje ; j++){ fwd_1d_cdf53_split(&x[j+j][0], &x[j][0], &x[j][nie], ni) ; }
+  fwd_1d_lgt53(&x[0][0], ni) ;   // first even row has to be done in place
+  for(j=1 ; j<nje ; j++){ fwd_1d_lgt53_split(&x[j+j][0], &x[j][0], &x[j][nie], ni) ; }
 
   if(is_odd(nj)){       // last row is even
 
@@ -252,19 +269,19 @@ static void fwd_2d_cdf53_(int lni, int ni, int nj, int x[nj][lni]){
   }
 }
 
-void fwd_2d_cdf53(int *x, int lni, int ni, int nj){
-  fwd_2d_cdf53_(lni, ni, nj, (void *)x) ;
+void fwd_2d_lgt53(int *x, int lni, int ni, int nj){
+  fwd_2d_lgt53_(lni, ni, nj, (void *)x) ;
 }
 
-void fwd_2d_cdf53_n(int *x, int lni, int ni, int nj, int levels){
-  fwd_2d_cdf53_(lni, ni, nj, (void *)x) ;
+void fwd_2d_lgt53_n(int *x, int lni, int ni, int nj, int levels){
+  fwd_2d_lgt53_(lni, ni, nj, (void *)x) ;
   if(levels > 0){
-    fwd_2d_cdf53_n(x, lni, (ni + 1) / 2, (nj + 1) / 2, levels - 1) ;
+    fwd_2d_lgt53_n(x, lni, (ni + 1) / 2, (nj + 1) / 2, levels - 1) ;
   }
 }
 
 // inverse LeGall transform, in place, split layout
-void inv_1d_cdf53(int *x, int n){
+void inv_1d_lgt53(int *x, int n){
 	if(n < 2) return ;    // nothing to do
 
 	int i, neven = (n+1) >> 1, nodd = n >> 1 ;
@@ -288,14 +305,14 @@ void inv_1d_cdf53(int *x, int n){
 }
 
 // inverse LeGall transform, in place, split layout, multiple levels
-void inv_1d_cdf53_n(int *x, int n, int levels){
+void inv_1d_lgt53_n(int *x, int n, int levels){
   if(levels > 0){
-    inv_1d_cdf53_n(x, (n+1)/2, levels-1) ;
+    inv_1d_lgt53_n(x, (n+1)/2, levels-1) ;
   }
-  inv_1d_cdf53(x, n) ;
+  inv_1d_lgt53(x, n) ;
 }
 
-void inv_1d_cdf53_asis(int *x, int n){
+void inv_1d_lgt53_asis(int *x, int n){
 	if(n < 2) return ;    // nothing to do
 
 	int i ;
@@ -314,7 +331,7 @@ void inv_1d_cdf53_asis(int *x, int n){
     x[i] = un_predict(x[i], x[i-1], x[i+1]) ;
   }
 }
-static void inv_1d_cdf53_split_even(int *x, int *e, int *o, int n){
+static void inv_1d_lgt53_split_even(int *x, int *e, int *o, int n){
   int i;
 
   unsplit_even_odd(x, e, o, n) ;                                           // move to x
@@ -325,7 +342,7 @@ static void inv_1d_cdf53_split_even(int *x, int *e, int *o, int n){
   x[n-1] = un_predict_edge(x[n-1], x[n-2]) ;
   for (i = 1; i < n - 2; i += 2) x[i] = un_predict(x[i], x[i-1], x[i+1]) ; // unpredict odd terms
 }
-static void inv_1d_cdf53_split_odd(int *x, int *e, int *o, int n){
+static void inv_1d_lgt53_split_odd(int *x, int *e, int *o, int n){
   int i;
 
   unsplit_even_odd(x, e, o, n) ;                                           // move to x
@@ -336,16 +353,16 @@ static void inv_1d_cdf53_split_odd(int *x, int *e, int *o, int n){
 
   for (i = 1; i < n - 1; i += 2) x[i] += ((x[i-1] + x[i+1] + 1) >> 1) ;  // unpredict odd terms
 }
-void inv_1d_cdf53_split(int *x, int *e, int *o, int n){
+void inv_1d_lgt53_split(int *x, int *e, int *o, int n){
   if(n < 3) {   // 3 points minimum
     if(n > 0) x[0] = e[0] ;
     if(n > 1) x[1] = o[0] ;
     return;
   }
   if(n & 1){
-    inv_1d_cdf53_split_odd(x, e, o, n);
+    inv_1d_lgt53_split_odd(x, e, o, n);
   }else{
-    inv_1d_cdf53_split_even(x, e, o, n);
+    inv_1d_lgt53_split_even(x, e, o, n);
   }
 }
 
@@ -374,8 +391,8 @@ void row_move(int *d, int *s, int n){
   for(i=0 ; i<n ; i++){ d[i] = s[i] ; }
 }
 
-static void inv_2d_cdf53_(int lni, int ni, int nj, int x[nj][lni]){
-  int i, j, nio = ni/2, nie = (ni+1)/2 , njo = nj/2, nje = (nj+1)/2 ;
+static void inv_2d_lgt53_(int lni, int ni, int nj, int x[nj][lni]){
+  int j, nie = (ni+1)/2 , njo = nj/2, nje = (nj+1)/2 ;
   int e[nje][ni] ;   // local temporary copy of even terms
 
   // unupdate even rows, move to temporary array e
@@ -397,25 +414,25 @@ static void inv_2d_cdf53_(int lni, int ni, int nj, int x[nj][lni]){
   // 1d transform in the i direction, move to proper place
   if(is_odd(nj)){    // last row is even
     // odd rows
-    for(j=0 ; j<njo ; j++){ inv_1d_cdf53_split(&x[j+j+1][0], &x[nje+j][0], &x[nje+j][nie], ni) ; }
+    for(j=0 ; j<njo ; j++){ inv_1d_lgt53_split(&x[j+j+1][0], &x[nje+j][0], &x[nje+j][nie], ni) ; }
     // even rows
-    for(j=0 ; j<nje ; j++) { inv_1d_cdf53_split(&x[j+j][0], &e[j][0],  &e[j][nie], ni) ; }
+    for(j=0 ; j<nje ; j++) { inv_1d_lgt53_split(&x[j+j][0], &e[j][0],  &e[j][nie], ni) ; }
   }else{             // last row is odd
     // odd rows
-    for(j=0 ; j<njo-1 ; j++){ inv_1d_cdf53_split(&x[j+j+1][0], &x[nje+j][0], &x[nje+j][nie], ni) ; }
-    inv_1d_cdf53(&x[nj-1][0], ni) ;    // last odd row
+    for(j=0 ; j<njo-1 ; j++){ inv_1d_lgt53_split(&x[j+j+1][0], &x[nje+j][0], &x[nje+j][nie], ni) ; }
+    inv_1d_lgt53(&x[nj-1][0], ni) ;    // last odd row
     // even rows
-    for(j=0 ; j<nje ; j++) { inv_1d_cdf53_split(&x[j+j][0], &e[j][0],  &e[j][nie], ni) ; }
+    for(j=0 ; j<nje ; j++) { inv_1d_lgt53_split(&x[j+j][0], &e[j][0],  &e[j][nie], ni) ; }
   }
 }
 
-void inv_2d_cdf53(int *x, int lni, int ni, int nj){
-  inv_2d_cdf53_(lni, ni, nj, (void *)x) ;
+void inv_2d_lgt53(int *x, int lni, int ni, int nj){
+  inv_2d_lgt53_(lni, ni, nj, (void *)x) ;
 }
 
-void inv_2d_cdf53_n(int *x, int lni, int ni, int nj, int levels){
+void inv_2d_lgt53_n(int *x, int lni, int ni, int nj, int levels){
   if(levels > 0){
-    inv_2d_cdf53_n(x, lni, (ni + 1) / 2, (nj + 1) / 2, levels-1) ;
+    inv_2d_lgt53_n(x, lni, (ni + 1) / 2, (nj + 1) / 2, levels-1) ;
   }
-    inv_2d_cdf53_(lni, ni, nj, (void *)x) ;
+    inv_2d_lgt53_(lni, ni, nj, (void *)x) ;
 }
