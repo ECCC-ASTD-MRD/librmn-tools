@@ -14,9 +14,11 @@
 #include<stdio.h>
 #include<stdint.h>
 #include<stdlib.h>
+#include<string.h>
 #include <immintrin.h>
 
 #include <rmn/eval_compress.h>
+#include <rmn/dwt_i_lgt53.h>
 
 #define STATIC static
 
@@ -278,6 +280,15 @@ static float power2_err(float err){
   return uf.f ;
 }
 
+int block_diff(int *a, int *b, int n){
+  int err = 0 ;
+  int i ;
+  for(i=0 ; i<n ; i++){
+    if(a[i] != b[i]) err++ ;
+  }
+  return err ;
+}
+
 // return estimate of number of bits necessary to quantize and encode float array f with prediction
 // bsize    [IN]: dimension of quantization/prediction blocks
 // quant [INOUT]: quantization interval (power of 2 <= quant will be used)
@@ -292,8 +303,9 @@ int float_compressed_bits(int ni, int nj, float f[nj][ni], float *quant_, int bt
   int pred[bsize*bsize] ;
   int block8[8*8] ;
   int info[1024] ;
-  int nbits = 0, nblocks = 0, nblock8 = 0, nbits64 = 0, npred = 0, nbits8 = 0 , npred8 = 0, nbitsg = 0, nbitsp = 0, asym = 0, rawp8 = 0, nraw8 = 0 ;
-  int i0, j0, i, j, in, jn, ix, i8, j8, min, max, nbi, range ;
+  int nbits = 0, nblocks = 0, nblock8 = 0, nbits64 = 0, npred = 0, nbits8 = 0 ;
+  int npred8 = 0, nbitsg = 0, nbitsp = 0, asym = 0, rawp8 = 0, nraw8 = 0, ndwt8 = 0 ;
+  int i0, j0, i, j, in, jn, ix, i8, j8, min, max, nbi, range, ndiff ;
 
   if(quant < 0){
     nbits = (-quant) ;
@@ -384,6 +396,27 @@ fprintf(stderr, " |%d,%d,%d,%d,%d,%d, %d ,%d,%d,%d,%d,%d,%d|\n",info[58],info[59
           nbits8 += count_bits(i8n, j8n, (void *)block8) ;
         }
       }
+      // apply Le GAll transform to quantization block
+      memcpy((void *)pred, (void *)block, in*jn*sizeof(int32_t)) ;
+      fwd_2d_lgt53_n((void *)pred, in, in, jn, 2);
+//       inv_2d_lgt53_n((void *)pred, in, in, jn, 2);
+//       ndiff = block_diff(pred, block, in*jn) ;
+//       if(ndiff != 0){
+//         fprintf(stderr, "ERROR in DWT, derrors = %d / %d\n", ndiff, in*jn) ;
+//         exit(1) ;
+//       }
+      ndwt8 = ndwt8 + 64 ;  // large block overhead
+      // subdivide transformed block into 8 x 8 encoding blocks, count bits
+      for(j8=0 ; j8<jn ; j8+=8){
+        int j8n = ((j8+8) > jn) ? (jn - j8) : 8 ;
+        for(i8=0 ; i8<in ; i8+=8){
+          int i8n = ((i8+8) > in) ? (in - i8) : 8 ;
+          get_block(in, jn, i8, j8, (void *)pred, i8n, j8n, (void *)block8) ;
+          nbi = count_encoded_bits(i8n, j8n, (void *)block8, info) ;
+          ndwt8 += nbi ;
+        }
+      }
+
       // apply Lorenzo predictor to quantization block
       lorenzo(in, jn, (void *)block, (void *)pred) ;
       pred[0] = 0 ;
@@ -425,6 +458,7 @@ fprintf(stderr, " |%d,%d,%d,%d,%d,%d, %d ,%d,%d,%d,%d,%d,%d|",info[58],info[59],
   btab[ 8] = asym ;      // number of "asymmetric" blocks
   btab[ 9] = rawp8 ;     // number of bits for quantized encoded 8x8 global array
   btab[10] = info[37] ;  // bits gained
+  btab[11] = ndwt8 ;     // wavelet blocks encoded 8x8
 //   fprintf(stderr, "float_compressed_bits: %d large blocks, %d encoding blocks, nbits64 = %d, nbits8 = %d, npred = %d, npred8 = %d\n",
 //                   nblocks, nblock8, nbits64, nbits8, npred, npred8) ;
   return npred8 ;
