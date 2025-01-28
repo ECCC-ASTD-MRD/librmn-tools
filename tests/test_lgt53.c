@@ -120,16 +120,28 @@ int main(int argc, char **argv){
   for(i=0; i<16 ; i++){ fprintf(stderr, "%4d ", tmp[i]) ; } fprintf(stderr, ", errors = %d\n\n", errors(ref, tmp, 16));
   if(nerr) goto fail ;
 
-  fprintf(stderr, "2D, even number of points along i and j\n") ;
-  fwd_2d_lgt53((void *)t2d, 16, 16, 16) ;
-  inv_2d_lgt53((void *)t2d, 16, 16, 16) ;
-  fprintf(stderr, "errors = %d\n\n", errors((void *)r2d, (void *)t2d, 16*16));
+  fprintf(stderr, "2D, even number of points along j, ni == 2") ;
+  fwd_2d_lgt53((void *)t2d, 16, 2, 16);
+  inv_2d_lgt53((void *)t2d, 16, 2, 16);
+  fprintf(stderr, " : errors = %d\n\n", errors((void *)r2d, (void *)t2d, 16*16));
   if(nerr) goto fail ;
 
-  fprintf(stderr, "2D, odd number of points along i and j\n") ;
+  fprintf(stderr, "2D, even number of points along i and j") ;
+  fwd_2d_lgt53((void *)t2d, 16, 16, 16) ;
+  inv_2d_lgt53((void *)t2d, 16, 16, 16) ;
+  fprintf(stderr, " : errors = %d\n\n", errors((void *)r2d, (void *)t2d, 16*16));
+  if(nerr) goto fail ;
+
+  fprintf(stderr, "2D, odd number of points along j, ni == 2") ;
+  fwd_2d_lgt53((void *)t2d, 16, 2, 15);
+  inv_2d_lgt53((void *)t2d, 16, 2, 15);
+  fprintf(stderr, " : errors = %d\n\n", errors((void *)r2d, (void *)t2d, 16*16));
+  if(nerr) goto fail ;
+
+  fprintf(stderr, "2D, odd number of points along i and j") ;
   fwd_2d_lgt53((void *)t2d, 16, 15, 15) ;
   inv_2d_lgt53((void *)t2d, 16, 15, 15) ;
-  fprintf(stderr, "errors = %d\n\n", errors((void *)r2d, (void *)t2d, 16*16));
+  fprintf(stderr, " : errors = %d\n\n", errors((void *)r2d, (void *)t2d, 16*16));
   if(nerr) goto fail ;
 
   fprintf(stderr, "SUCCESS\n");
