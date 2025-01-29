@@ -22,6 +22,24 @@
 
 #define STATIC static
 
+// __m256i count_gt(__m256i accum, __m128i ref4, __m256i value){
+//   __m256i ref44 ;
+//   ref44 = _mm256_inserti128_si256(ref44, ref4, 0) ;
+//   ref44 = _mm256_inserti128_si256(ref44, ref4, 1) ;
+//   __m256i vd0 = value ;
+//   __m256i vd1 = _mm256_shuffle_epi32(value, 0b00111001 ) ;
+//   __m256i vd2 = _mm256_shuffle_epi32(value, 0b01001110 ) ;
+//   __m256i vd3 = _mm256_shuffle_epi32(value, 0b10010011 ) ;
+//   vd0 = _mm256_cmpgt_epi32(ref44, vd0) ;
+//   vd1 = _mm256_cmpgt_epi32(ref44, vd1) ;
+//   vd2 = _mm256_cmpgt_epi32(ref44, vd2) ;
+//   vd3 = _mm256_cmpgt_epi32(ref44, vd3) ;
+//   vd0 = _mm256_add_epi32(vd0, vd1) ;
+//   vd2 = _mm256_add_epi32(vd2, vd3) ;
+//   vd0 = _mm256_add_epi32(vd2, vd0) ;
+//   return _mm256_sub_epi32(accum, vd0) ;
+// }
+
 // leading zeros count (32 bit word)
 STATIC inline uint32_t lzcnt_32(uint32_t what){
   uint32_t cnt ;

@@ -42,6 +42,7 @@ set(PROJECT_C_FILES
   src/diag/entropy.c
   src/diag/sparse_concat.c
   src/diag/simd_compare.c
+  src/diag/compare_count.c
   src/diag/eval_compress.c
   src/plugins/plugin_code.c
 )
@@ -95,6 +96,7 @@ set(PROJECT_H_FILES
   src/PUBLIC_INCLUDES/rmn/tools_plugins.hf
   src/PUBLIC_INCLUDES/rmn/sparse_concat.h
   src/PUBLIC_INCLUDES/rmn/simd_compare.h
+  src/PUBLIC_INCLUDES/rmn/compare_count.h
   src/PUBLIC_INCLUDES/rmn/move_blocks.h
 #   src/PUBLIC_INCLUDES/rmn/copy_swap.h
   src/PUBLIC_INCLUDES/rmn/misc_pack.h
