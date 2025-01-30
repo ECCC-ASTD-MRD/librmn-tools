@@ -14,3 +14,12 @@
  */
 #define USE_INTEL_SIMD_INTRINSICS
 #include <rmn/simd_functions.h>
+
+void count_gt(int count[4], int *values, int ref4[4], int n);
+void count_le(int count[4], int *values, int ref4[4], int n);
+
+void count_lt(int count[4], int *values, int ref4[4], int n);
+void count_ge(int count[4], int *values, int ref4[4], int n);
+
+void count_eq(int count[4], int *values, int ref4[4], int n);
+void count_ne(int count[4], int *values, int ref4[4], int n);
