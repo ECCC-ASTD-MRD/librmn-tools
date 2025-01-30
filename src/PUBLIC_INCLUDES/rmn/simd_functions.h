@@ -15,12 +15,23 @@
 // protect the whole file againt double inclusion
 #if ! defined(SIMD_LOOP)
 
+#if defined(USE_SIMD_INTRINSICS)
+#if defined(__x86_64__)
+#define USE_INTEL_SIMD_INTRINSICS
+#endif
+#endif
+
 #if defined(NO_SIMD) || defined(EMULATE_SIMD)
 
 // do not attempt to use the Intel SIMD intrincics
 #undef USE_INTEL_SIMD_INTRINSICS
 // emulate them if found in code
+#if defined(__x86_64__)
 #define ALIAS_INTEL_SIMD_INTRINSICS
+#endif
+#if ! defined(ALIAS_INTEL_SIMD_INTRINSICS)
+#define ALIAS_INTEL_SIMD_INTRINSICS
+#endif
 
 #else // NO_SIMD EMULATE_SIMD
 
@@ -292,6 +303,9 @@ typedef vec_128 __v128d ;
 #define _mm256_blendv_epi8     blendv_v32c
 #define _mm_blendv_epi8        blendv_v16c
 
+#define _mm256_shuffle_epi32   shuffle_v8i
+#define _mm_shuffle_epi32      shuffle_v4i
+
 #endif   // defined(ALIAS_INTEL_SIMD_INTRINSICS)
 // =================================================================================================================
 #if defined(USE_INTEL_SIMD_INTRINSICS)
@@ -395,6 +409,9 @@ static inline __m128i _mm_setones_si128(void){ __m128i t = _mm_setzero_si128() ;
 #define blendv_v32c    _mm256_blendv_epi8
 #define blendv_v16c    _mm_blendv_epi8
 
+#define shuffle_v8i    _mm256_shuffle_epi32
+#define shuffle_v4i    _mm_shuffle_epi32
+
 // =================================================================================================================
 #else    // defined(USE_INTEL_SIMD_INTRINSICS)
 SIMD_FN(SIMD_STATIC, __m256,  8, set1_v8f( float    f32 ) , R.f[i] = f32 )
@@ -494,6 +511,9 @@ SIMD_FN(SIMD_STATIC, __m256,   8, blendv_v8f(__m256 A, __m256 B, __m256 MASK),  
 SIMD_FN(SIMD_STATIC, __m128,   4, blendv_v4f(__m128 A, __m128 B, __m128 MASK),     R.i32[i] = ((MASK.i32[i] >> 31) & (B.i32[i] ^ A.i32[i])) ^  A.i32[i] )
 SIMD_FN(SIMD_STATIC, __m256i, 32, blendv_v32c(__m256i A, __m256i B, __m256i MASK), R.u8[i] = ((MASK.i8[i] >> 7) & (B.u8[i] ^ A.u8[i])) ^  A.u8[i] )
 SIMD_FN(SIMD_STATIC, __m128i, 16, blendv_v16c(__m128i A, __m128i B, __m128i MASK), R.u8[i] = ((MASK.i8[i] >> 7) & (B.u8[i] ^ A.u8[i])) ^  A.u8[i] )
+
+SIMD_FN(SIMD_STATIC, __m256i,  4, shuffle_v8i(__v256i A, int imm) , R.u32[i] = A.u32[imm&3] ; R.u32[i+4] = A.u32[4+(imm&3)] ; imm >>= 2 )
+SIMD_FN(SIMD_STATIC, __m256i,  4, shuffle_v4i(__v256i A, int imm) , R.u32[i] = A.u32[imm&3] ; imm >>= 2 )
 
 #endif    // defined(USE_INTEL_SIMD_INTRINSICS)
 // =================================================================================================================
