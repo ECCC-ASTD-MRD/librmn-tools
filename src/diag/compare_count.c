@@ -20,7 +20,7 @@
 // return[l] and output[l+4] added count against same ref[l] value
 static __m256i _mm256i_count8_lt(__m256i accum, __m128i ref4, __m256i value){
   __m256i ref44 ;
-  ref44 = _mm256_inserti128_si256(ref44, ref4, 0) ;
+  ref44 = _mm256_inserti128_si256(accum, ref4, 0) ;  // phony op to avoid a warning
   ref44 = _mm256_inserti128_si256(ref44, ref4, 1) ;
   __m256i vd0 = value ;
   __m256i vd1 = _mm256_shuffle_epi32(value, 0b00111001 ) ;
@@ -92,7 +92,8 @@ static __m128i _mm_count123_lt(__m128i accum, __m128i ref4, int *values, int n){
 __m128i _mm_count_lt(int *values, int ref4[4], int n){
   __m128i accu4, vref ;
   __m256i accu8, data ;
-  accu8 = _mm256_xor_si256(accu8, accu8) ;
+//   accu8 = _mm256_xor_si256(accu8, accu8) ;
+  accu8 = _mm256_set1_epi32(0) ;
   vref  = _mm_loadu_si128((void *) &ref4[0]) ;
   while(n > 7){                // blocks of 8 values
     data = _mm256_loadu_si256((void *) values) ;
@@ -131,4 +132,11 @@ void count_lt(int count[4], int *values, int ref4[4], int n){
     }
   }
 #endif
+}
+
+// count[k] == number of values where value[l] >= ref4[k]
+void count_ge(int count[4], int *values, int ref4[4], int n){
+  int i ;
+  count_lt(count, values, ref4, n) ;               // count for condition NOT TRUE
+  for(i=0 ; i<4 ; i++) count[i] = n - count[i] ;   // invert the count
 }
