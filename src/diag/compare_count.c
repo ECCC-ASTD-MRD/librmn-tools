@@ -14,137 +14,137 @@
  */
 #include <rmn/compare_count.h>
 
-#if defined(__AVX2__) && defined(WITH_SIMD)
+#if defined(__AVX2__) // && defined(WITH_SIMD)
 
 // 8 values in ymm register (accum and value)
 // 4 values in xmm register (ref4)
 // return[l] and return[l+4] : accum[l|l+4] + number of values == ref4[l] (ymm register)
-static __m256i _mm256i_count8_eq(__m256i accum, __m128i ref4, __m256i value){
-  __m256i ref44 ;
-  ref44 = _mm256_inserti128_si256(accum, ref4, 0) ;  // phony op to avoid a warning
-  ref44 = _mm256_inserti128_si256(ref44, ref4, 1) ;
-  __m256i vd0 = value ;
-  __m256i vd1 = _mm256_shuffle_epi32(value, 0b00111001 ) ;
-  __m256i vd2 = _mm256_shuffle_epi32(value, 0b01001110 ) ;
-  __m256i vd3 = _mm256_shuffle_epi32(value, 0b10010011 ) ;
+static __v256i count8_eq(__v256i accum, __v128i ref4, __v256i value){
+  __v256i ref44 ;
+  ref44 = inserti_128(accum, ref4, 0) ;  // phony op to avoid a warning
+  ref44 = inserti_128(ref44, ref4, 1) ;
+  __v256i vd0 = value ;
+  __v256i vd1 = shuffle_v8i(value, 0b00111001 ) ;
+  __v256i vd2 = shuffle_v8i(value, 0b01001110 ) ;
+  __v256i vd3 = shuffle_v8i(value, 0b10010011 ) ;
 
-  vd0 = _mm256_cmpeq_epi32(vd0, ref44) ;
-  vd1 = _mm256_cmpeq_epi32(vd1, ref44) ;
-  vd2 = _mm256_cmpeq_epi32(vd2, ref44) ;
-  vd3 = _mm256_cmpeq_epi32(vd3, ref44) ;
+  vd0 = cmpeq_v8i(vd0, ref44) ;
+  vd1 = cmpeq_v8i(vd1, ref44) ;
+  vd2 = cmpeq_v8i(vd2, ref44) ;
+  vd3 = cmpeq_v8i(vd3, ref44) ;
 
-  accum = _mm256_sub_epi32(accum, vd0) ;
-  accum = _mm256_sub_epi32(accum, vd1) ;
-  accum = _mm256_sub_epi32(accum, vd2) ;
-  accum = _mm256_sub_epi32(accum, vd3) ;
+  accum = sub_v8i(accum, vd0) ;
+  accum = sub_v8i(accum, vd1) ;
+  accum = sub_v8i(accum, vd2) ;
+  accum = sub_v8i(accum, vd3) ;
   return accum ;
 }
 
 // 8 values in ymm register (accum and value)
 // 4 values in xmm register (ref4)
 // return[l] and return[l+4] : accum[l|l+4] + number of values > ref4[l] (ymm register)
-static __m256i _mm256i_count8_gt(__m256i accum, __m128i ref4, __m256i value){
-  __m256i ref44 ;
-  ref44 = _mm256_inserti128_si256(accum, ref4, 0) ;  // phony op to avoid a warning
-  ref44 = _mm256_inserti128_si256(ref44, ref4, 1) ;
-  __m256i vd0 = value ;
-  __m256i vd1 = _mm256_shuffle_epi32(value, 0b00111001 ) ;
-  __m256i vd2 = _mm256_shuffle_epi32(value, 0b01001110 ) ;
-  __m256i vd3 = _mm256_shuffle_epi32(value, 0b10010011 ) ;
+static __v256i count8_gt(__v256i accum, __v128i ref4, __v256i value){
+  __v256i ref44 ;
+  ref44 = inserti_128(accum, ref4, 0) ;  // phony op to avoid a warning
+  ref44 = inserti_128(ref44, ref4, 1) ;
+  __v256i vd0 = value ;
+  __v256i vd1 = shuffle_v8i(value, 0b00111001 ) ;
+  __v256i vd2 = shuffle_v8i(value, 0b01001110 ) ;
+  __v256i vd3 = shuffle_v8i(value, 0b10010011 ) ;
 
-  vd0 = _mm256_cmpgt_epi32(vd0, ref44) ;
-  vd1 = _mm256_cmpgt_epi32(vd1, ref44) ;
-  vd2 = _mm256_cmpgt_epi32(vd2, ref44) ;
-  vd3 = _mm256_cmpgt_epi32(vd3, ref44) ;
+  vd0 = cmpgt_v8i(vd0, ref44) ;
+  vd1 = cmpgt_v8i(vd1, ref44) ;
+  vd2 = cmpgt_v8i(vd2, ref44) ;
+  vd3 = cmpgt_v8i(vd3, ref44) ;
 
-  accum = _mm256_sub_epi32(accum, vd0) ;
-  accum = _mm256_sub_epi32(accum, vd1) ;
-  accum = _mm256_sub_epi32(accum, vd2) ;
-  accum = _mm256_sub_epi32(accum, vd3) ;
+  accum = sub_v8i(accum, vd0) ;
+  accum = sub_v8i(accum, vd1) ;
+  accum = sub_v8i(accum, vd2) ;
+  accum = sub_v8i(accum, vd3) ;
   return accum ;
 }
 
 // 8 values in ymm register (accum and value)
 // 4 values in xmm register (ref4)
 // return[l] and return[l+4] : accum[l|l+4] + number of values < ref4[l] (ymm register)
-static __m256i _mm256i_count8_lt(__m256i accum, __m128i ref4, __m256i value){
-  __m256i ref44 ;
-  ref44 = _mm256_inserti128_si256(accum, ref4, 0) ;  // phony op to avoid a warning
-  ref44 = _mm256_inserti128_si256(ref44, ref4, 1) ;
-  __m256i vd0 = value ;
-  __m256i vd1 = _mm256_shuffle_epi32(value, 0b00111001 ) ;
-  __m256i vd2 = _mm256_shuffle_epi32(value, 0b01001110 ) ;
-  __m256i vd3 = _mm256_shuffle_epi32(value, 0b10010011 ) ;
+static __v256i count8_lt(__v256i accum, __v128i ref4, __v256i value){
+  __v256i ref44 ;
+  ref44 = inserti_128(accum, ref4, 0) ;  // phony op to avoid a warning
+  ref44 = inserti_128(ref44, ref4, 1) ;
+  __v256i vd0 = value ;
+  __v256i vd1 = shuffle_v8i(value, 0b00111001 ) ;
+  __v256i vd2 = shuffle_v8i(value, 0b01001110 ) ;
+  __v256i vd3 = shuffle_v8i(value, 0b10010011 ) ;
 
-  vd0 = _mm256_cmpgt_epi32(ref44, vd0) ;
-  vd1 = _mm256_cmpgt_epi32(ref44, vd1) ;
-  vd2 = _mm256_cmpgt_epi32(ref44, vd2) ;
-  vd3 = _mm256_cmpgt_epi32(ref44, vd3) ;
+  vd0 = cmpgt_v8i(ref44, vd0) ;
+  vd1 = cmpgt_v8i(ref44, vd1) ;
+  vd2 = cmpgt_v8i(ref44, vd2) ;
+  vd3 = cmpgt_v8i(ref44, vd3) ;
 
-  accum = _mm256_sub_epi32(accum, vd0) ;
-  accum = _mm256_sub_epi32(accum, vd1) ;
-  accum = _mm256_sub_epi32(accum, vd2) ;
-  accum = _mm256_sub_epi32(accum, vd3) ;
+  accum = sub_v8i(accum, vd0) ;
+  accum = sub_v8i(accum, vd1) ;
+  accum = sub_v8i(accum, vd2) ;
+  accum = sub_v8i(accum, vd3) ;
   return accum ;
 }
 
 // 4 values in xmm register
 // return[l] : accum[l] + number of values == ref4[l] (xmm register)
-static __m128i _mm_count4_eq(__m128i accum, __m128i ref4, __m128i values){
-  __m128i vd0 = values ;
-  __m128i vd1 = _mm_shuffle_epi32(values, 0b00111001 ) ;
-  __m128i vd2 = _mm_shuffle_epi32(values, 0b01001110 ) ;
-  __m128i vd3 = _mm_shuffle_epi32(values, 0b10010011 ) ;
+static __v128i count4_eq(__v128i accum, __v128i ref4, __v128i values){
+  __v128i vd0 = values ;
+  __v128i vd1 = shuffle_v4i(values, 0b00111001 ) ;
+  __v128i vd2 = shuffle_v4i(values, 0b01001110 ) ;
+  __v128i vd3 = shuffle_v4i(values, 0b10010011 ) ;
 
-  vd0 = _mm_cmpeq_epi32(vd0, ref4) ;
-  vd1 = _mm_cmpeq_epi32(vd1, ref4) ;
-  vd2 = _mm_cmpeq_epi32(vd2, ref4) ;
-  vd3 = _mm_cmpeq_epi32(vd3, ref4) ;
+  vd0 = cmpeq_v4i(vd0, ref4) ;
+  vd1 = cmpeq_v4i(vd1, ref4) ;
+  vd2 = cmpeq_v4i(vd2, ref4) ;
+  vd3 = cmpeq_v4i(vd3, ref4) ;
 
-  accum = _mm_sub_epi32(accum, vd0) ;
-  accum = _mm_sub_epi32(accum, vd1) ;
-  accum = _mm_sub_epi32(accum, vd2) ;
-  accum = _mm_sub_epi32(accum, vd3) ;
+  accum = sub_v4i(accum, vd0) ;
+  accum = sub_v4i(accum, vd1) ;
+  accum = sub_v4i(accum, vd2) ;
+  accum = sub_v4i(accum, vd3) ;
   return accum ;
 }
 
 // 4 values in xmm register
 // return[l] : accum[l] + number of values > ref4[l] (xmm register)
-static __m128i _mm_count4_gt(__m128i accum, __m128i ref4, __m128i values){
-  __m128i vd0 = values ;
-  __m128i vd1 = _mm_shuffle_epi32(values, 0b00111001 ) ;
-  __m128i vd2 = _mm_shuffle_epi32(values, 0b01001110 ) ;
-  __m128i vd3 = _mm_shuffle_epi32(values, 0b10010011 ) ;
+static __v128i count4_gt(__v128i accum, __v128i ref4, __v128i values){
+  __v128i vd0 = values ;
+  __v128i vd1 = shuffle_v4i(values, 0b00111001 ) ;
+  __v128i vd2 = shuffle_v4i(values, 0b01001110 ) ;
+  __v128i vd3 = shuffle_v4i(values, 0b10010011 ) ;
 
-  vd0 = _mm_cmpgt_epi32(vd0, ref4) ;
-  vd1 = _mm_cmpgt_epi32(vd1, ref4) ;
-  vd2 = _mm_cmpgt_epi32(vd2, ref4) ;
-  vd3 = _mm_cmpgt_epi32(vd3, ref4) ;
+  vd0 = cmpgt_v4i(vd0, ref4) ;
+  vd1 = cmpgt_v4i(vd1, ref4) ;
+  vd2 = cmpgt_v4i(vd2, ref4) ;
+  vd3 = cmpgt_v4i(vd3, ref4) ;
 
-  accum = _mm_sub_epi32(accum, vd0) ;
-  accum = _mm_sub_epi32(accum, vd1) ;
-  accum = _mm_sub_epi32(accum, vd2) ;
-  accum = _mm_sub_epi32(accum, vd3) ;
+  accum = sub_v4i(accum, vd0) ;
+  accum = sub_v4i(accum, vd1) ;
+  accum = sub_v4i(accum, vd2) ;
+  accum = sub_v4i(accum, vd3) ;
   return accum ;
 }
 
 // 4 values in xmm register
 // return[l] : accum[l] + number of values < ref4[l] (xmm register)
-static __m128i _mm_count4_lt(__m128i accum, __m128i ref4, __m128i values){
-  __m128i vd0 = values ;
-  __m128i vd1 = _mm_shuffle_epi32(values, 0b00111001 ) ;
-  __m128i vd2 = _mm_shuffle_epi32(values, 0b01001110 ) ;
-  __m128i vd3 = _mm_shuffle_epi32(values, 0b10010011 ) ;
+static __v128i count4_lt(__v128i accum, __v128i ref4, __v128i values){
+  __v128i vd0 = values ;
+  __v128i vd1 = shuffle_v4i(values, 0b00111001 ) ;
+  __v128i vd2 = shuffle_v4i(values, 0b01001110 ) ;
+  __v128i vd3 = shuffle_v4i(values, 0b10010011 ) ;
 
-  vd0 = _mm_cmpgt_epi32(ref4, vd0) ;
-  vd1 = _mm_cmpgt_epi32(ref4, vd1) ;
-  vd2 = _mm_cmpgt_epi32(ref4, vd2) ;
-  vd3 = _mm_cmpgt_epi32(ref4, vd3) ;
+  vd0 = cmpgt_v4i(ref4, vd0) ;
+  vd1 = cmpgt_v4i(ref4, vd1) ;
+  vd2 = cmpgt_v4i(ref4, vd2) ;
+  vd3 = cmpgt_v4i(ref4, vd3) ;
 
-  accum = _mm_sub_epi32(accum, vd0) ;
-  accum = _mm_sub_epi32(accum, vd1) ;
-  accum = _mm_sub_epi32(accum, vd2) ;
-  accum = _mm_sub_epi32(accum, vd3) ;
+  accum = sub_v4i(accum, vd0) ;
+  accum = sub_v4i(accum, vd1) ;
+  accum = sub_v4i(accum, vd2) ;
+  accum = sub_v4i(accum, vd3) ;
   return accum ;
 }
 
@@ -153,22 +153,22 @@ static __m128i _mm_count4_lt(__m128i accum, __m128i ref4, __m128i values){
 // values : pointer to array of values to test
 // n      : number of values (modulo 3 is takes, n is assumed to be 0/1/2/3)
 // return[l] : accum[l] + number of values == ref4[l] (xmm register)
-static __m128i _mm_count123_eq(__m128i accum, __m128i ref4, int *values, int n){
-  __m128i vd0 ;
+static __v128i count123_eq(__v128i accum, __v128i ref4, int *values, int n){
+  __v128i vd0 ;
   n &= 3 ;
   if(n > 0){
-    vd0 = _mm_set1_epi32(*values) ; values ++ ;
-    vd0 = _mm_cmpeq_epi32(vd0, ref4) ;
-    accum = _mm_sub_epi32(vd0, accum) ;
+    vd0 = set1_v4i(*values) ; values ++ ;
+    vd0 = cmpeq_v4i(vd0, ref4) ;
+    accum = sub_v4i(vd0, accum) ;
     if(n > 1){
-      vd0 = _mm_set1_epi32(*values) ; values ++ ;
-      vd0 = _mm_cmpeq_epi32(vd0, ref4) ;
-      accum = _mm_sub_epi32(vd0, accum) ;
+      vd0 = set1_v4i(*values) ; values ++ ;
+      vd0 = cmpeq_v4i(vd0, ref4) ;
+      accum = sub_v4i(vd0, accum) ;
     }
     if(n > 2){
-      vd0 = _mm_set1_epi32(*values) ; values ++ ;
-      vd0 = _mm_cmpeq_epi32(vd0, ref4) ;
-      accum = _mm_sub_epi32(vd0, accum) ;
+      vd0 = set1_v4i(*values) ; values ++ ;
+      vd0 = cmpeq_v4i(vd0, ref4) ;
+      accum = sub_v4i(vd0, accum) ;
     }
   }
   return accum ;
@@ -179,22 +179,22 @@ static __m128i _mm_count123_eq(__m128i accum, __m128i ref4, int *values, int n){
 // values : pointer to array of values to test
 // n      : number of values (modulo 3 is takes, n is assumed to be 0/1/2/3)
 // return[l] : accum[l] + number of values > ref4[l] (xmm register)
-static __m128i _mm_count123_gt(__m128i accum, __m128i ref4, int *values, int n){
-  __m128i vd0 ;
+static __v128i count123_gt(__v128i accum, __v128i ref4, int *values, int n){
+  __v128i vd0 ;
   n &= 3 ;
   if(n > 0){
-    vd0 = _mm_set1_epi32(*values) ; values ++ ;
-    vd0 = _mm_cmpgt_epi32(vd0, ref4) ;
-    accum = _mm_sub_epi32(vd0, accum) ;
+    vd0 = set1_v4i(*values) ; values ++ ;
+    vd0 = cmpgt_v4i(vd0, ref4) ;
+    accum = sub_v4i(vd0, accum) ;
     if(n > 1){
-      vd0 = _mm_set1_epi32(*values) ; values ++ ;
-      vd0 = _mm_cmpgt_epi32(vd0, ref4) ;
-      accum = _mm_sub_epi32(vd0, accum) ;
+      vd0 = set1_v4i(*values) ; values ++ ;
+      vd0 = cmpgt_v4i(vd0, ref4) ;
+      accum = sub_v4i(vd0, accum) ;
     }
     if(n > 2){
-      vd0 = _mm_set1_epi32(*values) ; values ++ ;
-      vd0 = _mm_cmpgt_epi32(vd0, ref4) ;
-      accum = _mm_sub_epi32(vd0, accum) ;
+      vd0 = set1_v4i(*values) ; values ++ ;
+      vd0 = cmpgt_v4i(vd0, ref4) ;
+      accum = sub_v4i(vd0, accum) ;
     }
   }
   return accum ;
@@ -205,22 +205,22 @@ static __m128i _mm_count123_gt(__m128i accum, __m128i ref4, int *values, int n){
 // values : pointer to array of values to test
 // n      : number of values (modulo 3 is takes, n is assumed to be 0/1/2/3)
 // return[l] : accum[l] + number of values < ref4[l] (xmm register)
-static __m128i _mm_count123_lt(__m128i accum, __m128i ref4, int *values, int n){
-  __m128i vd0 ;
+static __v128i count123_lt(__v128i accum, __v128i ref4, int *values, int n){
+  __v128i vd0 ;
   n &= 3 ;
   if(n > 0){
-    vd0 = _mm_set1_epi32(*values) ; values ++ ;
-    vd0 = _mm_cmpgt_epi32(ref4, vd0) ;
-    accum = _mm_sub_epi32(accum, vd0) ;
+    vd0 = set1_v4i(*values) ; values ++ ;
+    vd0 = cmpgt_v4i(ref4, vd0) ;
+    accum = sub_v4i(accum, vd0) ;
     if(n > 1){
-      vd0 = _mm_set1_epi32(*values) ; values ++ ;
-      vd0 = _mm_cmpgt_epi32(ref4, vd0) ;
-      accum = _mm_sub_epi32(accum, vd0) ;
+      vd0 = set1_v4i(*values) ; values ++ ;
+      vd0 = cmpgt_v4i(ref4, vd0) ;
+      accum = sub_v4i(accum, vd0) ;
     }
     if(n > 2){
-      vd0 = _mm_set1_epi32(*values) ; values ++ ;
-      vd0 = _mm_cmpgt_epi32(ref4, vd0) ;
-      accum = _mm_sub_epi32(accum, vd0) ;
+      vd0 = set1_v4i(*values) ; values ++ ;
+      vd0 = cmpgt_v4i(ref4, vd0) ;
+      accum = sub_v4i(accum, vd0) ;
     }
   }
   return accum ;
@@ -230,26 +230,26 @@ static __m128i _mm_count123_lt(__m128i accum, __m128i ref4, int *values, int n){
 // values [IN] : input array with values to test
 // ref4   [IN] : 4 reference values to test against values[l]
 // n      [IN] : dimension of array values
-static __m128i _mm_count_eq(int *values, int ref4[4], int n){
-  __m128i accu4, vref ;
-  __m256i accu8, data ;
+static __v128i count_eq_v4i(int *values, int ref4[4], int n){
+  __v128i accu4, vref ;
+  __v256i accu8, data ;
 //   accu8 = _mm256_xor_si256(accu8, accu8) ;
-  accu8 = _mm256_set1_epi32(0) ;
-  vref  = _mm_loadu_si128((void *) &ref4[0]) ;
+  accu8 = set1_v8i(0) ;
+  vref  = loadu_v128((void *) &ref4[0]) ;
   while(n > 7){                // blocks of 8 values
-    data = _mm256_loadu_si256((void *) values) ;
-    accu8 = _mm256i_count8_eq(accu8, vref, data) ;
+    data = loadu_v256((void *) values) ;
+    accu8 = count8_eq(accu8, vref, data) ;
     values += 8 ;
     n -= 8 ;
   }
   // fold sums to 128 bits
-  accu4 = _mm_add_epi32( _mm256_extracti128_si256(accu8,0) , _mm256_extracti128_si256(accu8,1) ) ;
+  accu4 = add_v4i( _mm256_extracti128_si256(accu8,0) , _mm256_extracti128_si256(accu8,1) ) ;
   if(n > 3){
-    accu4 = _mm_count4_eq(accu4, vref, _mm_loadu_si128((void *) values)) ;  // block of 4 values
+    accu4 = count4_eq(accu4, vref, loadu_v128((void *) values)) ;  // block of 4 values
     values += 4 ;
     n -= 4 ;
   }
-  if(n > 0){ accu4 = _mm_count123_eq(accu4, vref, values, n) ; }            // 1, 2, or 3 values
+  if(n > 0){ accu4 = count123_eq(accu4, vref, values, n) ; }            // 1, 2, or 3 values
   return accu4 ;
 }
 
@@ -257,26 +257,26 @@ static __m128i _mm_count_eq(int *values, int ref4[4], int n){
 // values [IN] : input array with values to test
 // ref4   [IN] : 4 reference values to test against values[l]
 // n      [IN] : dimension of array values
-static __m128i _mm_count_gt(int *values, int ref4[4], int n){
-  __m128i accu4, vref ;
-  __m256i accu8, data ;
+static __v128i count_gt_v4i(int *values, int ref4[4], int n){
+  __v128i accu4, vref ;
+  __v256i accu8, data ;
 //   accu8 = _mm256_xor_si256(accu8, accu8) ;
-  accu8 = _mm256_set1_epi32(0) ;
-  vref  = _mm_loadu_si128((void *) &ref4[0]) ;
+  accu8 = set1_v8i(0) ;
+  vref  = loadu_v128((void *) &ref4[0]) ;
   while(n > 7){                // blocks of 8 values
-    data = _mm256_loadu_si256((void *) values) ;
-    accu8 = _mm256i_count8_gt(accu8, vref, data) ;
+    data = loadu_v256((void *) values) ;
+    accu8 = count8_gt(accu8, vref, data) ;
     values += 8 ;
     n -= 8 ;
   }
   // fold sums to 128 bits
-  accu4 = _mm_add_epi32( _mm256_extracti128_si256(accu8,0) , _mm256_extracti128_si256(accu8,1) ) ;
+  accu4 = add_v4i( _mm256_extracti128_si256(accu8,0) , _mm256_extracti128_si256(accu8,1) ) ;
   if(n > 3){
-    accu4 = _mm_count4_gt(accu4, vref, _mm_loadu_si128((void *) values)) ;  // block of 4 values
+    accu4 = count4_gt(accu4, vref, loadu_v128((void *) values)) ;  // block of 4 values
     values += 4 ;
     n -= 4 ;
   }
-  if(n > 0){ accu4 = _mm_count123_gt(accu4, vref, values, n) ; }            // 1, 2, or 3 values
+  if(n > 0){ accu4 = count123_gt(accu4, vref, values, n) ; }            // 1, 2, or 3 values
   return accu4 ;
 }
 
@@ -284,26 +284,26 @@ static __m128i _mm_count_gt(int *values, int ref4[4], int n){
 // values [IN] : input array with values to test
 // ref4   [IN] : 4 reference values to test against values[l]
 // n      [IN] : dimension of array values
-static __m128i _mm_count_lt(int *values, int ref4[4], int n){
-  __m128i accu4, vref ;
-  __m256i accu8, data ;
+static __v128i count_lt_v4i(int *values, int ref4[4], int n){
+  __v128i accu4, vref ;
+  __v256i accu8, data ;
 //   accu8 = _mm256_xor_si256(accu8, accu8) ;
-  accu8 = _mm256_set1_epi32(0) ;
-  vref  = _mm_loadu_si128((void *) &ref4[0]) ;
+  accu8 = set1_v8i(0) ;
+  vref  = loadu_v128((void *) &ref4[0]) ;
   while(n > 7){                // blocks of 8 values
-    data = _mm256_loadu_si256((void *) values) ;
-    accu8 = _mm256i_count8_lt(accu8, vref, data) ;
+    data = loadu_v256((void *) values) ;
+    accu8 = count8_lt(accu8, vref, data) ;
     values += 8 ;
     n -= 8 ;
   }
   // fold sums to 128 bits
-  accu4 = _mm_add_epi32( _mm256_extracti128_si256(accu8,0) , _mm256_extracti128_si256(accu8,1) ) ;
+  accu4 = add_v4i( _mm256_extracti128_si256(accu8,0) , _mm256_extracti128_si256(accu8,1) ) ;
   if(n > 3){
-    accu4 = _mm_count4_lt(accu4, vref, _mm_loadu_si128((void *) values)) ;  // block of 4 values
+    accu4 = count4_lt(accu4, vref, loadu_v128((void *) values)) ;  // block of 4 values
     values += 4 ;
     n -= 4 ;
   }
-  if(n > 0){ accu4 = _mm_count123_lt(accu4, vref, values, n) ; }            // 1, 2, or 3 values
+  if(n > 0){ accu4 = count123_lt(accu4, vref, values, n) ; }            // 1, 2, or 3 values
   return accu4 ;
 }
 #endif
@@ -314,8 +314,8 @@ static __m128i _mm_count_lt(int *values, int ref4[4], int n){
 // ref4   [IN] : 4 reference values to test against values[l]
 // n      [IN] : dimension of array values
 void count_eq(int count[4], int *values, int ref4[4], int n){
-#if defined(__AVX2__) && defined(WITH_SIMD)
-  _mm_storeu_si128((void *)count, _mm_count_eq(values, ref4, n)) ;
+#if defined(__AVX2__) // && defined(WITH_SIMD)
+  storeu_v128((void *)count, count_eq_v4i(values, ref4, n)) ;
 #else
   int i, j ;
   for(j=0 ; j<4 ; j++) count[j] = 0 ;
@@ -335,8 +335,8 @@ void count_eq(int count[4], int *values, int ref4[4], int n){
 // ref4   [IN] : 4 reference values to test against values[l]
 // n      [IN] : dimension of array values
 void count_gt(int count[4], int *values, int ref4[4], int n){
-#if defined(__AVX2__) && defined(WITH_SIMD)
-  _mm_storeu_si128((void *)count, _mm_count_gt(values, ref4, n)) ;
+#if defined(__AVX2__) // && defined(WITH_SIMD)
+  storeu_v128((void *)count, count_gt_v4i(values, ref4, n)) ;
 #else
   int i, j ;
   for(j=0 ; j<4 ; j++) count[j] = 0 ;
@@ -356,8 +356,8 @@ void count_gt(int count[4], int *values, int ref4[4], int n){
 // ref4   [IN] : 4 reference values to test against values[l]
 // n      [IN] : dimension of array values
 void count_lt(int count[4], int *values, int ref4[4], int n){
-#if defined(__AVX2__) && defined(WITH_SIMD)
-  _mm_storeu_si128((void *)count, _mm_count_lt(values, ref4, n)) ;
+#if defined(__AVX2__) // && defined(WITH_SIMD)
+  storeu_v128((void *)count, count_lt_v4i(values, ref4, n)) ;
 #else
   int i, j ;
   for(j=0 ; j<4 ; j++) count[j] = 0 ;

@@ -12,7 +12,10 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * Library General Public License for more details.
  */
-#define USE_INTEL_SIMD_INTRINSICS
+#define USE_SIMD_INTRINSICS
+// #define EMULATE_SIMD
+// #define ALIAS_SIMD_INTRINSICS
+
 #include <rmn/simd_functions.h>
 
 void count_gt(int count[4], int *values, int ref4[4], int n);
