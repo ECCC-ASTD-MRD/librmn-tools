@@ -156,20 +156,19 @@ static __v128i count4_lt(__v128i accum, __v128i ref4, __v128i values){
 static __v128i count123_eq(__v128i accum, __v128i ref4, int *values, int n){
   __v128i vd0 ;
   n &= 3 ;
-  if(n > 0){
+  if(n > 1){   // 2 or 3
     vd0 = set1_v4i(*values) ; values ++ ;
     vd0 = cmpeq_v4i(vd0, ref4) ;
     accum = sub_v4i(vd0, accum) ;
-    if(n > 1){
-      vd0 = set1_v4i(*values) ; values ++ ;
-      vd0 = cmpeq_v4i(vd0, ref4) ;
-      accum = sub_v4i(vd0, accum) ;
-    }
-    if(n > 2){
-      vd0 = set1_v4i(*values) ; values ++ ;
-      vd0 = cmpeq_v4i(vd0, ref4) ;
-      accum = sub_v4i(vd0, accum) ;
-    }
+    vd0 = set1_v4i(*values) ; values ++ ;
+    vd0 = cmpeq_v4i(vd0, ref4) ;
+    accum = sub_v4i(vd0, accum) ;
+    n -= 2 ;
+  }
+  if(n > 0){   // 1
+    vd0 = set1_v4i(*values) ; values ++ ;
+    vd0 = cmpeq_v4i(vd0, ref4) ;
+    accum = sub_v4i(vd0, accum) ;
   }
   return accum ;
 }
@@ -182,20 +181,19 @@ static __v128i count123_eq(__v128i accum, __v128i ref4, int *values, int n){
 static __v128i count123_gt(__v128i accum, __v128i ref4, int *values, int n){
   __v128i vd0 ;
   n &= 3 ;
-  if(n > 0){
+  if(n > 1){   // 2 or 3
     vd0 = set1_v4i(*values) ; values ++ ;
     vd0 = cmpgt_v4i(vd0, ref4) ;
     accum = sub_v4i(vd0, accum) ;
-    if(n > 1){
-      vd0 = set1_v4i(*values) ; values ++ ;
-      vd0 = cmpgt_v4i(vd0, ref4) ;
-      accum = sub_v4i(vd0, accum) ;
-    }
-    if(n > 2){
-      vd0 = set1_v4i(*values) ; values ++ ;
-      vd0 = cmpgt_v4i(vd0, ref4) ;
-      accum = sub_v4i(vd0, accum) ;
-    }
+    vd0 = set1_v4i(*values) ; values ++ ;
+    vd0 = cmpgt_v4i(vd0, ref4) ;
+    accum = sub_v4i(vd0, accum) ;
+    n -= 2 ;
+  }
+  if(n > 0){   // 1
+    vd0 = set1_v4i(*values) ; values ++ ;
+    vd0 = cmpgt_v4i(vd0, ref4) ;
+    accum = sub_v4i(vd0, accum) ;
   }
   return accum ;
 }
@@ -208,20 +206,19 @@ static __v128i count123_gt(__v128i accum, __v128i ref4, int *values, int n){
 static __v128i count123_lt(__v128i accum, __v128i ref4, int *values, int n){
   __v128i vd0 ;
   n &= 3 ;
-  if(n > 0){
+  if(n > 1){   // 2 or 3
     vd0 = set1_v4i(*values) ; values ++ ;
     vd0 = cmpgt_v4i(ref4, vd0) ;
     accum = sub_v4i(accum, vd0) ;
-    if(n > 1){
-      vd0 = set1_v4i(*values) ; values ++ ;
-      vd0 = cmpgt_v4i(ref4, vd0) ;
-      accum = sub_v4i(accum, vd0) ;
-    }
-    if(n > 2){
-      vd0 = set1_v4i(*values) ; values ++ ;
-      vd0 = cmpgt_v4i(ref4, vd0) ;
-      accum = sub_v4i(accum, vd0) ;
-    }
+    vd0 = set1_v4i(*values) ; values ++ ;
+    vd0 = cmpgt_v4i(ref4, vd0) ;
+    accum = sub_v4i(accum, vd0) ;
+    n -= 2 ;
+  }
+  if(n > 0){   // 1
+    vd0 = set1_v4i(*values) ; values ++ ;
+    vd0 = cmpgt_v4i(ref4, vd0) ;
+    accum = sub_v4i(accum, vd0) ;
   }
   return accum ;
 }
