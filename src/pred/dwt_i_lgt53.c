@@ -90,12 +90,15 @@
 //   void inv_2d_lgt53_n(int *x, int lni, int ni, int nj, int levels);
 //
 #include <stdio.h>
+#include <stdint.h>
 
 // utility functions used by main functions
 static inline int is_odd(int n) { return (n & 1) ; }
 
+#define ROUND 1
+
 // predict odd terms using even terms
-static inline int predict(int o0, int e0, int e1){ return o0 - ((e0 + e1 + 1) >> 1) ; }
+static inline int predict(int o0, int e0, int e1){ return o0 - ((e0 + e1 + ROUND) >> 1) ; }
 static inline int predict_edge(int o0, int e0   ){ return o0 - e0 ; }
 
 // update even terms using odd terms
@@ -103,25 +106,34 @@ static inline int update(int e1, int o0, int o1){ return e1 + ((o0 + o1 + 2) >> 
 static inline int update_edge(int e1, int o0   ){ return e1 + ((o0 + 1) >> 1) ; }
 
 // inverse predict odd terms using even terms
-static inline int un_predict(int o0, int e0, int e1){ return o0 + ((e0 + e1 + 1) >> 1) ; }
+static inline int un_predict(int o0, int e0, int e1){ return o0 + ((e0 + e1 + ROUND) >> 1) ; }
 static inline int un_predict_edge(int o0, int e0   ){ return o0 + e0 ; }
 
 // inverse update even terms using odd terms
 static inline int un_update(int e1, int o0, int o1){ return e1 - ((o0 + o1 + 2) >> 2) ; }
 static inline int un_update_edge(int e1, int o0   ){ return e1 - ((o0 + 1) >> 1) ; }
 
-// split array x into separate even and odd arrays
-void split_even_odd(int *x, int *e, int *o, int n){
-  int i, neven = (n+1) >> 1, nodd = n >> 1 ;
-  for(i = 0 ; i < nodd ; i++){ e[i] = x[i+i] ; o[i] = x[i+i+1] ; }        // move from x
-  if(is_odd(n)) e[neven-1] = x[n-1] ;
+typedef struct{
+  uint32_t e ;
+  uint32_t o ;
+} even_odd_pair ;
+
+// merge separate even and odd arrays into x array
+static void merge_even_odd(void *s_, void *e_, void *o_, int n_){
+  uint32_t *s = (uint32_t *) s_, *e = (uint32_t *) e_, *o = (uint32_t *) o_ ;
+  int i, n = n_/2 ;
+  even_odd_pair *t = (even_odd_pair *) s ;
+  for(i=0 ; i<n ; i++) { t[i].e = e[i] ; t[i].o = o[i]; }
+  if(n & 1) t[i].e = e[n] ;
 }
 
-// recompose array x from separate even and odd arays
-void unsplit_even_odd(int *x, int *e, int *o, int n){
-  int i, neven = (n+1) >> 1, nodd = n >> 1 ;
-  for(i = 0 ; i < nodd ; i++){ x[i+i] = e[i] ; x[i+i+1] = o[i] ; }        // move to x
-  if(is_odd(n)) x[n-1] = e[neven-1] ;
+// split array x into separate even and odd arrays
+static void split_even_odd(void *s_, void *e_, void *o_, int n_){
+  uint32_t *s = (uint32_t *) s_, *e = (uint32_t *) e_, *o = (uint32_t *) o_ ;
+  int i, n = n_/2 ;
+  even_odd_pair *t = (even_odd_pair *) s ;
+  for(i=0 ; i<n ; i++) { e[i] = t[i].e ; o[i] = t[i].o ; }
+  if(n & 1) e[n] = t[i].e ;
 }
 
 // forward Le Gall Tabatabai transform, in place, split layout
@@ -394,7 +406,7 @@ void inv_1d_lgt53_asis(int *x, int n){
 static void inv_1d_lgt53_split_even(int *x, int *e, int *o, int n){
   int i;
 
-  unsplit_even_odd(x, e, o, n) ;                                           // move to x
+  merge_even_odd(x, e, o, n) ;                                           // move to x
 
   for (i = 2; i < n; i += 2) x[i] = un_update(x[i], x[i+1], x[i-1]) ;      // unupdate even terms
   x[0] = un_update_edge(x[0], x[1]) ;
@@ -411,7 +423,7 @@ static void inv_1d_lgt53_split_even(int *x, int *e, int *o, int n){
 static void inv_1d_lgt53_split_odd(int *x, int *e, int *o, int n){
   int i;
 
-  unsplit_even_odd(x, e, o, n) ;                                           // move to x
+  merge_even_odd(x, e, o, n) ;                                           // move to x
 
   x[0] = un_update_edge(x[0], x[1]) ;
   for (i = 2; i < n - 2; i += 2) x[i] = un_update(x[i], x[i+1], x[i-1]) ;  // unupdate even terms

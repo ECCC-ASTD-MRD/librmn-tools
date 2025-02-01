@@ -395,12 +395,13 @@ fprintf(stderr, " |%d,%d,%d,%d,%d,%d, %d ,%d,%d,%d,%d,%d,%d|\n",info[58],info[59
       // apply Le GAll transform to quantization block
       memcpy((void *)pred, (void *)block, in*jn*sizeof(int32_t)) ;
       fwd_2d_lgt53_n((void *)pred, in, in, jn, 2);
-//       inv_2d_lgt53_n((void *)pred, in, in, jn, 2);
-//       ndiff = block_diff(pred, block, in*jn) ;
-//       if(ndiff != 0){
-//         fprintf(stderr, "ERROR in DWT, derrors = %d / %d\n", ndiff, in*jn) ;
-//         exit(1) ;
-//       }
+      inv_2d_lgt53_n((void *)pred, in, in, jn, 2);
+      ndiff = block_diff(pred, block, in*jn) ;
+      if(ndiff != 0){
+        fprintf(stderr, "ERROR in DWT, derrors = %d / %d\n", ndiff, in*jn) ;
+        exit(1) ;
+      }
+      fwd_2d_lgt53_n((void *)pred, in, in, jn, 2);
       ndwt8 = ndwt8 + 64 ;  // large block overhead
       // subdivide transformed block into 8 x 8 encoding blocks, count bits
       for(j8=0 ; j8<jn ; j8+=8){
