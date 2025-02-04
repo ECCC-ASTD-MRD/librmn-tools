@@ -16,6 +16,9 @@
 #include <stdint.h>
 #include <string.h>
 
+// uncomment the following line to only use PLAIN C code
+// #define USE_PLAIN_C
+
 // comment the following line to use emulated Intel SIMD intrinsics
 #define USE_SIMD_INTRINSICS
 // comment the following line to activate SIMD code
@@ -51,14 +54,14 @@ static void LorenzoPredictShort(int32_t * restrict orig, int32_t * restrict diff
 // n    : number of points in row
 STATIC inline void LorenzoPredictRow0(int32_t * restrict row, int32_t * restrict diff, int n){
 // #if defined(WITH_SIMD) && defined(__AVX2__) && defined(__x86_64__)
-#if 1
+#if ! defined(USE_PLAIN_C)
     __v256i vi, vi1 ;
     int i0, ii0 ;
 #endif
   int i ;
   diff[0] = row[0] ;
 // #if defined(WITH_SIMD) && defined(__AVX2__) && defined(__x86_64__)
-#if 1
+#if ! defined(USE_PLAIN_C)
   if(n < 9){   // the SIMD version will not work for n < 9
     for(i=1 ; i<n ; i++) diff[i] = row[i] - row[i-1] ;
     return ;
@@ -85,7 +88,7 @@ static inline void LorenzoPredictRow0_inplace_07(int32_t * restrict row, int n){
 
 // bottom row, in place prediction
 // #if defined(__x86_64__) && defined(__AVX2__) && defined(WITH_SIMD) && (! defined(__PGI))
-#if 1
+#if ! defined(USE_PLAIN_C)
 
 STATIC inline void LorenzoPredictRow0_inplace(int32_t * restrict row, int n){
   int i0, j0, n7 = (n & 7) ;
@@ -162,6 +165,7 @@ STATIC inline void LorenzoPredictRow0_inplace(int32_t * restrict row, int n){
 // n    : number of points in row
 // this function WILL NOT WORK IN-PLACE (i.e. if diff == top)
 // problem with PGI compiler : : undefined reference to `__builtin_ia32_palignr256' (bsrli_v128)
+#if 0
 STATIC inline void LorenzoPredictRowJ(int32_t * restrict top, int32_t * restrict bot, int32_t * restrict diff, int n){
   __v256i vi, vi1, vi1_, vj1, vij1, vij1_ ;
 
@@ -188,17 +192,17 @@ STATIC inline void LorenzoPredictRowJ(int32_t * restrict top, int32_t * restrict
   if(n & 2) { storeu_si64(diff, vt) ; vt = bsrli_v128(vt, 8) ; diff += 2 ; }
   if(n & 1) { storeu_si32(diff, vt) ; }
 }
-
+#endif
 STATIC inline void LorenzoPredictRowJ_(int32_t * restrict top, int32_t * restrict bot, int32_t * restrict diff, int n){
 // #if defined(WITH_SIMD) && defined(__AVX2__) && defined(__x86_64__)
-#if 1
+#if ! defined(USE_PLAIN_C)
     __v256i vi, vi1, vj1, vij1 ;
     int i0, ii0 ;
 #endif
   int i ;
   diff[0] = top[0] - bot[0] ;         // first point in row, 1D prediction using row below
 // #if defined(WITH_SIMD) && defined(__AVX2__) && defined(__x86_64__)
-#if 1
+#if ! defined(USE_PLAIN_C)
   if(n < 9){   // the SIMD version will not work for n < 9
     for(i=1 ; i<n ; i++) diff[i] = top[i] - ( top[i-1] + bot[i] - bot[i-1] ) ;
     return ;
@@ -229,7 +233,7 @@ static void LorenzoPredictRowJ_inplace_07(int32_t * restrict top, int32_t * rest
 
 // all rows but bottom row, in place prediction
 // #if defined(__x86_64__) && defined(__AVX2__) && defined(WITH_SIMD) && (! defined(__PGI))
-#if 1
+#if ! defined(USE_PLAIN_C)
 
 STATIC inline void LorenzoPredictRowJ_inplace(int32_t * restrict top, int32_t * restrict bot, int n){
   int i0, j0, n7 = (n & 7) ;
@@ -348,7 +352,8 @@ void LorenzoPredict(int32_t * restrict orig, int32_t * restrict diff, int ni, in
   while(--nj > 0){
     diff += lnid ; 
     orig += lnio ;
-#if defined(__PGI)
+// #if defined(__PGI)
+#if 1
     LorenzoPredictRowJ_(orig, orig-lnio, diff, ni) ;   // all other rows
 #else
     LorenzoPredictRowJ(orig, orig-lnio, diff, ni) ;   // all other rows
