@@ -17,9 +17,9 @@
 #include <string.h>
 
 // comment the following line to use emulated Intel SIMD intrinsics
-#define USE_INTEL_SIMD_INTRINSICS
+#define USE_SIMD_INTRINSICS
 // comment the following line to activate SIMD code
-// #define NO_SIMD
+// #define EMULATE_SIMD
 #include <rmn/simd_functions.h>
 // #define WITH_SIMD
 // #include <with_simd.h>
@@ -50,22 +50,24 @@ static void LorenzoPredictShort(int32_t * restrict orig, int32_t * restrict diff
 // diff : prediction for bottom row
 // n    : number of points in row
 STATIC inline void LorenzoPredictRow0(int32_t * restrict row, int32_t * restrict diff, int n){
-#if defined(WITH_SIMD) && defined(__AVX2__) && defined(__x86_64__)
-    __m256i vi, vi1 ;
+// #if defined(WITH_SIMD) && defined(__AVX2__) && defined(__x86_64__)
+#if 1
+    __v256i vi, vi1 ;
     int i0, ii0 ;
 #endif
   int i ;
   diff[0] = row[0] ;
-#if defined(WITH_SIMD) && defined(__AVX2__) && defined(__x86_64__)
+// #if defined(WITH_SIMD) && defined(__AVX2__) && defined(__x86_64__)
+#if 1
   if(n < 9){   // the SIMD version will not work for n < 9
     for(i=1 ; i<n ; i++) diff[i] = row[i] - row[i-1] ;
     return ;
   }
   for(ii0 = 1 ; ii0 < n ; ii0 += 8) {
     i0 = (ii0 > n-8) ? (n-8) : ii0 ;
-    vi   = _mm256_loadu_si256((__m256i *) (row+i0)  ) ;
-    vi1  = _mm256_loadu_si256((__m256i *) (row+i0-1)) ;
-    _mm256_storeu_si256( (__m256i *) (diff+i0), _mm256_sub_epi32( vi, vi1 ) ) ;
+    vi   = loadu_v256((__v256i *) (row+i0)  ) ;
+    vi1  = loadu_v256((__v256i *) (row+i0-1)) ;
+    storeu_v256( (__v256i *) (diff+i0), sub_v8i( vi, vi1 ) ) ;
   }
 #else
   for(i=1 ; i<n ; i++) diff[i] = row[i] - row[i-1] ;
@@ -82,11 +84,12 @@ static inline void LorenzoPredictRow0_inplace_07(int32_t * restrict row, int n){
 }
 
 // bottom row, in place prediction
-#if defined(__x86_64__) && defined(__AVX2__) && defined(WITH_SIMD) && (! defined(__PGI))
+// #if defined(__x86_64__) && defined(__AVX2__) && defined(WITH_SIMD) && (! defined(__PGI))
+#if 1
 
 STATIC inline void LorenzoPredictRow0_inplace(int32_t * restrict row, int n){
   int i0, j0, n7 = (n & 7) ;
-  __m256i vi, vi1, vt, vr, v0, vs ;
+  __v256i vi, vi1, vt, vr, v0, vs ;
 
   if(n < 8) {
     LorenzoPredictRow0_inplace_07(row, n) ;
@@ -94,33 +97,33 @@ STATIC inline void LorenzoPredictRow0_inplace(int32_t * restrict row, int n){
   }
 
   n7 = n7 ? n7 : 8 ;
-  v0   = _mm256_setzero_si256() ;                         // 0s
-  vs   = _mm256_cvtepi8_epi32( _mm_set1_epi64x(0x0605040302010000lu) ) ;  // shuffle patterm
+  v0   = zero_v256() ;                         // 0s
+  vs   = cvt_v8c_v8i( _mm_set1_epi64x(0x0605040302010000lu) ) ;  // shuffle patterm
   // first 8 elements
-  vi   = _mm256_loadu_si256((__m256i *) (row)  ) ;        // row[0:7]
-  vi1  = _mm256_permutevar8x32_epi32(vi, vs) ;            // 0, 0, 1, 2, 3, 4, 5, 6  permutation
-  vi1  = _mm256_blend_epi32(vi1, v0, 1) ;                 // first element set to 0 (row[-1])
+  vi   = loadu_v256((__v256i *) (row)  ) ;        // row[0:7]
+  vi1  = permutev_v8i(vi, vs) ;            // 0, 0, 1, 2, 3, 4, 5, 6  permutation
+  vi1  = blend_v8i(vi1, v0, 1) ;                 // first element set to 0 (row[-1])
   // row[i] - row[i-1]
-  vt   = _mm256_sub_epi32( vi, vi1 ) ;
+  vt   = sub_v8i( vi, vi1 ) ;
   vr   = vt ;
   j0 = 0 ;
   // chunks of 8 elements (second chunk may overlap first chunk)
   for(i0=n7 ; i0<n ; i0+=8){
-    vi   = _mm256_loadu_si256((__m256i *) (row+i0)  ) ;   // row[i0:i0+7]
+    vi   = loadu_v256((__v256i *) (row+i0)  ) ;   // row[i0:i0+7]
 #if defined(WITH_FETCH)
-    vi1  = _mm256_loadu_si256((__m256i *) (row+i0-1)) ;   // row[i0-1:i0+6]
+    vi1  = loadu_v256((__v256i *) (row+i0-1)) ;   // row[i0-1:i0+6]
 #else
-    v0   = _mm256_set1_epi32(row[i0-1]) ;                 // row[i0-1]
-    vi1  = _mm256_permutevar8x32_epi32(vi, vs) ;          // 0, 0, 1, 2, 3, 4, 5, 6  permutation
-    vi1  = _mm256_blend_epi32(vi1, v0, 1) ;               // first element set to row[i0-1]
+    v0   = set1_v8i(row[i0-1]) ;                 // row[i0-1]
+    vi1  = permutev_v8i(vi, vs) ;          // 0, 0, 1, 2, 3, 4, 5, 6  permutation
+    vi1  = blend_v8i(vi1, v0, 1) ;               // first element set to row[i0-1]
 #endif
     // row[i0+i] - row[i0+i-1]
-    vt   = _mm256_sub_epi32( vi, vi1 ) ;
-    _mm256_storeu_si256( (__m256i *) (row+j0), vr) ;      // delayed store, result of previous pass
+    vt   = sub_v8i( vi, vi1 ) ;
+    storeu_v256( (__v256i *) (row+j0), vr) ;      // delayed store, result of previous pass
     vr = vt ;
     j0 = i0 ;
   }
-  _mm256_storeu_si256( (__m256i *) (row+j0), vr) ;        // delayed store, result of previous pass
+  storeu_v256( (__v256i *) (row+j0), vr) ;        // delayed store, result of previous pass
 }
 
 #else
@@ -160,53 +163,55 @@ STATIC inline void LorenzoPredictRow0_inplace(int32_t * restrict row, int n){
 // this function WILL NOT WORK IN-PLACE (i.e. if diff == top)
 // problem with PGI compiler : : undefined reference to `__builtin_ia32_palignr256' (bsrli_v128)
 STATIC inline void LorenzoPredictRowJ(int32_t * restrict top, int32_t * restrict bot, int32_t * restrict diff, int n){
-  __m256i vi, vi1, vi1_, vj1, vij1, vij1_ ;
+  __v256i vi, vi1, vi1_, vj1, vij1, vij1_ ;
 
   diff[0] = top[0] - bot[0] ;         // first point in row, 1D prediction using row below
-  vi1  = _mm256_loadu_si256((__m256i *) (top)) ;
-  vij1 = _mm256_loadu_si256((__m256i *) (bot)) ;
+  vi1  = loadu_v256((__v256i *) (top)) ;
+  vij1 = loadu_v256((__v256i *) (bot)) ;
   n-- ; diff += 1 ; top += 8 ; bot += 8 ;
   while( n > 7){
-    vi1_  = _mm256_loadu_si256((__m256i *) (top)) ;
-    vij1_ = _mm256_loadu_si256((__m256i *) (bot)) ;
+    vi1_  = loadu_v256((__v256i *) (top)) ;
+    vij1_ = loadu_v256((__v256i *) (bot)) ;
     vi    = alignr_v8i(vi1_, vi1, 1) ;
     vj1   = alignr_v8i(vij1_, vij1, 1) ;
-    __m256i vr = _mm256_sub_epi32( vi, _mm256_sub_epi32( _mm256_add_epi32(vi1, vj1) , vij1 ) ) ;
-    _mm256_storeu_si256( (__m256i *) (diff), vr) ;
+    __v256i vr = sub_v8i( vi, sub_v8i( add_v8i(vi1, vj1) , vij1 ) ) ;
+    storeu_v256( (__v256i *) (diff), vr) ;
     vi1  = vi1_ ;
     vij1 = vij1_ ;
     n -=8 ; top += 8 ; bot +=8 ; diff += 8 ;
   }
   vi    = alignr_v8i(vi1, vi1, 1) ;
   vj1   = alignr_v8i(vij1, vij1, 1) ;
-  __m256i vr = _mm256_sub_epi32( vi, _mm256_sub_epi32( _mm256_add_epi32(vi1, vj1) , vij1 ) ) ;
-  __m128i vt = extracti_128(vr, 0) ;
-  if(n & 4) { _mm_storeu_si128((__m128i *) diff, vt) ; vt = extracti_128(vr, 1) ; diff += 4 ; }
-  if(n & 2) { _mm_storeu_si64(diff, vt) ; vt = bsrli_v128(vt, 8) ; diff += 2 ; }
-  if(n & 1) { _mm_storeu_si32(diff, vt) ; }
+  __v256i vr = sub_v8i( vi, sub_v8i( add_v8i(vi1, vj1) , vij1 ) ) ;
+  __v128i vt = extracti_128(vr, 0) ;
+  if(n & 4) { storeu_v128((__v128i *) diff, vt) ; vt = extracti_128(vr, 1) ; diff += 4 ; }
+  if(n & 2) { storeu_si64(diff, vt) ; vt = bsrli_v128(vt, 8) ; diff += 2 ; }
+  if(n & 1) { storeu_si32(diff, vt) ; }
 }
 
 STATIC inline void LorenzoPredictRowJ_(int32_t * restrict top, int32_t * restrict bot, int32_t * restrict diff, int n){
-#if defined(WITH_SIMD) && defined(__AVX2__) && defined(__x86_64__)
-    __m256i vi, vi1, vj1, vij1 ;
+// #if defined(WITH_SIMD) && defined(__AVX2__) && defined(__x86_64__)
+#if 1
+    __v256i vi, vi1, vj1, vij1 ;
     int i0, ii0 ;
 #endif
   int i ;
   diff[0] = top[0] - bot[0] ;         // first point in row, 1D prediction using row below
-#if defined(WITH_SIMD) && defined(__AVX2__) && defined(__x86_64__)
+// #if defined(WITH_SIMD) && defined(__AVX2__) && defined(__x86_64__)
+#if 1
   if(n < 9){   // the SIMD version will not work for n < 9
     for(i=1 ; i<n ; i++) diff[i] = top[i] - ( top[i-1] + bot[i] - bot[i-1] ) ;
     return ;
   }
   for(ii0 = 1 ; ii0 < n ; ii0 += 8) {
     i0 = (ii0 > n-8) ? (n-8) : ii0 ;
-    vi   = _mm256_loadu_si256((__m256i *) (top+i0)  ) ;   // top[i]
-    vi1  = _mm256_loadu_si256((__m256i *) (top+i0-1)) ;   // top[i-1]
-    vj1  = _mm256_loadu_si256((__m256i *) (bot+i0)  ) ;   // bot[i]
-    vij1 = _mm256_loadu_si256((__m256i *) (bot+i0-1)) ;   // bot[i-1]
+    vi   = loadu_v256((__v256i *) (top+i0)  ) ;   // top[i]
+    vi1  = loadu_v256((__v256i *) (top+i0-1)) ;   // top[i-1]
+    vj1  = loadu_v256((__v256i *) (bot+i0)  ) ;   // bot[i]
+    vij1 = loadu_v256((__v256i *) (bot+i0-1)) ;   // bot[i-1]
     // predicted[i,j] = z[i-1,j] + z[i,j-1] - z[i-1] = top[i-1] + bot[i] - bot[i-1]
     // diff[i,j] = orig[i,j] - predicted[i,j]
-    _mm256_storeu_si256( (__m256i *) (diff+i0), _mm256_sub_epi32( vi, _mm256_sub_epi32( _mm256_add_epi32(vi1, vj1) , vij1 ) ) );
+    storeu_v256( (__v256i *) (diff+i0), sub_v8i( vi, sub_v8i( add_v8i(vi1, vj1) , vij1 ) ) );
   }
 #else
   for(i=1 ; i<n ; i++) diff[i] = top[i] - ( top[i-1] + bot[i] - bot[i-1] ) ;
@@ -223,56 +228,57 @@ static void LorenzoPredictRowJ_inplace_07(int32_t * restrict top, int32_t * rest
 }
 
 // all rows but bottom row, in place prediction
-#if defined(__x86_64__) && defined(__AVX2__) && defined(WITH_SIMD) && (! defined(__PGI))
+// #if defined(__x86_64__) && defined(__AVX2__) && defined(WITH_SIMD) && (! defined(__PGI))
+#if 1
 
 STATIC inline void LorenzoPredictRowJ_inplace(int32_t * restrict top, int32_t * restrict bot, int n){
   int i0, j0, n7 = (n & 7) ;
-  __m256i vi, vi1, vj1, vij1, vt, vr, v0, vs ;
+  __v256i vi, vi1, vj1, vij1, vt, vr, v0, vs ;
 
   if(n < 8) {
     LorenzoPredictRowJ_inplace_07(top, bot, n) ;
     return ;
   }
   n7 = n7 ? n7 : 8 ;
-  v0   = _mm256_setzero_si256() ;                         // 0s
-  vs   = _mm256_cvtepi8_epi32( _mm_set1_epi64x(0x0605040302010000lu) ) ;  // shuffle patterm
+  v0   = zero_v256() ;                         // 0s
+  vs   = cvt_v8c_v8i( _mm_set1_epi64x(0x0605040302010000lu) ) ;  // shuffle patterm
   // first 8 elements
-  vi   = _mm256_loadu_si256((__m256i *) (top)  ) ;        // top[0:7]
-  vj1  = _mm256_loadu_si256((__m256i *) (bot)  ) ;        // bot[0:7]
-//   vi1  = _mm256_loadu_si256((__m256i *) (top-1)) ;        // top[-1:6]
-  vi1  = _mm256_permutevar8x32_epi32(vi, vs) ;            // 0, 0, 1, 2, 3, 4, 5, 6  permutation
-  vi1  = _mm256_blend_epi32(vi1, v0, 1) ;                 // first element set to 0 (top[-1])
-//   vij1 = _mm256_loadu_si256((__m256i *) (bot-1)) ;        // bot[-1:6]
-  vij1 = _mm256_permutevar8x32_epi32(vj1, vs) ;            // 0, 0, 1, 2, 3, 4, 5, 6  permutation
-  vij1 = _mm256_blend_epi32(vij1, v0, 1) ;                 // first element set to 0 (bot[-1])
+  vi   = loadu_v256((__v256i *) (top)  ) ;        // top[0:7]
+  vj1  = loadu_v256((__v256i *) (bot)  ) ;        // bot[0:7]
+//   vi1  = loadu_v256((__v256i *) (top-1)) ;        // top[-1:6]
+  vi1  = permutev_v8i(vi, vs) ;            // 0, 0, 1, 2, 3, 4, 5, 6  permutation
+  vi1  = blend_v8i(vi1, v0, 1) ;                 // first element set to 0 (top[-1])
+//   vij1 = loadu_v256((__v256i *) (bot-1)) ;        // bot[-1:6]
+  vij1 = permutev_v8i(vj1, vs) ;            // 0, 0, 1, 2, 3, 4, 5, 6  permutation
+  vij1 = blend_v8i(vij1, v0, 1) ;                 // first element set to 0 (bot[-1])
   // top[i] - ( top[i-1] + bot[i] - bot[i-1] )
-  vt   = _mm256_sub_epi32( vi, _mm256_sub_epi32( _mm256_add_epi32(vi1, vj1) , vij1 ) ) ;
+  vt   = sub_v8i( vi, sub_v8i( add_v8i(vi1, vj1) , vij1 ) ) ;
 //   vr   =  _mm256_xor_si256( _mm256_slli_epi32(vt, 1) , _mm256_srai_epi32(vt, 31) ) ;
   vr   = vt ;
   j0 = 0 ;
   // chunks of 8 elements (second chunk may overlap first chunk)
   for(i0=n7 ; i0<n ; i0+=8){
-    vi   = _mm256_loadu_si256((__m256i *) (top+i0)  ) ;   // top[i0:i0+7]
-    vj1  = _mm256_loadu_si256((__m256i *) (bot+i0)  ) ;   // bot[i0:i0+7]
+    vi   = loadu_v256((__v256i *) (top+i0)  ) ;   // top[i0:i0+7]
+    vj1  = loadu_v256((__v256i *) (bot+i0)  ) ;   // bot[i0:i0+7]
 #if defined(WITH_FETCH)
-    vi1  = _mm256_loadu_si256((__m256i *) (top+i0-1)) ;   // top[i0-1:i0+6]
-    vij1 = _mm256_loadu_si256((__m256i *) (bot+i0-1)) ;   // bot[i0-1:i0+6]
+    vi1  = loadu_v256((__v256i *) (top+i0-1)) ;   // top[i0-1:i0+6]
+    vij1 = loadu_v256((__v256i *) (bot+i0-1)) ;   // bot[i0-1:i0+6]
 #else
-    v0   = _mm256_set1_epi32(top[i0-1]) ;                 // top[i0-1]
-    vi1  = _mm256_permutevar8x32_epi32(vi, vs) ;          // 0, 0, 1, 2, 3, 4, 5, 6  permutation
-    vi1  = _mm256_blend_epi32(vi1, v0, 1) ;               // first element set to top[i0-1]
-    v0   = _mm256_set1_epi32(bot[i0-1]) ;                 // bot[i0-1]
-    vij1 = _mm256_permutevar8x32_epi32(vj1, vs) ;         // 0, 0, 1, 2, 3, 4, 5, 6  permutation
-    vij1 = _mm256_blend_epi32(vij1, v0, 1) ;              // first element set to bot[i0-1]
+    v0   = set1_v8i(top[i0-1]) ;                 // top[i0-1]
+    vi1  = permutev_v8i(vi, vs) ;          // 0, 0, 1, 2, 3, 4, 5, 6  permutation
+    vi1  = blend_v8i(vi1, v0, 1) ;               // first element set to top[i0-1]
+    v0   = set1_v8i(bot[i0-1]) ;                 // bot[i0-1]
+    vij1 = permutev_v8i(vj1, vs) ;         // 0, 0, 1, 2, 3, 4, 5, 6  permutation
+    vij1 = blend_v8i(vij1, v0, 1) ;              // first element set to bot[i0-1]
 #endif
     // top[i0+i] - ( top[i0+i-1] + bot[i0+i] - bot[i0+i-1] )
-    vt   = _mm256_sub_epi32( vi, _mm256_sub_epi32( _mm256_add_epi32(vi1, vj1) , vij1 ) ) ;
-    _mm256_storeu_si256( (__m256i *) (top+j0), vr) ;      // delayed store, result of previous pass
+    vt   = sub_v8i( vi, sub_v8i( add_v8i(vi1, vj1) , vij1 ) ) ;
+    storeu_v256( (__v256i *) (top+j0), vr) ;      // delayed store, result of previous pass
 //     vr =  _mm256_xor_si256( _mm256_slli_epi32(vt, 1) , _mm256_srai_epi32(vt, 31) ) ;
     vr = vt ;
     j0 = i0 ;
   }
-  _mm256_storeu_si256( (__m256i *) (top+j0), vr) ;        // delayed store, result of previous pass
+  storeu_v256( (__v256i *) (top+j0), vr) ;        // delayed store, result of previous pass
 }
 #else
 

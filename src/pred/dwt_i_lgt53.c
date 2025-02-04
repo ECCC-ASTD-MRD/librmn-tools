@@ -99,19 +99,19 @@ static inline int is_odd(int n) { return (n & 1) ; }
 
 // predict odd terms using even terms
 static inline int predict(int o0, int e0, int e1){ return o0 - ((e0 + e1 + ROUND) >> 1) ; }
-static inline int predict_edge(int o0, int e0   ){ return o0 - e0 ; }
+static inline int predict_edge(int o0, int e0   ){ return o0 - e0 ; }   // predict(o0, e0, e0)
 
 // update even terms using odd terms
 static inline int update(int e1, int o0, int o1){ return e1 + ((o0 + o1 + 2) >> 2) ; }
-static inline int update_edge(int e1, int o0   ){ return e1 + ((o0 + 1) >> 1) ; }
+static inline int update_edge(int e1, int o0   ){ return e1 + ((o0 + 1) >> 1) ; }  // update(e1, o0, o0) ;
 
 // inverse predict odd terms using even terms
 static inline int un_predict(int o0, int e0, int e1){ return o0 + ((e0 + e1 + ROUND) >> 1) ; }
-static inline int un_predict_edge(int o0, int e0   ){ return o0 + e0 ; }
+static inline int un_predict_edge(int o0, int e0   ){ return o0 + e0 ; }   // un_predict(o0, e0, e0)
 
 // inverse update even terms using odd terms
 static inline int un_update(int e1, int o0, int o1){ return e1 - ((o0 + o1 + 2) >> 2) ; }
-static inline int un_update_edge(int e1, int o0   ){ return e1 - ((o0 + 1) >> 1) ; }
+static inline int un_update_edge(int e1, int o0   ){ return e1 - ((o0 + 1) >> 1) ; } // un_update(e1, o0, o0) ;
 
 typedef struct{
   uint32_t e ;
