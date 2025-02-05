@@ -1,6 +1,6 @@
 /*
  * Hopefully useful code for C and Fortran
- * Copyright (C) 2022  Recherche en Prevision Numerique
+ * Copyright (C) 2022-2025  Recherche en Prevision Numerique
  *
  * This code is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -23,44 +23,26 @@
 #define USE_SIMD_INTRINSICS
 // comment the following line to activate SIMD code
 // #define EMULATE_SIMD
-#include <rmn/simd_functions.h>
-// #define WITH_SIMD
-// #include <with_simd.h>
 
-// #if ! defined(STATIC)
+// include SIMD intrinsics
+#include <rmn/simd_functions.h>
+
 #define STATIC static
-// #endif
 
 #include <rmn/lorenzo.h>
 
-// plain C version for cases where ni < 9
-// does not work in place
-static void LorenzoPredictShort(int32_t * restrict orig, int32_t * restrict diff, int ni, int lnio, int lnid, int nj){
-  int i ;
-  diff[0] = orig[0] ;
-  for(i=1 ; i<ni ; i++) diff[i] = orig[i] - orig[i-1] ;
-  while(--nj > 0){
-    diff += lnid ; 
-    orig += lnio ;
-    diff[0] = orig[0] - orig[0-lnio] ;
-    for(i=1 ; i<ni ; i++) diff[i] = orig[i] - (orig[i-1] + orig[i-lnio] - orig[i-1-lnio]) ;
-  }
-}
-
-// target is AVX2 256 bit SIMD
+// SIMD target is AVX2 (256 bit)
 // predict the bottom row (1D prediction)
 // row  : bottom row
 // diff : prediction for bottom row
 // n    : number of points in row
 STATIC inline void LorenzoPredictRow0(int32_t * restrict row, int32_t * restrict diff, int n){
-// #if defined(WITH_SIMD) && defined(__AVX2__) && defined(__x86_64__)
 #if ! defined(USE_PLAIN_C)
     __v256i vi, vi1 ;
     int i0, ii0 ;
 #endif
   int i ;
   diff[0] = row[0] ;
-// #if defined(WITH_SIMD) && defined(__AVX2__) && defined(__x86_64__)
 #if ! defined(USE_PLAIN_C)
   if(n < 9){   // the SIMD version will not work for n < 9
     for(i=1 ; i<n ; i++) diff[i] = row[i] - row[i-1] ;
@@ -78,7 +60,7 @@ STATIC inline void LorenzoPredictRow0(int32_t * restrict row, int32_t * restrict
 }
 
 // bottom row, n < 8, in place prediction
-static inline void LorenzoPredictRow0_inplace_07(int32_t * restrict row, int n){
+STATIC inline void LorenzoPredictRow0_inplace_07(int32_t * restrict row, int n){
   int i, n7 = (n & 7) ;
   int32_t r[7] ;
   r[0] = row[0] ;
@@ -87,7 +69,6 @@ static inline void LorenzoPredictRow0_inplace_07(int32_t * restrict row, int n){
 }
 
 // bottom row, in place prediction
-// #if defined(__x86_64__) && defined(__AVX2__) && defined(WITH_SIMD) && (! defined(__PGI))
 #if ! defined(USE_PLAIN_C)
 
 STATIC inline void LorenzoPredictRow0_inplace(int32_t * restrict row, int n){
@@ -130,7 +111,7 @@ STATIC inline void LorenzoPredictRow0_inplace(int32_t * restrict row, int n){
 }
 
 #else
-
+// plain C version
 STATIC inline void LorenzoPredictRow0_inplace(int32_t * restrict row, int n){
   int i, i0, j0, n7 = (n & 7) ;
   int32_t t[8], r[8], r0 ;
@@ -165,35 +146,7 @@ STATIC inline void LorenzoPredictRow0_inplace(int32_t * restrict row, int n){
 // n    : number of points in row
 // this function WILL NOT WORK IN-PLACE (i.e. if diff == top)
 // problem with PGI compiler : : undefined reference to `__builtin_ia32_palignr256' (bsrli_v128)
-#if 0
 STATIC inline void LorenzoPredictRowJ(int32_t * restrict top, int32_t * restrict bot, int32_t * restrict diff, int n){
-  __v256i vi, vi1, vi1_, vj1, vij1, vij1_ ;
-
-  diff[0] = top[0] - bot[0] ;         // first point in row, 1D prediction using row below
-  vi1  = loadu_v256((__v256i *) (top)) ;
-  vij1 = loadu_v256((__v256i *) (bot)) ;
-  n-- ; diff += 1 ; top += 8 ; bot += 8 ;
-  while( n > 7){
-    vi1_  = loadu_v256((__v256i *) (top)) ;
-    vij1_ = loadu_v256((__v256i *) (bot)) ;
-    vi    = alignr_v8i(vi1_, vi1, 1) ;
-    vj1   = alignr_v8i(vij1_, vij1, 1) ;
-    __v256i vr = sub_v8i( vi, sub_v8i( add_v8i(vi1, vj1) , vij1 ) ) ;
-    storeu_v256( (__v256i *) (diff), vr) ;
-    vi1  = vi1_ ;
-    vij1 = vij1_ ;
-    n -=8 ; top += 8 ; bot +=8 ; diff += 8 ;
-  }
-  vi    = alignr_v8i(vi1, vi1, 1) ;
-  vj1   = alignr_v8i(vij1, vij1, 1) ;
-  __v256i vr = sub_v8i( vi, sub_v8i( add_v8i(vi1, vj1) , vij1 ) ) ;
-  __v128i vt = extracti_128(vr, 0) ;
-  if(n & 4) { storeu_v128((__v128i *) diff, vt) ; vt = extracti_128(vr, 1) ; diff += 4 ; }
-  if(n & 2) { storeu_si64(diff, vt) ; vt = bsrli_v128(vt, 8) ; diff += 2 ; }
-  if(n & 1) { storeu_si32(diff, vt) ; }
-}
-#endif
-STATIC inline void LorenzoPredictRowJ_(int32_t * restrict top, int32_t * restrict bot, int32_t * restrict diff, int n){
 // #if defined(WITH_SIMD) && defined(__AVX2__) && defined(__x86_64__)
 #if ! defined(USE_PLAIN_C)
     __v256i vi, vi1, vj1, vij1 ;
@@ -223,7 +176,7 @@ STATIC inline void LorenzoPredictRowJ_(int32_t * restrict top, int32_t * restric
 }
 
 // all rows but bottom row, n < 8, in place prediction
-static void LorenzoPredictRowJ_inplace_07(int32_t * restrict top, int32_t * restrict bot, int n){
+STATIC void LorenzoPredictRowJ_inplace_07(int32_t * restrict top, int32_t * restrict bot, int n){
   int i, n7 = (n & 7) ;
   int32_t r[7] ;
   r[0] = top[0] - bot[0] ;
@@ -247,17 +200,14 @@ STATIC inline void LorenzoPredictRowJ_inplace(int32_t * restrict top, int32_t * 
   v0   = zero_v256() ;                         // 0s
   vs   = cvt_v8c_v8i( _mm_set1_epi64x(0x0605040302010000lu) ) ;  // shuffle patterm
   // first 8 elements
-  vi   = loadu_v256((__v256i *) (top)  ) ;        // top[0:7]
-  vj1  = loadu_v256((__v256i *) (bot)  ) ;        // bot[0:7]
-//   vi1  = loadu_v256((__v256i *) (top-1)) ;        // top[-1:6]
-  vi1  = permutev_v8i(vi, vs) ;            // 0, 0, 1, 2, 3, 4, 5, 6  permutation
-  vi1  = blend_v8i(vi1, v0, 1) ;                 // first element set to 0 (top[-1])
-//   vij1 = loadu_v256((__v256i *) (bot-1)) ;        // bot[-1:6]
-  vij1 = permutev_v8i(vj1, vs) ;            // 0, 0, 1, 2, 3, 4, 5, 6  permutation
-  vij1 = blend_v8i(vij1, v0, 1) ;                 // first element set to 0 (bot[-1])
+  vi   = loadu_v256((__v256i *) (top)  ) ;     // top[0:7]
+  vj1  = loadu_v256((__v256i *) (bot)  ) ;     // bot[0:7]
+  vi1  = permutev_v8i(vi, vs) ;                // 0, 0, 1, 2, 3, 4, 5, 6  permutation ( top[-1:6] )
+  vi1  = blend_v8i(vi1, v0, 1) ;               // first element set to 0 (top[-1])
+  vij1 = permutev_v8i(vj1, vs) ;               // 0, 0, 1, 2, 3, 4, 5, 6  permutation ( bot[-1:6] )
+  vij1 = blend_v8i(vij1, v0, 1) ;              // first element set to 0 (bot[-1])
   // top[i] - ( top[i-1] + bot[i] - bot[i-1] )
   vt   = sub_v8i( vi, sub_v8i( add_v8i(vi1, vj1) , vij1 ) ) ;
-//   vr   =  _mm256_xor_si256( _mm256_slli_epi32(vt, 1) , _mm256_srai_epi32(vt, 31) ) ;
   vr   = vt ;
   j0 = 0 ;
   // chunks of 8 elements (second chunk may overlap first chunk)
@@ -268,24 +218,23 @@ STATIC inline void LorenzoPredictRowJ_inplace(int32_t * restrict top, int32_t * 
     vi1  = loadu_v256((__v256i *) (top+i0-1)) ;   // top[i0-1:i0+6]
     vij1 = loadu_v256((__v256i *) (bot+i0-1)) ;   // bot[i0-1:i0+6]
 #else
-    v0   = set1_v8i(top[i0-1]) ;                 // top[i0-1]
-    vi1  = permutev_v8i(vi, vs) ;          // 0, 0, 1, 2, 3, 4, 5, 6  permutation
-    vi1  = blend_v8i(vi1, v0, 1) ;               // first element set to top[i0-1]
-    v0   = set1_v8i(bot[i0-1]) ;                 // bot[i0-1]
-    vij1 = permutev_v8i(vj1, vs) ;         // 0, 0, 1, 2, 3, 4, 5, 6  permutation
-    vij1 = blend_v8i(vij1, v0, 1) ;              // first element set to bot[i0-1]
+    v0   = set1_v8i(top[i0-1]) ;                  // top[i0-1]
+    vi1  = permutev_v8i(vi, vs) ;                 // 0, 0, 1, 2, 3, 4, 5, 6  permutation
+    vi1  = blend_v8i(vi1, v0, 1) ;                // first element set to top[i0-1]
+    v0   = set1_v8i(bot[i0-1]) ;                  // bot[i0-1]
+    vij1 = permutev_v8i(vj1, vs) ;                // 0, 0, 1, 2, 3, 4, 5, 6  permutation
+    vij1 = blend_v8i(vij1, v0, 1) ;               // first element set to bot[i0-1]
 #endif
     // top[i0+i] - ( top[i0+i-1] + bot[i0+i] - bot[i0+i-1] )
     vt   = sub_v8i( vi, sub_v8i( add_v8i(vi1, vj1) , vij1 ) ) ;
     storeu_v256( (__v256i *) (top+j0), vr) ;      // delayed store, result of previous pass
-//     vr =  _mm256_xor_si256( _mm256_slli_epi32(vt, 1) , _mm256_srai_epi32(vt, 31) ) ;
     vr = vt ;
     j0 = i0 ;
   }
   storeu_v256( (__v256i *) (top+j0), vr) ;        // delayed store, result of previous pass
 }
 #else
-
+// plain C version
 STATIC inline void LorenzoPredictRowJ_inplace(int32_t * restrict top, int32_t * restrict bot, int n){
   int i, i0, j0, n7 = (n & 7) ;
   int32_t t[8], r[8], r0 ;
@@ -330,6 +279,20 @@ STATIC void LorenzoPredictInplace(int32_t * restrict orig, int ni, int lnio, int
   LorenzoPredictRow0_inplace(orig, ni) ;              // bottom row
 }
 
+// plain C version for cases where ni < 9
+// DOES NOT WORK IN PLACE
+static void LorenzoPredictShort(int32_t * restrict orig, int32_t * restrict diff, int ni, int lnio, int lnid, int nj){
+  int i ;
+  diff[0] = orig[0] ;
+  for(i=1 ; i<ni ; i++) diff[i] = orig[i] - orig[i-1] ;
+  while(--nj > 0){
+    diff += lnid ; 
+    orig += lnio ;
+    diff[0] = orig[0] - orig[0-lnio] ;
+    for(i=1 ; i<ni ; i++) diff[i] = orig[i] - (orig[i-1] + orig[i-lnio] - orig[i-1-lnio]) ;
+  }
+}
+
 // 2D lorenzo prediction (32 bit signed integers)
 // orig : input : original values (32 bit signed integers)
 // diff : output : original value - predicted value (using 2D Lorenzo predictor) (32 bit signed integers)
@@ -344,7 +307,7 @@ void LorenzoPredict(int32_t * restrict orig, int32_t * restrict diff, int ni, in
     LorenzoPredictInplace(orig, ni, lnio, nj) ;
     return ;
   }
-  if(ni < 9){             // less than 9 points, SIMD version will not give correct results
+  if(ni < 9){             // less than 9 points, the SIMD version will not give correct results
     LorenzoPredictShort(orig, diff, ni, lnio, lnid, nj) ;
     return ;
   }
@@ -352,12 +315,7 @@ void LorenzoPredict(int32_t * restrict orig, int32_t * restrict diff, int ni, in
   while(--nj > 0){
     diff += lnid ; 
     orig += lnio ;
-// #if defined(__PGI)
-#if 1
-    LorenzoPredictRowJ_(orig, orig-lnio, diff, ni) ;   // all other rows
-#else
     LorenzoPredictRowJ(orig, orig-lnio, diff, ni) ;   // all other rows
-#endif
   }
 }
 

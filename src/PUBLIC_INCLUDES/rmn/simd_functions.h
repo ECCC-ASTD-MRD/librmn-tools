@@ -1,5 +1,5 @@
 // Hopefully useful code for C (memory block movers)
-// Copyright (C) 2022  Recherche en Prevision Numerique
+// Copyright (C) 2022-2025  Recherche en Prevision Numerique
 //
 // This code is free software; you can redistribute it and/or
 // modify it under the terms of the GNU Lesser General Public
