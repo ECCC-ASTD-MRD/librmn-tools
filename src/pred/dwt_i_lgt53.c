@@ -124,7 +124,7 @@ static void merge_even_odd(void *s_, void *e_, void *o_, int n_){
   int i, n = n_/2 ;
   even_odd_pair *t = (even_odd_pair *) s ;
   for(i=0 ; i<n ; i++) { t[i].e = e[i] ; t[i].o = o[i]; }
-  if(n & 1) t[i].e = e[n] ;
+  if(n_ & 1) t[n].e = e[n] ;
 }
 
 // split array x into separate even and odd arrays
@@ -133,7 +133,7 @@ static void split_even_odd(void *s_, void *e_, void *o_, int n_){
   int i, n = n_/2 ;
   even_odd_pair *t = (even_odd_pair *) s ;
   for(i=0 ; i<n ; i++) { e[i] = t[i].e ; o[i] = t[i].o ; }
-  if(n & 1) e[n] = t[i].e ;
+  if(n_ & 1) e[n] = t[n].e ;
 }
 
 // forward Le Gall Tabatabai transform, in place, split layout
@@ -203,11 +203,18 @@ static void fwd_1d_lgt53_split_even(int *x, int *e, int *o, int n){
   int neven = (n+1) >> 1;
   int nodd  = neven;
 
+// for(i = 0 ; i < 8 ; i++) fprintf(stderr, "%d ", x[i]) ;
+// fprintf(stderr, "\n");
+// fprintf(stderr, "nodd = %d, neven = %d\n", nodd, neven) ;
   for(i = 0 ; i < nodd-1 ; i++) o[i] = predict(x[i+i+1], x[i+i], x[i+i+2]) ;  // predict odd terms
   o[nodd-1] = predict_edge(x[n-1], x[n-2]) ;
-
+// for(i = 0 ; i < nodd  ; i++) fprintf(stderr, " odd %d ", o[i]) ;
   e[0 ] = update_edge(x[0], o[0]) ;
   for(i = 1; i < neven ; i++) e[i] = update(x[i+i], o[i], o[i-1]) ;           // update even terms
+// for(i = 0 ; i < nodd  ; i++) fprintf(stderr, " even %d ", e[i]) ;
+// fprintf(stderr, "\n");
+// for(i = 0 ; i < 8 ; i++) fprintf(stderr, "%d ", x[i]) ;
+// fprintf(stderr, "\n");
 }
 
 // forward Le Gall Tabatabai transform, not in place, even/odd arrays
@@ -280,7 +287,9 @@ static void fwd_2d_lgt53_(int lni, int ni, int nj, int x[nj][lni]){
   int o[njo][ni] ;   // local temporary copy of odd terms
 
   if(nj == 1){   // 1 row only, perform 1d transform
+// fprintf(stderr,"fwd_2d_lgt53_ %d %d\n", x[0][0], x[0][1]);
     fwd_1d_lgt53(&x[0][0], ni) ;
+// fprintf(stderr,"fwd_2d_lgt53_ %d %d\n", x[0][0], x[0][1]);
     return ;
   }
 
@@ -306,6 +315,7 @@ static void fwd_2d_lgt53_(int lni, int ni, int nj, int x[nj][lni]){
     for(j=0 ; j<njo-1 ; j++){ row_predict(&x[nje+j][0], &o[j][0], &x[j][0], &x[j+1][0], ni) ; }
     row_predict_edge(&x[nje+j][0], &o[j][0], &x[j][0], ni) ;      // last odd row
     // update even rows
+// fprintf(stderr, "row_update_edge\n");
     row_update_edge(&x[0][0], &x[0][0], &x[nje][0], ni) ;          // first even row
     for(j=1 ; j<nje ; j++){ row_update(&x[j][0], &x[j][0], &x[nje+j-1][0], &x[nje+j][0], ni) ; }
 
@@ -407,6 +417,9 @@ static void inv_1d_lgt53_split_even(int *x, int *e, int *o, int n){
   int i;
 
   merge_even_odd(x, e, o, n) ;                                           // move to x
+// fprintf(stderr, " inv_1d_lgt53_split_odd ");
+// for(i=0 ; i<8 ; i++) fprintf(stderr, "%3d ", x[i]);
+// fprintf(stderr, "\n");
 
   for (i = 2; i < n; i += 2) x[i] = un_update(x[i], x[i+1], x[i-1]) ;      // unupdate even terms
   x[0] = un_update_edge(x[0], x[1]) ;
@@ -424,7 +437,6 @@ static void inv_1d_lgt53_split_odd(int *x, int *e, int *o, int n){
   int i;
 
   merge_even_odd(x, e, o, n) ;                                           // move to x
-
   x[0] = un_update_edge(x[0], x[1]) ;
   for (i = 2; i < n - 2; i += 2) x[i] = un_update(x[i], x[i+1], x[i-1]) ;  // unupdate even terms
   x[n-1] = un_update_edge(x[n-1], x[n-2]) ;
@@ -487,7 +499,9 @@ static void inv_2d_lgt53_(int lni, int ni, int nj, int x[nj][lni]){
   int e[nje][ni] ;   // local temporary copy of even terms
 
   if(nj == 1){   // 1 row only, perform 1d inverse transform
+// fprintf(stderr,"inv_2d_lgt53_ %d %d\n", x[0][0], x[0][1]);
     inv_1d_lgt53(&x[0][0], ni) ;
+// fprintf(stderr,"inv_2d_lgt53_ %d %d\n", x[0][0], x[0][1]);
     return ;
   }
   // unupdate even rows, move to temporary array e
