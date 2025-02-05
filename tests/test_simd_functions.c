@@ -21,8 +21,6 @@
 #include <stdint.h>
 
 #include <rmn/test_helpers.h>
-// verbose mode for #include <rmn/simd_functions.h>
-#define VERBOSE_SIMD
 
 // comment following line to use emulated intrinsics
 #define USE_INTEL_SIMD_INTRINSICS_
@@ -30,6 +28,8 @@
 #define ALIAS_INTEL_SIMD_INTRINSICS
 #endif
 
+// verbose mode for include file rmn/simd_functions.h
+#define VERBOSE_SIMD
 #include <rmn/simd_functions.h>
 #include <rmn/simd_functions.h>   // deliberate double inclusion
 
@@ -55,11 +55,34 @@ int main(int argc, char **argv){
   __v128d v4da ;
   __v256  v8fa ;
   __v256d v8da ;
+  u128_t a128, b128 ;
+  u256_t a256, b256 ;
+  vec_128 v128 ;
+  vec_256 v256 ;
   int i ;
 
   if(argc >= 0){
     start_of_test_notime(argv[0]);
   }
+
+  fprintf(stderr, "- test of 128/256 bit types\n");
+  // 128 bit assignments
+  a128 = (u128_t) { 0LU, 1LU } ;    // 128 bit type cast
+  b128 = (u128_t) { 2LU, 3LU } ;
+  v128.u128 = a128 ;
+  for(i=0 ; i<2 ; i++) if(v128.u64[i] != i  ) exit(1) ;
+  v128.u128 = b128 ;
+  for(i=0 ; i<2 ; i++) if(v128.u64[i] != i+2) exit(1) ;
+  a256.u128[0] = a128 ;
+  a256.u128[1] = b128 ;
+  v256.u128[0] = a128 ;
+  v256.u128[1] = b128 ;
+  // 256 bit assignments
+  b256 = a256 ;
+  for(i=0 ; i<4 ; i++) if(b256.u64[i] != i) exit(1) ;
+  v256.u256 = b256 ;
+  for(i=0 ; i<4 ; i++) if(v256.u64[i] != i) exit(1) ;
+  fprintf(stderr, "SUCCESS\n") ;
 
   fprintf(stderr, "- constants\n");
   v400 = _mm_xor_si128(v400, v400)    ; v411 = _mm_cmpeq_epi32(v400, v400) ;
