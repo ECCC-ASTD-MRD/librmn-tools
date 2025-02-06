@@ -1,5 +1,10 @@
 #include <stdio.h>
+#include <stdlib.h>
+
 #include <rmn/dwt_i_lgt53.h>
+#include <rmn/timers.h>
+
+#define NTIMES 100
 
 static int nerr = 0 ;
 
@@ -7,7 +12,8 @@ static int errors(int *a, int *b, int n){
   int i ;
   for(i=0; i<n ; i++) {
     if(a[i] != b[i]){ nerr++ ;
-      fprintf(stderr, "error at i = %d, expected %d, got %d\n", i, a[i], b[i]) ;
+//       fprintf(stderr, "error at i = %d, expected %d, got %d\n", i, a[i], b[i]) ;
+// exit(1) ;
     }
   }
   return nerr ;
@@ -24,6 +30,11 @@ int main(int argc, char **argv){
   int t2d[16][16] ;
   int r2d[16][16] ;
   int e[16], o[16] ;
+
+  if(argc > 1){
+    if( *argv[1] == 't') goto timings ;
+    if( *argv[1] == 'x') goto experiments ;
+  }
 
   for(i=0; i<16 ; i++){ ref[i] = tmp[i] ; }
   for(j=0 ; j<16 ; j++){
@@ -233,12 +244,79 @@ int nrows = 2, ncols = 2 ;
 
   fprintf(stderr, "SUCCESS\n");
 
-//   int bench[64][64] ;
-//   for(j=0 ; j<64 ; j++){
-//     for(i=0; i<64 ; i++){
-//       bench[j][i] = sin[i&15] * cos[j&15] + 1 ;
-//     }
-//   }
+timings:
+  fprintf(stderr, "========== timing tests ==========\n");
+  int bench[64][64], orig[64][64], iter, levels ;
+  uint64_t t0[NTIMES], t1[NTIMES], t2[NTIMES], tmin1, tmin2 ;
+  float tp1, tp2 ;
+  int src[64], odd[64], even[64], sref[64] ;
+
+  for(j=0 ; j<64 ; j++){
+    sref[j] = src[j] = cos[j&15] + 1 ;
+    for(i=0; i<64 ; i++){
+      orig[j][i] = bench[j][i] = sin[i&15] * cos[j&15] + 1 ;
+    }
+  }
+
+  tmin1 = tmin2 = 999999999 ;
+  for(iter=0 ; iter<NTIMES ; iter++){
+    t0[iter] = elapsed_cycles() ;
+//     for(i=0 ; i<64 ; i++) fwd_1d_lgt53_split_even((void *)src, even, odd, 64) ;
+//     for(i=0 ; i<64 ; i++) fwd_1d_lgt53_split((void *)src, even, odd, 64) ;
+    for(i=0 ; i<64 ; i++) fwd_1d_lgt53_split_even((void *)src, even, odd, 64) ;
+    t1[iter] = elapsed_cycles() ;
+//     for(i=0 ; i<64 ; i++) inv_1d_lgt53_split_even((void *)src, even, odd, 64) ;
+    for(i=0 ; i<64 ; i++) inv_1d_lgt53_split_even((void *)src, even, odd, 64) ;
+    t2[iter] = elapsed_cycles() ;
+    tmin1 = ((t1[iter] - t0[iter]) < tmin1) ? (t1[iter] - t0[iter]) : tmin1 ;
+    tmin2 = ((t2[iter] - t1[iter]) < tmin2) ? (t2[iter] - t1[iter]) : tmin2 ;
+  }
+  fprintf(stderr, "1D transform : errors = %d\n", errors((void *)src, (void *)sref, 64));
+  tp1 = cycles_to_ns(tmin1)/4096 ;
+  tp2 = cycles_to_ns(tmin2)/4096 ;
+  fprintf(stderr, "fwd transform : %6ld cycles (%f5.2 ns/point), inv transform : %6ld cycles (%f5.2 ns/point)\n", tmin1, tp1, tmin2, tp2) ;
+
+  tmin1 = tmin2 = 999999999 ;
+  levels = 2 ;
+  for(iter=0 ; iter<NTIMES ; iter++){
+    t0[iter] = elapsed_cycles() ;
+    fwd_2d_lgt53_n((void *)bench, 64, 64, 64, levels) ;
+    t1[iter] = elapsed_cycles() ;
+    inv_2d_lgt53_n((void *)bench, 64, 64, 64, levels) ;
+    t2[iter] = elapsed_cycles() ;
+    tmin1 = ((t1[iter] - t0[iter]) < tmin1) ? (t1[iter] - t0[iter]) : tmin1 ;
+    tmin2 = ((t2[iter] - t1[iter]) < tmin2) ? (t2[iter] - t1[iter]) : tmin2 ;
+  }
+  fprintf(stderr, "2D transform : errors = %d\n\n", errors((void *)bench, (void *)orig, 4096));
+  tp1 = cycles_to_ns(tmin1)/4096 ;
+  tp2 = cycles_to_ns(tmin2)/4096 ;
+  fprintf(stderr, "fwd transform : %6ld cycles (%f5.2 ns/point), inv transform : %6ld cycles (%f5.2 ns/point)\n", tmin1, tp1, tmin2, tp2) ;
+
+  return 0 ;
+
+  int a64[64], xo[64], xe[64] ;
+experiments :
+  for(i=0 ; i<64 ; i++){
+    a64[i] = sin[i&15] + cos[j&15] + i ;
+//     a64[i] = i ;
+    xo[i] = xe[i] = -1 ;
+  }
+  fwd_1d_lgt53_split(a64, xe, xo, 64) ;
+
+  for(i=0 ; i<16 ; i++) fprintf(stderr, "%3d ", a64[i]) ;
+  fprintf(stderr, "\n\n") ;
+
+  for(i=0 ; i<32 ; i++) fprintf(stderr, "%3d ", xe[i]) ;
+  fprintf(stderr, "\n") ;
+  for(i=0 ; i<32 ; i++) fprintf(stderr, "%3d ", xo[i]) ;
+  fprintf(stderr, "\n") ;
+
+  fprintf(stderr, "\n") ;
+  fwd_1d_lgt53_split_even(a64, xe, xo, 64) ;
+  for(i=0 ; i<32 ; i++) fprintf(stderr, "%3d ", xe[i]) ;
+  fprintf(stderr, "\n") ;
+  for(i=0 ; i<32 ; i++) fprintf(stderr, "%3d ", xo[i]) ;
+  fprintf(stderr, "\n") ;
 
   return 0 ;
 

@@ -22,7 +22,11 @@ void fwd_1d_lgt53_asis(int *x, int n);
 void inv_1d_lgt53_asis(int *x, int n);
 
 // explicit split into even and odd arrays
+void fwd_1d_lgt53_split_even(int *x, int *e, int *o, int n);
+void fwd_1d_lgt53_split_odd(int *x, int *e, int *o, int n);
 void fwd_1d_lgt53_split(int *x, int *e, int *o, int n);
+void inv_1d_lgt53_split_even(int *x, int *e, int *o, int n);
+void inv_1d_lgt53_split_odd(int *x, int *e, int *o, int n);
 void inv_1d_lgt53_split(int *x, int *e, int *o, int n);
 
 // multi level 1D transform, same layout as fwd_1d_lgt53/inv_1d_lgt53 (in place)

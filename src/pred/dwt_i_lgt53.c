@@ -92,6 +92,8 @@
 #include <stdio.h>
 #include <stdint.h>
 
+#include <immintrin.h>
+
 // utility functions used by main functions
 static inline int is_odd(int n) { return (n & 1) ; }
 
@@ -192,29 +194,166 @@ void fwd_1d_lgt53_asis(int *x, int n){
     x[i] = update(x[i], x[i-1], x[i+1]) ;  // update even
   }
 }
-
+#if 0
+static int eterms[] = {0, 2, 4, 6, 0, 2, 4, 6 } ;
+static int oterms[] = {1, 3, 5, 7, 1, 3, 5, 7 } ;
 // forward Le Gall Tabatabai transform, not in place, even/odd arrays
 // x    [IN] : 1D array to transform
 // e   [OUT] : 1D array of even terms
 // o   [OUT] : 1D array of odd terms
 // n    [IN] : dimension of x (assumed even)
-static void fwd_1d_lgt53_split_even(int *x, int *e, int *o, int n){
-  int i;
-  int neven = (n+1) >> 1;
-  int nodd  = neven;
+void fwd_1d_lgt53_split_even_simd(int *x, int *e, int *o, int n){
+// void fwd_1d_lgt53_split_even(int *x, int *e, int *o, int n){
+  int i, neven = n >> 1, temp ;   // nodd == neven
+  int o23 ;
+  __m256i ve0, ve1, ve2, ve3, vo0, vo1, vo2, vo3, vd0, vd1, vte, vto, vc1, vc2, vse, vso, vt0, vt1 ;
+  vc1 = _mm256_set1_epi32(1) ;      // vector of 1
+  vc2 = _mm256_set1_epi32(2) ;      // vector of 2
+  vse = _mm256_loadu_si256((__m256i *)eterms) ;
+  vso = _mm256_loadu_si256((__m256i *)oterms) ;
+  while(n > 63){            // 64 elements
+    vd0 = _mm256_loadu_si256((__m256i *)(x   )) ;
+    vd1 = _mm256_loadu_si256((__m256i *)(x+ 8)) ;
+    vt0 = _mm256_permutevar8x32_epi32(vd0, vse) ;   // 0  2  4  6  0  2  4  6
+    vt1 = _mm256_permutevar8x32_epi32(vd1, vse) ;   // 8 10 12 14  8 10 12 14
+    ve0 = _mm256_blend_epi32(vt0, vt1, 0xF0) ;      // 0  2  4  6  8 10 12 14
+    vt0 = _mm256_permutevar8x32_epi32(vd0, vso) ;
+    vt1 = _mm256_permutevar8x32_epi32(vd1, vso) ;
+    vo0 = _mm256_blend_epi32(vt0, vt1, 0xF0) ;
 
-// for(i = 0 ; i < 8 ; i++) fprintf(stderr, "%d ", x[i]) ;
-// fprintf(stderr, "\n");
-// fprintf(stderr, "nodd = %d, neven = %d\n", nodd, neven) ;
+//     vd0 = _mm256_shuffle_epi32(vd0, 0b11011000) ;      // 0, 2, 1, 3, 4, 6, 5, 7
+//     vd1 = _mm256_shuffle_epi32(vd1, 0b11011000) ;      // 8,10, 9,11,12,14,13,15
+//     ve0 = _mm256_unpacklo_epi64(vd0, vd1) ;            // 0, 2, 8,10, 4, 6,12,14
+//     vo0 = _mm256_unpackhi_epi64(vd0, vd1) ;            // 1, 3, 9,11, 5, 7,13,15
+//     ve0 = _mm256_permute4x64_epi64(ve0, 0b11011000 ) ; // 0, 2, 4, 6, 8,10,12,14
+//     vo0 = _mm256_permute4x64_epi64(vo0, 0b11011000 ) ; // 1, 3, 5, 7, 9,11,13,15
+    _mm256_storeu_si256((__m256i *)(e   ), ve0) ;
+
+    vd0 = _mm256_loadu_si256((__m256i *)(x+16)) ;
+    vd1 = _mm256_loadu_si256((__m256i *)(x+24)) ;
+    vt0 = _mm256_permutevar8x32_epi32(vd0, vse) ;   // 0  2  4  6  0  2  4  6
+    vt1 = _mm256_permutevar8x32_epi32(vd1, vse) ;   // 8 10 12 14  8 10 12 14
+    ve1 = _mm256_blend_epi32(vt0, vt1, 0xF0) ;      // 0  2  4  6  8 10 12 14
+    vt0 = _mm256_permutevar8x32_epi32(vd0, vso) ;
+    vt1 = _mm256_permutevar8x32_epi32(vd1, vso) ;
+    vo1 = _mm256_blend_epi32(vt0, vt1, 0xF0) ;
+//     vd0 = _mm256_shuffle_epi32(vd0, 0b11011000) ;      // 0, 2, 1, 3, 4, 6, 5, 7
+//     vd1 = _mm256_shuffle_epi32(vd1, 0b11011000) ;      // 8,10, 9,11,12,14,13,15
+//     ve1 = _mm256_unpacklo_epi64(vd0, vd1) ;            // 0, 2, 8,10, 4, 6,12,14
+//     vo1 = _mm256_unpackhi_epi64(vd0, vd1) ;            // 1, 3, 9,11, 5, 7,13,15
+//     ve1 = _mm256_permute4x64_epi64(ve1, 0b11011000 ) ; // 0, 2, 4, 6, 8,10,12,14
+//     vo1 = _mm256_permute4x64_epi64(vo1, 0b11011000 ) ; // 1, 3, 5, 7, 9,11,13,15
+    _mm256_storeu_si256((__m256i *)(e+ 8), ve1) ;
+
+    vte = _mm256_loadu_si256((__m256i *)(e+ 1)) ;
+    vte = _mm256_add_epi32(vte, ve0) ;
+    vte = _mm256_add_epi32(vte, vc1) ;
+    vte = _mm256_srai_epi32(vte, 1) ;                  // (e[i] + e[i+1] + 1) / 2
+    vo0 = _mm256_sub_epi32(vo0, vte) ;                 // o[i] = o[i] - (e[i] + e[i+1] + 1) / 2
+    _mm256_storeu_si256((__m256i *)(o   ), vo0) ;      // store slice of o
+
+    temp = e[0] - ((o[0] + 1)  >> 1) ;                 // first even value
+    vto = _mm256_loadu_si256((__m256i *)(o- 1)) ;
+    vto = _mm256_add_epi32(vto, vo0) ;
+    vto = _mm256_add_epi32(vto, vc2) ;
+    vto = _mm256_srai_epi32(vto, 2) ;                  // (o[i] + o[i-1] + 2) / 4
+    ve0 = _mm256_add_epi32(ve0, vto) ;                 // e[i] = e[i] + (o[i] + o[i-1] + 2) / 4
+    _mm256_storeu_si256((__m256i *)(e   ), ve0) ;      // store slice of e
+
+    vd0 = _mm256_loadu_si256((__m256i *)(x+32)) ;
+    vd1 = _mm256_loadu_si256((__m256i *)(x+40)) ;
+    vt0 = _mm256_permutevar8x32_epi32(vd0, vse) ;   // 0  2  4  6  0  2  4  6
+    vt1 = _mm256_permutevar8x32_epi32(vd1, vse) ;   // 8 10 12 14  8 10 12 14
+    ve2 = _mm256_blend_epi32(vt0, vt1, 0xF0) ;      // 0  2  4  6  8 10 12 14
+    vt0 = _mm256_permutevar8x32_epi32(vd0, vso) ;
+    vt1 = _mm256_permutevar8x32_epi32(vd1, vso) ;
+    vo2 = _mm256_blend_epi32(vt0, vt1, 0xF0) ;
+//     vd0 = _mm256_shuffle_epi32(vd0, 0b11011000) ;      // 0, 2, 1, 3, 4, 6, 5, 7
+//     vd1 = _mm256_shuffle_epi32(vd1, 0b11011000) ;      // 8,10, 9,11,12,14,13,15
+//     ve2 = _mm256_unpacklo_epi64(vd0, vd1) ;            // 0, 2, 8,10, 4, 6,12,14
+//     vo2 = _mm256_unpackhi_epi64(vd0, vd1) ;            // 1, 3, 9,11, 5, 7,13,15
+//     ve2 = _mm256_permute4x64_epi64(ve2, 0b11011000 ) ; // 0, 2, 4, 6, 8,10,12,14
+//     vo2 = _mm256_permute4x64_epi64(vo2, 0b11011000 ) ; // 1, 3, 5, 7, 9,11,13,15
+    _mm256_storeu_si256((__m256i *)(e+16), ve2) ;
+
+    vte = _mm256_loadu_si256((__m256i *)(e+ 9)) ;
+    vte = _mm256_add_epi32(vte, ve1) ;
+    vte = _mm256_add_epi32(vte, vc1) ;
+    vte = _mm256_srai_epi32(vte, 1) ;                  // (e[i] + e[i+1] + 1) / 2
+    vo1 = _mm256_sub_epi32(vo1, vte) ;                 // o[i] = o[i] - (e[i] + e[i+1] + 1) / 2
+    _mm256_storeu_si256((__m256i *)(o+ 8), vo1) ;      // store slice of o
+
+    vto = _mm256_loadu_si256((__m256i *)(o+ 7)) ;
+    vto = _mm256_add_epi32(vto, vo1) ;
+    vto = _mm256_add_epi32(vto, vc2) ;
+    vto = _mm256_srai_epi32(vto, 2) ;                  // (o[i] + o[i-1] + 2) / 4
+    ve1 = _mm256_add_epi32(ve1, vto) ;                 // e[i] = e[i] + (o[i] + o[i-1] + 2) / 4
+    _mm256_storeu_si256((__m256i *)(e+ 8), ve1) ;      // store slice of e
+
+    vd0 = _mm256_loadu_si256((__m256i *)(x+48)) ;
+    vd1 = _mm256_loadu_si256((__m256i *)(x+56)) ;
+    vt0 = _mm256_permutevar8x32_epi32(vd0, vse) ;   // 0  2  4  6  0  2  4  6
+    vt1 = _mm256_permutevar8x32_epi32(vd1, vse) ;   // 8 10 12 14  8 10 12 14
+    ve3 = _mm256_blend_epi32(vt0, vt1, 0xF0) ;      // 0  2  4  6  8 10 12 14
+    vt0 = _mm256_permutevar8x32_epi32(vd0, vso) ;
+    vt1 = _mm256_permutevar8x32_epi32(vd1, vso) ;
+    vo3 = _mm256_blend_epi32(vt0, vt1, 0xF0) ;
+//     vd0 = _mm256_shuffle_epi32(vd0, 0b11011000) ;      // 0, 2, 1, 3, 4, 6, 5, 7
+//     vd1 = _mm256_shuffle_epi32(vd1, 0b11011000) ;      // 8,10, 9,11,12,14,13,15
+//     ve3 = _mm256_unpacklo_epi64(vd0, vd1) ;            // 0, 2, 8,10, 4, 6,12,14
+//     vo3 = _mm256_unpackhi_epi64(vd0, vd1) ;            // 1, 3, 9,11, 5, 7,13,15
+//     ve3 = _mm256_permute4x64_epi64(ve3, 0b11011000 ) ; // 0, 2, 4, 6, 8,10,12,14
+//     vo3 = _mm256_permute4x64_epi64(vo3, 0b11011000 ) ; // 1, 3, 5, 7, 9,11,13,15
+    _mm256_storeu_si256((__m256i *)(e+24), ve3) ;
+
+    vte = _mm256_loadu_si256((__m256i *)(e+17)) ;
+    vte = _mm256_add_epi32(vte, ve2) ;
+    vte = _mm256_add_epi32(vte, vc1) ;
+    vte = _mm256_srai_epi32(vte, 1) ;                  // (e[i] + e[i+1] + 1) / 2
+    vo2 = _mm256_sub_epi32(vo2, vte) ;                 // o[i] = o[i] - (e[i] + e[i+1] + 1) / 2
+    _mm256_storeu_si256((__m256i *)(o+16), vo2) ;      // store slice of o
+
+    vto = _mm256_loadu_si256((__m256i *)(o+15)) ;
+    vto = _mm256_add_epi32(vto, vo1) ;
+    vto = _mm256_add_epi32(vto, vc2) ;
+    vto = _mm256_srai_epi32(vto, 2) ;                  // (o[i] + o[i-1] + 2) / 4
+    ve2 = _mm256_add_epi32(ve2, vto) ;                 // e[i] = e[i] + (o[i] + o[i-1] + 2) / 4
+    _mm256_storeu_si256((__m256i *)(e+16), ve2) ;      // store slice of e
+
+    vte = _mm256_loadu_si256((__m256i *)(e+25)) ;
+    vte = _mm256_add_epi32(vte, ve3) ;
+    vte = _mm256_add_epi32(vte, vc1) ;
+    vte = _mm256_srai_epi32(vte, 1) ;                  // (e[i] + e[i+1] + 1) / 2
+    vo3 = _mm256_sub_epi32(vo3, vte) ;                 // o[i] = o[i] - (e[i] + e[i+1] + 1) / 2
+    _mm256_storeu_si256((__m256i *)(o+24), vo3) ;      // store slice of o
+
+    o[31] = x[63] - e[31] ;                            // fix last odd term (if n == 64)
+    vo3 = _mm256_loadu_si256((__m256i *)(o+24)) ;      // reload last slice of o
+
+    vto = _mm256_loadu_si256((__m256i *)(o+23)) ;
+    vto = _mm256_add_epi32(vto, vo3) ;
+    vto = _mm256_add_epi32(vto, vc2) ;
+    vto = _mm256_srai_epi32(vto, 2) ;                  // (o[i] + o[i-1] + 2) / 4
+    ve3 = _mm256_add_epi32(ve3, vto) ;                 // e[i] = e[i] + (o[i] + o[i-1] + 2) / 4
+    _mm256_storeu_si256((__m256i *)(e+24), ve3) ;      // store slice of e
+
+    n -= 64 ;
+  }
+}
+#endif
+void fwd_1d_lgt53_split_even(int *x, int *e, int *o, int n){
+  int i;
+  int neven = n >> 1;
+  int nodd  = neven;
+//   even_odd_pair *t = (even_odd_pair *) x ;
+
   for(i = 0 ; i < nodd-1 ; i++) o[i] = predict(x[i+i+1], x[i+i], x[i+i+2]) ;  // predict odd terms
+//   for(i = 0 ; i < nodd-1 ; i++) o[i] = predict(t[i].o, t[i].e, t[i+1].e) ;
   o[nodd-1] = predict_edge(x[n-1], x[n-2]) ;
-// for(i = 0 ; i < nodd  ; i++) fprintf(stderr, " odd %d ", o[i]) ;
+
   e[0 ] = update_edge(x[0], o[0]) ;
   for(i = 1; i < neven ; i++) e[i] = update(x[i+i], o[i], o[i-1]) ;           // update even terms
-// for(i = 0 ; i < nodd  ; i++) fprintf(stderr, " even %d ", e[i]) ;
-// fprintf(stderr, "\n");
-// for(i = 0 ; i < 8 ; i++) fprintf(stderr, "%d ", x[i]) ;
-// fprintf(stderr, "\n");
+//   for(i = 1; i < neven ; i++) e[i] = update(t[i].e, o[i], o[i-1]) ;
 }
 
 // forward Le Gall Tabatabai transform, not in place, even/odd arrays
@@ -222,7 +361,7 @@ static void fwd_1d_lgt53_split_even(int *x, int *e, int *o, int n){
 // e   [OUT] : 1D array of even terms
 // o   [OUT] : 1D array of odd terms
 // n    [IN] : dimension of x (assumed odd)
-static void fwd_1d_lgt53_split_odd(int *x, int *e, int *o, int n){
+void fwd_1d_lgt53_split_odd(int *x, int *e, int *o, int n){
   int i;
   int neven = (n+1) >> 1;
   int nodd  = n >> 1;
@@ -413,19 +552,14 @@ void inv_1d_lgt53_asis(int *x, int n){
 // e    [IN] : 1D array of even terms
 // o    [IN] : 1D array of odd terms
 // n    [IN] : dimension of x (assumed even)
-static void inv_1d_lgt53_split_even(int *x, int *e, int *o, int n){
-  int i;
+void inv_1d_lgt53_split_even(int *x, int *e, int *o, int n){
+  int i, nodd = n >> 1;
 
-  merge_even_odd(x, e, o, n) ;                                           // move to x
-// fprintf(stderr, " inv_1d_lgt53_split_odd ");
-// for(i=0 ; i<8 ; i++) fprintf(stderr, "%3d ", x[i]);
-// fprintf(stderr, "\n");
+  for (i = 1; i < nodd; i ++) x[i+i] = un_update(e[i], o[i], o[i-1]) ;         // unupdate even terms
+  x[0] = un_update_edge(e[0], o[0]) ;
 
-  for (i = 2; i < n; i += 2) x[i] = un_update(x[i], x[i+1], x[i-1]) ;      // unupdate even terms
-  x[0] = un_update_edge(x[0], x[1]) ;
-
-  x[n-1] = un_predict_edge(x[n-1], x[n-2]) ;
-  for (i = 1; i < n - 2; i += 2) x[i] = un_predict(x[i], x[i-1], x[i+1]) ; // unpredict odd terms
+  x[n-1] = un_predict_edge(o[nodd-1], x[n-2]) ;
+  for (i = 0; i < nodd-1; i++) x[i+i+1] = un_predict(o[i], x[i+i], x[i+i+2]) ; // unpredict odd terms
 }
 
 // inverse Le Gall Tabatabai transform, not in place, even/odd arrays
@@ -433,7 +567,7 @@ static void inv_1d_lgt53_split_even(int *x, int *e, int *o, int n){
 // e    [IN] : 1D array of even terms
 // o    [IN] : 1D array of odd terms
 // n    [IN] : dimension of x (assumed odd)
-static void inv_1d_lgt53_split_odd(int *x, int *e, int *o, int n){
+void inv_1d_lgt53_split_odd(int *x, int *e, int *o, int n){
   int i;
 
   merge_even_odd(x, e, o, n) ;                                           // move to x
