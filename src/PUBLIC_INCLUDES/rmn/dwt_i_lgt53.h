@@ -13,11 +13,12 @@
  * Library General Public License for more details.
  */
 
-// even terms followed by odd terms after transform (in place)
+// even terms followed by odd terms after forward transform (in place)
 void fwd_1d_lgt53(int *x, int n);
+// even terms followed by odd terms before inverse transform (in place)
 void inv_1d_lgt53(int *x, int n);
 
-// evn/odd pairs with possible even term alone at end (in place)
+// even/odd pairs with possible even term alone at end (in place)
 void fwd_1d_lgt53_asis(int *x, int n);
 void inv_1d_lgt53_asis(int *x, int n);
 
