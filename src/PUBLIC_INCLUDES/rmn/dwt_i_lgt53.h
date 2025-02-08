@@ -41,3 +41,6 @@ void inv_2d_lgt53(int *x, int lni, int ni, int nj);
 // multi level 2D transform, same layout as fwd_2d_lgt53/inv_2d_lgt53 (in place)
 void fwd_2d_lgt53_n(int *x, int lni, int ni, int nj, int levels);
 void inv_2d_lgt53_n(int *x, int lni, int ni, int nj, int levels);
+
+void fwd_1d_lgt53_split_even_simd(int *x, int *e, int *o, int n);
+void fwd_1d_lgt53_split_even_c(int *x, int *e, int *o, int n);

@@ -12,7 +12,7 @@ static int errors(int *a, int *b, int n){
   int i ;
   for(i=0; i<n ; i++) {
     if(a[i] != b[i]){ nerr++ ;
-//       fprintf(stderr, "error at i = %d, expected %d, got %d\n", i, a[i], b[i]) ;
+      if(nerr < 3) fprintf(stderr, "error at i = %d, expected %d, got %d\n", i, a[i], b[i]) ;
 // exit(1) ;
     }
   }
@@ -274,7 +274,7 @@ timings:
   fprintf(stderr, "1D transform : errors = %d\n", errors((void *)src, (void *)sref, 64));
   tp1 = cycles_to_ns(tmin1)/4096 ;
   tp2 = cycles_to_ns(tmin2)/4096 ;
-  fprintf(stderr, "fwd transform : %6ld cycles (%f5.2 ns/point), inv transform : %6ld cycles (%f5.2 ns/point)\n", tmin1, tp1, tmin2, tp2) ;
+  fprintf(stderr, "fwd transform : %6ld cycles (%f5.2 ns/point), inv transform : %6ld cycles (%f5.2 ns/point)\n\n", tmin1, tp1, tmin2, tp2) ;
 
   tmin1 = tmin2 = 999999999 ;
   levels = 2 ;
@@ -287,36 +287,44 @@ timings:
     tmin1 = ((t1[iter] - t0[iter]) < tmin1) ? (t1[iter] - t0[iter]) : tmin1 ;
     tmin2 = ((t2[iter] - t1[iter]) < tmin2) ? (t2[iter] - t1[iter]) : tmin2 ;
   }
-  fprintf(stderr, "2D transform : errors = %d\n\n", errors((void *)bench, (void *)orig, 4096));
+
+  fprintf(stderr, "2D transform : errors = %d\n", errors((void *)bench, (void *)orig, 4096));
   tp1 = cycles_to_ns(tmin1)/4096 ;
   tp2 = cycles_to_ns(tmin2)/4096 ;
   fprintf(stderr, "fwd transform : %6ld cycles (%f5.2 ns/point), inv transform : %6ld cycles (%f5.2 ns/point)\n", tmin1, tp1, tmin2, tp2) ;
 
   return 0 ;
 
-  int a64[64], xo[64], xe[64] ;
+  int a64[64], xo1[64], xe1[64], xo2[64], xe2[64] ;
 experiments :
   for(i=0 ; i<64 ; i++){
-    a64[i] = sin[i&15] + cos[j&15] + i ;
+    a64[i] = sin[i&15] + cos[i&15] + i ;
 //     a64[i] = i ;
-    xo[i] = xe[i] = -1 ;
+//     xo1[i] = xe1[i] = -1 ;
+//     xo2[i] = xe2[i] = -1 ;
   }
-  fwd_1d_lgt53_split(a64, xe, xo, 64) ;
 
   for(i=0 ; i<16 ; i++) fprintf(stderr, "%3d ", a64[i]) ;
   fprintf(stderr, "\n\n") ;
 
-  for(i=0 ; i<32 ; i++) fprintf(stderr, "%3d ", xe[i]) ;
+  for(i=0 ; i<64 ; i++){ xo1[i] = xe1[i] = 999 ; } ;
+  fwd_1d_lgt53_split_even_c(a64, xe1+1, xo1+1, 64) ;
+  for(i=0 ; i<34 ; i++) fprintf(stderr, "%3d ", xe1[i]) ;
   fprintf(stderr, "\n") ;
-  for(i=0 ; i<32 ; i++) fprintf(stderr, "%3d ", xo[i]) ;
+  for(i=0 ; i<34 ; i++) fprintf(stderr, "%3d ", xo1[i]) ;
   fprintf(stderr, "\n") ;
 
   fprintf(stderr, "\n") ;
-  fwd_1d_lgt53_split_even(a64, xe, xo, 64) ;
-  for(i=0 ; i<32 ; i++) fprintf(stderr, "%3d ", xe[i]) ;
+  for(i=0 ; i<64 ; i++){ xo2[i] = xe2[i] = 999 ; } ;
+  fwd_1d_lgt53_split_even_simd(a64, xe2+1, xo2+1, 64) ;
+  for(i=0 ; i<34 ; i++) fprintf(stderr, "%3d ", xe2[i]) ;
   fprintf(stderr, "\n") ;
-  for(i=0 ; i<32 ; i++) fprintf(stderr, "%3d ", xo[i]) ;
+  for(i=0 ; i<34 ; i++) fprintf(stderr, "%3d ", xo2[i]) ;
   fprintf(stderr, "\n") ;
+
+  fprintf(stderr, "\n") ;
+  fprintf(stderr, "xe discrepancies = %d\n", errors((void *)xe1, (void *)xe2, 64)) ;
+  fprintf(stderr, "xo discrepancies = %d\n", errors((void *)xo1, (void *)xo2, 64)) ;
 
   return 0 ;
 
