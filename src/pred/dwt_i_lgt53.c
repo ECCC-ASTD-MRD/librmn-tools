@@ -256,42 +256,6 @@ void fwd_1d_lgt53_split_even_simd(int *x_, int *e_, int *o_, int n){
     ve0 = (__m256)_mm256_srai_epi32((__m256i)ve0, 1) ;            // (e[i] + 1 + e[i+1]) >> 1
     vo0 = (__m256)_mm256_sub_epi32((__m256i)vo0, (__m256i)ve0) ;  // o[i] - ( (e[i] + 1 + e[i+1]) >> 1 )
     _mm256_storeu_ps((float *)(o+ 8), vo0) ;
-
-//     vd0 = _mm256_loadu_ps((float *)(x+32)) ;
-//     vd1 = _mm256_loadu_ps((float *)(x+40)) ;
-//     ve0 = _mm256_shuffle_ps(vd0, vd1, 136) ;                  // 0b10001000 [ 0 2 8 A 4 6 C E ]
-//     ve0 = (__m256)_mm256_permute4x64_pd((__m256d)ve0, 216) ;  // 0b11011000 [ 0 2 4 6 8 A C E ]  e[i]
-//     vd0 = _mm256_loadu_ps((float *)(x+33)) ;
-//     vd1 = _mm256_loadu_ps((float *)(x+41)) ;
-//     vo0 = _mm256_shuffle_ps(vd0, vd1, 136) ;                  // 0b10001000 [ 1 3 9 B 5 7 D F ]
-//     vo0 = (__m256)_mm256_permute4x64_pd((__m256d)vo0, 216) ;  // 0b11011000 [ 1 3 5 7 9 B D F ]  o[i]
-//     ve1 = _mm256_shuffle_ps(vd0, vd1, 221) ;                  // 0b10001000 [ 2 4 A C 6 8 E 10]
-//     ve1 = (__m256)_mm256_permute4x64_pd((__m256d)ve1, 216) ;  // 0b11011000 [ 2 4 6 8 A C E 10]  e[i+1]
-//     _mm256_storeu_ps((float *)(e+16), ve0) ;
-// 
-//     ve0 = (__m256)_mm256_add_epi32((__m256i)ve0, vc1) ;           // e[i] + 1
-//     ve0 = (__m256)_mm256_add_epi32((__m256i)ve0, (__m256i)ve1) ;  // e[i] + 1 + e[i+1]
-//     ve0 = (__m256)_mm256_srai_epi32((__m256i)ve0, 1) ;            // (e[i] + 1 + e[i+1]) >> 1
-//     vo0 = (__m256)_mm256_sub_epi32((__m256i)vo0, (__m256i)ve0) ;  // o[i] - ( (e[i] + 1 + e[i+1]) >> 1 )
-//     _mm256_storeu_ps((float *)(o+16), vo0) ;
-// 
-//     vd0 = _mm256_loadu_ps((float *)(x+48)) ;
-//     vd1 = _mm256_loadu_ps((float *)(x+56)) ;
-//     ve0 = _mm256_shuffle_ps(vd0, vd1, 136) ;                  // 0b10001000 [ 0 2 8 A 4 6 C E ]
-//     ve0 = (__m256)_mm256_permute4x64_pd((__m256d)ve0, 216) ;  // 0b11011000 [ 0 2 4 6 8 A C E ]  e[i]
-//     vd0 = _mm256_loadu_ps((float *)(x+49)) ;
-//     vd1 = _mm256_loadu_ps((float *)(x+57)) ;
-//     vo0 = _mm256_shuffle_ps(vd0, vd1, 136) ;                  // 0b10001000 [ 1 3 9 B 5 7 D F ]
-//     vo0 = (__m256)_mm256_permute4x64_pd((__m256d)vo0, 216) ;  // 0b11011000 [ 1 3 5 7 9 B D F ]  o[i]
-//     ve1 = _mm256_shuffle_ps(vd0, vd1, 221) ;                  // 0b10001000 [ 2 4 A C 6 8 E 10]
-//     ve1 = (__m256)_mm256_permute4x64_pd((__m256d)ve1, 216) ;  // 0b11011000 [ 2 4 6 8 A C E 10]  e[i+1]
-//     _mm256_storeu_ps((float *)(e+24), ve0) ;
-// 
-//     ve0 = (__m256)_mm256_add_epi32((__m256i)ve0, vc1) ;           // e[i] + 1
-//     ve0 = (__m256)_mm256_add_epi32((__m256i)ve0, (__m256i)ve1) ;  // e[i] + 1 + e[i+1]
-//     ve0 = (__m256)_mm256_srai_epi32((__m256i)ve0, 1) ;            // (e[i] + 1 + e[i+1]) >> 1
-//     vo0 = (__m256)_mm256_sub_epi32((__m256i)vo0, (__m256i)ve0) ;  // o[i] - ( (e[i] + 1 + e[i+1]) >> 1 )
-//     _mm256_storeu_ps((float *)(o+24), vo0) ;
   }
   e = e_ ; o = o_ ; x = x_ ;
   o[n/2-1] = x[n-1] - x[n-2] ;                        // predict last odd term
@@ -318,24 +282,6 @@ void fwd_1d_lgt53_split_even_simd(int *x_, int *e_, int *o_, int n){
      vo0 = (__m256)_mm256_srai_epi32((__m256i)vo0, 2) ;            // (o[i] + o[i-1] + 2) >> 2
      ve1 = (__m256)_mm256_add_epi32((__m256i)ve1, (__m256i)vo0) ;  // e[i] + ( (o[i] + o[i-1] + 2) >> 2 )
      _mm256_storeu_ps((float *)(e+ 8), ve1) ;
-
-//      ve1 = _mm256_loadu_ps((float *)(e+16)) ;
-//      vo0 = _mm256_loadu_ps((float *)(o+15)) ;
-//      vo1 = _mm256_loadu_ps((float *)(o+16)) ;
-//      vo0 = (__m256)_mm256_add_epi32((__m256i)vo0, vc2) ;           // o[i-1] + 2
-//      vo0 = (__m256)_mm256_add_epi32((__m256i)vo0, (__m256i)vo1) ;  // o[i] + o[i-1] + 2
-//      vo0 = (__m256)_mm256_srai_epi32((__m256i)vo0, 2) ;            // (o[i] + o[i-1] + 2) >> 2
-//      ve1 = (__m256)_mm256_add_epi32((__m256i)ve1, (__m256i)vo0) ;  // e[i] + ( (o[i] + o[i-1] + 2) >> 2 )
-//      _mm256_storeu_ps((float *)(e+16), ve1) ;
-// 
-//      ve1 = _mm256_loadu_ps((float *)(e+24)) ;
-//      vo0 = _mm256_loadu_ps((float *)(o+23)) ;
-//      vo1 = _mm256_loadu_ps((float *)(o+24)) ;
-//      vo0 = (__m256)_mm256_add_epi32((__m256i)vo0, vc2) ;           // o[i-1] + 2
-//      vo0 = (__m256)_mm256_add_epi32((__m256i)vo0, (__m256i)vo1) ;  // o[i] + o[i-1] + 2
-//      vo0 = (__m256)_mm256_srai_epi32((__m256i)vo0, 2) ;            // (o[i] + o[i-1] + 2) >> 2
-//      ve1 = (__m256)_mm256_add_epi32((__m256i)ve1, (__m256i)vo0) ;  // e[i] + ( (o[i] + o[i-1] + 2) >> 2 )
-//      _mm256_storeu_ps((float *)(e+24), ve1) ;
   }
   e_[0] = e00 ;
 }
