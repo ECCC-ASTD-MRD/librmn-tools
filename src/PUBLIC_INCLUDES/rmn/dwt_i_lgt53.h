@@ -23,9 +23,11 @@ void fwd_1d_lgt53_asis(int *x, int n);
 void inv_1d_lgt53_asis(int *x, int n);
 
 // explicit split into even and odd arrays
-void fwd_1d_lgt53_split_even(int *x, int *e, int *o, int n);
-void fwd_1d_lgt53_split_odd(int *x, int *e, int *o, int n);
 void fwd_1d_lgt53_split(int *x, int *e, int *o, int n);
+void fwd_1d_lgt53_split_c(int *x, int *e, int *o, int n);
+void fwd_1d_lgt53_split_simd(int *x, int *e, int *o, int n);
+// void fwd_1d_lgt53_split_odd(int *x, int *e, int *o, int n);
+
 void inv_1d_lgt53_split_even(int *x, int *e, int *o, int n);
 void inv_1d_lgt53_split_odd(int *x, int *e, int *o, int n);
 void inv_1d_lgt53_split(int *x, int *e, int *o, int n);
@@ -42,5 +44,4 @@ void inv_2d_lgt53(int *x, int lni, int ni, int nj);
 void fwd_2d_lgt53_n(int *x, int lni, int ni, int nj, int levels);
 void inv_2d_lgt53_n(int *x, int lni, int ni, int nj, int levels);
 
-void fwd_1d_lgt53_split_even_simd(int *x, int *e, int *o, int n);
-void fwd_1d_lgt53_split_even_c(int *x, int *e, int *o, int n);
+// void fwd_1d_lgt53_split_even_c(int *x, int *e, int *o, int n);

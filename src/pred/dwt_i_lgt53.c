@@ -202,25 +202,27 @@ void fwd_1d_lgt53_asis(int *x, int n){
 // e   [OUT] : 1D array of even terms
 // o   [OUT] : 1D array of odd terms
 // n    [IN] : dimension of x (assumed even)
-void fwd_1d_lgt53_split_even(int *x, int *e, int *o, int n){
-//   fwd_1d_lgt53_split_even_c(x, e, o, n) ;
-  fwd_1d_lgt53_split_even_simd(x, e, o, n) ;
+void fwd_1d_lgt53_split(int *x, int *e, int *o, int n){
+#if defined(__AVX2__)
+  fwd_1d_lgt53_split_simd(x, e, o, n) ;
+#else
+  fwd_1d_lgt53_split_c(x, e, o, n) ;
+#endif
 }
-void fwd_1d_lgt53_split_even_simd(int *x_, int *e_, int *o_, int n){
-  if(n & 31){
-    fwd_1d_lgt53_split_even_c(x_, e_, o_, n) ;
+#if defined(__AVX2__)
+void fwd_1d_lgt53_split_simd(int *x_, int *e_, int *o_, int n){
+  if(n & 15){          // not a multiple of 16, use C version
+    fwd_1d_lgt53_split_c(x_, e_, o_, n) ;
     return ;
   }
   int *x = x_, *e = e_, *o = o_ ;
-  int i ;
+  int i = 0 ;
   __m256i vc1, vc2 ;
   __m256  ve0, ve1,vd0, vd1, vo0, vo1 ;
   vc1 = _mm256_set1_epi32(1) ;      // vector of 1
   vc2 = _mm256_set1_epi32(2) ;      // vector of 2
 //   for(i=0 ; i<n-63 ; i+=64, o+=32, e+=32, x+=64){            // by 64 elements
-//   for(i=0 ; i<n-15 ; i+=16, o+=8, e+=8, x+=16){             // by 16 elements
-  for(i=0 ; i<n-31 ; i+=32, o+=16, e+=16, x+=32){             // by 32 elements
-
+  for( ; i<n-31 ; i+=32, o+=16, e+=16, x+=32){             // by 32 elements (16 odd/even pairs)
     vd0 = _mm256_loadu_ps((float *)(x   )) ;
     vd1 = _mm256_loadu_ps((float *)(x+ 8)) ;
     ve0 = _mm256_shuffle_ps(vd0, vd1, 136) ;                  // 0b10001000 [ 0 2 8 A 4 6 C E ]
@@ -257,14 +259,32 @@ void fwd_1d_lgt53_split_even_simd(int *x_, int *e_, int *o_, int n){
     vo0 = (__m256)_mm256_sub_epi32((__m256i)vo0, (__m256i)ve0) ;  // o[i] - ( (e[i] + 1 + e[i+1]) >> 1 )
     _mm256_storeu_ps((float *)(o+ 8), vo0) ;
   }
+  for( ; i<n-15 ; i+=16, o+=8, e+=8, x+=16){             // by 16 elements
+    vd0 = _mm256_loadu_ps((float *)(x   )) ;
+    vd1 = _mm256_loadu_ps((float *)(x+ 8)) ;
+    ve0 = _mm256_shuffle_ps(vd0, vd1, 136) ;                  // 0b10001000 [ 0 2 8 A 4 6 C E ]
+    ve0 = (__m256)_mm256_permute4x64_pd((__m256d)ve0, 216) ;  // 0b11011000 [ 0 2 4 6 8 A C E ]  e[i]
+    vd0 = _mm256_loadu_ps((float *)(x+ 1)) ;
+    vd1 = _mm256_loadu_ps((float *)(x+ 9)) ;
+    vo0 = _mm256_shuffle_ps(vd0, vd1, 136) ;                  // 0b10001000 [ 1 3 9 B 5 7 D F ]
+    vo0 = (__m256)_mm256_permute4x64_pd((__m256d)vo0, 216) ;  // 0b11011000 [ 1 3 5 7 9 B D F ]  o[i]
+    ve1 = _mm256_shuffle_ps(vd0, vd1, 221) ;                  // 0b10001000 [ 2 4 A C 6 8 E 10]
+    ve1 = (__m256)_mm256_permute4x64_pd((__m256d)ve1, 216) ;  // 0b11011000 [ 2 4 6 8 A C E 10]  e[i+1]
+    _mm256_storeu_ps((float *)(e   ), ve0) ;
+
+    ve0 = (__m256)_mm256_add_epi32((__m256i)ve0, vc1) ;           // e[i] + 1
+    ve0 = (__m256)_mm256_add_epi32((__m256i)ve0, (__m256i)ve1) ;  // e[i] + 1 + e[i+1]
+    ve0 = (__m256)_mm256_srai_epi32((__m256i)ve0, 1) ;            // (e[i] + 1 + e[i+1]) >> 1
+    vo0 = (__m256)_mm256_sub_epi32((__m256i)vo0, (__m256i)ve0) ;  // o[i] - ( (e[i] + 1 + e[i+1]) >> 1 )
+    _mm256_storeu_ps((float *)(o   ), vo0) ;
+  }
   e = e_ ; o = o_ ; x = x_ ;
   o[n/2-1] = x[n-1] - x[n-2] ;                        // predict last odd term
 
   int e00 = x[0] + ((o[0] + 1) >> 1) ;                // update first even term
 //   for(i=0 ; i<n-63 ; i+=64, o+=32, e+=32){            // by 64 elements
-  for(i=0 ; i<n-31 ; i+=32, o+=16, e+=16){            // by 32 elements
-//   for(i=0 ; i<n-15 ; i+=16, o+=8, e+=8){            // by 16 elements
-
+  i = 0 ;
+  for( ; i<n-31 ; i+=32, o+=16, e+=16){            // by 32 elements
      ve1 = _mm256_loadu_ps((float *)(e   )) ;
      vo0 = _mm256_loadu_ps((float *)(o- 1)) ;
      vo1 = _mm256_loadu_ps((float *)(o   )) ;
@@ -283,21 +303,41 @@ void fwd_1d_lgt53_split_even_simd(int *x_, int *e_, int *o_, int n){
      ve1 = (__m256)_mm256_add_epi32((__m256i)ve1, (__m256i)vo0) ;  // e[i] + ( (o[i] + o[i-1] + 2) >> 2 )
      _mm256_storeu_ps((float *)(e+ 8), ve1) ;
   }
+  for( ; i<n-15 ; i+=16, o+=8, e+=8){            // by 16 elements
+     ve1 = _mm256_loadu_ps((float *)(e   )) ;
+     vo0 = _mm256_loadu_ps((float *)(o- 1)) ;
+     vo1 = _mm256_loadu_ps((float *)(o   )) ;
+     vo0 = (__m256)_mm256_add_epi32((__m256i)vo0, vc2) ;           // o[i-1] + 2
+     vo0 = (__m256)_mm256_add_epi32((__m256i)vo0, (__m256i)vo1) ;  // o[i] + o[i-1] + 2
+     vo0 = (__m256)_mm256_srai_epi32((__m256i)vo0, 2) ;            // (o[i] + o[i-1] + 2) >> 2
+     ve1 = (__m256)_mm256_add_epi32((__m256i)ve1, (__m256i)vo0) ;  // e[i] + ( (o[i] + o[i-1] + 2) >> 2 )
+     _mm256_storeu_ps((float *)(e   ), ve1) ;
+  }
   e_[0] = e00 ;
 }
-void fwd_1d_lgt53_split_even_c(int *x, int *e, int *o, int n){
-  int i;
-  int neven = n >> 1;
-  int nodd  = neven;
+#endif
+void fwd_1d_lgt53_split_c(int *x, int *e, int *o, int n){
+  int i ;
+  int neven = (n + 1) >> 1, nodd  = n >> 1 ;
 
-  for(i = 0 ; i < nodd-1 ; i++) o[i] = predict(x[i+i+1], x[i+i], x[i+i+2]) ;  // predict odd terms
-  o[nodd-1] = predict_edge(x[n-1], x[n-2]) ;
+  if(n < 3){       // 1 or 2 items, special case
+    e[0] = x[0];
+    if(n == 2){
+      o[0] = predict_edge(x[1], x[0]) ;
+      e[0] = update_edge(x[0], o[0]) ;
+    }
+    return;
+  }
+
+  for(i = 0 ; i < nodd ; i++) o[i] = predict(x[i+i+1], x[i+i], x[i+i+2]) ;  // predict odd terms
+  if(neven == nodd) o[nodd-1] = predict_edge(x[n-1], x[n-2]) ;              // last term is odd
 
   e[0 ] = update_edge(x[0], o[0]) ;
-  for(i = 1; i < neven ; i++) e[i] = update(x[i+i], o[i], o[i-1]) ;           // update even terms
+  for(i = 1; i < neven ; i++) e[i] = update(x[i+i], o[i], o[i-1]) ;         // update even terms
+  if(neven != nodd) e[neven-1] = update_edge(x[n-1], o[nodd-1]) ;           // last term is even
 }
-
-// forward Le Gall Tabatabai transform, not in place, even/odd arrays
+#if 0
+// forward Le Gall Tabatabai transform, not in place, even/odd arrays, odd number of terms
 // x    [IN] : 1D array to transform
 // e   [OUT] : 1D array of even terms
 // o   [OUT] : 1D array of odd terms
@@ -313,7 +353,8 @@ void fwd_1d_lgt53_split_odd(int *x, int *e, int *o, int n){
   for(i = 1; i < neven-1 ; i++) e[i] = update(x[i+i], o[i], o[i-1]) ;            // update even terms
   e[neven-1] = update_edge(x[n-1], o[nodd-1]) ;
 }
-
+#endif
+#if 0
 // forward Le Gall Tabatabai transform, not in place, even/odd arrays
 // x    [IN] : 1D array to transform
 // e   [OUT] : 1D array of even terms
@@ -325,24 +366,28 @@ void fwd_1d_lgt53_split(int *x, int *e, int *o, int n){
     e[0] = x[0];
     return;
   }
-  if(n & 1){
-    fwd_1d_lgt53_split_odd(x, e, o, n);
-  }else{
-    fwd_1d_lgt53_split_even(x, e, o, n);
-  }
+  fwd_1d_lgt53_split_c(x, e, o, n);
+//   if(n & 1){
+//     fwd_1d_lgt53_split_odd(x, e, o, n);
+//   }else{
+//     fwd_1d_lgt53_split_even(x, e, o, n);
+//   }
 }
+#endif
+#if 0
 void fwd_1d_lgt53_split_c(int *x, int *e, int *o, int n){
   if(n < 2){       // 1 item only, copy even term
     e[0] = x[0];
     return;
   }
-  if(n & 1){
-    fwd_1d_lgt53_split_odd(x, e, o, n);
-  }else{
-    fwd_1d_lgt53_split_even_c(x, e, o, n);
-  }
+  fwd_1d_lgt53_split_even_c(x, e, o, n);
+//   if(n & 1){
+//     fwd_1d_lgt53_split_odd(x, e, o, n);
+//   }else{
+//     fwd_1d_lgt53_split_even_c(x, e, o, n);
+//   }
 }
-
+#endif
 // internal functions used by 2D transform in the j direction
 // predict row o0 using even rows e0 and e1, store in row o
 // o  [OUT] : 1D array of predicted odd terms
@@ -364,6 +409,7 @@ static inline void row_predict(int *o, int *o0, int *e0, int *e1, int ni){
     _mm256_storeu_si256((__m256i *)(o+i), vro) ;
     i += 8 ;
   }
+  for( ; i<ni ; i++){ o[i] = o0[i] - ((e0[i] + e1[i] + 1) >> 1) ; }
   if(i != ni){
     fprintf(stderr,"ni = %d, i= %d\n", ni, i);
     exit(1) ;
@@ -396,6 +442,7 @@ static inline void row_update(int *e, int *e0, int *o0, int *o1, int ni){
     _mm256_storeu_si256((__m256i *)(e+i), vre) ;
     i += 8 ;
   }
+  for( ; i<ni ; i++){ e[i] = e0[i] + ((o0[i] + o1[i] + 2) >> 2) ; }
   if(i != ni){
     fprintf(stderr,"ni = %d, i= %d\n", ni, i);
     exit(1) ;
@@ -405,7 +452,7 @@ static inline void row_update(int *e, int *e0, int *o0, int *o1, int ni){
 static inline void row_update_edge(int *e, int *e0, int *o0, int ni){
   int i ;
 //   for(i=0 ; i<ni ; i++){ e[i] = update_edge(e0[i], o0[i]) ; }
-  for(i=0 ; i<ni ; i++){ e[i] = e[i] = e0[i] + ((o0[i] + 1) >> 1) ; }
+  for(i=0 ; i<ni ; i++){ e[i] = e0[i] + ((o0[i] + 1) >> 1) ; }
 }
 
 // used by fwd_2d_lgt53 (VLA form)
@@ -625,7 +672,7 @@ static void row_un_predict_edge(int *o, int *o0, int *e0, int ni){
 // ni  [IN] : row length
 static void row_un_update(int *e, int *e0, int *o0, int *o1, int ni){
   int i = 0 ;
-  __m256i vc2 = _mm256_set1_epi32(2) ;
+//   __m256i vc2 = _mm256_set1_epi32(2) ;
 //   for(i=0 ; i<ni ; i++){ e[i] = un_update(e0[i], o0[i], o1[i]) ; }
 //   while(i < ni-7){
 //     __m256i vre, ve0, vo0, vo1 ;
