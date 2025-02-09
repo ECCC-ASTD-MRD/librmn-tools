@@ -688,28 +688,49 @@ static void inv_1d_lgt53_split_odd(int *x, int *e, int *o, int n){
 #if defined(__AVX2__)
 void inv_1d_lgt53_split_simd(int *x_, int *e_, int *o_, int n){
   int *x = x_, *e = e_, *o = o_ ;
-  inv_1d_lgt53_split_c(x, e, o, n) ;   // while debugging the simd version
+  int i, neven = n >> 1 ;
+  int teven[n] ;
+  int *te = &teven[0] ; // te[neven] ;
+inv_1d_lgt53_split_c(x, e, o, n) ;   // while debugging the simd version
+return ;
   if(n & 15) {   // not a multiple of 16
     inv_1d_lgt53_split_c(x, e, o, n) ;
     return;
   }
-  int i = 0 ;
   __m256i vc1, vc2 ;
-  __m256  ve0, ve1,vd0, vd1, vo0, vo1 ;
+  __m256i  ve0, ve1, vo0, vo1 ;
   vc1 = _mm256_set1_epi32(1) ;      // vector of 1
   vc2 = _mm256_set1_epi32(2) ;      // vector of 2
-  int e00 = e[0] - ((o[0] + 1) >> 1) ;
-//   for( ; i<n-31 ; i+=32, o+=16, e+=16, x+=32){             // by 32 elements (16 odd/even pairs)
-//   }
-  for( ; i<n-15 ; i+=16, o+=8, e+=8, x+=16){               // by 16 elements (8 odd/even pairs)
-    ve0 = _mm256_loadu_ps((float *)(e   )) ;
-    ve1 = _mm256_loadu_ps((float *)(e+ 8)) ;
-    vo0 = _mm256_loadu_ps((float *)(o   )) ;
-    ve1 = _mm256_loadu_ps((float *)(o+ 8)) ;
+  int e00 = e[0] - o[0] ;
+  i = 0 ;
+//e[i] = e[i] - ((o[i] + o[i-1] + 2) >> 2)
+  for( ; i<n-15 ; i+=16, o+=8, e+=8, te+=8){               // by 16 elements (8 odd/even pairs)
+    ve0 = _mm256_loadu_si256((__m256i *)(e  )) ;
+    vo0 = _mm256_loadu_si256((__m256i *)(o  )) ;
+    vo1 = _mm256_loadu_si256((__m256i *)(o-1)) ;
+    vo0 = _mm256_add_epi32(vo0, vc2) ;
+    vo0 = _mm256_add_epi32(vo0, vo1) ;
+    vo0 = _mm256_srai_epi32(vo0, 2) ;
+    ve0 = _mm256_sub_epi32(ve0, vo0) ;
+    _mm256_storeu_si256((__m256i *)te, ve0) ;
   }
 
-  e = e_ ; o = o_ ; x = x_ ;
-
+  e = e_ ; o = o_ ; x = x_ ; te = &teven[0] ;
+  te[0] = e00 ;
+  i = 0 ;
+//o[i] = o[i] + ((e[i] + e[i+1] +1) >> 1)
+  int onn = o[neven-1] + te[neven-1] ;
+  for( ; i<n-15 ; i+=16, o+=8, x+=16, te+=8){               // by 16 elements (8 even/odd pairs)
+    vo0 = _mm256_loadu_si256((__m256i *)(o   )) ;
+    ve0 = _mm256_loadu_si256((__m256i *)(te  )) ;
+    ve1 = _mm256_loadu_si256((__m256i *)(te+1)) ;
+    ve1 = _mm256_add_epi32(ve1, vc1) ;
+    ve1 = _mm256_add_epi32(ve1, ve0) ;
+    ve1 = _mm256_srai_epi32(ve1, 1) ;
+    vo0 =  _mm256_add_epi32(vo0, ve1) ;
+    merge_store_256((uint32_t *)x, ve0, vo0) ;
+  }
+  x_[n-1] = onn ;    // last odd value
 }
 #endif
 void inv_1d_lgt53_split_c(int *x, int *e, int *o, int n){
