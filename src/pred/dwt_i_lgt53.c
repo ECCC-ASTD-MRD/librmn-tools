@@ -117,6 +117,64 @@ static inline int un_predict_edge(int o0, int e0   ){ return o0 + e0 ; }   // un
 static inline int un_update(int e1, int o0, int o1){ return e1 - ((o0 + o1 + 2) >> 2) ; }
 static inline int un_update_edge(int e1, int o0   ){ return e1 - ((o0 + 1) >> 1) ; } // un_update(e1, o0, o0) ;
 
+#if defined(__AVX2__)
+// even/odd merge 4 even terms + 4 odd terms into 8 terms
+static inline __m256i _mm256_merge_128(__m128i ve, __m128i vo){
+  return _mm256_setr_m128i( _mm_unpacklo_epi32(ve, vo) , _mm_unpackhi_epi32(ve, vo) ) ;
+}
+// even/odd merge the low 4 even terms and the low 4 odd terms into 8 terms
+static inline __m256i _mm256_merge_lo_128(__m256i ve, __m256i vo){
+  __m256i v0 = _mm256_unpacklo_epi32(ve, vo) ;
+  __m256i v1 = _mm256_unpackhi_epi32(ve, vo) ;
+  return _mm256_permute2x128_si256(v0, v1, 0x20) ;
+}
+// even/odd merge the high 4 even terms and the high 4 odd terms into 8 terms
+static inline __m256i _mm256_merge_hi_128(__m256i ve, __m256i vo){
+  __m256i v0 = _mm256_unpacklo_epi32(ve, vo) ;
+  __m256i v1 = _mm256_unpackhi_epi32(ve, vo) ;
+  return _mm256_permute2x128_si256(v0, v1, 0x31) ;
+}
+// merge 8 even terms + 8 odd terms and store 16 terms
+static inline void merge_store_256(uint32_t *s, __m256i ve, __m256i vo){
+  _mm256_storeu_si256((__m256i *)(s  ), _mm256_merge_lo_128(ve, vo)) ;
+  _mm256_storeu_si256((__m256i *)(s+8), _mm256_merge_hi_128(ve, vo)) ;
+}
+// merge 4 even terms + 4 odd terms and store 8 terms
+static inline void merge_store_128(uint32_t *s, __m128i ve, __m128i vo){
+  _mm256_storeu_si256((__m256i *)(s), _mm256_merge_128(ve, vo) ) ;
+}
+// merge (n+1)/2 even terms and n/2 odd terms into s[n]
+void merge_even_odd_32_simd(uint32_t *s, uint32_t *e, uint32_t *o, int n){
+  while(n>15){
+    merge_store_256(s, _mm256_loadu_si256((__m256i *)e), _mm256_loadu_si256((__m256i *)o)) ;
+    n-=16 ; s+=16 ; e+=8 ; o+=8 ;             // update pointers and count
+  }
+  if(n>7){
+    merge_store_128(s, _mm_loadu_si128((__m128i *)e), _mm_loadu_si128((__m128i *)o)) ;
+    n-=8 ; s+=8 ; e+=4 ; o+=4 ;               // update pointers and count
+  }
+  if(n>0){                                    // any leftovers ?
+    __m128i ve, vo, v0 ;
+    ve = _mm_loadu_si128((__m128i *)e) ;      // 4 even terms (3 possibly irrelevant)
+    vo = _mm_loadu_si128((__m128i *)o) ;      // 4 odd terms (4 possibly irrelevant)
+    v0 = _mm_unpacklo_epi32(ve, vo) ;         // merge first 2 pairs
+    if(n > 3){
+      _mm_storeu_si128((__m128i *)(s  ), v0) ; // store 2 even terms ,  2 odd terms
+      v0 = _mm_unpackhi_epi32(ve, vo) ;       // merge next 2 pairs
+      n-=4 ; s+=4 ; e+=2 ; o+=2 ;             // update pointers and count
+    }
+    if(n > 1){
+      _mm_storeu_si64((void *)s, v0) ;        // store 1 even term, 1 odd term
+      v0 = _mm_bsrli_si128(v0, 8) ;           // shift right by 64 bits
+      n-=2 ; s+=2 ; e+=1 ; o+=1 ;             // update pointers and count
+    }
+    if(n > 0){
+      _mm_storeu_si32((void *)s, v0) ;        // store last even term
+    }
+  }
+}
+#endif
+
 typedef struct{
   uint32_t e ;
   uint32_t o ;
@@ -140,29 +198,35 @@ static void split_even_odd(void *s_, void *e_, void *o_, int n_){
   if(n_ & 1) e[n] = t[n].e ;
 }
 
+// ============================ FORWARD TRANSFORMS ============================
+
 // forward Le Gall Tabatabai transform, in place, split layout
 // x [INOUT] : 1D array to transform
 // n    [IN] : dimension of x
 void fwd_1d_lgt53(int *x, int n){
   if(n < 2) return ;       // 1 item only, nothing to do
 
+//   int o[nodd], *e = x ;
   int i, neven = (n+1) >> 1, nodd = n >> 1 ;
-  int o[nodd], *e = x ;
+  int o[nodd], e[neven] ;
+  fwd_1d_lgt53_split(x, e, o, n) ;     // use local arrays e and o
+  for(i=0 ; i<nodd ; i++){ x[i] = e[i] ; x[neven+i] = o[i] ; }   // copy into x
+  x[neven-1] = e[neven-1] ;
 
-  for(i=0; i<nodd-1 ; i++) o[i] = predict(x[i+i+1], x[i+i], x[i+i+2]) ;  // predict odd and move to o
-  if(is_odd(n))
-    o[nodd-1] = predict(x[n-2], x[n-1], x[n-3]) ;   // last is even, normal predict
-  else
-    o[nodd-1] = predict_edge(x[n-1], x[n-2]) ;      // last is odd, edge predict
-
-  e[0] = update_edge(x[0], o[0]) ;                  // update first even
-  for(i=1 ; i<neven-1 ; i++) e[i] = update(x[i+i], o[i-1], o[i]) ;
-  if(is_odd(n))
-    e[i] = update_edge(x[n-1], o[nodd-1]) ;
-  else
-    e[i] = update(x[n-2], o[nodd-1], o[nodd-2]) ;
-
-  for(i=0 ; i<nodd ; i++) x[neven+i] = o[i] ;       // copy o back into x
+//   for(i=0; i<nodd-1 ; i++) o[i] = predict(x[i+i+1], x[i+i], x[i+i+2]) ;  // predict odd and move to o
+//   if(is_odd(n))
+//     o[nodd-1] = predict(x[n-2], x[n-1], x[n-3]) ;   // last is even, normal predict
+//   else
+//     o[nodd-1] = predict_edge(x[n-1], x[n-2]) ;      // last is odd, edge predict
+// 
+//   e[0] = update_edge(x[0], o[0]) ;                  // update first even
+//   for(i=1 ; i<neven-1 ; i++) e[i] = update(x[i+i], o[i-1], o[i]) ;
+//   if(is_odd(n))
+//     e[i] = update_edge(x[n-1], o[nodd-1]) ;
+//   else
+//     e[i] = update(x[n-2], o[nodd-1], o[nodd-2]) ;
+// 
+//   for(i=0 ; i<nodd ; i++) x[neven+i] = o[i] ;       // copy o back into x
 }
 
 // forward Le Gall Tabatabai transform, in place, split layout, multiple successive transforms
@@ -504,7 +568,7 @@ static void fwd_2d_lgt53_(int lni, int ni, int nj, int x[nj][lni]){
 // ni    [IN] : length of x rows
 // nj    [IN] : number of x rows
 void fwd_2d_lgt53(int *x, int lni, int ni, int nj){
-  fwd_2d_lgt53_(lni, ni, nj, (void *)x) ;
+  fwd_2d_lgt53_(lni, ni, nj, (void *)x) ;  // VLA prototype
 }
 
 // in place 2D forward Le Gall Tabatabai multiple successive transform
@@ -521,6 +585,8 @@ void fwd_2d_lgt53_n(int *x, int lni, int ni, int nj, int nl){
     fwd_2d_lgt53_n(x, lni, (ni + 1) / 2, (nj + 1) / 2, nl - 1) ;
   }
 }
+
+// ============================ INVERSE TRANSFORMS ============================
 
 // inverse Le Gall Tabatabai transform, in place, split layout
 // x [INOUT] : 1D array to transform
@@ -587,7 +653,7 @@ void inv_1d_lgt53_asis(int *x, int n){
 // e    [IN] : 1D array of even terms
 // o    [IN] : 1D array of odd terms
 // n    [IN] : dimension of x (assumed even)
-void inv_1d_lgt53_split_even(int *x, int *e, int *o, int n){
+static void inv_1d_lgt53_split_even(int *x, int *e, int *o, int n){
   int i, nodd = n >> 1;
 
   for (i = 1; i < nodd; i ++) x[i+i] = un_update(e[i], o[i], o[i-1]) ;         // unupdate even terms
@@ -602,7 +668,7 @@ void inv_1d_lgt53_split_even(int *x, int *e, int *o, int n){
 // e    [IN] : 1D array of even terms
 // o    [IN] : 1D array of odd terms
 // n    [IN] : dimension of x (assumed odd)
-void inv_1d_lgt53_split_odd(int *x, int *e, int *o, int n){
+static void inv_1d_lgt53_split_odd(int *x, int *e, int *o, int n){
   int i;
 
   merge_even_odd(x, e, o, n) ;                                           // move to x
@@ -619,9 +685,40 @@ void inv_1d_lgt53_split_odd(int *x, int *e, int *o, int n){
 // o    [IN] : 1D array of odd terms
 // n    [IN] : dimension of x (even or odd)
 // if n == 1 explicit action is taken
-void inv_1d_lgt53_split(int *x, int *e, int *o, int n){
-  if(n < 2) {   // 2 points minimum
+#if defined(__AVX2__)
+void inv_1d_lgt53_split_simd(int *x_, int *e_, int *o_, int n){
+  int *x = x_, *e = e_, *o = o_ ;
+  inv_1d_lgt53_split_c(x, e, o, n) ;   // while debugging the simd version
+  if(n & 15) {   // not a multiple of 16
+    inv_1d_lgt53_split_c(x, e, o, n) ;
+    return;
+  }
+  int i = 0 ;
+  __m256i vc1, vc2 ;
+  __m256  ve0, ve1,vd0, vd1, vo0, vo1 ;
+  vc1 = _mm256_set1_epi32(1) ;      // vector of 1
+  vc2 = _mm256_set1_epi32(2) ;      // vector of 2
+  int e00 = e[0] - ((o[0] + 1) >> 1) ;
+//   for( ; i<n-31 ; i+=32, o+=16, e+=16, x+=32){             // by 32 elements (16 odd/even pairs)
+//   }
+  for( ; i<n-15 ; i+=16, o+=8, e+=8, x+=16){               // by 16 elements (8 odd/even pairs)
+    ve0 = _mm256_loadu_ps((float *)(e   )) ;
+    ve1 = _mm256_loadu_ps((float *)(e+ 8)) ;
+    vo0 = _mm256_loadu_ps((float *)(o   )) ;
+    ve1 = _mm256_loadu_ps((float *)(o+ 8)) ;
+  }
+
+  e = e_ ; o = o_ ; x = x_ ;
+
+}
+#endif
+void inv_1d_lgt53_split_c(int *x, int *e, int *o, int n){
+  if(n < 3) {   // 2 points minimum
     x[0] = e[0] ;
+    if(n == 2){
+      x[0] = un_update_edge(e[0], o[0]) ;
+      x[1] = un_predict_edge(o[0], x[0]) ;
+    }
     return;
   }
   if(n & 1){
@@ -630,7 +727,13 @@ void inv_1d_lgt53_split(int *x, int *e, int *o, int n){
     inv_1d_lgt53_split_even(x, e, o, n);
   }
 }
-
+void inv_1d_lgt53_split(int *x, int *e, int *o, int n){
+#if defined(__AVX2__)
+  inv_1d_lgt53_split_simd(x, e, o, n) ;
+#else
+  inv_1d_lgt53_split_c(x, e, o, n) ;
+#endif
+}
 // internal functions used by 2D inverse transform in the j direction
 // unpredict row o0 using even rows e0 and e1, store in row o
 // o  [OUT] : 1D array of unpredicted odd terms

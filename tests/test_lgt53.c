@@ -32,7 +32,7 @@ int main(int argc, char **argv){
   int cos[16] = {2, 1, 0, -1, -2, -1, 0, 1, 2, 1, 0, -1, -2, -1, 0, 1 } ;
   int t2d[16][16] ;
   int r2d[16][16] ;
-  int e[16], o[16] ;
+//   int e[16], o[16] ;
   int npts, xe[256], xo[256] ;
 
   if(argc > 1){
@@ -256,41 +256,69 @@ timings:
   tmin1 = tmin2 = 999999999 ;
   for(iter=0 ; iter<NTIMES ; iter++){
     t0[iter] = elapsed_cycles() ;
-//     for(i=0 ; i<64 ; i++) fwd_1d_lgt53_split_even((void *)src, even, odd, 64) ;
-//     for(i=0 ; i<64 ; i++) fwd_1d_lgt53_split((void *)src, even, odd, 64) ;
     for(i=0 ; i<64 ; i++) fwd_1d_lgt53_split((void *)src, even, odd, 64) ;
     t1[iter] = elapsed_cycles() ;
-//     for(i=0 ; i<64 ; i++) inv_1d_lgt53_split_even((void *)src, even, odd, 64) ;
-    for(i=0 ; i<64 ; i++) inv_1d_lgt53_split_even((void *)src, even, odd, 64) ;
+    for(i=0 ; i<64 ; i++) inv_1d_lgt53_split((void *)src, even, odd, 64) ;
     t2[iter] = elapsed_cycles() ;
     tmin1 = ((t1[iter] - t0[iter]) < tmin1) ? (t1[iter] - t0[iter]) : tmin1 ;
     tmin2 = ((t2[iter] - t1[iter]) < tmin2) ? (t2[iter] - t1[iter]) : tmin2 ;
   }
-  fprintf(stderr, "1D transform : errors = %d\n", errors((void *)src, (void *)sref, 64));
+  fprintf(stderr, "1D transform (split) : errors = %d\n", errors((void *)src, (void *)sref, 64));
   tp1 = cycles_to_ns(tmin1)/4096 ;
   tp2 = cycles_to_ns(tmin2)/4096 ;
   fprintf(stderr, "fwd transform : %6ld cycles (%f5.2 ns/point), inv transform : %6ld cycles (%f5.2 ns/point)\n\n", tmin1, tp1, tmin2, tp2) ;
 
   tmin1 = tmin2 = 999999999 ;
-  levels = 2 ;
   for(iter=0 ; iter<NTIMES ; iter++){
     t0[iter] = elapsed_cycles() ;
-    fwd_2d_lgt53_n((void *)bench, 64, 64, 64, levels) ;
+    for(i=0 ; i<64 ; i++) fwd_1d_lgt53((void *)src, 64) ;
     t1[iter] = elapsed_cycles() ;
-    inv_2d_lgt53_n((void *)bench, 64, 64, 64, levels) ;
+    for(i=0 ; i<64 ; i++) inv_1d_lgt53((void *)src, 64) ;
     t2[iter] = elapsed_cycles() ;
     tmin1 = ((t1[iter] - t0[iter]) < tmin1) ? (t1[iter] - t0[iter]) : tmin1 ;
     tmin2 = ((t2[iter] - t1[iter]) < tmin2) ? (t2[iter] - t1[iter]) : tmin2 ;
   }
-
-  fprintf(stderr, "2D transform : errors = %d\n", errors((void *)bench, (void *)orig, 4096));
+  fprintf(stderr, "1D transform (in place) : errors = %d\n", errors((void *)src, (void *)sref, 64));
   tp1 = cycles_to_ns(tmin1)/4096 ;
   tp2 = cycles_to_ns(tmin2)/4096 ;
-  fprintf(stderr, "fwd transform : %6ld cycles (%f5.2 ns/point), inv transform : %6ld cycles (%f5.2 ns/point)\n", tmin1, tp1, tmin2, tp2) ;
+  fprintf(stderr, "fwd transform : %6ld cycles (%f5.2 ns/point), inv transform : %6ld cycles (%f5.2 ns/point)\n\n", tmin1, tp1, tmin2, tp2) ;
+
+  tmin1 = tmin2 = 999999999 ;
+  for(iter=0 ; iter<NTIMES ; iter++){
+    t0[iter] = elapsed_cycles() ;
+    for(i=0 ; i<64 ; i++) fwd_1d_lgt53_asis((void *)src, 64) ;
+    t1[iter] = elapsed_cycles() ;
+    for(i=0 ; i<64 ; i++) inv_1d_lgt53_asis((void *)src, 64) ;
+    t2[iter] = elapsed_cycles() ;
+    tmin1 = ((t1[iter] - t0[iter]) < tmin1) ? (t1[iter] - t0[iter]) : tmin1 ;
+    tmin2 = ((t2[iter] - t1[iter]) < tmin2) ? (t2[iter] - t1[iter]) : tmin2 ;
+  }
+  fprintf(stderr, "1D transform (in place, as is) : errors = %d\n", errors((void *)src, (void *)sref, 64));
+  tp1 = cycles_to_ns(tmin1)/4096 ;
+  tp2 = cycles_to_ns(tmin2)/4096 ;
+  fprintf(stderr, "fwd transform : %6ld cycles (%f5.2 ns/point), inv transform : %6ld cycles (%f5.2 ns/point)\n\n", tmin1, tp1, tmin2, tp2) ;
+
+  for(levels=1 ; levels<3 ; levels++){
+    tmin1 = tmin2 = 999999999 ;
+    for(iter=0 ; iter<NTIMES ; iter++){
+      t0[iter] = elapsed_cycles() ;
+      fwd_2d_lgt53_n((void *)bench, 64, 64, 64, levels) ;
+      t1[iter] = elapsed_cycles() ;
+      inv_2d_lgt53_n((void *)bench, 64, 64, 64, levels) ;
+      t2[iter] = elapsed_cycles() ;
+      tmin1 = ((t1[iter] - t0[iter]) < tmin1) ? (t1[iter] - t0[iter]) : tmin1 ;
+      tmin2 = ((t2[iter] - t1[iter]) < tmin2) ? (t2[iter] - t1[iter]) : tmin2 ;
+    }
+
+    fprintf(stderr, "2D transform (%d levels) : errors = %d\n", levels, errors((void *)bench, (void *)orig, 4096));
+    tp1 = cycles_to_ns(tmin1)/4096 ;
+    tp2 = cycles_to_ns(tmin2)/4096 ;
+    fprintf(stderr, "fwd transform : %6ld cycles (%f5.2 ns/point), inv transform : %6ld cycles (%f5.2 ns/point)\n", tmin1, tp1, tmin2, tp2) ;
+  }
 
   goto success ;
 
-  int a64[64], xo1[64], xe1[64], xo2[64], xe2[64] ;
+  int a64[64], xo1[64], xe1[64], xo2[64], xe2[64], b64[64] ;
 experiments :
   for(i=0 ; i<64 ; i++){
     a64[i] = sin[i&15] + cos[i&15] + i ;
@@ -299,7 +327,9 @@ experiments :
 //     xo2[i] = xe2[i] = -1 ;
   }
 
-  for(i=0 ; i<16 ; i++) fprintf(stderr, "%3d ", a64[i]) ;
+  for(i=0  ; i<32 ; i++) fprintf(stderr, "%3d ", a64[i]) ;
+  fprintf(stderr, "\n") ;
+  for(i=32 ; i<64 ; i++) fprintf(stderr, "%3d ", a64[i]) ;
   fprintf(stderr, "\n\n") ;
 
   for(i=0 ; i<64 ; i++){ xo1[i] = xe1[i] = 999 ; } ;
@@ -320,6 +350,20 @@ experiments :
   fprintf(stderr, "\n") ;
   fprintf(stderr, "xe discrepancies = %d\n", errors((void *)xe1, (void *)xe2, 64)) ;
   fprintf(stderr, "xo discrepancies = %d\n", errors((void *)xo1, (void *)xo2, 64)) ;
+
+  fprintf(stderr, "\n") ;
+  inv_1d_lgt53_split_c(b64, xe1+1, xo1+1, 64) ;
+  for(i=0  ; i<32 ; i++) fprintf(stderr, "%3d ", b64[i]) ;
+  fprintf(stderr, "\n") ;
+  for(i=32 ; i<64 ; i++) fprintf(stderr, "%3d ", b64[i]) ;
+  fprintf(stderr, "\n") ;
+  fprintf(stderr, "b64 discrepancies (c) = %d\n", errors((void *)a64, (void *)b64, 64)) ;
+  inv_1d_lgt53_split_simd(b64, xe1+1, xo1+1, 64) ;
+  for(i=0  ; i<32 ; i++) fprintf(stderr, "%3d ", b64[i]) ;
+  fprintf(stderr, "\n") ;
+  for(i=32 ; i<64 ; i++) fprintf(stderr, "%3d ", b64[i]) ;
+  fprintf(stderr, "\n") ;
+  fprintf(stderr, "b64 discrepancies (simd) = %d\n", errors((void *)a64, (void *)b64, 64)) ;
 
 success:
   fprintf(stderr, "SUCCESS\n") ;

@@ -14,9 +14,13 @@
  */
 
 // even terms followed by odd terms after forward transform (in place)
-void fwd_1d_lgt53(int *x, int n);
 // even terms followed by odd terms before inverse transform (in place)
+void fwd_1d_lgt53(int *x, int n);
 void inv_1d_lgt53(int *x, int n);
+
+// multi level 1D transform, same layout as fwd_1d_lgt53/inv_1d_lgt53 (in place)
+void fwd_1d_lgt53_n(int *x, int n, int levels);
+void inv_1d_lgt53_n(int *x, int n, int levels);
 
 // even/odd pairs with possible even term alone at end (in place)
 void fwd_1d_lgt53_asis(int *x, int n);
@@ -26,15 +30,12 @@ void inv_1d_lgt53_asis(int *x, int n);
 void fwd_1d_lgt53_split(int *x, int *e, int *o, int n);
 void fwd_1d_lgt53_split_c(int *x, int *e, int *o, int n);
 void fwd_1d_lgt53_split_simd(int *x, int *e, int *o, int n);
-// void fwd_1d_lgt53_split_odd(int *x, int *e, int *o, int n);
 
-void inv_1d_lgt53_split_even(int *x, int *e, int *o, int n);
-void inv_1d_lgt53_split_odd(int *x, int *e, int *o, int n);
+// void inv_1d_lgt53_split_even(int *x, int *e, int *o, int n);
+// void inv_1d_lgt53_split_odd(int *x, int *e, int *o, int n);
 void inv_1d_lgt53_split(int *x, int *e, int *o, int n);
-
-// multi level 1D transform, same layout as fwd_1d_lgt53/inv_1d_lgt53 (in place)
-void fwd_1d_lgt53_n(int *x, int n, int levels);
-void inv_1d_lgt53_n(int *x, int n, int levels);
+void inv_1d_lgt53_split_c(int *x, int *e, int *o, int n);
+void inv_1d_lgt53_split_simd(int *x, int *e, int *o, int n);
 
 // 4 quadrants, 2D extension of fwd_1d_lgt53/inv_1d_lgt53 (in place)
 void fwd_2d_lgt53(int *x, int lni, int ni, int nj);
@@ -43,5 +44,3 @@ void inv_2d_lgt53(int *x, int lni, int ni, int nj);
 // multi level 2D transform, same layout as fwd_2d_lgt53/inv_2d_lgt53 (in place)
 void fwd_2d_lgt53_n(int *x, int lni, int ni, int nj, int levels);
 void inv_2d_lgt53_n(int *x, int lni, int ni, int nj, int levels);
-
-// void fwd_1d_lgt53_split_even_c(int *x, int *e, int *o, int n);
