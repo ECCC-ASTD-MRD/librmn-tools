@@ -35,6 +35,9 @@ int main(int argc, char **argv){
 //   int e[16], o[16] ;
   int npts, xe[256], xo[256] ;
 
+  int a64_[66], xo1[64], xe1[64], xo2[64], xe2[64], b64_[66] ;
+  int *a64 = &a64_[1], *b64 = &b64_[1] ;
+
   if(argc > 1){
     if( *argv[1] == 't') goto timings ;
     if( *argv[1] == 'x') goto experiments ;
@@ -314,22 +317,28 @@ timings:
     tp1 = cycles_to_ns(tmin1)/4096 ;
     tp2 = cycles_to_ns(tmin2)/4096 ;
     fprintf(stderr, "fwd transform : %6ld cycles (%f5.2 ns/point), inv transform : %6ld cycles (%f5.2 ns/point)\n", tmin1, tp1, tmin2, tp2) ;
+    for(i=0 ; i<64 ; i++) fprintf(stderr, "%d ",bench[i][i]-orig[i][i]);
+    fprintf(stderr, "\n") ;
   }
 
   goto success ;
 
-  int a64[64], xo1[64], xe1[64], xo2[64], xe2[64], b64[64] ;
 experiments :
+
   for(i=0 ; i<64 ; i++){
     a64[i] = sin[i&15] + cos[i&15] + i ;
 //     a64[i] = i ;
 //     xo1[i] = xe1[i] = -1 ;
 //     xo2[i] = xe2[i] = -1 ;
   }
+  a64_[0] = 999 ;
+  a64_[65] = 999 ;
+  b64_[0] = 999 ;
+  b64_[65] = 999 ;
 
-  for(i=0  ; i<32 ; i++) fprintf(stderr, "%3d ", a64[i]) ;
+  for(i=-1  ; i<32 ; i++) fprintf(stderr, "%3d ", a64[i]) ;
   fprintf(stderr, "\n") ;
-  for(i=32 ; i<64 ; i++) fprintf(stderr, "%3d ", a64[i]) ;
+  for(i=32 ; i<65 ; i++) fprintf(stderr, "%3d ", a64[i]) ;
   fprintf(stderr, "\n\n") ;
 
   for(i=0 ; i<64 ; i++){ xo1[i] = xe1[i] = 999 ; } ;
@@ -353,17 +362,17 @@ experiments :
 
   fprintf(stderr, "\n") ;
   inv_1d_lgt53_split_c(b64, xe1+1, xo1+1, 64) ;
-  for(i=0  ; i<32 ; i++) fprintf(stderr, "%3d ", b64[i]) ;
+  for(i=-1  ; i<32 ; i++) fprintf(stderr, "%3d ", b64[i]) ;
   fprintf(stderr, "\n") ;
-  for(i=32 ; i<64 ; i++) fprintf(stderr, "%3d ", b64[i]) ;
+  for(i=32 ; i<65 ; i++) fprintf(stderr, "%3d ", b64[i]) ;
   fprintf(stderr, "\n") ;
-  fprintf(stderr, "b64 discrepancies (c) = %d\n", errors((void *)a64, (void *)b64, 64)) ;
+  fprintf(stderr, "b64 discrepancies (c) = %d\n", errors((void *)a64_, (void *)b64_, 66)) ;
   inv_1d_lgt53_split_simd(b64, xe1+1, xo1+1, 64) ;
-  for(i=0  ; i<32 ; i++) fprintf(stderr, "%3d ", b64[i]) ;
+  for(i=-1  ; i<32 ; i++) fprintf(stderr, "%3d ", b64[i]) ;
   fprintf(stderr, "\n") ;
-  for(i=32 ; i<64 ; i++) fprintf(stderr, "%3d ", b64[i]) ;
+  for(i=32 ; i<65 ; i++) fprintf(stderr, "%3d ", b64[i]) ;
   fprintf(stderr, "\n") ;
-  fprintf(stderr, "b64 discrepancies (simd) = %d\n", errors((void *)a64, (void *)b64, 64)) ;
+  fprintf(stderr, "b64 discrepancies (simd) = %d\n", errors((void *)a64_, (void *)b64_, 66)) ;
 
 success:
   fprintf(stderr, "SUCCESS\n") ;
