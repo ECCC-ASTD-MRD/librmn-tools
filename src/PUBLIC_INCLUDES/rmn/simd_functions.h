@@ -305,6 +305,11 @@ typedef vec_128 __v128d ;
 #define _mm256_shuffle_ps      shuffle_v8f
 #define _mm_shuffle_ps         shuffle_v4f
 
+#define _mm256_unpacklo_epi32  unpacklo_v8i  
+#define _mm_unpacklo_epi32     unpacklo_v4i  
+#define _mm256_unpackhi_epi32  unpackhi_v8i  
+#define _mm_unpackhi_epi32     unpackhi_v4i  
+
 #endif   // defined(ALIAS_INTEL_SIMD_INTRINSICS)
 // =================================================================================================================
 #if defined(USE_INTEL_SIMD_INTRINSICS)
@@ -413,6 +418,11 @@ static inline __m128i _mm_setones_si128(void){ __m128i t = _mm_setzero_si128() ;
 #define shuffle_v8f    _mm256_shuffle_ps
 #define shuffle_v4f    _mm_shuffle_ps
 
+#define unpacklo_v8i   _mm256_unpacklo_epi32
+#define unpacklo_v4i   _mm_unpacklo_epi32
+#define unpackhi_v8i   _mm256_unpackhi_epi32
+#define unpackhi_v4i   _mm_unpackhi_epi32
+
 // =================================================================================================================
 #else    // defined(USE_INTEL_SIMD_INTRINSICS)
 SIMD_FN(SIMD_STATIC, __m256,  8, set1_v8f( float    f32 ) , R.f[i] = f32 )
@@ -517,6 +527,19 @@ SIMD_FN(SIMD_STATIC, __m256i,  4, shuffle_v8i(__v256i A, int imm) , R.u32[i] = A
 SIMD_FN(SIMD_STATIC, __m256,   4, shuffle_v8f(__v256i A, int imm) , R.u32[i] = A.u32[imm&3] ; R.u32[i+4] = A.u32[4+(imm&3)] ; imm >>= 2 )
 SIMD_FN(SIMD_STATIC, __m256i,  4, shuffle_v4i(__v256i A, int imm) , R.u32[i] = A.u32[imm&3] ; imm >>= 2 )
 SIMD_FN(SIMD_STATIC, __m256,   4, shuffle_v4f(__v256i A, int imm) , R.u32[i] = A.u32[imm&3] ; imm >>= 2 )
+
+SIMD_FN(SIMD_STATIC, __m256i,  1, unpacklo_v8i(__v256i A, __v256i B) , R.u32[0] = A.u32[0] ; R.u32[1]= A.u32[1] ; \
+                                                                       R.u32[2] = B.u32[0] ; R.u32[3]= B.u32[1] ; \
+                                                                       R.u32[4] = A.u32[4] ; R.u32[5]= A.u32[5] ; \
+                                                                       R.u32[6] = B.u32[4] ; R.u32[7]= B.u32[5] ; )
+SIMD_FN(SIMD_STATIC, __m256i,  1, unpacklo_v4i(__v128i A, __v128i B) , R.u32[0] = A.u32[0] ; R.u32[1]= A.u32[1] ; \
+                                                                       R.u32[2] = B.u32[0] ; R.u32[3]= B.u32[1] ; )
+SIMD_FN(SIMD_STATIC, __m256i,  1, unpackhi_v8i(__v256i A, __v256i B) , R.u32[0] = A.u32[2] ; R.u32[1]= A.u32[3] ; \
+                                                                       R.u32[2] = B.u32[2] ; R.u32[3]= B.u32[3] ; \
+                                                                       R.u32[4] = A.u32[6] ; R.u32[5]= A.u32[7] ; \
+                                                                       R.u32[6] = B.u32[6] ; R.u32[7]= B.u32[7] ; )
+SIMD_FN(SIMD_STATIC, __m256i,  1, unpackhi_v4i(__v128i A, __v128i B) , R.u32[0] = A.u32[2] ; R.u32[1]= A.u32[3] ; \
+                                                                       R.u32[2] = B.u32[2] ; R.u32[3]= B.u32[3] ; )
 
 #endif    // defined(USE_INTEL_SIMD_INTRINSICS)
 // =================================================================================================================

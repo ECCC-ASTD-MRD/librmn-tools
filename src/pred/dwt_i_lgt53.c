@@ -92,7 +92,9 @@
 #include <stdio.h>
 #include <stdint.h>
 
-#include <immintrin.h>
+// #include <immintrin.h>
+#define USE_SIMD_INTRINSICS
+#include <rmn/simd_functions.h>
 
 #include <rmn/dwt_i_lgt53.h>
 
@@ -119,48 +121,48 @@ static inline int un_update_edge(int e1, int o0   ){ return e1 - ((o0 + 1) >> 1)
 
 #if defined(__AVX2__)
 // even/odd merge 4 even terms + 4 odd terms into 8 terms
-static inline __m256i _mm256_merge_128(__m128i ve, __m128i vo){
-  return _mm256_setr_m128i( _mm_unpacklo_epi32(ve, vo) , _mm_unpackhi_epi32(ve, vo) ) ;
+static inline __v256i _mm256_merge_128(__v128i ve, __v128i vo){
+  return _mm256_setr_m128i( unpacklo_v4i(ve, vo) , unpackhi_v4i(ve, vo) ) ;
 }
 // even/odd merge the low 4 even terms and the low 4 odd terms into 8 terms
-static inline __m256i _mm256_merge_lo_128(__m256i ve, __m256i vo){
-  __m256i v0 = _mm256_unpacklo_epi32(ve, vo) ;
-  __m256i v1 = _mm256_unpackhi_epi32(ve, vo) ;
+static inline __v256i _mm256_merge_lo_128(__v256i ve, __v256i vo){
+  __v256i v0 = unpacklo_v8i(ve, vo) ;
+  __v256i v1 = unpackhi_v8i(ve, vo) ;
   return _mm256_permute2x128_si256(v0, v1, 0x20) ;
 }
 // even/odd merge the high 4 even terms and the high 4 odd terms into 8 terms
-static inline __m256i _mm256_merge_hi_128(__m256i ve, __m256i vo){
-  __m256i v0 = _mm256_unpacklo_epi32(ve, vo) ;
-  __m256i v1 = _mm256_unpackhi_epi32(ve, vo) ;
+static inline __v256i _mm256_merge_hi_128(__v256i ve, __v256i vo){
+  __v256i v0 = unpacklo_v8i(ve, vo) ;
+  __v256i v1 = unpackhi_v8i(ve, vo) ;
   return _mm256_permute2x128_si256(v0, v1, 0x31) ;
 }
 // merge 8 even terms + 8 odd terms and store 16 terms
-static inline void merge_store_256(uint32_t *s, __m256i ve, __m256i vo){
-  _mm256_storeu_si256((__m256i *)(s  ), _mm256_merge_lo_128(ve, vo)) ;
-  _mm256_storeu_si256((__m256i *)(s+8), _mm256_merge_hi_128(ve, vo)) ;
+static inline void merge_store_256(uint32_t *s, __v256i ve, __v256i vo){
+  storeu_v256((__v256i *)(s  ), _mm256_merge_lo_128(ve, vo)) ;
+  storeu_v256((__v256i *)(s+8), _mm256_merge_hi_128(ve, vo)) ;
 }
 // merge 4 even terms + 4 odd terms and store 8 terms
-static inline void merge_store_128(uint32_t *s, __m128i ve, __m128i vo){
-  _mm256_storeu_si256((__m256i *)(s), _mm256_merge_128(ve, vo) ) ;
+static inline void merge_store_128(uint32_t *s, __v128i ve, __v128i vo){
+  storeu_v256((__v256i *)(s), _mm256_merge_128(ve, vo) ) ;
 }
 // merge (n+1)/2 even terms and n/2 odd terms into s[n]
 void merge_even_odd_32_simd(uint32_t *s, uint32_t *e, uint32_t *o, int n){
   while(n>15){
-    merge_store_256(s, _mm256_loadu_si256((__m256i *)e), _mm256_loadu_si256((__m256i *)o)) ;
+    merge_store_256(s, loadu_v256((__v256i *)e), loadu_v256((__v256i *)o)) ;
     n-=16 ; s+=16 ; e+=8 ; o+=8 ;             // update pointers and count
   }
   if(n>7){
-    merge_store_128(s, _mm_loadu_si128((__m128i *)e), _mm_loadu_si128((__m128i *)o)) ;
+    merge_store_128(s, loadu_v128((__v128i *)e), loadu_v128((__v128i *)o)) ;
     n-=8 ; s+=8 ; e+=4 ; o+=4 ;               // update pointers and count
   }
   if(n>0){                                    // any leftovers ?
-    __m128i ve, vo, v0 ;
-    ve = _mm_loadu_si128((__m128i *)e) ;      // 4 even terms (3 possibly irrelevant)
-    vo = _mm_loadu_si128((__m128i *)o) ;      // 4 odd terms (4 possibly irrelevant)
-    v0 = _mm_unpacklo_epi32(ve, vo) ;         // merge first 2 pairs
+    __v128i ve, vo, v0 ;
+    ve = loadu_v128((__v128i *)e) ;      // 4 even terms (3 possibly irrelevant)
+    vo = loadu_v128((__v128i *)o) ;      // 4 odd terms (4 possibly irrelevant)
+    v0 = unpacklo_v4i(ve, vo) ;         // merge first 2 pairs
     if(n > 3){
-      _mm_storeu_si128((__m128i *)(s  ), v0) ; // store 2 even terms ,  2 odd terms
-      v0 = _mm_unpackhi_epi32(ve, vo) ;       // merge next 2 pairs
+      storeu_v128((__v128i *)(s  ), v0) ; // store 2 even terms ,  2 odd terms
+      v0 = unpackhi_v4i(ve, vo) ;       // merge next 2 pairs
       n-=4 ; s+=4 ; e+=2 ; o+=2 ;             // update pointers and count
     }
     if(n > 1){
@@ -238,72 +240,72 @@ void fwd_1d_lgt53_split_simd(int *x_, int *e_, int *o_, int n){
   }
   int *x = x_, *e = e_, *o = o_ ;
   int i = 0, neven = n >> 1 ;
-  __m256i vc1, vc2 ;
-  __m256  ve0, ve1,vd0, vd1, vo0, vo1 ;
-  vc1 = _mm256_set1_epi32(1) ;      // vector of 1
-  vc2 = _mm256_set1_epi32(2) ;      // vector of 2
+  __v256i vc1, vc2 ;
+  __v256  ve0, ve1,vd0, vd1, vo0, vo1 ;
+  vc1 = set1_v8i(1) ;      // vector of 1
+  vc2 = set1_v8i(2) ;      // vector of 2
 
   for( ; i<neven-15 ; i+=16, o+=16, e+=16, x+=32){            // by 32 elements (16 odd/even pairs)
     // separate even and odd terms
-    vd0 = _mm256_loadu_ps((float *)(x   )) ;
-    vd1 = _mm256_loadu_ps((float *)(x+ 8)) ;
-    ve0 = _mm256_shuffle_ps(vd0, vd1, 136) ;                  // 0b10001000 [ 0 2 8 A 4 6 C E ]
-    ve0 = (__m256)_mm256_permute4x64_pd((__m256d)ve0, 216) ;  // 0b11011000 [ 0 2 4 6 8 A C E ]  e[i]
-    vd0 = _mm256_loadu_ps((float *)(x+ 1)) ;
-    vd1 = _mm256_loadu_ps((float *)(x+ 9)) ;
-    vo0 = _mm256_shuffle_ps(vd0, vd1, 136) ;                  // 0b10001000 [ 1 3 9 B 5 7 D F ]
-    vo0 = (__m256)_mm256_permute4x64_pd((__m256d)vo0, 216) ;  // 0b11011000 [ 1 3 5 7 9 B D F ]  o[i]
-    ve1 = _mm256_shuffle_ps(vd0, vd1, 221) ;                  // 0b10001000 [ 2 4 A C 6 8 E 10]
-    ve1 = (__m256)_mm256_permute4x64_pd((__m256d)ve1, 216) ;  // 0b11011000 [ 2 4 6 8 A C E 10]  e[i+1]
-    _mm256_storeu_ps((float *)(e   ), ve0) ;                  // store even terms
+    vd0 = loadu_v8f((float *)(x   )) ;
+    vd1 = loadu_v8f((float *)(x+ 8)) ;
+    ve0 = shuffle_v8f(vd0, vd1, 136) ;                  // 0b10001000 [ 0 2 8 A 4 6 C E ]
+    ve0 = __V256f _mm256_permute4x64_pd(__V256d ve0, 216) ;  // 0b11011000 [ 0 2 4 6 8 A C E ]  e[i]
+    vd0 = loadu_v8f((float *)(x+ 1)) ;
+    vd1 = loadu_v8f((float *)(x+ 9)) ;
+    vo0 = shuffle_v8f(vd0, vd1, 136) ;                  // 0b10001000 [ 1 3 9 B 5 7 D F ]
+    vo0 = __V256f _mm256_permute4x64_pd(__V256d vo0, 216) ;  // 0b11011000 [ 1 3 5 7 9 B D F ]  o[i]
+    ve1 = shuffle_v8f(vd0, vd1, 221) ;                  // 0b10001000 [ 2 4 A C 6 8 E 10]
+    ve1 = __V256f _mm256_permute4x64_pd(__V256d ve1, 216) ;  // 0b11011000 [ 2 4 6 8 A C E 10]  e[i+1]
+    storeu_v8f((float *)(e   ), ve0) ;                  // store even terms
 
     // predict odd terms
-    ve0 = (__m256)_mm256_add_epi32((__m256i)ve0, vc1) ;           // e[i] + 1
-    ve0 = (__m256)_mm256_add_epi32((__m256i)ve0, (__m256i)ve1) ;  // e[i] + 1 + e[i+1]
-    ve0 = (__m256)_mm256_srai_epi32((__m256i)ve0, 1) ;            // (e[i] + 1 + e[i+1]) >> 1
-    vo0 = (__m256)_mm256_sub_epi32((__m256i)vo0, (__m256i)ve0) ;  // o[i] - ( (e[i] + 1 + e[i+1]) >> 1 )
-    _mm256_storeu_ps((float *)(o   ), vo0) ;                      // store predicted odd terms
+    ve0 = __V256f add_v8i(__V256i ve0, vc1) ;           // e[i] + 1
+    ve0 = __V256f add_v8i(__V256i ve0, __V256i ve1) ;  // e[i] + 1 + e[i+1]
+    ve0 = __V256f srai_v8i(__V256i ve0, 1) ;            // (e[i] + 1 + e[i+1]) >> 1
+    vo0 = __V256f sub_v8i(__V256i vo0, __V256i ve0) ;  // o[i] - ( (e[i] + 1 + e[i+1]) >> 1 )
+    storeu_v8f((float *)(o   ), vo0) ;                      // store predicted odd terms
 
     // separate even and odd terms
-    vd0 = _mm256_loadu_ps((float *)(x+16)) ;
-    vd1 = _mm256_loadu_ps((float *)(x+24)) ;
-    ve0 = _mm256_shuffle_ps(vd0, vd1, 136) ;                  // 0b10001000 [ 0 2 8 A 4 6 C E ]
-    ve0 = (__m256)_mm256_permute4x64_pd((__m256d)ve0, 216) ;  // 0b11011000 [ 0 2 4 6 8 A C E ]  e[i]
-    vd0 = _mm256_loadu_ps((float *)(x+17)) ;
-    vd1 = _mm256_loadu_ps((float *)(x+25)) ;
-    vo0 = _mm256_shuffle_ps(vd0, vd1, 136) ;                  // 0b10001000 [ 1 3 9 B 5 7 D F ]
-    vo0 = (__m256)_mm256_permute4x64_pd((__m256d)vo0, 216) ;  // 0b11011000 [ 1 3 5 7 9 B D F ]  o[i]
-    ve1 = _mm256_shuffle_ps(vd0, vd1, 221) ;                  // 0b10001000 [ 2 4 A C 6 8 E 10]
-    ve1 = (__m256)_mm256_permute4x64_pd((__m256d)ve1, 216) ;  // 0b11011000 [ 2 4 6 8 A C E 10]  e[i+1]
-    _mm256_storeu_ps((float *)(e+ 8), ve0) ;                  // store even terms
+    vd0 = loadu_v8f((float *)(x+16)) ;
+    vd1 = loadu_v8f((float *)(x+24)) ;
+    ve0 = shuffle_v8f(vd0, vd1, 136) ;                  // 0b10001000 [ 0 2 8 A 4 6 C E ]
+    ve0 = __V256f _mm256_permute4x64_pd(__V256d ve0, 216) ;  // 0b11011000 [ 0 2 4 6 8 A C E ]  e[i]
+    vd0 = loadu_v8f((float *)(x+17)) ;
+    vd1 = loadu_v8f((float *)(x+25)) ;
+    vo0 = shuffle_v8f(vd0, vd1, 136) ;                  // 0b10001000 [ 1 3 9 B 5 7 D F ]
+    vo0 = __V256f _mm256_permute4x64_pd(__V256d vo0, 216) ;  // 0b11011000 [ 1 3 5 7 9 B D F ]  o[i]
+    ve1 = shuffle_v8f(vd0, vd1, 221) ;                  // 0b10001000 [ 2 4 A C 6 8 E 10]
+    ve1 = __V256f _mm256_permute4x64_pd(__V256d ve1, 216) ;  // 0b11011000 [ 2 4 6 8 A C E 10]  e[i+1]
+    storeu_v8f((float *)(e+ 8), ve0) ;                  // store even terms
 
     // predict odd terms
-    ve0 = (__m256)_mm256_add_epi32((__m256i)ve0, vc1) ;           // e[i] + 1
-    ve0 = (__m256)_mm256_add_epi32((__m256i)ve0, (__m256i)ve1) ;  // e[i] + 1 + e[i+1]
-    ve0 = (__m256)_mm256_srai_epi32((__m256i)ve0, 1) ;            // (e[i] + 1 + e[i+1]) >> 1
-    vo0 = (__m256)_mm256_sub_epi32((__m256i)vo0, (__m256i)ve0) ;  // o[i] - ( (e[i] + 1 + e[i+1]) >> 1 )
-    _mm256_storeu_ps((float *)(o+ 8), vo0) ;                      // store predicted odd terms
+    ve0 = __V256f add_v8i(__V256i ve0, vc1) ;           // e[i] + 1
+    ve0 = __V256f add_v8i(__V256i ve0, __V256i ve1) ;  // e[i] + 1 + e[i+1]
+    ve0 = __V256f srai_v8i(__V256i ve0, 1) ;            // (e[i] + 1 + e[i+1]) >> 1
+    vo0 = __V256f sub_v8i(__V256i vo0, __V256i ve0) ;  // o[i] - ( (e[i] + 1 + e[i+1]) >> 1 )
+    storeu_v8f((float *)(o+ 8), vo0) ;                      // store predicted odd terms
   }
   for( ; i<neven-7 ; i+=8, o+=8, e+=8, x+=16){                // by 16 elements
     // separate even and odd terms
-    vd0 = _mm256_loadu_ps((float *)(x   )) ;
-    vd1 = _mm256_loadu_ps((float *)(x+ 8)) ;
-    ve0 = _mm256_shuffle_ps(vd0, vd1, 136) ;                  // 0b10001000 [ 0 2 8 A 4 6 C E ]
-    ve0 = (__m256)_mm256_permute4x64_pd((__m256d)ve0, 216) ;  // 0b11011000 [ 0 2 4 6 8 A C E ]  e[i]
-    vd0 = _mm256_loadu_ps((float *)(x+ 1)) ;
-    vd1 = _mm256_loadu_ps((float *)(x+ 9)) ;
-    vo0 = _mm256_shuffle_ps(vd0, vd1, 136) ;                  // 0b10001000 [ 1 3 9 B 5 7 D F ]
-    vo0 = (__m256)_mm256_permute4x64_pd((__m256d)vo0, 216) ;  // 0b11011000 [ 1 3 5 7 9 B D F ]  o[i]
-    ve1 = _mm256_shuffle_ps(vd0, vd1, 221) ;                  // 0b10001000 [ 2 4 A C 6 8 E 10]
-    ve1 = (__m256)_mm256_permute4x64_pd((__m256d)ve1, 216) ;  // 0b11011000 [ 2 4 6 8 A C E 10]  e[i+1]
-    _mm256_storeu_ps((float *)(e   ), ve0) ;                  // store even terms
+    vd0 = loadu_v8f((float *)(x   )) ;
+    vd1 = loadu_v8f((float *)(x+ 8)) ;
+    ve0 = shuffle_v8f(vd0, vd1, 136) ;                  // 0b10001000 [ 0 2 8 A 4 6 C E ]
+    ve0 = __V256f _mm256_permute4x64_pd(__V256d ve0, 216) ;  // 0b11011000 [ 0 2 4 6 8 A C E ]  e[i]
+    vd0 = loadu_v8f((float *)(x+ 1)) ;
+    vd1 = loadu_v8f((float *)(x+ 9)) ;
+    vo0 = shuffle_v8f(vd0, vd1, 136) ;                  // 0b10001000 [ 1 3 9 B 5 7 D F ]
+    vo0 = __V256f _mm256_permute4x64_pd(__V256d vo0, 216) ;  // 0b11011000 [ 1 3 5 7 9 B D F ]  o[i]
+    ve1 = shuffle_v8f(vd0, vd1, 221) ;                  // 0b10001000 [ 2 4 A C 6 8 E 10]
+    ve1 = __V256f _mm256_permute4x64_pd(__V256d ve1, 216) ;  // 0b11011000 [ 2 4 6 8 A C E 10]  e[i+1]
+    storeu_v8f((float *)(e   ), ve0) ;                  // store even terms
 
     // predict odd terms
-    ve0 = (__m256)_mm256_add_epi32((__m256i)ve0, vc1) ;           // e[i] + 1
-    ve0 = (__m256)_mm256_add_epi32((__m256i)ve0, (__m256i)ve1) ;  // e[i] + 1 + e[i+1]
-    ve0 = (__m256)_mm256_srai_epi32((__m256i)ve0, 1) ;            // (e[i] + 1 + e[i+1]) >> 1
-    vo0 = (__m256)_mm256_sub_epi32((__m256i)vo0, (__m256i)ve0) ;  // o[i] - ( (e[i] + 1 + e[i+1]) >> 1 )
-    _mm256_storeu_ps((float *)(o   ), vo0) ;                      // store predicted odd terms
+    ve0 = __V256f add_v8i(__V256i ve0, vc1) ;           // e[i] + 1
+    ve0 = __V256f add_v8i(__V256i ve0, __V256i ve1) ;  // e[i] + 1 + e[i+1]
+    ve0 = __V256f srai_v8i(__V256i ve0, 1) ;            // (e[i] + 1 + e[i+1]) >> 1
+    vo0 = __V256f sub_v8i(__V256i vo0, __V256i ve0) ;  // o[i] - ( (e[i] + 1 + e[i+1]) >> 1 )
+    storeu_v8f((float *)(o   ), vo0) ;                      // store predicted odd terms
   }
   e = e_ ; o = o_ ; x = x_ ;
   o[neven-1] = x[n-1] - x[n-2] ;                                   // fix predicted last odd term
@@ -312,33 +314,33 @@ void fwd_1d_lgt53_split_simd(int *x_, int *e_, int *o_, int n){
 
   i = 0 ;
   for( ; i<neven-15 ; i+=16, o+=16, e+=16){                        // by 16 even elements
-     ve1 = _mm256_loadu_ps((float *)(e   )) ;
-     vo0 = _mm256_loadu_ps((float *)(o- 1)) ;
-     vo1 = _mm256_loadu_ps((float *)(o   )) ;
-     vo0 = (__m256)_mm256_add_epi32((__m256i)vo0, vc2) ;           // o[i-1] + 2
-     vo0 = (__m256)_mm256_add_epi32((__m256i)vo0, (__m256i)vo1) ;  // o[i] + o[i-1] + 2
-     vo0 = (__m256)_mm256_srai_epi32((__m256i)vo0, 2) ;            // (o[i] + o[i-1] + 2) >> 2
-     ve1 = (__m256)_mm256_add_epi32((__m256i)ve1, (__m256i)vo0) ;  // e[i] + ( (o[i] + o[i-1] + 2) >> 2 )
-     _mm256_storeu_ps((float *)(e   ), ve1) ;                      // store updated even terms
+     ve1 = loadu_v8f((float *)(e   )) ;
+     vo0 = loadu_v8f((float *)(o- 1)) ;
+     vo1 = loadu_v8f((float *)(o   )) ;
+     vo0 = __V256f add_v8i(__V256i vo0, vc2) ;           // o[i-1] + 2
+     vo0 = __V256f add_v8i(__V256i vo0, __V256i vo1) ;  // o[i] + o[i-1] + 2
+     vo0 = __V256f srai_v8i(__V256i vo0, 2) ;            // (o[i] + o[i-1] + 2) >> 2
+     ve1 = __V256f add_v8i(__V256i ve1, __V256i vo0) ;  // e[i] + ( (o[i] + o[i-1] + 2) >> 2 )
+     storeu_v8f((float *)(e   ), ve1) ;                      // store updated even terms
 
-     ve1 = _mm256_loadu_ps((float *)(e+ 8)) ;
-     vo0 = _mm256_loadu_ps((float *)(o+ 7)) ;
-     vo1 = _mm256_loadu_ps((float *)(o+ 8)) ;
-     vo0 = (__m256)_mm256_add_epi32((__m256i)vo0, vc2) ;           // o[i-1] + 2
-     vo0 = (__m256)_mm256_add_epi32((__m256i)vo0, (__m256i)vo1) ;  // o[i] + o[i-1] + 2
-     vo0 = (__m256)_mm256_srai_epi32((__m256i)vo0, 2) ;            // (o[i] + o[i-1] + 2) >> 2
-     ve1 = (__m256)_mm256_add_epi32((__m256i)ve1, (__m256i)vo0) ;  // e[i] + ( (o[i] + o[i-1] + 2) >> 2 )
-     _mm256_storeu_ps((float *)(e+ 8), ve1) ;                      // store updated even terms
+     ve1 = loadu_v8f((float *)(e+ 8)) ;
+     vo0 = loadu_v8f((float *)(o+ 7)) ;
+     vo1 = loadu_v8f((float *)(o+ 8)) ;
+     vo0 = __V256f add_v8i(__V256i vo0, vc2) ;           // o[i-1] + 2
+     vo0 = __V256f add_v8i(__V256i vo0, __V256i vo1) ;  // o[i] + o[i-1] + 2
+     vo0 = __V256f srai_v8i(__V256i vo0, 2) ;            // (o[i] + o[i-1] + 2) >> 2
+     ve1 = __V256f add_v8i(__V256i ve1, __V256i vo0) ;  // e[i] + ( (o[i] + o[i-1] + 2) >> 2 )
+     storeu_v8f((float *)(e+ 8), ve1) ;                      // store updated even terms
   }
   for( ; i<neven-7 ; i+=8, o+=8, e+=8){                            // by 8 even elements
-     ve1 = _mm256_loadu_ps((float *)(e   )) ;
-     vo0 = _mm256_loadu_ps((float *)(o- 1)) ;
-     vo1 = _mm256_loadu_ps((float *)(o   )) ;
-     vo0 = (__m256)_mm256_add_epi32((__m256i)vo0, vc2) ;           // o[i-1] + 2
-     vo0 = (__m256)_mm256_add_epi32((__m256i)vo0, (__m256i)vo1) ;  // o[i] + o[i-1] + 2
-     vo0 = (__m256)_mm256_srai_epi32((__m256i)vo0, 2) ;            // (o[i] + o[i-1] + 2) >> 2
-     ve1 = (__m256)_mm256_add_epi32((__m256i)ve1, (__m256i)vo0) ;  // e[i] + ( (o[i] + o[i-1] + 2) >> 2 )
-     _mm256_storeu_ps((float *)(e   ), ve1) ;                      // store updated even terms
+     ve1 = loadu_v8f((float *)(e   )) ;
+     vo0 = loadu_v8f((float *)(o- 1)) ;
+     vo1 = loadu_v8f((float *)(o   )) ;
+     vo0 = __V256f add_v8i(__V256i vo0, vc2) ;           // o[i-1] + 2
+     vo0 = __V256f add_v8i(__V256i vo0, __V256i vo1) ;  // o[i] + o[i-1] + 2
+     vo0 = __V256f srai_v8i(__V256i vo0, 2) ;            // (o[i] + o[i-1] + 2) >> 2
+     ve1 = __V256f add_v8i(__V256i ve1, __V256i vo0) ;  // e[i] + ( (o[i] + o[i-1] + 2) >> 2 )
+     storeu_v8f((float *)(e   ), ve1) ;                      // store updated even terms
   }
   e_[0] = e00 ;                                                    // fix updated first even term
 #endif
@@ -393,17 +395,17 @@ void fwd_1d_lgt53_split(int *x, int *e, int *o, int n){
 static inline void row_predict(int *o, int *o0, int *e0, int *e1, int ni){
   int i = 0 ;
 #if defined(__AVX2__)
-  __m256i vc1 = _mm256_set1_epi32(1) ;
+  __v256i vc1 = set1_v8i(1) ;
   while(i < ni-7){
-    __m256i vro, vo0, ve0, ve1 ;
-    vo0 = _mm256_loadu_si256((__m256i *)(o0+i)) ;
-    ve0 = _mm256_loadu_si256((__m256i *)(e0+i)) ;
-    ve1 = _mm256_loadu_si256((__m256i *)(e1+i)) ;
-    ve0 = _mm256_add_epi32(ve0, vc1) ;      // e0[i] + 1
-    ve0 = _mm256_add_epi32(ve0, ve1) ;      // e1[i] + e0[i] + 1
-    ve0 = _mm256_srai_epi32(ve0, 1) ;       // (e1[i] + e0[i] + 1) >> 1
-    vro = _mm256_sub_epi32(vo0, ve0) ;      // (o[i] - (e1[i] + e0[i] + 1) >> 1)
-    _mm256_storeu_si256((__m256i *)(o+i), vro) ;
+    __v256i vro, vo0, ve0, ve1 ;
+    vo0 = loadu_v256((__v256i *)(o0+i)) ;
+    ve0 = loadu_v256((__v256i *)(e0+i)) ;
+    ve1 = loadu_v256((__v256i *)(e1+i)) ;
+    ve0 = add_v8i(ve0, vc1) ;      // e0[i] + 1
+    ve0 = add_v8i(ve0, ve1) ;      // e1[i] + e0[i] + 1
+    ve0 = srai_v8i(ve0, 1) ;       // (e1[i] + e0[i] + 1) >> 1
+    vro = sub_v8i(vo0, ve0) ;      // (o[i] - (e1[i] + e0[i] + 1) >> 1)
+    storeu_v256((__v256i *)(o+i), vro) ;
     i += 8 ;
   }
 #endif
@@ -426,17 +428,17 @@ static inline void row_predict_edge(int *o, int *o0, int *e0, int ni){
 static inline void row_update(int *e, int *e0, int *o0, int *o1, int ni){
   int i = 0 ;
 #if defined(__AVX2__)
-  __m256i vc2 = _mm256_set1_epi32(2) ;
+  __v256i vc2 = set1_v8i(2) ;
   while(i < ni-7){
-    __m256i vre, ve0, vo0, vo1 ;
-    ve0 = _mm256_loadu_si256((__m256i *)(e0+i)) ;
-    vo0 = _mm256_loadu_si256((__m256i *)(o0+i)) ;
-    vo1 = _mm256_loadu_si256((__m256i *)(o1+i)) ;
-    vo0 = _mm256_add_epi32(vo0, vc2) ;      // o0[i] + 2
-    vo0 = _mm256_add_epi32(vo0, vo1) ;      // o1[i] + o0[i] + 2
-    vo0 = _mm256_srai_epi32(vo0, 2) ;       // (o1[i] + o0[i] + 2) >> 2
-    vre = _mm256_add_epi32(ve0, vo0) ;      // (e[i] + (o1[i] + o0[i] + 2) >> 1)
-    _mm256_storeu_si256((__m256i *)(e+i), vre) ;
+    __v256i vre, ve0, vo0, vo1 ;
+    ve0 = loadu_v256((__v256i *)(e0+i)) ;
+    vo0 = loadu_v256((__v256i *)(o0+i)) ;
+    vo1 = loadu_v256((__v256i *)(o1+i)) ;
+    vo0 = add_v8i(vo0, vc2) ;      // o0[i] + 2
+    vo0 = add_v8i(vo0, vo1) ;      // o1[i] + o0[i] + 2
+    vo0 = srai_v8i(vo0, 2) ;       // (o1[i] + o0[i] + 2) >> 2
+    vre = add_v8i(ve0, vo0) ;      // (e[i] + (o1[i] + o0[i] + 2) >> 1)
+    storeu_v256((__v256i *)(e+i), vre) ;
     i += 8 ;
   }
 #endif
@@ -596,21 +598,21 @@ void inv_1d_lgt53_split_simd(int *x_, int *e_, int *o_, int n){
     inv_1d_lgt53_split_c(x, e, o, n) ;
     return;
   }
-  __m256i vc1, vc2 ;
-  __m256i  ve0, ve1, vo0, vo1 ;
-  vc1 = _mm256_set1_epi32(1) ;      // vector of 1
-  vc2 = _mm256_set1_epi32(2) ;      // vector of 2
+  __v256i vc1, vc2 ;
+  __v256i  ve0, ve1, vo0, vo1 ;
+  vc1 = set1_v8i(1) ;      // vector of 1
+  vc2 = set1_v8i(2) ;      // vector of 2
 // e[i] = e[i] - ((o[i] + o[i-1] + 2) >> 2)
   e = e_ ; o = o_ ; x = x_ ; te = te_ ;
   for(i=0 ; i<neven ; i+=8, o+=8, e+=8, te+=8){     // by 16 elements (8 odd/even pairs)
-    ve0 = _mm256_loadu_si256((__m256i *)(e  )) ;
-    vo0 = _mm256_loadu_si256((__m256i *)(o  )) ;
-    vo1 = _mm256_loadu_si256((__m256i *)(o-1)) ;
-    vo0 = _mm256_add_epi32(vo0, vc2) ;              // o[i] + 2
-    vo0 = _mm256_add_epi32(vo0, vo1) ;              // o[i] + o[i-1] + 2
-    vo0 = _mm256_srai_epi32(vo0, 2) ;               // (o[i] + o[i-1] + 2) >> 2
-    ve0 = _mm256_sub_epi32(ve0, vo0) ;              // e[i] - ((o[i] + o[i-1] + 2) >> 2)
-    _mm256_storeu_si256((__m256i *)te, ve0) ;       // te[i] = e[i] - ((o[i] + o[i-1] + 2) >> 2)
+    ve0 = loadu_v256((__v256i *)(e  )) ;
+    vo0 = loadu_v256((__v256i *)(o  )) ;
+    vo1 = loadu_v256((__v256i *)(o-1)) ;
+    vo0 = add_v8i(vo0, vc2) ;              // o[i] + 2
+    vo0 = add_v8i(vo0, vo1) ;              // o[i] + o[i-1] + 2
+    vo0 = srai_v8i(vo0, 2) ;               // (o[i] + o[i-1] + 2) >> 2
+    ve0 = sub_v8i(ve0, vo0) ;              // e[i] - ((o[i] + o[i-1] + 2) >> 2)
+    storeu_v256((__v256i *)te, ve0) ;       // te[i] = e[i] - ((o[i] + o[i-1] + 2) >> 2)
   }
 
   e = e_ ; o = o_ ; te = te_ ;
@@ -619,13 +621,13 @@ void inv_1d_lgt53_split_simd(int *x_, int *e_, int *o_, int n){
   int onn = o[nodd-1] ;                            // save last unpredicted odd term
 // o[i] = o[i] + ((e[i] + e[i+1] + 1) >> 1)
   for(i=0 ; i<nodd ; i+=8, o+=8, x+=16, te+=8){    // by 16 elements (8 even/odd pairs)
-    vo0 = _mm256_loadu_si256((__m256i *)(o   )) ;
-    ve0 = _mm256_loadu_si256((__m256i *)(te  )) ;  // e[i]
-    ve1 = _mm256_loadu_si256((__m256i *)(te+1)) ;  // e[i+1
-    ve1 = _mm256_add_epi32(ve1, vc1) ;             // e[i+1] + 1
-    ve1 = _mm256_add_epi32(ve1, ve0) ;             // e[i] + e[i+1] + 1
-    ve1 = _mm256_srai_epi32(ve1, 1) ;              // (e[i] + e[i+1] + 1) >> 1
-    vo0 =  _mm256_add_epi32(vo0, ve1) ;            // o[i] + (e[i] + e[i+1] + 1) >> 1
+    vo0 = loadu_v256((__v256i *)(o   )) ;
+    ve0 = loadu_v256((__v256i *)(te  )) ;  // e[i]
+    ve1 = loadu_v256((__v256i *)(te+1)) ;  // e[i+1
+    ve1 = add_v8i(ve1, vc1) ;             // e[i+1] + 1
+    ve1 = add_v8i(ve1, ve0) ;             // e[i] + e[i+1] + 1
+    ve1 = srai_v8i(ve1, 1) ;              // (e[i] + e[i+1] + 1) >> 1
+    vo0 =  add_v8i(vo0, ve1) ;            // o[i] + (e[i] + e[i+1] + 1) >> 1
     merge_store_256((uint32_t *)x, ve0, vo0) ;     // store e[i]/o[i] pairs
   }
   x_[n-1] = onn + x_[n-2] ;                         // fix last odd value
