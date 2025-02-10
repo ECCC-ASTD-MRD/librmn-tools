@@ -29,19 +29,11 @@ void inv_1d_lgt53_asis(int *x, int n);
 // explicit split into even and odd arrays
 void fwd_1d_lgt53_split(int *x, int *e, int *o, int n);
 void fwd_1d_lgt53_split_c(int *x, int *e, int *o, int n);
-#if defined(__AVX2__)
 void fwd_1d_lgt53_split_simd(int *x, int *e, int *o, int n);
-#else
-#define fwd_1d_lgt53_split_simd fwd_1d_lgt53_split_c
-#endif
 
 void inv_1d_lgt53_split(int *x, int *e, int *o, int n);
 void inv_1d_lgt53_split_c(int *x, int *e, int *o, int n);
-#if defined(__AVX2__)
 void inv_1d_lgt53_split_simd(int *x, int *e, int *o, int n);
-#else
-#define inv_1d_lgt53_split_simd inv_1d_lgt53_split_c
-#endif
 
 // 4 quadrants, 2D extension of fwd_1d_lgt53/inv_1d_lgt53 (in place)
 void fwd_2d_lgt53(int *x, int lni, int ni, int nj);

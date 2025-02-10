@@ -222,7 +222,6 @@ void fwd_1d_lgt53_asis(int *x, int n){
   }
 }
 
-#if defined(__AVX2__)
 // 1 dimensional forward Le Gall Tabatabai transform, not in place, even/odd arrays
 // x    [IN] : 1D array to transform
 // e   [OUT] : 1D array of even terms
@@ -230,6 +229,9 @@ void fwd_1d_lgt53_asis(int *x, int n){
 // n    [IN] : dimension of x (assumed even)
 // this SIMD version is used only if n is a multiple of 16
 void fwd_1d_lgt53_split_simd(int *x_, int *e_, int *o_, int n){
+#if ! defined(__AVX2__)
+  fwd_1d_lgt53_split_c(x_, e_, o_, n) ;
+#else
   if(n & 15){          // n is not a multiple of 16, use the C version
     fwd_1d_lgt53_split_c(x_, e_, o_, n) ;
     return ;
@@ -339,8 +341,8 @@ void fwd_1d_lgt53_split_simd(int *x_, int *e_, int *o_, int n){
      _mm256_storeu_ps((float *)(e   ), ve1) ;                      // store updated even terms
   }
   e_[0] = e00 ;                                                    // fix updated first even term
-}
 #endif
+}
 
 // 1 dimensional forward Le Gall Tabatabai transform, not in place, even/odd arrays
 // x    [IN] : 1D array to transform
@@ -575,7 +577,6 @@ void inv_1d_lgt53_asis(int *x, int n){
   }
 }
 
-#if defined(__AVX2__)
 // forward Le Gall Tabatabai transform, not in place, even/odd arrays
 // x   [OUT] : 1D array to receive transform
 // e    [IN] : 1D array of even terms
@@ -584,6 +585,9 @@ void inv_1d_lgt53_asis(int *x, int n){
 // this SIMD version is used only if n is a multiple of 16
 void inv_1d_lgt53_split_simd(int *x_, int *e_, int *o_, int n){
   int *x = x_, *e = e_, *o = o_ ;
+#if ! defined(__AVX2__)
+  inv_1d_lgt53_split_c(x, e, o, n) ;
+#else
   int i, neven = n >> 1, nodd = neven ;
 //   int teven[neven], *te_ = &teven[0], *te = te_ ;
   int *te_ = x_ + neven, *te = te_ ;    // use upper part of x_ as temporary storage for te
@@ -625,8 +629,8 @@ void inv_1d_lgt53_split_simd(int *x_, int *e_, int *o_, int n){
     merge_store_256((uint32_t *)x, ve0, vo0) ;     // store e[i]/o[i] pairs
   }
   x_[n-1] = onn + x_[n-2] ;                         // fix last odd value
-}
 #endif
+}
 
 // inverse Le Gall Tabatabai transform, not in place, even/odd arrays
 // x   [OUT] : 1D array to receive transform
