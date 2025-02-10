@@ -37,6 +37,7 @@ int main(int argc, char **argv){
 
   int a64_[66], xo1[64], xe1[64], xo2[64], xe2[64], b64_[66] ;
   int *a64 = &a64_[1], *b64 = &b64_[1] ;
+  int a32_[34], b32_[34], *a32 = &a32_[1], *b32 = &b32_[1] ;
 
   if(argc > 1){
     if( *argv[1] == 't') goto timings ;
@@ -301,6 +302,20 @@ timings:
   tp2 = cycles_to_ns(tmin2)/4096 ;
   fprintf(stderr, "fwd transform : %6ld cycles (%f5.2 ns/point), inv transform : %6ld cycles (%f5.2 ns/point)\n\n", tmin1, tp1, tmin2, tp2) ;
 
+  for(levels=1 ; levels<4 ; levels++){
+    fwd_2d_lgt53_n((void *)bench, 64, 32, 32, levels) ;
+    inv_2d_lgt53_n((void *)bench, 64, 32, 32, levels) ;
+    fprintf(stderr, "2D transform (%d levels) : errors = %d\n", levels, nerr = errors((void *)bench, (void *)orig, 4096));
+    if(nerr) goto fail ;
+  }
+
+  for(levels=1 ; levels<4 ; levels++){
+    fwd_2d_lgt53_n((void *)bench, 64, 64, 64, levels) ;
+    inv_2d_lgt53_n((void *)bench, 64, 64, 64, levels) ;
+    fprintf(stderr, "2D transform (%d levels) : errors = %d\n", levels, nerr = errors((void *)bench, (void *)orig, 4096));
+    if(nerr) goto fail ;
+  }
+
   for(levels=1 ; levels<3 ; levels++){
     tmin1 = tmin2 = 999999999 ;
     for(iter=0 ; iter<NTIMES ; iter++){
@@ -331,10 +346,53 @@ experiments :
 //     xo1[i] = xe1[i] = -1 ;
 //     xo2[i] = xe2[i] = -1 ;
   }
-  a64_[0] = 999 ;
-  a64_[65] = 999 ;
-  b64_[0] = 999 ;
-  b64_[65] = 999 ;
+  for(i=0 ; i<32 ; i++){ a32[i] = sin[i&15] + cos[i&15] + i ; }
+  a64_[0]  = a32_[0]  = 999 ;
+  a64_[65] = a32_[33] = 999 ;
+  b64_[0]  = b32_[0]  = 999 ;
+  b64_[65] = b32_[33] = 999 ;
+
+  for(i=-1  ; i<33 ; i++) fprintf(stderr, "%3d ", a32[i]) ;
+  fprintf(stderr, "\n\n") ;
+
+  for(i=0 ; i<64 ; i++){ xo1[i] = xe1[i] = 999 ; } ;
+  fwd_1d_lgt53_split_c(a32, xe1+1, xo1+1, 32) ;
+  for(i=0 ; i<18 ; i++) fprintf(stderr, "%3d ", xe1[i]) ;
+  fprintf(stderr, "\n") ;
+  for(i=0 ; i<18 ; i++) fprintf(stderr, "%3d ", xo1[i]) ;
+  fprintf(stderr, "\n") ;
+  inv_1d_lgt53_split_c(b32, xe1+1, xo1+1, 32) ;
+  for(i=-1  ; i<33 ; i++) fprintf(stderr, "%3d ", b32[i]) ;
+  fprintf(stderr, "\n") ;
+  fprintf(stderr, "b32 discrepancies (c) (32) = %d\n", errors((void *)a32_, (void *)b32_, 34)) ;
+  fprintf(stderr, "\n") ;
+
+  for(i=0 ; i<64 ; i++){ xo2[i] = xe2[i] = 999 ; } ;
+  fwd_1d_lgt53_split_simd(a32, xe2+1, xo2+1, 32) ;
+  for(i=0 ; i<18 ; i++) fprintf(stderr, "%3d ", xe2[i]) ;
+  fprintf(stderr, "\n") ;
+  for(i=0 ; i<18 ; i++) fprintf(stderr, "%3d ", xo2[i]) ;
+  fprintf(stderr, "\n") ;
+  inv_1d_lgt53_split_simd(b32, xe2+1, xo2+1, 32) ;
+  for(i=-1  ; i<33 ; i++) fprintf(stderr, "%3d ", b32[i]) ;
+  fprintf(stderr, "\n") ;
+  fprintf(stderr, "b32 discrepancies (simd) (32) = %d\n", errors((void *)a32_, (void *)b32_, 34)) ;
+  fprintf(stderr, "\n") ;
+  fprintf(stderr, "xe discrepancies = %d\n", errors((void *)xe1, (void *)xe2, 18)) ;
+  fprintf(stderr, "xo discrepancies = %d\n", errors((void *)xo1, (void *)xo2, 18)) ;
+  fprintf(stderr, "\n") ;
+
+  for(i=0 ; i<64 ; i++){ xo1[i] = xe1[i] = 999 ; } ;
+  fwd_1d_lgt53_split_c(a32, xe1+1, xo1+1, 31) ;
+  for(i=0 ; i<18 ; i++) fprintf(stderr, "%3d ", xe1[i]) ;
+  fprintf(stderr, "\n") ;
+  for(i=0 ; i<18 ; i++) fprintf(stderr, "%3d ", xo1[i]) ;
+  fprintf(stderr, "\n") ;
+  inv_1d_lgt53_split_c(b32, xe1+1, xo1+1, 31) ;
+  for(i=-1  ; i<33 ; i++) fprintf(stderr, "%3d ", b32[i]) ;
+  fprintf(stderr, "\n") ;
+  fprintf(stderr, "b32 discrepancies (c) (31) = %d\n", errors((void *)a32_, (void *)b32_, 34)) ;
+  fprintf(stderr, "\n") ;
 
   for(i=-1  ; i<32 ; i++) fprintf(stderr, "%3d ", a64[i]) ;
   fprintf(stderr, "\n") ;
