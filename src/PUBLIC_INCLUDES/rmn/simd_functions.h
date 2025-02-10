@@ -302,6 +302,8 @@ typedef vec_128 __v128d ;
 
 #define _mm256_shuffle_epi32   shuffle_v8i
 #define _mm_shuffle_epi32      shuffle_v4i
+#define _mm256_shuffle_ps      shuffle_v8f
+#define _mm_shuffle_ps         shuffle_v4f
 
 #endif   // defined(ALIAS_INTEL_SIMD_INTRINSICS)
 // =================================================================================================================
@@ -408,6 +410,8 @@ static inline __m128i _mm_setones_si128(void){ __m128i t = _mm_setzero_si128() ;
 
 #define shuffle_v8i    _mm256_shuffle_epi32
 #define shuffle_v4i    _mm_shuffle_epi32
+#define shuffle_v8f    _mm256_shuffle_ps
+#define shuffle_v4f    _mm_shuffle_ps
 
 // =================================================================================================================
 #else    // defined(USE_INTEL_SIMD_INTRINSICS)
@@ -510,7 +514,9 @@ SIMD_FN(SIMD_STATIC, __m256i, 32, blendv_v32c(__m256i A, __m256i B, __m256i MASK
 SIMD_FN(SIMD_STATIC, __m128i, 16, blendv_v16c(__m128i A, __m128i B, __m128i MASK), R.u8[i] = ((MASK.i8[i] >> 7) & (B.u8[i] ^ A.u8[i])) ^  A.u8[i] )
 
 SIMD_FN(SIMD_STATIC, __m256i,  4, shuffle_v8i(__v256i A, int imm) , R.u32[i] = A.u32[imm&3] ; R.u32[i+4] = A.u32[4+(imm&3)] ; imm >>= 2 )
+SIMD_FN(SIMD_STATIC, __m256,   4, shuffle_v8f(__v256i A, int imm) , R.u32[i] = A.u32[imm&3] ; R.u32[i+4] = A.u32[4+(imm&3)] ; imm >>= 2 )
 SIMD_FN(SIMD_STATIC, __m256i,  4, shuffle_v4i(__v256i A, int imm) , R.u32[i] = A.u32[imm&3] ; imm >>= 2 )
+SIMD_FN(SIMD_STATIC, __m256,   4, shuffle_v4f(__v256i A, int imm) , R.u32[i] = A.u32[imm&3] ; imm >>= 2 )
 
 #endif    // defined(USE_INTEL_SIMD_INTRINSICS)
 // =================================================================================================================
