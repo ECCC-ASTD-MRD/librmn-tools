@@ -45,9 +45,9 @@
 #include <rmn/ct_assert.h>
 
 // 128 bit struct (allows 128 bit assignments) (2 x 64 bits)
-typedef  struct{ uint64_t  u64[2] ;} u128_t ;
+typedef  struct{ union {int64_t i64[2] ; uint64_t u64[2] ;                 } ; } u128_t ;
 // 256 bit struct (allows 256 bit assignments) (2 x 128 bits or 4 x 64 bits)
-typedef  struct{ union {uint64_t u64[4] ; u128_t u128[2] ;} ; } u256_t ;
+typedef  struct{ union {int64_t i64[4] ; uint64_t u64[4] ; u128_t u128[2] ;} ; } u256_t ;
 
 // plain C code uses these unions of arrays for SIMD types
 typedef struct{ union{ double d[2]; int64_t i64[2]; uint64_t u64[2]; float f[4]; int32_t i32[4]; uint32_t u32[4];
@@ -216,6 +216,7 @@ typedef vec_128 __v128d ;
 #define _mm_setzero_si128      zero_v128
 #define _mm256_setones_si256   ones_v256
 #define _mm_setones_si128      ones_v128
+#define _mm256_setr_m128i      setr_2v128
 
 #define _mm_cvtsi32_si128      cvt_i32_v4i
 #define _mm256_cvtepi8_epi32   cvt_v8c_v8i
@@ -326,6 +327,7 @@ typedef vec_128 __v128d ;
 #define zero_v128     _mm_setzero_si128
 #define ones_v256     _mm256_setones_si256
 #define ones_v128     _mm_setones_si128
+#define setr_2v128    _mm256_setr_m128i
 // setones is not in the official Intel intrinsics
 static inline __m256i _mm256_setones_si256(void){  __m256i t = _mm256_setzero_si256() ; return _mm256_cmpeq_epi32(t, t) ; }
 static inline __m128i _mm_setones_si128(void){ __m128i t = _mm_setzero_si128() ; return _mm_cmpeq_epi32(t, t) ; }
@@ -435,6 +437,7 @@ SIMD_FN(SIMD_STATIC, __m256i, 8, set1_v8i( int32_t  i32 ) , R.i32[i] = i32 )
 SIMD_FN(SIMD_STATIC, __m128i, 4, set1_v4i( int32_t  i32 ) , R.i32[i] = i32 )
 SIMD_FN(SIMD_STATIC, __m256i, 8, zero_v256( void ) , R.u32[i] = 0 )
 SIMD_FN(SIMD_STATIC, __m128i, 4, zero_v128( void ) , R.u32[i] = 0 )
+SIMD_FN(SIMD_STATIC, __m256i, 1, setr_2v128(__m128i LO, __m128i HI) , R.u128[0] = LO.u128 ; R.u128[1] = HI.u128 ; )
 SIMD_FN(SIMD_STATIC, __m256i, 8, ones_v256( void ) , R.u32[i] = 0xFFFFFFFFu )        // not part of official Intel intrinsics
 SIMD_FN(SIMD_STATIC, __m128i, 4, ones_v128( void ) , R.u32[i] = 0xFFFFFFFFu )        // not part of official Intel intrinsics
 
@@ -534,18 +537,18 @@ SIMD_FN(SIMD_STATIC, __m128,   1, shuffle_2v4f(__v128 A, __m128 B, int imm) , R.
                                                                               R.u32[2] = B.u32[imm&3] ; imm >>= 2 ; \
                                                                               R.u32[3] = B.u32[imm&3] ; )
 
-SIMD_FN(SIMD_STATIC, __m256i,  1, unpacklo_v8i(__v256i A, __v256i B) , R.u32[0] = A.u32[0] ; R.u32[1]= A.u32[1] ; \
-                                                                       R.u32[2] = B.u32[0] ; R.u32[3]= B.u32[1] ; \
-                                                                       R.u32[4] = A.u32[4] ; R.u32[5]= A.u32[5] ; \
-                                                                       R.u32[6] = B.u32[4] ; R.u32[7]= B.u32[5] ; )
-SIMD_FN(SIMD_STATIC, __m256i,  1, unpacklo_v4i(__v128i A, __v128i B) , R.u32[0] = A.u32[0] ; R.u32[1]= A.u32[1] ; \
-                                                                       R.u32[2] = B.u32[0] ; R.u32[3]= B.u32[1] ; )
-SIMD_FN(SIMD_STATIC, __m256i,  1, unpackhi_v8i(__v256i A, __v256i B) , R.u32[0] = A.u32[2] ; R.u32[1]= A.u32[3] ; \
-                                                                       R.u32[2] = B.u32[2] ; R.u32[3]= B.u32[3] ; \
-                                                                       R.u32[4] = A.u32[6] ; R.u32[5]= A.u32[7] ; \
-                                                                       R.u32[6] = B.u32[6] ; R.u32[7]= B.u32[7] ; )
-SIMD_FN(SIMD_STATIC, __m256i,  1, unpackhi_v4i(__v128i A, __v128i B) , R.u32[0] = A.u32[2] ; R.u32[1]= A.u32[3] ; \
-                                                                       R.u32[2] = B.u32[2] ; R.u32[3]= B.u32[3] ; )
+SIMD_FN(SIMD_STATIC, __m256i,  1, unpacklo_v8i(__v256i A, __v256i B) , R.u32[0] = A.u32[0] ; R.u32[2]= A.u32[1] ; \
+                                                                       R.u32[1] = B.u32[0] ; R.u32[3]= B.u32[1] ; \
+                                                                       R.u32[4] = A.u32[4] ; R.u32[6]= A.u32[5] ; \
+                                                                       R.u32[5] = B.u32[4] ; R.u32[7]= B.u32[5] ; )
+SIMD_FN(SIMD_STATIC, __m128i,  1, unpacklo_v4i(__v128i A, __v128i B) , R.u32[0] = A.u32[0] ; R.u32[2]= A.u32[1] ; \
+                                                                       R.u32[1] = B.u32[0] ; R.u32[3]= B.u32[1] ; )
+SIMD_FN(SIMD_STATIC, __m256i,  1, unpackhi_v8i(__v256i A, __v256i B) , R.u32[0] = A.u32[2] ; R.u32[2]= A.u32[3] ; \
+                                                                       R.u32[1] = B.u32[2] ; R.u32[3]= B.u32[3] ; \
+                                                                       R.u32[4] = A.u32[6] ; R.u32[6]= A.u32[7] ; \
+                                                                       R.u32[5] = B.u32[6] ; R.u32[7]= B.u32[7] ; )
+SIMD_FN(SIMD_STATIC, __m128i,  1, unpackhi_v4i(__v128i A, __v128i B) , R.u32[0] = A.u32[2] ; R.u32[2]= A.u32[3] ; \
+                                                                       R.u32[1] = B.u32[2] ; R.u32[3]= B.u32[3] ; )
 
 #endif    // defined(USE_INTEL_SIMD_INTRINSICS)
 // =================================================================================================================

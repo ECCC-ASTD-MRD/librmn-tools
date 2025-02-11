@@ -22,9 +22,8 @@
 
 #include <rmn/test_helpers.h>
 
-// use emulated intrinsics
-#define NO_SIMD
-#define ALIAS_INTEL_SIMD_INTRINSICS
+// use SIMD intrinsics
+#define USE_SIMD_INTRINSICS
 
 // verbose mode for include file rmn/simd_functions.h
 #define VERBOSE_SIMD
