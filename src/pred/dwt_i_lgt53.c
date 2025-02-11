@@ -167,12 +167,12 @@ void merge_even_odd_32_simd(uint32_t *s, uint32_t *e, uint32_t *o, int n){
       n-=4 ; s+=4 ; e+=2 ; o+=2 ;             // update pointers and count
     }
     if(n > 1){
-      _mm_storeu_si64((void *)s, v0) ;        // store 1 even term, 1 odd term
+      storeu_si64((void *)s, v0) ;        // store 1 even term, 1 odd term
       v0 = bsrli_v128(v0, 8) ;           // shift right by 64 bits
       n-=2 ; s+=2 ; e+=1 ; o+=1 ;             // update pointers and count
     }
     if(n > 0){
-      _mm_storeu_si32((void *)s, v0) ;        // store last even term
+      storeu_si32((void *)s, v0) ;        // store last even term
     }
   }
 }
