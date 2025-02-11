@@ -122,38 +122,38 @@ static inline int un_update_edge(int e1, int o0   ){ return e1 - ((o0 + 1) >> 1)
 
 #if defined(__AVX2__)
 // even/odd merge 4 even terms + 4 odd terms into 8 terms
-static inline __v256i _mm256_merge_128(__v128i ve, __v128i vo){
+static inline __v256i merge_2v128(__v128i ve, __v128i vo){
   return setr_2v128( unpacklo_v4i(ve, vo) , unpackhi_v4i(ve, vo) ) ;
 }
 // even/odd merge the low 4 even terms and the low 4 odd terms into 8 terms
-static inline __v256i _mm256_merge_lo_128(__v256i ve, __v256i vo){
+static inline __v256i merge_lo_2v128(__v256i ve, __v256i vo){
   __v256i v0 = unpacklo_v8i(ve, vo) ;
   __v256i v1 = unpackhi_v8i(ve, vo) ;
   return permute2_v256(v0, v1, 0x20) ;
 }
 // even/odd merge the high 4 even terms and the high 4 odd terms into 8 terms
-static inline __v256i _mm256_merge_hi_128(__v256i ve, __v256i vo){
+static inline __v256i merge_hi_2v128(__v256i ve, __v256i vo){
   __v256i v0 = unpacklo_v8i(ve, vo) ;
   __v256i v1 = unpackhi_v8i(ve, vo) ;
   return permute2_v256(v0, v1, 0x31) ;
 }
 // merge 8 even terms + 8 odd terms and store 16 terms
-static inline void merge_store_256(uint32_t *s, __v256i ve, __v256i vo){
-  storeu_v256((__v256i *)(s  ), _mm256_merge_lo_128(ve, vo)) ;
-  storeu_v256((__v256i *)(s+8), _mm256_merge_hi_128(ve, vo)) ;
+static inline void merge_store_2v256(uint32_t *s, __v256i ve, __v256i vo){
+  storeu_v256((__v256i *)(s  ), merge_lo_2v128(ve, vo)) ;
+  storeu_v256((__v256i *)(s+8), merge_hi_2v128(ve, vo)) ;
 }
 // merge 4 even terms + 4 odd terms and store 8 terms
-static inline void merge_store_128(uint32_t *s, __v128i ve, __v128i vo){
-  storeu_v256((__v256i *)(s), _mm256_merge_128(ve, vo) ) ;
+static inline void merge_store_2v128(uint32_t *s, __v128i ve, __v128i vo){
+  storeu_v256((__v256i *)(s), merge_2v128(ve, vo) ) ;
 }
 // merge (n+1)/2 even terms and n/2 odd terms into s[n]
-void merge_even_odd_32_simd(uint32_t *s, uint32_t *e, uint32_t *o, int n){
+void merge_even_odd(uint32_t *s, uint32_t *e, uint32_t *o, int n){
   while(n>15){
-    merge_store_256(s, loadu_v256((__v256i *)e), loadu_v256((__v256i *)o)) ;
+    merge_store_2v256(s, loadu_v256((__v256i *)e), loadu_v256((__v256i *)o)) ;
     n-=16 ; s+=16 ; e+=8 ; o+=8 ;             // update pointers and count
   }
   if(n>7){
-    merge_store_128(s, loadu_v128((__v128i *)e), loadu_v128((__v128i *)o)) ;
+    merge_store_2v128(s, loadu_v128((__v128i *)e), loadu_v128((__v128i *)o)) ;
     n-=8 ; s+=8 ; e+=4 ; o+=4 ;               // update pointers and count
   }
   if(n>0){                                    // any leftovers ?
@@ -629,7 +629,7 @@ void inv_1d_lgt53_split_simd(int *x_, int *e_, int *o_, int n){
     ve1 = add_v8i(ve1, ve0) ;             // e[i] + e[i+1] + 1
     ve1 = srai_v8i(ve1, 1) ;              // (e[i] + e[i+1] + 1) >> 1
     vo0 =  add_v8i(vo0, ve1) ;            // o[i] + (e[i] + e[i+1] + 1) >> 1
-    merge_store_256((uint32_t *)x, ve0, vo0) ;     // store e[i]/o[i] pairs
+    merge_store_2v256((uint32_t *)x, ve0, vo0) ;     // store e[i]/o[i] pairs
   }
   x_[n-1] = onn + x_[n-2] ;                         // fix last odd value
 #endif
