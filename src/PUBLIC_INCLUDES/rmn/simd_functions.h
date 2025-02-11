@@ -302,8 +302,8 @@ typedef vec_128 __v128d ;
 
 #define _mm256_shuffle_epi32   shuffle_v8i
 #define _mm_shuffle_epi32      shuffle_v4i
-#define _mm256_shuffle_ps      shuffle_v8f
-#define _mm_shuffle_ps         shuffle_v4f
+#define _mm256_shuffle_ps      shuffle_2v8f
+#define _mm_shuffle_ps         shuffle_2v4f
 
 #define _mm256_unpacklo_epi32  unpacklo_v8i  
 #define _mm_unpacklo_epi32     unpacklo_v4i  
@@ -415,8 +415,8 @@ static inline __m128i _mm_setones_si128(void){ __m128i t = _mm_setzero_si128() ;
 
 #define shuffle_v8i    _mm256_shuffle_epi32
 #define shuffle_v4i    _mm_shuffle_epi32
-#define shuffle_v8f    _mm256_shuffle_ps
-#define shuffle_v4f    _mm_shuffle_ps
+#define shuffle_2v8f   _mm256_shuffle_ps
+#define shuffle_2v4f   _mm_shuffle_ps
 
 #define unpacklo_v8i   _mm256_unpacklo_epi32
 #define unpacklo_v4i   _mm_unpacklo_epi32
@@ -524,9 +524,15 @@ SIMD_FN(SIMD_STATIC, __m256i, 32, blendv_v32c(__m256i A, __m256i B, __m256i MASK
 SIMD_FN(SIMD_STATIC, __m128i, 16, blendv_v16c(__m128i A, __m128i B, __m128i MASK), R.u8[i] = ((MASK.i8[i] >> 7) & (B.u8[i] ^ A.u8[i])) ^  A.u8[i] )
 
 SIMD_FN(SIMD_STATIC, __m256i,  4, shuffle_v8i(__v256i A, int imm) , R.u32[i] = A.u32[imm&3] ; R.u32[i+4] = A.u32[4+(imm&3)] ; imm >>= 2 )
-SIMD_FN(SIMD_STATIC, __m256,   4, shuffle_v8f(__v256i A, int imm) , R.u32[i] = A.u32[imm&3] ; R.u32[i+4] = A.u32[4+(imm&3)] ; imm >>= 2 )
-SIMD_FN(SIMD_STATIC, __m256i,  4, shuffle_v4i(__v256i A, int imm) , R.u32[i] = A.u32[imm&3] ; imm >>= 2 )
-SIMD_FN(SIMD_STATIC, __m256,   4, shuffle_v4f(__v256i A, int imm) , R.u32[i] = A.u32[imm&3] ; imm >>= 2 )
+SIMD_FN(SIMD_STATIC, __m128i,  4, shuffle_v4i(__v128i A, int imm) , R.u32[i] = A.u32[imm&3] ;                                 imm >>= 2 )
+SIMD_FN(SIMD_STATIC, __m256,   1, shuffle_2v8f(__v256 A, __m256 B, int imm) , R.u32[0] = A.u32[imm&3] ; R.u32[4] = A.u32[4+(imm&3)] ; imm >>= 2 ; \
+                                                                              R.u32[1] = A.u32[imm&3] ; R.u32[5] = A.u32[4+(imm&3)] ; imm >>= 2 ; \
+                                                                              R.u32[2] = B.u32[imm&3] ; R.u32[6] = B.u32[4+(imm&3)] ; imm >>= 2 ; \
+                                                                              R.u32[3] = B.u32[imm&3] ; R.u32[7] = B.u32[4+(imm&3)] ; )
+SIMD_FN(SIMD_STATIC, __m128,   1, shuffle_2v4f(__v128 A, __m128 B, int imm) , R.u32[0] = A.u32[imm&3] ; imm >>= 2 ; \
+                                                                              R.u32[1] = A.u32[imm&3] ; imm >>= 2 ; \
+                                                                              R.u32[2] = B.u32[imm&3] ; imm >>= 2 ; \
+                                                                              R.u32[3] = B.u32[imm&3] ; )
 
 SIMD_FN(SIMD_STATIC, __m256i,  1, unpacklo_v8i(__v256i A, __v256i B) , R.u32[0] = A.u32[0] ; R.u32[1]= A.u32[1] ; \
                                                                        R.u32[2] = B.u32[0] ; R.u32[3]= B.u32[1] ; \
@@ -740,7 +746,7 @@ static inline __m256i mask_v8i(int n){
 
 // lowest non zero absolute value
 //                            -1 where V == 0    ABS value    bump zeros count  blend VMI0 where zero  unsigned minimum
-#define MIN08(V,VMI0,V0,VZ) { V8I z=VEQ8(V,V0) ; V=ABS8I(V) ; VZ=ADD8I(VZ,z) ;  V=BLEND8(V,VMI0,z) ;   VMI0=MINU8(V,VMI0) ; }
+#define MIN08(V,VMI0,V0,VZ) { __m256i z=VEQ8(V,V0) ; V=ABS8I(V) ; VZ=ADD8I(VZ,z) ;  V=BLEND8(V,VMI0,z) ;   VMI0=MINU8(V,VMI0) ; }
 #endif
 
 #endif // protect the whole file againt double inclusion with SIMD_LOOP
