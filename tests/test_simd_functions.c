@@ -31,4 +31,6 @@
 #include <rmn/simd_functions.h>
 #include <rmn/simd_functions.h>   // deliberate double inclusion
 
+#undef REFERENCE
+
 #include "test_simd_functions_body.h"

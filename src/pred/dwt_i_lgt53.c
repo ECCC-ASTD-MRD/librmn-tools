@@ -94,6 +94,7 @@
 
 // #include <immintrin.h>
 #define USE_SIMD_INTRINSICS
+// #define NO_SIMD
 #include <rmn/simd_functions.h>
 
 #include <rmn/dwt_i_lgt53.h>
@@ -122,19 +123,19 @@ static inline int un_update_edge(int e1, int o0   ){ return e1 - ((o0 + 1) >> 1)
 #if defined(__AVX2__)
 // even/odd merge 4 even terms + 4 odd terms into 8 terms
 static inline __v256i _mm256_merge_128(__v128i ve, __v128i vo){
-  return _mm256_setr_m128i( unpacklo_v4i(ve, vo) , unpackhi_v4i(ve, vo) ) ;
+  return setr_2v128( unpacklo_v4i(ve, vo) , unpackhi_v4i(ve, vo) ) ;
 }
 // even/odd merge the low 4 even terms and the low 4 odd terms into 8 terms
 static inline __v256i _mm256_merge_lo_128(__v256i ve, __v256i vo){
   __v256i v0 = unpacklo_v8i(ve, vo) ;
   __v256i v1 = unpackhi_v8i(ve, vo) ;
-  return _mm256_permute2x128_si256(v0, v1, 0x20) ;
+  return permute2_v256(v0, v1, 0x20) ;
 }
 // even/odd merge the high 4 even terms and the high 4 odd terms into 8 terms
 static inline __v256i _mm256_merge_hi_128(__v256i ve, __v256i vo){
   __v256i v0 = unpacklo_v8i(ve, vo) ;
   __v256i v1 = unpackhi_v8i(ve, vo) ;
-  return _mm256_permute2x128_si256(v0, v1, 0x31) ;
+  return permute2_v256(v0, v1, 0x31) ;
 }
 // merge 8 even terms + 8 odd terms and store 16 terms
 static inline void merge_store_256(uint32_t *s, __v256i ve, __v256i vo){
@@ -167,7 +168,7 @@ void merge_even_odd_32_simd(uint32_t *s, uint32_t *e, uint32_t *o, int n){
     }
     if(n > 1){
       _mm_storeu_si64((void *)s, v0) ;        // store 1 even term, 1 odd term
-      v0 = _mm_bsrli_si128(v0, 8) ;           // shift right by 64 bits
+      v0 = bsrli_v128(v0, 8) ;           // shift right by 64 bits
       n-=2 ; s+=2 ; e+=1 ; o+=1 ;             // update pointers and count
     }
     if(n > 0){
@@ -249,14 +250,14 @@ void fwd_1d_lgt53_split_simd(int *x_, int *e_, int *o_, int n){
     // separate even and odd terms
     vd0 = loadu_v8f((float *)(x   )) ;
     vd1 = loadu_v8f((float *)(x+ 8)) ;
-    ve0 = shuffle_v8f(vd0, vd1, 136) ;                  // 0b10001000 [ 0 2 8 A 4 6 C E ]
-    ve0 = __V256f _mm256_permute4x64_pd(__V256d ve0, 216) ;  // 0b11011000 [ 0 2 4 6 8 A C E ]  e[i]
+    ve0 = shuffle_2v8f(vd0, vd1, 136) ;                  // 0b10001000 [ 0 2 8 A 4 6 C E ]
+    ve0 = __V256f permutei_v4d(__V256d ve0, 216) ;  // 0b11011000 [ 0 2 4 6 8 A C E ]  e[i]
     vd0 = loadu_v8f((float *)(x+ 1)) ;
     vd1 = loadu_v8f((float *)(x+ 9)) ;
-    vo0 = shuffle_v8f(vd0, vd1, 136) ;                  // 0b10001000 [ 1 3 9 B 5 7 D F ]
-    vo0 = __V256f _mm256_permute4x64_pd(__V256d vo0, 216) ;  // 0b11011000 [ 1 3 5 7 9 B D F ]  o[i]
-    ve1 = shuffle_v8f(vd0, vd1, 221) ;                  // 0b10001000 [ 2 4 A C 6 8 E 10]
-    ve1 = __V256f _mm256_permute4x64_pd(__V256d ve1, 216) ;  // 0b11011000 [ 2 4 6 8 A C E 10]  e[i+1]
+    vo0 = shuffle_2v8f(vd0, vd1, 136) ;                  // 0b10001000 [ 1 3 9 B 5 7 D F ]
+    vo0 = __V256f permutei_v4d(__V256d vo0, 216) ;  // 0b11011000 [ 1 3 5 7 9 B D F ]  o[i]
+    ve1 = shuffle_2v8f(vd0, vd1, 221) ;                  // 0b10001000 [ 2 4 A C 6 8 E 10]
+    ve1 = __V256f permutei_v4d(__V256d ve1, 216) ;  // 0b11011000 [ 2 4 6 8 A C E 10]  e[i+1]
     storeu_v8f((float *)(e   ), ve0) ;                  // store even terms
 
     // predict odd terms
@@ -269,14 +270,14 @@ void fwd_1d_lgt53_split_simd(int *x_, int *e_, int *o_, int n){
     // separate even and odd terms
     vd0 = loadu_v8f((float *)(x+16)) ;
     vd1 = loadu_v8f((float *)(x+24)) ;
-    ve0 = shuffle_v8f(vd0, vd1, 136) ;                  // 0b10001000 [ 0 2 8 A 4 6 C E ]
-    ve0 = __V256f _mm256_permute4x64_pd(__V256d ve0, 216) ;  // 0b11011000 [ 0 2 4 6 8 A C E ]  e[i]
+    ve0 = shuffle_2v8f(vd0, vd1, 136) ;                  // 0b10001000 [ 0 2 8 A 4 6 C E ]
+    ve0 = __V256f permutei_v4d(__V256d ve0, 216) ;  // 0b11011000 [ 0 2 4 6 8 A C E ]  e[i]
     vd0 = loadu_v8f((float *)(x+17)) ;
     vd1 = loadu_v8f((float *)(x+25)) ;
-    vo0 = shuffle_v8f(vd0, vd1, 136) ;                  // 0b10001000 [ 1 3 9 B 5 7 D F ]
-    vo0 = __V256f _mm256_permute4x64_pd(__V256d vo0, 216) ;  // 0b11011000 [ 1 3 5 7 9 B D F ]  o[i]
-    ve1 = shuffle_v8f(vd0, vd1, 221) ;                  // 0b10001000 [ 2 4 A C 6 8 E 10]
-    ve1 = __V256f _mm256_permute4x64_pd(__V256d ve1, 216) ;  // 0b11011000 [ 2 4 6 8 A C E 10]  e[i+1]
+    vo0 = shuffle_2v8f(vd0, vd1, 136) ;                  // 0b10001000 [ 1 3 9 B 5 7 D F ]
+    vo0 = __V256f permutei_v4d(__V256d vo0, 216) ;  // 0b11011000 [ 1 3 5 7 9 B D F ]  o[i]
+    ve1 = shuffle_2v8f(vd0, vd1, 221) ;                  // 0b10001000 [ 2 4 A C 6 8 E 10]
+    ve1 = __V256f permutei_v4d(__V256d ve1, 216) ;  // 0b11011000 [ 2 4 6 8 A C E 10]  e[i+1]
     storeu_v8f((float *)(e+ 8), ve0) ;                  // store even terms
 
     // predict odd terms
@@ -290,14 +291,14 @@ void fwd_1d_lgt53_split_simd(int *x_, int *e_, int *o_, int n){
     // separate even and odd terms
     vd0 = loadu_v8f((float *)(x   )) ;
     vd1 = loadu_v8f((float *)(x+ 8)) ;
-    ve0 = shuffle_v8f(vd0, vd1, 136) ;                  // 0b10001000 [ 0 2 8 A 4 6 C E ]
-    ve0 = __V256f _mm256_permute4x64_pd(__V256d ve0, 216) ;  // 0b11011000 [ 0 2 4 6 8 A C E ]  e[i]
+    ve0 = shuffle_2v8f(vd0, vd1, 136) ;                  // 0b10001000 [ 0 2 8 A 4 6 C E ]
+    ve0 = __V256f permutei_v4d(__V256d ve0, 216) ;  // 0b11011000 [ 0 2 4 6 8 A C E ]  e[i]
     vd0 = loadu_v8f((float *)(x+ 1)) ;
     vd1 = loadu_v8f((float *)(x+ 9)) ;
-    vo0 = shuffle_v8f(vd0, vd1, 136) ;                  // 0b10001000 [ 1 3 9 B 5 7 D F ]
-    vo0 = __V256f _mm256_permute4x64_pd(__V256d vo0, 216) ;  // 0b11011000 [ 1 3 5 7 9 B D F ]  o[i]
-    ve1 = shuffle_v8f(vd0, vd1, 221) ;                  // 0b10001000 [ 2 4 A C 6 8 E 10]
-    ve1 = __V256f _mm256_permute4x64_pd(__V256d ve1, 216) ;  // 0b11011000 [ 2 4 6 8 A C E 10]  e[i+1]
+    vo0 = shuffle_2v8f(vd0, vd1, 136) ;                  // 0b10001000 [ 1 3 9 B 5 7 D F ]
+    vo0 = __V256f permutei_v4d(__V256d vo0, 216) ;  // 0b11011000 [ 1 3 5 7 9 B D F ]  o[i]
+    ve1 = shuffle_2v8f(vd0, vd1, 221) ;                  // 0b10001000 [ 2 4 A C 6 8 E 10]
+    ve1 = __V256f permutei_v4d(__V256d ve1, 216) ;  // 0b11011000 [ 2 4 6 8 A C E 10]  e[i+1]
     storeu_v8f((float *)(e   ), ve0) ;                  // store even terms
 
     // predict odd terms

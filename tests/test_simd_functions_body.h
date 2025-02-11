@@ -31,6 +31,12 @@ static uint8_t  cs[] = {  0,  1,  2,  3,  4,  5,  6,  7,  8,  9, 10, 11, 12, 13,
                          64 } ;
 static float    vf[] = { 1.0f, 1.11f, 1.22f, 1.33f, 1.44f, 1.55f, 1.66f, 1.77f, 1.88f } ;
 
+#if defined(USE_SIMD_INTRINSICS)
+static char  *outfile = "./test_simd.ref" ;
+#else
+static char  *outfile = "./test_simd.txt" ;
+#endif
+
 int main(int argc, char **argv){
   __v128i v4ia, v4ib, v4ca, v4cb, v4cm, v4cr, v400, v411, v4ra, v4ma ;
   __v256i v8ia, v8ib, v8ca, v8cb, v8cm, v8cr, v800, v811, v8ra, v8ma ;
@@ -43,6 +49,8 @@ int main(int argc, char **argv){
   vec_128 v128 ;
   vec_256 v256 ;
   int i ;
+
+  freopen(outfile, "w", stderr) ;
 
   if(argc >= 0){
     start_of_test_notime(argv[0]);
@@ -97,12 +105,12 @@ int main(int argc, char **argv){
   v4ra = maskload_v4i((int *)ia, mask_v4i(3)) ; print_v4i("v4ra", v4ra) ;
   v8ra = maskload_v8i((int *)ia, mask_v8i(5)) ; print_v8i("v8ra", v8ra) ;
   v8ra = maskload_v8i((int *)ia, mask_v8i(3)) ; print_v8i("v8ra", v8ra) ;
-  storeu_v128((__m128i *)ra, v4ia) ; v4ra = loadu_v128((__m128i *)ra) ; _mm_print_epu32("v4ra0", v4ra) ;
-  maskstore_v4i((int *)ra, mask_v4i(3), v411) ; v4ra = loadu_v128((__m128i *)ra) ; _mm_print_epu32("v4ra1", v4ra) ;
-  maskstore_v4i((int *)ra, mask_v4i(2), v400) ; v4ra = loadu_v128((__m128i *)ra) ; _mm_print_epu32("v4ra2", v4ra) ;
-  storeu_v256((__m256i *)ra, v8ia) ; v8ra = loadu_v256((__m256i *)ra) ; _mm256_print_epu32("v8ra0", v8ra) ;
-  maskstore_v8i((int *)ra, mask_v8i(5), v811) ; v8ra = loadu_v256((__m256i *)ra) ; _mm256_print_epu32("v8ra1", v8ra) ;
-  maskstore_v8i((int *)ra, mask_v8i(3), v800) ; v8ra = loadu_v256((__m256i *)ra) ; _mm256_print_epu32("v8ra2", v8ra) ;
+  storeu_v128((__v128i *)ra, v4ia) ; v4ra = loadu_v128((__v128i *)ra) ; _mm_print_epu32("v4ra0", v4ra) ;
+  maskstore_v4i((int *)ra, mask_v4i(3), v411) ; v4ra = loadu_v128((__v128i *)ra) ; _mm_print_epu32("v4ra1", v4ra) ;
+  maskstore_v4i((int *)ra, mask_v4i(2), v400) ; v4ra = loadu_v128((__v128i *)ra) ; _mm_print_epu32("v4ra2", v4ra) ;
+  storeu_v256((__v256i *)ra, v8ia) ; v8ra = loadu_v256((__v256i *)ra) ; _mm256_print_epu32("v8ra0", v8ra) ;
+  maskstore_v8i((int *)ra, mask_v8i(5), v811) ; v8ra = loadu_v256((__v256i *)ra) ; _mm256_print_epu32("v8ra1", v8ra) ;
+  maskstore_v8i((int *)ra, mask_v8i(3), v800) ; v8ra = loadu_v256((__v256i *)ra) ; _mm256_print_epu32("v8ra2", v8ra) ;
 
   fprintf(stderr, "- insert_128 (v400 -> v811 upper)\n");
   _mm256_print_epu32("v811", v811) ; _mm_print_epu32("v400", v400) ;
@@ -115,9 +123,9 @@ int main(int argc, char **argv){
   _mm256_print_epu32("v8ra", v8ra) ;
 
   fprintf(stderr, "- alignr_v8i/alignr_v4i\n") ;
-  __v256i v8l = loadu_v256((__m256i *) &(vs[0])) ;
+  __v256i v8l = loadu_v256((__v256i *) &(vs[0])) ;
   print_v8i("v8l ", v8l) ;
-  __v256i v8h = loadu_v256((__m256i *) &(vs[8])) ;
+  __v256i v8h = loadu_v256((__v256i *) &(vs[8])) ;
   print_v8i("v8h ", v8h) ;
   v8ra = alignr_v8i(v8h, v8l, 0) ;
   print_v8i(">> 0", v8ra) ;
@@ -129,9 +137,9 @@ int main(int argc, char **argv){
   print_v8i(">> 5", v8ra) ;
   v8ra = alignr_v8i(v8h, v8l, 7) ;
   print_v8i(">> 7", v8ra) ;
-  __v128i v4l = loadu_v128((__m128i *) &(vs[0])) ;
+  __v128i v4l = loadu_v128((__v128i *) &(vs[0])) ;
   print_v4i("v4l ", v4l) ;
-  __v128i v4h = loadu_v128((__m128i *) &(vs[4])) ;
+  __v128i v4h = loadu_v128((__v128i *) &(vs[4])) ;
   print_v4i("v4h ", v4h) ;
   v4ra = alignr_v4i(v4h, v4l, 0) ;
   print_v4i(">> 0", v4ra) ;
@@ -141,8 +149,8 @@ int main(int argc, char **argv){
   print_v4i(">> 4", v4ra) ;
 
   fprintf(stderr, "- alignr_v16c/bsrli2_v128\n") ;
-  __v128i v16l = loadu_v128((__m128i *) &(cs[ 0])) ;
-  __v128i v16h = loadu_v128((__m128i *) &(cs[ 16])) ;
+  __v128i v16l = loadu_v128((__v128i *) &(cs[ 0])) ;
+  __v128i v16h = loadu_v128((__v128i *) &(cs[ 16])) ;
   print_v16c("v16l", v16l) ;
   print_v16c("v16h", v16h) ;
   __v128i v16r ;
@@ -160,8 +168,8 @@ int main(int argc, char **argv){
   print_v16c(">>32", v16r) ;
 
   fprintf(stderr, "- bsrli2_v256\n") ;
-  __v256i v32l = loadu_v256((__m256i *) &(cs[ 0])) ;
-  __v256i v32h = loadu_v256((__m256i *) &(cs[32])) ;
+  __v256i v32l = loadu_v256((__v256i *) &(cs[ 0])) ;
+  __v256i v32h = loadu_v256((__v256i *) &(cs[32])) ;
   print_v32c("v32l", v32l) ;
   print_v32c("v32h", v32h) ;
   __v256i v32r ;
@@ -208,21 +216,21 @@ int main(int argc, char **argv){
 
 //   for(i=0 ; i<16 ; i++) { ca[i] = i ; cb[i] = ca[i] + 0x10 ; cm[i] = (i & 1) ? 0xFF : 0x00 ; }
   for(i=0 ; i<32 ; i++) { ca[i] = i ; cb[i] = ca[i] + 0x40 ; cm[i] = (i & 1) ? 0xFF : 0x00 ; }
-  v4ca = loadu_v128( (__m128i *) ca) ; v4cb = loadu_v128( (__m128i *) cb) ; v4cm = loadu_v128( (__m128i *) cm) ;
+  v4ca = loadu_v128( (__v128i *) ca) ; v4cb = loadu_v128( (__v128i *) cb) ; v4cm = loadu_v128( (__v128i *) cm) ;
   fprintf(stderr, "- _mm_blendv_epi8\n");
   v4cr = _mm_blendv_epi8(v4ca, v4cb, v4cm) ;
   _mm_print_epu8("v4ca", v4ca) ; _mm_print_epu8("v4cb", v4cb) ; _mm_print_epu8("v4cm", v4cm) ; _mm_print_epu8("v4cr", v4cr) ;
-  v4ca = loadu_v128( (__m128i *) ca) ;    v4cb = loadu_v128( (__m128i *) cb) ;
+  v4ca = loadu_v128( (__v128i *) ca) ;    v4cb = loadu_v128( (__v128i *) cb) ;
   fprintf(stderr, "- _mm_blendv_ps\n");
-  v4cm = loadu_v128( (__m128i *) im) ;
+  v4cm = loadu_v128( (__v128i *) im) ;
   v4cr = __V128i _mm_blendv_ps(__V128 v4ca, __V128 v4cb, __V128 v4cm) ;
   _mm_print_epu32("v4ca", v4ca) ; _mm_print_epu32("v4cb", v4cb) ; _mm_print_epu32("v4cm", v4cm) ; _mm_print_epu32("v4cr", v4cr) ;
   fprintf(stderr, "- _mm_blendv_epi32\n");
-  v4cm = loadu_v128( (__m128i *) im) ;
+  v4cm = loadu_v128( (__v128i *) im) ;
   v4cr = _mm_blendv_epi32(v4ca, v4cb, v4cm) ;
   _mm_print_epu32("v4ca", v4ca) ; _mm_print_epu32("v4cb", v4cb) ; _mm_print_epu32("v4cm", v4cm) ; _mm_print_epu32("v4cr", v4cr) ;
 
-  v8ca = loadu_v256( (__m256i *) ia) ; v8cb = loadu_v256( (__m256i *) ib) ; v8cm = loadu_v256( (__m256i *) im) ;
+  v8ca = loadu_v256( (__v256i *) ia) ; v8cb = loadu_v256( (__v256i *) ib) ; v8cm = loadu_v256( (__v256i *) im) ;
   fprintf(stderr, "- _mm256_blendv_ps\n");
   v8cr = __V256i blendv_v8f(__V256 v8ca, __V256 v8cb, __V256 v8cm) ;
   _mm256_print_epu32("v8ca", v8ca) ; _mm256_print_epu32("v8cb", v8cb) ; _mm256_print_epu32("v8cm", v8cm) ; _mm256_print_epu32("v8cr", v8cr) ;
@@ -292,7 +300,16 @@ int main(int argc, char **argv){
   fprintf(stderr, "- unpackhi\n") ;
   v4ra = unpackhi_v4i(ve4, vo4) ; _mm_print_epu32("v4ra", v4ra) ;
   v8ra = unpackhi_v8i(ve8, vo8) ; _mm256_print_epu32("v8ra", v8ra) ;
-#if 0
-#endif
+
+  fprintf(stderr, "- shuffle\n") ;
+  v4ra = shuffle_v4i(v4ra, 0b11011000) ; _mm_print_epu32("v4ra", v4ra) ;
+  v8ra = shuffle_v8i(v8ra, 0b11011000) ; _mm256_print_epu32("v8ra", v8ra) ;
+
+  v4ra = (__v128i) shuffle_2v4f((__v128) v4ra, (__v128) v4ra, 0b01000100) ; _mm_print_epu32("v4ra", v4ra) ;
+  v8ra = (__v256i) shuffle_2v8f((__v256) v8ra, (__v256) v8ra, 0b01000100) ; _mm256_print_epu32("v8ra", v8ra) ;
+
+  fprintf(stderr, "- setr\n") ;
+  v8ra = setr_2v128(v4ra, v4ra) ; _mm256_print_epu32("v8ra", v8ra) ;
+
   return 0 ;
 }

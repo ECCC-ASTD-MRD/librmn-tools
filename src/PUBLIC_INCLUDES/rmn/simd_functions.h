@@ -292,6 +292,9 @@ typedef vec_128 __v128d ;
 #define _mm_sub_epi32          sub_v4i
 
 #define _mm256_permutevar8x32_epi32 permutev_v8i
+#define _mm256_permute2x128_si256   permute2_v256
+#define  _mm256_permute4x64_pd      permutei_v4d
+#define  _mm256_permute4x64_epi64   permutei_v4l
 #define _mm256_extracti128_si256 extracti_128
 #define _mm256_inserti128_si256  inserti_128
 
@@ -406,6 +409,9 @@ static inline __m128i _mm_setones_si128(void){ __m128i t = _mm_setzero_si128() ;
 #define sub_v4i       _mm_sub_epi32
 
 #define permutev_v8i   _mm256_permutevar8x32_epi32
+#define permute2_v256  _mm256_permute2x128_si256
+#define permutei_v4d   _mm256_permute4x64_pd
+#define permutei_v4l   _mm256_permute4x64_epi64
 #define extracti_128   _mm256_extracti128_si256
 #define inserti_128    _mm256_inserti128_si256
 
@@ -516,6 +522,27 @@ SIMD_FN(SIMD_STATIC, __m128i, 4, add_v4i(__m128i A, __m128i B) , R.i32[i] = A.i3
 SIMD_FN(SIMD_STATIC, __m128i, 4, sub_v4i(__m128i A, __m128i B) , R.i32[i] = A.i32[i] - B.i32[i] )
 
 SIMD_FN(SIMD_STATIC, __m256i, 8, permutev_v8i(__m256i A, __m256i IDX), R.i32[i] = A.i32[IDX.i32[i]] )
+SIMD_STATIC __m256i permute2_v256(__m256i A, __m256i B, int imm){
+  __m256i R ;
+  switch(imm & 3){
+    case 0: R.u128[0] = A.u128[0] ; break ;
+    case 1: R.u128[0] = A.u128[1] ; break ;
+    case 2: R.u128[0] = B.u128[0] ; break ;
+    case 3: R.u128[0] = B.u128[1] ; break ;
+  }
+  if(imm & 0x80) R.u128[0] = (u128_t) {0lu, 0lu} ;
+  imm >>=4 ;
+  switch(imm & 3){
+    case 0: R.u128[1] = A.u128[0] ; break ;
+    case 1: R.u128[1] = A.u128[1] ; break ;
+    case 2: R.u128[1] = B.u128[0] ; break ;
+    case 3: R.u128[1] = B.u128[1] ; break ;
+  }
+  if(imm & 0x80) R.u128[1] = (u128_t) {0lu, 0lu} ;
+  return R ;
+}
+SIMD_FN(SIMD_STATIC, __m256d, 4, permutei_v4d(__m256d A, int imm) , R.u64[i] = A.u64[imm&3] ; imm >>= 2 )
+SIMD_FN(SIMD_STATIC, __m256i, 4, permutei_v4l(__m256i A, int imm) , R.u64[i] = A.u64[imm&3] ; imm >>= 2 )
 SIMD_FN(SIMD_STATIC, __m128i, 4, extracti_128(__m256i A, int upper) , R.i32[i] = A.i32[i + (upper ? 4 : 0)] )
 // SIMD_FN(SIMD_STATIC, __m256i, 4, inserti_128(__m256i A, __m128i B, int upper) , R.i32[i] = upper ? A.i32[i] : B.i32[i] ; R.i32[i+4] = upper ? B.i32[i] : A.i32[i+4] )
 SIMD_FN(SIMD_STATIC, __m256i, 1, inserti_128(__m256i A, __m128i B, int upper) , R.u128[1-upper] = A.u128[1-upper] ; R.u128[upper] = B.u128 )
@@ -528,6 +555,7 @@ SIMD_FN(SIMD_STATIC, __m128i, 16, blendv_v16c(__m128i A, __m128i B, __m128i MASK
 
 SIMD_FN(SIMD_STATIC, __m256i,  4, shuffle_v8i(__v256i A, int imm) , R.u32[i] = A.u32[imm&3] ; R.u32[i+4] = A.u32[4+(imm&3)] ; imm >>= 2 )
 SIMD_FN(SIMD_STATIC, __m128i,  4, shuffle_v4i(__v128i A, int imm) , R.u32[i] = A.u32[imm&3] ;                                 imm >>= 2 )
+
 SIMD_FN(SIMD_STATIC, __m256,   1, shuffle_2v8f(__v256 A, __m256 B, int imm) , R.u32[0] = A.u32[imm&3] ; R.u32[4] = A.u32[4+(imm&3)] ; imm >>= 2 ; \
                                                                               R.u32[1] = A.u32[imm&3] ; R.u32[5] = A.u32[4+(imm&3)] ; imm >>= 2 ; \
                                                                               R.u32[2] = B.u32[imm&3] ; R.u32[6] = B.u32[4+(imm&3)] ; imm >>= 2 ; \
