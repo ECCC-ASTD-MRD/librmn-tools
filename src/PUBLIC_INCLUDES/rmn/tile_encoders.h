@@ -23,6 +23,68 @@
 
 // encoded tile layout (tentative) :
 //
+// ======================================= LAYOUT 3 (new, simplified) =======================================
+// (revised 2025/02/18)
+//
+//
+// <- always -> <-----------------   as needed        -------------------->
+// +-----------+-----------+-----------------+          +-----------------+
+// |   header  |  options  |     token 1     | ........ |     token n     |
+// +-----------+-----------+-----------------+          +-----------------+
+// <-8/12 bits->
+// options : 5 bit bbbbb field, 2 bit ee field, 1-32 bit offset field
+//
+// header :
+//
+//   8 bits headers (nbits <= 16, except constant blocks)
+// A 000bbbbb      constant block, ZIGZAG(value), 1 -> 32 bits/value, bbbbb == number of bits - 1
+// B 001xxxxx      reserved for future use
+// C 01MEnnnn      all values >= 0  ( 1->16 bits, nnnn == number of bits - 1)
+// D 10MEnnnn      all values <= 0  ( 1->16 bits, ABS(value), nnnn == number of bits - 1)
+// E 110Ennnn      mixed signs, zigzag encoding, ( 1->16 bits, ZIGZAG(value), nnnn == number of bits - 1)
+// F 111xxxxx      NOT VALID as a 8 bit header
+//
+// the first 3 bits tell the header type
+// 000 A type header (8 bits)
+// 001 B type header (8 bits)
+// 010 C type header (8 bits)
+// 011 C type header (8 bits)
+// 100 D type header (8 bits)
+// 101 D type header (8 bits)
+// 110 E type header (8 bits)
+// 111 F type header (12 bits)
+//
+// A-E full header length : 8 + [M == 1 ? 5 + bbbbb : 0] + [E == 1 ? 2 : 0] bits
+// only C and D headers may have M == 1
+// only C, D, E headers may have E == 1
+//
+// F full header length : 12 + [M == 1 ? 5 + bbbbb : 0] + [E == 1 ? 2 : 0] bits
+//
+//   12 bits headers (nbits > 16)
+// F 111SSMEnnnnn  1->32 bits/value, nnnnn == number of bits - 1
+//                 111SSMEnnnnn[bbbbb][ee][offset]
+// G 11100xxxxxxx  reserved for future use (constant blocks shall use 000bbbbb header)
+//
+//   SS : 00 constant block
+//        01 all values >= 0
+//        10 all values <= 0 (ABS(value) is stored)
+//        11 mixed signs, zigzag encoding
+//   M  : 0 no offset is used
+//        1 a ZIGZAG encoded value will be present, a 5 bits bbbbb nb of bits for offset field follows
+//        bbbbb == number of bits for offset - 1
+//   E  : 0 no special block encoding for value stream
+//        1 special short/long block encoding is used, a 2 bit ee field is present
+//          a short value 
+//        e.g. 111SS1Ennnnnbbbbb[offset]     offset is used (offset length is bbbbb bits)
+//             111SS11nnnnnbbbbbee[offset]   offset, short/long encoding (offset length is bbbbb bits)
+//             111SS01nnnnnee                no offset, short/long encoding
+//
+//   ee : 00   short value = 0, encoded as 0
+//        01   short value : nbits/2,          encoded as 0 followed by nbits/2 bits
+//        10   short value : nbits/2 + 1 bits, encoded as 0 followed by nbits/2+1 bits
+//        11   short value : nbits/2 + 2 bits, encoded as 0 followed by nbits/2+2 bits
+//             long values, encoded as 1 followed by nbits bits
+//
 // ============================================= LAYOUT 2 (new) =============================================
 // (revised 2024/08/21)
 //
