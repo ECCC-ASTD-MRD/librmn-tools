@@ -153,6 +153,7 @@
 #endif  // FILL_FROM_BOTTOM
 
 #if defined(FILL_FROM_TOP)
+// insertion if porformed at the Most significant Bits part of the accumulator
 // insert the lower nbits bits from w32 into accum, update insert, accum
 // (unsafe as it assumes that nbits bits can be inserted into acumulator)
 #define LE64_INSERT_NBITS(accum, insert, w32, nbits) \
@@ -181,25 +182,35 @@
 //
 // N.B. : if w32 and accum are signed variables, the extract will produce a "signed" result
 //        if w32 and accum are unsigned variables, the extract will produce an "unsigned" result
+//        new style : only w32 needs to be signed for signed extraction
+// N.B. : nbits MUST NOT BE 0
+// bit extraction is performed from the Least Significant Bits of the accumulator
 // initialize stream for extraction, load first 32 bits from stream into accum, set available bits count to 32
 #define LE64_XTRACT_BEGIN(accum, xtract, stream) { accum = (uint32_t) *(stream) ; (stream)++ ; xtract = 32 ; }
 // take a peek at the next nbits bits from accum into w32 (unsafe, assumes that nbits bits are available)
+// #define LE64_PEEK_NBITS(accum, xtract, w32, nbits) { w32 = accum ; w32 = (w32 << (32-(nbits))) >> (32-(nbits)) ; }
 #define LE64_PEEK_NBITS(accum, xtract, w32, nbits) { w32 = (accum << (64-(nbits))) >> (64-(nbits)) ; }
 // skip the next nbits bits from accum (unsafe, assumes that nbits bits are available)
 #define LE64_SKIP_NBITS(accum, xtract, nbits) { accum = (uint64_t) accum >> (nbits) ; xtract -= (nbits) ; }
 // extract nbits bits into w32 from accum, update xtract, accum (unsafe, assumes that nbits bits are available)
+// #define LE64_XTRACT_NBITS(accum, xtract, w32, nbits) \
+//         { w32 = accum ; w32 = (w32 << (32-(nbits))) >> (32-(nbits)) ; accum = (uint64_t) accum >> (nbits) ; xtract -= (nbits) ; }
 #define LE64_XTRACT_NBITS(accum, xtract, w32, nbits) \
         { w32 = (accum << (64-nbits)) >> (64-nbits) ; accum = (uint64_t) accum >> (nbits) ; xtract -= (nbits) ; }
+// #define LE64_XTRACT_32(accum, xtract, w32) \
+//         { w32 = accum ; accum = (uint64_t) accum >> (nbits) ; xtract -= (nbits) ; }
 // check that 32 bits can be safely extracted from accum (accum contains at least 32 available bits)
 // if not possible, get extra 32 bits into accum from stream, update accum, xtract, stream
 #define LE64_XTRACT_CHECK(accum, xtract, stream) \
-        { if(xtract < 32) { uint64_t w64 = *(stream) ; accum |= (w64 << xtract) ; (stream)++ ; xtract += 32 ; } ; }
+        { if(xtract < 32) { uint64_t w64 = (uint32_t)(*(stream)) ; accum |= (w64 << xtract) ; (stream)++ ; xtract += 32 ; } ; }
 // finalize extraction, update accum, xtract
 #define LE64_XTRACT_FINAL(accum, xtract) \
         { accum = 0 ; xtract = 0 ; }
 // combined XTRACT_CHECK and XTRACT_NBITS, update accum, xtract, stream
 #define LE64_GET_NBITS(accum, xtract, w32, nbits, stream) \
         { LE64_XTRACT_CHECK(accum, xtract, stream) ; LE64_XTRACT_NBITS(accum, xtract, w32, nbits) ; }
+// #define LE64_GET_32(accum, xtract, w32, stream) \
+//         { LE64_XTRACT_CHECK(accum, xtract, stream) ; LE64_XTRACT_32(accum, xtract, w32) ; }
 // align extraction point to a 32 bit boundary
 #define LE64_XTRACT_ALIGN(accum, xtract) { uint32_t tbits = xtract ; tbits &= 31 ; accum = (uint64_t) accum >> tbits ; xtract -= tbits ; }
 // #define LE64_EZ_XTRACT_ALIGN { uint32_t tbits = StReAm_xtract ; tbits &= 31 ; StReAm_acc_x >>= tbits ; StReAm_xtract -= tbits ; }

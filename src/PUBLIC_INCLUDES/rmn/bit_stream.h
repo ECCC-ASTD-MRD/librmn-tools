@@ -45,7 +45,7 @@ typedef struct{
   uint32_t *out ;     // pointer into packed stream (extract mode)
   uint32_t *limit ;   // pointer to end of stream data storage (1 byte beyond stream buffer end)
   uint64_t full:  1 , // the whole struct was allocated with malloc
-           alloc: 1 , // buffer allocated with malloc
+           alloc: 1 , // buffer was allocated with malloc
            user:  1 , // buffer was user supplied
            endian:2 , // 01 : Big Endian stream, 10 : Little Endian stream, 00/11 : invalid
            spare:27 , // spare bits
@@ -55,7 +55,7 @@ typedef struct{
 CT_ASSERT_(sizeof(bitstream) == 64)    // 8 64 bit elements
 
 // all fields set to 0, makes for a fast initialization xxx = null_bitstream
-static bitstream null_bitstream = { .acc_i = 0, .acc_x = 0 , .insert = 0 , .xtract = 0, 
+static const bitstream null_bitstream = { .acc_i = 0, .acc_x = 0 , .insert = 0 , .xtract = 0, 
                                     .first = NULL, .in = NULL, .out = NULL, .limit = NULL,
                                     .full = 0, .alloc = 0, .user = 0, .endian = 0, .spare = 0, .valid = 0 } ;
 
@@ -256,7 +256,7 @@ STATIC inline void  StreamInit(bitstream *p, void *mem, size_t size, int mode){
   if((mode & (BIT_INSERT | BIT_XTRACT)) == 0) mode = mode | BIT_INSERT | BIT_XTRACT ;  // neither insert nor extract set, set both
 
   if( (p->first != NULL) && (p->in != NULL) && (p->out != NULL) && (p->limit != NULL) && (p->valid == 0xCAFEFADEu) ){
-    buf = p->first ;        // existing and valid stream, already has a buffer, set buf to first
+    buf = p->first ;        // existing and valid stream, already has a buffer, set buf to first, ignore mem
   }else{                    // not an existing stream, perform a full initialization
     if(buf == NULL){
       p->user   = 0 ;                          // not user supplied space
