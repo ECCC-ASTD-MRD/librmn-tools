@@ -276,6 +276,75 @@ static float power2_err(float err){
   return uf.f ;
 }
 
+int bits_diff(int *a, int *b, int n, int *errmax, int *bias){
+  int err = 0, emax = 0, sumerr = 0 ;
+  int i ;
+  for(i=0 ; i<n ; i++){
+    int err0 = a[i] - b[i] ;
+    sumerr += err0 ;
+    err0 = (err0 < 0) ? (-err0) : err0 ;
+    emax = (err0 > emax) ? err0 : emax ;
+    err += err0 ;
+  }
+  *errmax = emax ;
+  *bias = sumerr ;
+  return err ;
+}
+
+void un_clip_quadrants(int ni, int nj, int f[nj][ni], int nbits){
+  int i, j, nieven = (ni+1)/2, niodd = ni/2, njeven = (nj+1)/2, njodd = nj/2, t, ta ;
+return ;
+  for(j=njeven ; j<nj ; j++){
+    for(i=nieven ; i<ni ; i++){      // odd-odd quadrant
+      t = f[j][i] ;
+      f[j][i] = t << nbits ;
+    }
+    for(i=0 ; i<nieven ; i++){       // even-odd quadrant
+    }
+  }
+  for(j=0 ; j<njeven ; j++){
+    for(i=nieven ; i<ni ; i++){      // odd-even quadrant
+    }
+  }
+}
+
+void clip_quadrants(int ni, int nj, int f[nj][ni], int nbits){
+  static int ntab[] = {0, 0, 1, 2, 5, 8 };
+  int i, j, nieven = (ni+1)/2, niodd = ni/2, njeven = (nj+1)/2, njodd = nj/2, t, ta ;
+  int mask = ((-1) << nbits) ;
+  int mask2 = (mask >> 1) ;
+  int bump = ntab[nbits] ;
+  for(j=njeven ; j<nj ; j++){
+    for(i=nieven ; i<ni ; i++){      // odd-odd quadrant
+      t = f[j][i] ;
+//       f[j][i] = (t > 0) ? (t & mask) : (t | (~mask)) ;
+      ta = (t<0) ? (-t) : t ;
+      ta = ta + bump ;
+      ta &= mask ;
+      f[j][i] = (t < 0) ? (-ta) : ta ;
+//       f[j][i] = f[j][i] >> nbits ;
+    }
+    for(i=0 ; i<nieven ; i++){       // even-odd quadrant
+      t = f[j][i] ;
+//       f[j][i] = (t > 0) ? (t & mask2) : (t | (~mask2)) ;
+      ta = (t<0) ? (-t) : t ;
+      ta = ta + bump ;
+      ta &= mask2 ;
+      f[j][i] = (t < 0) ? (-ta) : ta ; ;
+    }
+  }
+  for(j=0 ; j<njeven ; j++){
+    for(i=nieven ; i<ni ; i++){      // odd-even quadrant
+      t = f[j][i] ;
+//       f[j][i] = (t > 0) ? (t & mask2) : (t | (~mask2)) ;
+      ta = (t<0) ? (-t) : t ;
+      ta = ta + bump ;
+      ta &= mask2 ;
+      f[j][i] = (t < 0) ? (-ta) : ta ; ;
+    }
+  }
+}
+
 int block_diff(int *a, int *b, int n){
   int err = 0 ;
   int i ;
@@ -295,19 +364,22 @@ int float_compressed_bits(int ni, int nj, float f[nj][ni], float *quant_, int bt
   float quant = *quant_ ;
   int q[nj][ni] ;
   int p[nj][ni] ;
+  float fblock[bsize*bsize] ;
   int block[bsize*bsize] ;
   int pred[bsize*bsize] ;
   int block8[8*8] ;
   int info[1024] ;
+  int info_size = sizeof(info)/sizeof(int) ;
   int nbits = 0, nblocks = 0, nblock8 = 0, nbits64 = 0, npred = 0, nbits8 = 0 ;
   int npred8 = 0, nbitsg = 0, nbitsp = 0, asym = 0, rawp8 = 0, nraw8 = 0, ndwt8 = 0 ;
   int i0, j0, i, j, in, jn, ix, i8, j8, min, max, nbi, range, ndiff ;
+  float minf, maxf ;
+  float diffmax = 0.0, fbias = 0.0 ;
 
   if(quant < 0){
     nbits = (-quant) ;
     range = 1 << (nbits -1) ;
 fprintf(stderr, "\nnbits = %d, intervals = %d", nbits, range) ;
-    float minf, maxf ;
     minf = maxf = f[0][0] ;
     for(j=0 ; j<nj ; j++){
       for(i=0 ; i<ni ; i++){
@@ -323,7 +395,7 @@ fprintf(stderr, ", quant = %G\n", quant) ;
     quant = power2_err(quant) ;  // power of 2 >= quant
   }
 
-  for(i=0 ; i<sizeof(info)/sizeof(int) ; i++){ info[i] = 0 ; }
+  for(i=0 ; i<info_size ; i++){ info[i] = 0 ; }
   *dmax = 0.0f ;
   // quantize the whole array, unquantize and get max absolute difference
   for(j=0 ; j<nj ; j++){
@@ -344,7 +416,7 @@ fprintf(stderr, ", quant = %G\n", quant) ;
   nbitsp = 96 + count_bits(ni, nj, (void *)p) ;  // nbits for the whole predicted array
   rawp8 = 96 ;
   // subdivide the whole predicted array into 8x8 blocks
-  for(i=0 ; i<sizeof(info)/sizeof(int) ; i++){ info[i] = 0 ; }
+  for(i=0 ; i<info_size ; i++){ info[i] = 0 ; }
   for(j8=0 ; j8<nj ; j8+=8){
     int j8n = ((j8+8) > nj) ? (nj - j8) : 8 ;
     for(i8=0 ; i8<ni ; i8+=8){
@@ -361,37 +433,40 @@ fprintf(stderr, ", quant = %G\n", quant) ;
 fprintf(stderr, "%s[%d,%d,%d,%d]: ", nbits ? "" : "\n", info[33], info[34], info[35], info[36]) ;
 for(i=0 ; i<16 ; i++){ fprintf(stderr, "%4d ", info[i]) ; } ;
 fprintf(stderr, " |%d,%d,%d,%d,%d,%d, %d ,%d,%d,%d,%d,%d,%d|\n",info[58],info[59],info[60],info[61],info[62],info[63],info[64],info[65],info[66],info[67],info[68],info[69],info[70]) ;
-
-  for(i=0 ; i<sizeof(info)/sizeof(int) ; i++){ info[i] = 0 ; }
+//
+// ========================= quantize/predict/encode by chunk =========================
+//
+  for(i=0 ; i<info_size ; i++){ info[i] = 0 ; }
   // loops over quantization/prediction blocks
   for(j0=0 ; j0<nj ; j0+=bsize){
-    jn = ((j0 + bsize) > nj) ? (nj - j0) : bsize ;
-    for(i0=0 ; i0<ni ; i0+=bsize){
+    jn = ((j0 + bsize) > nj) ? (nj - j0) : bsize ;    // last block may be shorter along j
+    for(i0=0 ; i0<ni ; i0+=bsize){                    // last block may be shorter along i
       nblocks++ ;    // count quantization/prediction blocks
       in = ((i0 + bsize) > ni) ? (ni - i0) : bsize ;
-      ix = 0 ;
       nbits += 64 ; // large block overhead
       // get small quantized block
+      // ======================== Quantize ========================
+      ix = 0 ;
       for(j=0 ; j<jn ; j++){
         for(i=0 ; i<in ; i++){
-          block[ix] = q[j0+j][i0+i] ;
+          block[ix]  = q[j0+j][i0+i] ;   // quantized data
+          fblock[ix] = f[j0+j][i0+i] ;   // original float data
           ix++ ;
         }
       }
       // bits needed if not subdividing quantization block
-      nbits64 = nbits64 + 64 + count_bits(in, jn, (void *)block) ;
+      nbits64 = nbits64 + 64 + 32 + count_bits(in, jn, (void *)block) ;
       // subdivide quantization block into 8 x 8 encoding blocks, count bits
-      nbits8 += 64 ;
+      nbits8 += 64 ;  // large block overhead
       for(j8=0 ; j8<jn ; j8+=8){
         int j8n = ((j8+8) > jn) ? (jn - j8) : 8 ;
         for(i8=0 ; i8<in ; i8+=8){
           int i8n = ((i8+8) > in) ? (in - i8) : 8 ;
-//           nbits8 += 20 ; // average encoding block overhead
           get_block(in, jn, i8, j8, (void *)block, i8n, j8n, (void *)block8) ;
-// if(i0 == 512 && j0 == 512 && j8 == 0 && i8 == 0) print_block(i8n, j8n, (void *)block8) ;
           nbits8 += count_bits(i8n, j8n, (void *)block8) ;
         }
       }
+      // ======================== Wavelets ========================
       // apply Le GAll transform to quantization block
       memcpy((void *)pred, (void *)block, in*jn*sizeof(int32_t)) ;
       fwd_2d_lgt53_n((void *)pred, in, in, jn, 2);
@@ -402,7 +477,9 @@ fprintf(stderr, " |%d,%d,%d,%d,%d,%d, %d ,%d,%d,%d,%d,%d,%d|\n",info[58],info[59
         exit(1) ;
       }
       fwd_2d_lgt53_n((void *)pred, in, in, jn, 2);
-      ndwt8 = ndwt8 + 64 ;  // large block overhead
+      // clip wavelets
+      clip_quadrants(in, jn, (void *) pred, 1) ;
+      ndwt8 += 64 ;  // large block overhead
       // subdivide transformed block into 8 x 8 encoding blocks, count bits
       for(j8=0 ; j8<jn ; j8+=8){
         int j8n = ((j8+8) > jn) ? (jn - j8) : 8 ;
@@ -413,13 +490,31 @@ fprintf(stderr, " |%d,%d,%d,%d,%d,%d, %d ,%d,%d,%d,%d,%d,%d|\n",info[58],info[59
           ndwt8 += nbi ;
         }
       }
-
+      // study losses when using "lossy" transform
+//       un_clip_quadrants(in, jn, (void *) pred, 1) ;
+      inv_2d_lgt53_n((void *)pred, in, in, jn, 2);
+      int emax, bias ;
+      ndiff = bits_diff(pred, block, in*jn, &emax, &bias) ;
+      if(ndiff != 0){
+        float avgdiff = ndiff ; avgdiff /= (in*jn) ;
+        float avgbias = bias ; avgbias /= (in*jn) ;
+//         fprintf(stderr, "clipped transform, %d points, total diff = %d units, max = %d units, avg = %f/point, bias = %f/point\n",
+//                 in*jn, ndiff, emax, avgdiff, avgbias) ;
+      }
+      for(i=0 ; i<in*jn ; i++){
+        float diff ;
+        diff = fblock[i] - (pred[i] * quant) ;
+        fbias += diff ;
+        diff = (diff < 0) ? (-diff) : diff ;
+        diffmax = (diff > diffmax) ? diff : diffmax ;
+      }
+      // ======================== Lorenzo ========================
       // apply Lorenzo predictor to quantization block
-      lorenzo(in, jn, (void *)block, (void *)pred) ;
+      lorenzo(in, jn, (void *)block, (void *)pred) ;   // data from block, prediction into pred
       pred[0] = 0 ;
       // bits needed if not subdividing predicted block
       npred = npred + 64 + 32 + count_bits(in, jn, (void *)pred) ;
-      npred8 = npred8 + 64 + 32 ;  // large block overhead
+      npred8 = npred8 + 64 ;  // large block overhead
       // subdivide predicted block into 8 x 8 encoding blocks, count bits
       // TODO collect distribution of nbits
       for(j8=0 ; j8<jn ; j8+=8){
@@ -443,6 +538,9 @@ fprintf(stderr, "[%d,%d,%d,%d]: ",info[33],info[34],info[35],info[36]) ;
 for(i=0 ; i<16 ; i++){ fprintf(stderr, "%4d ", info[i]) ; } ;
 fprintf(stderr, " |%d,%d,%d,%d,%d,%d, %d ,%d,%d,%d,%d,%d,%d|",info[58],info[59],info[60],info[61],info[62],info[63],info[64],info[65],info[66],info[67],info[68],info[69],info[70]) ;
   if(nraw8 != nblock8) exit(1);
+fbias /= (ni * nj) ;
+fprintf(stderr, ", dmax %f %f, bias = %f ", diffmax, *dmax, fbias) ;
+*dmax = diffmax ;
   // detailed stats
   btab[ 0] = nblocks ;   // number of quantization/prediction blocks
   btab[ 1] = nblock8 ;   // number of encoding blocks

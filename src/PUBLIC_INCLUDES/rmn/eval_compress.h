@@ -12,5 +12,5 @@
 // Library General Public License for more details.
 //
 
-#define MAXBTAB 16
+#define MAXBTAB 64
 int float_compressed_bits(int ni, int nj, float f[nj][ni], float *quant, int btab[MAXBTAB], int bsize, float *diffmax);
