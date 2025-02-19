@@ -124,7 +124,7 @@ STATIC inline uint32_t lzcnt_32(uint32_t what){
 }
 
 // number of bits needed to encode an unsigned 32 bit integer (minimum 1)
-STATIC inline uint32_t encodebits_32(uint32_t what){
+STATIC inline uint32_t encodebits_u32(uint32_t what){
   uint32_t nbits = 32 - lzcnt_32(what) ;
   return nbits ? nbits : 1 ;  // if nbits == 0, return 1
 }

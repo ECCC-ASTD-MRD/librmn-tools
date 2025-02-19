@@ -170,7 +170,7 @@ CT_ASSERT_(sizeof(void *) == 8)        // enforce 64 bit pointers
 //
 // ===============================================================================================
 // little endian (LE) style (right to left) bit stream packing
-// insertion at top (most significant part) of accum
+// insertion at the top (most significant part) of accum
 // extraction from the bottom (least significant part) of accum
 // ===============================================================================================
 // initialize stream for insertion
@@ -226,8 +226,8 @@ CT_ASSERT_(sizeof(void *) == 8)        // enforce 64 bit pointers
 //
 // ===============================================================================================
 // big endian (BE) style (left to right) bit stream packing
-// insertion at bottom (least significant part) of accumulator after accumulator shifted left
-// extraction from the top (most significant part) of accumulator then shift accumulator left
+// insertion at the bottom (least significant) part of accumulator after accumulator shifted left
+// extraction from the top (most significant) part of accumulator then shift accumulator left
 // ===============================================================================================
 // initialize stream for insertion
 #define BE64_EZ_INSERT_BEGIN        { BE64_INSERT_BEGIN(StReAm_acc_i, StReAm_insert) ; }

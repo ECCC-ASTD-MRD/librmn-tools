@@ -118,6 +118,7 @@
 // accumulator MUST be zeroed before starting to insert (CRITICAL)
 // ===============================================================================================
 // initialize little endian (LE) style stream for insertion, accumulator and inserted bits count are set to 0
+// zeroing the accumulator is CRITICAL if filling from bottom, optional if filling from top
 #define LE64_INSERT_BEGIN(accum, insert) { accum = 0 ; insert = 0 ; }
 
 #if defined (FILL_FROM_BOTTOM)
@@ -153,9 +154,10 @@
 #endif  // FILL_FROM_BOTTOM
 
 #if defined(FILL_FROM_TOP)
-// insertion if porformed at the Most significant Bits part of the accumulator
+// insertion if performed at the Most significant Bits part of the accumulator
 // insert the lower nbits bits from w32 into accum, update insert, accum
 // (unsafe as it assumes that nbits bits can be inserted into acumulator)
+// zeroing the accumulator is not critical before start of insertion
 #define LE64_INSERT_NBITS(accum, insert, w32, nbits) \
         { uint64_t t=(w32) ; t<<=(64-(nbits)) ; accum=(uint64_t)accum>>(nbits) ; accum|=t ; insert+=(nbits) ; }
 #define LE64_FAST_INSERT_NBITS(accum, insert, w32, nbits)  LE64_INSERT_NBITS(accum, insert, w32, nbits)
@@ -218,8 +220,8 @@
 //
 // ===============================================================================================
 // big endian (BE) style (left to right) bit stream packing
-// insertion at bottom (least significant part) of accumulator after accumulator shifted left
-// extraction from the top (most significant part) of accumulator then shift accumulator left
+// insertion at the bottom (least significant) part of accumulator after accumulator shifted left
+// extraction from the top (most significant) part of accumulator then shift accumulator left
 // it is not critical to set the accumulator to zero before starting to insert
 // ===============================================================================================
 // initialize big endian (BE) stylestream for insertion, accumulator and inserted bits count are set to 0

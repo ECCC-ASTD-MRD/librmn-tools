@@ -23,26 +23,27 @@
 
 // encoded tile layout (tentative) :
 //
-// ======================================= LAYOUT 3 (new, simplified) =======================================
+// ======================================= LAYOUT 3 (new, more compact) =======================================
 // (revised 2025/02/18)
 //
 //
 // <- always -> <-----------------   as needed        -------------------->
 // +-----------+-----------+-----------------+          +-----------------+
-// |   header  |  options  |     token 1     | ........ |     token n     |
+// |   header  |  options  |     value 0     | ........ |     value n     |
 // +-----------+-----------+-----------------+          +-----------------+
 // <-8/12 bits->
 // options : 5 bit bbbbb field, 2 bit ee field, 1-32 bit offset field
+// the number of values in the encoded block must come from an EXTERNAL source
 //
 // header :
 //
-//   8 bits headers (nbits <= 16, except constant blocks)
+//   8 bits headers (nbits <= 16, except for constant blocks)
 // A 000bbbbb      constant block, ZIGZAG(value), 1 -> 32 bits/value, bbbbb == number of bits - 1
 // B 001xxxxx      reserved for future use
 // C 01MEnnnn      all values >= 0  ( 1->16 bits, nnnn == number of bits - 1)
 // D 10MEnnnn      all values <= 0  ( 1->16 bits, ABS(value), nnnn == number of bits - 1)
 // E 110Ennnn      mixed signs, zigzag encoding, ( 1->16 bits, ZIGZAG(value), nnnn == number of bits - 1)
-// F 111xxxxx      NOT VALID as a 8 bit header
+// F 111xxxxx      NOT a VALID 8 bit header
 //
 // the first 3 bits tell the header type
 // 000 A type header (8 bits)
@@ -68,7 +69,7 @@
 //   SS : 00 constant block
 //        01 all values >= 0
 //        10 all values <= 0 (ABS(value) is stored)
-//        11 mixed signs, zigzag encoding
+//        11 mixed signs, zigzag (sign in LSB) type encoding
 //   M  : 0 no offset is used
 //        1 a ZIGZAG encoded value will be present, a 5 bits bbbbb nb of bits for offset field follows
 //        bbbbb == number of bits for offset - 1

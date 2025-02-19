@@ -1,5 +1,5 @@
 //
-// Copyright (C) 2022-2024  Environnement Canada
+// Copyright (C) 2022-2025  Environnement Canada
 //
 // This is free software; you can redistribute it and/or
 // modify it under the terms of the GNU Lesser General Public
@@ -12,7 +12,7 @@
 // Lesser General Public License for more details .
 //
 // Author:
-//     M. Valin,   Recherche en Prevision Numerique, 2022-2024
+//     M. Valin,   Recherche en Prevision Numerique, 2022-2025
 //
 // set of macros and functions to manage insertion/extraction into/from a bit stream
 // made of 32 bit words
@@ -20,8 +20,9 @@
 
 #if !defined(STREAM_ENDIANNESS)
 
+// compile time assert macros
 #include <rmn/ct_assert.h>
-// big and little endian macros
+// big and little endian packing macros
 #include <rmn/bit_pack_macros.h>
 
 #if ! defined(STATIC)
@@ -32,14 +33,14 @@
 static int stream_debug_mode = 0 ;
 
 // bit stream descriptor. both insert / extract may be positive
-// in insertion only mode, xtract would be -1
-// in extraction only mode, insert would be -1
+// in insertion only mode, xtract MUST be -1
+// in extraction only mode, insert MUST be -1
 // for now, a bit stream is unidirectional (either insert or extract mode)
 typedef struct{
   uint64_t  acc_i ;   // 64 bit unsigned bit accumulator for insertion
   uint64_t  acc_x ;   // 64 bit unsigned bit accumulator for extraction
-  int32_t   insert ;  // # of bits used in accumulator (0 <= insert <= 64)
-  int32_t   xtract ;  // # of bits extractable from accumulator (0 <= xtract <= 64)
+  int32_t   insert ;  // number of bits used in accumulator (insert <= 64)
+  int32_t   xtract ;  // number of bits extractable from accumulator (xtract <= 64)
   uint32_t *first ;   // pointer to start of stream data storage
   uint32_t *in ;      // pointer into packed stream (insert mode)
   uint32_t *out ;     // pointer into packed stream (extract mode)
@@ -84,11 +85,14 @@ static inline int StreamIsValid(bitstream *s){
   if(s->valid != 0xCAFEFADEu)                  return 0 ;    // incorrect marker
   if(s->first == NULL)                         return 0 ;    // no buffer
   if(s->limit == NULL)                         return 0 ;    // invalid limit
-  if(s->limit <= s->first)                     return 0 ;    // invalid limit
-  if(s->in < s->first  || s->in > s->limit)    return 0 ;    // in outside limits
-  if(s->out < s->first || s->out > s->limit)   return 0 ;    // out outside limits
+  if(s->limit <= s->first)                     return 0 ;    // invalid first/limit combination
+  if(s->in < s->first  || s->in > s->limit)    return 0 ;    // in is out of bounds
+  if(s->out < s->first || s->out > s->limit)   return 0 ;    // out is out of bounds
   if(s->endian == 0 || s->endian == 3 )        return 0 ;    // invalid endianness
-  return 1 ;                                                 // valid stream
+  return 1 ;                                                 // probably valid stream
+}
+static inline int StreamIsInvalid(bitstream *s){
+  return (1 - StreamIsValid(s)) ;
 }
 
 // get stream endianness, return 0 if invalid endianness
@@ -118,21 +122,22 @@ static inline int StreamEndianness(bitstream *stream){
 #define STREAM_BITS_AVAIL(s) ((s).xtract + ((s).in - (s).out) * 8l * sizeof(uint32_t) )
 
 // number of bits available for extraction
-STATIC inline size_t StreamAvailableBits(bitstream *p){
-//   if(p->xtract < 0) return -1 ;             // extraction not allowed
-  int32_t in_xtract = (p->xtract < 0) ? 0 : p->xtract ;
-  return (p->in - p->out)*32 + ((p->insert < 0) ? 0 :p->insert ) + in_xtract ;  // stream + accumulators contents
+STATIC inline size_t StreamAvailableBits(bitstream *s){
+//   if(s->xtract < 0) return -1 ;             // extraction not allowed
+  int32_t in_xtract = (s->xtract < 0) ? 0 : s->xtract ;
+  return (s->in - s->out)*32 + ((s->insert < 0) ? 0 :s->insert ) + in_xtract ;  // stream + accumulators contents
 }
-STATIC inline size_t StreamStrictAvailableBits(bitstream *p){
-//   if(p->xtract < 0) return -1 ;             // extraction not allowed
-  int32_t in_xtract = (p->xtract < 0) ? 0 : p->xtract ;
-  return (p->in - p->out)*32 + in_xtract ;              // stream + extract accumulator contents
+// in strict mode, 
+STATIC inline size_t StreamStrictAvailableBits(bitstream *s){
+//   if(s->xtract < 0) return -1 ;             // extraction not allowed
+  int32_t in_xtract = (s->xtract < 0) ? 0 : s->xtract ;
+  return (s->in - s->out)*32 + in_xtract ;              // stream + extract accumulator contents
 }
 
 // number of bits available for insertion
-STATIC inline ssize_t StreamAvailableSpace(bitstream *p){
-  if(p->insert < 0) return -1 ;   // insertion not allowd
-  return (p->limit - p->in)*32 - p->insert ;
+STATIC inline ssize_t StreamAvailableSpace(bitstream *s){
+  if(s->insert < 0) return -1 ;   // insertion not allowd
+  return (s->limit - s->in)*32 - s->insert ;
 }
 // true if stream is in read (extract) mode
 // possibly false for a NEWLY INITIALIZED stream
@@ -142,20 +147,20 @@ STATIC inline ssize_t StreamAvailableSpace(bitstream *p){
 #define STREAM_INSERT_MODE(s) ((s).insert >= 0)
 
 // get stream mode as a string
-STATIC inline char *StreamMode(bitstream p){
-  if( STREAM_INSERT_MODE(p) && STREAM_XTRACT_MODE(p)) return("RW") ;
-  if( STREAM_XTRACT_MODE(p) ) return "R" ;
-  if( STREAM_INSERT_MODE(p) ) return "W" ;
+STATIC inline char *StreamMode(bitstream s){
+  if( STREAM_INSERT_MODE(s) && STREAM_XTRACT_MODE(s)) return("RW") ;
+  if( STREAM_XTRACT_MODE(s) ) return "R" ;
+  if( STREAM_INSERT_MODE(s) ) return "W" ;
   return("Unknown") ;
 }
 // get stream mode as a code
-STATIC inline int StreamModeCode(bitstream p){
+STATIC inline int StreamModeCode(bitstream s){
   int32_t mode = 0 ;
-//   if(p.insert >= 0) mode |= BIT_INSERT ;
-//   if(p.xtract >= 0) mode |= BIT_XTRACT ;
-//   if( p.insert >= 0 && p.xtract >= 0) return 0 ;       // both insert and extract operations allowed
-  if( STREAM_XTRACT_MODE(p) ) mode |= BIT_XTRACT ;
-  if( STREAM_INSERT_MODE(p) ) mode |= BIT_INSERT ;
+//   if(s.insert >= 0) mode |= BIT_INSERT ;
+//   if(s.xtract >= 0) mode |= BIT_XTRACT ;
+//   if( s.insert >= 0 && s.xtract >= 0) return 0 ;       // both insert and extract operations allowed
+  if( STREAM_XTRACT_MODE(s) ) mode |= BIT_XTRACT ;
+  if( STREAM_INSERT_MODE(s) ) mode |= BIT_INSERT ;
   return mode ? mode : -1 ;                               // return -1 if neither extract nor insert is set
 }
 //
@@ -242,60 +247,86 @@ error:
 // =======================  stream initialization  =======================
 //
 // generic bit stream (re)initializer
-// p    [OUT] : pointer to an existing bitstream structure (structure will be updated)
-// mem   [IN] : pointer to memory (if NULL, allocate memory for bit stream)
-// size  [IN] : size of the memory area (user supplied or auto allocated)
+// s    [OUT] : pointer to an existing bitstream structure (structure will be updated)
+// mem   [IN] : pointer to user supplied memory (if NULL, use malloc to allocate memory for bit stream)
+// size  [IN] : size of the memory area (user supplied or auto allocated) (BYTES)
 // mode  [IN] : combination of BIT_INSERT, BIT_XTRACT, BIT_FULL_INIT
 // if mode == 0, both insertion and extraction operations are allowed
 // size is in bytes
-STATIC inline void  StreamInit(bitstream *p, void *mem, size_t size, int mode){
+STATIC inline void  StreamInit(bitstream *s, void *mem, size_t size, int mode){
   uint32_t *buf = (uint32_t *) mem ;
   if(mode & BIT_FULL_INIT){
-    *p = null_bitstream ;    // perform a full (re)initialization, nullify all fields
+    *s = null_bitstream ;    // perform a full (re)initialization, nullify all fields
   }
   if((mode & (BIT_INSERT | BIT_XTRACT)) == 0) mode = mode | BIT_INSERT | BIT_XTRACT ;  // neither insert nor extract set, set both
 
-  if( (p->first != NULL) && (p->in != NULL) && (p->out != NULL) && (p->limit != NULL) && (p->valid == 0xCAFEFADEu) ){
-    buf = p->first ;        // existing and valid stream, already has a buffer, set buf to first, ignore mem
+  if( (s->first != NULL) && (s->in != NULL) && (s->out != NULL) && (s->limit != NULL) && (s->valid == 0xCAFEFADEu) ){
+    buf = s->first ;        // existing and valid stream, already has a buffer, set buf to first, ignore mem
   }else{                    // not an existing stream, perform a full initialization
     if(buf == NULL){
-      p->user   = 0 ;                          // not user supplied space
-      p->alloc  = 1 ;                          // auto allocated space (can be freed if resizing)
+      s->user   = 0 ;                          // not user supplied space
+      s->alloc  = 1 ;                          // auto allocated space (can be freed if resizing)
       buf    = (uint32_t *) malloc(size) ;     // allocate space to accomodate up to size bytes
     }else{
-      p->user   = 1 ;                          // user supplied space
-      p->alloc  = 0 ;                          // not auto allocated space
+      s->user   = 1 ;                          // user supplied space
+      s->alloc  = 0 ;                          // not auto allocated space
     }
-    p->full   = 0 ;                            // malloc not for both struct and buffer
-    p->spare  = 0 ;
-    p->valid   = 0xCAFEFADEu ;                 // mark bit stream as valid
-    p->first  = buf ;                          // stream storage buffer
-    p->limit  = buf + size/sizeof(uint32_t) ;  // potential truncation to 32 bit alignment
+    s->full   = 0 ;                            // malloc not for both struct and buffer
+    s->spare  = 0 ;
+    s->valid   = 0xCAFEFADEu ;                 // mark bit stream as valid
+    s->first  = buf ;                          // stream storage buffer
+    s->limit  = buf + size/sizeof(uint32_t) ;  // potential truncation to 32 bit alignment
   }
 
-  p->in     = buf ;                            // stream is empty and insertion starts at beginning of buffer
-  p->out    = buf ;                            // stream is filled and extraction starts at beginning of buffer
-  p->acc_i  = 0 ;                              // insertion accumulator is empty
-  p->acc_x  = 0 ;                              // extraction accumulator is empty
-  p->insert = 0 ;                              // insertion point at first free bit
-  p->xtract = 0 ;                              // extraction point at first available bit
-  if((mode & BIT_XTRACT) == 0) p->xtract = -1 ;  // deactivate extract mode (insert only mode)
-  if((mode & BIT_INSERT) == 0) p->insert = -1 ;  // deactivate insert mode  (extract only mode)
-  if(mode & SET_BIG_ENDIAN   ) p->endian = STREAM_BE ;
-  if(mode & SET_LITTLE_ENDIAN) p->endian = STREAM_LE ;
-//   if(p->endian == 0) p->endian = STREAM_BE ;   //  default to BIG endian if not already defined
+  s->in     = buf ;                            // stream is empty and insertion starts at beginning of buffer
+  s->out    = buf ;                            // stream is filled and extraction starts at beginning of buffer
+  s->acc_i  = 0 ;                              // insertion accumulator is empty
+  s->acc_x  = 0 ;                              // extraction accumulator is empty
+  s->insert = 0 ;                              // insertion point at first free bit
+  s->xtract = 0 ;                              // extraction point at first available bit
+  if((mode & BIT_XTRACT) == 0) s->xtract = -1 ;  // deactivate extract mode (insert only mode)
+  if((mode & BIT_INSERT) == 0) s->insert = -1 ;  // deactivate insert mode  (extract only mode)
+  if(mode & SET_BIG_ENDIAN   ) s->endian = STREAM_BE ;
+  if(mode & SET_LITTLE_ENDIAN) s->endian = STREAM_LE ;
+//   if(s->endian == 0) s->endian = STREAM_BE ;   //  default to BIG endian if not already defined
+}
+
+// generic bit stream destructor
+// s    [IN] : pointer to an existing bitstream structure
+// return 0 if operation successful, non zero if there was an error
+STATIC inline bitstream *StreamRelease(bitstream *s, int *error){
+  if(StreamIsInvalid(s)){     // not a valid stream
+    *error = 1 ;
+    s = NULL ;
+// fprintf(stderr, "invalid stream\n");
+    goto end ;
+  }
+
+  if(s->full){                   // the whole bitstream struct was allocated with malloc()
+    free(s) ;
+    s = NULL ;
+    *error = 0 ;
+// fprintf(stderr, "fully allocated stream\n");
+    goto end ;
+  }
+// fprintf(stderr, "stream with buffer at %p, alloc = %d\n", (void *)s->first, s->alloc);
+  if(s->alloc) free(s->first) ;  // the stream buffer was not supplied by the user
+  *s = null_bitstream ;          // blank stream
+
+end:
+  return s ;
 }
 
 // initialize a LittleEndian stream
-STATIC inline void  LeStreamInit(bitstream *p, uint32_t *buffer, size_t size, int mode){
-  StreamInit(p, buffer, size, mode) ;   // call generic stream init
-  p->endian = STREAM_LE ;
+STATIC inline void  LeStreamInit(bitstream *s, uint32_t *buffer, size_t size, int mode){
+  StreamInit(s, buffer, size, mode) ;   // call generic stream init
+  s->endian = STREAM_LE ;
 }
 
 // initialize a BigEndian stream
-STATIC inline void  BeStreamInit(bitstream *p, uint32_t *buffer, size_t size, int mode){
-  StreamInit(p, buffer, size, mode) ;   // call generic stream init
-  p->endian = STREAM_BE ;
+STATIC inline void  BeStreamInit(bitstream *s, uint32_t *buffer, size_t size, int mode){
+  StreamInit(s, buffer, size, mode) ;   // call generic stream init
+  s->endian = STREAM_BE ;
 }
 
 // =======================  stream creation (new stream)  =======================
@@ -304,61 +335,63 @@ STATIC inline void  BeStreamInit(bitstream *p, uint32_t *buffer, size_t size, in
 // size [IN] : see StreamInit
 // mode [IN] : see StreamInit
 // return a pointer to the created struct
-// p->full will be set, p->alloc will be 0
-// p->alloc can end up as 1 if a resize is performed at a later time
+// s->full will be set, s->alloc will be 0
+// s->alloc can end up as 1 if a resize is performed at a later time
 static inline bitstream *StreamCreate(size_t size, int mode){
   char *buf ;
-  bitstream *p = (bitstream *) malloc(size + sizeof(bitstream)) ;  // allocate size + overhead
-fprintf(stderr, "StreamCreate : size = %ld, mode = %d\n", size*8, mode) ;
-  buf = (char *) p ;
+  bitstream *s = (bitstream *) malloc(size + sizeof(bitstream)) ;  // allocate size + overhead
+fprintf(stderr, "StreamCreate : size = %ld bits, mode = %d\n", size*8, mode) ;
+  buf = (char *) s ;
   buf += sizeof(bitstream) ;
-  StreamInit(p, buf, size, mode | BIT_FULL_INIT) ;                 // fully initialize bit stream structure
-  p->full = 1 ;                                                    // mark whole struct as allocated
-  return p ;
+  StreamInit(s, buf, size, mode | BIT_FULL_INIT) ;                 // fully initialize bit stream structure
+  s->full = 1 ;                                                    // mark whole struct as allocated
+  return s ;
 }
 
 // fully allocate and initialize a LittleEndian stream
 static inline bitstream *LeStreamCreate(size_t size, int mode){
-  bitstream *p = StreamCreate(size, mode) ;
-  p->endian = STREAM_LE ;
-  return p ;
+  bitstream *s = StreamCreate(size, mode) ;
+  s->endian = STREAM_LE ;
+  return s ;
 }
 
 // fully allocate and initialize a BigEndian stream
 static inline bitstream *BeStreamCreate(size_t size, int mode){
-  bitstream *p = StreamCreate(size, mode) ;
-  p->endian = STREAM_BE ;
-  return p ;
+  bitstream *s = StreamCreate(size, mode) ;
+  s->endian = STREAM_BE ;
+  return s ;
 }
 
 // =======================  stream size management =======================
 //
 // resize a stream
-// p    [OUT] : pointer to a bitstream structure
-// size  [IN] : size of the memory area (user supplied or auto allocated)
+// s    [OUT] : pointer to a bitstream structure
+// mem   [IN] : pointer to user memory (if NULL, malloc will be used)
+// size  [IN] : size of the memory area
 // funtion return : size of new buffer, 0 in case of error
 // N.B. size MUST be larger than the original size
 //      the contents of the old buffer will be copied to the new buffer
 //      size is in bytes
-STATIC inline size_t StreamResize(bitstream *p, void *mem, size_t size){
+STATIC inline size_t StreamResize(bitstream *s, void *mem, size_t size){
   uint32_t in, out ;
   size_t old_size ;
+  int auto_alloc = (mem == NULL) ;           // 1 if no user supplied memory
 
-// fprintf(stderr, "new size = %ld, old size = %ld\n", size/sizeof(int32_t),  (p->limit - p->first)) ;
-  old_size = sizeof(int32_t) * (p->limit - p->first) ;                  // size of current buffer
+// fprintf(stderr, "new size = %ld, old size = %ld\n", size/sizeof(int32_t),  (s->limit - s->first)) ;
+  old_size = sizeof(int32_t) * (s->limit - s->first) ;                  // size of current buffer
   if(size <= old_size) return 0 ;                                       // size is smaller then size of current buffer
   if(mem == NULL) mem = malloc(size) ;                                  // allocate with malloc if mem is NULL
   if(mem == NULL) return 0 ;                                            // failed to allocate memory
 
-  memmove(mem, p->first, old_size)  ;                                   // copy old (p->first) buffer into new (mem)
-  in  = p->in - p->first ;                                              // relative position of in pointer
-  out = p->out - p->first ;                                             // relative position of out pointer
-  if(p->alloc) free(p->first) ;                                         // previous buffer was "malloced"
-  p->alloc = (mem != NULL) ? 1 : 0 ;                                    // flag buffer as "malloced"
-  p->first = (uint32_t *) mem ;                                         // updated first pointer
-  p->in    = p->first + in ;                                            // updated in pointer
-  p->out   = p->first + out ;                                           // updated out pointer
-  p->limit = p->first + size / sizeof(int32_t) ;                        // updated limit pointer
+  memmove(mem, s->first, old_size)  ;                                   // copy old (s->first) buffer into new (mem)
+  in  = s->in - s->first ;                                              // relative position of in pointer
+  out = s->out - s->first ;                                             // relative position of out pointer
+  if(s->alloc) free(s->first) ;                                         // previous buffer was "malloced", free it
+  s->alloc = (auto_alloc) ? 1 : 0 ;                                     // flag buffer as "malloced" if mem was NULL at entry
+  s->first = (uint32_t *) mem ;                                         // updated first pointer
+  s->in    = s->first + in ;                                            // updated in pointer
+  s->out   = s->first + out ;                                           // updated out pointer
+  s->limit = s->first + size / sizeof(int32_t) ;                        // updated limit pointer
   return size ;
 }
 
@@ -377,8 +410,8 @@ static inline int StreamSetFilledBits(bitstream *stream, size_t pos){
 
 // mark stream as filled with size bytes
 // size [IN] : number of bytes available for extraction (should be a multiple of 4)
-STATIC inline int  StreamSetFilledBytes(bitstream *p, size_t size){
-  return StreamSetFilledBits(p, size * 8) ;
+STATIC inline int  StreamSetFilledBytes(bitstream *s, size_t size){
+  return StreamSetFilledBits(s, size * 8) ;
 }
 
 // =======================  stream duplication  =======================
@@ -403,19 +436,19 @@ static inline void StreamDup(bitstream *sdst, bitstream *ssrc){
 static inline int StreamFree(bitstream *s){
   int status = 1 ;
   if(s->full){       // struct and buffer
-    fprintf(stderr, "auto allocated bit stream (%p) freed\n", (void *)s) ;
+    fprintf(stderr, "auto allocated bit stream (%s) freed\n", (char *)s) ;
     if(s->alloc) free(s->first) ;   // a resize operation has been performed
     free(s) ;
     return 0 ;
   }
   if(s->alloc){       // buffer was allocated with malloc
-    fprintf(stderr, "auto allocated bit stream buffer (%p) freed\n", (void *)s->first) ;
+    fprintf(stderr, "auto allocated bit stream buffer (%s) freed\n", (char *)s->first) ;
     free(s->first) ;
     s->first = s->in = s->out = s->limit = NULL ;   // nullify data pointers
     s->user = s->full = s->alloc = 0 ;
     status = 0 ;
   }else{
-    fprintf(stderr, "not owner of buffer, no free done (%p)\n", (void *)s->first);
+    fprintf(stderr, "not owner of buffer, no free done (%s)\n", (char *)s->first);
   }
   s->insert = s->xtract = s->acc_i = s->acc_x = 0 ;  // mark accumulators as empty
   return status ;
@@ -423,119 +456,119 @@ static inline int StreamFree(bitstream *s){
 
 // =======================  stream flush (insertion mode)  =======================
 // flush stream being written into if any data left in insertion accumulator
-STATIC inline void  LeStreamFlush(bitstream *p){
-  if(p->insert > 0) LE64_INSERT_FINAL(p->acc_i, p->insert, p->in) ;
-  p->acc_i = 0 ;
-  p->insert = 0 ;
+STATIC inline void  LeStreamFlush(bitstream *s){
+  if(s->insert > 0) LE64_INSERT_FINAL(s->acc_i, s->insert, s->in) ;
+  s->acc_i = 0 ;
+  s->insert = 0 ;
 }
 
 // flush stream being written into if any data left in insertion accumulator
-STATIC inline void  BeStreamFlush(bitstream *p){
-  if(p->insert > 0) BE64_INSERT_FINAL(p->acc_i, p->insert, p->in) ;
-  p->acc_i = 0 ;
-  p->insert = 0 ;
+STATIC inline void  BeStreamFlush(bitstream *s){
+  if(s->insert > 0) BE64_INSERT_FINAL(s->acc_i, s->insert, s->in) ;
+  s->acc_i = 0 ;
+  s->insert = 0 ;
 }
 
 // flush stream being written into if any data left in insertion accumulator
-STATIC inline void  StreamFlush(bitstream *p){
-  if(STREAM_IS_BIG_ENDIAN(*p))    BeStreamFlush(p) ;
-  if(STREAM_IS_LITTLE_ENDIAN(*p)) LeStreamFlush(p) ;
+STATIC inline void  StreamFlush(bitstream *s){
+  if(STREAM_IS_BIG_ENDIAN(*s))    BeStreamFlush(s) ;
+  if(STREAM_IS_LITTLE_ENDIAN(*s)) LeStreamFlush(s) ;
 }
 
 // =======================  stream push (insertion mode) =======================
 // push any data left in insertion accumulator into stream witout updating control info
-STATIC inline void  LeStreamPush(bitstream *p){
-  if(p->insert > 0) LE64_PUSH(p->acc_i, p->insert, p->in) ;
+STATIC inline void  LeStreamPush(bitstream *s){
+  if(s->insert > 0) LE64_PUSH(s->acc_i, s->insert, s->in) ;
 }
 
 // push any data left in insertion accumulator into stream witout updating control info
-STATIC inline void  BeStreamPush(bitstream *p){
-  if(p->insert > 0)  BE64_PUSH(p->acc_i, p->insert, p->in) ;
+STATIC inline void  BeStreamPush(bitstream *s){
+  if(s->insert > 0)  BE64_PUSH(s->acc_i, s->insert, s->in) ;
 }
 
 // push any data left in insertion accumulator into stream witout updating control info
-STATIC inline void  StreamPush(bitstream *p){
-  if(STREAM_IS_BIG_ENDIAN(*p))    BeStreamPush(p) ;
-  if(STREAM_IS_LITTLE_ENDIAN(*p)) LeStreamPush(p) ;
+STATIC inline void  StreamPush(bitstream *s){
+  if(STREAM_IS_BIG_ENDIAN(*s))    BeStreamPush(s) ;
+  if(STREAM_IS_LITTLE_ENDIAN(*s)) LeStreamPush(s) ;
 }
 
 // =======================  stream rewind =======================
 // rewind a Little Endian stream to read it from the beginning (potentially force valid read mode)
-STATIC inline void  LeStreamRewind(bitstream *p, int force_read){
-//   if(p->insert > 0) LeStreamFlush(p) ;   // something left in insert accumulator ?
-  if(p->insert > 0) LeStreamPush(p) ;   // something left in insert accumulator ?
-  if(force_read) p->xtract = 0 ;
-  if(p->xtract >= 0){
-    p->acc_x  = 0 ;
-    p->out = p->first ;
-//     LE64_XTRACT_BEGIN(p->acc_x, p->xtract, p->out) ; // prime the pump
+STATIC inline void  LeStreamRewind(bitstream *s, int force_read){
+//   if(s->insert > 0) LeStreamFlush(s) ;   // something left in insert accumulator ?
+  if(s->insert > 0) LeStreamPush(s) ;   // something left in insert accumulator ?
+  if(force_read) s->xtract = 0 ;
+  if(s->xtract >= 0){
+    s->acc_x  = 0 ;
+    s->out = s->first ;
+//     LE64_XTRACT_BEGIN(s->acc_x, s->xtract, s->out) ; // prime the pump
   }
 }
 
 // rewind a Big Endian stream to read it from the beginning (potentially force valid read mode)
-STATIC inline void  BeStreamRewind(bitstream *p, int force_read){
-//   if(p->insert > 0) BeStreamFlush(p) ;   // something left in insert accumulator ?
-  if(p->insert > 0) BeStreamPush(p) ;   // something left in insert accumulator ?
-  if(force_read) p->xtract = 0 ;
-  if(p->xtract >= 0){
-    p->acc_x  = 0 ;
-    p->out = p->first ;
-//     BE64_XTRACT_BEGIN(p->acc_x, p->xtract, p->out) ; // prime the pump
+STATIC inline void  BeStreamRewind(bitstream *s, int force_read){
+//   if(s->insert > 0) BeStreamFlush(s) ;   // something left in insert accumulator ?
+  if(s->insert > 0) BeStreamPush(s) ;   // something left in insert accumulator ?
+  if(force_read) s->xtract = 0 ;
+  if(s->xtract >= 0){
+    s->acc_x  = 0 ;
+    s->out = s->first ;
+//     BE64_XTRACT_BEGIN(s->acc_x, s->xtract, s->out) ; // prime the pump
   }
 }
 
-STATIC inline void StreamRewind(bitstream *p, int force_read){
-  if(STREAM_IS_BIG_ENDIAN(*p))    BeStreamRewind(p, force_read) ;
-  if(STREAM_IS_LITTLE_ENDIAN(*p)) LeStreamRewind(p, force_read) ;
+STATIC inline void StreamRewind(bitstream *s, int force_read){
+  if(STREAM_IS_BIG_ENDIAN(*s))    BeStreamRewind(s, force_read) ;
+  if(STREAM_IS_LITTLE_ENDIAN(*s)) LeStreamRewind(s, force_read) ;
 }
 
 // =======================  stream reset =======================
 // reset both read and write pointers to beginning of stream (according to insert/xtract only flags)
-// STATIC inline void  StreamRewrite(bitstream *p){
-STATIC inline void  StreamReset(bitstream *p){
-  if(p->insert >= 0){      // insertion allowed
-    p->in     = p->first ;
-    p->acc_i  = 0 ;
-    p->insert = 0 ;
-//     if(STREAM_IS_BIG_ENDIAN(*p))    BE64_STREAM_INSERT_BEGIN(*p) ;
-//     if(STREAM_IS_LITTLE_ENDIAN(*p)) LE64_STREAM_INSERT_BEGIN(*p) ;
+// STATIC inline void  StreamRewrite(bitstream *s){
+STATIC inline void  StreamReset(bitstream *s){
+  if(s->insert >= 0){      // insertion allowed
+    s->in     = s->first ;
+    s->acc_i  = 0 ;
+    s->insert = 0 ;
+//     if(STREAM_IS_BIG_ENDIAN(*s))    BE64_STREAM_INSERT_BEGIN(*s) ;
+//     if(STREAM_IS_LITTLE_ENDIAN(*s)) LE64_STREAM_INSERT_BEGIN(*s) ;
   }
-  if(p->xtract >= 0){      // extraction allowed
-    p->out    = p->first ;
-    p->acc_x  = 0 ;
-    p->xtract = 0 ;
-//     if(STREAM_IS_BIG_ENDIAN(*p))    BE64_STREAM_XTRACT_BEGIN(*p) ;
-//     if(STREAM_IS_LITTLE_ENDIAN(*p)) LE64_STREAM_XTRACT_BEGIN(*p) ;
+  if(s->xtract >= 0){      // extraction allowed
+    s->out    = s->first ;
+    s->acc_x  = 0 ;
+    s->xtract = 0 ;
+//     if(STREAM_IS_BIG_ENDIAN(*s))    BE64_STREAM_XTRACT_BEGIN(*s) ;
+//     if(STREAM_IS_LITTLE_ENDIAN(*s)) LE64_STREAM_XTRACT_BEGIN(*s) ;
   }
 }
 
 // =======================  stream peek (extraction mode) =======================
 //
 // take a peek at future extracted data
-STATIC inline uint32_t LeStreamPeek(bitstream *p, int nbits){
+STATIC inline uint32_t LeStreamPeek(bitstream *s, int nbits){
   uint32_t w32 ;
-  LE64_PEEK_NBITS(p->acc_x, p->xtract, w32, nbits) ;
+  LE64_PEEK_NBITS(s->acc_x, s->xtract, w32, nbits) ;
   return w32 ;
 }
 
 // take a peek at future extracted data
-STATIC inline uint32_t BeStreamPeek(bitstream *p, int nbits){
+STATIC inline uint32_t BeStreamPeek(bitstream *s, int nbits){
   uint32_t w32 ;
-  BE64_PEEK_NBITS(p->acc_x, p->xtract, w32, nbits) ;
+  BE64_PEEK_NBITS(s->acc_x, s->xtract, w32, nbits) ;
   return w32 ;
 }
 
 // take a peek at future extracted data (signed)
-STATIC inline int32_t LeStreamPeekSigned(bitstream *p, int nbits){
+STATIC inline int32_t LeStreamPeekSigned(bitstream *s, int nbits){
   int32_t w32 ;
-  LE64_PEEK_NBITS((int64_t) p->acc_x, p->xtract, w32, nbits) ;
+  LE64_PEEK_NBITS((int64_t) s->acc_x, s->xtract, w32, nbits) ;
   return w32 ;
 }
 
 // take a peek at future extracted data (signed)
-STATIC inline int32_t BeStreamPeekSigned(bitstream *p, int nbits){
+STATIC inline int32_t BeStreamPeekSigned(bitstream *s, int nbits){
   int32_t w32 ;
-  BE64_PEEK_NBITS((int64_t) p->acc_x, p->xtract, w32, nbits) ;
+  BE64_PEEK_NBITS((int64_t) s->acc_x, s->xtract, w32, nbits) ;
   return w32 ;
 }
 
@@ -565,33 +598,34 @@ static inline int64_t StreamDataCopy(bitstream *stream, void *mem, size_t size){
 //   nbtot /= 8 ;                                                  // convert to bytes
   if(nbtot > size) return -1 ;                                  // insufficient space
   if(mem != memmove(mem, temp.first, nbtot)) return -1 ;        // error copying
+fprintf(stderr, "StreamDataCopy : nborig = %ld, nbtot = %ld\n", nborig, nbtot) ;
   return nborig ;                                               // return unrounded result
 }
 
 // =======================  prototypes for bi_endian_pack.c =======================
 // insert multiple values (unsigned)
-int  LeStreamInsert(bitstream *p, uint32_t *w32, int nbits, int nw);
+int  LeStreamInsert(bitstream *s, uint32_t *w32, int nbits, int nw);
 // insert multiple values from list (unsigned)
-int  LeStreamInsertM(bitstream *p, uint32_t *w32, int *nbits, int *n);
+int  LeStreamInsertM(bitstream *s, uint32_t *w32, int *nbits, int *n);
 
 // insert multiple values (unsigned)
-int  BeStreamInsert(bitstream *p, uint32_t *w32, int nbits, int nw);
+int  BeStreamInsert(bitstream *s, uint32_t *w32, int nbits, int nw);
 // insert multiple values from list (unsigned)
-int  BeStreamInsertM(bitstream *p, uint32_t *w32, int *nbits, int *n);
+int  BeStreamInsertM(bitstream *s, uint32_t *w32, int *nbits, int *n);
 
 // extract multiple values (unsigned)
-int  LeStreamXtract(bitstream *p, uint32_t *w32, int nbits, int n);
+int  LeStreamXtract(bitstream *s, uint32_t *w32, int nbits, int n);
 // extract multiple values (signed)
-int  LeStreamXtractSigned(bitstream *p, int32_t *w32, int nbits, int n);
+int  LeStreamXtractSigned(bitstream *s, int32_t *w32, int nbits, int n);
 // extract multiple values from list (unsigned)
-int  LeStreamXtractM(bitstream *p, uint32_t *w32, int *nbits, int *n);
+int  LeStreamXtractM(bitstream *s, uint32_t *w32, int *nbits, int *n);
 
 // extract multiple values (unsigned)
-int  BeStreamXtract(bitstream *p, uint32_t *w32, int nbits, int n);
+int  BeStreamXtract(bitstream *s, uint32_t *w32, int nbits, int n);
 // extract multiple values (signed)
-int  BeStreamXtractSigned(bitstream *p, int32_t *w32, int nbits, int n);
+int  BeStreamXtractSigned(bitstream *s, int32_t *w32, int nbits, int n);
 // extract multiple values from list (unsigned)
-int  BeStreamXtractM(bitstream *p, uint32_t *w32, int *nbits, int *n);
+int  BeStreamXtractM(bitstream *s, uint32_t *w32, int *nbits, int *n);
 
 
 #if defined(STATIC_DEFINED_HERE)
