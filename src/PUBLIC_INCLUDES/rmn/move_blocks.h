@@ -37,16 +37,29 @@ typedef struct{
   data_kind kind ;  // data type (signed / unsigned / float / unknown)
 } block_properties ;
 
-int32_t fake_int(float f);
-float unfake_float(int32_t fake);
 
-int move_word32_block(void *restrict src, int lnis, void *restrict dst, int lnid, int ni, int nj, data_kind datatype, block_properties *bp);
+// transform a float into a fake signed integer (comparison order preserving)
+static inline int32_t fake_int(float f){
+  iuf32_t iuf ;
+  iuf.f = f ;
+  return (iuf.i & 0x7FFFFFFF) ^ (iuf.i >> 31) ;
+}
+
+// restore float from fake integer representing float
+static inline float unfake_float(int32_t fake){
+  iuf32_t iuf ;
+  iuf.i = ((fake >> 31) ^ fake) | (fake & 0x80000000) ;
+  return iuf.f ;
+}
+
+// int move_word32_block(void *restrict src, int lnis, void *restrict dst, int lnid, int ni, int nj, data_kind datatype, block_properties *bp);
 
 #define move_w32_block(src,lnis,dst,lnid,ni,nj,bp) _Generic((src), \
                                                    int32_t  *: move_int32_block,  \
                                                    uint32_t *: move_uint32_block, \
                                                    float    *: move_float_block,  \
-                                                   void     *: move_data32_block  \
+                                                   void     *: move_data32_block, \
+                                                   default   : move_mem32_block   \
                                                    ) (src,lnis,dst,lnid,ni,nj,bp)
 
 int move_uint32_block(uint32_t *restrict src, int lnis, void *restrict dst, int lnid, int ni, int nj, block_properties *bp);
@@ -57,8 +70,8 @@ int move_data32_block(void     *restrict src, int lnis, void *restrict dst, int 
 int move_mem32_block(void      *restrict src, int lnis, void *restrict dst, int lnid, int ni, int nj, block_properties *bp);
 
 int anal_data32_block(void *restrict src, int lnis, int ni, int nj, block_properties *bp);
-void set_block_properties(block_properties *bp, data_kind datatype);
-void fuse_block_properties(block_properties *bp, block_properties *bp_extra);
+void adjust_block_properties(block_properties *bp, data_kind datatype);
+void add_block_properties(block_properties *bp, block_properties *bp_extra);
 
 // generic 64 bit container
 typedef union{

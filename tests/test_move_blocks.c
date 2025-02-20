@@ -40,12 +40,17 @@
 #define LNI 129
 
 void print_float_props(block_properties bp){
-  fprintf(stderr, "float props : mins = %13f, maxs = %12f, minu = %12f, maxu = %12f\n", bp.mins.f, bp.maxs.f, bp.minu.f, bp.maxu.f) ;
+  fprintf(stderr, "float props : mins = %12.3f, maxs = %12f, minu = %12f, maxu = %12f\n\n", bp.mins.f, bp.maxs.f, bp.minu.f, bp.maxu.f) ;
 }
 
 void print_int_props(block_properties bp){
-  fprintf(stderr, "int   props : mins = %13.8x, maxs = %12.8x, minu = %12.8x, maxu = %12.8x\n", bp.mins.u, bp.maxs.u, bp.minu.u, bp.maxu.u) ;
-  fprintf(stderr, "              mins = %13d, maxs = %12d, minu = %12u, maxu = %12u\n", bp.mins.i, bp.maxs.i, bp.minu.u, bp.maxu.u) ;
+  if(bp.kind == int_data){
+//     fprintf(stderr, "int   props : mins = %12.8x, maxs = %12.8x, minu = %12.8x, maxu = %12.8x\n", bp.mins.u, bp.maxs.u, bp.minu.u, bp.maxu.u) ;
+    fprintf(stderr, "int   props : mins = %12d, maxs = %12d, minu = %12d, maxu = %12d\n\n", bp.mins.i, bp.maxs.i, bp.minu.i, bp.maxu.i) ;
+  }else{
+    fprintf(stderr, "uint  props : mins = %12.8x, maxs = %12.8x, minu = %12.8x, maxu = %12.8x\n\n", bp.mins.u, bp.maxs.u, bp.minu.u, bp.maxu.u) ;
+//     fprintf(stderr, "              mins = %12d, maxs = %12d, minu = %12u, maxu = %12u\n\n", bp.mins.i, bp.maxs.i, bp.minu.u, bp.maxu.u) ;
+  }
 }
 
 int main(int argc, char **argv){
@@ -56,14 +61,18 @@ int main(int argc, char **argv){
   float t0 ;
   TIME_LOOP_DATA ;
 
+  start_of_test("basic test of block move functions") ;
+
   if(cycles_overhead == 0) cycles_overhead = 1;
   if(argc >= 0){
     start_of_test(argv[0]);
   }
   for(j=0 ; j<NJ ; j++){
     for(i=0 ; i<LNI ; i++){
-      z[j][i] = (i << 8) + j ;
-      z[j][i] |= (i << 31) ;
+//       z[j][i] = (i << 8) + j ;
+//       z[j][i] |= (i << 31) ;
+      z[j][i] = (i - NI/2) + (j - NJ/2) ;
+      if(z[j][i] == 0) z[j][i] = 1 ;
 //       f[j][i] = 1.0f * (i - ni/2) * (j - ni/2) + .5f ;
       f[j][i] = (j * LNI) + i ;
       f[j][i] = -f[j][i] ;
@@ -115,10 +124,12 @@ int main(int argc, char **argv){
 //     gather_word32_block(z, blk, ni, LNI, nj) ;
 //     gather_int32_block((int32_t *)z, blk, ni, LNI, nj, &bp) ;
 //     move_word32_block(z, LNI, blk, ni, ni, nj, int_data, &bp) ;
-    move_w32_block(            &z[0][0], LNI, blk, ni, ni,     nj,     &bp) ;
+    move_w32_block((uint32_t *) &z[0][0], LNI, blk, ni, ni,     nj,     &bp) ;
     print_int_props(bp) ;
-    move_w32_block((int32_t *) &z[0][0], LNI, blk, ni, ni,     nj,     &bp) ;
+
+    move_w32_block((int32_t *)  &z[0][0], LNI, blk, ni, ni,     nj,     &bp) ;
     print_int_props(bp) ;
+
     errors = 0 ;
     for(j=0 ; j<nj ; j++){
       for(i=0 ; i<ni ; i++){
@@ -151,22 +162,22 @@ int main(int argc, char **argv){
 //     fprintf(stderr, "get block      : %4.2f ns/word\n", t0) ;
 
 //     TIME_LOOP_EZ(NITER, ni*nj, gather_int32_block((int32_t *)z, blk, ni, LNI, nj, &bp) ) ;
-    TIME_LOOP_EZ(NITER, ni*nj, move_word32_block(z, LNI, blk, ni, ni, nj, int_data, &bp) ) ;
+    TIME_LOOP_EZ(NITER, ni*nj, move_w32_block((int32_t *)z, LNI, blk, ni, ni, nj, &bp) ) ;
     if(timer_min == timer_max) timer_avg = timer_max ;
     t0 = timer_min * NaNoSeC / (ni*nj) ;
     fprintf(stderr, "move int + prop : %4.2f ns/word\n", t0) ;
 
-    TIME_LOOP_EZ(NITER, ni*nj, move_word32_block(z, LNI, z, LNI, ni, nj, int_data, &bp) ) ;
+    TIME_LOOP_EZ(NITER, ni*nj, move_w32_block((int32_t *)z, LNI, z, LNI, ni, nj, &bp) ) ;
     if(timer_min == timer_max) timer_avg = timer_max ;
     t0 = timer_min * NaNoSeC / (ni*nj) ;
     fprintf(stderr, "nomove int prop : %4.2f ns/word\n", t0) ;
 
-    TIME_LOOP_EZ(NITER, ni*nj, move_word32_block(z, LNI, blk, ni, ni, nj, float_data, &bp) ) ;
+    TIME_LOOP_EZ(NITER, ni*nj, move_w32_block((float *)z, LNI, blk, ni, ni, nj, &bp) ) ;
     if(timer_min == timer_max) timer_avg = timer_max ;
     t0 = timer_min * NaNoSeC / (ni*nj) ;
     fprintf(stderr, "move flt + prop : %4.2f ns/word\n", t0) ;
 
-    TIME_LOOP_EZ(NITER, ni*nj, move_word32_block(z, LNI, z, LNI, ni, nj, float_data, &bp) ) ;
+    TIME_LOOP_EZ(NITER, ni*nj, move_w32_block((float *)z, LNI, z, LNI, ni, nj, &bp) ) ;
     if(timer_min == timer_max) timer_avg = timer_max ;
     t0 = timer_min * NaNoSeC / (ni*nj) ;
     fprintf(stderr, "nomove flt prop : %4.2f ns/word\n", t0) ;
@@ -181,7 +192,7 @@ int main(int argc, char **argv){
     t0 = timer_min * NaNoSeC / (ni*nj) ;
     fprintf(stderr, "move mem32      : %4.2f ns/word\n", t0) ;
 
-    TIME_LOOP_EZ(NITER, ni*nj, move_word32_block(z, LNI, blk, ni, ni, nj, raw_data, NULL) ) ;
+    TIME_LOOP_EZ(NITER, ni*nj, move_w32_block((void *)z, LNI, blk, ni, ni, nj, NULL) ) ;
     if(timer_min == timer_max) timer_avg = timer_max ;
     t0 = timer_min * NaNoSeC / (ni*nj) ;
     fprintf(stderr, "move in         : %4.2f ns/word\n", t0) ;
@@ -191,7 +202,7 @@ int main(int argc, char **argv){
 //     fprintf(stderr, "put block      : %4.2f ns/word\n", t0) ;
 
 //     TIME_LOOP_EZ(NITER, ni*nj, scatter_word32_block(z, blk, ni, LNI, nj) ) ;
-    TIME_LOOP_EZ(NITER, ni*nj, move_word32_block(blk, ni, r, LNI, ni, nj, raw_data, NULL) ) ;
+    TIME_LOOP_EZ(NITER, ni*nj, move_w32_block((void *)blk, ni, r, LNI, ni, nj, NULL) ) ;
     t0 = timer_min * NaNoSeC / (ni*nj) ;
     fprintf(stderr, "move back       : %4.2f ns/word\n", t0) ;
 
