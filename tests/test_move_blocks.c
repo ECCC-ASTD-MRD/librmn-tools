@@ -187,7 +187,7 @@ int main(int argc, char **argv){
     t0 = timer_min * NaNoSeC / (ni*nj) ;
     fprintf(stderr, "move datanoprop : %4.2f ns/word\n", t0) ;
 
-    TIME_LOOP_EZ(NITER, ni*nj, move_mem32_block(z, LNI, blk, ni, ni, nj, NULL) ) ;
+    TIME_LOOP_EZ(NITER, ni*nj, move_mem32_block(z, LNI, blk, ni, ni, nj) ) ;
     if(timer_min == timer_max) timer_avg = timer_max ;
     t0 = timer_min * NaNoSeC / (ni*nj) ;
     fprintf(stderr, "move mem32      : %4.2f ns/word\n", t0) ;

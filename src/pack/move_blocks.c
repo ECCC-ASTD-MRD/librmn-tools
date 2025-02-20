@@ -209,7 +209,7 @@ static inline void fold_properties(__v256i vmaxs, __v256i vmins, __v256i vmaxu, 
 // return number of values processed
 // bp is really expected to be NULL, as no properties are computed
 // kind is set ro raw data, all properties are set to 0 if bp is not NULL
-int move_mem32_block(void *restrict src, int lnis, void *restrict dst, int lnid, int ni, int nj, block_properties *bp){
+int move_mem32_block(void *restrict src, int lnis, void *restrict dst, int lnid, int ni, int nj){
   uint32_t *restrict d = (uint32_t *) dst ;
   uint32_t *restrict s = (uint32_t *) src ;
   int32_t ninj = ni * nj ;
@@ -217,11 +217,6 @@ int move_mem32_block(void *restrict src, int lnis, void *restrict dst, int lnid,
   if(lnis <= 0 || lnid <= 0 || ni <= 0 || nj <= 0){
     fprintf(stderr, "ERROR move_mem32_block : lnis = %d, lnid = %d, ni = %d, nj = %d\n", lnis, lnid, ni, nj);
     return -1 ;
-  }
-  if(bp != NULL) {
-    bp->kind   = raw_data ;
-    bp->mins.u = bp->maxs.u = bp->minu.u = bp->maxu.u = 0 ;
-    bp->zeros = -1 ;    // consistent with other movers (for now)
   }
 
   if(ni < 8){
@@ -358,7 +353,7 @@ int move_data32_block(void *restrict src, int lnis, void *restrict dst, int lnid
     return (lnis == lnid) ? anal_data32_block(src, lnis, ni, nj, bp) : 0 ;
   }
 
-  if(bp == NULL) return move_mem32_block(src, lnis, dst, lnid, ni, nj, NULL) ;  // no data analysis
+  if(bp == NULL) return move_mem32_block(src, lnis, dst, lnid, ni, nj) ;  // no data analysis
 
   if(lnis <= 0 || lnid <= 0 || ni <= 0 || nj <= 0){
     fprintf(stderr, "ERROR move_data32_block : lnis = %d, lnid = %d, ni = %d, nj = %d\n", lnis, lnid, ni, nj);
@@ -513,7 +508,7 @@ void add_block_properties(block_properties *bp, block_properties *bp_extra){
 // return number of values processed
 int move_float_block(float *restrict src, int lnis, void *restrict dst, int lnid, int ni, int nj, block_properties *bp){
 
-  if(bp == NULL) return move_mem32_block(src, lnis, dst, lnid, ni, nj, NULL) ;
+  if(bp == NULL) return move_mem32_block(src, lnis, dst, lnid, ni, nj) ;
 
   int rc = move_data32_block(src, lnis, dst, lnid, ni, nj, bp) ;
 // fprintf(stderr,"move_float_block     : mins = %8.8x, maxs = %8.8x, minu = %8.8x, maxu = %8.8x\n",bp->mins.u, bp->maxs.u, bp->minu.u, bp->maxu.u);
@@ -534,7 +529,7 @@ int move_float_block(float *restrict src, int lnis, void *restrict dst, int lnid
 // if negative numbers are present, maxu.i will be the negative value closest to 0
 int move_int32_block(int32_t *restrict src, int lnis, void *restrict dst, int lnid, int ni, int nj, block_properties *bp){
 
-  if(bp == NULL) return move_mem32_block(src, lnis, dst, lnid, ni, nj, NULL) ;
+  if(bp == NULL) return move_mem32_block(src, lnis, dst, lnid, ni, nj) ;
 
   int rc = move_data32_block(src, lnis, dst, lnid, ni, nj, bp) ;
 // fprintf(stderr,"move_int32_block      : mins = %8.8x, maxs = %8.8x, minu = %8.8x, maxu = %8.8x\n",bp->mins.u, bp->maxs.u, bp->minu.u, bp->maxu.u);
@@ -546,7 +541,7 @@ int move_int32_block(int32_t *restrict src, int lnis, void *restrict dst, int ln
 // maxs and mins are components of bp are meanigless and are left untouched in bp
 int move_uint32_block(uint32_t *restrict src, int lnis, void *restrict dst, int lnid, int ni, int nj, block_properties *bp){
 
-  if(bp == NULL) return move_mem32_block(src, lnis, dst, lnid, ni, nj, NULL) ;
+  if(bp == NULL) return move_mem32_block(src, lnis, dst, lnid, ni, nj) ;
 
   int rc = move_data32_block(src, lnis, dst, lnid, ni, nj, bp) ;
   if(rc != 0) adjust_block_properties(bp, uint_data) ;

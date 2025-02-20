@@ -403,7 +403,7 @@ ssize_t tiled_fwd_pipe_filters(int flags, array_descriptor *data_in, const filte
         ad.n0[0] = i0  ; ad.n0[1] = j0 ;       // tile offset
         // collect local tile from global array ( array[i0:i0+tni-1,j0:j0+tnj-1] -> tile[tni,tnj] )
 //         if( get_word_block(tile_base, tile, tni, gni, tnj) < 0) goto error ;
-        if( move_mem32_block(tile_base, gni, tile, tni, tni, tnj, NULL) <= 0) goto error ;
+        if( move_mem32_block(tile_base, gni, tile, tni, tni, tnj) <= 0) goto error ;
         tile_base += tni ;    // lower left corner of next tile
 
         uint32_t istart = WS32_IN(*stream) ;         // get current position in stream

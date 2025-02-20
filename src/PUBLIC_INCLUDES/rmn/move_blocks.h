@@ -54,20 +54,20 @@ static inline float unfake_float(int32_t fake){
 
 // int move_word32_block(void *restrict src, int lnis, void *restrict dst, int lnid, int ni, int nj, data_kind datatype, block_properties *bp);
 
-#define move_w32_block(src,lnis,dst,lnid,ni,nj,bp) _Generic((src), \
+#define move_w32_block(src,...) _Generic((src), \
                                                    int32_t  *: move_int32_block,  \
                                                    uint32_t *: move_uint32_block, \
                                                    float    *: move_float_block,  \
                                                    void     *: move_data32_block, \
                                                    default   : move_mem32_block   \
-                                                   ) (src,lnis,dst,lnid,ni,nj,bp)
+                                                   ) (src,__VA_ARGS__)
 
 int move_uint32_block(uint32_t *restrict src, int lnis, void *restrict dst, int lnid, int ni, int nj, block_properties *bp);
 int move_int32_block(int32_t   *restrict src, int lnis, void *restrict dst, int lnid, int ni, int nj, block_properties *bp);
 int move_float_block(float     *restrict src, int lnis, void *restrict dst, int lnid, int ni, int nj, block_properties *bp);
 
 int move_data32_block(void     *restrict src, int lnis, void *restrict dst, int lnid, int ni, int nj, block_properties *bp);
-int move_mem32_block(void      *restrict src, int lnis, void *restrict dst, int lnid, int ni, int nj, block_properties *bp);
+int move_mem32_block(void      *restrict src, int lnis, void *restrict dst, int lnid, int ni, int nj);
 
 int anal_data32_block(void *restrict src, int lnis, int ni, int nj, block_properties *bp);
 void adjust_block_properties(block_properties *bp, data_kind datatype);
