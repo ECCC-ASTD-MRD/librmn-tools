@@ -117,6 +117,22 @@ typedef __m128  __v128f ;
 typedef __m128i __v128i ;
 typedef __m128d __v128d ;
 
+#if defined(__PGIC__)
+#undef _mm256_alignr_epi8
+// #define _mm256_alignr_epi8 _MM256_ALIGNR_EPI8
+#define _mm256_alignr_epi8(a, b, imm) \
+_mm256_set_m128i(_mm_alignr_epi8(_mm256_extracti128_si256(a, 1), _mm256_extracti128_si256(b, 1), imm) , \
+                 _mm_alignr_epi8(_mm256_extracti128_si256(a, 0), _mm256_extracti128_si256(b, 0), imm) )
+// static __m256i _MM256_ALIGNR_EPI8(__m256i a, __m256i b, const int imm){
+//   __m128i va0 = _mm256_extracti128_si256(a, 0) ;
+//   __m128i va1 = _mm256_extracti128_si256(a, 1) ;
+//   __m128i vb0 = _mm256_extracti128_si256(b, 0) ;
+//   __m128i vb1 = _mm256_extracti128_si256(b, 1) ;
+//   va0 = _mm_alignr_epi8(va0, vb0, imm) ;
+//   va1 = _mm_alignr_epi8(va1, vb1, imm) ;
+//   return _mm256_set_m128i(va1, va0) ;
+// }
+#endif
 
 // implementation of vector shifts
 // _mm256_alignr_epi32 and _mm_alignr_epi32 for AVX2

@@ -127,6 +127,7 @@ int main(int argc, char **argv){
   print_v8i("v8l ", v8l) ;
   __v256i v8h = loadu_v256((__v256i *) &(vs[8])) ;
   print_v8i("v8h ", v8h) ;
+#if ! defined(__PGIC__xx)
   v8ra = alignr_v8i(v8h, v8l, 0) ;
   print_v8i(">> 0", v8ra) ;
   v8ra = alignr_v8i(v8h, v8l, 1) ;
@@ -137,6 +138,7 @@ int main(int argc, char **argv){
   print_v8i(">> 5", v8ra) ;
   v8ra = alignr_v8i(v8h, v8l, 7) ;
   print_v8i(">> 7", v8ra) ;
+#endif
   __v128i v4l = loadu_v128((__v128i *) &(vs[0])) ;
   print_v4i("v4l ", v4l) ;
   __v128i v4h = loadu_v128((__v128i *) &(vs[4])) ;
@@ -167,6 +169,7 @@ int main(int argc, char **argv){
   v16r = _mm_alignr_epi8(v16h, v16l,32) ;
   print_v16c(">>32", v16r) ;
 
+#if ! defined(__PGIC__xx)
   fprintf(stderr, "- bsrli2_v256\n") ;
   __v256i v32l = loadu_v256((__v256i *) &(cs[ 0])) ;
   __v256i v32h = loadu_v256((__v256i *) &(cs[32])) ;
@@ -185,7 +188,7 @@ int main(int argc, char **argv){
   print_v32c(">>31", v32r) ;
   v32r = bsrli2_v256(v32h, v32l, 32) ;
   print_v32c(">>32", v32r) ;
-
+#endif
   fprintf(stderr, "- add\n") ;
   v8ra = add_v8i(v8h, v8l) ;
   print_v8i("h+l ", v8ra) ;
