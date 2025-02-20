@@ -92,21 +92,13 @@ int main(int argc, char **argv){
     }
   }
   fprintf(stderr, "SUCCESS : float -> fake int -> float test\n") ;
-//   fprintf(stderr, "original array \n") ;
-//   for(j=nj-1 ; j>=0 ; j--){
-//     for(i=0 ; i<ni ; i++){
-//       fprintf(stderr, "%4.4x ", z[j][i]) ;
-//     }
-//     fprintf(stderr, "\n") ;
-//   }
-//   fprintf(stderr, "\n") ;
 
   ni = 127 ; nj = 125 ;
   {
     uint32_t blk[nj][ni] ;
 
-//     move_word32_block(f, LNI, blk, ni, 2*ni/3, 2*nj/3, float_data, &bp) ;
-    move_w32_block(&f[0][0], LNI, blk, ni, 2*ni/3, 2*nj/3, &bp) ;
+    move_w32_block(&f[0][0],   LNI, blk, ni, 2*ni/3, 2*nj/3, &bp) ;  // same operation, different syntax
+    move_w32_block((float *)f, LNI, blk, ni, 2*ni/3, 2*nj/3, &bp) ;
     if(argc == 512) {
       void *ff = &f[0][0] ;
       move_w32_block(&f[0][0], LNI, blk, ni, 2*ni/3, 2*nj/3, &bp) ;
@@ -120,10 +112,6 @@ int main(int argc, char **argv){
         blk[j][i] = 0xFFFF ;
       }
     }
-//     get_word_block(z, blk, ni, LNI, nj) ;
-//     gather_word32_block(z, blk, ni, LNI, nj) ;
-//     gather_int32_block((int32_t *)z, blk, ni, LNI, nj, &bp) ;
-//     move_word32_block(z, LNI, blk, ni, ni, nj, int_data, &bp) ;
     move_w32_block((uint32_t *) &z[0][0], LNI, blk, ni, ni,     nj,     &bp) ;
     print_int_props(bp) ;
 
