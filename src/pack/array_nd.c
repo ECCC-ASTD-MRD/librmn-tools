@@ -361,16 +361,17 @@ static size_t subarray_set_4d(int gni, int gnj, int gnk, int lni, int lnj, int l
 size_t subarray_get_nd(array_nd *a, void *dest_address, size_t dest_size){
   size_t    data_size    = subarray_size(a) ;
   int lni, lnj, lnk, lnl, gni, gnj, gnk ;
+  uint32_t esize, *data_address ;
   if(data_size > dest_size) goto fail ;  // block size smaller than sub array
 
   if(invalid_array(a)) goto fail ;
   if(a->ndim > 3) goto fail ;            // 1D/2D/3D array copy only for now
 
-  uint32_t esize = a->esize ;
+  esize = a->esize ;
   if(esize & 0x3) goto fail ;            // esize == multiple of 4 only for now
   esize /= 4 ;
 
-  uint32_t *data_address = (void *)subarray_address(a) ;
+  data_address = (void *)subarray_address(a) ;
 
   switch(a->ndim){
   case 1:
@@ -420,17 +421,19 @@ fail:
 // returns number of elements transferred
 size_t subarray_set_nd(array_nd *a, void *src_address, size_t src_size){
   size_t    data_size    = subarray_size(a) ;
-  int lni, lnj, lnk, gni, gnj ;
+  int lni, lnj, lnk, lnl, gni, gnj, gnk ;
+  uint32_t esize, *data_address ;
+
   if(src_size > data_size) goto fail ;  // sub array too small
 
   if(invalid_array(a)) goto fail ;
   if(a->ndim > 3) goto fail ;            // 1D/2D/3D array copy only for now
 
-  uint32_t esize = a->esize ;
+  esize = a->esize ;
   if(esize & 0x3) goto fail ;            // esize == multiple of 4 only for now
   esize /= 4 ;
 
-  uint32_t *data_address = (void *)subarray_address(a) ;
+  data_address = (void *)subarray_address(a) ;
 
   switch(a->ndim){
   case 1:
@@ -453,6 +456,17 @@ size_t subarray_set_nd(array_nd *a, void *src_address, size_t src_size){
     lnk = a->dim[2].lnn ;
     return subarray_set_3d(gni, gnj, lni, lnj, lnk,
                            (uint32_t (*)[gnj][gni])data_address, (uint32_t (*)[lnj][lni])src_address) ;
+
+  case 4:
+    gni = esize*a->dim[0].gnn ;
+    gnj = a->dim[1].gnn ;
+    gnk = a->dim[2].gnn ;
+    lni = esize*a->dim[0].lnn ;
+    lnj = a->dim[1].lnn ;
+    lnk = a->dim[2].lnn ;
+    lnl = a->dim[3].lnn ;
+    return subarray_set_4d(gni, gnj, gnk, lni, lnj, lnk, lnl,
+                           (uint32_t (*)[gnk][gnj][gni])data_address, (uint32_t (*)[lnk][lnj][lni])src_address) ;
 
   default:
     goto fail ;
