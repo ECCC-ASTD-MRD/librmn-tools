@@ -26,13 +26,17 @@ dmapfilter_ptr filter_nnn(int index){
 }
 
 int dmapfilter_000(zmap *map, int index, array_nd *array, dmapfilter_args *args){
+  uint32_t *dest_address ;
+  uint32_t  dest_size ;
+  uint32_t  data_size ;
+
   if(dmapfilter_invalid(args, 0))          goto fail ;
   if(zmap_index_invalid(map, index))       goto fail ;
   if(array->ndim > 3)                      goto fail ;
 
-  uint32_t *dest_address = map->mhead.mem[index] ;
-  uint32_t  dest_size    = map->size[index] * sizeof(uint32_t) ;
-  uint32_t  data_size    = subarray_size(array) ;
+  dest_address = map->mhead.mem[index] ;
+  dest_size    = map->size[index] * sizeof(uint32_t) ;
+  data_size    = subarray_size(array) ;
 //   uint8_t  *data_address = subarray_address(array) ;
 
   if(data_size > dest_size) goto fail ;
