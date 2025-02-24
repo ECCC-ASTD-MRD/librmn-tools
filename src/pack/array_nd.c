@@ -37,10 +37,10 @@ int invalid_array(array_nd *a){
   return 0 ;  // likely valid array_nd struct
 }
 
-// get address of the first element of a sub array of arrray a
+// get address of the first element of a sub array of array a
 // a  [IN] : pointer to array_nd struct
-// return address of first element of array (NULL if error)
-uint8_t *subarray_address(array_nd *a){
+// return address of first element of sub array (NULL if error)
+uint8_t *subarray_address_nd(array_nd *a){
   if(a == NULL) return NULL ;
   uint32_t i, esize = a->esize ;
   uint8_t *ptr = a->data ;                            // base address of array
@@ -55,6 +55,13 @@ uint8_t *subarray_address(array_nd *a){
     stride *= a->dim[i].gnn ;                                        // stride for next dimension
   }
   return ptr ;
+}
+// get address of the first element of arrray a
+// a  [IN] : pointer to array_nd struct
+// return address of first element of array (NULL if error)
+uint8_t *array_address_nd(array_nd *a){
+  if(a == NULL) return NULL ;
+  return a->data ;                            // base address of array
 }
 
 // initialize a new descriptor representing a sub-array of array a as a full array
@@ -85,6 +92,37 @@ array_nd *create_subarray(array_nd *a, array_nd *b){
   return b ;
 }
 
+// allocate array descriptor and space to accomodate array
+// esize   [IN] : size of array elements in bytes
+// type    [IN] : data type, see type in array_nd struct
+// ndim    [IN] : number of dimensions
+// dm5[nd] [IN] : dimensions
+// return pointer to filled descriptor (NULL in case of error)
+array_nd *create_array_nd(int32_t esize, int8_t type, int32_t ndim, int32_t ndm5, __i32__5__ dm5){
+  size_t sizem, sizea = sizeof(array_nd) + ndim * sizeof(dim_desc) ;
+  int nelem = 1, n, i ;
+  array_nd *r ;
+
+  if(ndim != ndm5){
+    fprintf(stderr, "make_array_nd ERROR: %d dimensions, %d sizes\n", ndim, ndm5) ;
+    return NULL ;
+  }
+
+  for(i = 0 ; i < ndim ; i++){  // find number of elements in array
+    n = (dm5.i32[i] <= 0) ? 1 : dm5.i32[i] ;
+    nelem = nelem * n ;
+  }
+  sizem = nelem * esize ;
+  r = (array_nd *) malloc(sizea + sizem) ;
+  if(r == NULL) return NULL ;  // malloc failed
+
+  uint8_t *data = (uint8_t *)r ;                           // start of array descriptor
+  data += sizea ;                                          // address following dimensional descriptors
+// fprintf(stderr, "make_array_nd DEBUG, r = %p, data = %p, overhead = %ld, nelem = %d, esize = %ld\n", r, data, (uint8_t *)data-(uint8_t *)r, nelem, sizem/nelem) ;
+  new_array_nd(r, data, esize, type, ndim, ndm5, dm5) ;    // fill array descriptor information
+  return r ;
+}
+
 // fill array descriptor dimensional information (representing a FULL array)
 // address of data, element size, element type are left untouched
 // a    [INOUT] : pointer to nD array descriptor (if NULL a new descriptor will be created)
@@ -95,7 +133,7 @@ array_nd *create_subarray(array_nd *a, array_nd *b){
 // dm5[nd] [IN] : dimensions
 void new_array_nd(array_nd *a, void *mem, int32_t esize, int8_t type, int32_t ndim, int32_t ndm5, __i32__5__ dm5){
   int32_t i, nelem, n ;
-//   int32_t stride ;
+
   if(ndim != ndm5){
     fprintf(stderr, "new_array_nd ERROR: %d dimensions, %d sizes\n", ndim, ndm5) ;
     a->ndim = 0 ;
@@ -106,31 +144,24 @@ void new_array_nd(array_nd *a, void *mem, int32_t esize, int8_t type, int32_t nd
   a->esize     = esize ;
   a->ndim      = ndim ;
   nelem = 1 ;
-// fprintf(stderr, "ndim = %d, ", ndim) ;
-// for(i = 0 ; i < ndim ; i++){
-//   fprintf(stderr, "dm5.i32[%d] = %d ", i, dm5.i32[i]);
-// }
-// fprintf(stderr, "\n");
-//   stride = 1 ;
   for(i = 0 ; i < ndim ; i++){
-//     if(dm5.i32[i] <= 0) break ;
     n = (dm5.i32[i] <= 0) ? 1 : dm5.i32[i] ;
     nelem = nelem * n ;
     a->dim[i].gnn = n ;      // number of elements stored along this dimension
     a->dim[i].gn0 = 0 ;      // default lower bound for indexing
     a->dim[i].lnn = n ;      // number of elements used along this dimension
     a->dim[i].ln0 = 0 ;      // default lower bound for indexing ( >= a->dim[i].gn0)
-//     stride = nelem ;
   }
   size_t size = esize ;
   size *= nelem ;
   if(mem == NULL) mem = malloc(size) ;
   a->data = mem ;
-  a->limit = a->data + size ;
-fprintf(stderr, "%d dimensional array, size = %ld [", a->ndim, size/esize) ;
-fprintf(stderr,"%d", a->dim[0].gnn) ;
-for(i=1 ; i<a->ndim ; i++) fprintf(stderr,",%d", a->dim[i].gnn) ;
-fprintf(stderr,"]\n");
+  a->limit = a->data ;
+  if(mem != NULL) a->limit = a->data + size ;
+// fprintf(stderr, "%d dimensional array, size = %ld [", a->ndim, size/esize) ;
+// fprintf(stderr,"%d", a->dim[0].gnn) ;
+// for(i=1 ; i<a->ndim ; i++) fprintf(stderr,",%d", a->dim[i].gnn) ;
+// fprintf(stderr,"]\n");
 }
 
 // set global indexing lower bounds for all dimensions of array
@@ -183,7 +214,7 @@ int set_array_lbounds_nd(array_nd *a, int32_t narg, __i32__5x2__ lb5){
 // get size of sub array from array a
 // a   [IN] : pointer to nD array descriptor (if NULL a new descriptor will be created)
 // return size in bytes of sub array
-int subarray_size(array_nd *a){
+int subarray_size_nd(array_nd *a){
   int i ;
   int size = 0 ;
 
@@ -193,6 +224,55 @@ int subarray_size(array_nd *a){
     size *= a->dim[i].lnn ;
   }
   return size ;
+fail:
+  return 0 ;
+}
+// get size of array a
+// a   [IN] : pointer to nD array descriptor
+// return size in bytes of array
+int array_size_nd(array_nd *a){
+  int i ;
+  int size = 0 ;
+
+  if(a == NULL) goto fail ;
+  size = a->esize ;
+  for(i = 0 ; i < a->ndim ; i++){
+    size *= a->dim[i].gnn ;
+  }
+  return size ;
+fail:
+  return 0 ;
+}
+
+// get number of elements of sub array from array a
+// a   [IN] : pointer to nD array descriptor
+// return number of elements in sub array
+int subarray_dimension_nd(array_nd *a){
+  int i ;
+  int nelem = 0 ;
+
+  if(a == NULL) goto fail ;
+  nelem = 1 ;
+  for(i = 0 ; i < a->ndim ; i++){
+    nelem *= a->dim[i].lnn ;
+  }
+  return nelem ;
+fail:
+  return 0 ;
+}
+// get number of elements in array a
+// a   [IN] : pointer to nD array descriptor
+// return number of elements in array
+int array_dimension_nd(array_nd *a){
+  int i ;
+  int nelem = 0 ;
+
+  if(a == NULL) goto fail ;
+  nelem = 1 ;
+  for(i = 0 ; i < a->ndim ; i++){
+    nelem *= a->dim[i].gnn ;
+  }
+  return nelem ;
 fail:
   return 0 ;
 }

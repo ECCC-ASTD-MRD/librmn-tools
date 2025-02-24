@@ -19,24 +19,66 @@
 
 #include <rmn/array_nd.h>
 
+void print_dims(void *a_, char *msg){
+  array_nd *a = (array_nd *) a_ ;
+  int i ;
+  fprintf(stderr, "[") ;
+  for(i=0 ; i<a->ndim ; i++){
+    fprintf(stderr, "%3d(%d:%d)", a->dim[i].gnn, a->dim[i].ln0, a->dim[i].ln0+a->dim[i].lnn-1) ;
+  }
+  fprintf(stderr, "]%s", msg) ;
+}
+
 void array_lbounds_check(int low, int high){
-  array_1d a1 = array_1d_null ;
-  array_2d a2 = array_2d_null ;
-  array_3d a3 = array_3d_null ;
-  array_4d a4 = array_4d_null ;
-  array_5d a5 = array_5d_null ;
+  array_1d a1 = array_1d_null, *ap1 ;
+  array_2d a2 = array_2d_null, *ap2 ;
+  array_3d a3 = array_3d_null, *ap3 ;
+  array_4d a4 = array_4d_null, *ap4 ;
+  array_5d a5 = array_5d_null, *ap5 ;
+  array_nd *apn ;
   int32_t scrap[1024*1024] ;
 
-  new_array(&a1, scrap, sizeof(int32_t), 1, 8) ;
+  new_array(&a1, scrap, sizeof(int32_t), int_data, 8) ;
   set_array_lbounds(&a1 , low, high) ;
-  new_array(&a2, scrap, sizeof(int32_t), 1, 8, 7) ;
+  new_array(&a2, scrap, sizeof(int32_t), int_data, 8, 7) ;
   set_array_lbounds(&a2 , low, high, low, high) ;
-  new_array(&a3, scrap, sizeof(int32_t), 1, 8, 7, 6) ;
+  new_array(&a3, scrap, sizeof(int32_t), int_data, 8, 7, 6) ;
   set_array_lbounds(&a3 , low, high, low, high, low, high) ;
-  new_array(&a4, scrap, sizeof(int32_t), 1, 8, 7, 6, 5) ;
+  new_array(&a4, scrap, sizeof(int32_t), int_data, 8, 7, 6, 5) ;
   set_array_lbounds(&a4 , low, high, low, high, low, high, low, high) ;
-  new_array(&a5, scrap, sizeof(int32_t), 1, 8, 7, 6, 5, 4) ;
+  new_array(&a5, scrap, sizeof(int32_t), int_data, 8, 7, 6, 5, 4) ;
   set_array_lbounds(&a5 , low, high, low, high, low, high, low, high, low, high) ;
+
+  create_array(ap1, sizeof(int32_t), int_data, 8) ;
+  if( (uint8_t *)(ap1->w32) != array_address(ap1) ) goto fail ;
+  fprintf(stderr, "%12s array size is %6d, dimension = %6d ", array_kind(ap1), array_size(ap1), subarray_dimension(ap1)) ; print_dims(ap1, "\n") ;
+
+  create_array(ap2, sizeof(int32_t), int_data, 8, 7) ;
+  if( (uint8_t *)(ap1->w32) != ap1->data ) goto fail ;
+  fprintf(stderr, "%12s array size is %6d, dimension = %6d ", array_kind(ap2), array_size(ap2), subarray_dimension(ap2)) ; print_dims(ap2, "\n") ;
+
+  create_array(ap3, sizeof(int32_t), int_data, 8, 7, 6) ;
+  if( (uint8_t *)(ap1->w32) != ap1->data ) goto fail ;
+  fprintf(stderr, "%12s array size is %6d, dimension = %6d ", array_kind(ap3), array_size(ap3), subarray_dimension(ap3)) ; print_dims(ap3, "\n") ;
+
+  create_array(ap4, sizeof(int32_t), int_data, 8, 7, 6, 5) ;
+  if( (uint8_t *)(ap1->w32) != ap1->data ) goto fail ;
+  fprintf(stderr, "%12s array size is %6d, dimension = %6d ", array_kind(ap4), array_size(ap4), subarray_dimension(ap4)) ; print_dims(ap4, "\n") ;
+
+  create_array(ap5, sizeof(int32_t), int_data, 8, 7, 6, 5, 4) ;
+  if( (uint8_t *)(ap1->w32) != ap1->data ) goto fail ;
+  fprintf(stderr, "%12s array size is %6d, dimension = %6d ", array_kind(ap5), array_size(ap5), subarray_dimension(ap5)) ; print_dims(ap5, "\n") ;
+
+  create_array(apn, sizeof(int32_t), int_data, 9, 8, 7, 6, 5, 4) ;
+  set_array_lbounds(apn , low, high, low, high, low, high, low, high, low, high, low, high) ;
+  fprintf(stderr, "%12s array size is %6d, dimension = %6d ", array_kind(apn), array_size(apn), subarray_dimension(apn)) ; print_dims(apn, "\n") ;
+
+  return ;
+
+fail:
+  fprintf(stderr, "TEST FAILED\n") ;
+  exit(1) ;
+
 }
 
 #define GNI 127

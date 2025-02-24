@@ -22,16 +22,16 @@
 // expected data type codes
 typedef enum {
   bad_data   = 0,     // invalid
-  int_data   = 1,     // signed integers
-  uint_data  = 2,     // unsigned integers
-  float_data = 3,     // floats
+  int_data   = 1,     // 32 bit signed integers
+  uint_data  = 2,     // 32 bit unsigned integers
+  float_data = 3,     // 32 bit floats
   raw_data   = 4,     // any 32 bit quantities (block_properties likely to be meaningless)
   large_data = 5,     // multiple of 32 bit quantities (block_properties meaningless)
   any_data   = 6      // unknown or unspecified
 } data_kind ;
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-variable"
-static const char *printable_type[7] = { "INVALID", "SIGNED", "UNSIGNED", "FLOAT", "RAW32", "LARGE", "UNKNOWN" } ;
+static const char *printable_type[7] = { "INVALID", "INT_32", "UINT_32", "FLOAT_32", "RAW_32", "LARGE", "UNKNOWN" } ;
 #pragma GCC diagnostic pop
 
 #endif

@@ -66,7 +66,7 @@ typedef struct{          // specific struct for 1D array
   uint8_t  type ;
   uint8_t  ndim ;        // MUST be 1
   dim_desc dim[1] ;
-  uint32_t w32[] ;
+  uint32_t w32[] ;       // valid only if created with create_array
 } array_1d ;
 
 typedef struct{          // specific struct for 2D array
@@ -77,7 +77,7 @@ typedef struct{          // specific struct for 2D array
   uint8_t  type ;
   uint8_t  ndim ;        // MUST be 2
   dim_desc dim[2] ;
-  uint32_t w32[] ;
+  uint32_t w32[] ;       // valid only if created with create_array
 } array_2d ;
 
 typedef struct{          // specific struct for 3D array
@@ -88,7 +88,7 @@ typedef struct{          // specific struct for 3D array
   uint8_t  type ;
   uint8_t  ndim ;        // MUST be 3
   dim_desc dim[3] ;
-  uint32_t w32[] ;
+  uint32_t w32[] ;       // valid only if created with create_array
 } array_3d ;
 
 typedef struct{          // specific struct for 4D array
@@ -99,7 +99,7 @@ typedef struct{          // specific struct for 4D array
   uint8_t  type ;
   uint8_t  ndim ;        // MUST be 4
   dim_desc dim[4] ;
-  uint32_t w32[] ;
+  uint32_t w32[] ;       // valid only if created with create_array
 } array_4d ;
 
 typedef struct{          // specific struct for 5D array
@@ -110,7 +110,7 @@ typedef struct{          // specific struct for 5D array
   uint8_t  type ;
   uint8_t  ndim ;        // MUST be 5
   dim_desc dim[5] ;
-  uint32_t w32[] ;
+  uint32_t w32[] ;       // valid only if created with create_array
 } array_5d ;
 
 // blank array descriptors for 1/2/3/4/5 Dimensions (no type, element size = 0)
@@ -162,12 +162,12 @@ typedef struct{   // struct containing an array of 2 integers
   int32_t i32[2] ;
 }__i32__2__ ;
 
-typedef struct{   // struct containing an array of 5 integers
-  int32_t i32[5] ;
+typedef struct{   // struct containing an array of up to 10 integers
+  int32_t i32[10] ;
 }__i32__5__ ;
 
-typedef struct{   // struct containing 6 pairs of integers (only the first 5 are used)
-  int32_t i32[10] ;
+typedef struct{   // struct containing up to 10 pairs of integers
+  int32_t i32[20] ;
 }__i32__5x2__ ;
 
 // static __i32__5x2__ __i32__5x2__null = { 0, 1, 0, 1, 0, 1, 0, 1, 0, 1 } ;
@@ -180,15 +180,32 @@ typedef struct{   // struct containing 6 pairs of integers (only the first 5 are
 void new_array_nd(array_nd *a, void *mem, int32_t esize, int8_t type, int32_t ndims, int32_t nlb5, __i32__5__ lb5);
 
 // generic version for 1/2/3/4/5 D arrays ... is 1/2/3/4/5 values, one per dimension
-// array_1d a1 ; new_array(a1, mem, esize, type, ni)
-// array_5d a5 ; new_array(a5, mem, esize, type, ni, nj, nk, nl, nm)
+// array_1d a1 ; new_array(a1, mem, esize, type, ni) ;
+// array_5d a5 ; new_array(a5, mem, esize, type, ni, nj, nk, nl, nm) ;
 #define new_array(ARRAY, MEM, ESIZE, TYP, ...) \
   _Generic((ARRAY), \
+    array_nd *: new_array_nd((array_nd *)ARRAY,MEM,ESIZE,TYP,VA_ARGS_NUM(__VA_ARGS__),VA_ARGS_NUM(__VA_ARGS__),(__i32__5__){{ __VA_ARGS__ }}), \
     array_5d *: new_array_nd((array_nd *)ARRAY,MEM,ESIZE,TYP,5,VA_ARGS_NUM(__VA_ARGS__),(__i32__5__){{ __VA_ARGS__ }}), \
     array_4d *: new_array_nd((array_nd *)ARRAY,MEM,ESIZE,TYP,4,VA_ARGS_NUM(__VA_ARGS__),(__i32__5__){{ __VA_ARGS__ }}), \
     array_3d *: new_array_nd((array_nd *)ARRAY,MEM,ESIZE,TYP,3,VA_ARGS_NUM(__VA_ARGS__),(__i32__5__){{ __VA_ARGS__ }}), \
     array_2d *: new_array_nd((array_nd *)ARRAY,MEM,ESIZE,TYP,2,VA_ARGS_NUM(__VA_ARGS__),(__i32__5__){{ __VA_ARGS__ }}), \
     array_1d *: new_array_nd((array_nd *)ARRAY,MEM,ESIZE,TYP,1,VA_ARGS_NUM(__VA_ARGS__),(__i32__5__){{ __VA_ARGS__ }})  \
+  )
+
+// users should call the generic function new_array rather than create_array_nd
+array_nd *create_array_nd(int32_t esize, int8_t type, int32_t ndim, int32_t ndm5, __i32__5__ dm5) ;
+
+// generic version for 1/2/3/4/5 D arrays ... is 1/2/3/4/5 values, one per dimension
+// array_1d *ap1 ; create_array(ap1, esize, type, ni) ;
+// array_5d *ap5 ; create_array(ap1, esize, type, ni, nj, nk, nl, nm) ;
+#define create_array(ARRAY, ESIZE, TYP, ...) \
+  ARRAY = _Generic((ARRAY), \
+    array_nd *: (array_nd *) create_array_nd(ESIZE,TYP,VA_ARGS_NUM(__VA_ARGS__),VA_ARGS_NUM(__VA_ARGS__),(__i32__5__){{ __VA_ARGS__ }}), \
+    array_5d *: (array_5d *) create_array_nd(ESIZE,TYP,5,VA_ARGS_NUM(__VA_ARGS__),(__i32__5__){{ __VA_ARGS__ }}), \
+    array_4d *: (array_4d *) create_array_nd(ESIZE,TYP,4,VA_ARGS_NUM(__VA_ARGS__),(__i32__5__){{ __VA_ARGS__ }}), \
+    array_3d *: (array_3d *) create_array_nd(ESIZE,TYP,3,VA_ARGS_NUM(__VA_ARGS__),(__i32__5__){{ __VA_ARGS__ }}), \
+    array_2d *: (array_2d *) create_array_nd(ESIZE,TYP,2,VA_ARGS_NUM(__VA_ARGS__),(__i32__5__){{ __VA_ARGS__ }}), \
+    array_1d *: (array_1d *) create_array_nd(ESIZE,TYP,1,VA_ARGS_NUM(__VA_ARGS__),(__i32__5__){{ __VA_ARGS__ }})  \
   )
 
 // users should call the generic function array_gbounds rather than array_gbounds_nd
@@ -200,6 +217,7 @@ int set_array_gbounds_nd(array_nd *a, int32_t ndims, __i32__5__ lower_bounds);
 // array_5d a5 ; array_gbounds(a5, glbi, glbj, glbk, glbl, glbm)
 #define set_array_gbounds(ARRAY, ...) \
   _Generic((ARRAY), \
+    array_nd *: set_array_gbounds_nd((array_nd *)ARRAY, VA_ARGS_NUM(__VA_ARGS__), (__i32__5__) { { __VA_ARGS__ } }), \
     array_5d *: set_array_gbounds_nd((array_nd *)ARRAY, VA_ARGS_NUM(__VA_ARGS__), (__i32__5__) { { __VA_ARGS__ } }), \
     array_4d *: set_array_gbounds_nd((array_nd *)ARRAY, VA_ARGS_NUM(__VA_ARGS__), (__i32__5__) { { __VA_ARGS__ } }), \
     array_3d *: set_array_gbounds_nd((array_nd *)ARRAY, VA_ARGS_NUM(__VA_ARGS__), (__i32__5__) { { __VA_ARGS__ } }), \
@@ -217,6 +235,7 @@ int set_array_lbounds_nd(array_nd *a, int32_t ndims, __i32__5x2__ bounds);
 // a 0, 0 pair is added at the end of the arguments as a validity marker
 #define set_array_lbounds(ARRAY, ...) \
   _Generic((ARRAY), \
+    array_nd *: set_array_lbounds_nd((array_nd *)ARRAY, VA_ARGS_NUM(__VA_ARGS__), (__i32__5x2__) {{ __VA_ARGS__ }}), \
     array_5d *: set_array_lbounds_nd((array_nd *)ARRAY, VA_ARGS_NUM(__VA_ARGS__), (__i32__5x2__) {{ __VA_ARGS__ }}), \
     array_4d *: set_array_lbounds_nd((array_nd *)ARRAY, VA_ARGS_NUM(__VA_ARGS__), (__i32__5x2__) {{ __VA_ARGS__ }}), \
     array_3d *: set_array_lbounds_nd((array_nd *)ARRAY, VA_ARGS_NUM(__VA_ARGS__), (__i32__5x2__) {{ __VA_ARGS__ }}), \
@@ -231,6 +250,7 @@ __i32__2__ subarray_lbounds_nd(array_nd *a, int32_t dim, int32_t ndims);
 
 #define subarray_lbounds(ARRAY, DIM) \
   _Generic((ARRAY), \
+    array_nd *: subarray_lbounds_nd((array_nd *)ARRAY, DIM, (ARRAY)->ndim), \
     array_5d *: subarray_lbounds_nd((array_nd *)ARRAY, DIM, 5), \
     array_4d *: subarray_lbounds_nd((array_nd *)ARRAY, DIM, 4), \
     array_3d *: subarray_lbounds_nd((array_nd *)ARRAY, DIM, 3), \
@@ -245,6 +265,7 @@ __i32__2__ subarray_gbounds_nd(array_nd *a, int32_t dim, int32_t ndims);
 
 #define subarray_gbounds(ARRAY, DIM) \
   _Generic((ARRAY), \
+    array_nd *: subarray_gbounds_nd((array_nd *)ARRAY, DIM, (ARRAY)->ndim)), \
     array_5d *: subarray_gbounds_nd((array_nd *)ARRAY, DIM, 5), \
     array_4d *: subarray_gbounds_nd((array_nd *)ARRAY, DIM, 4), \
     array_3d *: subarray_gbounds_nd((array_nd *)ARRAY, DIM, 3), \
@@ -252,19 +273,23 @@ __i32__2__ subarray_gbounds_nd(array_nd *a, int32_t dim, int32_t ndims);
     array_1d *: subarray_gbounds_nd((array_nd *)ARRAY, DIM, 1)  \
   )
 
+// users should call the generic function subarray_get rather than subarray_get_nd
 size_t subarray_get_nd(array_nd *a, void *address, size_t copy_size);
 
 #define subarray_get(ARRAY, dest_address, dest_size) \
   _Generic((ARRAY), \
+    array_4d *: subarray_get_nd((array_nd *)ARRAY,dest_address, dest_size), \
     array_3d *: subarray_get_nd((array_nd *)ARRAY,dest_address, dest_size), \
     array_2d *: subarray_get_nd((array_nd *)ARRAY,dest_address, dest_size), \
     array_1d *: subarray_get_nd((array_nd *)ARRAY,dest_address, dest_size)  \
   )
 
+// users should call the generic function subarray_set rather than subarray_set_nd
 size_t subarray_set_nd(array_nd *a, void *address, size_t copy_size);
 
 #define subarray_set(ARRAY, dest_address, dest_size) \
   _Generic((ARRAY), \
+    array_4d *: subarray_set_nd((array_nd *)ARRAY,dest_address, dest_size), \
     array_3d *: subarray_set_nd((array_nd *)ARRAY,dest_address, dest_size), \
     array_2d *: subarray_set_nd((array_nd *)ARRAY,dest_address, dest_size), \
     array_1d *: subarray_set_nd((array_nd *)ARRAY,dest_address, dest_size)  \
@@ -272,7 +297,93 @@ size_t subarray_set_nd(array_nd *a, void *address, size_t copy_size);
 
 int       invalid_array(array_nd *a);
 array_nd *create_subarray(array_nd *a, array_nd *b);
-uint8_t  *subarray_address(array_nd *a);
-int       subarray_size(array_nd *a);
+
+// users should call the generic function subarray_address rather than subarray_address_nd
+uint8_t  *subarray_address_nd(array_nd *a);
+#define subarray_address(ARRAY) \
+  _Generic((ARRAY), \
+    array_nd *: subarray_address_nd((array_nd *)ARRAY), \
+    array_5d *: subarray_address_nd((array_nd *)ARRAY), \
+    array_4d *: subarray_address_nd((array_nd *)ARRAY), \
+    array_3d *: subarray_address_nd((array_nd *)ARRAY), \
+    array_2d *: subarray_address_nd((array_nd *)ARRAY), \
+    array_1d *: subarray_address_nd((array_nd *)ARRAY)  \
+    )
+
+// users should call the generic function array_address rather than array_address_nd
+uint8_t  *array_address_nd(array_nd *a);
+#define array_address(ARRAY) \
+  _Generic((ARRAY), \
+    array_nd *: array_address_nd((array_nd *)ARRAY), \
+    array_5d *: array_address_nd((array_nd *)ARRAY), \
+    array_4d *: array_address_nd((array_nd *)ARRAY), \
+    array_3d *: array_address_nd((array_nd *)ARRAY), \
+    array_2d *: array_address_nd((array_nd *)ARRAY), \
+    array_1d *: array_address_nd((array_nd *)ARRAY)  \
+    )
+
+// users should call the generic function subarray_size rather than subarray_size_nd
+int subarray_size_nd(array_nd *a);
+#define subarray_size(ARRAY) \
+  _Generic((ARRAY), \
+    array_nd *: subarray_size_nd((array_nd *)ARRAY), \
+    array_5d *: subarray_size_nd((array_nd *)ARRAY), \
+    array_4d *: subarray_size_nd((array_nd *)ARRAY), \
+    array_3d *: subarray_size_nd((array_nd *)ARRAY), \
+    array_2d *: subarray_size_nd((array_nd *)ARRAY), \
+    array_1d *: subarray_size_nd((array_nd *)ARRAY)  \
+    )
+
+// users should call the generic function array_size rather than array_size_nd
+int array_size_nd(array_nd *a);
+#define array_size(ARRAY) \
+  _Generic((ARRAY), \
+    array_nd *: array_size_nd((array_nd *)ARRAY), \
+    array_5d *: array_size_nd((array_nd *)ARRAY), \
+    array_4d *: array_size_nd((array_nd *)ARRAY), \
+    array_3d *: array_size_nd((array_nd *)ARRAY), \
+    array_2d *: array_size_nd((array_nd *)ARRAY), \
+    array_1d *: array_size_nd((array_nd *)ARRAY)  \
+    )
+
+// users should call the generic function subarray_dimension rather than subarray_dimension_nd
+int  subarray_dimension_nd(array_nd *a);
+#define subarray_dimension(ARRAY) \
+  _Generic((ARRAY), \
+    array_nd *: subarray_dimension_nd((array_nd *)ARRAY), \
+    array_5d *: subarray_dimension_nd((array_nd *)ARRAY), \
+    array_4d *: subarray_dimension_nd((array_nd *)ARRAY), \
+    array_3d *: subarray_dimension_nd((array_nd *)ARRAY), \
+    array_2d *: subarray_dimension_nd((array_nd *)ARRAY), \
+    array_1d *: subarray_dimension_nd((array_nd *)ARRAY)  \
+    )
+
+// users should call the generic function array_dimension rather than array_dimension_nd
+int       array_dimension_nd(array_nd *a);
+#define array_dimension(ARRAY) \
+  _Generic((ARRAY), \
+    array_nd *: array_dimension_nd((array_nd *)ARRAY), \
+    array_5d *: array_dimension_nd((array_nd *)ARRAY), \
+    array_4d *: array_dimension_nd((array_nd *)ARRAY), \
+    array_3d *: array_dimension_nd((array_nd *)ARRAY), \
+    array_2d *: array_dimension_nd((array_nd *)ARRAY), \
+    array_1d *: array_dimension_nd((array_nd *)ARRAY)  \
+    )
+
+// users should call the generic function array_kind rather than array_kind_nd
+static inline char *array_kind_nd(array_nd *a){
+  int kind = a->type ;
+  if(kind >=0 && kind < 7) return (char *) printable_type[kind] ;
+  return "ERROR" ;
+}
+#define array_kind(ARRAY) \
+  _Generic((ARRAY), \
+    array_nd *: array_kind_nd((array_nd *)ARRAY), \
+    array_5d *: array_kind_nd((array_nd *)ARRAY), \
+    array_4d *: array_kind_nd((array_nd *)ARRAY), \
+    array_3d *: array_kind_nd((array_nd *)ARRAY), \
+    array_2d *: array_kind_nd((array_nd *)ARRAY), \
+    array_1d *: array_kind_nd((array_nd *)ARRAY)  \
+  )
 
 #endif
