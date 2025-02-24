@@ -1,5 +1,5 @@
 //
-// Copyright (C) 2024  Environnement Canada
+// Copyright (C) 2024-2025  Environnement Canada
 //
 // This is free software; you can redistribute it and/or
 // modify it under the terms of the GNU Lesser General Public
@@ -74,11 +74,13 @@ uint8_t *array_address_nd(array_nd *a){
 array_nd *create_subarray(array_nd *a, array_nd *b){
   if(b == NULL){
     b = (array_nd *) malloc(sizeof(array_nd) + a->ndim * sizeof(dim_desc)) ;
-    b->ndim = a->ndim ;
+    b->ndim  = a->ndim ;
+    b->flags = 0 ;
   }
   if(a->ndim != b->ndim) return NULL ;
   b->esize = a->esize ;
   b->type  = a->type ;
+  b->flags = 0 ;
   int i ;
   ssize_t size = 1 ;
   for(i = 0 ; i < a->ndim ; i++){
@@ -143,6 +145,7 @@ void new_array_nd(array_nd *a, void *mem, int32_t esize, int8_t type, int32_t nd
   a->type      = type ;
   a->esize     = esize ;
   a->ndim      = ndim ;
+  a->flags     = 0 ;
   nelem = 1 ;
   for(i = 0 ; i < ndim ; i++){
     n = (dm5.i32[i] <= 0) ? 1 : dm5.i32[i] ;
