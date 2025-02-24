@@ -54,7 +54,7 @@ typedef struct{          // generic struct for array with n dimensions
   uint32_t signature ;   // MUST be 0xBEBEFADA
   uint16_t esize ;       // size of array elements in bytes (1, 2, 4, 8, ..., )
   uint8_t  type ;        // element type, see rmn/move_blocks.h
-  uint8_t  ndim ;        // number of dimensions
+  uint8_t  flags:4, ndim:4 ;        // number of dimensions
   dim_desc dim[] ;       // dimension descriptor (flexible array member)
 } array_nd ;
 
@@ -64,7 +64,7 @@ typedef struct{          // specific struct for 1D array
   uint32_t signature ;
   uint16_t esize ;
   uint8_t  type ;
-  uint8_t  ndim ;        // MUST be 1
+  uint8_t  flags:4, ndim:4 ;        // ndim MUST be 1
   dim_desc dim[1] ;
   uint32_t w32[] ;       // valid only if created with create_array
 } array_1d ;
@@ -75,7 +75,7 @@ typedef struct{          // specific struct for 2D array
   uint32_t signature ;
   uint16_t esize ;
   uint8_t  type ;
-  uint8_t  ndim ;        // MUST be 2
+  uint8_t  flags:4, ndim:4 ;        // ndim MUST be 2
   dim_desc dim[2] ;
   uint32_t w32[] ;       // valid only if created with create_array
 } array_2d ;
@@ -86,7 +86,7 @@ typedef struct{          // specific struct for 3D array
   uint32_t signature ;
   uint16_t esize ;
   uint8_t  type ;
-  uint8_t  ndim ;        // MUST be 3
+  uint8_t  flags:4, ndim:4 ;        // ndim MUST be 3
   dim_desc dim[3] ;
   uint32_t w32[] ;       // valid only if created with create_array
 } array_3d ;
@@ -97,7 +97,7 @@ typedef struct{          // specific struct for 4D array
   uint32_t signature ;
   uint16_t esize ;
   uint8_t  type ;
-  uint8_t  ndim ;        // MUST be 4
+  uint8_t  flags:4, ndim:4 ;        // ndim MUST be 4
   dim_desc dim[4] ;
   uint32_t w32[] ;       // valid only if created with create_array
 } array_4d ;
@@ -108,21 +108,21 @@ typedef struct{          // specific struct for 5D array
   uint32_t signature ;
   uint16_t esize ;
   uint8_t  type ;
-  uint8_t  ndim ;        // MUST be 5
+  uint8_t  flags:4, ndim:4 ;        // ndim MUST be 5
   dim_desc dim[5] ;
   uint32_t w32[] ;       // valid only if created with create_array
 } array_5d ;
 
 // blank array descriptors for 1/2/3/4/5 Dimensions (no type, element size = 0)
-static const array_1d array_1d_null = {.data=NULL, .limit=NULL, .esize=0, .signature=IS_ARRAY, .type=0, .ndim=1,
+static const array_1d array_1d_null = {.data=NULL, .limit=NULL, .esize=0, .signature=IS_ARRAY, .type=0, .ndim=1, .flags=0,
                                        .dim = {dim_null} } ;
-static const array_2d array_2d_null = {.data=NULL, .limit=NULL, .esize=0, .signature=IS_ARRAY, .type=0, .ndim=2,
+static const array_2d array_2d_null = {.data=NULL, .limit=NULL, .esize=0, .signature=IS_ARRAY, .type=0, .ndim=2, .flags=0,
                                        .dim = {dim_null, dim_null} } ;
-static const array_3d array_3d_null = {.data=NULL, .limit=NULL, .esize=0, .signature=IS_ARRAY, .type=0, .ndim=3,
+static const array_3d array_3d_null = {.data=NULL, .limit=NULL, .esize=0, .signature=IS_ARRAY, .type=0, .ndim=3, .flags=0,
                                        .dim = {dim_null, dim_null, dim_null} } ;
-static const array_4d array_4d_null = {.data=NULL, .limit=NULL, .esize=0, .signature=IS_ARRAY, .type=0, .ndim=4,
+static const array_4d array_4d_null = {.data=NULL, .limit=NULL, .esize=0, .signature=IS_ARRAY, .type=0, .ndim=4, .flags=0,
                                        .dim = {dim_null, dim_null, dim_null, dim_null} } ;
-static const array_5d array_5d_null = {.data=NULL, .limit=NULL, .esize=0, .signature=IS_ARRAY, .type=0, .ndim=5,
+static const array_5d array_5d_null = {.data=NULL, .limit=NULL, .esize=0, .signature=IS_ARRAY, .type=0, .ndim=5, .flags=0,
                                        .dim = {dim_null, dim_null, dim_null, dim_null, dim_null} } ;
 #if 0
 // macro to help initialize a struct of type array_nd
