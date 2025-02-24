@@ -66,6 +66,7 @@ typedef struct{          // specific struct for 1D array
   uint8_t  type ;
   uint8_t  ndim ;        // MUST be 1
   dim_desc dim[1] ;
+  uint32_t w32[] ;
 } array_1d ;
 
 typedef struct{          // specific struct for 2D array
@@ -76,6 +77,7 @@ typedef struct{          // specific struct for 2D array
   uint8_t  type ;
   uint8_t  ndim ;        // MUST be 2
   dim_desc dim[2] ;
+  uint32_t w32[] ;
 } array_2d ;
 
 typedef struct{          // specific struct for 3D array
@@ -86,6 +88,7 @@ typedef struct{          // specific struct for 3D array
   uint8_t  type ;
   uint8_t  ndim ;        // MUST be 3
   dim_desc dim[3] ;
+  uint32_t w32[] ;
 } array_3d ;
 
 typedef struct{          // specific struct for 4D array
@@ -96,6 +99,7 @@ typedef struct{          // specific struct for 4D array
   uint8_t  type ;
   uint8_t  ndim ;        // MUST be 4
   dim_desc dim[4] ;
+  uint32_t w32[] ;
 } array_4d ;
 
 typedef struct{          // specific struct for 5D array
@@ -106,19 +110,20 @@ typedef struct{          // specific struct for 5D array
   uint8_t  type ;
   uint8_t  ndim ;        // MUST be 5
   dim_desc dim[5] ;
+  uint32_t w32[] ;
 } array_5d ;
 
 // blank array descriptors for 1/2/3/4/5 Dimensions (no type, element size = 0)
 static const array_1d array_1d_null = {.data=NULL, .limit=NULL, .esize=0, .signature=IS_ARRAY, .type=0, .ndim=1,
-                                       .dim[0]=dim_null } ;
+                                       .dim = {dim_null} } ;
 static const array_2d array_2d_null = {.data=NULL, .limit=NULL, .esize=0, .signature=IS_ARRAY, .type=0, .ndim=2,
-                                       .dim[0]=dim_null, .dim[1]=dim_null } ;
+                                       .dim = {dim_null, dim_null} } ;
 static const array_3d array_3d_null = {.data=NULL, .limit=NULL, .esize=0, .signature=IS_ARRAY, .type=0, .ndim=3,
-                                       .dim[0]=dim_null, .dim[1]=dim_null, .dim[2]=dim_null } ;
+                                       .dim = {dim_null, dim_null, dim_null} } ;
 static const array_4d array_4d_null = {.data=NULL, .limit=NULL, .esize=0, .signature=IS_ARRAY, .type=0, .ndim=4,
-                                       .dim[0]=dim_null, .dim[1]=dim_null, .dim[2]=dim_null, .dim[3]=dim_null } ;
+                                       .dim = {dim_null, dim_null, dim_null, dim_null} } ;
 static const array_5d array_5d_null = {.data=NULL, .limit=NULL, .esize=0, .signature=IS_ARRAY, .type=0, .ndim=5,
-                                       .dim[0]=dim_null, .dim[1]=dim_null, .dim[2]=dim_null, .dim[3]=dim_null, .dim[4]=dim_null } ;
+                                       .dim = {dim_null, dim_null, dim_null, dim_null, dim_null} } ;
 #if 0
 // macro to help initialize a struct of type array_nd
 #define ARRAY_ND(DATA,ESIZE,TYPE,NDIM,SIZE) {.data = DATA, .limit = DATA, .esize = ESIZE, .type = TYPE, .ndim = NDIM }
