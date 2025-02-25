@@ -39,7 +39,7 @@ static int verbose = 0 ;
 // returns 0 if copy successful
 size_t CopyFileData(int fdi, int fdo, size_t nbytes){
   char buf[1024*1024*8] ;  // 8vi MB buffer for copying data
-  ssize_t nr, nw ;
+
   while(nbytes > 0){
     ssize_t nr, nw ;
     size_t nb = (nbytes < sizeof(buf)) ? nbytes : sizeof(buf) ;
@@ -57,7 +57,7 @@ size_t CopyFileData(int fdi, int fdo, size_t nbytes){
 // diag   : if non zero, fdo is ignored and fdi hole/data map is printed
 // returns final size of output file
 size_t SparseConcatFd(int fdi, int fdo, int diag){
-  off_t hole, cur_i, szi, szo, cur_o ;
+  off_t hole, cur_i, szi, szo ;
 
   szi = lseek(fdi, 0L, SEEK_END) ;                // input file size
   szo = 0 ;
@@ -74,7 +74,7 @@ size_t SparseConcatFd(int fdi, int fdo, int diag){
       if(diag) {
         fprintf(stderr, "hole at %12ld, %12ld bytes \n", hole, cur_i - hole) ;
       }else{
-        cur_o = lseek(fdo, cur_i - hole, SEEK_CUR) ;   // make a hole in output file
+        lseek(fdo, cur_i - hole, SEEK_CUR) ;   // make a hole in output file
       }
     }
   }
