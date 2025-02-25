@@ -23,8 +23,8 @@
 int invalid_array(array_nd *a){
   int i ;
   if(a == NULL)                return 1 ;   // NULL array pointer
-  if(a->data == NULL)          return 1 ;   // NO data
   if(a->signature != IS_ARRAY) return 1 ;   // wrong signature
+  if(a->data == NULL)          return 1 ;   // NO data
   if(a->limit <= a->data)      return 1 ;   // data limit MUST be > start of data
   ssize_t size = a->esize ;                 // size of a single array element
   for(i = 0 ; i < a->ndim ; i++){
@@ -56,12 +56,12 @@ uint8_t *subarray_address_nd(array_nd *a){
   }
   return ptr ;
 }
-// get address of the first element of arrray a
+// get address of the first element of array a
 // a  [IN] : pointer to array_nd struct
 // return address of first element of array (NULL if error)
 uint8_t *array_address_nd(array_nd *a){
   if(a == NULL) return NULL ;
-  return a->data ;                            // base address of array
+  return a->data ;                            // base address of full array
 }
 
 // initialize a new descriptor representing a sub-array of array a as a full array
@@ -70,7 +70,6 @@ uint8_t *array_address_nd(array_nd *a){
 // return pointer to array_nd struct of result (b or new allocated array_nd struct)
 // return NULL in case of error
 // TODO copy data from a to b
-// TODO conditional malloc of b->data
 array_nd *create_subarray(array_nd *a, array_nd *b){
   if(b == NULL){
     b = (array_nd *) malloc(sizeof(array_nd) + a->ndim * sizeof(dim_desc)) ;
@@ -91,17 +90,19 @@ array_nd *create_subarray(array_nd *a, array_nd *b){
     size   *= b->dim[i].gnn ;
   }
   b->data = malloc(b->esize * size) ;   // allocate data array
+  // copy relevant data from a into b
   return b ;
 }
 
-// allocate array descriptor and space to accomodate array
+// allocate both array descriptor and space to accomodate array data
 // esize   [IN] : size of array elements in bytes
 // type    [IN] : data type, see type in array_nd struct
 // ndim    [IN] : number of dimensions
 // dm5[nd] [IN] : dimensions
 // return pointer to filled descriptor (NULL in case of error)
 array_nd *create_array_nd(int32_t esize, int8_t type, int32_t ndim, int32_t ndm5, __i32__5__ dm5){
-  size_t sizem, sizea = sizeof(array_nd) + ndim * sizeof(dim_desc) ;
+  size_t sizea = sizeof(array_nd) + ndim * sizeof(dim_desc) ;  // size of descriptor structure
+  size_t sizem ;
   int nelem = 1, n, i ;
   array_nd *r ;
 
@@ -115,7 +116,7 @@ array_nd *create_array_nd(int32_t esize, int8_t type, int32_t ndim, int32_t ndm5
     nelem = nelem * n ;
   }
   sizem = nelem * esize ;
-  r = (array_nd *) malloc(sizea + sizem) ;
+  r = (array_nd *) malloc(sizea + sizem) ;  // size of descriptor structure + data size
   if(r == NULL) return NULL ;  // malloc failed
 
   uint8_t *data = (uint8_t *)r ;                           // start of array descriptor
@@ -207,8 +208,8 @@ int set_array_lbounds_nd(array_nd *a, int32_t narg, __i32__5x2__ lb5){
   }
 
   for(i=j=0 ; i < narg ; i+=2, j++){
-    a->dim[i/2].ln0 = lb5.i32[i] ;                       // lower bound
-    a->dim[i/2].lnn = lb5.i32[i+1] - lb5.i32[i] + 1 ;    // number of values from upper bound
+    a->dim[j].ln0 = lb5.i32[i] ;                       // lower bound
+    a->dim[j].lnn = lb5.i32[i+1] - lb5.i32[i] + 1 ;    // number of values from upper bound
   }
 // fprintf(stderr, "array_lbounds_nd, narg = %d, ndim = %d\n", narg, ndim) ;
   return ndim ;
