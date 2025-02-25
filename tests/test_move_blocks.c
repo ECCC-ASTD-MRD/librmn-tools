@@ -55,7 +55,9 @@ void print_int_props(block_properties bp){
 
 int main(int argc, char **argv){
   uint32_t z[NJ*2][LNI], r[NJ*2][LNI] ;
-  float f[NJ*2][LNI] ;
+  float f1[NJ*2][LNI] ;
+  float f2[NJ*2][LNI] ;
+  float f3[NJ*2][LNI] ;
   int i, j, ni, nj, errors ;
   block_properties bp ;
   float t0 ;
@@ -72,21 +74,23 @@ int main(int argc, char **argv){
 //       z[j][i] = (i << 8) + j ;
 //       z[j][i] |= (i << 31) ;
       z[j][i] = (i - NI/2) + (j - NJ/2) ;
+      f2[j][i] = -(i*j+1) ;
+      f3[j][i] = (i*j) ;
       if(z[j][i] == 0) z[j][i] = 1 ;
-//       f[j][i] = 1.0f * (i - ni/2) * (j - ni/2) + .5f ;
-      f[j][i] = (j * LNI) + i ;
-      f[j][i] = -f[j][i] ;
+//       f1[j][i] = 1.0f * (i - ni/2) * (j - ni/2) + .5f ;
+      f1[j][i] = (j * LNI) + i ;
+      f1[j][i] = -f1[j][i] ;
     }
   }
-  f[0][0] = 0.5f ;
-//   f[0][1] = 2.5f ;
+  f1[0][0] = 0.5f ;
+//   f1[0][1] = 2.5f ;
   errors = 0 ;
   for(j=0 ; j<NJ ; j++){
     for(i=0 ; i<LNI ; i++){
-      int32_t fake = fake_int(f[j][i]) ;
+      int32_t fake = fake_int(f1[j][i]) ;
       float r = unfake_float(fake) ;
-      if(r != f[j][i]) {
-        fprintf(stderr, "ERROR: expecting %f, got %f, fake = %8.8x\n", f[j][i], r, fake) ;
+      if(r != f1[j][i]) {
+        fprintf(stderr, "ERROR: expecting %f1, got %f1, fake = %8.8x\n", f1[j][i], r, fake) ;
         exit(1) ;
       }
     }
@@ -97,14 +101,20 @@ int main(int argc, char **argv){
   {
     uint32_t blk[nj][ni] ;
 
-    move_w32_block(&f[0][0],   LNI, blk, ni, 2*ni/3, 2*nj/3, &bp) ;  // same operation, different syntax
-    move_w32_block((float *)f, LNI, blk, ni, 2*ni/3, 2*nj/3, &bp) ;
+    move_w32_block(&f1[0][0],   LNI, blk, ni, 2*ni/3, 2*nj/3, &bp) ;  // same operation, different syntax
+    move_w32_block((float *)f1, LNI, blk, ni, 2*ni/3, 2*nj/3, &bp) ;
     if(argc == 512) {
-      void *ff = &f[0][0] ;
-      move_w32_block(&f[0][0], LNI, blk, ni, 2*ni/3, 2*nj/3, &bp) ;
+      void *ff = &f1[0][0] ;
+      move_w32_block(&f1[0][0], LNI, blk, ni, 2*ni/3, 2*nj/3, &bp) ;
       move_w32_block(&z[0][0], LNI, blk, ni, ni,     nj,     &bp) ;
       move_w32_block(ff,  LNI, blk, ni, 2*ni/3, 2*nj/3, &bp) ;
     }
+    print_float_props(bp) ;
+
+    move_w32_block((float *)f2, LNI, blk, ni, 2*ni/3, 2*nj/3, &bp) ;
+    print_float_props(bp) ;
+
+    move_w32_block((float *)f3, LNI, blk, ni, 2*ni/3, 2*nj/3, &bp) ;
     print_float_props(bp) ;
 
     for(j=0 ; j<1 ; j++){

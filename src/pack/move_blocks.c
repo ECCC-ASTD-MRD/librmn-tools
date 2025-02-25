@@ -430,40 +430,29 @@ void adjust_block_properties(block_properties *bp, data_kind datatype){
     if(bp->maxs.i < 0){           // all numbers are negative
       float max = bp->minu.f ;
       float min = bp->maxu.f ;
-      bp->mins.f =  min ;
-      bp->maxs.f =  max ;
-      bp->minu.f = -min ;
-      bp->maxu.f = -max ;
+      bp->mins.f =  min ;         // most negative value  (minimum value)
+      bp->maxs.f =  max ;         // least negative value  (maximum value)
+      bp->minu.f = -max ;         // smallest absolute value
+      bp->maxu.f = -min ;         // largest absolute value
     }else if(bp->mins.i < 0) {    // negative and non negative numbers
       float max = bp->maxs.f ;    // most positive value
       float min = bp->maxu.f ;    // most negative value
       float mins = bp->mins.f ;   // negative value closest to zero
       float minu = bp->minu.f ;   // positive value closest to zero
-      bp->mins.f =  min ;
-      bp->maxs.f =  max ;
-      bp->minu.f = (minu < (-mins)) ? minu : (-mins) ;
-      bp->maxu.f = ((max > (-min)) ? max : (-min) ) ;        // max is positive, is |max| > |min| ?
+      bp->mins.f =  min ;         // largest negative value  (minimum value)
+      bp->maxs.f =  max ;         // largest positive value  (maximum value)
+      bp->minu.f = (minu < (-mins)) ? minu : (-mins) ;       // smallest absolute value
+      bp->maxu.f = ((max > (-min)) ? max : (-min) ) ;        // largest absolute value
     }
     bp->kind = float_data ;
   }else if(datatype == int_data){
-//     if(bp->maxs.i < 0){           // all numbers are negative
-//       uint32_t minu = -bp->maxu.i ;
-//       uint32_t maxu = -bp->minu.i ;
-//       bp->minu.u = minu ;         // least negative number
-//       bp->maxu.u = maxu ;         // most negative number
-//     }else if(bp->mins.i < 0) {      // negative and non negative numbers
-//       uint32_t max1 = bp->maxs.i ;  // largest positive value
-//       int64_t max2  = bp->mins.i ;  // largest negative value
-//       max2 = -max2 ;
-      // bp->minu.i is smallest positive number
-      // bp->maxu.i is negative number closest to 0
-//       bp->minu.u = 0 ;
-//       bp->maxu.u = ((max1 > max2) ? max1 : max2 ) ;   // largest absolute value
-//     }
     bp->kind = int_data ;
+    // bp->minu.i will be the smallest value >= 0
+    // bp->maxu.i will be the negative value closest to 0 if negative values are present
+    // if no negative values are present, bp->maxu.i will be equal to bp->maxs.i
   }else if(datatype == uint_data){
     bp->kind = uint_data ;
-//     bp->maxs.u = bp->mins.u = 0 ;
+    // bp->maxs and bp->mins  are meaningless
   }else if(datatype == raw_data){
     bp->kind = raw_data ;
   }else{
