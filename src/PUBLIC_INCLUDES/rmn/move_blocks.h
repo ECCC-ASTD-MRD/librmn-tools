@@ -69,7 +69,7 @@ int move_float_block(float     *restrict src, int lnis, void *restrict dst, int 
 int move_data32_block(void     *restrict src, int lnis, void *restrict dst, int lnid, int ni, int nj, block_properties *bp);
 int move_mem32_block(void      *restrict src, int lnis, void *restrict dst, int lnid, int ni, int nj);
 
-int anal_data32_block(void *restrict src, int lnis, int ni, int nj, block_properties *bp);
+int analyze_data32_block(void *restrict src, int lnis, int ni, int nj, block_properties *bp);
 void adjust_block_properties(block_properties *bp, data_kind datatype);
 void add_block_properties(block_properties *bp, block_properties *bp_extra);
 

@@ -265,14 +265,14 @@ int move_mem32_block(void *restrict src, int lnis, void *restrict dst, int lnid,
 // nj   [IN] : number of rows
 // bp  [OUT] : pointer to block properties struct (min / max / min abs) (IGNORED if NULL)
 // return number of values processed
-int anal_data32_block(void *restrict src, int lnis, int ni, int nj, block_properties *bp){
+int analyze_data32_block(void *restrict src, int lnis, int ni, int nj, block_properties *bp){
   int32_t *restrict s = (int32_t *) src ;
   int32_t ninj = ni * nj ;
 
   if(bp == NULL) return 0 ;
 
   if(lnis <= 0 || ni <= 0 || nj <= 0){
-    fprintf(stderr, "ERROR anal_data32_block : lnis = %d, ni = %d, nj = %d\n", lnis, ni, nj);
+    fprintf(stderr, "ERROR analyze_data32_block : lnis = %d, ni = %d, nj = %d\n", lnis, ni, nj);
     return -1 ;
   }
 
@@ -350,7 +350,7 @@ int move_data32_block(void *restrict src, int lnis, void *restrict dst, int lnid
   int32_t ninj = ni * nj ;
 
   if(src == dst){   // no data copy, lnis MUST BE EQUAL to lnid
-    return (lnis == lnid) ? anal_data32_block(src, lnis, ni, nj, bp) : 0 ;
+    return (lnis == lnid) ? analyze_data32_block(src, lnis, ni, nj, bp) : 0 ;
   }
 
   if(bp == NULL) return move_mem32_block(src, lnis, dst, lnid, ni, nj) ;  // no data analysis
