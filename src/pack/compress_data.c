@@ -19,11 +19,11 @@
 #define INDEX2D_C(array, col, lrow, row) ((array) + (col) + (row)*(lrow))
 
 /*
-                         a FIELD is subdivided into CHUNKS
-                         (basic chunk size = 64/128/256 x 64/128/256)
-                         either
-                         - (last chunk along a dimension may be shorter)
-                         - (first chunk along a dimension may be longer [up to 511 x 127])
+          a FIELD is subdivided into CHUNKS
+          (basic chunk size = 64/128/256 x 64/128/256)
+          either
+          - (last chunk along a dimension may be shorter)
+          - (first chunk along a dimension may be longer [up to 511 x 127])
        <------ 256 ----->                                  <--- <= 256 ----->
      ^ +----------------+----------------------------------+----------------+ ^
      | |                |                                  |                | |
@@ -94,11 +94,11 @@
      v +----------------+ v
        <--- <= 64 ------>
 
-                  each BLOCK is then subdivided into encoding TILES
-                  (basic tile size = 8 x 8)
-                  either
-                  - (last tile along a dimension may be shorter [to be avoided normally])
-                  - (first tile along a dimension may be longer [up to 15 x 15])
+        each BLOCK is then subdivided into encoding TILES
+        (basic tile size = 8 x 8)
+        either
+        - (last tile along a dimension may be shorter [to be avoided normally])
+        - (first tile along a dimension may be longer [up to 15 x 15])
        <-- > 7 , < 16 -->                                  <---- <= 8 ------>
      ^ +----------------+----------------------------------+----------------+ ^
      | |                |                                  |                | |

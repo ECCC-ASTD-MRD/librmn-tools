@@ -243,7 +243,7 @@ constant:
 // pop [OUT] : 4 element array to receive population counts
 // ref  [IN] : 4 element array containing reference values
 // pop[i] will receive the number of values in tile < ref[i]
-// NOTE: the AVX2 version is a way faster than the dumb vanilla C version
+// NOTE: the AVX2 version is way faster than the dumb vanilla C version
 //       the chunked by 8 C version is 1.3 - 3 x slower than the AVX2 version with most compilers
 //       and much slower (up to 10x) with some others
 // the comparison is performed in SIGNED mode
@@ -276,11 +276,11 @@ static void tile_population_64(void *tile_in, int32_t pop[4], void *ref_in){
   s0 = _mm256_add_epi32(s0, _mm256_cmpgt_epi32(t0, v6)) ; s1 = _mm256_add_epi32(s1, _mm256_cmpgt_epi32(t1, v6)) ;
   s0 = _mm256_add_epi32(s0, _mm256_cmpgt_epi32(t0, v7)) ; s1 = _mm256_add_epi32(s1, _mm256_cmpgt_epi32(t1, v7)) ;
   // fold sums
-  i0 = _mm_add_epi32(_mm256_extracti128_si256(s0, 0) , _mm256_extracti128_si256(s0, 1)) ;
+  i0 = _mm_add_epi32(_mm256_extracti128_si256(s0, 0) , _mm256_extracti128_si256(s0, 1)) ;   // 8 sums -> 4 sums
   i1 = _mm_add_epi32(_mm256_extracti128_si256(s1, 0) , _mm256_extracti128_si256(s1, 1)) ;
-  i0 = _mm_add_epi32(i0, _mm_shuffle_epi32(i0, 0b11101110)) ;
+  i0 = _mm_add_epi32(i0, _mm_shuffle_epi32(i0, 0b11101110)) ;         // 4 sums -> 2 sums
   i1 = _mm_add_epi32(i1, _mm_shuffle_epi32(i1, 0b11101110)) ;
-  i0 = _mm_add_epi32(i0, _mm_shuffle_epi32(i0, 0b01010101)) ;
+  i0 = _mm_add_epi32(i0, _mm_shuffle_epi32(i0, 0b01010101)) ;         // 2 sums -> 1 sum
   i1 = _mm_add_epi32(i1, _mm_shuffle_epi32(i1, 0b01010101)) ;
   _mm_storeu_si32(pop  , i0) ; pop[0] = -pop[0] ;  // make sum positive
   _mm_storeu_si32(pop+1, i1) ; pop[1] = -pop[1] ;
@@ -346,9 +346,7 @@ void tile_population(void *tile_in, int n, int32_t pop[4], void *ref_in){
     tile_population_64(tile, pop, ref) ;
     return ;
   }
-// int32_t *tile0 = tile, irep ;
-// for(irep=0 ; irep<10 ; irep++){  // loop for timings
-//   tile = tile0 ;
+
   for(i=0 ; i<8 ; i++) {ns0[i] = ns1[i] = ns2[i] = ns3[i] = 0 ; }
   for(i0=0 ; i0<n-7 ; i0+=8){
     for(i=0 ; i<8 ; i++){
