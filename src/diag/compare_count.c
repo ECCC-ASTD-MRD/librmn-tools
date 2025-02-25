@@ -14,26 +14,26 @@
  */
 #include <rmn/compare_count.h>
 
-#if defined(__AVX2__) // && defined(WITH_SIMD)
+#if defined(__AVX2__) && defined(WITH_SIMD)
 
 // 8 values in ymm register (accum and value)
 // 4 values in xmm register (ref4)
 // return[l] and return[l+4] : accum[l|l+4] + number of values == ref4[l] (ymm register)
 static __v256i count8_eq(__v256i accum, __v128i ref4, __v256i value){
   __v256i ref44 ;
-  ref44 = inserti_128(accum, ref4, 0) ;  // phony op to avoid a warning
-  ref44 = inserti_128(ref44, ref4, 1) ;
-  __v256i vd0 = value ;
-  __v256i vd1 = shuffle_v8i(value, 0b00111001 ) ;
-  __v256i vd2 = shuffle_v8i(value, 0b01001110 ) ;
-  __v256i vd3 = shuffle_v8i(value, 0b10010011 ) ;
+  ref44 = inserti_128(accum, ref4, 0) ;             // phony operation to avoid a warning
+  ref44 = inserti_128(ref44, ref4, 1) ;             // [0] [1] [2] [3] [0] [1] [2] [3]
+  __v256i vd0 = value ;                             // [0] [1] [2] [3] [4] [5] [6] [7]
+  __v256i vd1 = shuffle_v8i(value, 0b00111001 ) ;   // [1] [2] [3] [0] [5] [6] [7] [4]
+  __v256i vd2 = shuffle_v8i(value, 0b01001110 ) ;   // [2] [3] [0] [1] [6] [7] [4] [5]
+  __v256i vd3 = shuffle_v8i(value, 0b10010011 ) ;   // [3] [0] [1] [2] [7] [4] [5] [6]
 
-  vd0 = cmpeq_v8i(vd0, ref44) ;
+  vd0 = cmpeq_v8i(vd0, ref44) ;                     // compare to reference
   vd1 = cmpeq_v8i(vd1, ref44) ;
   vd2 = cmpeq_v8i(vd2, ref44) ;
   vd3 = cmpeq_v8i(vd3, ref44) ;
 
-  accum = sub_v8i(accum, vd0) ;
+  accum = sub_v8i(accum, vd0) ;                     // add counts to accumulator
   accum = sub_v8i(accum, vd1) ;
   accum = sub_v8i(accum, vd2) ;
   accum = sub_v8i(accum, vd3) ;
@@ -45,19 +45,19 @@ static __v256i count8_eq(__v256i accum, __v128i ref4, __v256i value){
 // return[l] and return[l+4] : accum[l|l+4] + number of values > ref4[l] (ymm register)
 static __v256i count8_gt(__v256i accum, __v128i ref4, __v256i value){
   __v256i ref44 ;
-  ref44 = inserti_128(accum, ref4, 0) ;  // phony op to avoid a warning
-  ref44 = inserti_128(ref44, ref4, 1) ;
-  __v256i vd0 = value ;
-  __v256i vd1 = shuffle_v8i(value, 0b00111001 ) ;
-  __v256i vd2 = shuffle_v8i(value, 0b01001110 ) ;
-  __v256i vd3 = shuffle_v8i(value, 0b10010011 ) ;
+  ref44 = inserti_128(accum, ref4, 0) ;             // phony operation to avoid a warning
+  ref44 = inserti_128(ref44, ref4, 1) ;             // [0] [1] [2] [3] [0] [1] [2] [3]
+  __v256i vd0 = value ;                             // [0] [1] [2] [3] [4] [5] [6] [7]
+  __v256i vd1 = shuffle_v8i(value, 0b00111001 ) ;   // [1] [2] [3] [0] [5] [6] [7] [4]
+  __v256i vd2 = shuffle_v8i(value, 0b01001110 ) ;   // [2] [3] [0] [1] [6] [7] [4] [5]
+  __v256i vd3 = shuffle_v8i(value, 0b10010011 ) ;   // [3] [0] [1] [2] [7] [4] [5] [6]
 
-  vd0 = cmpgt_v8i(vd0, ref44) ;
+  vd0 = cmpgt_v8i(vd0, ref44) ;                     // compare to reference
   vd1 = cmpgt_v8i(vd1, ref44) ;
   vd2 = cmpgt_v8i(vd2, ref44) ;
   vd3 = cmpgt_v8i(vd3, ref44) ;
 
-  accum = sub_v8i(accum, vd0) ;
+  accum = sub_v8i(accum, vd0) ;                     // add counts to accumulator
   accum = sub_v8i(accum, vd1) ;
   accum = sub_v8i(accum, vd2) ;
   accum = sub_v8i(accum, vd3) ;
@@ -69,19 +69,19 @@ static __v256i count8_gt(__v256i accum, __v128i ref4, __v256i value){
 // return[l] and return[l+4] : accum[l|l+4] + number of values < ref4[l] (ymm register)
 static __v256i count8_lt(__v256i accum, __v128i ref4, __v256i value){
   __v256i ref44 ;
-  ref44 = inserti_128(accum, ref4, 0) ;  // phony op to avoid a warning
-  ref44 = inserti_128(ref44, ref4, 1) ;
-  __v256i vd0 = value ;
-  __v256i vd1 = shuffle_v8i(value, 0b00111001 ) ;
-  __v256i vd2 = shuffle_v8i(value, 0b01001110 ) ;
-  __v256i vd3 = shuffle_v8i(value, 0b10010011 ) ;
+  ref44 = inserti_128(accum, ref4, 0) ;             // phony operation to avoid a warning
+  ref44 = inserti_128(ref44, ref4, 1) ;             // [0] [1] [2] [3] [0] [1] [2] [3]
+  __v256i vd0 = value ;                             // [0] [1] [2] [3] [4] [5] [6] [7]
+  __v256i vd1 = shuffle_v8i(value, 0b00111001 ) ;   // [1] [2] [3] [0] [5] [6] [7] [4]
+  __v256i vd2 = shuffle_v8i(value, 0b01001110 ) ;   // [2] [3] [0] [1] [6] [7] [4] [5]
+  __v256i vd3 = shuffle_v8i(value, 0b10010011 ) ;   // [3] [0] [1] [2] [7] [4] [5] [6]
 
-  vd0 = cmpgt_v8i(ref44, vd0) ;
+  vd0 = cmpgt_v8i(ref44, vd0) ;                     // compare to reference
   vd1 = cmpgt_v8i(ref44, vd1) ;
   vd2 = cmpgt_v8i(ref44, vd2) ;
   vd3 = cmpgt_v8i(ref44, vd3) ;
 
-  accum = sub_v8i(accum, vd0) ;
+  accum = sub_v8i(accum, vd0) ;                     // add counts to accumulator
   accum = sub_v8i(accum, vd1) ;
   accum = sub_v8i(accum, vd2) ;
   accum = sub_v8i(accum, vd3) ;
@@ -91,17 +91,17 @@ static __v256i count8_lt(__v256i accum, __v128i ref4, __v256i value){
 // 4 values in xmm register
 // return[l] : accum[l] + number of values == ref4[l] (xmm register)
 static __v128i count4_eq(__v128i accum, __v128i ref4, __v128i values){
-  __v128i vd0 = values ;
-  __v128i vd1 = shuffle_v4i(values, 0b00111001 ) ;
-  __v128i vd2 = shuffle_v4i(values, 0b01001110 ) ;
-  __v128i vd3 = shuffle_v4i(values, 0b10010011 ) ;
+  __v128i vd0 = values ;                           // [0] [1] [2] [3]
+  __v128i vd1 = shuffle_v4i(values, 0b00111001 ) ; // [1] [2] [3] [0]
+  __v128i vd2 = shuffle_v4i(values, 0b01001110 ) ; // [2] [3] [0] [1]
+  __v128i vd3 = shuffle_v4i(values, 0b10010011 ) ; // [3] [0] [1] [2]
 
-  vd0 = cmpeq_v4i(vd0, ref4) ;
+  vd0 = cmpeq_v4i(vd0, ref4) ;                     // compare to reference
   vd1 = cmpeq_v4i(vd1, ref4) ;
   vd2 = cmpeq_v4i(vd2, ref4) ;
   vd3 = cmpeq_v4i(vd3, ref4) ;
 
-  accum = sub_v4i(accum, vd0) ;
+  accum = sub_v4i(accum, vd0) ;                    // add counts to accumulator
   accum = sub_v4i(accum, vd1) ;
   accum = sub_v4i(accum, vd2) ;
   accum = sub_v4i(accum, vd3) ;
@@ -111,17 +111,17 @@ static __v128i count4_eq(__v128i accum, __v128i ref4, __v128i values){
 // 4 values in xmm register
 // return[l] : accum[l] + number of values > ref4[l] (xmm register)
 static __v128i count4_gt(__v128i accum, __v128i ref4, __v128i values){
-  __v128i vd0 = values ;
-  __v128i vd1 = shuffle_v4i(values, 0b00111001 ) ;
-  __v128i vd2 = shuffle_v4i(values, 0b01001110 ) ;
-  __v128i vd3 = shuffle_v4i(values, 0b10010011 ) ;
+  __v128i vd0 = values ;                           // [0] [1] [2] [3]
+  __v128i vd1 = shuffle_v4i(values, 0b00111001 ) ; // [1] [2] [3] [0]
+  __v128i vd2 = shuffle_v4i(values, 0b01001110 ) ; // [2] [3] [0] [1]
+  __v128i vd3 = shuffle_v4i(values, 0b10010011 ) ; // [3] [0] [1] [2]
 
-  vd0 = cmpgt_v4i(vd0, ref4) ;
+  vd0 = cmpgt_v4i(vd0, ref4) ;                     // compare to reference
   vd1 = cmpgt_v4i(vd1, ref4) ;
   vd2 = cmpgt_v4i(vd2, ref4) ;
   vd3 = cmpgt_v4i(vd3, ref4) ;
 
-  accum = sub_v4i(accum, vd0) ;
+  accum = sub_v4i(accum, vd0) ;                    // add counts to accumulator
   accum = sub_v4i(accum, vd1) ;
   accum = sub_v4i(accum, vd2) ;
   accum = sub_v4i(accum, vd3) ;
@@ -131,17 +131,17 @@ static __v128i count4_gt(__v128i accum, __v128i ref4, __v128i values){
 // 4 values in xmm register
 // return[l] : accum[l] + number of values < ref4[l] (xmm register)
 static __v128i count4_lt(__v128i accum, __v128i ref4, __v128i values){
-  __v128i vd0 = values ;
-  __v128i vd1 = shuffle_v4i(values, 0b00111001 ) ;
-  __v128i vd2 = shuffle_v4i(values, 0b01001110 ) ;
-  __v128i vd3 = shuffle_v4i(values, 0b10010011 ) ;
+  __v128i vd0 = values ;                           // [0] [1] [2] [3]
+  __v128i vd1 = shuffle_v4i(values, 0b00111001 ) ; // [1] [2] [3] [0]
+  __v128i vd2 = shuffle_v4i(values, 0b01001110 ) ; // [2] [3] [0] [1]
+  __v128i vd3 = shuffle_v4i(values, 0b10010011 ) ; // [3] [0] [1] [2]
 
-  vd0 = cmpgt_v4i(ref4, vd0) ;
+  vd0 = cmpgt_v4i(ref4, vd0) ;                     // compare to reference
   vd1 = cmpgt_v4i(ref4, vd1) ;
   vd2 = cmpgt_v4i(ref4, vd2) ;
   vd3 = cmpgt_v4i(ref4, vd3) ;
 
-  accum = sub_v4i(accum, vd0) ;
+  accum = sub_v4i(accum, vd0) ;                    // add counts to accumulator
   accum = sub_v4i(accum, vd1) ;
   accum = sub_v4i(accum, vd2) ;
   accum = sub_v4i(accum, vd3) ;
@@ -151,24 +151,24 @@ static __v128i count4_lt(__v128i accum, __v128i ref4, __v128i values){
 // 1, 2, or 3 values
 // 4 values in xmm register (accum, ref4)
 // values : pointer to array of values to test
-// n      : number of values (modulo 3 is takes, n is assumed to be 0/1/2/3)
+// n      : number of values (modulo 3 is taken, n is assumed to be 0/1/2/3)
 // return[l] : accum[l] + number of values == ref4[l] (xmm register)
 static __v128i count123_eq(__v128i accum, __v128i ref4, int *values, int n){
   __v128i vd0 ;
   n &= 3 ;
   if(n > 1){   // 2 or 3
-    vd0 = set1_v4i(*values) ; values ++ ;
-    vd0 = cmpeq_v4i(vd0, ref4) ;
-    accum = sub_v4i(vd0, accum) ;
-    vd0 = set1_v4i(*values) ; values ++ ;
-    vd0 = cmpeq_v4i(vd0, ref4) ;
-    accum = sub_v4i(vd0, accum) ;
+    vd0   = set1_v4i(*values) ; values ++ ;
+    vd0   = cmpeq_v4i(vd0, ref4) ;
+    accum = sub_v4i(accum, vd0) ;
+    vd0   = set1_v4i(*values) ; values ++ ;
+    vd0   = cmpeq_v4i(vd0, ref4) ;
+    accum = sub_v4i(accum, vd0) ;
     n -= 2 ;
   }
   if(n > 0){   // 1
-    vd0 = set1_v4i(*values) ; values ++ ;
-    vd0 = cmpeq_v4i(vd0, ref4) ;
-    accum = sub_v4i(vd0, accum) ;
+    vd0   = set1_v4i(*values) ;
+    vd0   = cmpeq_v4i(vd0, ref4) ;
+    accum = sub_v4i(accum, vd0) ;
   }
   return accum ;
 }
@@ -176,24 +176,24 @@ static __v128i count123_eq(__v128i accum, __v128i ref4, int *values, int n){
 // 1, 2, or 3 values
 // 4 values in xmm register (accum, ref4)
 // values : pointer to array of values to test
-// n      : number of values (modulo 3 is takes, n is assumed to be 0/1/2/3)
+// n      : number of values (modulo 3 is taken, n is assumed to be 0/1/2/3)
 // return[l] : accum[l] + number of values > ref4[l] (xmm register)
 static __v128i count123_gt(__v128i accum, __v128i ref4, int *values, int n){
   __v128i vd0 ;
   n &= 3 ;
   if(n > 1){   // 2 or 3
-    vd0 = set1_v4i(*values) ; values ++ ;
-    vd0 = cmpgt_v4i(vd0, ref4) ;
-    accum = sub_v4i(vd0, accum) ;
-    vd0 = set1_v4i(*values) ; values ++ ;
-    vd0 = cmpgt_v4i(vd0, ref4) ;
-    accum = sub_v4i(vd0, accum) ;
+    vd0   = set1_v4i(*values) ; values ++ ;
+    vd0   = cmpgt_v4i(vd0, ref4) ;
+    accum = sub_v4i(accum, vd0) ;
+    vd0   = set1_v4i(*values) ; values ++ ;
+    vd0   = cmpgt_v4i(vd0, ref4) ;
+    accum = sub_v4i(accum, vd0) ;
     n -= 2 ;
   }
   if(n > 0){   // 1
-    vd0 = set1_v4i(*values) ; values ++ ;
+    vd0 = set1_v4i(*values) ;
     vd0 = cmpgt_v4i(vd0, ref4) ;
-    accum = sub_v4i(vd0, accum) ;
+    accum = sub_v4i(accum, vd0) ;
   }
   return accum ;
 }
@@ -201,23 +201,23 @@ static __v128i count123_gt(__v128i accum, __v128i ref4, int *values, int n){
 // 1, 2, or 3 values
 // 4 values in xmm register (accum, ref4)
 // values : pointer to array of values to test
-// n      : number of values (modulo 3 is takes, n is assumed to be 0/1/2/3)
+// n      : number of values (modulo 3 is taken, n is assumed to be 0/1/2/3)
 // return[l] : accum[l] + number of values < ref4[l] (xmm register)
 static __v128i count123_lt(__v128i accum, __v128i ref4, int *values, int n){
   __v128i vd0 ;
   n &= 3 ;
   if(n > 1){   // 2 or 3
-    vd0 = set1_v4i(*values) ; values ++ ;
-    vd0 = cmpgt_v4i(ref4, vd0) ;
+    vd0   = set1_v4i(*values) ; values ++ ;
+    vd0   = cmpgt_v4i(ref4, vd0) ;
     accum = sub_v4i(accum, vd0) ;
-    vd0 = set1_v4i(*values) ; values ++ ;
-    vd0 = cmpgt_v4i(ref4, vd0) ;
+    vd0   = set1_v4i(*values) ; values ++ ;
+    vd0   = cmpgt_v4i(ref4, vd0) ;
     accum = sub_v4i(accum, vd0) ;
     n -= 2 ;
   }
   if(n > 0){   // 1
-    vd0 = set1_v4i(*values) ; values ++ ;
-    vd0 = cmpgt_v4i(ref4, vd0) ;
+    vd0   = set1_v4i(*values) ;
+    vd0   = cmpgt_v4i(ref4, vd0) ;
     accum = sub_v4i(accum, vd0) ;
   }
   return accum ;
@@ -234,7 +234,7 @@ static __v128i count_eq_v4i(int *values, int ref4[4], int n){
   accu8 = set1_v8i(0) ;
   vref  = loadu_v128((void *) &ref4[0]) ;
   while(n > 7){                // blocks of 8 values
-    data = loadu_v256((void *) values) ;
+    data  = loadu_v256((void *) values) ;
     accu8 = count8_eq(accu8, vref, data) ;
     values += 8 ;
     n -= 8 ;
@@ -311,7 +311,7 @@ static __v128i count_lt_v4i(int *values, int ref4[4], int n){
 // ref4   [IN] : 4 reference values to test against values[l]
 // n      [IN] : dimension of array values
 void count_eq(int count[4], int *values, int ref4[4], int n){
-#if defined(__AVX2__) // && defined(WITH_SIMD)
+#if defined(__AVX2__) && defined(WITH_SIMD)
   storeu_v128((void *)count, count_eq_v4i(values, ref4, n)) ;
 #else
   int i, j ;
@@ -332,7 +332,7 @@ void count_eq(int count[4], int *values, int ref4[4], int n){
 // ref4   [IN] : 4 reference values to test against values[l]
 // n      [IN] : dimension of array values
 void count_gt(int count[4], int *values, int ref4[4], int n){
-#if defined(__AVX2__) // && defined(WITH_SIMD)
+#if defined(__AVX2__) && defined(WITH_SIMD)
   storeu_v128((void *)count, count_gt_v4i(values, ref4, n)) ;
 #else
   int i, j ;
@@ -353,7 +353,7 @@ void count_gt(int count[4], int *values, int ref4[4], int n){
 // ref4   [IN] : 4 reference values to test against values[l]
 // n      [IN] : dimension of array values
 void count_lt(int count[4], int *values, int ref4[4], int n){
-#if defined(__AVX2__) // && defined(WITH_SIMD)
+#if defined(__AVX2__) && defined(WITH_SIMD)
   storeu_v128((void *)count, count_lt_v4i(values, ref4, n)) ;
 #else
   int i, j ;

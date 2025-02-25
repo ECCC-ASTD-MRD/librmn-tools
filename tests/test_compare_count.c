@@ -21,18 +21,52 @@ int main(int argc, char **argv){
   int data[64], counta[4], countb[4] ;
   int ref4[] = { 8, 16, 32, 64 } ;
   int i, j, k, ix, nval ;
+  int seq[64] ;
+  int ref1[] = { 1, 2, 3, 4 } ;
+  int ref2[4] ;
 
   ix = 13 ;
   for(i=0 ; i<sizeof(data)/sizeof(int) ; i++){
+    seq[i] = i + 1 ;
     data[ix] = i ;
     ix = ix + 13 ;
     if(ix >= sizeof(data)/sizeof(int)) ix = ix - sizeof(data)/sizeof(int) ;
   }
-  fprintf(stderr, "================= test compare_count gt ================\n") ;
+  fprintf(stderr, "================= compare_count gt lt eq (4-64 values) ================\n") ;
+
+  for(nval=4 ; nval<65 ; nval++){
+
+    count_gt(counta, seq, ref1, nval) ;
+    for(j=0 ; j<4 ; j++){
+      if(counta[j] != nval-(j+1)) {
+        fprintf(stderr, "expecting %d values > %d, got %d\n", nval-(j+1), ref1[j], counta[j]) ;
+        goto fail ;
+      }
+    }
+
+    ref2[0] = nval ; ref2[1] = ref2[0]-1 ; ref2[2] = ref2[1]-1 ; ref2[3] = ref2[2]-1 ;
+    count_lt(counta, seq, ref2, nval) ;
+    for(j=0 ; j<4 ; j++){
+      if(counta[j] != nval-j-1) {
+        fprintf(stderr, "expecting %d values < %d, got %d (nval = %d)\n", nval-j-1, ref2[j], counta[j], nval) ;
+        goto fail ;
+      }
+    }
+
+    count_eq(counta, seq, ref2, nval) ;
+    for(j=0 ; j<4 ; j++){
+      if(counta[j] != 1){
+        fprintf(stderr, "expecting %d values == %d, got %d (nval = %d)\n", 1, ref2[j], counta[j], nval) ;
+        goto fail ;
+      }
+    }
+  }
+  fprintf(stderr, "SUCCESS\n");
+
+  fprintf(stderr, "================= compare_count lt ge  gt+le eq+ne lt ================\n") ;
   for(j=0 ; j<4 ; j++){
     for(i=0 ; i<16 ; i++){ fprintf(stderr, "%2d ", data[i+16*j]) ; } ; fprintf(stderr, "\n") ;
   }
-
   nval = 64 ;
   count_lt(counta, data, ref4, nval) ;
   fprintf(stderr, "%2d values :", nval) ;
@@ -70,6 +104,11 @@ int main(int argc, char **argv){
       if(counta[k] != j+1) exit(1) ;
     }
   }
-
   fprintf(stderr, "SUCCESS\n");
+
+  return 0 ;
+
+fail:
+  fprintf(stderr, "FAILED\n");
+  return 1 ;
 }
