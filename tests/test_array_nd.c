@@ -38,6 +38,7 @@ void array_lbounds_check(int low, int high){
   array_nd *apn ;
   int32_t scrap[1024*1024] ;
 
+  // make new arrays using caller supplied storage, set bounds
   new_array(&a1, scrap, sizeof(int32_t), int_data, 8) ;
   set_array_lbounds(&a1 , low, high) ;
   new_array(&a2, scrap, sizeof(int32_t), int_data, 8, 7) ;
@@ -90,10 +91,12 @@ int32_t fijk(int i, int j, int k){
   return k | (j << 8) | (i << 20) ;
 }
 
+// set array element to a given value
 void set_subarray(int gni, int gnj, int gnk, int32_t f[gnk][gnj][gni], int i, int j, int k, int32_t value){
   f[k][j][i] = value ;
 }
 
+// get value from array element
 int32_t get_subarray(int gni, int gnj, int gnk, int32_t f[gnk][gnj][gni], int i, int j, int k){
   return f[k][j][i] ;
 }
@@ -119,7 +122,7 @@ int main(int argc, char **argv){
   if(argc > 1 && argv[0] == NULL) return 1 ;  // useless code to get rid of compiler warning
 
   fprintf(stderr, "=============== array_lbounds test ===============\n") ;
-  array_lbounds_check(1, 3);
+  array_lbounds_check(1, 3);      // call bounds test, lower bound : 1, upper bound : 3
   fprintf(stderr, "SUCCESS\n") ;
 
   fprintf(stderr, "=============== sub array test ===============\n") ;
@@ -153,43 +156,37 @@ int main(int argc, char **argv){
         if(*ptra != fijk(i, j, k)){
           fprintf(stderr, "[%3d,%3d,%3d], expected %8.8x, got %8.8x\n", i, j, k, fijk(i, j, k), *ptra) ;
           errors++ ;
-          fprintf(stderr, "FAILED\n") ;
-          exit(1) ;
+          goto fail ;
         }
         // get block from a3
         subsize = subarray_get(&a3, copy, sizeof(copy)) ;
         if(subsize != 1000){
           fprintf(stderr, "subsize(get) = %ld, expected 1000\n", subsize) ;
-          fprintf(stderr, "FAILED\n") ;
-          exit(1) ;
+          goto fail ;
         }
         // check block
         errsub = subarray_check(SUB, SUB, SUB, copy,  i, SUB, j, SUB, k, SUB) ;
         if(0 != errsub){
           fprintf(stderr, "errsub(copy) = %d [%3d,%3d,%3d]\n", errsub, i, j, k) ;
-          fprintf(stderr, "FAILED\n") ;
-          exit(1) ;
+          goto fail ;
         }
         // copy block into b3
         subsize = subarray_set(&b3, copy, sizeof(copy)) ;
         if(subsize != 1000){
           fprintf(stderr, "subsize(set) = %ld, expected 1000\n", subsize) ;
-          fprintf(stderr, "FAILED\n") ;
-          exit(1) ;
+          goto fail ;
         }
         // check a3
         errsub = subarray_check(GNI, GNJ, GNK, (void *) ptra, i, SUB, j, SUB, k, SUB) ;
         if(0 != errsub){
           fprintf(stderr, "errsub(ptra) = %d\n", errsub) ;
-          fprintf(stderr, "FAILED\n") ;
-          exit(1) ;
+          goto fail ;
         }
         // check b3
         errsub = subarray_check(GNI, GNJ, GNK, (void *) ptrb, i, SUB, j, SUB, k, SUB) ;
         if(0 != errsub){
           fprintf(stderr, "errsub(ptrb) = %d\n", errsub) ;
-          fprintf(stderr, "FAILED\n") ;
-          exit(1) ;
+          goto fail ;
         }
 
         // set erroneous values in block, check that we are getting the right number of errors
@@ -197,8 +194,7 @@ int main(int argc, char **argv){
         errsub = subarray_check(SUB, SUB, SUB, copy,  i, SUB, j, SUB, k, SUB) ;
         if(SUB != errsub){
           fprintf(stderr, "errsub(copy) = %d, expected %d\n", errsub, SUB) ;
-          fprintf(stderr, "FAILED\n") ;
-          exit(1) ;
+          goto fail ;
         }
         // save current value from a3
         for(l=0 ; l<SUB ; l++) saved[l] = get_subarray(GNI, GNJ, GNK, (void *) ptra, l, l, l) ;
@@ -207,16 +203,18 @@ int main(int argc, char **argv){
         errsub = subarray_check(GNI, GNJ, GNK, (void *) ptra, i, SUB, j, SUB, k, SUB) ;
         if(SUB != errsub){
           fprintf(stderr, "errsub(ptra) = %d, expected %d [%3d,%3d,%3d]\n", errsub, SUB, i, j, k) ;
-          fprintf(stderr, "FAILED\n") ;
-          exit(1) ;
+          goto fail ;
         }
         // restore saved value into a3
         for(l=0 ; l<SUB ; l++) set_subarray(GNI, GNJ, GNK, (void *) ptra, l, l, l, saved[l]) ;
       }
     }
   }
-  fprintf(stderr, "SUCCESS\n") ;
 
+  fprintf(stderr, "SUCCESS\n") ;
   return 0 ;
 
+fail:
+  fprintf(stderr, "FAILED\n") ;
+  exit(1) ;
 }
