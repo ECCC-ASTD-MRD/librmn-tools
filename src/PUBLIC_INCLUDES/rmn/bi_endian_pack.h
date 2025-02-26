@@ -194,8 +194,8 @@ CT_ASSERT_(sizeof(void *) == 8)        // enforce 64 bit pointers
 #define LE64_EZ_FAST_PUT_NBITS(w32, nbits)   LE64_FAST_PUT_NBITS(StReAm_acc_i, StReAm_insert, w32, nbits, StReAm_in)
 #define LE64_STREAM_PUT_NBITS(s, w32, nbits) LE64_PUT_NBITS((s).acc_i,    (s).insert,    w32, nbits, (s).in)
 // align insertion point to a 32 bit boundary
-#define LE64_EZ_INSERT_ALIGN        LE64_INSERT_ALIGN(StReAm_insert)
-#define LE64_STREAM_INSERT_ALIGN(s) LE64_INSERT_ALIGN((s).insert)
+#define LE64_EZ_INSERT_ALIGN        LE64_INSERT_ALIGN(StReAm_insert, StReAm_acc_i)
+#define LE64_STREAM_INSERT_ALIGN(s) LE64_INSERT_ALIGN((s).insert, (s).acc_i)
 //
 // N.B. : if w32 and accum are signed variables, the extract will produce a "signed" result
 //        if w32 and accum are unsigned variables, the extract will produce an "unsigned" result

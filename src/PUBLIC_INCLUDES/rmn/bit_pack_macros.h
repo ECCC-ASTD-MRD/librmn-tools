@@ -54,6 +54,8 @@
 //
 #include <stdint.h>
 
+// undefine everything in case of multiple inclusion
+
 #undef LE64_INSERT_BEGIN
 #undef LE64_INSERT_NBITS
 #undef LE64_FAST_INSERT_NBITS
@@ -94,8 +96,11 @@
 
 #if defined(FILL_FROM_TOP)
 #undef FILL_FROM_BOTTOM
-#else
-#define FILL_FROM_BOTTOM
+#endif
+
+#if ! defined(FILL_FROM_BOTTOM)
+#undef FILL_FROM_TOP
+#define FILL_FROM_TOP
 #endif
 
 // ================================ bit insertion/extraction macros into/from bitstream ===============================
@@ -147,8 +152,8 @@
 // fast combined INSERT_CHECK and INSERT_NBITS, update accum, insert, stream (unsafe version)
 #define LE64_FAST_PUT_NBITS(accum, insert, w32, nbits, stream) \
         { LE64_INSERT_CHECK(accum, insert, stream) ; LE64_FAST_INSERT_NBITS(accum, insert, w32, nbits) ; }
-// align insertion point to a 32 bit boundary
-#define LE64_INSERT_ALIGN(insert) { uint32_t tbits = 64 - insert ;  tbits &= 31 ; insert += tbits ; }
+// align insertion point to a 32 bit boundary (accum is not needed when filling from bottom)
+#define LE64_INSERT_ALIGN(insert, accum) { uint32_t tbits = 64 - insert ;  tbits &= 31 ; insert += tbits ; }
 // #define LE64_EZ_INSERT_ALIGN        { uint32_t tbits = 64 - StReAm_insert ; tbits &= 31 ; StReAm_insert += tbits ; }
 // #define LE64_STREAM_INSERT_ALIGN(s) { uint32_t tbits = 64 - StReAm_insert ; tbits &= 31 ; (s).insert += tbits ; }
 #endif  // FILL_FROM_BOTTOM
@@ -159,13 +164,13 @@
 // (unsafe as it assumes that nbits bits can be inserted into acumulator)
 // zeroing the accumulator is not critical before start of insertion
 #define LE64_INSERT_NBITS(accum, insert, w32, nbits) \
-        { uint64_t t=(w32) ; t<<=(64-(nbits)) ; accum=(uint64_t)accum>>(nbits) ; accum|=t ; insert+=(nbits) ; }
+        { uint64_t t=(uint32_t)(w32) ; t<<=(64-(nbits)) ; accum=(uint64_t)accum>>(nbits) ; accum|=t ; insert+=(nbits) ; }
 #define LE64_FAST_INSERT_NBITS(accum, insert, w32, nbits)  LE64_INSERT_NBITS(accum, insert, w32, nbits)
 // check that 32 bits can be safely inserted into accum
 // if not possible, store lower 32 bits of accum into stream, update accum, insert, stream
 // accum MUST be treated as "unsigned"
 #define LE64_INSERT_CHECK(accum, insert, stream) \
-        { *stream=((uint64_t)accum>>(64-insert)) ; if(insert > 32) { stream++ ; insert -= 32 ; } ; }
+        { if(insert > 32) { *stream=(((uint64_t)accum)>>(64-insert)) ; stream++ ; insert -= 32 ; } ; }
 // push data to stream without fully updating control info (stream, insert)
 #define LE64_PUSH(accum, insert, stream) \
         { LE64_INSERT_CHECK(accum, insert, stream) ; { if(insert > 0) { *stream = accum ; } ; } }
@@ -176,8 +181,9 @@
 #define LE64_PUT_NBITS(accum, insert, w32, nbits, stream) \
         { LE64_INSERT_NBITS(accum, insert, w32, nbits) ; LE64_INSERT_CHECK(accum, insert, stream) ; }
 #define LE64_FAST_PUT_NBITS(accum, insert, w32, nbits, stream) LE64_PUT_NBITS(accum, insert, w32, nbits, stream)
-// align insertion point to a 32 bit boundary
-#define LE64_INSERT_ALIGN(insert) { uint32_t tbits = 64 - insert ;  tbits &= 31 ; insert += tbits ; }
+// align insertion point to a 32 bit boundary (accum MUST BE UPDATED when filling from top)
+#define LE64_INSERT_ALIGN(insert, accum) { int tbits = 64 - insert ;  tbits &= 31 ; insert += tbits ; accum >>= tbits ; }
+// #define LE64_INSERT_ALIGN(insert) { if(insert > 32) tbits = 64 - insert ; else tbits = 32 - insert ; insert += tbits ; accum >>= tbits ; }
 // #define LE64_EZ_INSERT_ALIGN        { uint32_t tbits = 64 - StReAm_insert ; tbits &= 31 ; StReAm_insert += tbits ; }
 // #define LE64_STREAM_INSERT_ALIGN(s) { uint32_t tbits = 64 - StReAm_insert ; tbits &= 31 ; (s).insert += tbits ; }
 #endif  // FILL_FROM_TOP
@@ -186,7 +192,7 @@
 //        if w32 and accum are unsigned variables, the extract will produce an "unsigned" result
 //        new style : only w32 needs to be signed for signed extraction
 // N.B. : nbits MUST NOT BE 0
-// bit extraction is performed from the Least Significant Bits of the accumulator
+// bit extraction is performed from the Least Significant Bits of the accumulator (EXTRACT_FROM_BOTTOM)
 // initialize stream for extraction, load first 32 bits from stream into accum, set available bits count to 32
 #define LE64_XTRACT_BEGIN(accum, xtract, stream) { accum = (uint32_t) *(stream) ; (stream)++ ; xtract = 32 ; }
 // take a peek at the next nbits bits from accum into w32 (unsafe, assumes that nbits bits are available)
@@ -283,6 +289,7 @@
 // N.B. : if w32 and accum are signed variables, the extract will produce a "signed" result
 //        if w32 and accum are unsigned variables, the extract will produce an "unsigned" result
 // initialize stream for extraction
+// extraction from the top (most significant) part of accumulator then shift accumulator left (EXTRACT_FROM_TOP)
 #define BE64_XTRACT_BEGIN(accum, xtract, stream) { uint32_t t = *(stream) ; accum = t ; accum <<= 32 ; (stream)++ ; xtract = 32 ; }
 // take a peek at the next nbits bits from accum into w32 (unsafe, assumes that nbits bits are available)
 #define BE64_PEEK_NBITS(accum, xtract, w32, nbits) { w32 = accum >> (64 - (nbits)) ; }

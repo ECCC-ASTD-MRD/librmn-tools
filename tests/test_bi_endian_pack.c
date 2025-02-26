@@ -22,6 +22,9 @@
 
 #include <rmn/timers.h>
 #include <rmn/bits.h>
+
+#define FILL_FROM_TOP
+// #define FILL_FROM_BOTTOM
 #include <rmn/bi_endian_pack.h>
 // word stream macros and functions
 #include <rmn/word_stream.h>
@@ -46,7 +49,7 @@
 // pass 1 : build bit stream, read it
 // pass 2 : rewind bit stream, read it again
 // pass 3 : use data buffer to build a new stream, read it
-uint32_t test_ez_macros(int nvalues){
+uint32_t be_test_ez_macros(int nvalues){
   bitstream s = null_bitstream, s0, s1 ;
 
   // initialize stream for both insertion and extraction
@@ -152,6 +155,113 @@ read_again:
   return 0 ;   // success
 }
 
+uint32_t le_test_ez_macros(int nvalues){
+  bitstream s = null_bitstream, s0, s1 ;
+
+  // initialize stream for both insertion and extraction
+  LeStreamInit(&s, NULL, nvalues * sizeof(uint32_t), BIT_INSERT | BIT_XTRACT) ;
+  EZ_NEW_INSERT_VARS(s) ;        // declare insertion EZ variables and get values from bit stream
+  int i ;
+  uint32_t nbits, mask, w32 ;
+  size_t available_bits ;
+
+  // fill bit stream s
+  nbits = 4 ; mask = 0xF ;
+  print_stream_params(s, "s state before insertion", "RW") ;
+  for(i=0 ; i<nvalues ; i++){
+    if(i == mask){                                     // all bits are SET in i
+      nbits += 4 ;                                     // increase nbits, adjust mask accordingly
+      mask <<= 4 ;
+      mask |= 0xF ;
+      LE64_EZ_INSERT_ALIGN ;                           // align bit stream to a 32 bit boundary
+      EZ_SET_INSERT_VARS(s) ;                          // update bitstream struct data and metadata
+      available_bits = StreamAvailableBits(&s) ;
+      if( available_bits & 31l ) {                     // check 32 bit alignment
+        fprintf(stderr, "misaligned data after INSERT_ALIGN\n") ;
+        return 1 ;
+      }
+    }else{
+      LE64_EZ_PUT_NBITS(i, nbits) ;                    // insert value i in bit stream using nbits bits
+    }
+  }
+  LE64_EZ_INSERT_ALIGN ;                               // align bit stream to a 32 bit boundary after insertion
+  LE64_EZ_INSERT_FINAL ;                               // flush residual data to bit stream
+  EZ_SET_INSERT_VARS(s) ;                              // update bitstream struct data and metadata
+  print_stream_params(s, "s state after insertion", "RW") ;
+  size_t stream_bits = StreamStrictAvailableBits(&s) ;
+  fprintf(stderr, "bits available in stream = %5ld\n\n", stream_bits) ;
+
+  print_stream_params(s, "s state before extraction", "RW") ;
+  fprintf(stderr, "bits available after init          = %5ld\n", StreamStrictAvailableBits(&s)) ;
+  StreamSetFilledBits(&s, stream_bits) ;
+  fprintf(stderr, "bits available after SetFilledBits = %5ld\n", StreamStrictAvailableBits(&s)) ;
+
+  EZ_NEW_XTRACT_VARS(s) ;        // declare extraction EZ variables and get values from bit stream
+  int pass = 1 ;
+
+  // read bit stream s
+read_again:
+  fprintf(stderr, "\nread pass %d\n", pass) ;
+  print_stream_params(s, "s state at start of read", "RW") ;
+  nbits = 4 ; mask = 0xF ;
+  LE64_EZ_XTRACT_BEGIN ;
+  for(i=0 ; i<nvalues ; i++){
+    if(i == mask){                                    // all bits are SET in i
+      nbits +=4 ;                                     // increase nbits, adjust mask accordingly
+      mask <<= 4 ;
+      mask |= 0xF ;
+      LE64_EZ_XTRACT_ALIGN ;                          // skip to a 32 bit boundary in bit stream
+      EZ_SET_XTRACT_VARS(s) ;                         // update bitstream struct data and metadata
+      available_bits = StreamAvailableBits(&s) ;
+      if( available_bits & 31l ) {                    // check 32 bit alignment
+        fprintf(stderr, "misaligned data after XTRACT_ALIGN\n") ;
+        return 1 ;
+      }
+    }else{
+      LE64_EZ_GET_NBITS(w32, nbits) ;                 // extract value w32 (nbits wide) from bit stream
+      if(i != w32){                                   // check that it is the expected value (i)
+        fprintf(stderr, "expecting %3d, got %3d, xtract = %4d, accum = %16.16lx, i=%d, nbits=%d\n", i, w32, StReAm_xtract, StReAm_acc_x, i, nbits) ;
+        return 1 ;                                    // error
+      }
+    }
+  }
+
+  LE64_EZ_XTRACT_ALIGN ;                              // skip to a 32 bit boundary in bit stream
+  EZ_SET_XTRACT_VARS(s) ;                             // update bitstream struct data and metadata
+  print_stream_params(s, "s state after read", "RW") ;
+
+  if(pass == 1) {                                     // read s after rewinding s
+    fprintf(stderr, "\n") ;
+    pass++ ;
+    StreamRewind(&s, 0) ;                             // rewind stream, do not force read mode
+    EZ_GET_XTRACT_VARS(s) ;
+    print_stream_params(s, "s state after rewind", "RW") ;
+    goto read_again ;                                 // read stream again
+  }
+
+  fprintf(stderr, "\n") ;
+  if(pass == 2) {                                     // save s to s0, build s1 using buffer from s0
+    fprintf(stderr, "\n") ;
+    pass++ ;                                          // set s to s1
+    s0 = s ;                                          // copy s to s0 (save original s)
+    StreamRewind(&s, 0) ;                            // rewind s, do not force read mode
+    print_stream_params(s, "s state after rewind", "RW") ;
+    // build s1 using buffer from s, set buffer size to size from s
+    LeStreamInit(&s1, STREAM_BUFFER_ADDRESS(s0), STREAM_BUFFER_BYTES(s0), BIT_INSERT | BIT_XTRACT) ;
+    print_stream_params(s1, "s1 state after Init", "RW") ;
+    // set fill count using available bits count from s
+    StreamSetFilledBits(&s1, StreamAvailableBits(&s0)) ;    // 
+    print_stream_params(s1, "s1 state after SetFilledBits", "RW") ;
+    s = s1 ;
+    print_stream_params(s, "s state after copy from s1", "RW") ;
+    EZ_GET_XTRACT_VARS(s) ;
+    goto read_again ;                                 // read stream again
+  }
+
+  fprintf(stderr, "SUCCESS\n") ;
+  return 0 ;   // success
+}
+
 // syntax and functional test for the bi endian pack/unpack macros and functions
 int main(int argc, char **argv){
   uint32_t unpacked[NPTS], packedle[NPTS], packedbe[NPTS], restored[NPTS] ;
@@ -174,10 +284,14 @@ int main(int argc, char **argv){
   nano /= freq ;
 //   for(i=0 ; i<NTIMES ; i++) t[i] = 0 ;
 
-  TEE_FPRINTF(stderr,2, "=============== EZ macros test ===============\n") ;
-  if( test_ez_macros(4097) ) exit(1) ;
-// return 0 ;
+  TEE_FPRINTF(stderr,2, "=============== BE EZ macros test ===============\n") ;
+  if( be_test_ez_macros(4097) ) exit(1) ;
+
+  TEE_FPRINTF(stderr,2, "=============== LE EZ macros test ===============\n") ;
+  if( le_test_ez_macros(4097) ) exit(1) ;
+return 0 ;
   TEE_FPRINTF(stderr,2, "=============== functional and syntax test ===============\n") ;
+syntax:
 
   for(i=0 ; i<NPTS ; i++)  unpacked[i] = i + 16 ;
   for(i=0 ; i<NPTS ; i+=2) unpacked_signed[i] = i / 2 ;

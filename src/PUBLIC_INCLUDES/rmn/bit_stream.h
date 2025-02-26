@@ -70,6 +70,8 @@ static const bitstream null_bitstream = { .acc_i = 0, .acc_x = 0 , .insert = 0 ,
 // set endianness
 #define SET_BIG_ENDIAN      16
 #define SET_LITTLE_ENDIAN   32
+// validity marker
+#define VALID_STREAM 0xCAFEFADEu
 
 // endianness
 #define STREAM_BE 1
@@ -82,7 +84,7 @@ static const bitstream null_bitstream = { .acc_i = 0, .acc_x = 0 , .insert = 0 ,
 // is stream valid ?
 // s [IN] : pointer to a bit stream struct
 static inline int StreamIsValid(bitstream *s){
-  if(s->valid != 0xCAFEFADEu)                  return 0 ;    // incorrect marker
+  if(s->valid != VALID_STREAM)                 return 0 ;    // incorrect marker
   if(s->first == NULL)                         return 0 ;    // no buffer
   if(s->limit == NULL)                         return 0 ;    // invalid limit
   if(s->limit <= s->first)                     return 0 ;    // invalid first/limit combination
@@ -260,7 +262,7 @@ STATIC inline void  StreamInit(bitstream *s, void *mem, size_t size, int mode){
   }
   if((mode & (BIT_INSERT | BIT_XTRACT)) == 0) mode = mode | BIT_INSERT | BIT_XTRACT ;  // neither insert nor extract set, set both
 
-  if( (s->first != NULL) && (s->in != NULL) && (s->out != NULL) && (s->limit != NULL) && (s->valid == 0xCAFEFADEu) ){
+  if( (s->first != NULL) && (s->in != NULL) && (s->out != NULL) && (s->limit != NULL) && (s->valid == VALID_STREAM) ){
     buf = s->first ;        // existing and valid stream, already has a buffer, set buf to first, ignore mem
   }else{                    // not an existing stream, perform a full initialization
     if(buf == NULL){
@@ -273,7 +275,7 @@ STATIC inline void  StreamInit(bitstream *s, void *mem, size_t size, int mode){
     }
     s->full   = 0 ;                            // malloc not for both struct and buffer
     s->spare  = 0 ;
-    s->valid   = 0xCAFEFADEu ;                 // mark bit stream as valid
+    s->valid   = VALID_STREAM ;                // mark bit stream as valid
     s->first  = buf ;                          // stream storage buffer
     s->limit  = buf + size/sizeof(uint32_t) ;  // potential truncation to 32 bit alignment
   }
