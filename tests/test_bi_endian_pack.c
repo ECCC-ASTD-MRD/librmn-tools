@@ -202,6 +202,10 @@ uint32_t le_test_ez_macros(int nvalues){
   // read bit stream s
 read_again:
   fprintf(stderr, "\nread pass %d\n", pass) ;
+for(i=4 ; i>=0 ; i--) fprintf(stderr, "%8.8x ", s.first[i] );
+fprintf(stderr, "\n");
+for(i=4 ; i>=0 ; i--) fprintf(stderr, "%8.8x ", s.out[i] );
+fprintf(stderr, "\n");
   print_stream_params(s, "s state at start of read", "RW") ;
   nbits = 4 ; mask = 0xF ;
   LE64_EZ_XTRACT_BEGIN ;

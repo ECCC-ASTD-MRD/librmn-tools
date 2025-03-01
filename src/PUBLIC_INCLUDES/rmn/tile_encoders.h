@@ -17,6 +17,7 @@
 
 #include <rmn/ct_assert.h>
 #include <rmn/misc_operators.h>
+// packing macros
 #include <rmn/bi_endian_pack.h>
 // bit stream macros and functions
 #include <rmn/bit_stream.h>
