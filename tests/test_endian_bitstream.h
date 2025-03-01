@@ -14,12 +14,17 @@
 // Author:
 //     M. Valin,   Recherche en Prevision Numerique, 2025
 //
-{
-  int i, nbits = 12, npts = 255, errors ;
+#if defined(PREFIX_LE)
+int le_test(){
+#elif defined(PREFIX_BE)
+int be_test(){
+#endif
+  int i, nbits = 12, npts = 4095, errors ;
   size_t totbits = 0 ;
   uint32_t w32, sbuf[4096] ;
   bitstream s0 ;
 
+  fprintf(stderr, "============================== base test ==============================\n\n") ;
   s0 = null_bitstream ;
   InitStream(&s0, sbuf, sizeof(sbuf), 0);
   s0.endian = PACK_ENDIAN ;
@@ -51,21 +56,50 @@
   fprintf(stderr, "inserted %ld(%ld) bits\n", totbits, (totbits+31)/32*32) ;
   print_stream_params(s0, "after finalize", NULL) ;
 
-  fprintf(stderr, "SUCCESS\n") ;
-
   STREAM_REWIND(s0, 1) ;
   print_stream_params(s0, "after rewind", NULL) ;
   errors = 0 ;
   for(i=0 ; i<npts ; i++){
     STREAM_GET_NBITS(s0, w32, nbits) ;
-    if(w32 != i) errors++ ;
+    if(w32 != (uint32_t)i) errors++ ;
   }
-  fprintf(stderr, "%d errors detected when extracting from stream\n", errors) ;
   if(errors > 0) {
+    fprintf(stderr, "%d errors detected when extracting from stream\n", errors) ;
     return 1 ;
   }
-
   InitStream(&s0, sbuf, sizeof(sbuf), BIT_FULL_INIT);
   s0.endian = PACK_ENDIAN ;
   print_stream_params(s0, "after reinitialization", NULL) ;
+
+  fprintf(stderr, "SUCCESS\n") ;
+
+  fprintf(stderr, "============================== nbits = 1->32 test ==============================\n\n") ;
+  npts = 4096 ;
+  uint32_t mask ;
+  for(nbits = 1 ; nbits < 33 ; nbits++){
+    InitStream(&s0, sbuf, sizeof(sbuf), BIT_FULL_INIT);
+    s0.endian = PACK_ENDIAN ;
+    mask = -1 ;
+    mask >>= (32-nbits) ;
+    for(i=0 ; i<npts ; i++){
+      STREAM_PUT_NBITS(s0, (i & mask), nbits) ;
+    }
+    STREAM_INSERT_FINALIZE(s0) ;
+    STREAM_REWIND(s0, 1) ;
+    errors = 0 ;
+    for(i=0 ; i<npts ; i++){
+      STREAM_GET_NBITS(s0, w32, nbits) ;
+      if(w32 != (uint32_t)(i&mask)) errors++ ;
+    }
+    if(errors > 0) {
+      fprintf(stderr, "%d errors detected when extracting from stream\n", errors) ;
+      return 1 ;
+    }
+  }
+  fprintf(stderr, "SUCCESS\n") ;
+
+  return 0 ;
 }
+
+#undef PREFIX_BE
+#undef PREFIX_LE

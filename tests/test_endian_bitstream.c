@@ -30,7 +30,7 @@ void print_stream_data(bitstream s, char *msg, int edge){
   uint32_t *in = s.in ;
   uint32_t *first = s.first ;
   uint32_t *cur, *start ;
-  int inc ;
+  int inc, count = 0 ;
 
   fprintf(stderr, "[%2s] %s : ", STREAM_IS_LITTLE_ENDIAN(s) ? "LE" : "BE", msg) ;
   fprintf(stderr, "accum = %16.16lx", s.acc_i << (64 - s.insert)) ;
@@ -47,7 +47,8 @@ void print_stream_data(bitstream s, char *msg, int edge){
     if(cur-first < edge || in-cur <= edge) {
       fprintf(stderr, " %8.8x ", *cur) ;
     }else{
-      fprintf(stderr, ".") ;
+      count++ ;
+      if((count & 0xFF) == 1) fprintf(stderr, ".") ;
     }
   }
   fprintf(stderr, "\n") ;
@@ -80,23 +81,13 @@ void print_stream_params(bitstream s, char *msg, char *expected_mode){
   fprintf(stderr, "\n") ;
 }
 
-int be_test(){
-
-  fprintf(stderr, "\n============================== BE test ==============================\n\n") ;
 #include <rmn/be_stream.h>
+#define PREFIX_BE
 #include "test_endian_bitstream.h"
 
-  return 0 ;
-}
-
-int le_test(){
-
-  fprintf(stderr, "\n============================== LE test ==============================\n\n") ;
 #include <rmn/le_stream.h>
+#define PREFIX_LE
 #include "test_endian_bitstream.h"
-
-  return 0 ;
-}
 
 int main(int argc, char **argv){
 
@@ -107,7 +98,10 @@ int main(int argc, char **argv){
   }
   fprintf(stderr, " ==============================\n") ;
 
+  fprintf(stderr, "\n============================== LE test ==============================\n\n") ;
   if(le_test()) goto fail ;
+
+  fprintf(stderr, "\n============================== BE test ==============================\n\n") ;
   if(be_test()) goto fail ;
 
 //   fprintf(stderr, "SUCCESS\n") ;
