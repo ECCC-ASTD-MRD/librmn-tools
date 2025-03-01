@@ -9,6 +9,7 @@ set(PROJECT_C_FILES
   src/pred/average_2x2.c
   src/pack/array_nd.c
   src/pack/bits.c
+  src/pack/bitstream.c
   src/pack/bi_endian_pack.c
   src/pack/data_map.c
   src/pack/dmapfilters.c
