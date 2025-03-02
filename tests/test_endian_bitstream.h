@@ -86,7 +86,7 @@ int CONCAT(PREFIX,test)(){
   s0.endian = PACK_ENDIAN ;
   for(nbits = 1 ; nbits < 33 ; nbits++){
     STREAM_REWRITE(s0, 1) ; StreamRewrite(&s0, 1) ;
-    mask = -1 ;
+    mask = 0xFFFFFFFFu ;
     mask >>= (32-nbits) ;
     for(i=0 ; i<npts ; i++){
       STREAM_PUT_NBITS(s0, (i & mask), nbits) ;
