@@ -81,12 +81,17 @@ void print_stream_params(bitstream s, char *msg, char *expected_mode){
   fprintf(stderr, "\n") ;
 }
 
+#define CONCAT_(A,B) A##B
+#define CONCAT(A,B) CONCAT_(A,B)
+
 #include <rmn/be_stream.h>
-#define PREFIX_BE
+// test functions in Big Endian mode
+#define PREFIX be_
 #include "test_endian_bitstream.h"
 
 #include <rmn/le_stream.h>
-#define PREFIX_LE
+// test functions in Little Endian mode
+#define PREFIX le_
 #include "test_endian_bitstream.h"
 
 int main(int argc, char **argv){

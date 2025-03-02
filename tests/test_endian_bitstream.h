@@ -14,11 +14,8 @@
 // Author:
 //     M. Valin,   Recherche en Prevision Numerique, 2025
 //
-#if defined(PREFIX_LE)
-int le_test(){
-#elif defined(PREFIX_BE)
-int be_test(){
-#endif
+
+int CONCAT(PREFIX,test)(){
   int i, nbits = 12, npts = 4095, errors ;
   size_t totbits = 0 ;
   uint32_t w32, sbuf[4096] ;
@@ -101,5 +98,4 @@ int be_test(){
   return 0 ;
 }
 
-#undef PREFIX_BE
-#undef PREFIX_LE
+#undef PREFIX
