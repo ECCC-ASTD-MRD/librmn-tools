@@ -92,4 +92,7 @@ ssize_t StreamAvailableSpace(bitstream *s);
 char *StreamMode(bitstream s);
 int StreamModeCode(bitstream s);
 
+void StreamReset(bitstream *s);
+size_t StreamDataCopy(bitstream *s, void *mem, size_t size);
+
 #endif

@@ -17,6 +17,9 @@
 // set of functions to manage a bit stream
 // N.B. this bitstream is a sequence of 32 bit unsigned integers
 
+#include <string.h>
+#include <stdio.h>
+
 #include <rmn/bitstream.h>
 
 // =========================== utility functions ======================
@@ -135,25 +138,32 @@ end:
 
 // =======================  stream utilities  =======================
 
-// number of bits available for extraction
+// s    [IN] : pointer to an existing bitstream structure
+// return number of bits available for extraction
 size_t StreamAvailableBits(bitstream *s){
-//   if(s->xtract < 0) return -1 ;             // extraction not allowed
-  int32_t in_xtract = (s->xtract < 0) ? 0 : s->xtract ;
-  return (s->in - s->out)*32 + ((s->insert < 0) ? 0 :s->insert ) + in_xtract ;  // stream + accumulators contents
+  if(s->xtract < 0) return -1 ;                               // extraction is not allowed
+  int32_t in_xtract = (s->xtract < 0) ? 0 : s->xtract ;       // bits in extract accumulator
+  int32_t in_insert = (s->insert < 0) ? 0 : s->insert ;       // bits in insert accumulator
+  return (s->in - s->out)*32 + in_insert + in_xtract ;        // stream + bits in accumulators
 }
-// in strict mode, 
+
+// s    [IN] : pointer to an existing bitstream structure
+// return number of bits available for extraction
+// in strict mode, bits in insert accumulator are ignored
 size_t StreamStrictAvailableBits(bitstream *s){
-//   if(s->xtract < 0) return -1 ;             // extraction not allowed
-  int32_t in_xtract = (s->xtract < 0) ? 0 : s->xtract ;
-  return (s->in - s->out)*32 + in_xtract ;              // stream + extract accumulator contents
+  if(s->xtract < 0) return -1 ;                               // extraction is not allowed
+  int32_t in_xtract = (s->xtract < 0) ? 0 : s->xtract ;       // bits in accumulator
+  return (s->in - s->out)*32 + in_xtract ;                    // stream + extract accumulator contents
 }
 
-// number of bits available for insertion
+// s    [IN] : pointer to an existing bitstream structure
+// return number of bits available for insertion
 ssize_t StreamAvailableSpace(bitstream *s){
-  if(s->insert < 0) return -1 ;   // insertion not allowd
-  return (s->limit - s->in)*32 - s->insert ;
+  if(s->insert < 0) return -1 ;   // insertion is not allowd
+  return (s->limit - s->in)*32 - s->insert ;   // available space in stream buffer minus accumulator contents
 }
 
+// s    [IN] : pointer to an existing bitstream structure
 // get stream mode as a string
 char *StreamMode(bitstream s){
   if( STREAM_INSERT_MODE(s) && STREAM_XTRACT_MODE(s)) return("RW") ;
@@ -161,10 +171,63 @@ char *StreamMode(bitstream s){
   if( STREAM_INSERT_MODE(s) ) return "W" ;
   return("Unknown") ;
 }
+
+// s    [IN] : pointer to an existing bitstream structure
 // get stream mode as a code
 int StreamModeCode(bitstream s){
   int32_t mode = 0 ;
   if( STREAM_XTRACT_MODE(s) ) mode |= BIT_XTRACT ;
   if( STREAM_INSERT_MODE(s) ) mode |= BIT_INSERT ;
   return mode ? mode : -1 ;                               // return -1 if neither extract nor insert is set
+}
+
+// =======================  stream reset =======================
+// s    [IN] : pointer to an existing bitstream structure
+// reset both read and write pointers to beginning of stream (according to insert/xtract only flags)
+void StreamReset(bitstream *s){
+  if(s->insert >= 0){      // insertion allowed
+    s->in     = s->first ;
+    s->acc_i  = 0 ;
+    s->insert = 0 ;
+  }
+  if(s->xtract >= 0){      // extraction allowed
+    s->out    = s->first ;
+    s->acc_x  = 0 ;
+    s->xtract = 0 ;
+  }
+}
+// =======================  stream data copy  =======================
+//
+// copy stream data into array mem (from beginning up to in pointer and data in accumulator if any)
+// the original stream control info remains untouched (up to 2 32 bit items may get added to its buffer)
+// stream [IN] : pointer to bit stream struct
+// mem   [OUT] : where to copy
+// size   [IN] : size of mem array in bytes
+// return original size of valid info from stream in bits (-1 in case of error)
+size_t StreamDataCopy(bitstream *s, void *mem, size_t size){
+  size_t nbtot, nborig ;
+  bitstream temp ;    // temporary struct used during the copy process
+
+  if(! StreamIsValid(s))         return -1 ;               // invalid stream
+  temp = *s ;                                              // copy stream struct to avoid altering original
+
+  // precise number of used bits in stream buffer
+  nborig = (temp.in - temp.first) * 8 * sizeof(uint32_t) + ((temp.insert > 0) ? temp.insert : 0) ;
+  if(temp.insert > 0) {                                    // flush contents of accumulator into buffer
+    if(temp.endian == STREAM_BE){                          // Big Endian flush
+      *(temp.in) = (temp.acc_i >> 32) ; (temp.in)++ ;
+      if(temp.insert > 32){ *(temp.in) = temp.acc_i ; (temp.in)++ ; }
+    }else{                                                 // Little Endian flush
+      temp.acc_i >>= (64 - temp.insert) ;                  // right align accumulator
+      *(temp.in) = temp.acc_i ; (temp.in)++ ;              // lower 32 bits
+      if(temp.insert > 32){ *(temp.in) = (temp.acc_i >> 32) ; (temp.in)++ ; }
+    }
+    temp.insert = 0 ; temp.acc_i = 0 ;
+  }
+  nbtot = (temp.in - temp.first) * sizeof(uint32_t) ;           // size in bytes when nothing is left in acumulator
+  if(nbtot == 0) return 0 ;                                     // there was no data in stream
+  if(nbtot > size) return -1 ;                                  // insufficient space
+  if(mem != memmove(mem, temp.first, nbtot)) return -1 ;        // error copying
+// fprintf(stderr, "StreamDataCopy : nborig = %ld bits, nbtot = %ld bits\n", nborig, nbtot*8) ;
+  return nborig ;                                               // return unrounded result
 }

@@ -66,7 +66,7 @@
 // store any residual data from accum into stream, update accum, insert, stream
 #undef INSERT_FINALIZE
 #define INSERT_FINALIZE(accum, insert, streamptr) \
-        { INSERT_CHECK(accum, insert, streamptr) ; if(insert > 0) { *(streamptr) = (uint64_t) accum >> 32 ; (streamptr)++ ; insert = 0 ; } }
+        { INSERT_CHECK(accum, insert, streamptr) ; if(insert > 0) { *(streamptr) = (uint64_t) accum >> 32 ; (streamptr)++ ; insert = 0; accum = 0 ; } }
 
 // alignment calls should be preceded or followed with INSERT_CHECK/STREAM_INSERT_CHECK
 // align insertion point to a 32 bit boundary (an appropriate number of 0 bits will be inserted into accumulator)

@@ -533,7 +533,7 @@ STATIC inline void StreamRewind(bitstream *s, int force_read){
   if(STREAM_IS_BIG_ENDIAN(*s))    BeStreamRewind(s, force_read) ;
   if(STREAM_IS_LITTLE_ENDIAN(*s)) LeStreamRewind(s, force_read) ;
 }
-
+#if 0
 // =======================  stream reset =======================
 // reset both read and write pointers to beginning of stream (according to insert/xtract only flags)
 // STATIC inline void  StreamRewrite(bitstream *s){
@@ -553,7 +553,10 @@ STATIC inline void  StreamReset(bitstream *s){
 //     if(STREAM_IS_LITTLE_ENDIAN(*s)) LE64_STREAM_XTRACT_BEGIN(*s) ;
   }
 }
-
+#else
+void  StreamReset(bitstream *s) ;
+#endif
+#if 0
 // =======================  stream peek (extraction mode) =======================
 //
 // take a peek at future extracted data
@@ -583,7 +586,7 @@ STATIC inline int32_t BeStreamPeekSigned(bitstream *s, int nbits){
   BE64_PEEK_NBITS((int64_t) s->acc_x, s->xtract, w32, nbits) ;
   return w32 ;
 }
-
+#endif
 // =======================  stream data access  =======================
 //
 // copy stream data into array mem (from beginning up to in pointer and data in accumulator if any)

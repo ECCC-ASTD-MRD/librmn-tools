@@ -17,8 +17,8 @@
 
 int CONCAT(PREFIX,test)(){
   int i, nbits = 12, npts = 4095, errors ;
-  size_t totbits = 0 ;
-  uint32_t w32, sbuf[4096] ;
+  size_t totbits = 0, copybits ;
+  uint32_t w32, sbuf[4096], copy_buffer[4096] ;
   bitstream s0 ;
 
   fprintf(stderr, "============================== base test ==============================\n\n") ;
@@ -48,10 +48,17 @@ int CONCAT(PREFIX,test)(){
     fprintf(stderr, "StreamAvailableBits = %ld, expecting %ld\n", StreamAvailableBits(&s0), totbits) ;
     return 1 ;
   }
+
+  copybits = StreamDataCopy(&s0, (void *)copy_buffer, sizeof(copy_buffer));
+  fprintf(stderr, "before finalize, copied %ld bits from s0 stream\n", copybits) ;
+
   STREAM_INSERT_FINALIZE(s0) ;
   print_stream_data(s0, "s0", 3) ;
   fprintf(stderr, "inserted %ld(%ld) bits\n", totbits, (totbits+31)/32*32) ;
   print_stream_params(s0, "after finalize", NULL) ;
+
+  copybits = StreamDataCopy(&s0, (void *)copy_buffer, sizeof(copy_buffer));
+  fprintf(stderr, "after finalize, copied %ld bits from s0 stream\n", copybits) ;
 
   STREAM_REWIND(s0, 1) ;
   print_stream_params(s0, "after rewind", NULL) ;
@@ -73,9 +80,10 @@ int CONCAT(PREFIX,test)(){
   fprintf(stderr, "============================== nbits = 1->32 test ==============================\n\n") ;
   npts = 4096 ;
   uint32_t mask ;
+  InitStream(&s0, sbuf, sizeof(sbuf), BIT_FULL_INIT) ;
+  s0.endian = PACK_ENDIAN ;
   for(nbits = 1 ; nbits < 33 ; nbits++){
-    InitStream(&s0, sbuf, sizeof(sbuf), BIT_FULL_INIT);
-    s0.endian = PACK_ENDIAN ;
+    STREAM_REWRITE(s0, 1) ;
     mask = -1 ;
     mask >>= (32-nbits) ;
     for(i=0 ; i<npts ; i++){

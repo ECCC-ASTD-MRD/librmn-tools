@@ -104,5 +104,15 @@
 // rewind a bit stream to read it from the beginning (potentially force valid read mode)
 #undef STREAM_REWIND
 #define STREAM_REWIND(s, force_read) { \
-  if(s.insert > 0) STREAM_INSERT_PUSH(s) ; if(force_read) s.xtract = 0 ;     \
-  if(s.xtract >= 0){ s.acc_x  = 0 ; s.out = s.first ; }               }
+  if(s.insert > 0) { STREAM_INSERT_PUSH(s) ; } if(force_read) { s.xtract = 0 ; }  \
+  if(s.xtract >= 0){ s.acc_x  = 0 ; s.out = s.first ; } }
+
+// rewind a bit stream to rewrite it from the beginning (potentially force valid write mode)
+#undef STREAM_REWRITE
+#define STREAM_REWRITE(s, force_write) { \
+  if(s.insert > 0) { STREAM_INSERT_PUSH(s) ; } if(force_write) { s.insert = 0 ; }  \
+  if(s.insert >= 0){ s.acc_i  = 0 ; s.in = s.first ; } }
+
+// flush stream being written into if any data left in insertion accumulator
+#undef STREAM_FLUSH
+#define STREAM_FLUSH(s) { STREAM_INSERT_FINALIZE(s) }
