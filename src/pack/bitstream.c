@@ -1,0 +1,170 @@
+//
+// Copyright (C) 2025  Environnement Canada
+//
+// This is free software; you can redistribute it and/or
+// modify it under the terms of the GNU Lesser General Public
+// License as published by the Free Software Foundation,
+// version 2.1 of the License.
+//
+// This software is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+// Lesser General Public License for more details .
+//
+// Author:
+//     M. Valin,   Recherche en Prevision Numerique, 2025
+//
+// set of functions to manage a bit stream
+// N.B. this bitstream is a sequence of 32 bit unsigned integers
+
+#include <rmn/bitstream.h>
+
+// =========================== utility functions ======================
+// is stream valid ?
+// s [IN] : pointer to a bit stream struct
+int StreamIsValid(bitstream *s){
+  if(s->valid != VALID_STREAM)                 return 0 ;    // incorrect marker
+  if(s->first == NULL)                         return 0 ;    // no buffer
+  if(s->limit == NULL)                         return 0 ;    // invalid limit
+  if(s->limit <= s->first)                     return 0 ;    // invalid first/limit combination
+  if(s->in < s->first  || s->in > s->limit)    return 0 ;    // in is out of bounds
+  if(s->out < s->first || s->out > s->limit)   return 0 ;    // out is out of bounds
+  if(s->endian == 0 || s->endian == 3 )        return 0 ;    // invalid endianness
+  return 1 ;                                                 // probably valid stream
+}
+
+int StreamIsInvalid(bitstream *s){
+  return (1 - StreamIsValid(s)) ;
+}
+
+// =======================  stream initialization  =======================
+//
+// generic bit stream (re)initializer
+// s    [OUT] : pointer to an existing bitstream structure (structure will be updated)
+// mem   [IN] : pointer to user supplied memory (if NULL, use malloc to allocate memory for bit stream data)
+// size  [IN] : size of the memory area (user supplied or auto allocated) (BYTES)
+// mode  [IN] : combination of BIT_INSERT, BIT_XTRACT, BIT_FULL_INIT
+// if mode == 0, both insertion and extraction operations are allowed
+// size is in bytes
+void  InitStream(bitstream *s, void *mem, size_t size, int mode){
+  uint32_t *buf = (uint32_t *) mem ;
+  if(mode & BIT_FULL_INIT){
+    *s = null_bitstream ;    // perform a full (re)initialization, nullify all fields
+  }
+  if((mode & (BIT_INSERT | BIT_XTRACT)) == 0) mode = mode | BIT_INSERT | BIT_XTRACT ;  // neither insert nor extract set, set both
+
+  if( (s->first != NULL) && (s->in != NULL) && (s->out != NULL) && (s->limit != NULL) && (s->valid == VALID_STREAM) ){
+    buf = s->first ;        // existing and valid stream, already has a buffer, set buf to first, ignore mem
+  }else{                    // not an existing stream, perform a full initialization
+    if(buf == NULL){
+      s->user   = 0 ;                          // not user supplied space
+      s->alloc  = 1 ;                          // auto allocated space (can be freed if resizing)
+      buf    = (uint32_t *) malloc(size) ;     // allocate space to accomodate up to size bytes
+    }else{
+      s->user   = 1 ;                          // user supplied space
+      s->alloc  = 0 ;                          // not auto allocated space
+    }
+    s->full   = 0 ;                            // malloc not for both struct and buffer
+    s->spare  = 0 ;
+    s->valid   = VALID_STREAM ;                // mark bit stream as valid
+    s->first  = buf ;                          // stream storage buffer
+    s->limit  = buf + size/sizeof(uint32_t) ;  // potential truncation to 32 bit alignment
+  }
+
+  s->in     = buf ;                            // stream is empty and insertion starts at beginning of buffer
+  s->out    = buf ;                            // stream is filled and extraction starts at beginning of buffer
+  s->acc_i  = 0 ;                              // insertion accumulator is empty
+  s->acc_x  = 0 ;                              // extraction accumulator is empty
+  s->insert = 0 ;                              // insertion point at first free bit
+  s->xtract = 0 ;                              // extraction point at first available bit
+  if((mode & BIT_XTRACT) == 0) s->xtract = -1 ;  // deactivate extract mode (insert only mode)
+  if((mode & BIT_INSERT) == 0) s->insert = -1 ;  // deactivate insert mode  (extract only mode)
+  if(mode & SET_BIG_ENDIAN   ) s->endian = STREAM_BE ;
+  if(mode & SET_LITTLE_ENDIAN) s->endian = STREAM_LE ;
+//   if(s->endian == 0) s->endian = STREAM_BE ;   //  default to BIG endian if not already defined
+}
+
+// mem   [IN] : pointer to user supplied memory (if NULL, use malloc to allocate memory for bit stream data)
+// size  [IN] : size of the memory area (user supplied or auto allocated) (BYTES)
+// mode  [IN] : combination of BIT_INSERT, BIT_XTRACT, BIT_FULL_INIT
+// if mode == 0, both insertion and extraction operations are allowed
+// size is in bytes
+// return pointer to created bitstream
+bitstream *CreateStream(void *mem, size_t size, int mode){
+  char *data = mem ;
+  size_t size_alloc = sizeof(bitstream) ;
+  bitstream *s ;
+  if(data == NULL) size_alloc += size ;
+  s = (bitstream *) malloc(size_alloc) ;
+  if(s == NULL) return NULL ;
+
+  if(data == NULL){
+    data = (char *)s ;
+    data += sizeof(bitstream) ;
+  }
+  InitStream(s, data, size, mode) ;
+  s->full = 1 ;
+  return s ;
+}
+
+// generic bit stream destructor
+// s    [IN] : pointer to an existing bitstream structure
+// return 0 if operation successful, non zero if there was an error
+bitstream *FreeStream(bitstream *s, int *error){
+  if(StreamIsInvalid(s)){     // not a valid stream
+    *error = 1 ;
+    s = NULL ;
+// fprintf(stderr, "invalid stream\n");
+    goto end ;
+  }
+
+  if(s->full){                   // the whole bitstream struct was allocated with malloc()
+    free(s) ;
+    s = NULL ;
+    *error = 0 ;
+// fprintf(stderr, "fully allocated stream\n");
+    goto end ;
+  }
+// fprintf(stderr, "stream with buffer at %p, alloc = %d\n", (void *)s->first, s->alloc);
+  if(s->alloc) free(s->first) ;  // the stream buffer was not supplied by the user
+  *s = null_bitstream ;          // blank stream
+
+end:
+  return s ;
+}
+
+// =======================  stream utilities  =======================
+
+// number of bits available for extraction
+size_t StreamAvailableBits(bitstream *s){
+//   if(s->xtract < 0) return -1 ;             // extraction not allowed
+  int32_t in_xtract = (s->xtract < 0) ? 0 : s->xtract ;
+  return (s->in - s->out)*32 + ((s->insert < 0) ? 0 :s->insert ) + in_xtract ;  // stream + accumulators contents
+}
+// in strict mode, 
+size_t StreamStrictAvailableBits(bitstream *s){
+//   if(s->xtract < 0) return -1 ;             // extraction not allowed
+  int32_t in_xtract = (s->xtract < 0) ? 0 : s->xtract ;
+  return (s->in - s->out)*32 + in_xtract ;              // stream + extract accumulator contents
+}
+
+// number of bits available for insertion
+ssize_t StreamAvailableSpace(bitstream *s){
+  if(s->insert < 0) return -1 ;   // insertion not allowd
+  return (s->limit - s->in)*32 - s->insert ;
+}
+
+// get stream mode as a string
+char *StreamMode(bitstream s){
+  if( STREAM_INSERT_MODE(s) && STREAM_XTRACT_MODE(s)) return("RW") ;
+  if( STREAM_XTRACT_MODE(s) ) return "R" ;
+  if( STREAM_INSERT_MODE(s) ) return "W" ;
+  return("Unknown") ;
+}
+// get stream mode as a code
+int StreamModeCode(bitstream s){
+  int32_t mode = 0 ;
+  if( STREAM_XTRACT_MODE(s) ) mode |= BIT_XTRACT ;
+  if( STREAM_INSERT_MODE(s) ) mode |= BIT_INSERT ;
+  return mode ? mode : -1 ;                               // return -1 if neither extract nor insert is set
+}
