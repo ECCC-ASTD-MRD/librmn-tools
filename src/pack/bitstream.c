@@ -22,25 +22,7 @@
 
 #include <rmn/bitstream.h>
 
-// =========================== utility functions ======================
-// is stream valid ?
-// s [IN] : pointer to a bit stream struct
-int StreamIsValid(bitstream *s){
-  if(s->valid != VALID_STREAM)                 return 0 ;    // incorrect marker
-  if(s->first == NULL)                         return 0 ;    // no buffer
-  if(s->limit == NULL)                         return 0 ;    // invalid limit
-  if(s->limit <= s->first)                     return 0 ;    // invalid first/limit combination
-  if(s->in < s->first  || s->in > s->limit)    return 0 ;    // in is out of bounds
-  if(s->out < s->first || s->out > s->limit)   return 0 ;    // out is out of bounds
-  if(s->endian == 0 || s->endian == 3 )        return 0 ;    // invalid endianness
-  return 1 ;                                                 // probably valid stream
-}
-
-int StreamIsInvalid(bitstream *s){
-  return (1 - StreamIsValid(s)) ;
-}
-
-// =======================  stream initialization  =======================
+// =======================  stream initialization functions =======================
 //
 // generic bit stream (re)initializer
 // s    [OUT] : pointer to an existing bitstream structure (structure will be updated)
@@ -136,7 +118,90 @@ end:
   return s ;
 }
 
-// =======================  stream utilities  =======================
+// =======================  stream utility functions  =======================
+
+// flush any insertion data left in accumulator into stream
+// s [IN] : pointer to a bit stream struct
+// return 0 if O.K., non zero in case of error
+int StreamFlush(bitstream *s){
+
+  if(! StreamIsValid(s))         return 1 ;              // invalid stream
+
+  if(s->insert > 0) {                                    // flush contents of accumulator into buffer
+    if(s->endian == STREAM_BE){                          // Big Endian flush
+      *(s->in) = (s->acc_i >> 32) ; (s->in)++ ;
+      if(s->insert > 32){ *(s->in) = s->acc_i ; (s->in)++ ; }
+    }else{                                               // Little Endian flush
+      s->acc_i >>= (64 - s->insert) ;                    // right align accumulator
+      *(s->in) = s->acc_i ; (s->in)++ ;                  // lower 32 bits
+      if(s->insert > 32){ *(s->in) = (s->acc_i >> 32) ; (s->in)++ ; }
+    }
+    s->insert = 0 ; s->acc_i = 0 ;
+  }
+  return 0 ;
+}
+
+// rewind a bit stream to read it from the beginning (potentially force valid read mode)
+// s    [IN] : pointer to an existing bitstream structure
+// return 0 if O.K., non zero if error
+int StreamRewind(bitstream *s, int force_read){
+  if(! StreamIsValid(s))         return 1 ;              // invalid stream
+  if(s->insert > 0) StreamFlush(s) ;                     // data left in insert accumulator
+  if(force_read) s->xtract = 0 ;
+  if(s->xtract >= 0){
+    s->acc_x  = 0 ;
+    s->out = s->first ;
+  }
+  return 0 ;
+}
+
+// rewind a bit stream to rewrite it from the beginning (potentially force valid write mode)
+// s    [IN] : pointer to an existing bitstream structure
+// return 0 if O.K., non zero if error
+int StreamRewrite(bitstream *s, int force_write){
+  if(! StreamIsValid(s))         return 1 ;              // invalid stream
+  if(force_write) s->insert = 0 ;
+  if(s->insert > 0) StreamFlush(s) ;                     // data left in insert accumulator
+  s->acc_i  = 0 ;
+  s->in = s->first ;
+  return 0 ;
+}
+
+// reset both read and write pointers to beginning of stream (according to insert/xtract only flags)
+// s    [IN] : pointer to an existing bitstream structure
+// return 0 if O.K., non zero if error
+int StreamReset(bitstream *s){
+  if(! StreamIsValid(s))         return 1 ;              // invalid stream
+  if(s->insert >= 0){      // insertion allowed
+    s->in     = s->first ;
+    s->acc_i  = 0 ;
+    s->insert = 0 ;
+  }
+  if(s->xtract >= 0){      // extraction allowed
+    s->out    = s->first ;
+    s->acc_x  = 0 ;
+    s->xtract = 0 ;
+  }
+  return 0 ;
+}
+// =======================  stream information  =======================
+
+// is stream valid ?
+// s [IN] : pointer to a bit stream struct
+int StreamIsValid(bitstream *s){
+  if(s->valid != VALID_STREAM)                 return 0 ;    // incorrect marker
+  if(s->first == NULL)                         return 0 ;    // no buffer
+  if(s->limit == NULL)                         return 0 ;    // invalid limit
+  if(s->limit <= s->first)                     return 0 ;    // invalid first/limit combination
+  if(s->in < s->first  || s->in > s->limit)    return 0 ;    // in is out of bounds
+  if(s->out < s->first || s->out > s->limit)   return 0 ;    // out is out of bounds
+  if(s->endian == 0 || s->endian == 3 )        return 0 ;    // invalid endianness
+  return 1 ;                                                 // probably valid stream
+}
+
+int StreamIsInvalid(bitstream *s){
+  return (1 - StreamIsValid(s)) ;
+}
 
 // s    [IN] : pointer to an existing bitstream structure
 // return number of bits available for extraction
@@ -181,21 +246,6 @@ int StreamModeCode(bitstream s){
   return mode ? mode : -1 ;                               // return -1 if neither extract nor insert is set
 }
 
-// =======================  stream reset =======================
-// s    [IN] : pointer to an existing bitstream structure
-// reset both read and write pointers to beginning of stream (according to insert/xtract only flags)
-void StreamReset(bitstream *s){
-  if(s->insert >= 0){      // insertion allowed
-    s->in     = s->first ;
-    s->acc_i  = 0 ;
-    s->insert = 0 ;
-  }
-  if(s->xtract >= 0){      // extraction allowed
-    s->out    = s->first ;
-    s->acc_x  = 0 ;
-    s->xtract = 0 ;
-  }
-}
 // =======================  stream data copy  =======================
 //
 // copy stream data into array mem (from beginning up to in pointer and data in accumulator if any)
@@ -213,21 +263,83 @@ size_t StreamDataCopy(bitstream *s, void *mem, size_t size){
 
   // precise number of used bits in stream buffer
   nborig = (temp.in - temp.first) * 8 * sizeof(uint32_t) + ((temp.insert > 0) ? temp.insert : 0) ;
-  if(temp.insert > 0) {                                    // flush contents of accumulator into buffer
-    if(temp.endian == STREAM_BE){                          // Big Endian flush
-      *(temp.in) = (temp.acc_i >> 32) ; (temp.in)++ ;
-      if(temp.insert > 32){ *(temp.in) = temp.acc_i ; (temp.in)++ ; }
-    }else{                                                 // Little Endian flush
-      temp.acc_i >>= (64 - temp.insert) ;                  // right align accumulator
-      *(temp.in) = temp.acc_i ; (temp.in)++ ;              // lower 32 bits
-      if(temp.insert > 32){ *(temp.in) = (temp.acc_i >> 32) ; (temp.in)++ ; }
-    }
-    temp.insert = 0 ; temp.acc_i = 0 ;
-  }
+  StreamFlush(&temp);                                          // flush contents of accumulator into buffer
+//   if(temp.insert > 0) {                                    // flush contents of accumulator into buffer
+//     if(temp.endian == STREAM_BE){                          // Big Endian flush
+//       *(temp.in) = (temp.acc_i >> 32) ; (temp.in)++ ;
+//       if(temp.insert > 32){ *(temp.in) = temp.acc_i ; (temp.in)++ ; }
+//     }else{                                                 // Little Endian flush
+//       temp.acc_i >>= (64 - temp.insert) ;                  // right align accumulator
+//       *(temp.in) = temp.acc_i ; (temp.in)++ ;              // lower 32 bits
+//       if(temp.insert > 32){ *(temp.in) = (temp.acc_i >> 32) ; (temp.in)++ ; }
+//     }
+//     temp.insert = 0 ; temp.acc_i = 0 ;
+//   }
   nbtot = (temp.in - temp.first) * sizeof(uint32_t) ;           // size in bytes when nothing is left in acumulator
   if(nbtot == 0) return 0 ;                                     // there was no data in stream
   if(nbtot > size) return -1 ;                                  // insufficient space
   if(mem != memmove(mem, temp.first, nbtot)) return -1 ;        // error copying
 // fprintf(stderr, "StreamDataCopy : nborig = %ld bits, nbtot = %ld bits\n", nborig, nbtot*8) ;
   return nborig ;                                               // return unrounded result
+}
+
+// =======================  print stream data and metadata  =======================
+// print some elements at the beginning and at the end of the bit stream data buffer
+// (see bi_endian_pack.h)
+// s    [IN] : bitstream structure
+// msg  [IN] : user message
+// edge [IN] : do not print data elements more that edge positions from first or in
+void StreamPrintData(bitstream s, char *msg, int edge){
+  uint32_t *in = s.in ;
+  uint32_t *first = s.first ;
+  uint32_t *cur, *start ;
+  int inc, count = 0 ;
+
+  fprintf(stderr, "[%2s] %s : ", STREAM_IS_LITTLE_ENDIAN(s) ? "LE" : "BE", msg) ;
+  fprintf(stderr, "accum = %16.16lx", s.acc_i << (64 - s.insert)) ;
+  fprintf(stderr, ", guard = %8.8x, data =", *in) ;
+
+  if(STREAM_IS_LITTLE_ENDIAN(s)){
+    cur = in ; inc = -1 ;
+  }else{                            // big endian or not specified
+    cur = first ; inc = +1 ;
+  }
+
+  for(start=first ; start <= in ; start++, cur = cur + inc){
+    if(in - cur == 0 && s.insert == 0) continue ;          // last element not used
+    if(cur-first < edge || in-cur <= edge) {
+      fprintf(stderr, " %8.8x ", *cur) ;
+    }else{
+      count++ ;
+      if((count & 0xFF) == 1) fprintf(stderr, ".") ;
+    }
+  }
+  fprintf(stderr, "\n") ;
+}
+
+// print bit stream control information
+// s             [IN] : bitstream structure
+// msg           [IN] : user message
+// expected_mode [IN] : "R", "W", or "RW"  read/write/read-write, expected mode for bit stream
+void StreamPrintParams(bitstream s, char *msg, char *expected_mode){
+  int32_t available        = StreamAvailableBits(&s) ;
+  int32_t strict_available = StreamStrictAvailableBits(&s) ;
+  int32_t space_available   = StreamAvailableSpace(&s) ;
+
+  available = (available < 0) ? 0 : available ;
+  strict_available = (strict_available < 0) ? 0 : strict_available ;
+  fprintf(stderr, "%s: filled = %d(%d), free= %d, first/in/out/limit [in - out] = %p/%ld/%ld/%ld [%ld], insert/xtract = %d/%d",
+    msg, available, strict_available, space_available, 
+    (void *)s.first, s.in-s.first, s.out-s.first, s.limit-s.first, s.in-s.out, s.insert, s.xtract ) ;
+  fprintf(stderr, ", full/alloc/user = %d/%d/%d", s.full, s.alloc, s.user) ;
+  fprintf(stderr, ", |%8.8x|%2.2x|", s.valid, s.endian) ;
+  fprintf(stderr, ", Mode = %s(%d)", StreamMode(s), StreamModeCode(s)) ;
+  if(expected_mode){
+    fprintf(stderr, " (%s expected)", expected_mode) ;
+    if(strcmp(StreamMode(s), expected_mode) != 0) { 
+      fprintf(stderr, "\nBad mode, exiting\n") ;
+      exit(1) ;
+    }
+  }
+  fprintf(stderr, "\n") ;
 }

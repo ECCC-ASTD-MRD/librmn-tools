@@ -92,7 +92,14 @@ ssize_t StreamAvailableSpace(bitstream *s);
 char *StreamMode(bitstream s);
 int StreamModeCode(bitstream s);
 
-void StreamReset(bitstream *s);
+int StreamReset(bitstream *s);
+int StreamRewind(bitstream *s, int force_read);
+int StreamRewrite(bitstream *s, int force_write);
+
 size_t StreamDataCopy(bitstream *s, void *mem, size_t size);
+int StreamFlush(bitstream *s);
+
+void StreamPrintData(bitstream s, char *msg, int edge);
+void StreamPrintParams(bitstream s, char *msg, char *expected_mode);
 
 #endif

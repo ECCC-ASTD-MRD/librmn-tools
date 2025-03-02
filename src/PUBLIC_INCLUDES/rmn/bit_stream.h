@@ -480,13 +480,11 @@ STATIC inline void  BeStreamFlush(bitstream *s){
   s->acc_i = 0 ;
   s->insert = 0 ;
 }
-
 // flush stream being written into if any data left in insertion accumulator
-STATIC inline void  StreamFlush(bitstream *s){
+static inline void  StreamFlush(bitstream *s){
   if(STREAM_IS_BIG_ENDIAN(*s))    BeStreamFlush(s) ;
   if(STREAM_IS_LITTLE_ENDIAN(*s)) LeStreamFlush(s) ;
 }
-
 // =======================  stream push (insertion mode) =======================
 // push any data left in insertion accumulator into stream witout updating control info
 STATIC inline void  LeStreamPush(bitstream *s){
@@ -529,7 +527,7 @@ STATIC inline void  BeStreamRewind(bitstream *s, int force_read){
   }
 }
 
-STATIC inline void StreamRewind(bitstream *s, int force_read){
+static inline void StreamRewind(bitstream *s, int force_read){
   if(STREAM_IS_BIG_ENDIAN(*s))    BeStreamRewind(s, force_read) ;
   if(STREAM_IS_LITTLE_ENDIAN(*s)) LeStreamRewind(s, force_read) ;
 }

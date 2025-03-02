@@ -26,8 +26,8 @@ int CONCAT(PREFIX,test)(){
   InitStream(&s0, sbuf, sizeof(sbuf), 0);
   s0.endian = PACK_ENDIAN ;
 
-  print_stream_params(s0, "after InitStream", NULL) ;
-  print_stream_data(s0, "s0", 2) ;
+  StreamPrintParams(s0, "after InitStream", NULL) ;
+  StreamPrintData(s0, "s0", 2) ;
   totbits = 0 ;
   if(StreamAvailableBits(&s0) != 0){                         // test failed
     fprintf(stderr, "StreamAvailableBits = %ld, expecting 0\n", StreamAvailableBits(&s0)) ;
@@ -42,8 +42,8 @@ int CONCAT(PREFIX,test)(){
     STREAM_PUT_NBITS(s0, i, nbits) ;
     totbits += nbits ;
   }
-  print_stream_data(s0, "s0", 2) ;
-  print_stream_params(s0, "before finalize", NULL) ;
+  StreamPrintData(s0, "s0", 2) ;
+  StreamPrintParams(s0, "before finalize", NULL) ;
   if(StreamAvailableBits(&s0) != totbits){
     fprintf(stderr, "StreamAvailableBits = %ld, expecting %ld\n", StreamAvailableBits(&s0), totbits) ;
     return 1 ;
@@ -52,16 +52,18 @@ int CONCAT(PREFIX,test)(){
   copybits = StreamDataCopy(&s0, (void *)copy_buffer, sizeof(copy_buffer));
   fprintf(stderr, "before finalize, copied %ld bits from s0 stream\n", copybits) ;
 
-  STREAM_INSERT_FINALIZE(s0) ;
-  print_stream_data(s0, "s0", 3) ;
+  STREAM_FLUSH(s0) ; STREAM_INSERT_FINALIZE(s0) ; StreamFlush(&s0) ;
+
+  StreamPrintData(s0, "s0", 3) ;
   fprintf(stderr, "inserted %ld(%ld) bits\n", totbits, (totbits+31)/32*32) ;
-  print_stream_params(s0, "after finalize", NULL) ;
+  StreamPrintParams(s0, "after finalize", NULL) ;
 
   copybits = StreamDataCopy(&s0, (void *)copy_buffer, sizeof(copy_buffer));
   fprintf(stderr, "after finalize, copied %ld bits from s0 stream\n", copybits) ;
 
-  STREAM_REWIND(s0, 1) ;
-  print_stream_params(s0, "after rewind", NULL) ;
+  STREAM_REWIND(s0, 1) ; StreamRewind(&s0, 1) ;
+
+  StreamPrintParams(s0, "after rewind", NULL) ;
   errors = 0 ;
   for(i=0 ; i<npts ; i++){
     STREAM_GET_NBITS(s0, w32, nbits) ;
@@ -73,7 +75,7 @@ int CONCAT(PREFIX,test)(){
   }
   InitStream(&s0, sbuf, sizeof(sbuf), BIT_FULL_INIT);
   s0.endian = PACK_ENDIAN ;
-  print_stream_params(s0, "after reinitialization", NULL) ;
+  StreamPrintParams(s0, "after reinitialization", NULL) ;
 
   fprintf(stderr, "SUCCESS\n") ;
 
@@ -83,14 +85,14 @@ int CONCAT(PREFIX,test)(){
   InitStream(&s0, sbuf, sizeof(sbuf), BIT_FULL_INIT) ;
   s0.endian = PACK_ENDIAN ;
   for(nbits = 1 ; nbits < 33 ; nbits++){
-    STREAM_REWRITE(s0, 1) ;
+    STREAM_REWRITE(s0, 1) ; StreamRewrite(&s0, 1) ;
     mask = -1 ;
     mask >>= (32-nbits) ;
     for(i=0 ; i<npts ; i++){
       STREAM_PUT_NBITS(s0, (i & mask), nbits) ;
     }
-    STREAM_INSERT_FINALIZE(s0) ;
-    STREAM_REWIND(s0, 1) ;
+    STREAM_FLUSH(s0) ; STREAM_INSERT_FINALIZE(s0) ; StreamFlush(&s0) ;
+    STREAM_REWIND(s0, 1) ; StreamRewind(&s0, 1) ;
     errors = 0 ;
     for(i=0 ; i<npts ; i++){
       STREAM_GET_NBITS(s0, w32, nbits) ;
