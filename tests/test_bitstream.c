@@ -80,7 +80,7 @@ int main(int argc, char **argv){
     TEE_FPRINTF(stderr,2, " inserted %d bits, ", ntot) ;
     print_stream_params(*pstream, "after insertion", NULL) ;
     ssize += 128 ;                                           // add 1024 bits to stream size
-    StreamResize(pstream, NULL, ssize) ;                     // resize stream
+    StreamResize_old(pstream, NULL, ssize) ;                    // resize stream
     EZ_GET_INSERT_VARS(*pstream) ;                           // get updated insertion control values from stream struct
     TEE_FPRINTF(stderr,2, "(buffer size + 128 bytes) ") ;
     print_stream_params(*pstream, "after resize", NULL) ;
@@ -159,7 +159,7 @@ int main(int argc, char **argv){
     TEE_FPRINTF(stderr,2, " inserted %d bits, ", ntot) ;
     print_stream_params(*pstream, "after insertion", NULL) ;
     ssize += 128 ;                                           // add 1024 bits to stream size
-    StreamResize(pstream, NULL, ssize) ;                     // resize stream
+    StreamResize_old(pstream, NULL, ssize) ;                    // resize stream
     EZ_GET_INSERT_VARS(*pstream) ;                           // get updated insertion control values from stream struct
     TEE_FPRINTF(stderr,2, "(buffer size + 128 bytes) ") ;
     print_stream_params(*pstream, "after resize", NULL) ;

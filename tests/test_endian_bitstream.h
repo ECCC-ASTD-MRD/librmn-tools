@@ -17,14 +17,15 @@
 
 int CONCAT(PREFIX,test)(){
   int i, nbits = 12, npts = 4095, errors ;
-  size_t totbits = 0, copybits ;
+  ssize_t totbits = 0, copybits ;
   uint32_t w32, sbuf[4096], copy_buffer[4096] ;
   bitstream s0 ;
 
   fprintf(stderr, "============================== base test ==============================\n\n") ;
-  s0 = null_bitstream ;
+  s0 = NULL_BITSTREAM ;
   InitStream(&s0, sbuf, sizeof(sbuf), 0);
-  s0.endian = PACK_ENDIAN ;
+  SET_STREAM_ENDIANNESS(s0) ;
+  if(s0.endian != PACK_ENDIAN) return 1 ;
 
   StreamPrintParams(s0, "after InitStream", NULL) ;
   StreamPrintData(s0, "s0", 2) ;
@@ -44,13 +45,17 @@ int CONCAT(PREFIX,test)(){
   }
   StreamPrintData(s0, "s0", 2) ;
   StreamPrintParams(s0, "before finalize", NULL) ;
+  if(STREAM_BITS_STORED(s0) != totbits){
+    fprintf(stderr, "STREAM_BITS_STORED= %ld, expecting %ld\n", STREAM_BITS_STORED(s0), totbits) ;
+    return 1 ;
+  }
   if(StreamAvailableBits(&s0) != totbits){
     fprintf(stderr, "StreamAvailableBits = %ld, expecting %ld\n", StreamAvailableBits(&s0), totbits) ;
     return 1 ;
   }
 
   copybits = StreamDataCopy(&s0, (void *)copy_buffer, sizeof(copy_buffer));
-  fprintf(stderr, "before finalize, copied %ld bits from s0 stream\n", copybits) ;
+  fprintf(stderr, "copied %ld bits before finalize from s0 stream\n", copybits) ;
 
   STREAM_FLUSH(s0) ; STREAM_INSERT_FINALIZE(s0) ; StreamFlush(&s0) ;
 
@@ -59,7 +64,7 @@ int CONCAT(PREFIX,test)(){
   StreamPrintParams(s0, "after finalize", NULL) ;
 
   copybits = StreamDataCopy(&s0, (void *)copy_buffer, sizeof(copy_buffer));
-  fprintf(stderr, "after finalize, copied %ld bits from s0 stream\n", copybits) ;
+  fprintf(stderr, "copied %ld bits after finalize from s0 stream\n", copybits) ;
 
   STREAM_REWIND(s0, 1) ; StreamRewind(&s0, 1) ;
 

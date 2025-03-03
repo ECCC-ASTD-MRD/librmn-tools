@@ -384,7 +384,7 @@ static inline bitstream *BeStreamCreate(size_t size, int mode){
 // N.B. size MUST be larger than the original size
 //      the contents of the old buffer will be copied to the new buffer
 //      size is in bytes
-STATIC inline size_t StreamResize(bitstream *s, void *mem, size_t size){
+STATIC inline size_t StreamResize_old(bitstream *s, void *mem, size_t size){
   uint32_t in, out ;
   size_t old_size ;
   int auto_alloc = (mem == NULL) ;           // 1 if no user supplied memory
@@ -406,7 +406,7 @@ STATIC inline size_t StreamResize(bitstream *s, void *mem, size_t size){
   s->limit = s->first + size / sizeof(int32_t) ;                        // updated limit pointer
   return size ;
 }
-
+#if 0
 // this function will be useful to make an already filled stream ready for extraction
 // stream  [IN] : pointer to a bit stream struct
 // pos     [IN] : number of valid bits for extraction from stream buffer
@@ -425,7 +425,10 @@ static inline int StreamSetFilledBits(bitstream *stream, size_t pos){
 STATIC inline int  StreamSetFilledBytes(bitstream *s, size_t size){
   return StreamSetFilledBits(s, size * 8) ;
 }
-
+#else
+int StreamSetFilledBits(bitstream *stream, size_t pos);
+int  StreamSetFilledBytes(bitstream *s, size_t size);
+#endif
 // =======================  stream duplication  =======================
 //
 // duplicate a bit stream structure

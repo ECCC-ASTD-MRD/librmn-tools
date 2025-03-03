@@ -32,19 +32,44 @@
 #define SET_BIG_ENDIAN      16
 #define SET_LITTLE_ENDIAN   32
 
-// endianness
+// endianness codes, MUST MATCH PACK_ENDIAN macro (le_stream.h/be_stream.h)
 #define STREAM_BE 0xBE
 #define STREAM_LE 0xEB
+// endianness information from stream
 #define STREAM_ENDIANNESS(s) (s).endian
 #define STREAM_IS_BIG_ENDIAN(s) ( (s).endian == STREAM_BE )
 #define STREAM_IS_LITTLE_ENDIAN(s) ( (s).endian == STREAM_LE )
 
 // true if stream is in read (extract) mode
-// possibly false for a NEWLY INITIALIZED stream
 #define STREAM_XTRACT_MODE(s) ((s).xtract >= 0)
 // true if stream is in write (insert) mode
-// possibly false for a NEWLY INITIALIZED (empty) stream
 #define STREAM_INSERT_MODE(s) ((s).insert >= 0)
+
+// size of stream data buffer (in bytes)
+#define STREAM_BUFFER_BYTES(s) ( ((s).limit - (s).first) * sizeof(uint32_t) )
+
+// address of stream data buffer
+#define STREAM_BUFFER_ADDRESS(s) (s).first
+
+// address of stream insertion pointer
+#define STREAM_IN(s) (s).in
+
+// address of stream extraction pointer
+#define STREAM_OUT(s) (s).out
+
+// bits used in accumulator (usable if insertion mode is active)
+#define STREAM_ACCUM_BITS_USED(s) ((s).insert)
+// bits available in accumulator (usable if extraction mode is active)
+#define STREAM_ACCUM_BITS_AVAIL(s) ((s).xtract)
+
+// stream bits in stream, not accounting for already extracted bits (usable if insertion mode is active)
+#define STREAM_BITS_STORED(s) ( ((s).insert >= 0) ? ( ((s).in - (s).first) * 32l + (s).insert ) : 0 )
+// bits available in stream (usable if extraction mode is active)
+#define STREAM_BITS_AVAIL(s) ( ((s).xtract >= 0) ? ( (s).xtract + ((s).in - (s).out) * 32l ) : 0 )
+// bits left to fill in stream (usable if insertion mode is active)
+#define STREAM_BITS_EMPTY(s) ( ((s).insert >= 0) ? ( ((s).limit - (s).in) * 32l - (s).insert ) : 0 )
+
+// bits available in stream (usable if extraction mode is active)
 
 #include <stdint.h>
 #include <stdlib.h>
@@ -52,10 +77,11 @@
 // compile time assert macros
 #include <rmn/ct_assert.h>
 
-// bit stream descriptor. both insert / extract may be positive
+// bit stream descriptor.
 // in insertion only mode, xtract MUST be -1
 // in extraction only mode, insert MUST be -1
-// for now, a bit stream is unidirectional (either insert or extract mode)
+// both insert and extract are non negative if stream is used in both modes
+// in most cases, a bit stream will be unidirectional (either insert or extract mode)
 typedef struct{
   uint32_t valid:32 ; // signature marker
   uint32_t full:  1 , // the whole struct was allocated with malloc
@@ -73,11 +99,21 @@ typedef struct{
   uint64_t  acc_x ;   // 64 bit unsigned bit accumulator for extraction
 } bitstream ;
 CT_ASSERT_(sizeof(bitstream) == 64)    // 8 64 bit elements
+//
+// bit stream state for save/restore operations
+typedef struct{
+  uint64_t  acc_i ;   // 64 bit unsigned bit accumulator for insertion
+  uint64_t  acc_x ;   // 64 bit unsigned bit accumulator for extraction
+  uint32_t *first ;   // pointer to start of stream data storage (used for consistency check)
+  int32_t   in ;      // insertion offset (-1 if invalid) (bitstream.in - first)
+  int32_t   out ;     // extraction offset (-1 if invalid) (bitstream.out - first)
+  int32_t   insert ;  // # of bits used in accumulator (-1 <= insert <= 64) (-1 if invalid)
+  int32_t   xtract ;  // # of bits extractable from accumulator (-1 <= xtract <= 64) (-1 if invalid)
+} bitstream_state ;
+CT_ASSERT_(sizeof(bitstream_state) == 40)
 
-// all fields set to 0, makes for a fast initialization xxx = null_bitstream
-static const bitstream null_bitstream = { .acc_i = 0, .acc_x = 0 , .insert = 0 , .xtract = 0, 
-                                    .first = NULL, .in = NULL, .out = NULL, .limit = NULL,
-                                    .full = 0, .alloc = 0, .user = 0, .endian = 0, .spare = 0, .valid = 0 } ;
+void StreamDebugSet(int value);
+int StreamDebugGet(void);
 
 int StreamIsValid(bitstream *s);
 int StreamIsInvalid(bitstream *s);
@@ -86,9 +122,17 @@ bitstream *CreateStream(void *mem, size_t size, int mode);
 void  InitStream(bitstream *s, void *mem, size_t size, int mode);
 bitstream *FreeStream(bitstream *s, int *error);
 
-size_t StreamAvailableBits(bitstream *s);
-size_t StreamStrictAvailableBits(bitstream *s);
+int StreamSave(bitstream *stream, bitstream_state *state);
+int StreamRestore(bitstream *stream, bitstream_state *state, int mode_in);
+
+ssize_t StreamAvailableBits(bitstream *s);
+ssize_t StreamStrictAvailableBits(bitstream *s);
 ssize_t StreamAvailableSpace(bitstream *s);
+
+bitstream *StreamResize(bitstream *s, void *mem, size_t size);
+int StreamSetFilledBits(bitstream *stream, size_t pos);
+int StreamSetFilledBytes(bitstream *s, size_t size);
+
 char *StreamMode(bitstream s);
 int StreamModeCode(bitstream s);
 
@@ -96,10 +140,24 @@ int StreamReset(bitstream *s);
 int StreamRewind(bitstream *s, int force_read);
 int StreamRewrite(bitstream *s, int force_write);
 
-size_t StreamDataCopy(bitstream *s, void *mem, size_t size);
+ssize_t StreamDataCopy(bitstream *s, void *mem, size_t size);
 int StreamFlush(bitstream *s);
 
 void StreamPrintData(bitstream s, char *msg, int edge);
 void StreamPrintParams(bitstream s, char *msg, char *expected_mode);
 
+#endif
+
+#undef NULL_BITSTREAM
+#undef SET_STREAM_ENDIANNESS
+#if defined(PACK_ENDIAN)
+#define SET_STREAM_ENDIANNESS(s) (s).endian = PACK_ENDIAN ;
+// all fields set to 0, makes for a fast initialization with xxx = NULL_BITSTREAM
+#define NULL_BITSTREAM (bitstream) { .acc_i = 0, .acc_x = 0 , .insert = 0 , .xtract = 0, \
+                                     .first = NULL, .in = NULL, .out = NULL, .limit = NULL, .full = 0, \
+                                     .alloc = 0, .user = 0, .endian = PACK_ENDIAN, .spare = 0, .valid = 0 } ;
+#else
+#define NULL_BITSTREAM (bitstream) { .acc_i = 0, .acc_x = 0 , .insert = 0 , .xtract = 0, \
+                                     .first = NULL, .in = NULL, .out = NULL, .limit = NULL, .full = 0, \
+                                     .alloc = 0, .user = 0, .endian = 0, .spare = 0, .valid = 0 } ;
 #endif

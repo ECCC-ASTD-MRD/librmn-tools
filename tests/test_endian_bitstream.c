@@ -41,7 +41,7 @@ int main(int argc, char **argv){
     argv++ ;
     fprintf(stderr, "%s ", argv[0]);
   }
-  fprintf(stderr, " ==============================\n") ;
+  fprintf(stderr, " (debug = %d) ==============================\n", StreamDebugGet()) ;
 
   fprintf(stderr, "\n============================== LE test ==============================\n\n") ;
   if(le_test()) goto fail ;
