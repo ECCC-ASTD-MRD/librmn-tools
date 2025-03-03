@@ -23,8 +23,8 @@ int CONCAT(PREFIX,test)(){
 
   fprintf(stderr, "============================== base test ==============================\n\n") ;
   s0 = NULL_BITSTREAM ;
-  InitStream(&s0, sbuf, sizeof(sbuf), 0);
-  SET_STREAM_ENDIANNESS(s0) ;
+//   InitStream(&s0, sbuf, sizeof(sbuf), 0); SET_STREAM_ENDIANNESS(s0) ;
+  STREAM_INIT(&s0, sbuf, sizeof(sbuf), 0) ;
   if(s0.endian != PACK_ENDIAN) return 1 ;
 
   StreamPrintParams(s0, "after InitStream", NULL) ;

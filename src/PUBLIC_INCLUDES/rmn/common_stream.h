@@ -20,7 +20,8 @@
 // undefine everything in case of multiple inclusion
 //
 // ===============================================================================================
-// initialize a stream for insertion, accumulator and inserted bits count are set to 0
+// same code for Big and Little Endian modes, avoids duplication
+// initialize for insertion, accumulator and inserted bits count are set to 0
 #undef INSERT_BEGIN
 #define INSERT_BEGIN(accum, insert) { accum = 0 ; insert = 0 ; }
 
@@ -42,6 +43,7 @@
 // ===============================================================================================
 // for stream insertion, accum will be (s).acc_i, stream pointer will be (s).in
 
+// initialize a stream for insertion, accumulator and inserted bits count are set to 0
 #undef STREAM_INSERT_BEGIN
 #define STREAM_INSERT_BEGIN(s) { INSERT_BEGIN((s).acc_i, (s).insert) }
 
@@ -104,16 +106,20 @@
 // rewind a bit stream to read it from the beginning (potentially force valid read mode)
 #undef STREAM_REWIND
 #define STREAM_REWIND(s, force_read) { \
-  if(s.insert > 0) { STREAM_INSERT_PUSH(s) ; } if(force_read) { s.xtract = 0 ; }  \
-  if(s.xtract >= 0){ s.acc_x  = 0 ; s.out = s.first ; } }
+  if((s).insert > 0) { STREAM_INSERT_PUSH(s) ; } if(force_read) { (s).xtract = 0 ; }  \
+  if((s).xtract >= 0){ (s).acc_x  = 0 ; (s).out = (s).first ; (s).xtract = 0 ;} }
 
 // rewind a bit stream to rewrite it from the beginning (potentially force valid write mode)
 #undef STREAM_REWRITE
 #define STREAM_REWRITE(s, force_write) { \
-  if(force_write) { s.insert = 0 ; }  \
-  if(s.insert > 0) { STREAM_INSERT_PUSH(s) ; } \
-  s.acc_i  = 0 ; s.in = s.first ; }
+  if(force_write) { (s).insert = 0 ; }  \
+  if((s).insert > 0) { STREAM_INSERT_PUSH(s) ; } \
+  (s).acc_i  = 0 ; (s).in = (s).first ; }
 
 // flush stream being written into if any data left in insertion accumulator
 #undef STREAM_FLUSH
 #define STREAM_FLUSH(s) { STREAM_INSERT_FINALIZE(s) }
+
+// initialize stream and set it to the proper endian mode
+#undef STREAM_INIT
+#define STREAM_INIT(s, mem, size, mode) { InitStream(s, mem, size, mode) ; SET_STREAM_ENDIANNESS(*(s)) ; }
