@@ -15,17 +15,17 @@
 //     M. Valin,   Recherche en Prevision Numerique, 2025
 //
 // set of macros and functions to manage insertion/extraction into/from a bit stream
-// these macros fill the bit stream Little Endian style, from the Least significant bits 
+// these macros work with the bit stream Little Endian style, from the Least significant bits 
 //
 #include <stdint.h>
-
-// bit stream macros and functions
-#include <rmn/bitstream.h>
 
 // undefine everything in case of multiple inclusion
 
 #undef PACK_ENDIAN
 #define PACK_ENDIAN 0xEB
+
+// bit stream macros and functions
+#include <rmn/bitstream.h>
 
 // ================================ bit insertion/extraction macros into/from bitstream ===============================
 // macro arguments description
@@ -120,4 +120,4 @@
 
 // ===============================================================================================
 // common macros
-#include <rmn/le_be_stream.h>
+#include <rmn/common_stream.h>

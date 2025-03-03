@@ -65,6 +65,11 @@ set(PROJECT_F_FILES
 
 set(PROJECT_H_FILES
   src/PUBLIC_INCLUDES/rmntools.h
+  src/PUBLIC_INCLUDES/rmn/be_stream.h
+  src/PUBLIC_INCLUDES/rmn/le_stream.h
+  src/PUBLIC_INCLUDES/rmn/common_stream.h
+  src/PUBLIC_INCLUDES/rmn/bitstream.h
+  src/PUBLIC_INCLUDES/rmn/bit_stream.h
   src/PUBLIC_INCLUDES/rmn/atomic_functions.h
   src/PUBLIC_INCLUDES/rmn/array_nd.h
   src/PUBLIC_INCLUDES/rmn/ct_assert.h
@@ -81,7 +86,6 @@ set(PROJECT_H_FILES
   src/PUBLIC_INCLUDES/rmn/data_map.h
   src/PUBLIC_INCLUDES/rmn/dmapfilters.h
   src/PUBLIC_INCLUDES/rmn/word_stream.h
-  src/PUBLIC_INCLUDES/rmn/bit_stream.h
   src/PUBLIC_INCLUDES/rmn/stream_pack.h
   src/PUBLIC_INCLUDES/rmn/bit_pack_macros.h
   src/PUBLIC_INCLUDES/rmn/print_bitstream.h
