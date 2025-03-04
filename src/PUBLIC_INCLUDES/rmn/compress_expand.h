@@ -20,10 +20,13 @@
 #define STORE_COMPRESS_LOAD_EXPAND
 
 #include <stdint.h>
+#include <string.h>
+
 #include <rmn/bits.h>
 #include <rmn/bi_endian_pack.h>
 // bit stream macros and functions
-#include <rmn/bit_stream.h>
+// #include <rmn/bit_stream.h>
+#include <rmn/bitstream.h>
 
 #if defined(__x86_64__) && ( defined(__AVX2__) || defined(__AVX512F__) || defined(__AVX512VBMI2__) || defined(__BMI2__) )
 #if defined(__AVX512VBMI2__)
@@ -264,6 +267,9 @@ static inline void BinaryToString(void *w32, char *string, int ndigits){
 // if byte is other that 0x00 or 0xff, repcount is assumed to be 1
 // byte 11001010 would be encoded as 011001010
 //
+
+#if 0
+
 // byte     [IN] : byte to encode
 // repcount [IN] : repeat count
 // stream  [OUT] : bit stream to receive encoded sequence
@@ -338,6 +344,9 @@ fprintf(stderr, "RleDecodeByte : byte = %4u, nbytes = %d\n", byte, nbytes) ;
   for(i=0 ; i<nbytes ; i++) bytes[i] = byte ;
   return nbytes ;
 }
+
+
+#endif
 
 static inline uint32_t ByteRunLengthEncode(void *b, int32_t nbytes, void *s){
   uint8_t *bytes = (uint8_t *) b ;
