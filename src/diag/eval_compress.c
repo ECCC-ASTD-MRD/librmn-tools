@@ -20,7 +20,8 @@
 #include <rmn/eval_compress.h>
 #include <rmn/dwt_i_lgt53.h>
 #include <rmn/move_blocks.h>
-#include <rmn/bi_endian_pack.h>
+// #include <rmn/bi_endian_pack.h>
+#include <rmn/bitstream.h>
 #include <rmn/compare_count.h>
 
 #define STATIC static
@@ -158,6 +159,8 @@ static uint32_t stab[33] = {      // shift count table for short/long encoding
   0x00071011      // nbits = 32
 } ;
 
+#if 0
+
 STATIC int encode_block(int32_t *block, int32_t nval, block_properties *bp, bitstream *s){
   int i, nbits, totbits = 0, SS = 0, M = 0, E = 0, ee = 0, header, offset = 0 ;
   uint32_t token ;
@@ -232,6 +235,9 @@ end:
   EZ_SET_INSERT_VARS(*s) ;
   return totbits ;
 }
+
+#endif
+
 
 // return estimate of number of bits needed to encode a block of size ni X nj
 static int count_encoded_bits(int ni, int nj, int block[nj][ni], int *info){
