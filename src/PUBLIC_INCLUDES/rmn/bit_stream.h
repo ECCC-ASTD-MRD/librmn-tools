@@ -1,3 +1,6 @@
+#if 0
+
+
 //
 // Copyright (C) 2022-2025  Environnement Canada
 //
@@ -648,5 +651,8 @@ int  BeStreamXtractM(bitstream *s, uint32_t *w32, int *nbits, int *n);
 #undef STATIC
 #undef STATIC_DEFINED_HERE
 #endif
+
+#endif
+
 
 #endif

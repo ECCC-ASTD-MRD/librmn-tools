@@ -1,3 +1,5 @@
+#if 0
+
 //
 // Copyright (C) 2022-2024  Environnement Canada
 //
@@ -310,3 +312,6 @@
 // align extraction point to a 32 bit boundary
 #define BE64_XTRACT_ALIGN(accum, xtract) { uint32_t tbits = xtract ; tbits &= 31 ; accum <<= tbits ; xtract -= tbits ; }
 //
+
+
+#endif

@@ -1,3 +1,6 @@
+#if 0
+
+
 //
 // Copyright (C) 2022  Environnement Canada
 //
@@ -336,3 +339,7 @@ int  BeStreamXtractM(bitstream *p, uint32_t *w32, int *nbits, int *n){
   EZ_SET_XTRACT_VARS(*p) ;                       // update stream using extraction EZ variables
   return nw ;
 }
+
+
+
+#endif

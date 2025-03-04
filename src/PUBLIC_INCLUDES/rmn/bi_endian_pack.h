@@ -1,3 +1,6 @@
+#if 0
+
+
 //
 // Copyright (C) 2022  Environnement Canada
 //
@@ -300,5 +303,8 @@ CT_ASSERT_(sizeof(void *) == 8)        // enforce 64 bit pointers
 #undef STATIC
 #undef STATIC_DEFINED_HERE
 #endif
+
+#endif
+
 
 #endif

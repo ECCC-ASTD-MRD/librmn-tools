@@ -1,3 +1,5 @@
+#if 0
+
 // Hopefully useful code for C
 // Copyright (C) 2022  Recherche en Prevision Numerique
 //
@@ -300,3 +302,6 @@ fprintf(stderr, "%5d\n", i0);
   }
   return field ;
 }
+
+
+#endif

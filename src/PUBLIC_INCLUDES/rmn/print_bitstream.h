@@ -1,3 +1,6 @@
+#if 0
+
+
 //
 // Copyright (C) 2023  Environnement Canada
 //
@@ -76,4 +79,7 @@ static inline void print_stream_params(bitstream s, char *msg, char *expected_mo
   }
   TEE_FPRINTF(stderr,2, "\n") ;
 }
+#endif
+
+
 #endif
