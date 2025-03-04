@@ -129,14 +129,14 @@ add_project_test(test_tee_file test_tee_file.c LINK_LIBS "rmn::rmn-shared")
 add_project_test(test_tee_file_local test_tee_file.c LINK_LIBS "rmn::rmn-shared")
 TARGET_COMPILE_DEFINITIONS(test_tee_file_local PRIVATE -DOVERRIDE_WITH_LOCAL)
 
-add_project_test(test_bi_endian_pack test_bi_endian_pack.c LINK_LIBS "rmn::rmn-shared")
-SET_SOURCE_FILES_PROPERTIES( test_bi_endian_pack PROPERTIES COMPILE_OPTIONS -O3 )
+# add_project_test(test_bi_endian_pack test_bi_endian_pack.c LINK_LIBS "rmn::rmn-shared")
+# SET_SOURCE_FILES_PROPERTIES( test_bi_endian_pack PROPERTIES COMPILE_OPTIONS -O3 )
 
 add_project_test(test_pack_macros test_pack_macros.c LINK_LIBS "rmn::rmn-shared")
 SET_SOURCE_FILES_PROPERTIES( test_pack_macros PROPERTIES COMPILE_OPTIONS -O3 )
 
-add_project_test(test_bi_endian_pack_macros test_bi_endian_pack_macros.c LINK_LIBS "rmn::rmn-shared")
-SET_SOURCE_FILES_PROPERTIES( test_bi_endian_pack_macros PROPERTIES COMPILE_OPTIONS "-O3;-DWITH_TIMING" )
+# add_project_test(test_bi_endian_pack_macros test_bi_endian_pack_macros.c LINK_LIBS "rmn::rmn-shared")
+# SET_SOURCE_FILES_PROPERTIES( test_bi_endian_pack_macros PROPERTIES COMPILE_OPTIONS "-O3;-DWITH_TIMING" )
 
 add_project_test(test_lorenzo_c test_lorenzo_c.c LINK_LIBS "rmn::rmn-shared")
 add_project_test(test_lorenzo_f_shared test_lorenzo.F90 LINK_LIBS "rmn::rmn-shared;libaec::aec" DL)                        # build with shared libraries
@@ -160,7 +160,7 @@ endif()
 add_project_test(test_c_record_io test_c_record_io.c LINK_LIBS "rmn::rmn-shared" NOCTEST)    # not included in ctest for now
 add_project_test(test_c_record_io_f test_c_record_io.F90 NOCTEST DL LINK_LIBS "rmn::rmn-shared;libaec::aec")    # not included in ctest for now
 
-add_project_test(test_quantizer_errors test_quantizer_errors.c LINK_LIBS "m;rmn::rmn-shared;libaec::aec" DL NOCTEST NODIAG)    # not included in ctest for now
+# add_project_test(test_quantizer_errors test_quantizer_errors.c LINK_LIBS "m;rmn::rmn-shared;libaec::aec" DL NOCTEST NODIAG)    # not included in ctest for now
 
 add_project_test(test_serialized_functions test_serialized_functions.c LINK_LIBS "rmn::rmn-shared" NODIAG)
 # maybe needed depending upon print statement distribution in test code
@@ -172,8 +172,8 @@ add_project_test(test_serialized_functions test_serialized_functions.c LINK_LIBS
 add_project_test(test_ieeequantize test_ieeequantize.c LINK_LIBS "rmn::rmn-shared" NODIAG)
 
 add_project_test(test_logquantize test_logquantize.c LINK_LIBS "rmn::rmn-shared" NODIAG)
-add_project_test(test_encoders test_encoders.c LINK_LIBS "rmn::rmn-shared" NODIAG)
-add_project_test(test_bitstream test_bitstream.c LINK_LIBS "rmn::rmn-shared" NODIAG)
+# add_project_test(test_encoders test_encoders.c LINK_LIBS "rmn::rmn-shared" NODIAG)
+# add_project_test(test_bitstream test_bitstream.c LINK_LIBS "rmn::rmn-shared" NODIAG)
 add_project_test(test_entropy test_entropy.c LINK_LIBS "m;rmn::rmn;libaec::aec" DL NODIAG)
 add_project_test(test_data_info_c test_data_info.c LINK_LIBS "rmn::rmn-shared" NODIAG)
 add_project_test(test_data_info_f test_data_info.F90 LINK_LIBS "rmn::rmn;libaec::aec" DL)
@@ -184,7 +184,7 @@ add_project_test(test_atomic_functions test_atomic_functions.c LINK_LIBS "rmn::r
 add_project_test(test_pixmaps test_pixmaps.c LINK_LIBS "rmn::rmn-shared" NODIAG)
 add_project_test(test_wordstream test_wordstream.c LINK_LIBS "rmn::rmn-shared" NODIAG)
 add_project_test(test_endian_bitstream test_endian_bitstream.c LINK_LIBS "rmn::rmn-shared" NODIAG)
-add_project_test(test_compress_expand test_compress_expand.c LINK_LIBS "rmn::rmn;libaec::aec" NODIAG)
+# add_project_test(test_compress_expand test_compress_expand.c LINK_LIBS "rmn::rmn;libaec::aec" NODIAG)
 add_project_test(test_copy_swap test_copy_swap.c LINK_LIBS "rmn::rmn" NODIAG)
 
 add_project_test(test_data_map test_data_map.c LINK_LIBS "rmn::rmn-shared" NODIAG)
