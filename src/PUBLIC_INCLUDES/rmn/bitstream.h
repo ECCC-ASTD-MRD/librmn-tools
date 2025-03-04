@@ -83,7 +83,7 @@
 // both insert and extract are non negative if stream is used in both modes
 // in most cases, a bit stream will be unidirectional (either insert or extract mode)
 typedef struct{
-  uint32_t valid:32 ; // signature marker
+  uint32_t valid ;    // signature marker
   uint32_t full:  1 , // the whole struct was allocated with malloc
            alloc: 1 , // buffer was allocated with malloc
            user:  1 , // buffer was user supplied

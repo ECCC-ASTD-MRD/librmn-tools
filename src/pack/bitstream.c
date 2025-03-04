@@ -43,12 +43,14 @@ int StreamDebugGet(void){
 // size is in bytes
 void  InitStream(bitstream *s, void *mem, size_t size, int mode){
   uint32_t *buf = (uint32_t *) mem ;
+
+  if(s == NULL) return ;     // invalid stream pointer
   if(mode & BIT_FULL_INIT){
     *s = NULL_BITSTREAM ;    // perform a full (re)initialization, nullify all fields
   }
   if((mode & (BIT_INSERT | BIT_XTRACT)) == 0) mode = mode | BIT_INSERT | BIT_XTRACT ;  // neither insert nor extract set, set both
 
-  if( (s->first != NULL) && (s->in != NULL) && (s->out != NULL) && (s->limit != NULL) && (s->valid == VALID_STREAM) ){
+  if(StreamIsValid(s)){
     buf = s->first ;        // existing and valid stream, already has a buffer, set buf to first, ignore mem
   }else{                    // not an existing stream, perform a full initialization
     if(buf == NULL){
@@ -86,17 +88,19 @@ void  InitStream(bitstream *s, void *mem, size_t size, int mode){
 // size is in bytes
 // return pointer to created bitstream
 bitstream *CreateStream(void *mem, size_t size, int mode){
-  char *data = mem ;
+  char *data = (char *)mem ;
   size_t size_alloc = sizeof(bitstream) ;
   bitstream *s ;
+
   if(data == NULL) size_alloc += size ;
   s = (bitstream *) malloc(size_alloc) ;
   if(s == NULL) return NULL ;
 
   if(data == NULL){
     data = (char *)s ;
-    data += sizeof(bitstream) ;
+    data = data + sizeof(bitstream) ;
   }
+  s->valid = 0 ; // make sure no mishap happens
   InitStream(s, data, size, mode) ;
   s->full = 1 ;
   return s ;
@@ -106,10 +110,11 @@ bitstream *CreateStream(void *mem, size_t size, int mode){
 // s    [IN] : pointer to an existing bitstream structure
 // return 0 if operation successful, non zero if there was an error
 bitstream *FreeStream(bitstream *s, int *error){
+fprintf(stderr, "FreeStream\n") ;
   if(StreamIsInvalid(s)){     // not a valid stream
     *error = 1 ;
     s = NULL ;
-// fprintf(stderr, "invalid stream\n");
+fprintf(stderr, "invalid stream\n");
     goto end ;
   }
 
@@ -117,11 +122,17 @@ bitstream *FreeStream(bitstream *s, int *error){
     free(s) ;
     s = NULL ;
     *error = 0 ;
-// fprintf(stderr, "fully allocated stream\n");
+fprintf(stderr, "freed fully allocated stream\n");
     goto end ;
   }
 // fprintf(stderr, "stream with buffer at %p, alloc = %d\n", (void *)s->first, s->alloc);
-  if(s->alloc) free(s->first) ;  // the stream buffer was not supplied by the user
+  if(s->alloc){
+    free(s->first) ;  // the stream buffer was supplied by the user
+    s->first = s->in = s->out = s->limit = NULL ;
+    *error = 0 ;
+fprintf(stderr, "freed stream buffer\n");
+  }
+
   *s = NULL_BITSTREAM ;          // blank stream
 
 end:
@@ -133,6 +144,7 @@ end:
 // flush any insertion data left in accumulator into stream
 // s [IN] : pointer to a bit stream struct
 // return 0 if O.K., non zero in case of error
+// NOTE : replaced by macro ?
 int StreamFlush(bitstream *s){
 
   if(! StreamIsValid(s))         return 1 ;              // invalid stream
@@ -154,6 +166,7 @@ int StreamFlush(bitstream *s){
 // rewind a bit stream to read it from the beginning (potentially force valid read mode)
 // s    [IN] : pointer to an existing bitstream structure
 // return 0 if O.K., non zero if error
+// NOTE : replaced by macro ?
 int StreamRewind(bitstream *s, int force_read){
   if(! StreamIsValid(s)) return 1 ;           // invalid stream
   if(s->insert > 0) StreamFlush(s) ;          // data left in insert accumulator ?
@@ -168,6 +181,7 @@ int StreamRewind(bitstream *s, int force_read){
 // rewind a bit stream to rewrite it from the beginning (potentially force valid write mode)
 // s    [IN] : pointer to an existing bitstream structure
 // return 0 if O.K., non zero if error
+// NOTE : replaced by macro ?
 int StreamRewrite(bitstream *s, int force_write){
   if(! StreamIsValid(s)) return 1 ;           // invalid stream
   if(force_write) s->insert = 0 ;
@@ -199,9 +213,11 @@ int StreamReset(bitstream *s){
 // is stream valid ?
 // s [IN] : pointer to a bit stream struct
 int StreamIsValid(bitstream *s){
+  if(s == NULL)                                        return 0 ;    // bad pointer
   if(s->valid != VALID_STREAM)                         return 0 ;    // incorrect marker
   if(s->first == NULL)                                 return 0 ;    // no buffer
   if(s->limit == NULL)                                 return 0 ;    // invalid limit
+  if(s->in == NULL || s->out == NULL)                  return 0 ;    // invalid in out pointers
   if(s->limit <= s->first)                             return 0 ;    // invalid first/limit combination
   if(s->in < s->first  || s->in > s->limit)            return 0 ;    // in is out of bounds
   if(s->out < s->first || s->out > s->limit)           return 0 ;    // out is out of bounds
@@ -377,6 +393,7 @@ fprintf(stderr, "error in save state\n");
 int StreamRestore(bitstream *stream, bitstream_state *state, int mode_in){
   char *msg ;
   int mode = mode_in ;
+  bitstream s ;
   if(mode == 0) mode = BIT_XTRACT | BIT_INSERT ;
 
   msg = "invalid stream" ;
@@ -388,7 +405,7 @@ int StreamRestore(bitstream *stream, bitstream_state *state, int mode_in){
   msg = "insertion state not available" ;
   if((mode_in & BIT_INSERT) && (state->insert < 0)) goto error ;
 
-  bitstream s = *stream ;                                             // local copy of stream
+  s = *stream ;                                             // local copy of stream
   if((mode & BIT_XTRACT) && (state->xtract >= 0)){                    // restore extract state (if available)
     s.xtract = state->xtract ;
     s.out = stream->first + state->out ;                              // restore extraction pointer
@@ -430,13 +447,18 @@ bitstream *StreamResize(bitstream *s, void *mem, size_t size){
 
   if(StreamIsInvalid(s)) return NULL ;                                    // invalid stream
   old_size = sizeof(int32_t) * (s->limit - s->first) ;                    // size of current buffer
-  if(size <= old_size) return s ;                                         // size is smaller then size of current buffer, resize is not needed
+  if(size <= old_size) return s ;                                         // new buffer size is <= size of current buffer, resize is not needed
+  old_size = sizeof(int32_t) * (s->in - s->first) ;                       // used size in buffer for later copy
+fprintf(stderr, "StreamResize : resizing");
   if(s->full == 1){                                                       // the whole struct was malloc(ed)
-
+fprintf(stderr, ", whole struct was malloc(ed)");
     bitstream *snew = CreateStream(mem, size, 0) ;
+fprintf(stderr, ", new stream created");
     if(snew == NULL) return NULL ;                                        // allocation failed
     if(auto_alloc){                                                       // copy old buffer into new
-      memmove(snew->first, s->first, old_size) ;
+memset(snew->first, 0xFF, sizeof(int32_t) * (s->limit - s->first)) ;
+      if(old_size > 0) memmove(snew->first, s->first, old_size) ;
+fprintf(stderr, ", copying %ld bytes", old_size) ;
     }
     // first and limit are already set
     snew->in     = snew->first + (s->in - s->first) ;                     // preserve relative positions of in and out
@@ -448,22 +470,32 @@ bitstream *StreamResize(bitstream *s, void *mem, size_t size){
     // other flags already set
     snew->endian = s->endian ;
     free(s) ;                                                             // free old bitstream struct
+fprintf(stderr, ", freed old struct");
     s = snew ;
 
   }else{
 
-    if(mem == NULL) mem = malloc(size) ;                                  // allocate with malloc if mem is NULL
+    if(mem == NULL){                                                      // allocate with malloc if mem is NULL
+fprintf(stderr, ", allocating new buffer (%ld)", size);
+      mem = malloc(size) ;
+    }
     if(mem == NULL) return NULL ;                                         // failed to allocate memory
+memset(mem, 0xFF, size) ;
     memmove(mem, s->first, old_size)  ;                                   // copy old (s->first) buffer into new (mem)
+fprintf(stderr, ", copying %ld bytes", old_size) ;
     in  = s->in - s->first ;                                              // relative position of in pointer
     out = s->out - s->first ;                                             // relative position of out pointer
-    if(s->alloc) free(s->first) ;                                         // previous buffer was "malloced", free it
+    if(s->alloc){                                                         // previous buffer was "malloced", free it
+fprintf(stderr, ", freeing old malloc(ed) buffer");
+      free(s->first) ;
+    }
     s->alloc = (auto_alloc) ? 1 : 0 ;                                     // flag buffer as "malloced" if mem was NULL at entry
     s->first = (uint32_t *) mem ;                                         // updated first pointer
     s->in    = s->first + in ;                                            // updated in pointer
     s->out   = s->first + out ;                                           // updated out pointer
     s->limit = s->first + size / sizeof(int32_t) ;                        // updated limit pointer
   }
+fprintf(stderr, "\n");
   return s ;
 }
 // this function will be useful to make an already filled stream ready for extraction

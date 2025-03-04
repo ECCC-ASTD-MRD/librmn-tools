@@ -16,12 +16,13 @@
 //
 
 int CONCAT(PREFIX,test)(){
-  int i, nbits = 12, npts = 4095, errors ;
+  int i, nbits = 12, npts = 4095, errors, status ;
   ssize_t totbits = 0, copybits ;
   uint32_t w32, sbuf[4096], copy_buffer[4096] ;
   bitstream s0 ;
 
   fprintf(stderr, "============================== base test ==============================\n\n") ;
+
   s0 = NULL_BITSTREAM ;
 //   InitStream(&s0, sbuf, sizeof(sbuf), 0); SET_STREAM_ENDIANNESS(s0) ;
   STREAM_INIT(&s0, sbuf, sizeof(sbuf), 0) ;
@@ -32,11 +33,11 @@ int CONCAT(PREFIX,test)(){
   totbits = 0 ;
   if(StreamAvailableBits(&s0) != 0){                         // test failed
     fprintf(stderr, "StreamAvailableBits = %ld, expecting 0\n", StreamAvailableBits(&s0)) ;
-    return 1 ;
+    return 2 ;
   }
   if(StreamAvailableSpace(&s0) != 8*sizeof(sbuf)){           // test failed
     fprintf(stderr, "StreamAvailableSpace = %ld, expecting %ld\n", StreamAvailableSpace(&s0), 8*sizeof(sbuf)) ;
-    return 1 ;
+    return 3 ;
   }
 
   for(i=0 ; i<npts ; i++){
@@ -47,11 +48,11 @@ int CONCAT(PREFIX,test)(){
   StreamPrintParams(s0, "before finalize", NULL) ;
   if(STREAM_BITS_STORED(s0) != totbits){
     fprintf(stderr, "STREAM_BITS_STORED= %ld, expecting %ld\n", STREAM_BITS_STORED(s0), totbits) ;
-    return 1 ;
+    return 4 ;
   }
   if(StreamAvailableBits(&s0) != totbits){
     fprintf(stderr, "StreamAvailableBits = %ld, expecting %ld\n", StreamAvailableBits(&s0), totbits) ;
-    return 1 ;
+    return 5 ;
   }
 
   copybits = StreamDataCopy(&s0, (void *)copy_buffer, sizeof(copy_buffer));
@@ -76,7 +77,7 @@ int CONCAT(PREFIX,test)(){
   }
   if(errors > 0) {
     fprintf(stderr, "%d errors detected when extracting from stream\n", errors) ;
-    return 1 ;
+    return 6 ;
   }
   InitStream(&s0, sbuf, sizeof(sbuf), BIT_FULL_INIT);
   s0.endian = PACK_ENDIAN ;
@@ -105,10 +106,70 @@ int CONCAT(PREFIX,test)(){
     }
     if(errors > 0) {
       fprintf(stderr, "%d errors detected when extracting from stream\n", errors) ;
-      return 1 ;
+      return 7 ;
     }
   }
   fprintf(stderr, "SUCCESS\n") ;
+
+  fprintf(stderr, "============================== free/resize test ==============================\n\n") ;
+
+  bitstream s1, s2, *ps0, *ps1, *ps2, *ps3 ;
+  npts = 4097 ;
+
+  STREAM_INIT(&s1, NULL, sizeof(sbuf), 0) ;
+  ps1 = FreeStream(&s1, &status) ;
+  if(ps1 != &s1 || status != 0) return 8 ;
+
+  ps0 = CreateStream(NULL, sizeof(sbuf), BIT_FULL_INIT) ; ps0->endian = PACK_ENDIAN ;
+  if(ps0->endian != PACK_ENDIAN){
+    fprintf(stderr, "ps1->endian = %x, expected %x\n", ps0->endian, PACK_ENDIAN) ;
+    return 9 ;
+  }
+  ps0 = FreeStream(ps0, &status) ;
+  if(ps0 != NULL || status != 0) return 10 ;
+
+  STREAM_CREATE(ps1, NULL, sizeof(sbuf), BIT_FULL_INIT) ;
+  if(ps1->endian != PACK_ENDIAN){
+    fprintf(stderr, "ps1->endian = %x, expected %x\n", ps1->endian, PACK_ENDIAN) ;
+    return 11 ;
+  }
+
+  ps2 = StreamResize(ps1, NULL, sizeof(sbuf));
+  if(ps2 != ps1) return 12 ;
+
+  ps2 = StreamResize(ps1, NULL, 2*sizeof(sbuf));
+  if(ps2 == ps1) return 13 ;
+  if(STREAM_BUFFER_BYTES(*ps2) != 2*sizeof(sbuf)) return 14 ;
+return 0 ;
+  nbits = 11 ;
+
+  STREAM_INIT(&s1, NULL, sizeof(sbuf), BIT_FULL_INIT) ;
+  if(s1.endian != PACK_ENDIAN) return 15 ;
+  // fill stream with data
+  for(i=0 ; i<npts ; i++){ STREAM_PUT_NBITS(s1, (i & 0xFF), nbits) ; } ;
+  copybits = StreamDataCopy(&s1, sbuf, sizeof(sbuf)) ;
+  fprintf(stderr, "copybits = %ld, inserted bits = %d, bits in source stream = %ld\n", copybits, nbits*npts, StreamAvailableBits(&s1)) ;
+  STREAM_FLUSH(s1) ;
+
+  ps1 = StreamResize(&s1, NULL, 2*sizeof(sbuf)) ;
+  if(ps1 != &s1) return 16 ;
+  if(STREAM_BUFFER_BYTES(s1) != 2*sizeof(sbuf)) return 17 ;
+//   copybits = StreamDataCopy(ps1, sbuf, sizeof(sbuf)) ;
+//   fprintf(stderr, "copybits = %ld, inserted bits = %d, bits in source stream = %ld\n", copybits, nbits*npts, StreamAvailableBits(ps1)) ;
+  errors = 0 ;
+  // read data from resized stream
+  for(i=0 ; i<npts ; i++){ STREAM_GET_NBITS(s1, w32, nbits) ; if(w32 != (i & 0xFF)) errors++ ; }
+  if(errors > 0) return 18 ;
+
+  STREAM_INIT(&s2, sbuf, sizeof(sbuf), 0) ;  // sbuf contains stream data saved from ps1
+  if(s2.endian != PACK_ENDIAN) return 19 ;
+  status = StreamSetFilledBits(&s2, copybits) ;
+  if(status != 0) return 20 ;
+  errors = 0 ;
+  for(i=0 ; i<npts ; i++){ STREAM_GET_NBITS(s2, w32, nbits) ; if(w32 != (i & 0xFF)) errors++ ; }
+  if(errors > 0) return 21 ;
+
+  fprintf(stderr, "END OF TEST\n") ;
 
   return 0 ;
 }

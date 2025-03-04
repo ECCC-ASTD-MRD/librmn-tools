@@ -35,6 +35,7 @@
 #include "test_endian_bitstream.h"
 
 int main(int argc, char **argv){
+  int err ;
 
   fprintf(stderr, "============================== %s ", argv[0]);
   while(--argc > 0){
@@ -44,15 +45,15 @@ int main(int argc, char **argv){
   fprintf(stderr, " (debug = %d) ==============================\n", StreamDebugGet()) ;
 
   fprintf(stderr, "\n============================== LE test ==============================\n\n") ;
-  if(le_test()) goto fail ;
+  if((err = le_test()) != 0) goto fail ;
 
   fprintf(stderr, "\n============================== BE test ==============================\n\n") ;
-  if(be_test()) goto fail ;
+  if((err = be_test()) != 0) goto fail ;
 
-//   fprintf(stderr, "SUCCESS\n") ;
+  fprintf(stderr, "SUCCESS(status = %d)\n", err) ;
   return 0 ;
 
 fail:
-  fprintf(stderr, "FAILED\n") ;
+  fprintf(stderr, "FAILED (status = %d)\n", err) ;
   exit(1) ;
 }

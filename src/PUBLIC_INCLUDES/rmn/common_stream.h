@@ -102,7 +102,8 @@
 #define STREAM_XTRACT_ALIGN8(s)  { XTRACT_ALIGN8((s).acc_x, (s).xtract) }
 
 // ===============================================================================================
-
+// TODO : add status argument to STREAM_REWIND, STREAM_REWRITE, STREAM_FLUSH ?
+//
 // rewind a bit stream to read it from the beginning (potentially force valid read mode)
 #undef STREAM_REWIND
 #define STREAM_REWIND(s, force_read) { \
@@ -122,4 +123,8 @@
 
 // initialize stream and set it to the proper endian mode
 #undef STREAM_INIT
-#define STREAM_INIT(s, mem, size, mode) { InitStream(s, mem, size, mode) ; SET_STREAM_ENDIANNESS(*(s)) ; }
+#define STREAM_INIT(ps, mem, size, mode) { InitStream(ps, mem, size, mode) ; SET_STREAM_ENDIANNESS(*(ps)) ; }
+
+// create stream and set it to the proper endian mode
+#undef STREAM_CREATE
+#define STREAM_CREATE(ps, mem, size, mode) { ps = CreateStream(mem, size, mode) ; SET_STREAM_ENDIANNESS(*(ps)) ; }
