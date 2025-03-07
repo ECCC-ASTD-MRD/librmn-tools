@@ -15,6 +15,9 @@
 //     M. Valin,   Recherche en Prevision Numerique, 2023
 //
 
+#if ! defined(MOVE_BLOCKS_INCLUDED)
+#define MOVE_BLOCKS_INCLUDED
+
 #include <stdlib.h>
 #include <stdint.h>
 
@@ -68,6 +71,9 @@ int move_float_block(float     *restrict src, int lnis, void *restrict dst, int 
 int move_data32_block(void     *restrict src, int lnis, void *restrict dst, int lnid, int ni, int nj, block_properties *bp);
 int move_mem32_block(void      *restrict src, int lnis, void *restrict dst, int lnid, int ni, int nj);
 
+void print_float_props(block_properties bp);
+void print_int_props(block_properties bp);
+
 int analyze_data32_block(void *restrict src, int lnis, int ni, int nj, block_properties *bp);
 void adjust_block_properties(block_properties *bp, data_kind datatype);
 void add_block_properties(block_properties *bp, block_properties *bp_extra);
@@ -94,3 +100,4 @@ static inline sfn_args *malloc_fn_args(uint32_t nmax) { return (sfn_args *) mall
 typedef int (*sfn_ptr)(int lni, int ni, int nj, block_properties *bp, void *data, sfn_args *args) ;   // pointer to processing function
 
 // int split_and_process(void *array, uint32_t lgni, uint32_t gni, uint32_t gnj, data_kind datatype, int ni, int nj, sfn_ptr fn, sfn_args *fnargs);
+#endif

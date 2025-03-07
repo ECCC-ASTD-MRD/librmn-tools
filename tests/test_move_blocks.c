@@ -39,20 +39,6 @@
 #define NJ  128
 #define LNI 129
 
-void print_float_props(block_properties bp){
-  fprintf(stderr, "float props : mins = %12.3f, maxs = %12f, minu = %12f, maxu = %12f\n\n", bp.mins.f, bp.maxs.f, bp.minu.f, bp.maxu.f) ;
-}
-
-void print_int_props(block_properties bp){
-  if(bp.kind == int_data){
-//     fprintf(stderr, "int   props : mins = %12.8x, maxs = %12.8x, minu = %12.8x, maxu = %12.8x\n", bp.mins.u, bp.maxs.u, bp.minu.u, bp.maxu.u) ;
-    fprintf(stderr, "int   props : mins = %12d, maxs = %12d, minu = %12d, maxu = %12d\n\n", bp.mins.i, bp.maxs.i, bp.minu.i, bp.maxu.i) ;
-  }else{
-    fprintf(stderr, "uint  props : mins = %12.8x, maxs = %12.8x, minu = %12.8x, maxu = %12.8x\n\n", bp.mins.u, bp.maxs.u, bp.minu.u, bp.maxu.u) ;
-//     fprintf(stderr, "              mins = %12d, maxs = %12d, minu = %12u, maxu = %12u\n\n", bp.mins.i, bp.maxs.i, bp.minu.u, bp.maxu.u) ;
-  }
-}
-
 int main(int argc, char **argv){
   uint32_t z[NJ*2][LNI], r[NJ*2][LNI] ;
   float f1[NJ*2][LNI] ;

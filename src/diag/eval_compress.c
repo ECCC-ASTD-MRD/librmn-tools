@@ -19,17 +19,12 @@
 
 #include <rmn/eval_compress.h>
 #include <rmn/dwt_i_lgt53.h>
-#include <rmn/move_blocks.h>
-// #include <rmn/bi_endian_pack.h>
-#include <rmn/bitstream.h>
-#include <rmn/compare_count.h>
-
-#define STATIC static
+#include <rmn/tile_encoders.h>
 
 // inline functions borrowed from other source code to minimize code dependencies
 
 // leading zeros count (32 bit word)
-STATIC inline int32_t lzcnt_32(uint32_t what){
+static inline int32_t lzcnt_32(uint32_t what){
   uint32_t cnt ;
   __asm__ __volatile__ ("lzcnt %1, %0" : "=r"(cnt) : "r"(what) : "cc" ) ;
   return cnt ;
@@ -37,7 +32,7 @@ STATIC inline int32_t lzcnt_32(uint32_t what){
 
 // number of bits needed to represent a 32 bit signed number
 // uses lzcnt_32 function, that uses the lzcnt instruction
-STATIC inline int32_t BitsNeeded_i32(int32_t what){
+static inline int32_t BitsNeeded_i32(int32_t what){
   union {
     int32_t  i ;
     uint32_t u ;
@@ -52,40 +47,17 @@ end:
 
 // number of bits needed to represent a 32 bit unsigned number
 // uses lzcnt_32 function, that uses the lzcnt instruction
-STATIC inline int32_t BitsNeeded_u32(uint32_t what){
+static inline int32_t BitsNeeded_u32(uint32_t what){
   return 32 - lzcnt_32(what) ;
+}
+
+// convert signed integer to sign and magnitude form, sign becomes Least Significant Bit
+static inline uint32_t to_zigzag_32(int32_t what){
+  return (what << 1) ^ (what >> 31) ;
 }
 
 // number of bits needed to represent n (assumed >= 0)
 #define BitsNeeded_w32(N) (BitsNeeded_u32((uint32_t) N))
-
-#if 0
-// 2's complement to/from negabinary (base -2) conversion
-
-#define NBMASK 0xaaaaaaaau /* negabinary<-> 2's complement binary conversion mask */
-
-// signed integer (2's complement) to negabinary (base -2) conversion
-STATIC inline uint32_t int_to_negabinary(int32_t x)
-{
-  return ((uint32_t)x + NBMASK) ^ NBMASK;
-}
-
-// negabinary (base -2) to signed integer (2's complement) conversion
-STATIC inline int32_t negabinary_to_int(uint32_t x)
-{
-  return (int32_t)((x ^ NBMASK) - NBMASK);
-}
-#endif
-// convert signed integer to sign and magnitude form, sign becomes Least Significant Bit
-STATIC inline uint32_t to_zigzag_32(int32_t what){
-  return (what << 1) ^ (what >> 31) ;
-}
-
-// convert to signed integer from sign and magnitude form, sign from Least Significant Bit
-STATIC inline int32_t from_zigzag_32(uint32_t what){
-  int32_t sign = -(what & 1) ;
-  return ((what >> 1) ^ sign) ;
-}
 
 // get a smaller contiguous block from large array src
 static void get_block(int lni, int lnj, int i0, int j0, int src[lnj][lni], int ni, int nj, int dst[nj][ni]){
@@ -120,124 +92,6 @@ static void print_block(int ni, int nj, int block[nj][ni]){
   }
   fprintf(stderr, "\n");
 }
-
-#define PUT_NBITS(w32, nbits) LE64_EZ_PUT_NBITS(w32, nbits)
-#define GET_NBITS(w32, nbits) LE64_EZ_GET_NBITS(w32, nbits)
-static uint32_t stab[33] = {      // shift count table for short/long encoding
-  0x00000000 ,    // nbits =  0  (irrelevant)
-  0x00000000 ,    // nbits =  1  (irrelevant)
-  0x00000000 ,    // nbits =  2  (00 is the only useful value)
-  0x00010101 ,    // nbits =  3 (00/01 are the only useful values)
-  0x00010202 ,    // nbits =  4 (00/01/02 are the only useful values)
-  0x00010203 ,    // nbits =  5
-  0x00010304 ,    // nbits =  6
-  0x00010304 ,    // nbits =  7
-  0x00010405 ,    // nbits =  8
-  0x00010405 ,    // nbits =  9
-  0x00010506 ,    // nbits = 10
-  0x00010506 ,    // nbits = 11
-  0x00020607 ,    // nbits = 12
-  0x00020607 ,    // nbits = 13
-  0x00020708 ,    // nbits = 14
-  0x00020708 ,    // nbits = 15
-  0x00030809 ,    // nbits = 16
-  0x00030809 ,    // nbits = 17
-  0x0003090A ,    // nbits = 18
-  0x0003090A ,    // nbits = 19
-  0x00040A0B ,    // nbits = 20
-  0x00040A0B ,    // nbits = 21
-  0x00040B0C ,    // nbits = 22
-  0x00040B0C ,    // nbits = 23
-  0x00050C0D ,    // nbits = 24
-  0x00050C0D ,    // nbits = 25
-  0x00050D0E ,    // nbits = 26
-  0x00050D0E ,    // nbits = 27
-  0x00060E0F ,    // nbits = 28
-  0x00060E0F ,    // nbits = 29
-  0x00060F10 ,    // nbits = 30
-  0x00060F10 ,    // nbits = 31
-  0x00071011      // nbits = 32
-} ;
-
-#if 0
-
-STATIC int encode_block(int32_t *block, int32_t nval, block_properties *bp, bitstream *s){
-  int i, nbits, totbits = 0, SS = 0, M = 0, E = 0, ee = 0, header, offset = 0 ;
-  uint32_t token ;
-  EZ_NEW_INSERT_VARS(*s) ;
-
-  if(bp->maxs.i == bp->mins.i){
-    uint32_t zigzag = to_zigzag_32(block[0]) ;
-    nbits = BitsNeeded_u32(zigzag) ;
-    token = nbits << nbits ;
-    token |= zigzag ;
-    totbits = 8 + nbits ;
-    PUT_NBITS(1, 3) ;                 // header
-    PUT_NBITS(nbits-1, 5) ;           // value of nbits
-    PUT_NBITS(token, nbits) ;         // constant value
-    goto end ;
-  }
-  // convert to positive numbers
-  // determine number of bits needed to encode largest value
-  if(bp->maxs.i >= 0 && bp->mins.i <= 0){    // both positive and negative values
-    SS = 3 ;
-    M = 0 ;
-    for(i=0 ; i<nval ; i++)                  // convert to sign/magnitude
-      block[i] = to_zigzag_32(block[i]) ;
-    nbits = BitsNeeded_u32(to_zigzag_32(bp->maxu.u)) ;
-
-  }else{
-    M = 0 ;
-    nbits = BitsNeeded_u32(bp->maxu.u) ;
-    if(BitsNeeded_u32(bp->maxu.u - bp->minu.u) < nbits){
-      offset = bp->minu.u ;
-      nbits = BitsNeeded_u32(bp->maxu.u - bp->minu.u) ;
-      M = 1 ;
-    }
-    if(bp->maxs.i <= 0){                     // all values negative or zero
-      SS = 2 ;
-      for(i=0 ; i<nval ; i++)                // absolute value
-        block[i] = -block[i] ;
-
-    }else if(bp->mins.i >= 0){               // all values positive or zero
-      SS = 1 ;
-    }
-    if(offset != 0)
-      for(i=0 ; i<nval ; i++)
-        block[i] = block[i] - offset ;       // subtract offset from block
-  }
-  // determine if it is worth using short/long encoding
-  int ref[4], nref[4], count[4] ;
-  uint32_t shift = stab[nbits] ;
-  for(i=0 ; i<4 ; i++){
-    nref[i] = shift & 0xFF ;
-    ref[i] = 1 << nref[i] ;
-    shift >>= 8 ;
-  }
-  count_lt(count, (int *)block, ref, nval) ;
-  int nbitsmax = nbits * nval ;
-  int nshort = -1 ;
-  E = 0 ;
-  ee = 0 ;
-  if(nbits > 1){   // pointless if nbits < 2
-    for(i=0 ; i<4 ; i++){
-      int nbitsi = count[i] * (nref[i]+1) + (nval-count[i]) * (nbits+1) ;  // short/long with nref[i]/nbits
-      if(nbitsmax > nbitsi){
-        nbitsmax = nbitsi ;
-        nshort   = nref[i] ;
-        E = 1 ;
-        ee = 3 - i ;
-      }
-    }
-  }
-
-end:
-  EZ_SET_INSERT_VARS(*s) ;
-  return totbits ;
-}
-
-#endif
-
 
 // return estimate of number of bits needed to encode a block of size ni X nj
 static int count_encoded_bits(int ni, int nj, int block[nj][ni], int *info){

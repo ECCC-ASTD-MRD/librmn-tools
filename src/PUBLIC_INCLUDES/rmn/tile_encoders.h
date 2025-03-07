@@ -12,20 +12,21 @@
 // Library General Public License for more details.
 //
 
-#if ! defined (TILE_ENCODERS_H)
-#define TILE_ENCODERS_H
+#if ! defined (TILE_ENCODERS_INCLUDED)
+#define TILE_ENCODERS_INCLUDED
 
-#include <rmn/ct_assert.h>
-#include <rmn/misc_operators.h>
+// #include <rmn/ct_assert.h>
+// #include <rmn/misc_operators.h>
 // packing macros
 // #include <rmn/bi_endian_pack.h>
 // bit stream macros and functions
 // #include <rmn/bit_stream.h>
+#include <rmn/move_blocks.h>
 #include <rmn/bitstream.h>
 
 // encoded tile layout (tentative) :
 //
-// ======================================= LAYOUT 3 (new, more compact) =======================================
+// ======================================= LAYOUT 3 (latest, more compact) =======================================
 // (revised 2025/02/18)
 //
 //
@@ -37,36 +38,40 @@
 // options : 5 bit bbbbb field, 2 bit ee field, 1-32 bit offset field
 // the number of values in the encoded block must come from an EXTERNAL source
 //
+//   8 bits headers (nbits <= 16, except for constant blocks)
+//   SSMEnnnn[ee][bbbb][offset]
+//
 // header :
 //
-//   8 bits headers (nbits <= 16, except for constant blocks)
 // A 000bbbbb      constant block, ZIGZAG(value), 1 -> 32 bits/value, bbbbb == number of bits - 1
 // B 001xxxxx      reserved for future use
 // C 01MEnnnn      all values >= 0  ( 1->16 bits, nnnn == number of bits - 1)
 // D 10MEnnnn      all values <= 0  ( 1->16 bits, ABS(value), nnnn == number of bits - 1)
 // E 110Ennnn      mixed signs, zigzag encoding, ( 1->16 bits, ZIGZAG(value), nnnn == number of bits - 1)
-// F 111xxxxx      NOT a VALID 8 bit header
+// F 111xxxxx      NOT a VALID short header
 //
-// the first 3 bits tell the header type
-// 000 A type header (8 bits)
-// 001 B type header (8 bits)
-// 010 C type header (8 bits)
-// 011 C type header (8 bits)
-// 100 D type header (8 bits)
-// 101 D type header (8 bits)
-// 110 E type header (8 bits)
-// 111 F type header (12 bits)
 //
-// A-E full header length : 8 + [M == 1 ? 5 + bbbbb : 0] + [E == 1 ? 2 : 0] bits
+// the first 3/4 bits tell the header type
+// 000x  A type header (8 bits)   000bbbbb[constant_value]
+// 001x  B type header (8 bits)   001xxxxx  (reserved)
+// 010x  C type header (8 bits)   01MEnnnn [ee] [bbbb] [offset]
+// 011x  C type header (8 bits)   01MEnnnn [ee] [bbbb] [offset]
+// 100x  D type header (8 bits)   10MEnnnn [ee] [bbbb] [offset]
+// 101x  D type header (8 bits)   10MEnnnn [ee] [bbbb] [offset]
+// 110x  E type header (8 bits)   110Ennnn [ee]
+// 1111  F type header (8+5 bits) 1111SSME nnnnn [ee] [bbbbb] [offset]  (SS == 00 is reserved)
+// 1110  G type header (8+ bits)  1110xxxx (reserved)
+//
+// A-E full header length : 8 + [E == 1 ? 2 : 0] + [M == 1 ? 5 + bbbbb : 0] bits
 // only C and D headers may have M == 1
 // only C, D, E headers may have E == 1
 //
-// F full header length : 12 + [M == 1 ? 5 + bbbbb : 0] + [E == 1 ? 2 : 0] bits
+// F full header length : 12 + [E == 1 ? 2 : 0] + [M == 1 ? 5 + bbbbb : 0] bits
 //
 //   12 bits headers (nbits > 16)
 // F 111SSMEnnnnn  1->32 bits/value, nnnnn == number of bits - 1
-//                 111SSMEnnnnn[bbbbb][ee][offset]
-// G 11100xxxxxxx  reserved for future use (constant blocks shall use 000bbbbb header)
+//                 111SSMEnnnnn[ee][bbbbb][offset]
+// G 11100xxxxxxx  reserved for future use (constant blocks shall use the 000bbbbb header)
 //
 //   SS : 00 constant block
 //        01 all values >= 0
@@ -88,6 +93,14 @@
 //        11   short value : nbits/2 + 2 bits, encoded as 0 followed by nbits/2+2 bits
 //             long values, encoded as 1 followed by nbits bits
 //
+
+int encode_tile(bitstream *s, int32_t *tile, int32_t nval, block_properties *bp);
+int decode_tile(bitstream *s, int32_t *tile, int32_t nval);
+
+void print_encode_stats(int reset);
+
+#if 0
+
 // ============================================= LAYOUT 2 (new) =============================================
 // (revised 2024/08/21)
 //
@@ -249,15 +262,18 @@ void tile_population(void *tile, int n, int32_t pop[4], void *ref);
 uint64_t encode_tile_properties(void *field, int ni, int lni, int nj, uint32_t tile[64]);
 void print_tile_properties(uint64_t p64);
 
-int32_t encode_tile(void *field, int ni, int lni, int nj, bitstream *stream, uint32_t tile[64]);
+int32_t encode_a_tile(void *field, int ni, int lni, int nj, bitstream *stream, uint32_t tile[64]);
 int32_t encode_contiguous(uint64_t tp64, bitstream *stream, uint32_t tile[64]);
 int32_t encode_as_tiles(void *field, int ni, int lni, int nj, bitstream *stream);
 
 // int32_t decode_tile(void *field, int *ni, int lni, int *nj, bitstream *stream);
-int32_t decode_tile(void *field, int ni, int lni, int nj, int *nptsij, bitstream *stream);
+int32_t decode_a_tile(void *field, int ni, int lni, int nj, int *nptsij, bitstream *stream);
 int32_t decode_as_tiles(void *field, int ni, int lni, int nj, bitstream *stream);
 
 int32_t AecEncodeUnsigned(void *source, int32_t source_length, void *dest, int32_t dest_length, int bits_per_sample);
 int32_t AecDecodeUnsigned(void *source, int32_t source_length, void *dest, int32_t dest_length, int bits_per_sample);
+
+#endif   // if 0
+
 
 #endif

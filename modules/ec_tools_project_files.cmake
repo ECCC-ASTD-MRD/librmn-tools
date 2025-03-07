@@ -43,7 +43,7 @@ set(PROJECT_C_FILES
   src/pack/stream_pack.c
   src/diag/tee_print.c
   src/diag/test_helpers.c
-#   src/pack/tile_encoders.c
+  src/pack/tile_encoders.c
   src/pack/tracked_malloc.c
 )
 

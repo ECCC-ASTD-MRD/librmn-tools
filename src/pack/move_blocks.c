@@ -145,6 +145,25 @@ static int split_and_process_(uint32_t lgni, uint32_t gni, uint32_t gnj, data_ki
 }
 #endif
 
+// bp  [IN] : block properties struct (min / max / min abs)
+void print_int_props(block_properties bp){
+  int absmax, absmin, amax, amin ;
+  if(bp.kind == int_data){
+    amax = (bp.maxs.i) < 0 ? -bp.maxs.i : bp.maxs.i ;
+    amin = (bp.mins.i) < 0 ? -bp.mins.i : bp.mins.i ;
+    absmax = (amax > amin) ? amax : amin ;
+    absmin = (amax < amin) ? amax : amin ;
+    fprintf(stderr, "int   props : mins = %12d, maxs = %12d, minu = %12d, maxu = %12d, mina = %12d, maxa = %12d\n", bp.mins.i, bp.maxs.i, bp.minu.i, bp.maxu.i, absmin, absmax) ;
+  }else{
+    fprintf(stderr, "uint  props : mins = %12.8x, maxs = %12.8x, minu = %12.8x, maxu = %12.8x\n", bp.mins.u, bp.maxs.u, bp.minu.u, bp.maxu.u) ;
+  }
+}
+
+// bp  [IN] : block properties struct (min / max / min abs)
+void print_float_props(block_properties bp){
+  fprintf(stderr, "float props : mins = %12.3f, maxs = %12f, minu = %12f, maxu = %12f\n", bp.mins.f, bp.maxs.f, bp.minu.f, bp.maxu.f) ;
+}
+
 // lgni   [IN] : storage length of rows in array
 // gni    [IN] : number of useful elements in an array row
 // gnj    [IN] : number of rows in array

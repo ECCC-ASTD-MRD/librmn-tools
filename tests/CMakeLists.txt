@@ -173,6 +173,7 @@ add_project_test(test_ieeequantize test_ieeequantize.c LINK_LIBS "rmn::rmn-share
 
 add_project_test(test_logquantize test_logquantize.c LINK_LIBS "rmn::rmn-shared" NODIAG)
 # add_project_test(test_encoders test_encoders.c LINK_LIBS "rmn::rmn-shared" NODIAG)
+add_project_test(test_tile_encoders test_tile_encoders.c LINK_LIBS "rmn::rmn-shared" NODIAG)
 # add_project_test(test_bitstream test_bitstream.c LINK_LIBS "rmn::rmn-shared" NODIAG)
 add_project_test(test_entropy test_entropy.c LINK_LIBS "m;rmn::rmn;libaec::aec" DL NODIAG)
 add_project_test(test_data_info_c test_data_info.c LINK_LIBS "rmn::rmn-shared" NODIAG)

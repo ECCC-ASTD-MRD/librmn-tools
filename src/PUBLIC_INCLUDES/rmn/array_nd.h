@@ -22,7 +22,8 @@
 #include <stdlib.h>
 
 #include <rmn/data_kind.h>
-#include <rmn/va_args_num.h>
+// extra cpp macros (VA_ARGS related)
+#include <rmn/cpp_extras.h>
 
 // dimensionality description along a dimension
 // global   dimension index space : gn0 -> gn0 + gnn - 1  ( gnn elements)
@@ -172,9 +173,6 @@ typedef struct{   // struct containing up to 10 pairs of integers
 
 // static __i32__5x2__ __i32__5x2__null = { 0, 1, 0, 1, 0, 1, 0, 1, 0, 1 } ;
 // static __i32__5x2__ __i32__5x2__null = {{ {{0, 1}} , {{0, 1}}, {{0, 1}}, {{0, 1}}, {{0, 1}} }} ;
-
-// this will work if all arguments are integers and there is at least one argument
-#define NuMvArG(...)  (sizeof((int[]){__VA_ARGS__})/sizeof(int))
 
 // users should call the generic function new_array rather than new_array_nd
 void new_array_nd(array_nd *a, void *mem, int32_t esize, int8_t type, int32_t ndims, int32_t nlb5, __i32__5__ lb5);

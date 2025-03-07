@@ -140,7 +140,7 @@ int CONCAT(PREFIX,test)(){
   ps2 = StreamResize(ps1, NULL, 2*sizeof(sbuf));
   if(ps2 == ps1) return 13 ;
   if(STREAM_BUFFER_BYTES(*ps2) != 2*sizeof(sbuf)) return 14 ;
-return 0 ;
+
   nbits = 11 ;
 
   STREAM_INIT(&s1, NULL, sizeof(sbuf), BIT_FULL_INIT) ;
