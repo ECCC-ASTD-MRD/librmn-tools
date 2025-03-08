@@ -117,7 +117,7 @@ int main(int argc, char **argv){
   print_encode_stats(0) ; fprintf(stderr, "\n");
 
   if(totalbits != StreamAvailableBits(ps)){
-    fprintf(stderr, "expecting %d bits in stream, found %d\n", totalbits, StreamAvailableBits(ps)) ;
+    fprintf(stderr, "expecting %d bits in stream, found %ld\n", totalbits, StreamAvailableBits(ps)) ;
     status = 8 ;
     goto fail ;
   }

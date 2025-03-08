@@ -30,15 +30,35 @@
 #define PUT_NBITS(accum, insert, w32, nbits, streamptr) \
         { INSERT_CHECK(accum, insert, streamptr) ; INSERT_NBITS(accum, insert, w32, nbits) ; }
 
+// safely put 1 into accumulator, update accum, xtract, stream pointer
+#undef PUT_1
+#define PUT_1(accum, insert, streamptr) \
+        { INSERT_CHECK(accum, insert, streamptr) ; INSERT_1(accum, insert) ; }
+
+// safely put 0 into accumulator, update accum, xtract, stream pointer
+#undef PUT_0
+#define PUT_0(accum, insert, streamptr) \
+        { INSERT_CHECK(accum, insert, streamptr) ; INSERT_0(accum, insert) ; }
+
 // extract nbits bits into w32 from accumulator, update xtract, accum (unsafe, assumes that nbits bits are available)
 #undef XTRACT_NBITS
 #define XTRACT_NBITS(accum, xtract, w32, nbits) \
         { PEEK_NBITS(accum, xtract, w32, nbits) ; SKIP_NBITS(accum, xtract, nbits) ; }
 
+// extract 1 bit into w32 from accumulator, update xtract, accum (unsafe, assumes that 1 bit is available)
+#undef XTRACT_1
+#define XTRACT_1(accum, xtract, w32) \
+        { PEEK_1(accum, xtract, w32) ; SKIP_1(accum, xtract) ; }
+
 // safely get nbits into w32, update accum, xtract, stream pointer
 #undef GET_NBITS
 #define GET_NBITS(accum, xtract, w32, nbits, streamptr) \
         { XTRACT_CHECK(accum, xtract, streamptr) ; XTRACT_NBITS(accum, xtract, w32, nbits) ; }
+
+// safely get nbits into w32, update accum, xtract, stream pointer
+#undef GET_1
+#define GET_1(accum, xtract, w32, streamptr) \
+        { XTRACT_CHECK(accum, xtract, streamptr) ; XTRACT_1(accum, xtract, w32) ; }
 
 // ===============================================================================================
 // for stream insertion, accum will be (s).acc_i, stream pointer will be (s).in
@@ -49,6 +69,12 @@
 
 #undef STREAM_INSERT_NBITS
 #define STREAM_INSERT_NBITS(s, w32, nbits) { INSERT_NBITS((s).acc_i, (s).insert, w32, nbits) }
+
+#undef STREAM_INSERT_1
+#define STREAM_INSERT_1(s) { INSERT_1((s).acc_i, (s).insert) }
+
+#undef STREAM_INSERT_0
+#define STREAM_INSERT_0(s) { INSERT_0((s).acc_i, (s).insert) }
 
 #undef STREAM_INSERT_CHECK
 #define STREAM_INSERT_CHECK(s) { INSERT_CHECK((s).acc_i, (s).insert, (s).in) }
@@ -61,6 +87,12 @@
 
 #undef STREAM_PUT_NBITS
 #define STREAM_PUT_NBITS(s, w32, nbits) { PUT_NBITS((s).acc_i, (s).insert, w32, nbits, (s).in) }
+
+#undef STREAM_PUT_1
+#define STREAM_PUT_1(s) { PUT_1((s).acc_i, (s).insert, (s).in) }
+
+#undef STREAM_PUT_0
+#define STREAM_PUT_0(s) { PUT_0((s).acc_i, (s).insert, (s).in) }
 
 #undef STREAM_INSERT_ALIGN32
 #define STREAM_INSERT_ALIGN32(s) { INSERT_ALIGN32((s).acc_i, (s).insert) }
@@ -79,8 +111,14 @@
 #undef STREAM_PEEK_NBITS
 #define STREAM_PEEK_NBITS(s, w32, nbits) { PEEK_NBITS((s).acc_x, (s).xtract, w32, nbits) }
 
+#undef STREAM_PEEK_1
+#define STREAM_PEEK_1(s, w32) { PEEK_1((s).acc_x, (s).xtract, w32) }
+
 #undef STREAM_SKIP_NBITS
 #define STREAM_SKIP_NBITS(s, nbits) { SKIP_NBITS((s).acc_x, (s).xtract, nbits) }
+
+#undef STREAM_SKIP_1
+#define STREAM_SKIP_1(s) { SKIP_1((s).acc_x, (s).xtract) }
 
 #undef STREAM_XTRACT_NBITS
 #define STREAM_XTRACT_NBITS(s, w32, nbits) { XTRACT_NBITS((s).acc_x, (s).xtract, w32, nbits) }
@@ -93,6 +131,9 @@
 
 #undef STREAM_GET_NBITS
 #define STREAM_GET_NBITS(s, w32, nbits) { GET_NBITS((s).acc_x, (s).xtract, w32, nbits, (s).out) }
+
+#undef STREAM_GET_1
+#define STREAM_GET_1(s, w32) { GET_1((s).acc_x, (s).xtract, w32, (s).out) }
 
 #undef STREAM_XTRACT_ALIGN32
 #define STREAM_XTRACT_ALIGN32(s) { XTRACT_ALIGN32((s).acc_x, (s).xtract) }

@@ -22,7 +22,8 @@
 // undefine everything in case of multiple inclusion
 
 #undef PACK_ENDIAN
-#define PACK_ENDIAN 0xBE
+// #define PACK_ENDIAN 0xBE
+#define PACK_ENDIAN 'B'
 
 // bit stream macros and functions
 #include <rmn/bitstream.h>
@@ -43,14 +44,24 @@
 // big endian (BE) style (left to right) bit stream packing
 // insert token below bits already inserted into accumulator
 // extract token from the top (most significant part) of accumulator then shift accumulator left
-// accumulator SHOULD be zeroed before starting to insert
+// accumulator MUST be zeroed before starting to insert
 // ===============================================================================================
 
-// insert the lower nbits bits from w32 into accumulator, update insert, accum
-// (unsafe as it assumes that nbits bits can be inserted into acumulator)
+// insert the lower nbits bits from w32 into accumulator
+// this macro is unsafe, it assumes that nbits bits can be inserted into acumulator
 #undef INSERT_NBITS
 #define INSERT_NBITS(accum, insert, w32, nbits) \
         { uint64_t t=(w32) ; t <<= (64-(nbits)) ; t >>= insert ; insert += (nbits) ; accum |= t ; }
+
+// insert 1 into accumulator
+// this macro is unsafe, it assumes that nbits bits can be inserted into acumulator
+#undef INSERT_1
+#define INSERT_1(accum, insert) { uint64_t t=1 ; t <<= (63-insert) ; insert ++ ; accum |= t ; }
+
+// insert 0 into accumulator
+// this macro is unsafe, it assumes that nbits bits can be inserted into acumulator
+#undef INSERT_0
+#define INSERT_0(accum, insert) { insert ++ ; }
 
 // check that 32 bits can be safely inserted into accumulator
 // if not possible, store upper 32 bits of accum into stream, update accum, insert, stream pointer
@@ -93,9 +104,17 @@
 #undef PEEK_NBITS
 #define PEEK_NBITS(accum, xtract, w32, nbits) { w32 = (uint64_t)accum >> (64 - (nbits)) ; }
 
+// take a peek at the next bit from accum into w32 (unsafe, assumes that 1 bit is available)
+#undef PEEK_1
+#define PEEK_1(accum, xtract, w32) { w32 = (accum >> 63) & 1 ; }
+
 // skip the next nbits bits from accumulator (unsafe, assumes that nbits bits are available)
 #undef SKIP_NBITS
 #define SKIP_NBITS(accum, xtract, nbits) { accum <<= (nbits) ; xtract -= (nbits) ; }
+
+// skip the next nbits bits from accumulator (unsafe, assumes that 1 bit is available)
+#undef SKIP_1
+#define SKIP_1(accum, xtract) { accum <<= 1 ; xtract-- ; }
 
 // check that 32 bits can be safely extracted from accum
 // if not possible, get extra 32 bits into accum from stresm, update accum, xtract, stream
@@ -118,6 +137,11 @@
 // align extraction point to a 8 bit boundary
 #undef XTRACT_ALIGN8
 #define XTRACT_ALIGN8(accum, xtract) { uint32_t tbits = xtract ; tbits &= 7 ; accum <<= tbits ; xtract -= tbits ; }
+
+// ===============================================================================================
+// put  token2 (ltoken2 bits) to the right of shifted token1 (ltoken1 bits)  ltoken1 will be updated (left to right)
+#undef CONCAT_TOKENS
+#define CONCAT_TOKENS(token1, ltoken1, token2, ltoken2) { token1 = (token1 << ltoken2) | token2 ; ltoken1 += ltoken2 ; }
 
 // ===============================================================================================
 // common macros

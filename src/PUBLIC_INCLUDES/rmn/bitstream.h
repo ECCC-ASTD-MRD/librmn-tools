@@ -33,8 +33,10 @@
 #define SET_LITTLE_ENDIAN   32
 
 // endianness codes, MUST MATCH PACK_ENDIAN macro (le_stream.h/be_stream.h)
-#define STREAM_BE 0xBE
-#define STREAM_LE 0xEB
+// #define STREAM_BE 0xBE
+#define STREAM_BE 'B'
+// #define STREAM_LE 0xEB
+#define STREAM_LE 'L'
 // endianness information from stream
 #define STREAM_ENDIANNESS(s) (s).endian
 #define STREAM_IS_BIG_ENDIAN(s) ( (s).endian == STREAM_BE )

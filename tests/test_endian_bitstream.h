@@ -16,7 +16,7 @@
 //
 
 int CONCAT(PREFIX,test)(){
-  int i, nbits = 12, npts = 4095, errors, status ;
+  int i, nbits = 12, npts = 4095, errors, status, token ;
   ssize_t totbits = 0, copybits ;
   uint32_t w32, sbuf[4096], copy_buffer[4096] ;
   bitstream s0 ;
@@ -94,15 +94,37 @@ int CONCAT(PREFIX,test)(){
     STREAM_REWRITE(s0, 1) ; StreamRewrite(&s0, 1) ;
     mask = 0xFFFFFFFFu ;
     mask >>= (32-nbits) ;
-    for(i=0 ; i<npts ; i++){
-      STREAM_PUT_NBITS(s0, (i & mask), nbits) ;
+    if(nbits == 1){
+      for(i=0 ; i<npts ; i++){
+        token = (i & mask) ;
+        STREAM_INSERT_CHECK(s0) ;
+        if(token){
+          STREAM_INSERT_1(s0) ;
+        }else{
+          STREAM_INSERT_0(s0) ;
+        }
+      }
+    }else{
+      for(i=0 ; i<npts ; i++){
+        token = (i & mask) ;
+        STREAM_PUT_NBITS(s0, token, nbits) ;
+      }
     }
     STREAM_FLUSH(s0) ; STREAM_INSERT_FINALIZE(s0) ; StreamFlush(&s0) ;
     STREAM_REWIND(s0, 1) ; StreamRewind(&s0, 1) ;
     errors = 0 ;
-    for(i=0 ; i<npts ; i++){
-      STREAM_GET_NBITS(s0, w32, nbits) ;
-      if(w32 != (uint32_t)(i&mask)) errors++ ;
+    if(nbits == 1){
+      for(i=0 ; i<npts ; i++){
+        STREAM_XTRACT_CHECK(s0) ;
+        STREAM_PEEK_1(s0, w32) ;
+        STREAM_SKIP_1(s0) ;
+        if(w32 != (uint32_t)(i&mask)) errors++ ;
+      }
+    }else{
+      for(i=0 ; i<npts ; i++){
+        STREAM_GET_NBITS(s0, w32, nbits) ;
+        if(w32 != (uint32_t)(i&mask)) errors++ ;
+      }
     }
     if(errors > 0) {
       fprintf(stderr, "%d errors detected when extracting from stream\n", errors) ;
@@ -122,7 +144,7 @@ int CONCAT(PREFIX,test)(){
 
   ps0 = CreateStream(NULL, sizeof(sbuf), BIT_FULL_INIT) ; ps0->endian = PACK_ENDIAN ;
   if(ps0->endian != PACK_ENDIAN){
-    fprintf(stderr, "ps1->endian = %x, expected %x\n", ps0->endian, PACK_ENDIAN) ;
+    fprintf(stderr, "ps1->endian = %cE, expected %cE\n", ps0->endian, PACK_ENDIAN) ;
     return 9 ;
   }
   ps0 = FreeStream(ps0, &status) ;
@@ -130,7 +152,7 @@ int CONCAT(PREFIX,test)(){
 
   STREAM_CREATE(ps1, NULL, sizeof(sbuf), BIT_FULL_INIT) ;
   if(ps1->endian != PACK_ENDIAN){
-    fprintf(stderr, "ps1->endian = %x, expected %x\n", ps1->endian, PACK_ENDIAN) ;
+    fprintf(stderr, "ps1->endian = %cE, expected %cE\n", ps1->endian, PACK_ENDIAN) ;
     return 11 ;
   }
 

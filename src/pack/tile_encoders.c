@@ -128,7 +128,7 @@ static uint32_t stab[33] = {
 // TODO add safety check to make sure we had enough data in stream
 int decode_tile(bitstream *s_in, int32_t *tile, int32_t nval){
   int i, nbits, totbits, offset, M, E, head3, head, isminus, iszigzag, lhead, status ;
-  uint32_t token, ee, nboffset ;
+  uint32_t token, ee, nboffset, uvalue ;
   bitstream s ;
 
   if(s_in != NULL) s = *s_in ;
@@ -139,7 +139,7 @@ int decode_tile(bitstream *s_in, int32_t *tile, int32_t nval){
   STREAM_PEEK_NBITS(s, token, lhead) ;        // header (8 or 12 bits)
   head3 = (token >> 9) ;           // top 3 bits of token
   isminus = iszigzag = 0 ;
-fprintf(stderr, "accum = %16.16x, header = %8.8x, head3 = %8.8x\n", s.acc_x, token, head3) ;
+fprintf(stderr, "accum = %16.16lx, header = %8.8x, head3 = %8.8x\n", s.acc_x, token, head3) ;
   lhead = 8 ;
   switch(head3){
     case 0b000 :                   // constant tile  000bbbbb....
@@ -214,7 +214,6 @@ error :
   return status ;
 
 constant_tile:
-  uint32_t uvalue ;
   STREAM_SKIP_NBITS(s, 8) ;            // skip header
   nbits++ ;
   STREAM_GET_NBITS(s, uvalue, nbits) ; // get zigzag encoded value
