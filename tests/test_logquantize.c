@@ -104,11 +104,11 @@ int main(int argc, char **argv){
 //   TIME_LOOP_EZ(1000, NPTS, IEEE32_fakelog_restore_0(r, h64, NPTS, qi)) ;
 //   fprintf(stderr, "IEEE32_fakelog_restore_0    : %s\n\n",timer_msg);
 
-  fprintf(stderr, "%12.0f ", x[0]/(x[0]-r[0])) ;
-  for(i=1 ; i<NPTS ; i+=511) fprintf(stderr, "%12.0f ", x[i]/(x[i]-r[i])) ;
-  fprintf(stderr, "%12.0f\n", x[NPTS-1]/(x[NPTS-1]-r[NPTS-1])) ;
-  maxerr = max_rel_err(x, r, NPTS) ;
-  fprintf(stderr, "max rel err = 1 part in %12.0f\n", maxerr) ;
+//   fprintf(stderr, "%12.0f ", x[0]/(x[0]-r[0])) ;
+//   for(i=1 ; i<NPTS ; i+=511) fprintf(stderr, "%12.0f ", x[i]/(x[i]-r[i])) ;
+//   fprintf(stderr, "%12.0f\n", x[NPTS-1]/(x[NPTS-1]-r[NPTS-1])) ;
+//   maxerr = max_rel_err(x, r, NPTS) ;
+//   fprintf(stderr, "max rel err = 1 part in %12.0f\n", maxerr) ;
   fprintf(stderr, "\n") ;
 
 }

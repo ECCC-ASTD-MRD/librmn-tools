@@ -26,6 +26,7 @@ ssize_t FILTER_FUNCTION(ID)(uint32_t flags, array_descriptor *ap, const filter_m
   // the definition of FILTER_TYPE(ID) (filter_xxx) will come from filter_xxx.h or the appropriate include file
   ssize_t nbytes = 0 ;
   int errors = 0 ;
+  uint32_t *data ;
   filter_meta m_out ;
   FILTER_TYPE(ID) *m_fwd ;
 
@@ -80,7 +81,7 @@ ssize_t FILTER_FUNCTION(ID)(uint32_t flags, array_descriptor *ap, const filter_m
       //
       // insert appropriate filter code here
       //
-      uint32_t *data = buf->buffer ;
+      data = buf->buffer ;
       switch(meta_in->flags) {
         case 3:    // NO-OP for now
           break ;

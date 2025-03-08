@@ -242,7 +242,7 @@ rmn_pixmap *pixmap_be_int_01(void *array, rmn_pixmap *bmp, int32_t special, int3
 // e.g. mmask = 7 will ignore the lower (least significant) 3 bits
 rmn_pixmap *pixmap_be_fp_01(float *array, rmn_pixmap *bmp, float special, int32_t mmask, int n, int oper){
   rmn_pixmap *pixmap = bmp ;
-  uint32_t t, t_gt, t_lt, result_lt, result_gt, result_eq, result, n31, *data, pop1 = 0, all1 = 0, zero = 0 ;
+  uint32_t t, t_gt, t_lt, result_lt, result_gt, result, n31, *data, pop1 = 0, all1 = 0, zero = 0 ;
   int32_t i, i0 ;
   float *src = (float *) array ;
 
@@ -507,28 +507,28 @@ rmn_pixmap *pixmap_encode_be_01(rmn_pixmap *bmp, rmn_pixmap *rle_stream, int mod
   uint32_t *pixmap, scan0, scan1 ;
   rmn_pixmap *stream = rle_stream ;
   int kount = 0 ;
-  uint32_t accum, *str, *str_limit ;
+  uint32_t accum, *str ;
   int shift, inplace ;
-  int full_0, full_1, ng0, ng1 ;
+  int full_0, full_1, ng0 ;
 
   if(mode == -1) mode = RLE_FULL_0 | RLE_123_0 ;  // default : simple encoding for 1s, full 12/3 encoding for 0s
   if(mode & RLE_FULL_0){
-    int full_12_0, full_8_0 ;
+    int full_12_0 ;
     full_0 = 1 ;
     full_12_0 = (mode & RLE_123_0) != 0 ;
-    full_8_0  = (mode & RLE_123_0) == 0 ;
+//     full_8_0  = (mode & RLE_123_0) == 0 ;
     ng0 = full_12_0 ? 12 : 8 ;
   }else{
     full_0 = ng0 = 0 ;
   }
   if(mode & RLE_FULL_1){
-    int full_12_1, full_8_1 ;
+//     int full_12_1 ;
     full_1 = 1 ;
-    full_12_1 = (mode & RLE_123_1) != 0 ;
-    full_8_1  = (mode & RLE_123_1) == 0 ;
-    ng1 = full_12_1 ? 12 : 8 ;
+//     full_12_1 = (mode & RLE_123_1) != 0 ;
+//     full_8_1  = (mode & RLE_123_1) == 0 ;
+//     ng1 = full_12_1 ? 12 : 8 ;
   }else{
-    full_1 = ng1 = 0 ;
+    full_1 = 0 ;
   }
 // fprintf(stderr, "ng0 = %d, ng1 = %d\n", ng0, ng1) ;
   if(bmp == NULL) return NULL ;
@@ -553,7 +553,7 @@ rmn_pixmap *pixmap_encode_be_01(rmn_pixmap *bmp, rmn_pixmap *rle_stream, int mod
   accum = mode << 28 ;
   shift = 27 ;
   str = (uint32_t *)stream->data ;
-  str_limit = ((uint32_t *)stream->data) + stream->size ;
+//   str_limit = ((uint32_t *)stream->data) + stream->size ;
 
 count_1_or_0 :
   nb = lzcnt_32( (bit_type ? scan1 : scan0) ) ;      // get number of leading zeroes
@@ -648,7 +648,7 @@ done:
 // for now only full encoding for 0s and simple encoding for 1s is implemented in the decoder
 rmn_pixmap *pixmap_decode_be_01(rmn_pixmap *bmp, rmn_pixmap *rle_stream){
   uint32_t *pixmap, *rle, encoded, accum, bit ;
-  uint32_t msb1 = 0x80000000u ;        // 1 in Most Significant Bit
+//   uint32_t msb1 = 0x80000000u ;        // 1 in Most Significant Bit
   int totavail, avail, insert, ndecoded, ninserted, inplace = 0, i ;
   int full_0, full_1, ng0, ng1, full_12_0, full_12_1 ;
 

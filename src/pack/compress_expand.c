@@ -274,6 +274,7 @@ int Get_64_from_32_l2r(void *d64, uint32_t n, void *s32){
   return nw ;
 }
 // ================================ MaskCompress family ===============================
+#if 0
 // copy from s to d where mask0[i:i] == 1  (bit i, bit 0 is LSB)
 static inline uint32_t *Mask0copy_c_be(uint32_t *s, uint32_t *d, uint32_t mask0){
   int i ;
@@ -285,6 +286,7 @@ static inline uint32_t *Mask0copy_c_be(uint32_t *s, uint32_t *d, uint32_t mask0)
   }
   return d ;
 }
+#endif
 // compute mask with 1s where s[i] == value, 0s otherwise
 // n MUST BE < 33
 static inline uint32_t Mask0EqualValue_c_be(uint32_t *s, uint32_t value, int n){
@@ -307,8 +309,7 @@ int32_t MaskEqualCompress_c_be(void *source, int nsource, void *value, void *mas
   uint32_t *ref = (uint32_t *) value ;
   uint32_t ref0 = *ref ;
   uint32_t *msk = (uint32_t *) mask ;
-  uint32_t *dst = (uint32_t *) comp ;
-  uint32_t complement = ( negate ? 0xFFFFFFFFu : 0 ), mask0, m1 ;
+  uint32_t complement = ( negate ? 0xFFFFFFFFu : 0 ), mask0 ;
   int nmask = 0, i0 ;
 
   if(nsource <= 0) return -1 ;
@@ -345,6 +346,7 @@ int32_t MaskEqualCompress_c_be(void *source, int nsource, void *value, void *mas
 // _be function : Big Endian style, [0] is MSB
 // _le function : Little Endian style, [0] is LSB
 // plain C version
+#if 0
 static inline uint32_t Mask0Equal_c_be(uint32_t *s1, int inc1, uint32_t *s2, int inc2, int n){
   uint32_t mask0 = 0, m1 = 0x80000000u ;
   while(n-- > 0) {                           // n < 33 value slices
@@ -354,6 +356,7 @@ static inline uint32_t Mask0Equal_c_be(uint32_t *s1, int inc1, uint32_t *s2, int
   }
   return mask0 ;
 }
+#endif
 // int32_t MaskEqual_c_be(void *src1, int nsrc1, void *src2, int nsrc2, void *mask, int negate){
 //   uint32_t *s1 = (uint32_t *) src1 ;
 //   uint32_t *s2 = (uint32_t *) src2 ;
@@ -394,8 +397,8 @@ int32_t MaskEqual_c_le(void *src1, int nsrc1, void *src2, int nsrc2, void *mask,
   uint32_t *s1 = (uint32_t *) src1 ;
   uint32_t *s2 = (uint32_t *) src2 ;
   uint32_t *mk = (uint32_t *) mask ;
-  uint32_t complement = ( negate ? 0xFFFFFFFFu : 0 ), mask0, m1 ;
-  int i0, i, inc1 = ((nsrc1 > 1) ? 1 : 0), inc2 = ((nsrc2 > 1) ? 1 : 0) ;
+  uint32_t complement = ( negate ? 0xFFFFFFFFu : 0 ), mask0 ;
+  int i0, inc1 = ((nsrc1 > 1) ? 1 : 0), inc2 = ((nsrc2 > 1) ? 1 : 0) ;
   int n = (nsrc1 > nsrc2) ? nsrc1 : nsrc2 ;
   int nmask = 0 ;
 
@@ -425,11 +428,11 @@ int32_t MaskEqual_c_le(void *src1, int nsrc1, void *src2, int nsrc2, void *mask,
 int32_t MaskEqual_avx2_le(void *src1, int nsrc1, void *src2, int nsrc2, void *mask, int negate){
   uint32_t *s1 = (uint32_t *) src1, *s2 = (uint32_t *) src2 ;
   uint8_t *mk = (uint8_t *) mask ;
-  uint32_t complement = ( negate ? 0xFFFFFFFFu : 0 ), mask0, m1 ;
+  uint32_t complement = ( negate ? 0xFFFFFFFFu : 0 ), mask0 ;
   uint8_t complement8 = ( negate ? 0xFFu : 0 ) ;
   int n = (nsrc1 > nsrc2) ? nsrc1 : nsrc2 ;
   int nmask = 0 ;
-  int i0, i, inc1 = ((nsrc1 > 1) ? 1 : 0), inc2 = ((nsrc2 > 1) ? 1 : 0) ;
+  int i0, inc1 = ((nsrc1 > 1) ? 1 : 0), inc2 = ((nsrc2 > 1) ? 1 : 0) ;
   __m256i v1a, v1b, v1c, v1d, v2a, v2b, v2c, v2d, vm1, vm2, vc1, vc2 ;
 
   if(nsrc1 != n && nsrc1 != 1) return -1 ;
@@ -554,8 +557,8 @@ int32_t MaskGreater_c_be(void *src1, int nsrc1, void *src2, int nsrc2, void *mas
   int32_t *s1 = (int32_t *) src1 ;
   int32_t *s2 = (int32_t *) src2 ;
   uint32_t *mk = (uint32_t *) mask ;
-  uint32_t complement = ( negate ? 0xFFFFFFFFu : 0 ), mask0, m1 ;
-  int i0, i, inc1 = ((nsrc1 > 1) ? 1 : 0), inc2 = ((nsrc2 > 1) ? 1 : 0) ;
+  uint32_t complement = ( negate ? 0xFFFFFFFFu : 0 ), mask0 ;
+  int i0, inc1 = ((nsrc1 > 1) ? 1 : 0), inc2 = ((nsrc2 > 1) ? 1 : 0) ;
   int n = (nsrc1 > nsrc2) ? nsrc1 : nsrc2 ;
   int nmask = 0 ;
 
@@ -590,8 +593,8 @@ int32_t MaskGreater_c_le(void *src1, int nsrc1, void *src2, int nsrc2, void *mas
   int32_t *s1 = (int32_t *) src1 ;
   int32_t *s2 = (int32_t *) src2 ;
   uint32_t *mk = (uint32_t *) mask ;
-  uint32_t complement = ( negate ? 0xFFFFFFFFu : 0 ), mask0, m1 ;
-  int i0, i, inc1 = ((nsrc1 > 1) ? 1 : 0), inc2 = ((nsrc2 > 1) ? 1 : 0) ;
+  uint32_t complement = ( negate ? 0xFFFFFFFFu : 0 ), mask0 ;
+  int i0, inc1 = ((nsrc1 > 1) ? 1 : 0), inc2 = ((nsrc2 > 1) ? 1 : 0) ;
   int n = (nsrc1 > nsrc2) ? nsrc1 : nsrc2 ;
   int nmask = 0 ;
 
@@ -621,11 +624,11 @@ int32_t MaskGreater_avx2_be(void *src1, int nsrc1, void *src2, int nsrc2, uint32
 int32_t MaskGreater_avx2_le(void *src1, int nsrc1, void *src2, int nsrc2, void *mask, int negate){
   int32_t *s1 = (int32_t *) src1, *s2 = (int32_t *) src2 ;
   uint8_t *mk = (uint8_t *) mask ;
-  uint32_t complement = ( negate ? 0xFFFFFFFFu : 0 ), mask0, m1 ;
+  uint32_t complement = ( negate ? 0xFFFFFFFFu : 0 ), mask0 ;
   uint8_t complement8 = ( negate ? 0xFFu : 0 );
   int n = (nsrc1 > nsrc2) ? nsrc1 : nsrc2 ;
   int nmask = 0 ;
-  int i0, i, inc1 = ((nsrc1 > 1) ? 1 : 0), inc2 = ((nsrc2 > 1) ? 1 : 0) ;
+  int i0, inc1 = ((nsrc1 > 1) ? 1 : 0), inc2 = ((nsrc2 > 1) ? 1 : 0) ;
   __m256i v1a, v1b, v1c, v1d, v2a, v2b, v2c, v2d, vm1, vm2, vc1, vc2 ;
 
   if(nsrc1 != n && nsrc1 != 1) return -1 ;

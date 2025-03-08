@@ -486,12 +486,12 @@ void gather_tile_simd(void *array, int lni, void *tile, int ni, int nj, int32_t 
 #if defined(__AVX2__)
   int nim8 = ni - 8 ;
   __m256i vmaxs, vmins, vmin0, v1111, v0000, vtemp, vmask, vzero ;
-  v0000 = _mm256_xor_si256(v0000, v0000) ;
+  vmaxs = _mm256_set1_epi32(0x80000000) ;
+  vmins = _mm256_set1_epi32(0x7FFFFFFF) ;
+  v0000 = _mm256_xor_si256(vmaxs, vmaxs) ;
   vzero = v0000 ;
   v1111 = _mm256_cmpeq_epi32(v0000, v0000) ;
   vmin0 = v1111 ;
-  vmaxs = _mm256_set1_epi32(0x80000000) ;
-  vmins = _mm256_set1_epi32(0x7FFFFFFF) ;
   while(nj > 0){
     if(ni > 8){
       __m256i data0 = _mm256_loadu_si256((__m256i *)(a       )) ;  // slice 1

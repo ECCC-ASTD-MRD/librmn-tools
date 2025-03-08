@@ -33,7 +33,7 @@ int main(int argc, char **argv){
   int t2d[16][16] ;
   int r2d[16][16] ;
 //   int e[16], o[16] ;
-  int npts, xe[256], xo[256] ;
+  int npts, nrows, ncols, xe[256], xo[256] ;
 
   int a64_[66], xo1[64], xe1[64], xo2[64], xe2[64], b64_[66] ;
   int *a64 = &a64_[1], *b64 = &b64_[1] ;
@@ -216,7 +216,7 @@ int main(int argc, char **argv){
   fprintf(stderr, " : errors = %d\n\n", nerr=errors((void *)r2d, (void *)t2d, 16*16));
   if(nerr) goto fail ;
 
-  int nrows = 2, ncols = 2 ;
+  nrows = 2 ; ncols = 2 ;
   fprintf(stderr, "2D, %d points along j, ni == %d", nrows, ncols) ;
   fwd_2d_lgt53((void *)t2d, 16, ncols, nrows);
   inv_2d_lgt53((void *)t2d, 16, ncols, nrows);

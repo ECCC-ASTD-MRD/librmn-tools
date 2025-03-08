@@ -349,11 +349,10 @@ fprintf(stderr, "RleDecodeByte : byte = %4u, nbytes = %d\n", byte, nbytes) ;
 #endif
 
 static inline uint32_t ByteRunLengthEncode(void *b, int32_t nbytes, void *s){
-  uint8_t *bytes = (uint8_t *) b ;
-  uint32_t *stream = (uint32_t *) s ;
+//   uint8_t *bytes = (uint8_t *) b ;
+//   uint32_t *stream = (uint32_t *) s ;
   int32_t nbits = 0 ;
-  uint32_t rep = 1024 ;
-  int i ;
+//   uint32_t rep = 1024 ;
   while(nbytes-- > 0){  // encode nbytes bytes
   }
   return nbits ;
@@ -489,27 +488,27 @@ static inline void MaskedMerge_1_32_c_le(void *s, void *d, uint32_t le_mask, voi
 #if defined(__x86_64__) && defined(__AVX2__)
 // merge src and scalar value into dst according to mask
 static inline void MaskedFill_32_avx2_be(void *s, void *d, uint32_t be_mask, uint32_t value){
-  uint32_t *src = (uint32_t *) s ;
-  uint32_t *dst = (uint32_t *) d ;
+//   uint32_t *src = (uint32_t *) s ;
+//   uint32_t *dst = (uint32_t *) d ;
   MaskedFill_1_32_c_be(s, d, be_mask, value, 32) ;
 }
 static inline void MaskedFill_32_avx2_le(void *s, void *d, uint32_t le_mask, uint32_t value){
-  uint32_t *src = (uint32_t *) s ;
-  uint32_t *dst = (uint32_t *) d ;
+//   uint32_t *src = (uint32_t *) s ;
+//   uint32_t *dst = (uint32_t *) d ;
   MaskedFill_1_32_c_le(s, d, le_mask, value, 32) ;
 }
 
 // merge src and values into dst according to mask
 static inline void MaskedMerge_32_avx2_be(void *s, void *d, uint32_t be_mask, void *values){
-  uint32_t *src = (uint32_t *) s ;
-  uint32_t *dst = (uint32_t *) d ;
-  uint32_t *val = (uint32_t *) values ;
+//   uint32_t *src = (uint32_t *) s ;
+//   uint32_t *dst = (uint32_t *) d ;
+//   uint32_t *val = (uint32_t *) values ;
   MaskedMerge_1_32_c_be(s, d, be_mask, values, 32) ;
 }
 static inline void MaskedMerge_32_avx2_le(void *s, void *d, uint32_t le_mask, void *values){
-  uint32_t *src = (uint32_t *) s ;
-  uint32_t *dst = (uint32_t *) d ;
-  uint32_t *val = (uint32_t *) values ;
+//   uint32_t *src = (uint32_t *) s ;
+//   uint32_t *dst = (uint32_t *) d ;
+//   uint32_t *val = (uint32_t *) values ;
   MaskedMerge_1_32_c_le(s, d, le_mask, values, 32) ;
 }
 #endif

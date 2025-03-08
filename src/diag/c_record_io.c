@@ -43,7 +43,7 @@ void *read_32bit_data_record_named(char *filename, int *fdi, int *dims, int *ndi
   ssize_t nr ;
   void *buf = NULL ;
   uint32_t ntot ;
-  int i, ni ;
+  int i ;
   int fd = *fdi ;
   int diml[7] ;
 

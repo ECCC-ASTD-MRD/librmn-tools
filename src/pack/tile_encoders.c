@@ -127,7 +127,7 @@ static uint32_t stab[33] = {
 // return nuber of bits extracted from bitstream buffer
 // TODO add safety check to make sure we had enough data in stream
 int decode_tile(bitstream *s_in, int32_t *tile, int32_t nval){
-  int i, nbits, totbits, offset, M, E, head3, head, isminus, iszigzag, lhead, status ;
+  int i, nbits, totbits, offset, M, E, head3, isminus, iszigzag, lhead, status ;
   uint32_t token, ee, nboffset, uvalue ;
   bitstream s ;
 
@@ -145,11 +145,11 @@ fprintf(stderr, "accum = %16.16lx, header = %8.8x, head3 = %8.8x\n", s.acc_x, to
     case 0b000 :                   // constant tile  000bbbbb....
       nbits = token >> 4 ;
       goto constant_tile ;
-      break ;
+//       break ;
     case 0b001 :                   // reserved header
       status = -1 ;
       goto error ;
-      break ;
+//       break ;
     case 0b010 :                   // all values >= 0
     case 0b011 :
 fprintf(stderr, "all values >=0\n") ;
@@ -201,6 +201,8 @@ fprintf(stderr, "all values zigzag\n") ;
   }
 
 end:
+  if(offset != 0)
+    for(i=0 ; i<nval ; i++) tile[i] = tile[i] + offset ;
   if(isminus){
     for(i=0 ; i<nval ; i++) tile[i] = -tile[i] ;
   }

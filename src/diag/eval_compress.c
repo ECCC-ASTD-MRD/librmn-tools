@@ -80,7 +80,7 @@ static void get_min_max_i(int *buf, int ninj, int *min, int *max){
   *min = mi ;
   *max = ma ;
 }
-
+#if 0
 // print block
 static void print_block(int ni, int nj, int block[nj][ni]){
   int i, j ;
@@ -92,10 +92,10 @@ static void print_block(int ni, int nj, int block[nj][ni]){
   }
   fprintf(stderr, "\n");
 }
-
+#endif
 // return estimate of number of bits needed to encode a block of size ni X nj
 static int count_encoded_bits(int ni, int nj, int block[nj][ni], int *info){
-  int i, j, max, min, nbits, extra = 0, btab[33], maxbits, blockij, nshort, nij = ni * nj, nbits_i, allneg = 0, delta, tmp ;
+  int i, j, max, min, nbits, extra = 0, btab[33], maxbits, nshort, nij = ni * nj, nbits_i, delta, tmp ;
 
   max = min = block[0][0] ;
   for(j=0 ; j<nj ; j++){       // get extrema
@@ -124,7 +124,6 @@ static int count_encoded_bits(int ni, int nj, int block[nj][ni], int *info){
     }
     min = 0 ;  // min is assumed to be 0 for zigzag encoding
   }else if(max <= 0){   // all values <= 0
-    allneg = 1 ;
     for(j=0 ; j<nj ; j++){
       for(i=0 ; i<ni ; i++){
         block[j][i] = (-block[j][i]) ;  // negate number to make it positive
@@ -267,8 +266,8 @@ int bits_diff(int *a, int *b, int n, int *errmax, int *bias){
 }
 
 void un_clip_quadrants(int ni, int nj, int f[nj][ni], int nbits){
-  int i, j, nieven = (ni+1)/2, niodd = ni/2, njeven = (nj+1)/2, njodd = nj/2, t, ta ;
-return ;
+  int i, j, nieven = (ni+1)/2, njeven = (nj+1)/2, t ;
+// return ;
   for(j=njeven ; j<nj ; j++){
     for(i=nieven ; i<ni ; i++){      // odd-odd quadrant
       t = f[j][i] ;
@@ -285,7 +284,7 @@ return ;
 
 void clip_quadrants(int ni, int nj, int f[nj][ni], int nbits){
   static int ntab[] = {0, 0, 1, 2, 5, 8 };
-  int i, j, nieven = (ni+1)/2, niodd = ni/2, njeven = (nj+1)/2, njodd = nj/2, t, ta ;
+  int i, j, nieven = (ni+1)/2, njeven = (nj+1)/2, t, ta ;
   int mask = ((-1) << nbits) ;
   int mask2 = (mask >> 1) ;
   int bump = ntab[nbits] ;

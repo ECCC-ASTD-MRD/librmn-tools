@@ -26,7 +26,7 @@
 ssize_t FILTER_FUNCTION(ID)(uint32_t flags, array_descriptor *ap, const filter_meta *meta_in, pipe_buffer *buf, wordstream *stream_out){
   // the definition of FILTER_TYPE(ID) (filter_xxx) will come from filter_xxx.h or the appropriate include file
   ssize_t nbytes = 0 ;
-  int errors = 0 ;
+  int nw32, errors = 0 ;
   typedef struct{    // used as m_out in forward mode, used as m_inv for the reverse filter
     FILTER_PROLOG ;
     // add specific components here
@@ -95,7 +95,7 @@ fprintf(stderr, "filter 110 : properties = %d min = %d, max = %d, min0 = %d\n", 
       *m_inv = (filter_inverse) {.size = W32_SIZEOF(filter_inverse), .id = ID, .flags = 0 } ;
       // prepare metadata for reverse filter
       // encode dimensions
-      int nw32 = encode_dimensions(ap, m_out.meta) ;
+      nw32 = encode_dimensions(ap, m_out.meta) ;
       // encode dimensions into m_out.meta[], set size to 1 + required size
       ws32_insert(stream_out, (uint32_t *)(m_inv), W32_SIZEOF(filter_inverse)) ; // insert into stream_out
       nbytes = filter_data_values(ap) * sizeof(uint16_t) ;      // set nbytes to output size
