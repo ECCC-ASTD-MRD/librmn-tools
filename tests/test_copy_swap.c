@@ -173,12 +173,15 @@ void compare_mem(void *a, void *b, int nitems, char *msg, int nbytes){
 }
 
 int main(int argc, char **argv){
+  (void)(argc) ;
+  (void)(argv) ;
   TIME_LOOP_DATA ;
   uint8_t  t08[128] ;   // at least 128 bytes
   uint16_t t16[ 64] ;   // at least 128 bytes
   uint32_t t32[ 32] ;   // at least 128 bytes
   uint64_t t64[ 16] ;   // at least 128 bytes
-  int nitems, i ;
+  int nitems ;
+  size_t i ;
 
   TEE_FPRINTF(stderr, TEE_INFO, "=================== right -> left copy ===================\n") ;
   nitems = Copy_items_r2l(s08, 1, t16, 2,    127) ; compare_mem(r16, t16, nitems, "copy  8 to 16", 2) ;

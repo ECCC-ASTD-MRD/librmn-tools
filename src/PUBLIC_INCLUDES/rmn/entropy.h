@@ -20,7 +20,7 @@
 #include <stdint.h>
 #include <rmn/fastapprox.h>
 
-#define ENTROPY_INIT(E) { int i ; for(i=0 ; i<(E).size ; i++) (E).pop[i] = 0 ; (E).npop = 0 ; (E).nrej = 0 ; }
+#define ENTROPY_INIT(E) { uint32_t i ; for(i=0 ; i<(E).size ; i++) (E).pop[i] = 0 ; (E).npop = 0 ; (E).nrej = 0 ; }
 
 typedef struct{
   uint32_t mask ;

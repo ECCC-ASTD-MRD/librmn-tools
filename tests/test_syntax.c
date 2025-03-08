@@ -49,6 +49,8 @@ proc_ptr fn_dlsym(void *handle, const char *symbol){
 }
 
 int main(int argc, char **argv){
+  (void)(argc) ;
+  (void)(argv) ;
   proc_ptr fn1 = (proc_ptr)&to_int ;
   proc_ptr fn2 = (proc_ptr)&to_flt ;
 
@@ -56,15 +58,15 @@ int main(int argc, char **argv){
   fn2 = data2proc_ptr(proc2data_ptr((proc_ptr)&to_int)) ;
 
   fprintf(stderr, "syntax constructs test\n") ;
-  fprintf(stderr, "address of function1 = %16.16lx\n", (uint64_t) fn1) ;
-  fprintf(stderr, "address of function1 = %16.16lx\n", (uint64_t) &to_int) ;
-  fprintf(stderr, "address of function1 = %16p\n", proc2data_ptr(fn1) ) ;
+  fprintf(stderr, "(uint64_t) fn1     = %16.16lx\n", (uint64_t) fn1) ;
+  fprintf(stderr, "(uint64_t) &to_int = %16.16lx\n", (uint64_t) &to_int) ;
+  fprintf(stderr, "proc2data_ptr(fn1) = %16p\n", proc2data_ptr(fn1) ) ;
   // warning: ISO C forbids conversion of function pointer to object pointer type
 //   fprintf(stderr, "address of function1 = %16p\n", (void *)fn1 ) ;
 
   fprintf(stderr, "\n") ;
-  fprintf(stderr, "address of function2 = %16.16lx\n", (uint64_t) fn2) ;
-  fprintf(stderr, "address of function2 = %16.16lx\n", (uint64_t) &to_flt) ;
-  fprintf(stderr, "address of function2 = %16p\n", proc2data_ptr(fn2) ) ;
+  fprintf(stderr, "(uint64_t) fn2     = %16.16lx\n", (uint64_t) fn2) ;
+  fprintf(stderr, "(uint64_t) &to_flt = %16.16lx\n", (uint64_t) &to_flt) ;
+  fprintf(stderr, "proc2data_ptr(fn2) = %16p\n", proc2data_ptr(fn2) ) ;
   return 0;
 }

@@ -155,6 +155,7 @@ AnyType call_demo_fn(Arg_list *list){
 }
 #endif
 int main(int argc, char **argv){
+  (void)(argc) ;
   Arg_fn_list *c ;
   Arg_list *l ;
   int8_t i8 = -123 ;

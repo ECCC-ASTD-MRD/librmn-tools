@@ -39,7 +39,7 @@ void *read_32bit_data_record(char *filename, int *fdi, int *dims, int *ndim, int
   return read_32bit_data_record_named(filename, fdi, dims, ndim, ndata, name) ;
 }
 void *read_32bit_data_record_named(char *filename, int *fdi, int *dims, int *ndim, int *ndata, char name[4]){
-  size_t nc = 4, nd ;
+  ssize_t nc = 4, nd ;
   ssize_t nr ;
   void *buf = NULL ;
   uint32_t ntot ;
@@ -78,10 +78,10 @@ void *read_32bit_data_record_named(char *filename, int *fdi, int *dims, int *ndi
     return NULL ;
   }
   if(*ndim == 0) {
-    *ndim = ntot ;                                      // return number of dimensions to caller
-    for(i=0 ; i<ntot ; i++) dims[i] = 0 ;               // set dimensions to 0 (they will be returned to the caller)
+    *ndim = (int32_t)ntot ;                             // return number of dimensions to caller
+    for(i=0 ; i<(int32_t)ntot ; i++) dims[i] = 0 ;               // set dimensions to 0 (they will be returned to the caller)
   }else{
-    if(ntot != *ndim) {
+    if(ntot != (uint32_t)(*ndim)) {
       fprintf(stderr,"ERROR, read ndim = %d, should be %d\n", ntot, *ndim) ;
       goto error ;
     }
@@ -89,7 +89,7 @@ void *read_32bit_data_record_named(char *filename, int *fdi, int *dims, int *ndi
   nd = 1 ;
   nr = read(fd, diml, nc * ntot) ;                      // read the dimensions
   if(nr != nc * ntot) goto error ;                      // OOPS short read
-  for(i=0 ; i<ntot ; i++) {                             // check the dimensions
+  for(i=0 ; i<(int32_t)ntot ; i++) {                    // check the dimensions
     if(dims[i] == 0) dims[i] = diml[i] ;                // return dimension to caller if dims[i] == 0
     if(dims[i] != diml[i]){                             // check dimension against request
       fprintf(stderr,"ERROR, dimension %d mismatch\n", i+1);
@@ -146,7 +146,7 @@ int write_32bit_data_record(char *filename, int *fdi, int *dims, int ndim, void 
 }
 int write_32bit_data_record_named(char *filename, int *fdi, int *dims, int ndim, void *buf, char name[4]){
   int fd = *fdi ;
-  size_t nc = 4 ;
+  ssize_t nc = 4 ;
   ssize_t nr ;
   int ndims, ntot, i, clos = (*fdi < 0) ;
 

@@ -8,6 +8,8 @@
 typedef int (*proc_ptr_i)(int) ;
 
 int main(int argc, char **argv){
+  (void)(argc) ;
+  (void)(argv) ;
   void *plugin0, *plugin1, *plugin2 ;
   proc_ptr_i name1_0, name2_0, name3_0 ;
   proc_ptr_i name1_1, name2_1, name3_1 ;

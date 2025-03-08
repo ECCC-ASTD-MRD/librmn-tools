@@ -16,6 +16,8 @@
 // NOTE: the C test is not as exhaustive as the Fortran test, the in place mode is not tested
 
 int main(int argc, char **argv){
+  (void)(argc) ;
+  (void)(argv) ;
   int32_t data[NPTS+1][NPTS] ;
   int32_t data2[NPTS+1][NPTS] ;
   int32_t pred[NPTS+1][NPTS] ;

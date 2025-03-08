@@ -91,7 +91,7 @@ error:
 // N.B. rejected values will not be accounted for
 float ComputeEntropy(entropy_table *etab)
 {
-  int i;
+  uint32_t i;
   uint32_t *tab = etab->pop ;
   float k = 1.0f / etab->npop ;
   float sum = 0.0, temp;
@@ -111,7 +111,7 @@ float ComputeEntropy(entropy_table *etab)
 #if defined(__AVX2__)
 float VComputeEntropy(entropy_table *etab)
 {
-  int i;
+  uint32_t i;
   uint32_t *tab = etab->pop ;
   float k = 1.0f / etab->npop ;
   float sum = 0.0 ;

@@ -215,7 +215,7 @@ skip0:
 // ======================================= type 1 =======================================
   if(hint == Q_MODE_LINEAR_0 || hint == Q_MODE_LINEAR_2) goto skip1 ;  // direct hint points to another type
   {
-  uint32_t emax, emin, efac, erange ;
+  int32_t emax, emin, efac, erange ;
   AnyType32 m3, t, q1 ;
   emax = fmau.u >> 23 ;
   emin = fmiu.u >> 23 ;
@@ -434,6 +434,10 @@ int64_t IEEE_quantize(void * restrict f, void * restrict q, q_meta *meta,  int n
 
 int64_t IEEE_qrestore(void * restrict f, void * restrict q, q_meta *meta,  int nd)
 {
+  (void)(f) ;
+  (void)(q) ;
+  (void)(meta) ;
+  (void)(nd) ;
 //   int mode = meta->mode ;
   return 0 ;
 }
@@ -510,6 +514,7 @@ error:
 //      extremely fast quantize
 //      invariant after 1st quantization,  cyclical quantize->restore->quantize->restore ...
 q_encode IEEE32_fakelog_quantize_1(void * restrict f, int ni, q_rules rules, void * restrict q, limits_w32 *limits, special_value *s){
+  (void)(s) ;
   uint32_t *fu = (uint32_t *) f ;
   int32_t *qo = (int32_t *) q ;
   q_desc q64 = { .u = 0 } ;  // set invalid output state, all components set to 0
@@ -571,7 +576,7 @@ if(debug) fprintf(stderr, "z0 = %f, rng2 = %d, rng10 = %d, clip = %d, maxa = %8.
   nbits0 = nbits ;                        // original value
   mbits0 = mbits ;                        // original value
   mbits = (mbits > 22) ? 22 : mbits ;     // make sure mbits <= 22
-  if(nbits > 0 && nbits < mbits+pos_neg)  // a smaller value for nbits cannot make sense
+  if(nbits > 0 && nbits < mbits+(int)pos_neg)  // a smaller value for nbits cannot make sense
     nbits = mbits + pos_neg ;
 
   if(mbits == 0){                         // nbits > 0, mbits == 0
@@ -587,15 +592,15 @@ if(debug) fprintf(stderr, "(nbits == 0), ") ;
   }else{                                  // mbits > 0, nbits > 0
 if(debug) fprintf(stderr, "(nbits,mbits), ") ;
     mbits = (mbits > 22) ? 22 : mbits ;   // make sure mbits <= 22
-    while(nbits < ebits + mbits + pos_neg){
+    while(nbits < ebits + mbits + (int)pos_neg){
       nbits++ ;                           // increase nbits
-      if(nbits >= ebits + mbits + pos_neg) break ;
+      if(nbits >= ebits + mbits + (int)pos_neg) break ;
       if(mbits > 1) mbits-- ;             // decrease mbits
-      if(nbits >= ebits + mbits + pos_neg) break ;
+      if(nbits >= ebits + mbits + (int)pos_neg) break ;
       nbits++ ;                           // increase nbits
     }
   }
-  if((erange + (erange >> 1)) <= RMASK31(ebits) && erange > 0) mbits++ ;  // increase mbits if using less than 2/3 of the possible exponent range
+  if((erange + (erange >> 1)) <= (int)(RMASK31(ebits)) && erange > 0) mbits++ ;  // increase mbits if using less than 2/3 of the possible exponent range
   nbits = mbits + ebits + pos_neg ;       // (re)compute nbits
 if(debug) fprintf(stderr, " nbits = %d(%d), mbits = %d(%d), ebits = %d, pos_neg = %d, erange = %d\n", nbits, nbits0, mbits, mbits0, ebits, pos_neg, erange) ;
 
@@ -845,7 +850,8 @@ end:
 //      sets mbits(scount), offset.u, allm, allp, nbits, cnst in desc
 //      ignores clip, exp0
 // uint64_t IEEE32_linear_quantize_0(void * restrict f, int ni, int nbits, float quantum, void * restrict qs, special_value *s){
-  q_encode IEEE32_linear_quantize_0(void * restrict f, int ni, q_rules rules, void * restrict q, limits_w32 *limits, special_value *s){
+q_encode IEEE32_linear_quantize_0(void * restrict f, int ni, q_rules rules, void * restrict q, limits_w32 *limits, special_value *s){
+  (void)(s) ;
   ieee32_props h64 ;
   q_encode q_out ;
   uint64_t u64[3] ;
@@ -1069,6 +1075,7 @@ static uint64_t IEEE32_quantize_linear_1(void * restrict f, int npts, uint64_t u
 // quant [IN]  quantization interval (if non zero, it is used instead of nbits)
 
 q_encode IEEE32_linear_quantize_1(void * restrict f, int np, q_rules rules, void * restrict q, limits_w32 *limits, special_value *s){
+  (void)(s) ;
   ieee32_props h64 ;
   uint64_t u64[3] ;
   int hint, i ;
@@ -1177,6 +1184,7 @@ static inline int32_t IEEE32_Q2F_linear_2_SIMD(float *f, int32_t *q, int32_t off
 // quantize 1 IEEE float value using type 2 linear quantizer
 // inline function used by IEEE32_quantize_linear_2
 static inline int32_t IEEE32_F2Q_linear_2(int32_t Src, int32_t MaxExp, int32_t Shift2, int32_t Minimum, int32_t Mask){
+  (void)(Mask) ;
   int32_t Mantis, Exp, Shift ;
   Mantis = (1 << 23) | ( 0x7FFFFF & Src );   // get IEEE mantissa, restore hidden 1
   Exp    = (Src >> 23) & 0xFF;               // extract IEEE float 32 exponent
@@ -1236,6 +1244,7 @@ static uint64_t IEEE32_quantize_linear_2(void * restrict f, int32_t npts, uint64
 // return value driven by return value of IEEE32_quantize_linear_2
 // uint64_t IEEE32_linear_quantize_2(void * restrict f, int np, int nbits, float maxerr, void * restrict qs, special_value *s){
 q_encode IEEE32_linear_quantize_2(void * restrict f, int np, q_rules rules, void * restrict qs, limits_w32 *limits, special_value *s){
+  (void)(s) ;
   ieee32_props h64 ;
   uint64_t u64[3] ;
   int hint, i ;
@@ -1767,6 +1776,9 @@ void fp16_to_fp32(float *f, void *f16, int n, void *inf){
 }
 
 void fp24_to_fp32(float *f, void *f24, int n, void *inf){
+  (void)(f) ;
+  (void)(f24) ;
+  (void)(inf) ;
   int i0, i ;
 //   int mant, exp, sign ;
 //   uint32_t *q = f24 ;
@@ -1816,6 +1828,7 @@ void fp16_to_fp32_scaled(float *f, void *f16, int n, void *inf, float scale){
 
 // brain float (16 bit) to IEEE 32 bit floating point
 void bf16_to_fp32(float *f, uint16_t *q, int n){
+  (void)(f) ;
   FloatInt z ;
   int i ;
   for(i = 0 ; i < n ; i++){

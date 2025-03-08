@@ -38,6 +38,8 @@ uint32_t my_unpacker(uint32_t *packed, uint32_t *data, uint32_t nbits, int ndata
 }
 
 int main(int argc, char **argv){
+  (void)(argc) ;
+  (void)(argv) ;
   uint64_t acc, t64, mask64, lmask64 ;
   uint32_t token ;
   uint32_t nfree, navail, nbits, mask, lmask ;

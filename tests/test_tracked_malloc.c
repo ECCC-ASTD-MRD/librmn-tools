@@ -22,5 +22,7 @@
 #include <rmn/tracked_malloc.h>
 
 int main(int argc, char **argv){
+  (void)(argc) ;
+  (void)(argv) ;
   fprintf(stderr, "test of tracked memory blocks in trackec_malloc\n");
 }

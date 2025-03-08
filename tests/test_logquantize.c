@@ -50,6 +50,7 @@ void ramp_float_test_data_1D(float *f, int n, float start, float alpha){
 #define NPTS 4095
 
 int main(int argc, char **argv){
+  (void)(argc) ;
   float x[NPTS], q[NPTS], r[NPTS], qzero, maxerr ;
   uint32_t *qi = (uint32_t *) q ;
   int i, nbits ;

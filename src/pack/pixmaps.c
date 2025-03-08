@@ -88,8 +88,8 @@ rmn_pixmap *pixmap_dup(rmn_pixmap *bmp_dst, rmn_pixmap *bmp_src){
 // n       [IN] : number of elements in array
 // return value : pointer to rmn_pixmap struct if successful, NULL if ther was an error
 rmn_pixmap *pixmap_be_eq_01(void *array, rmn_pixmap *bmp, uint32_t special, uint32_t mmask, int n){
-  uint32_t t, result, n31, pop1 = 0, all1 = 0, zero = 0 ;
-  int32_t i, i0 ;
+  uint32_t t, result, pop1 = 0, all1 = 0, zero = 0 ;
+  int32_t i, i0, n31 ;
   rmn_pixmap *pixmap = bmp ;
   uint32_t *bits ;
   uint32_t *src = (uint32_t *) array ;
@@ -100,7 +100,7 @@ rmn_pixmap *pixmap_be_eq_01(void *array, rmn_pixmap *bmp, uint32_t special, uint
   if(bmp == NULL) {
     pixmap = pixmap_create(n, 1) ;             // create an empty pixmap with the needed size
   }else{
-    if(n > pixmap->size * 32) return NULL ;    // not enough room in pixmap data array data
+    if(n > (int)(pixmap->size * 32)) return NULL ;    // not enough room in pixmap data array data
   }
   bits = (uint32_t *) pixmap->data ;           // pixmap data array
   pixmap->bits = 1 ;                           // 1 bit pixmap
@@ -167,7 +167,7 @@ rmn_pixmap *pixmap_be_int_01(void *array, rmn_pixmap *bmp, int32_t special, int3
   if(bmp == NULL) {
     pixmap = pixmap_create(n, 1) ;               // create an empty pixmap with the appropriate size
   }else{
-    if(n > pixmap->size * 32) return NULL ;      // not enough room in pixmap data array data
+    if(n > (int)(pixmap->size * 32)) return NULL ;      // not enough room in pixmap data array data
   }
   data = (uint32_t *) pixmap->data ;             // pixmap data array
   pixmap->bits = 1 ;                             // 1 bit pixmap
@@ -204,7 +204,7 @@ rmn_pixmap *pixmap_be_int_01(void *array, rmn_pixmap *bmp, int32_t special, int3
   }
   result_gt = result_lt= result_eq = 0 ;
   n31 = n & 0x1F ;                               // n modulo 32 (number of leftovers)
-  for(i = 0 ; i < n31 ; i++){                    // last, shorter slice (0 -> 31 elements)
+  for(i = 0 ; i < (int)n31 ; i++){               // last, shorter slice (0 -> 31 elements)
     t_gt   = ((src[i] ^ msb)  > special) ? 1 : 0 ;   // 1 if > special value, 0 if not
     t_lt   = ((src[i] ^ msb)  < special) ? 1 : 0 ;   // 1 if < special value, 0 if not
     t_eq   = ((src[i] & mmask) == special) ? 1 : 0 ;   // 1 if < special value, 0 if not
@@ -251,7 +251,7 @@ rmn_pixmap *pixmap_be_fp_01(float *array, rmn_pixmap *bmp, float special, int32_
   if(bmp == NULL) {
     pixmap = pixmap_create(n, 1) ;               // create an empty pixmap with the appropriate size
   }else{
-    if(n > pixmap->size * 32) return NULL ;      // not enough room in pixmap data array data
+    if(n > (int)(pixmap->size * 32)) return NULL ;      // not enough room in pixmap data array data
   }
   data = (uint32_t *) pixmap->data ;             // pixmap data array
   pixmap->bits = 1 ;                             // 1 bit pixmap
@@ -283,7 +283,7 @@ rmn_pixmap *pixmap_be_fp_01(float *array, rmn_pixmap *bmp, float special, int32_
   }
   result_gt = result_lt = 0 ;
   n31 = n & 0x1F ;                               // n modulo 32 (number of leftovers)
-  for(i = 0 ; i < n31 ; i++){                    // last, shorter slice (0 -> 31 elements)
+  for(i = 0 ; i < (int)n31 ; i++){               // last, shorter slice (0 -> 31 elements)
     t_gt   = ((src[i])  > special) ? 1 : 0 ;     // 1 if > special value, 0 if not
     t_lt   = ((src[i])  < special) ? 1 : 0 ;     // 1 if < special value, 0 if not
     t_gt <<= (31 - i) ;                          // shift to insertion point (big endian style)
@@ -325,7 +325,7 @@ int pixmap_restore_be_01(void *array, rmn_pixmap *bmp, uint32_t plug, int n){
 
   if(array == NULL || bmp == NULL) return -1 ; // bad addresses
   if(bmp->bits != 1) return -1 ;               // not a 1 bit pixmap
-  if(n < bmp->elem) return -2 ;                // array is too small
+  if(n < (int)bmp->elem) return -2 ;           // array is too small
   if(bmp->nrle > 0) {                          // RLE encoded pixmap, must decode in-place first
     bmp = pixmap_decode_be_01(bmp, bmp) ;
   }
@@ -367,7 +367,7 @@ int pixmap_restore_be_01(void *array, rmn_pixmap *bmp, uint32_t plug, int n){
     dst += 32 ;
   }
   token = *pixmap ;
-  for(i=0 ; i<n31 ; i++){                      // last, shorter slice (if n not a multiple of 32)
+  for(i=0 ; i<(int)n31 ; i++){                   // last, shorter slice (if n not a multiple of 32)
     dst[i] = (token & (1 << (31-i))) ? plug : dst[i] ;
   }
   return n ;
@@ -667,7 +667,7 @@ rmn_pixmap *pixmap_decode_be_01(rmn_pixmap *bmp, rmn_pixmap *rle_stream){
     rle_stream->nrle = bmp->nrle ;
     rle_stream->elem = bmp->elem ;
     rle_stream->bits = bmp->bits ;
-    for(i = 0 ; i < ((bmp->elem+1+31)/32) ; i++) rle_stream->data[i] = bmp->data[i] ;
+    for(i = 0 ; i < (int)((bmp->elem+1+31)/32) ; i++) rle_stream->data[i] = bmp->data[i] ;
     bmp->nrle = 0 ;                                             // mark pixmap as non encoded
   }
 

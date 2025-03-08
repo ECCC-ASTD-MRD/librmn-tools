@@ -722,6 +722,8 @@ int32_t vBitsNeeded_64(int64_t * restrict what, int32_t * restrict bits, int nn)
 }
 
 void BitEntropy4(float entropy[4], uint32_t *bitstream, int npts, int nbits, int rshift) {
+  (void)(nbits) ;
+  (void)(rshift) ;
   uint32_t bins[4][16] ;
   uint32_t mask = 0xF ;
   int i, j ;

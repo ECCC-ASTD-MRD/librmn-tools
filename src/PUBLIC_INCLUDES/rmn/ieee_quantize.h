@@ -193,6 +193,12 @@ typedef q_encode (*quantizer_fnptr)(void * restrict f, int ni, q_rules rules, vo
 // https://gcc.gnu.org/onlinedocs/gcc/Compound-Literals.html
 static quantizer_function linear_quantizer_init ;
 static inline q_encode linear_quantizer_init(void * restrict f, int ni, q_rules rules, void * restrict q, limits_w32 *limits, special_value *s){
+  (void)(f) ;
+  (void)(ni) ;
+  (void)(rules) ;
+  (void)(q) ;
+  (void)(limits) ;
+  (void)(s) ;
   q_desc qr ;
 // syntax checks, commented out to eliminate warnings
 //   qr.u = q_desc_0.u ;
@@ -203,6 +209,8 @@ static inline q_encode linear_quantizer_init(void * restrict f, int ni, q_rules 
   return qr.q ;
 }
 static inline q_encode linear_q_init(void * restrict f, int ni, q_rules rules, void * restrict q, limits_w32 *limits, special_value *s){
+  (void)(limits) ;
+  (void)(s) ;
   return linear_quantizer_init(f, ni, rules, q, NULL, NULL) ;
 }
 

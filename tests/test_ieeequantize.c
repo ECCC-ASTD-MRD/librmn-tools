@@ -49,6 +49,7 @@ float avg_abs_err(float *f1, float *f2, int n){
 }
 
 int main(int argc, char **argv){
+  (void)(argc) ;
   FloatInt x1, x2, x3, y, z0, z, t0, t1, t2, fi0, fo0 ;
   uint32_t e, e0, m ;
   int i, j, nbits, nbits0 ;

@@ -158,9 +158,9 @@ STATIC inline void average_2x1_F32(float * restrict src, float * restrict avg, u
 // ni   : number of points to be averaged in rows (may be odd) (MUST BE >= 8)
 // nj   : number of rows to be averaged (may be odd) (MUST BE >= 4)
 void average_2x2_2D_I32(int32_t * restrict src, int32_t * restrict avg, uint32_t ni, uint32_t lni, uint32_t nj){
-  int j ;
-  int ni2 = (ni+1)/2 ;
-  int lni2 = lni+lni ;
+  uint32_t j ;
+  uint32_t ni2 = (ni+1)/2 ;
+  uint32_t lni2 = lni+lni ;
   for(j=0 ; j<nj/2 ; j++){
     average_2x2_I32(src, src+lni, avg, ni) ;
     src += lni2 ;
@@ -171,9 +171,9 @@ void average_2x2_2D_I32(int32_t * restrict src, int32_t * restrict avg, uint32_t
 
 // float version of integer version above
 void average_2x2_2D_F32(float * restrict src, float * restrict avg, uint32_t ni, uint32_t lni, uint32_t nj){
-  int j ;
-  int ni2 = (ni+1)/2 ;
-  int lni2 = lni+lni ;
+  uint32_t j ;
+  uint32_t ni2 = (ni+1)/2 ;
+  uint32_t lni2 = lni+lni ;
   for(j=0 ; j<nj/2 ; j++){
     average_2x2_F32(src, src+lni, avg, ni) ;
     src += lni2 ;
@@ -469,9 +469,9 @@ STATIC void expand_2x2_row_n_F32(float * restrict row0, float * restrict row1, f
 // ni   : number of averaged points in rows (may be odd)
 // nj   : number of averaged rows (may be odd)
 void expand_2x2_2D_I32(int32_t * restrict dst, int32_t * restrict avg, uint32_t ni, uint32_t lni, uint32_t nj){
-  int j ;
-  int ni2 = (ni+1)/2 ;
-  int lni2 = lni+lni ;
+  uint32_t j ;
+  uint32_t ni2 = (ni+1)/2 ;
+  uint32_t lni2 = lni+lni ;
 //   int32_t t[ni] ;
 
   // first row
@@ -489,9 +489,9 @@ void expand_2x2_2D_I32(int32_t * restrict dst, int32_t * restrict avg, uint32_t 
 
 // float version of integer version above
 void expand_2x2_2D_F32(float * restrict dst, float * restrict avg, uint32_t ni, uint32_t lni, uint32_t nj){
-  int j ;
-  int ni2 = (ni+1)/2 ;
-  int lni2 = lni+lni ;
+  uint32_t j ;
+  uint32_t ni2 = (ni+1)/2 ;
+  uint32_t lni2 = lni+lni ;
 //   int32_t t[ni] ;
 
   // first row

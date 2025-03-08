@@ -3,6 +3,8 @@
 
 #define NT 10000
 int main(int argc, char **argv){
+  (void)(argc) ;
+  (void)(argv) ;
   uint64_t t0, t1, tu, tf ;
   double t ;
   int i ;

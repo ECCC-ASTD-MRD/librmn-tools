@@ -31,6 +31,8 @@ static int array_compare(int32_t *a1, int32_t *a2, int n){
 }
 //
 int main(int argc, char **argv){
+  (void)(argc) ;
+  (void)(argv) ;
   wordstream stream0, stream1, stream2 ;
   wordstream_state state0, state1, state2 ;
   int32_t data_in[NDATA], data_out[NDATA] ;

@@ -362,6 +362,7 @@ end:
 
 // ssize_t run_pipe_filters(int flags, array_descriptor *data_in, const filter_list list, wordstream *stream)
 ssize_t tiled_fwd_pipe_filters(int flags, array_descriptor *data_in, const filter_list list, wordstream *stream){
+  (void)(flags) ;
   array_descriptor ad = *data_in ;            // import information from global array
   uint32_t blki  = ad.tilex ;              // tile size along 1st dimension
   uint32_t blkj  = ad.tiley ;              // tile size along 2nd dimension
@@ -391,13 +392,13 @@ ssize_t tiled_fwd_pipe_filters(int flags, array_descriptor *data_in, const filte
     uint32_t mapsize = nblkj * (nblki + 1) ;
     if( ws32_skip_in(stream, mapsize) < 0) goto error ;
 
-    int i0, j0, tni, tnj ;                           // start and dimension of tiles
+    int32_t i0, j0, tni, tnj ;                      // start and dimension of tiles
     for(j0=0 ; j0<gnj ; j0+=blkj){                   // loop over tile rows
       uint32_t rowsize = 0 ;
       uint32_t *tile_base = array ;                  // lower left corner of first tile in current row
-      tnj = (j0+blkj <= gnj) ? blkj : gnj-j0 ;       // tile dimension along j
+      tnj = (j0+(int32_t)blkj <= gnj) ? (int32_t)blkj : gnj-j0 ;       // tile dimension along j
       for(i0=0 ; i0 < gni ; i0+=blki){               // loop over row of tiles
-        tni = (i0+blki <= gni) ? blki : gni-i0 ;     // tile dimension  along i
+        tni = (i0+(int)blki <= gni) ? blki : gni-i0 ;  // tile dimension  along i
         ad.data = tile ;                             // point array descriptor to local tile
         ad.nx[0] = tni ; ad.nx[1] = tnj ;      // tile dimensions
         ad.n0[0] = i0  ; ad.n0[1] = j0 ;       // tile offset
@@ -434,6 +435,7 @@ error:
 // tiling information from array descriptor MUST match information from stream or be 0
 // if the data pointer in array descriptor is NULL, memory will be allocated
 ssize_t tiled_rev_pipe_filters(int flags, array_descriptor *data_out, wordstream *stream){
+  (void)(flags) ;
   uint32_t *str0 = (uint32_t *) WS32_BUFFER_OUT(*stream) ;
   array_descriptor ad = *data_out ;          // import information from global array
   uint32_t ndims = ad.ndims ;             // number of dimensions of global array
@@ -489,7 +491,8 @@ for(i=0 ; i<nblkj ; i++) fprintf(stderr, "%10d", rmap[i]) ;
 for(i=0 ; i<nblki*nblkj ; i++) { fprintf(stderr, "%10d", tmap[i]) ; } ; fprintf(stderr, "\n") ;
 fprintf(stderr, "size left in stream = %d\n", WS32_FILLED(*stream)) ;
 
-  int i0, j0, tni, tnj, nadded ;                   // start and dimension of tiles
+  uint32_t i0, j0, tni, tnj ;                      // start and dimension of tiles
+  int nadded ;
   array_descriptor ado ;                           // array descriptor for extraction
   ado.data = tile ;
   ado.tilex = blki ; ado.tiley = blkj ;

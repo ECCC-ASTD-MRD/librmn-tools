@@ -33,7 +33,8 @@
 
 // 2 bits per element, packing done 16 values at a time to vectorize
 void pixmap_be_02(uint32_t *src, int n, rmn_pixmap *s){
-  uint32_t i, i0, r1, r2, n15 = n & 0xF ;
+  uint32_t r1, r2 ;
+  int32_t i, i0, n15 = n & 0xF ;
   uint32_t mask = RMASK31(2) ;
   int bits = 2*16 ;               // 16 x 2 bit slices
   int32_t sh[16] ;
@@ -107,14 +108,15 @@ void pixmap_restore_be_02(uint32_t *dst, int n, rmn_pixmap *s){
     dst += 16 ;
   }
   XTRACT(s1) ;
-  for(i=0 ; i<n15 ; i++){
+  for(i=0 ; i<(int)n15 ; i++){
     dst[i   ] = mask & (s1 >> sh[i]) ;
   }
 }
 
 // 3 or 4 bits per element, packing done 8 values at a time to vectorize
 void pixmap_be_34(uint32_t *src, int nbits, int n, rmn_pixmap *s){
-  uint32_t i, i0, t, r1, r2, r3, r4, n7 = n & 0x7 ;
+  uint32_t t, r1, r2, r3, r4, n7 = n & 0x7 ;
+  int32_t i, i0 ;
   int32_t sh[8] ;
   uint32_t mask = RMASK31(nbits) ;
   uint64_t  acc  = 0 ;
@@ -148,7 +150,7 @@ void pixmap_be_34(uint32_t *src, int nbits, int n, rmn_pixmap *s){
     zero = zero + ((r1 == 0) ? 1 : 0) ;
   }
   r1 = 0 ;
-  for(i=0 ; i<n7 ; i++){
+  for(i=0 ; i<(int)n7 ; i++){
     r1 |= ((src[i  ] & mask) << sh[i]) ;
   }
   STUFF(r1) ;
@@ -190,14 +192,15 @@ void pixmap_restore_be_34(uint32_t *dst, int nbits, int n, rmn_pixmap *s){
     dst += 8 ;
   }
   XTRACT(s1) ;
-  for(i=0 ; i<n7 ; i++){
+  for(i=0 ; i<(int)n7 ; i++){
     dst[i   ] = mask & (s1 >> sh[i]) ;
   }
 }
 
 // 5 to 8 bits per element, packing done 4 values at a time to vectorize
 void pixmap_be_58(uint32_t *src, int nbits, int n, rmn_pixmap *s){
-  uint32_t i, i0, t, r1, r2, r3, r4, n3 = n & 0x3 ;
+  uint32_t t, r1, r2, r3, r4, n3 = n & 0x3 ;
+  int32_t i, i0 ;
   int32_t sh[4] ;
   uint32_t mask  = RMASK31(nbits) ;
   uint64_t  acc  = 0 ;
@@ -231,7 +234,7 @@ void pixmap_be_58(uint32_t *src, int nbits, int n, rmn_pixmap *s){
     all1 = all1 + ((r1 == ~0u) ? 1 : 0) ;
   }
   r1 = 0 ;
-  for(i=0 ; i<n3 ; i++){
+  for(i=0 ; i<(int)n3 ; i++){
     r1 |= ((src[i  ] & mask) << sh[i]) ;
   }
   STUFF(r1) ;
@@ -273,7 +276,7 @@ void pixmap_restore_be_58(uint32_t *dst, int nbits, int n, rmn_pixmap *s){
     dst += 4 ;
   }
   XTRACT(s1) ;
-  for(i=0 ; i<n3 ; i++){
+  for(i=0 ; i<(int)n3 ; i++){
     dst[i   ] = mask & (s1 >> sh[i]) ;
   }
 }
@@ -288,6 +291,8 @@ void print_encode_mode(char *msg, int mode){
 }
 
 int main(int argc, char **argv){
+  (void)(argc) ;
+  (void)(argv) ;
   int32_t iarray[NPTS] ;
   uint32_t uarray[NPTS], urestored[NPTS] ;
   float farray[NPTS] ;
@@ -433,10 +438,10 @@ int main(int argc, char **argv){
   rle2 = pixmap_encode_be_01(pixmap, NULL, RLE_DEFAULT) ;                       // encoding
   rle  = pixmap_encode_be_01(pixmap, pixmap, RLE_DEFAULT) ;   // in-place encoding
   fprintf(stderr, "RLE encoded pixmap :%d RLE bits , encoding %d RAW bits, max size = %d\n", rle->nrle, rle->elem, 32*rle->size);
-  for(i=0 ; i<(rle->nrle+31)/32 ; i++) fprintf(stderr, "%8.8x ",rle->data[i]) ;
+  for(i=0 ; i<(int)((rle->nrle+31)/32) ; i++) fprintf(stderr, "%8.8x ",rle->data[i]) ;
   fprintf(stderr, "\n");
   errors = 0 ;
-  for(i=0 ; i<(rle->nrle+31)/32 ; i++) if(pixmap->data[i] != rle2->data[i]) errors++ ;
+  for(i=0 ; i<(int)((rle->nrle+31)/32) ; i++) if(pixmap->data[i] != rle2->data[i]) errors++ ;
   fprintf(stderr, "in-place encoding errors = %d (%d|%d elements)\n", errors, (rle->nrle+31)/32, (pixmap->nrle+31)/32) ;
 
 // try to restore from RLE coded pixmap
@@ -457,7 +462,7 @@ int main(int argc, char **argv){
 
 // decode RLE encoded pixmap
   fprintf(stderr, "pixmap2 O.K. for up to %d bits\n", 32 * pixmap2->size) ;
-  for(i=0 ; i<pixmap2->size ; i++) pixmap2->data[i] = 0xFFFFFFFFu ;
+  for(i=0 ; i<(int)pixmap2->size ; i++) pixmap2->data[i] = 0xFFFFFFFFu ;
   pixmap3 = pixmap_decode_be_01(pixmap2, rle2) ;
   fprintf(stderr, "decoded RLE pixmap :\n");
   for(i0=0 ; i0<NPTS/32 ; i0+=16){

@@ -57,6 +57,8 @@ void check_pos(uint32_t p1, uint32_t p2, char *msg){
 }
 
 int main(int argc, char **argv){
+  (void)(argc) ;
+  (void)(argv) ;
   int npts = 32*1024 + 17, npts1 = npts/3, npts2 = npts/2, npts3 = npts - npts2 - npts1 ;
   int offset ;
   uint32_t *unpacked_u, *packed, *restored_u ;

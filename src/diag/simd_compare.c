@@ -300,6 +300,7 @@ void v_less_than_4(int32_t *z, int32_t ref[4], int32_t count[4], int32_t n){
 // min0    [OUT] : smallest NON ZERO absolute value
 // plain C version, slower than AVX2 version with some compilers on some platforms
 void v_minmax_c(int32_t *z, int32_t n, int32_t *mins, int32_t *maxs, uint32_t *min0, int32_t *zeros){
+  (void)(zeros) ;
   int i, nvl ;
   int32_t vmins[VL2], vmaxs[VL2] ;  // signed min and max values
   uint32_t vmina[VL2] ;             // unsigned non zero min absolute values
@@ -440,6 +441,7 @@ void insert_tile(void *array, int lni, void *tile, int ni, int nj){
 // maxs [OUT] : largest value (signed maximum)
 // min0 [OUT] : smallest NON ZERO absolute value
 void gather_tile_c(void *array, int lni, void *tile, int ni, int nj, int32_t *mins, int32_t *maxs, uint32_t *min0, int32_t *zeros){
+  (void)(zeros) ;
   int32_t *a = (int32_t *)array, *t = (int32_t *)tile ;
   int i ;
   int32_t mis, mas ;

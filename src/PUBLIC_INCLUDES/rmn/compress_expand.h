@@ -349,6 +349,8 @@ fprintf(stderr, "RleDecodeByte : byte = %4u, nbytes = %d\n", byte, nbytes) ;
 #endif
 
 static inline uint32_t ByteRunLengthEncode(void *b, int32_t nbytes, void *s){
+  (void)(b) ;
+  (void)(s) ;
 //   uint8_t *bytes = (uint8_t *) b ;
 //   uint32_t *stream = (uint32_t *) s ;
   int32_t nbits = 0 ;
@@ -359,6 +361,9 @@ static inline uint32_t ByteRunLengthEncode(void *b, int32_t nbytes, void *s){
 }
 
 static inline uint32_t ByteRunLengthDecode(void *bytes, uint32_t nbytes, void *stream){
+  (void)(bytes) ;
+  (void)(nbytes) ;
+  (void)(stream) ;
   return 0 ;
 }
 

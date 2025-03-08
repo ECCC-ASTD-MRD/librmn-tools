@@ -139,8 +139,8 @@ static inline void *pipe_buffer_data(pipe_buffer *p){
 
 // translate array dimensions into number of values
 // ap  [IN] : pointer to array dimensions struct
-static inline int filter_data_values(const array_descriptor *ap){
-  int nval = 0 ;
+static inline size_t filter_data_values(const array_descriptor *ap){
+  size_t nval = 0 ;
   int i ;
   int ndims = ap->ndims ;
   if(ndims > 5) goto end ;
@@ -154,7 +154,7 @@ end:
 
 // translate array dimensions into number of bytes
 // ap  [IN] : pointer to array dimensions struct
-static inline int filter_data_bytes(const array_descriptor *ap){
+static inline size_t filter_data_bytes(const array_descriptor *ap){
   return filter_data_values(ap) * ap->esize ;
 }
 

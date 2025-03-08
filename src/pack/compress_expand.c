@@ -305,6 +305,7 @@ static inline uint32_t Mask0EqualValue_c_be(uint32_t *s, uint32_t value, int n){
 // comp   [OUT] : vector of compressed values (where mask bit is 1)
 // negate  [IN] : invert test, produce 0s where src1[i] > src2[i], 1s otherwise
 int32_t MaskEqualCompress_c_be(void *source, int nsource, void *value, void *mask, void *comp, int negate){
+  (void)(comp) ;
   uint32_t *src = (uint32_t *) source ;
   uint32_t *ref = (uint32_t *) value ;
   uint32_t ref0 = *ref ;

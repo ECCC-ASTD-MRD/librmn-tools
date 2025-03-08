@@ -17,6 +17,7 @@ void print_diag(FILE *f, char *what, int level){
 #endif
 
 int main(int argc, char **argv){
+  (void)(argc) ;
   start_of_test(argv[0]);
   TEE_FPRINTF(stderr, -1, "MUST NOT SEE : %d %d %d\n", 10, 20, 30) ;
   TEE_FPRINTF(stderr, 1, "MUST SEE : %d %d %d\n", 10, 20, 30) ;

@@ -41,6 +41,7 @@ int test_0(char *msg){
 }
 
 int test_1(char *msg){
+  (void)(msg) ;
   filter_254 filter1 = filter_254_null ;
   filter_254 filter2 = filter_254_null ;
   filter_254 filter3 = filter_254_null ;
@@ -78,11 +79,11 @@ int test_1(char *msg){
     for(i=1 ; i<=MAX_ARRAY_DIMENSIONS ; i++){
       ad1 = ad2 = array_descriptor_null ;
       ad1.ndims = i ;
-      for(k=0 ; k<ad1.ndims ; k++) ad1.nx[k] = listdim[j] - k ;
+      for(k=0 ; k<(int)ad1.ndims ; k++) ad1.nx[k] = listdim[j] - k ;
       fsize = filter_dimensions_encode(&ad1, (filter_meta *)(&fdim)) ;
       filter_dimensions_decode(&ad2, (filter_meta *)(&fdim)) ;
       errors = 0 ;
-      for(k=0 ; k<ad1.ndims ; k++) {
+      for(k=0 ; k<(int)ad1.ndims ; k++) {
         if(ad2.nx[k] != ad1.nx[k]){
           errors ++ ;
           fprintf(stderr, "ndims = %d, fsize = %d, dimension %d, expecting %9d, got %9d\n", ad1.ndims, fsize, k+1, ad1.nx[k], ad2.nx[k]) ;
@@ -91,7 +92,7 @@ int test_1(char *msg){
 
       fprintf(stderr, "encoded dimensions: fsize = %1d, flags = %d ", fsize, fdim.flags) ;
       fprintf(stderr, ", ndim = %1d", ad1.ndims) ;
-      for(k=0 ; k<ad1.ndims ; k++) fprintf(stderr, ",%2d", ad1.nx[k]) ;
+      for(k=0 ; k<(int)ad1.ndims ; k++) fprintf(stderr, ",%2d", ad1.nx[k]) ;
       fprintf(stderr, ", errors = %d\n", errors);
       if(errors) exit(1) ;
     }
@@ -236,9 +237,9 @@ int test_2(char *msg){
   uint32_t nblki = (map[0]+map[2]-1)/map[2] , nblkj = (map[1]+map[3]-1)/map[3] ;
   fprintf(stderr, "array [%d x %d], blocks [%d x %d], data map [%d,%d]", map[0], map[1], map2, map3, nblki, nblkj) ;
   map += 4 ;
-  for(i=0 ; i<nblkj ; i++) fprintf(stderr, "%10d", map[i]) ; // fprintf(stderr, "\n") ;
+  for(i=0 ; i<(int)nblkj ; i++) fprintf(stderr, "%10d", map[i]) ; // fprintf(stderr, "\n") ;
   map += nblkj ;
-  for(i=0 ; i<nblki*nblkj ; i++) { fprintf(stderr, "%10d", map[i]) ; } ; fprintf(stderr, "\n") ;
+  for(i=0 ; i<(int)(nblki*nblkj) ; i++) { fprintf(stderr, "%10d", map[i]) ; } ; fprintf(stderr, "\n") ;
 
   fprintf(stderr, "\n============================ reverse ============================\n") ;
   ado = adi ;
@@ -259,7 +260,7 @@ int test_3(char *msg){
   for(i=1 ; i<=5 ; i++){
     adi.ndims = i ;
     for(k=0 ; k<7 ; k++){
-      for(j=0 ; j<adi.ndims ; j++) {
+      for(j=0 ; j<(int)adi.ndims ; j++) {
         adi.nx[j] = dimref[k] - adi.ndims + j + 1 ;
       }
       nw32 = encode_dimensions(&adi, w32) ;
@@ -267,7 +268,7 @@ int test_3(char *msg){
       for(j=0 ; j<5 ; j++) ado.nx[j] = 0 ;
       nw32 = decode_dimensions(&ado, w32) ;
       errors = 0 ;
-      for(j=0 ; j<adi.ndims ; j++) {
+      for(j=0 ; j<(int)adi.ndims ; j++) {
         if(adi.nx[j] != ado.nx[j]) {
           errors++ ;
           fprintf(stderr, ", dimension %d, expecting %9d, got %9d", j, adi.nx[j], ado.nx[j]) ;
@@ -286,6 +287,7 @@ int test_3(char *msg){
 #define NPTSI 15
 #define NPTSJ 13
 int test_4(char *msg){
+  (void)(msg) ;
   uint32_t fullsize[NPTSI*NPTSJ], restored[NPTSI*NPTSJ] ;
   filter_001 filter0 = filter_001_null ;
   filter_110 filter1 = filter_110_null ;

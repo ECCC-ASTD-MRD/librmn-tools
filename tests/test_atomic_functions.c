@@ -179,6 +179,8 @@ void *adding(void *in)
 
 int main(int argc, char **argv)
 {
+  (void)(argc) ;
+  (void)(argv) ;
   int i, success;
 //   size_t stacksize = 2048l << 20;   // 2GBytes
   size_t stacksize = 2000l * 1000000;   // 2GBytes

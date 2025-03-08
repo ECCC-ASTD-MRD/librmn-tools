@@ -29,7 +29,7 @@ void AnalyzeCompressionErrors(float *fa, float *fb, int np, float small, char *s
   uint32_t *ia = (uint32_t *)fa;
   uint32_t *ib = (uint32_t *)fb;
   uint32_t ierr = 0;
-  int32_t idiff;
+  uint32_t idiff;
 //   int indx ;
 //   int iabs, iacc;
   int accuracy, n;
