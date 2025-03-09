@@ -63,6 +63,11 @@
 #undef INSERT_0
 #define INSERT_0(accum, insert) { accum=(uint64_t)accum>>1 ; insert++ ; }
 
+// insert a stream of 0s into accumulator (equivalent of SKIP_NBITS in insert mode)
+// this macro is unsafe, it assumes that nbits bits can be inserted into acumulator
+#undef INSERT_PAD
+#define INSERT_PAD(accum, insert, nbits) { accum=(uint64_t)accum>>1 ; insert+=nbits ; }
+
 // check that 32 bits can be safely inserted into accum
 // if not possible, store lower 32 useful bits of accum into stream, update accum, insert, stream pointer
 #undef INSERT_CHECK
@@ -111,7 +116,7 @@
 #undef SKIP_NBITS
 #define SKIP_NBITS(accum, xtract, nbits) { accum = (uint64_t) accum >> (nbits) ; xtract -= (nbits) ; }
 
-// skip the next nbits bits from accumulator (unsafe, assumes that 1 bit is available)
+// skip the next bit from accumulator (unsafe, assumes that 1 bit is available)
 #undef SKIP_1
 #define SKIP_1(accum, xtract) { accum = (uint64_t) accum >> 1 ; xtract-- ; }
 

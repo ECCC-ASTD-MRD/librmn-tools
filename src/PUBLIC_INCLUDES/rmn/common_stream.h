@@ -76,6 +76,9 @@
 #undef STREAM_INSERT_0
 #define STREAM_INSERT_0(s) { INSERT_0((s).acc_i, (s).insert) }
 
+#undef STREAM_INSERT_PAD
+#define STREAM_INSERT_PAD(s, nbits) { INSERT_PAD((s).acc_i, (s).insert), nbits }
+
 #undef STREAM_INSERT_CHECK
 #define STREAM_INSERT_CHECK(s) { INSERT_CHECK((s).acc_i, (s).insert, (s).in) }
 
