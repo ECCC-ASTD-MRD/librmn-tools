@@ -66,8 +66,8 @@
 // insert a stream of 0s into accumulator (equivalent of SKIP_NBITS in insert mode)
 // no action is needed for accum, argument is kept for compatoibility with LE version
 // this macro is unsafe, it assumes that nbits bits can be inserted into acumulator
-#undef INSERT_PAD
-#define INSERT_PAD(accum, insert, nbits) { insert+=nbits ; }
+#undef INSERT_PAD0
+#define INSERT_PAD0(accum, insert, nbits) { insert+=nbits ; }
 
 // check that 32 bits can be safely inserted into accumulator
 // if not possible, store upper 32 bits of accum into stream, update accum, insert, stream pointer
