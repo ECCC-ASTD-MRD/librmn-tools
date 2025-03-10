@@ -178,16 +178,16 @@ fprintf(stderr, "decode_tile short header :");
     E = 1 & (token >> 4) ;
   }else{                           // 1111SSME nnnnn
     int SS = (token >> 2) & 0x3 ;
-    isminus  = (SS == 0b10) ;
-    iszigzag = (SS == 0b11) ;
+    isminus  = (SS == 0b10) ;      // all values <= 0
+    iszigzag = (SS == 0b11) ;      // mixed signs
     M = 1 & (token >> 1) ;
     E = 1 & (token) ;
-    status = -2 ;
-    if(M == 1 && E == 1) goto error ;
+//     status = -2 ;
+//     if(M == 1 && E == 1) goto error ;
     STREAM_GET_NBITS(s,nbits,5) ;  // nbits -1
 fprintf(stderr, "decode_tile long header :");
   }
-  nbits++ ;
+  nbits++ ;   // header contains nbits - 1
 fprintf(stderr, " M = %d, E = %d, isminus = %d, iszigzag = %d, nbits = %d, nval = %d\n", M, E, isminus, iszigzag, nbits, nval) ;
   if(E != 0){
 // fprintf(stderr, "get ee\n") ;
@@ -196,13 +196,13 @@ fprintf(stderr, " M = %d, E = %d, isminus = %d, iszigzag = %d, nbits = %d, nval 
   }
   offset = 0 ;
   if(M != 0){
-    STREAM_GET_NBITS(s, nboffset, 5) ;
-    STREAM_GET_NBITS(s, token, nboffset) ;
-    offset = from_zigzag_32(token) ;
+    STREAM_GET_NBITS(s, nboffset, 5) ;       // get number of bits used for offset
+    STREAM_GET_NBITS(s, token, nboffset) ;   // get offset value
+    offset = from_zigzag_32(token) ;         // translate from zigzag to signed integer
 // fprintf(stderr, "get offset = %d, nboffset = %d\n", offset, nboffset) ;
     totbits = totbits + 5 + nboffset ;
   }
-  if(E == 0){
+  if(E == 0){                    // NO short/long encoding
 fprintf(stderr, "E == 0, nval = %d, nbits = %d, offset = %d, ", nval, nbits, offset) ;
     for(i=0 ; i<nval ; i++){
       STREAM_GET_NBITS(s, token, nbits) ;
@@ -211,9 +211,17 @@ fprintf(stderr, " %d", token);
     }
     totbits = totbits + nval * nbits ;
 fprintf(stderr, "\n");
-  }else{
-    if(ee != 0) return -1 ;
-// fprintf(stderr, "E == 1, OOPS, ee = %d\n", ee);
+  }else{                         // USED short/long encoding
+    int nshort = (stab[nbits] >> (ee * 8)) & 0xF ;
+    for(i=0 ; i<nval ; i++){
+      uint32_t flag ; STREAM_GET_1(s, flag) ;
+      if(flag){                  // long token
+        STREAM_XTRACT_NBITS(s, token, nbits) ;
+      }else{                     // short token
+        STREAM_XTRACT_NBITS(s, token, nshort) ;
+      }
+      tile[i] = token ;
+    }
   }
 
   if(M != 0){    // add offset if needed
@@ -409,18 +417,20 @@ fprintf(stderr, "\n") ;
   }else{                             // use short/long encoding, tokens will be nshort+1 or nbits+1 bits long
     int checkbits = 0 ;
     longref = (1 << nbits) ;         // upper 1 bit (above token)
-    nlong = nbits + 1 ;              // nb of bits used for long tokens
+//     nlong = nbits + 1 ;              // nb of bits used for long tokens
     shortref = (1 << nshort) ;       // anything < shortref can be coded as a "short" token
-    nshort++ ;                       // nb of bits used for short tokens
-    for(i=0 ; i<nval ; i++){         // encode values
-      token = tile[i] ;              // value to encode
-      if(token < shortref){          // use "short" token
-        STREAM_PUT_NBITS(s, token, nshort) ;
-        checkbits += nshort ;
-      }else{                         // use "long" token
-        token |= longref ;           // add "long" token marker
-        STREAM_PUT_NBITS(s, token, nlong) ;
-        checkbits += nlong ;
+//     nshort++ ;                       // nb of bits used for short tokens
+    for(i=0 ; i<nval ; i++){                    // encode nval values
+      token = tile[i] ;                         // value to encode
+      STREAM_INSERT_CHECK(s) ;                  // make sure there is room for up to 32 bits
+      if(token < shortref){                     // use "short" token
+        STREAM_INSERT_0(s) ;  ;                 // "short" token marker
+        STREAM_PUT_NBITS(s, token, nshort) ;    // follow with nshort bits
+        checkbits += (nshort + 1) ;
+      }else{                                    // use "long" token
+        STREAM_INSERT_1(s) ;                    // "long" token marker
+        STREAM_PUT_NBITS(s, token, nbits) ;     // follow with nbits bits
+        checkbits += (nbits + 1) ;
       }
     }
     saved_bits += (nval*nbits - nbitsmax - 2) ;
