@@ -1301,7 +1301,7 @@ q_decode IEEE32_linear_restore_2(void * restrict f, int np, q_encode desc, void 
   int32_t *qu = (int32_t *) q ;
   float *dest = (float *)f;
   int32_t i ;
-  int32_t offset, maxExp, shift2, npts ;
+  int32_t offset, maxExp, shift2 ;
 
   q_desc q_out = {.u = 0 } ;
 
@@ -1311,7 +1311,7 @@ q_decode IEEE32_linear_restore_2(void * restrict f, int np, q_encode desc, void 
   offset  = desc.offset.u ;
   maxExp  = desc.exp0 ;
   shift2  = desc.mbits ;
-  npts    = np ;
+//   npts    = np ;
 
   if(desc.cnst == 1){    // constant field
     for(i = 0 ; i < np ; i++) dest[i] = desc.offset.f ;
