@@ -167,22 +167,28 @@ fprintf(stderr, "all values zigzag\n") ;
       iszigzag = 1 ;
       break ;
     case 0b111 :                   // long header block, nbits > 16
-      status = -2 ;
-      if((token >> 4) == 0b1111) goto error ;   // reserved header
+//       if((token >> 4) == 0b1111) goto error ;   // reserved header
       lhead = 13 ;
   }
   M = E = 0 ;
   if(lhead == 8){                  // SSMEbbbb
+fprintf(stderr, "decode_tile short header :");
     nbits = token & 0xF ;          // nbits -1
     M = 1 & (token >> 5) ;
     E = 1 & (token >> 4) ;
   }else{                           // 1111SSME nnnnn
+    int SS = (token >> 2) & 0x3 ;
+    isminus  = (SS == 0b10) ;
+    iszigzag = (SS == 0b11) ;
     M = 1 & (token >> 1) ;
     E = 1 & (token) ;
+    status = -2 ;
+    if(M == 1 && E == 1) goto error ;
     STREAM_GET_NBITS(s,nbits,5) ;  // nbits -1
+fprintf(stderr, "decode_tile long header :");
   }
   nbits++ ;
-// fprintf(stderr, "M = %d, E = %d, nbits = %d, nval = %d\n", M, E, nbits, nval) ;
+fprintf(stderr, " M = %d, E = %d, isminus = %d, iszigzag = %d, nbits = %d, nval = %d\n", M, E, isminus, iszigzag, nbits, nval) ;
   if(E != 0){
 // fprintf(stderr, "get ee\n") ;
     STREAM_GET_NBITS(s, ee, 2) ;
@@ -197,14 +203,14 @@ fprintf(stderr, "all values zigzag\n") ;
     totbits = totbits + 5 + nboffset ;
   }
   if(E == 0){
-// fprintf(stderr, "E == 0, nval = %d, nbits = %d, offset = %d, ", nval, nbits, offset) ;
+fprintf(stderr, "E == 0, nval = %d, nbits = %d, offset = %d, ", nval, nbits, offset) ;
     for(i=0 ; i<nval ; i++){
       STREAM_GET_NBITS(s, token, nbits) ;
       tile[i] = token ;
-// fprintf(stderr, " %d", token);
+fprintf(stderr, " %d", token);
     }
     totbits = totbits + nval * nbits ;
-// fprintf(stderr, "\n");
+fprintf(stderr, "\n");
   }else{
     if(ee != 0) return -1 ;
 // fprintf(stderr, "E == 1, OOPS, ee = %d\n", ee);
@@ -264,7 +270,12 @@ int encode_tile(bitstream *s_in, int32_t *tile_in, int32_t nval, block_propertie
   if(bp == NULL){
     bp = &bp_;
     status = analyze_data32_block(tile_in, nval, nval, 1, bp);
-    if(status != nval) return -1 ;
+    bp_.kind = int_data ;
+    print_int_props(bp_) ;
+    if(status != nval){
+      fprintf(stderr, "analyze_data32_block status = %d, expected %d\n", status, nval) ;
+      return -1 ;
+    }
     // no need to call adjust_block_properties for integer data
   }
 
@@ -386,12 +397,12 @@ fprintf(stderr, "nbits = %d, ref = %8.8x, %8.8x, %8.8x, %8.8x, count = %d, %d, %
   // =============================== store encoded values ===============================
   if(E == 0){                        // no short/long encoding, all tokens will be nbits long
 // uint32_t *in = s.in ;
-// fprintf(stderr, "E == 0, nbits = %d, nval = %d :", nbits, nval) ;
+fprintf(stderr, "E == 0, nbits = %d, nval = %d :", nbits, nval) ;
     for(i=0 ; i<nval ; i++){
       STREAM_PUT_NBITS(s, tile[i], nbits) ;
-//       fprintf(stderr, " %d", tile[i]) ;
+      fprintf(stderr, " %d", tile[i]) ;
     }
-// fprintf(stderr, "\n") ;
+fprintf(stderr, "\n") ;
 // fprintf(stderr, "stream :");
 // fprintf(stderr, " %8.8x %8.8x %8.8x %8.8x %8.8x %8.8x", in[0], in[1], in[2], in[3], in[4], in[5]) ;
 // fprintf(stderr, "\n") ;

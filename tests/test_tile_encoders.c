@@ -113,13 +113,13 @@ int main(int argc, char **argv){
   totalbits += tilebits ;
   fprintf(stderr, "tilebits for tile11  = %d\n", tilebits) ;
   print_encode_stats(0) ; fprintf(stderr, "\n");
-goto bypass;
-  for(i=0 ; i<NPT ; i++) tile11[i] <<= 12 ;
-  tilebits = encode_tile(ps, tile11, NPT, NULL) ;          // mixed signs, nbits > 16
+
+  for(i=0 ; i<NPT ; i++) tile11[i] <<= 5 ;                 // mixed signs, nbits > 16
+  tilebits = encode_tile(ps, tile11, NPT, NULL) ;
   totalbits += tilebits ;
   fprintf(stderr, "tilebits for tile11a = %d\n", tilebits) ;
   print_encode_stats(0) ; fprintf(stderr, "\n");
-
+goto bypass;
   for(i=0 ; i<NPT ; i++) tile11[i] = (i - 3) * 64  ;       // mixed signs, nbits <= 16
   for(i=NPT/4 ; i<3*NPT/4 ; i++) tile11[i] = 0 ;           // make short/long encoding usable
   tilebits = encode_tile(ps, tile11, NPT, NULL) ;   // block properties are no longer correct
@@ -127,7 +127,7 @@ goto bypass;
   fprintf(stderr, "tilebits for tile11b = %d\n", tilebits) ;
   print_encode_stats(0) ; fprintf(stderr, "\n");
 
-  for(i=0 ; i<NPT ; i++) tile11[i] <<= 12  ;               // mixed signs, nbits > 16
+  for(i=0 ; i<NPT ; i++) tile11[i] <<= 5  ;                // mixed signs, nbits > 16
   for(i=NPT/4 ; i<3*NPT/4 ; i++) tile11[i] = 0 ;           // make short/long encoding usable
   tilebits = encode_tile(ps, tile11, NPT, NULL) ;   // block properties are no longer correct
   totalbits += tilebits ;
@@ -139,6 +139,7 @@ goto bypass;
     status = 8 ;
     goto fail ;
   }
+
 bypass:
   STREAM_XTRACT_BEGIN(*ps) ;
   fprintf(stderr, "decoding constant tile\n");
@@ -173,6 +174,17 @@ bypass:
 
   fprintf(stderr, "decoding mixed signs tile11\n");
   for(i=0 ; i<NPT ; i++) tile11[i] = (i - 3) * 64  ;   // mixed signs
+  tilebits = decode_tile(ps, rest11, NPT) ;
+  errors = 0 ;
+  for(i=0 ; i<NPT ; i++) if(rest11[i] != tile11[i]){
+    errors++ ;
+    if(errors < 4) fprintf(stderr, "[%2d] : expected %d, got %d\n", i, tile11[i], rest11[i]) ;
+  }
+  fprintf(stderr, "tilebits for tile11  = %d, errors = %d\n\n", tilebits, errors) ;
+  if(errors > 0) goto fail ;
+
+  fprintf(stderr, "decoding mixed signs tile11a\n");
+  for(i=0 ; i<NPT ; i++) tile11[i] <<= 5 ;                 // mixed signs, nbits > 16
   tilebits = decode_tile(ps, rest11, NPT) ;
   errors = 0 ;
   for(i=0 ; i<NPT ; i++) if(rest11[i] != tile11[i]){
