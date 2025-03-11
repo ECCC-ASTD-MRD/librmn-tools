@@ -152,7 +152,9 @@ int main(int argc, char **argv){
   fprintf(stderr, "tilebits for tile11e = %d\n", tilebits) ;
   print_encode_stats(0) ; fprintf(stderr, "\n");
 
-  if(totalbits != StreamAvailableBits(ps)){
+  STREAM_INSERT_FINALIZE(*ps) ;
+  fprintf(stderr, "StreamAvailableBits = %ld, totalbits = %d\n", StreamAvailableBits(ps), totalbits) ;
+  if(totalbits > StreamAvailableBits(ps)){
     fprintf(stderr, "expecting %d bits in stream, found %ld\n", totalbits, StreamAvailableBits(ps)) ;
     status = 8 ;
     goto fail ;

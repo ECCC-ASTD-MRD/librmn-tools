@@ -137,6 +137,8 @@ int decode_tile(bitstream *s_in, int32_t *tile, int32_t nval){
   if(s_in != NULL) s = *s_in ;
   if(s.endian != PACK_ENDIAN) return -1 ;     // stream has the wrong endianness
 
+  ssize_t available_data = StreamStrictAvailableBits(s_in) ;
+
   STREAM_XTRACT_CHECK(s) ;
   lhead = 8 ;
   STREAM_GET_NBITS(s, token, lhead) ;        // header (8 bits)
@@ -243,6 +245,11 @@ int decode_tile(bitstream *s_in, int32_t *tile, int32_t nval){
   }
 
 end:
+fprintf(stderr, "available bits = %ld, used %d\n", available_data, totbits) ;
+//   if(available_data < totbits){    // bogus bits were used during decoding
+//     status = -3 ;
+//     goto error ;
+//   }
   *s_in = s ;
   return totbits ;
 
@@ -256,6 +263,7 @@ constant_tile:
   for(i=0 ; i<nval ; i++){             // restore tile values
     tile[i] = value ;
   }
+  totbits = 8 ;
   totbits += nbits ;
 // fprintf(stderr, "constant tile, nbits = %d, nval= %d, value = %d\n", nbits, nval, value);
   goto end ;
@@ -268,7 +276,6 @@ constant_tile:
 // s_in [INOUT] : pointer to bitstream descriptor (see bitstream.h)
 // return nuber of bits inserted into bitstream buffer
 // tile may be modified by this function
-// TODO add safety check to make sure we have enough space in stream
 int encode_tile(bitstream *s_in, int32_t *tile_in, int32_t nval, block_properties *bp){
   int i, nbits, nbits0, offset, nboffset, totbits, SS, M, E, ee, SSME, token, ntoken, range, maxabs, minabs, status ;
   bitstream s ;
@@ -281,6 +288,10 @@ int encode_tile(bitstream *s_in, int32_t *tile_in, int32_t nval, block_propertie
 
   if(s_in != NULL) s = *s_in ;
   if(s.endian != PACK_ENDIAN) return -1 ;     // stream has the wrong endianness
+
+  ssize_t available_space = StreamAvailableSpace(s_in) ;
+  if(available_space < 64)         // not enough room for header + basic encoding information
+    return -1 ;
 
 // bp = NULL ;
   if(bp == NULL){            // bp not available, get tile extrema
@@ -419,6 +430,10 @@ int encode_tile(bitstream *s_in, int32_t *tile_in, int32_t nval, block_propertie
     totbits += nboffset ;                      // nboffset bits for offset
   }
   // =============================== store encoded values ===============================
+
+  if(StreamAvailableSpace(&s) < nbitsmax)    // not enough room for encoded data
+    return -1 ;
+
   if(E == 0){                        // no short/long encoding, all tokens will be nbits long
 // uint32_t *in = s.in ;
 // fprintf(stderr, "E == 0, nbits = %d, nval = %d :", nbits, nval) ;
@@ -457,6 +472,7 @@ fprintf(stderr, "\n");
   totbits += nbitsmax ;
 
 end:
+fprintf(stderr, "available space = %ld, used %d\n", available_space, totbits) ;
   STREAM_INSERT_PUSH(s) ;
   *s_in = s ;
   return totbits ;
