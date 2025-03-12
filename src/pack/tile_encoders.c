@@ -245,7 +245,7 @@ int decode_tile(bitstream *s_in, int32_t *tile, int32_t nval){
   }
 
 end:
-fprintf(stderr, "available bits = %ld, used %d\n", available_data, totbits) ;
+// fprintf(stderr, "available bits = %ld, used %d\n", available_data, totbits) ;
 //   if(available_data < totbits){    // bogus bits were used during decoding
 //     status = -3 ;
 //     goto error ;
@@ -316,7 +316,8 @@ int encode_tile(bitstream *s_in, int32_t *tile_in, int32_t nval, block_propertie
   if(bp->maxs.i == bp->mins.i){              // constant tile
     uint32_t zigzag ;
     zigzag = to_zigzag_32(tile_in[0]) ;      // encode constant value as sign/magnitude
-    nbits = BitsNeeded_u32(zigzag) ;         // number of bits needed to represent encoded value
+    // number of bits needed to represent encoded value
+    nbits = (zigzag == 0) ? 1 : BitsNeeded_u32(zigzag) ;
     token = (0b000 << 5) ;                   // header will be ( 000bbbbb )
     token = token | (nbits-1) ;              // put nbits into header
     STREAM_PUT_NBITS(s, token, 8) ;          // 8 bit header
@@ -444,7 +445,7 @@ int encode_tile(bitstream *s_in, int32_t *tile_in, int32_t nval, block_propertie
 // fprintf(stderr, "\n") ;
 // fprintf(stderr, "stream :");
 // fprintf(stderr, " %8.8x %8.8x %8.8x %8.8x %8.8x %8.8x", in[0], in[1], in[2], in[3], in[4], in[5]) ;
-fprintf(stderr, "\n") ;
+// fprintf(stderr, "\n") ;
   }else{                             // use short/long encoding, tokens will be nshort+1 or nbits+1 bits long
     int checkbits = 0 ;                         // temporary diagnostic variable
     shortref = (1 << nshort) ;                  // anything < shortref can be coded as a "short" token
@@ -465,14 +466,14 @@ fprintf(stderr, "\n") ;
         checkbits += (nbits + 1) ;
       }
     }
-fprintf(stderr, "\n");
+// fprintf(stderr, "\n");
     saved_bits += (nval*nbits - nbitsmax - 2) ;
     if(checkbits != nbitsmax) fprintf(stderr,"checkbits = %d, expecting %d\n", checkbits, nbitsmax) ;
   }
   totbits += nbitsmax ;
 
 end:
-fprintf(stderr, "available space = %ld, used %d\n", available_space, totbits) ;
+// fprintf(stderr, "available space = %ld, used %d\n", available_space, totbits) ;
   STREAM_INSERT_PUSH(s) ;
   *s_in = s ;
   return totbits ;
