@@ -220,7 +220,7 @@ int decode_tile(bitstream *s_in, int32_t *tile, int32_t nval){
 // fprintf(stderr, "\n");
   }else{                         // USED short/long encoding
     int nref[4] ;
-    nref[0] = nbits/8 ; nref[1] = nbits/2 ; nref[2] = nref[1]+1 ; nref[3] = nref[1]+2 ;
+    nref[0] = nbits/8 ; nref[1] = nbits/2-1 ; nref[2] = nref[1]+1 ; nref[3] = nref[1]+2 ;
     int nshort = nref[ee] ;
 //     int nshort = (stab[nbits] >> (ee * 8)) & 0xF ;
 // fprintf(stderr, "E == 1, ee = %d, nshort = %d\n", ee, nshort) ;
@@ -386,7 +386,7 @@ int encode_tile(bitstream *s_in, int32_t *tile_in, int32_t nval, block_propertie
   // determine if it is worth using short/long encoding
   int ref[4], nref[4], count[4] ;
 //   shift = stab[nbits] ;
-  nref[0] = nbits/8 ; nref[1] = nbits/2 ; nref[2] = nref[1]+1 ; nref[3] = nref[1]+2 ;
+  nref[0] = nbits/8 ; nref[1] = nbits/2-1 ; nref[2] = nref[1]+1 ; nref[3] = nref[1]+2 ;
   for(i=0 ; i<4 ; i++) ref[i] = 1 << nref[i] ;
 //   for(i=0 ; i<4 ; i++){         // 4 canditate number of bits, nref[0] = 0, ref[0] = 1
 //     nref[i] = shift & 0xFF ;    // candidate number of bits for short values

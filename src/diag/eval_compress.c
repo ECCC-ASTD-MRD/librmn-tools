@@ -498,7 +498,7 @@ fprintf(stderr, "jn = %d, in = %d\n", jn, in) ;
       }
       STREAM_INSERT_FINALIZE(*ps) ;
       print_encode_stats(0) ;
-      exit(1) ;
+//       exit(1) ;
       // study losses when using "lossy" transform
 //       un_clip_quadrants(in, jn, (void *) pred, 1) ;
       inv_2d_lgt53_n((void *)pred, in, in, jn, 2);
