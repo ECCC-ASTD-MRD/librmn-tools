@@ -69,21 +69,25 @@ int main(int argc, char **argv){
     tile10[i] = -tile01[i] ;      // all values <= 0
     tile11[i] = (i - 3) * 64  ;   // mixed signs
   }
-  status = analyze_data32_block(tile00, NPTI, NPTI, NPTJ, &bp00);
+  status = move_w32_block(tile00, NPTI, rest00, NPTI, NPTI, NPTJ, &bp00) ; // dummy move to force data analysis
+//   status = analyze_data32_block(tile00, NPTI, NPTI, NPTJ, &bp00);
   if(status != NPT){ status = 1 ; goto fail ; }
-  adjust_block_properties(&bp00, int_data) ; print_int_props(bp00);
+  /*adjust_block_properties(&bp00, int_data) ;*/ print_int_props(bp00);
 
-  status = analyze_data32_block(tile01, NPTI, NPTI, NPTJ, &bp01);
+  status = move_w32_block(tile01, NPTI, rest00, NPTI, NPTI, NPTJ, &bp01) ; // dummy move to force data analysis
+//   status = analyze_data32_block(tile01, NPTI, NPTI, NPTJ, &bp01);
   if(status != NPT){ status = 2 ; goto fail ; }
-  adjust_block_properties(&bp01, int_data) ; print_int_props(bp01);
+  /*adjust_block_properties(&bp01, int_data) ;*/ print_int_props(bp01);
 
-  status = analyze_data32_block(tile10, NPTI, NPTI, NPTJ, &bp10);
+  status = move_w32_block(tile10, NPTI, rest00, NPTI, NPTI, NPTJ, &bp10) ; // dummy move to force data analysis
+//   status = analyze_data32_block(tile10, NPTI, NPTI, NPTJ, &bp10);
   if(status != NPT){ status = 3 ; goto fail ; }
-  adjust_block_properties(&bp10, int_data) ; print_int_props(bp10);
+  /*adjust_block_properties(&bp10, int_data) ;*/ print_int_props(bp10);
 
-  status = analyze_data32_block(tile11, NPTI, NPTI, NPTJ, &bp11);
+  status = move_w32_block(tile11, NPTI, rest00, NPTI, NPTI, NPTJ, &bp11) ; // dummy move to force data analysis
+//   status = analyze_data32_block(tile11, NPTI, NPTI, NPTJ, &bp11);
   if(status != NPT){ status = 4 ; goto fail ; }
-  adjust_block_properties(&bp11, int_data) ; print_int_props(bp11);
+  /*adjust_block_properties(&bp11, int_data) ;*/ print_int_props(bp11);
 
   STREAM_CREATE(ps, NULL, sizeof(uint32_t)*NPT*8, BIT_FULL_INIT) ;
   if(ps->endian != PACK_ENDIAN){ status = 5 ; goto fail ; }
@@ -109,15 +113,16 @@ int main(int argc, char **argv){
   fprintf(stderr, "tilebits for tile10  = %d\n", tilebits) ;
   print_encode_stats(0) ; fprintf(stderr, "\n");
 
-  for(i=0 ; i<NPT ; i++) tile11[i] = (i - 3) * 64  ;       // mixed signs, nbits <= 16
   tilebits = encode_tile(ps, tile11, NPT, &bp11) ;         // mixed signs, nbits <= 16
   print_int_props(bp11) ;
   totalbits += tilebits ;
   fprintf(stderr, "tilebits for tile11  = %d\n", tilebits) ;
   print_encode_stats(0) ; fprintf(stderr, "\n");
 
+// ========================  block properties pointer is now NULL ========================
+
   for(i=0 ; i<NPT ; i++) tile11[i] <<= 5 ;                 // mixed signs, nbits > 16
-  tilebits = encode_tile(ps, tile11, NPT, NULL) ;
+  tilebits = encode_tile(ps, tile11, NPT, NULL) ;          // block properties are no longer correct
   totalbits += tilebits ;
   fprintf(stderr, "tilebits for tile11a = %d\n", tilebits) ;
   print_encode_stats(0) ; fprintf(stderr, "\n");

@@ -19,6 +19,7 @@
 
 #include <rmn/eval_compress.h>
 #include <rmn/dwt_i_lgt53.h>
+#include <rmn/be_stream.h>
 #include <rmn/tile_encoders.h>
 
 // inline functions borrowed from other source code to minimize code dependencies
@@ -323,7 +324,10 @@ int block_diff(int *a, int *b, int n){
   int err = 0 ;
   int i ;
   for(i=0 ; i<n ; i++){
-    if(a[i] != b[i]) err++ ;
+    if(a[i] != b[i]){
+      fprintf(stderr, "expected %d, got %d\n", a[i], b[i]);
+      err++ ;
+    }
   }
   return err ;
 }
@@ -342,6 +346,7 @@ int float_compressed_bits(int ni, int nj, float f[nj][ni], float *quant_, int bt
   int block[bsize*bsize] ;
   int pred[bsize*bsize] ;
   int block8[8*8] ;
+  int restr8[8*8] ;
   int info[1024] ;
   int info_size = sizeof(info)/sizeof(int) ;
   int nbits = 0, nblocks = 0, nblock8 = 0, nbits64 = 0, npred = 0, nbits8 = 0 ;
@@ -349,6 +354,9 @@ int float_compressed_bits(int ni, int nj, float f[nj][ni], float *quant_, int bt
   int i0, j0, i, j, in, jn, ix, i8, j8, min, max, nbi, range, ndiff ;
   float minf, maxf ;
   float diffmax = 0.0, fbias = 0.0 ;
+  int stream_buffer[32768] ;  // enough space to encode a quantization chunk
+  bitstream bp ;
+  bitstream *ps = &bp ;
 
   if(quant < 0){
     nbits = (-quant) ;
@@ -453,7 +461,13 @@ fprintf(stderr, " |%d,%d,%d,%d,%d,%d, %d ,%d,%d,%d,%d,%d,%d|\n",info[58],info[59
       fwd_2d_lgt53_n((void *)pred, in, in, jn, 2);
       // clip wavelets
       clip_quadrants(in, jn, (void *) pred, 1) ;
+      // prepare stream for encoding
+      STREAM_CREATE(ps, stream_buffer, sizeof(stream_buffer)*8, BIT_FULL_INIT) ;
+      STREAM_INSERT_BEGIN(*ps) ;
+fprintf(stderr, "jn = %d, in = %d\n", jn, in) ;
+// exit(1);
       ndwt8 += 64 ;  // large block overhead
+      int encoded_bits, decoded_bits ;
       // subdivide transformed block into 8 x 8 encoding blocks, count bits
       for(j8=0 ; j8<jn ; j8+=8){
         int j8n = ((j8+8) > jn) ? (jn - j8) : 8 ;
@@ -462,8 +476,21 @@ fprintf(stderr, " |%d,%d,%d,%d,%d,%d, %d ,%d,%d,%d,%d,%d,%d|\n",info[58],info[59
           get_block(in, jn, i8, j8, (void *)pred, i8n, j8n, (void *)block8) ;
           nbi = count_encoded_bits(i8n, j8n, (void *)block8, info) ;
           ndwt8 += nbi ;
+          STREAM_REWRITE(*ps, 1) ;
+          encoded_bits = encode_tile(ps, block8, i8n*j8n, NULL) ;
+          STREAM_INSERT_FINALIZE(*ps) ;
+//           if(nbi != encoded_bits){
+//             fprintf(stderr, "nbi = %d, encoded_bits = %d\n", nbi, encoded_bits) ;
+//             exit(1) ;
+//           }
+          STREAM_REWIND(*ps, 1) ;
+          decoded_bits = decode_tile(ps, restr8, i8n*j8n) ;
+          fprintf(stderr, "nbi = %d, encoded_bits = %d, decoded_bits = %d, diff = %d\n", nbi, encoded_bits, decoded_bits, block_diff(block8,restr8, i8n*j8n)) ;
         }
       }
+      STREAM_INSERT_FINALIZE(*ps) ;
+      print_encode_stats(0) ;
+      exit(1) ;
       // study losses when using "lossy" transform
 //       un_clip_quadrants(in, jn, (void *) pred, 1) ;
       inv_2d_lgt53_n((void *)pred, in, in, jn, 2);
