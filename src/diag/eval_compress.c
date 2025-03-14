@@ -94,6 +94,13 @@ static void print_block(int ni, int nj, int block[nj][ni]){
   fprintf(stderr, "\n");
 }
 #endif
+
+static int smaller_than(int ref, int *src, int n){
+  int i, nn = 0 ;
+  for(i=0 ; i<n ; i++) if(src[i] < ref) nn++ ;
+  return nn ;
+}
+
 // return estimate of number of bits needed to encode a block of size ni X nj
 static int count_encoded_bits(int ni, int nj, int block[nj][ni], int *info){
   int i, j, max, min, nbits, extra = 0, btab[33], maxbits, nshort, nij = ni * nj, nbits_i, delta, tmp ;
@@ -176,6 +183,7 @@ static int count_encoded_bits(int ni, int nj, int block[nj][ni], int *info){
   for(i=1 ; i<maxbits-1 ; i++){           // nshort == maxbits-1 cold not profide any gain
     if( (i >= maxbits/2-0) && (i <= maxbits/2+2) ){     // limited range of 3 values around maxbits/2
       //        btab[i] elements i bits long (or shorter)
+      btab[i] = smaller_than( 1<<i, (void *)block, nij) ;
       nbits_i = (i + 1) * btab[i] + (maxbits + 1) * (nij - btab[i]) ; // short/long encoding
       //                            nij - btab[i] elements need more than i bits
       if(nbits_i < nbits){        // is nshort == i better than previous cases ?

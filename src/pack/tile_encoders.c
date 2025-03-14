@@ -398,7 +398,7 @@ int encode_tile(bitstream *s_in, int32_t *tile_in, int32_t nval, block_propertie
   E = 0 ;
   ee = 0 ;
   nbitsmax = nbits * nval ;         // worst case, nbits used for each value
-  if(nbits > 2){   // pointless if nbits < 3
+  if(nbits > 1){   // pointless if nbits < 2
     for(i=0 ; i<4 ; i++){
       int nbitsi ;
       nbitsi  = count[i] * (nref[i]+1) ;       // count[i] "short" values, needing nref[i]+1 bits
