@@ -65,7 +65,7 @@
 // 8+4 bits header (nbits > 16)
 //
 // L full header length : 12 + [E == 1 ? 2 : 0] + [M == 1 ? 5 + (bbbbb+1) : 0] bits
-//   0011SSME nnnn  17->32 bits/value, nnnn == number of bits - 16  (2 mandatory pieces)
+//   0011SSME nnnn  17->32 bits/value, nnnn == number of bits - 17  (2 mandatory pieces)
 //                  0011SSME nnnn[ee][bbbbb][offset] (2 - 5 pieces)
 //
 // SS : 00 constant block
