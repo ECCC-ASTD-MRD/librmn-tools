@@ -39,7 +39,8 @@
 // the number of values in the encoded block must come from an EXTERNAL source
 //
 // 8 bits header part 1 (nbits <= 16, except for constant blocks, SS == 00)
-// SSMEnnnn[ee][bbbb][offset]
+// SSMEnnnn [ee][bbbbb][o.....o]  (o.....o uses bbbbb+1 bits)
+// 000bbbbb c.....c               (c.....c uses bbbbb+1 bits)
 //
 // A 000bbbbb      constant block, ZIGZAG(value), 1 -> 32 bits/value, bbbbb == number of bits - 1
 // X 0010xxxx      reserved for future use
@@ -50,12 +51,12 @@
 // D 11MEnnnn      mixed signs      (1->16 bits / value, nnnn == number of bits - 1)
 //
 // the first 2/3/4 bits indicate the header type
-// 000x  A type header (8 bits)   000bbbbb[constant_value]
+// 000x  A type header (8 bits)   000bbbbb c.....c
 // 0010  X type header (8+ bits)  0010xxxx  (reserved)
-// 0011  L type header (8+5 bits) 0011SSME nnnnn [ee] [bbbbb] [offset]  (SS == 00 is reserved)
-// 01xx  B type header (8 bits)   01MEnnnn [ee] [bbbb] [offset]
-// 10xx  C type header (8 bits)   10MEnnnn [ee] [bbbb] [offset]
-// 11xx  D type header (8 bits)   11MEnnnn [ee] [bbbb] [offset]
+// 0011  L type header (8+4 bits) 0011SSME nnnn [ee] [bbbbb] [o.....o]  (SS == 00 is reserved)
+// 01xx  B type header (8 bits)   01MEnnnn [ee] [bbbbb] [o.....o]
+// 10xx  C type header (8 bits)   10MEnnnn [ee] [bbbbb] [o.....o]
+// 11xx  D type header (8 bits)   11MEnnnn [ee] [bbbbb] [o.....o]
 //
 // A-D full header length : 8 + [E == 1 ? 2 : 0] + [M == 1 ? 5 + (bbbbb+1) : 0] bits
 // only B, C, D headers may have E == 1 or M == 1
@@ -66,7 +67,7 @@
 //
 // L full header length : 12 + [E == 1 ? 2 : 0] + [M == 1 ? 5 + (bbbbb+1) : 0] bits
 //   0011SSME nnnn  17->32 bits/value, nnnn == number of bits - 17  (2 mandatory pieces)
-//                  0011SSME nnnn[ee][bbbbb][offset] (2 - 5 pieces)
+//                  0011SSME nnnn [ee] [bbbbb] [o.....o] (2 - 5 pieces)
 //
 // SS : 00 constant block
 //      01 all values >= 0
@@ -95,6 +96,9 @@
 
 int encode_tile(bitstream *s, int32_t *tile, int32_t nval, block_properties *bp);
 int decode_tile(bitstream *s, int32_t *tile, int32_t nval);
+
+int encode_as_tiles(bitstream *s_in, int32_t *block, int lnis, int ni, int nj, int tile_size);
+int decode_as_tiles(bitstream *s_in, int32_t *block, int lnid, int ni, int nj, int tile_size);
 
 void print_encode_stats(int reset);
 

@@ -353,6 +353,7 @@ int float_compressed_bits(int ni, int nj, float f[nj][ni], float *quant_, int bt
   float fblock[bsize*bsize] ;
   int block[bsize*bsize] ;
   int pred[bsize*bsize] ;
+  int pred0[bsize*bsize] ;
   int block8[8*8] ;
   int restr8[8*8] ;
   int info[1024] ;
@@ -363,8 +364,11 @@ int float_compressed_bits(int ni, int nj, float f[nj][ni], float *quant_, int bt
   float minf, maxf ;
   float diffmax = 0.0, fbias = 0.0 ;
   int stream_buffer[32768] ;  // enough space to encode a quantization chunk
+  int stream_buffer0[32768] ;  // enough space to encode a quantization chunk
   bitstream bp ;
   bitstream *ps = &bp ;
+  bitstream bp0 ;
+  bitstream *ps0 = &bp0 ;
 
   if(quant < 0){
     nbits = (-quant) ;
@@ -469,10 +473,19 @@ fprintf(stderr, " |%d,%d,%d,%d,%d,%d, %d ,%d,%d,%d,%d,%d,%d|\n",info[58],info[59
       fwd_2d_lgt53_n((void *)pred, in, in, jn, 2);
       // clip wavelets
       clip_quadrants(in, jn, (void *) pred, 1) ;
-      // prepare stream for encoding
-      STREAM_CREATE(ps, stream_buffer, sizeof(stream_buffer)*8, BIT_FULL_INIT) ;
+      // prepare streams for encoding
+      STREAM_CREATE(ps,  stream_buffer,  sizeof(stream_buffer)*8,  BIT_FULL_INIT) ;
       STREAM_INSERT_BEGIN(*ps) ;
-fprintf(stderr, "jn = %d, in = %d\n", jn, in) ;
+      STREAM_CREATE(ps0, stream_buffer0, sizeof(stream_buffer0)*8, BIT_FULL_INIT) ;
+      STREAM_INSERT_BEGIN(*ps0) ;
+      int tilebits0 = encode_as_tiles(ps0, pred, in, in, jn, 8);
+fprintf(stderr, "jn = %d, in = %d, tilebits0 = %d\n", jn, in, tilebits0) ;
+      STREAM_INSERT_FINALIZE(*ps0) ;
+      STREAM_XTRACT_BEGIN(*ps0) ;
+      int tilebits1 = decode_as_tiles(ps0, pred0, in, in, jn, 8);
+      ndiff = 0 ;
+      for(i=0 ; i<in*jn ; i++) if(pred0[i] != pred[i]) ndiff++ ;
+fprintf(stderr, "jn = %d, in = %d, tilebits1 = %d, ndiff = %d\n", jn, in, tilebits1, ndiff) ;
 // exit(1);
       ndwt8 += 64 ;  // large block overhead
       int encoded_bits, decoded_bits ;
@@ -484,8 +497,10 @@ fprintf(stderr, "jn = %d, in = %d\n", jn, in) ;
           get_block(in, jn, i8, j8, (void *)pred, i8n, j8n, (void *)block8) ;
           nbi = count_encoded_bits(i8n, j8n, (void *)block8, info) ;
           ndwt8 += nbi ;
+          tilebits1 -= nbi ;
           STREAM_REWRITE(*ps, 1) ;
           encoded_bits = encode_tile(ps, block8, i8n*j8n, NULL) ;
+          tilebits1 -= encoded_bits ;
           STREAM_INSERT_FINALIZE(*ps) ;
 //           if(nbi != encoded_bits){
 //             fprintf(stderr, "nbi = %d, encoded_bits = %d\n", nbi, encoded_bits) ;
@@ -498,6 +513,7 @@ fprintf(stderr, "jn = %d, in = %d\n", jn, in) ;
       }
       STREAM_INSERT_FINALIZE(*ps) ;
       print_encode_stats(0) ;
+fprintf(stderr, "residual stats tilebits1 = %d\n", tilebits1) ;
 //       exit(1) ;
       // study losses when using "lossy" transform
 //       un_clip_quadrants(in, jn, (void *) pred, 1) ;
