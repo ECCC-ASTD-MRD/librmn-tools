@@ -123,6 +123,7 @@ set(rmntools_VERSION ${PROJECT_VERSION} CACHE INTERNAL "rmntools version" FORCE)
 message(STATUS "(EC) ${PROJECT_NAME} version = ${PROJECT_VERSION} GENERATOR = ${CMAKE_GENERATOR}")
 
 ec_build_info()            # Generate build information
+ec_build_config()
 
 include(ec_compiler_presets)
 
