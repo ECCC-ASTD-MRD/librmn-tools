@@ -439,26 +439,30 @@ end:
 // tsize   [IN] : desired size of encoded tiles
 // s_in [INOUT] : pointer to bitstream descriptor (see bitstream.h)
 // return nuber of bits inserted into bitstream buffer
+// tsize/2 <= dimension < tsize+tsize/2  (for both i and j tile dimensions)
+// the dimension of the last slice along i or j may be shorter or longer than tsize
+// in case of error, s_in is left as it was upon entry
 int encode_as_tiles(bitstream *s_in, int32_t *block, int lnis, int ni, int nj, int tsize){
-  int i0, lni, j0, lnj, status = -1, totbits = 0, nval = tsize*tsize, incr = tsize*lnis ;
-  int32_t tile[nval*4] ;
+  int i0, lni, j0, lnj, status = -1, totbits = 0, incr = tsize*lnis, tmax = tsize+(tsize>>1) ;
+  int32_t tile[tmax*tmax] ;
   block_properties bp ;
   bitstream s ;
-  int i ;
 
   if(s_in == NULL) goto error ;
-  s = *s_in ;
+  s = *s_in ;        // take local copy of s_in
 
   lnj = tsize ;
   for(j0=0 ; j0<nj ; j0+=lnj){
     int32_t *src = block ;
-    lnj = ((j0+tsize) > (nj-2)) ? (nj - j0) : tsize ;
+    // length of this slice, make sure next slice would be at least (tsize>>1) long
+    // this slice can be up to tsize+(tsize>>1)-1 long
+    lnj = ((j0+tmax) > nj) ? (nj - j0) : tsize ;
     lni = tsize ;
     for(i0=0 ; i0<ni ; i0+=lni){
-      // length of this slice, make sure next slice would be at least 3 long
-      // this slice can be up to tsize+2 long
-      lni = ((i0+tsize) > (ni-2)) ? (ni - i0) : tsize ;
-      move_int32_block(src, lnis, tile, lni, lni, lnj, &bp) ;  // get tile from block
+      // length of this slice, make sure next slice would be at least (tsize>>1) long
+      // this slice can be up to tsize+(tsize>>1)-1 long
+      lni = ((i0+tmax) > ni) ? (ni - i0) : tsize ;
+      move_w32_block(src, lnis, tile, lni, lni, lnj, &bp) ;  // get tile from block
       status = encode_tile(&s, tile, lni*lnj, &bp) ;           // encode tile
       if(status <= 0) goto error ;
       totbits += status ;
@@ -467,7 +471,7 @@ int encode_as_tiles(bitstream *s_in, int32_t *block, int lnis, int ni, int nj, i
     block += incr ;
   }
 
-  *s_in = s ;
+  *s_in = s ;        // update s_in
   return totbits ;
 
 error:
@@ -482,23 +486,28 @@ error:
 // tsize   [IN] : desired size of encoded tiles
 // s_in [INOUT] : pointer to bitstream descriptor (see bitstream.h)
 // return nuber of bits extracted into bitstream buffer
+// tsize/2 <= dimension < tsize+tsize/2  (for both i and j tile dimensions)
+// the dimension of the last slice along i or j may be shorter or longer than tsize
+// in case of error, s_in is left as it was upon entry
 int decode_as_tiles(bitstream *s_in, int32_t *block, int lnid, int ni, int nj, int tsize){
-  int i0, lni, j0, lnj, status = -1, totbits = 0, nval = tsize*tsize, incr = tsize*lnid ;
-  int32_t tile[nval*4] ;
+  int i0, lni, j0, lnj, status = -1, totbits = 0, incr = tsize*lnid, tmax = tsize+(tsize>>1) ;
+  int32_t tile[tmax*tmax] ;
   bitstream s ;
 
   if(s_in == NULL) goto error ;
-  s = *s_in ;
+  s = *s_in ;        // take local copy of s_in
 
   lnj = tsize ;
   for(j0=0 ; j0<nj ; j0+=lnj){
     int32_t *dst = block ;
-    lnj = ((j0+tsize) > (nj-2)) ? (nj - j0) : tsize ;
+    // length of this slice, make sure next slice would be at least (tsize>>1) long
+    // this slice can be up to tsize+(tsize>>1)-1 long
+    lnj = ((j0+tmax) > nj) ? (nj - j0) : tsize ;
     lni = tsize ;
     for(i0=0 ; i0<ni ; i0+=lni){
-      // length of this slice, make sure next slice would be at least 3 long
-      // this slice can be up to tsize+2 long
-      lni = ((i0+tsize) > (ni-2)) ? (ni - i0) : tsize ;
+      // length of this slice, make sure next slice would be at least (tsize>>1) long
+      // this slice can be up to tsize+(tsize>>1)-1 long
+      lni = ((i0+tmax) > ni) ? (ni - i0) : tsize ;
       status = decode_tile(&s, tile, lni*lnj) ;                // decode tile
       move_w32_block(tile, lni, dst, lnid, lni, lnj, NULL) ;   // put tile into block
       if(status <= 0) goto error ;
@@ -508,7 +517,7 @@ int decode_as_tiles(bitstream *s_in, int32_t *block, int lnid, int ni, int nj, i
     block += incr ;
   }
 
-  *s_in = s ;
+  *s_in = s ;        // update s_in
   return totbits ;
 
 error:
