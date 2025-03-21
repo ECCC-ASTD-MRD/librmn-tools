@@ -55,6 +55,13 @@ static int plus_minus = 0 ;
 static int saved_bits = 0 ;
 static int short_long[4] = {0,0,0,0} ;
 
+void print_tile(int32_t *tile_in, int nval, char *msg){
+  int i ;
+  fprintf(stderr,"%s", msg) ;
+  for(i=0 ; i<nval ; i++) fprintf(stderr," %d", tile_in[i]) ;
+  fprintf(stderr,"\n") ;
+}
+
 void print_encode_stats(int reset){
   fprintf(stderr, "encoding stats : %d blocks (%d constant, %d >=0, %d <=0, %d +/-) (%d with offset), ",
                                     nblocks, constant_block, all_plus, all_minus, plus_minus, with_offset) ;
@@ -84,7 +91,7 @@ void print_encode_stats(int reset){
 // return nuber of bits extracted from bitstream buffer
 // TODO add safety check to make sure we had enough data in stream
 int decode_tile(bitstream *s_in, int32_t *tile, int32_t nval){
-  int i, nbits, totbits, offset, SS, M, E, allminus, iszigzag, lhead, status ;
+  int i, nbits, totbits, offset, SS, M, E, allminus, iszigzag, lhead, status = 0 ;
   uint32_t token, ee, nboffset, uvalue ;
   bitstream s ;
 
@@ -127,7 +134,7 @@ int decode_tile(bitstream *s_in, int32_t *tile, int32_t nval){
       iszigzag = 1 ;                   // unless M was used : iszigzag = (M == 0) ? 1 : 0 ;
       break ;
   }
-
+// fprintf(stderr, "decode_tile : SS = %d, M = %d, E= %d, nbits = %d\n", SS, M, E, nbits) ;
   totbits = lhead ;
   if(E != 0){
     STREAM_GET_NBITS(s, ee, 2) ;
@@ -181,6 +188,7 @@ int decode_tile(bitstream *s_in, int32_t *tile, int32_t nval){
   }
 
 end:
+// print_tile(tile, nval, "decode_tile :") ;
 // fprintf(stderr, "available bits = %ld, used %d\n", available_data, totbits) ;
   if(available_data < totbits){    // bogus bits were used during decoding
     status = -3 ;
@@ -210,14 +218,13 @@ constant_tile:
 // bp      [IN] : tile properties (see move_blocks.h)
 // s_in [INOUT] : pointer to bitstream descriptor (see bitstream.h)
 // return nuber of bits inserted into bitstream buffer
-// tile may be modified by this function
 int encode_tile(bitstream *s_in, int32_t *tile_in, int32_t nval, block_properties *bp){
   int i, nbits, nbits0, offset, nboffset, totbits, SS, M, E, ee, SSME, token, ntoken, range, maxabs, minabs, status ;
   bitstream s ;
 //   uint32_t shift ;
   int32_t tile[nval] ;
   block_properties bp_ ;
-
+// print_tile(tile_in, nval, "encode_tile :") ;
   // check for bad arguments
   if(s_in == NULL || tile_in == NULL || nval <= 0) return -1 ;
 
@@ -233,7 +240,7 @@ int encode_tile(bitstream *s_in, int32_t *tile_in, int32_t nval, block_propertie
     bp = &bp_;
     status = analyze_data32_block(tile_in, nval, nval, 1, bp);
     bp_.kind = int_data ;    // no need to call adjust_block_properties for integer data
-//     print_int_props(bp_) ;
+// print_int_props(bp_) ;
     if(status != nval){
       fprintf(stderr, "analyze_data32_block status = %d, expected %d\n", status, nval) ;
       return -1 ;
@@ -286,6 +293,7 @@ int encode_tile(bitstream *s_in, int32_t *tile_in, int32_t nval, block_propertie
       for(i=0 ; i<nval ; i++)                // use absolute value if all <= 0
         tile[i] = -tile_in[i] ;              // use local array for tile values
 
+// fprintf(stderr, "all minus\n") ;
     }else if(bp->mins.i >= 0){               // all values >= 0
       all_plus++ ;
       SS = 1 ;                               // all values positive flag
@@ -293,11 +301,13 @@ int encode_tile(bitstream *s_in, int32_t *tile_in, int32_t nval, block_propertie
       minabs = bp->mins.i ;                  // smallest number
       for(i=0 ; i<nval ; i++)                // straight copy if all >= 0
         tile[i] = tile_in[i] ;               // copy tile values to local array
+// fprintf(stderr, "all plus : maxabs = %d, minabs = %d\n", maxabs, minabs) ;
     }
     M = 0 ;                                  // a priori, NO OFFSET
     nbits  = BitsNeeded_u32(maxabs) ;        // bits needed for largest absolute value
     range  = maxabs - minabs ;
     nbits0 = BitsNeeded_u32(range) ;         // bits needed for range
+// fprintf(stderr, "maxabs = %d, minabs = %d, range = %d, nbits0 = %d\n", maxabs, minabs, range, nbits0) ;
     if(nbits0 < nbits){                      // less bits needed if subtracting offset
       with_offset++ ;
       offset = minabs ;                      // smallest absolute value
@@ -417,26 +427,44 @@ end:
 // fprintf(stderr, "available space = %ld, used %d\n", available_space, totbits) ;
   STREAM_INSERT_PUSH(s) ;
   *s_in = s ;
+// fprintf(stderr, "encode_tile : SS = %d, M = %d, E = %d, nbits = %d, offset = %d\n", SS, M, E, nbits, offset) ;
   return totbits ;
 }
 
-int decode_as_tiles(bitstream *s_in, int32_t *block, int lnid, int ni, int nj, int tile_size){
-  int i0, lni, j0, lnj, status = -1, totbits = 0, nval = tile_size*tile_size ;
-  int32_t tile[nval] ;
+// encode a block as multiple tiles into a bit stream
+// block   [IN] : values to be encoded
+// lnis    [IN] : storage length of block rows
+// ni      [IN] : number of values to encode in a block row
+// nj      [IN] : number of rows to encode
+// tsize   [IN] : desired size of encoded tiles
+// s_in [INOUT] : pointer to bitstream descriptor (see bitstream.h)
+// return nuber of bits inserted into bitstream buffer
+int encode_as_tiles(bitstream *s_in, int32_t *block, int lnis, int ni, int nj, int tsize){
+  int i0, lni, j0, lnj, status = -1, totbits = 0, nval = tsize*tsize, incr = tsize*lnis ;
+  int32_t tile[nval*4] ;
+  block_properties bp ;
   bitstream s ;
+  int i ;
 
   if(s_in == NULL) goto error ;
   s = *s_in ;
 
-  for(j0=0 ; j0<nj ; j0+=tile_size){
-    lnj = ((j0+tile_size) > nj) ? (nj - j0) : tile_size ;
-    for(i0=0 ; i0<ni ; i0+=tile_size){
-      lni = ((i0+tile_size) > ni) ? (ni - i0) : tile_size ;
-      status = decode_tile(&s, tile, nval) ;                           // decode tile
-      move_w32_block(tile, tile_size, block, lnid, lni, lnj, NULL) ;   // put tile into block
+  lnj = tsize ;
+  for(j0=0 ; j0<nj ; j0+=lnj){
+    int32_t *src = block ;
+    lnj = ((j0+tsize) > (nj-2)) ? (nj - j0) : tsize ;
+    lni = tsize ;
+    for(i0=0 ; i0<ni ; i0+=lni){
+      // length of this slice, make sure next slice would be at least 3 long
+      // this slice can be up to tsize+2 long
+      lni = ((i0+tsize) > (ni-2)) ? (ni - i0) : tsize ;
+      move_int32_block(src, lnis, tile, lni, lni, lnj, &bp) ;  // get tile from block
+      status = encode_tile(&s, tile, lni*lnj, &bp) ;           // encode tile
       if(status <= 0) goto error ;
       totbits += status ;
+      src += lni ;
     }
+    block += incr ;
   }
 
   *s_in = s ;
@@ -446,30 +474,45 @@ error:
   return status ;
 }
 
-int encode_as_tiles(bitstream *s_in, int32_t *block, int lnis, int ni, int nj, int tile_size){
-  int i0, lni, j0, lnj, status = -1, totbits = 0, nval = tile_size*tile_size ;
-  int32_t tile[nval] ;
-  block_properties bp ;
+// encode a block as multiple tiles into a bit stream
+// block  [OUT] : storage for values to be decoded
+// lnid    [IN] : storage length of block rows
+// ni      [IN] : number of values to decode in a block row
+// nj      [IN] : number of rows to decode
+// tsize   [IN] : desired size of encoded tiles
+// s_in [INOUT] : pointer to bitstream descriptor (see bitstream.h)
+// return nuber of bits extracted into bitstream buffer
+int decode_as_tiles(bitstream *s_in, int32_t *block, int lnid, int ni, int nj, int tsize){
+  int i0, lni, j0, lnj, status = -1, totbits = 0, nval = tsize*tsize, incr = tsize*lnid ;
+  int32_t tile[nval*4] ;
   bitstream s ;
 
   if(s_in == NULL) goto error ;
   s = *s_in ;
 
-  for(j0=0 ; j0<nj ; j0+=tile_size){
-    lnj = ((j0+tile_size) > nj) ? (nj - j0) : tile_size ;
-    for(i0=0 ; i0<ni ; i0+=tile_size){
-      lni = ((i0+tile_size) > ni) ? (ni - i0) : tile_size ;
-      move_w32_block(block, lnis, tile, tile_size, lni, lnj, &bp) ;    // get tile from block
-      status = encode_tile(&s, tile, nval, &bp) ;                      // encode tile
+  lnj = tsize ;
+  for(j0=0 ; j0<nj ; j0+=lnj){
+    int32_t *dst = block ;
+    lnj = ((j0+tsize) > (nj-2)) ? (nj - j0) : tsize ;
+    lni = tsize ;
+    for(i0=0 ; i0<ni ; i0+=lni){
+      // length of this slice, make sure next slice would be at least 3 long
+      // this slice can be up to tsize+2 long
+      lni = ((i0+tsize) > (ni-2)) ? (ni - i0) : tsize ;
+      status = decode_tile(&s, tile, lni*lnj) ;                // decode tile
+      move_w32_block(tile, lni, dst, lnid, lni, lnj, NULL) ;   // put tile into block
       if(status <= 0) goto error ;
       totbits += status ;
+      dst += lni ;
     }
+    block += incr ;
   }
 
   *s_in = s ;
   return totbits ;
 
 error:
+fprintf(stderr, "decode_as_tiles : error %d\n", status) ;
   return status ;
 }
 

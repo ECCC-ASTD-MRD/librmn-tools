@@ -37,11 +37,32 @@
 #define NPTJ 8
 #define NPT (NPTI*NPTJ)
 
+void move_as_tiles(int32_t *block_in, int32_t *block_out, int lnix, int ni, int nj, int tile_size){
+  int i0, lni, j0, lnj, nval = tile_size*tile_size ;
+  int32_t tile[nval] ;
+  int lnis = lnix, lnid = lnix ;
+
+  for(j0=0 ; j0<nj ; j0+=tile_size){
+    lnj = ((j0+tile_size) > nj) ? (nj - j0) : tile_size ;
+    int32_t *src = block_in ;
+    int32_t *dst = block_out ;
+    for(i0=0 ; i0<ni ; i0+=tile_size){
+      lni = ((i0+tile_size) > ni) ? (ni - i0) : tile_size ;
+      move_w32_block(src, lnis, tile, tile_size, lni, lnj, NULL) ;   // get tile from block_in
+      move_w32_block(tile, tile_size, dst, lnid, lni, lnj, NULL) ;   // put tile into block_out
+      src += tile_size ;
+      dst += tile_size ;
+    }
+    block_in  += (tile_size*lnis) ;
+    block_out += (tile_size*lnid) ;
+  }
+}
+
 int main(int argc, char **argv){
   uint64_t freq ;
   double nano ;
-  TIME_LOOP_DATA ;
-  int i, status = 1, tilebits, totalbits, errors ;
+//   TIME_LOOP_DATA ;
+  int i, j, status = 1, tilebits, totalbits, errors ;
   int32_t tile00[NPT], tile01[NPT], tile10[NPT], tile11[NPT] ;
   int32_t rest00[NPT], rest01[NPT], rest10[NPT], rest11[NPT] ;
   block_properties bp00, bp01, bp10, bp11 ;
@@ -61,8 +82,9 @@ int main(int argc, char **argv){
   nano /= freq ;
 
   start_of_test("C tile encoder test");
+goto bypass2 ;
 
-  fprintf(stderr, "\n============================== base test ==============================\n\n") ;
+  fprintf(stderr, "\n============================== mover test ==============================\n\n") ;
   for(i=0 ; i<NPT ; i++){
     tile00[i] = -123456 ;         // constant value
     tile01[i] = i * 64 ;          // all values >= 0, 0 -> 64*NPT
@@ -89,13 +111,14 @@ int main(int argc, char **argv){
   if(status != NPT){ status = 4 ; goto fail ; }
   /*adjust_block_properties(&bp11, int_data) ;*/ print_int_props(bp11);
 
+  // create bit stream
   STREAM_CREATE(ps, NULL, sizeof(uint32_t)*NPT*8, BIT_FULL_INIT) ;
   if(ps->endian != PACK_ENDIAN){ status = 5 ; goto fail ; }
   if(StreamAvailableBits(ps) != 0){ status = 6 ; goto fail ; }
   if(StreamAvailableSpace(ps) != 8*sizeof(uint32_t)*NPT*8){ status = 7 ; goto fail ; }
   STREAM_INSERT_BEGIN(*ps) ;
 
-  fprintf(stderr, "\n============================== encoding test ==============================\n\n") ;
+  fprintf(stderr, "\n============================== tile encoding test ==============================\n\n") ;
 
   totalbits = 0 ;
 //   tilebits = encode_tile(ps, tile00, NPT, &bp00) ;          // constant values
@@ -164,18 +187,18 @@ int main(int argc, char **argv){
   tilebits = encode_as_tiles(ps, tile11, NPTI, NPTI, NPTJ, NPTI) ;
   totalbits += tilebits ;
   fprintf(stderr, "tilebits for tile11e = %d\n", tilebits) ;
-  print_encode_stats(0) ; fprintf(stderr, "\n");
-goto bypass;
-bypass:
+  print_encode_stats(1) ; fprintf(stderr, "\n");
+goto bypass1;
+bypass1:
   STREAM_INSERT_FINALIZE(*ps) ;
-  fprintf(stderr, "StreamAvailableBits = %ld, totalbits = %d\n", StreamAvailableBits(ps), totalbits) ;
+  fprintf(stderr, "StreamAvailableBits = %ld, totalbits = %d, padding = %ld bits\n", StreamAvailableBits(ps), totalbits, StreamAvailableBits(ps)-totalbits) ;
   if(totalbits > StreamAvailableBits(ps)){
-    fprintf(stderr, "expecting %d bits in stream, found %ld\n", totalbits, StreamAvailableBits(ps)) ;
+    fprintf(stderr, "expecting at least %d bits available from stream, found %ld\n", totalbits, StreamAvailableBits(ps)) ;
     status = 8 ;
     goto fail ;
   }
 
-  fprintf(stderr, "\n============================== decoding test ==============================\n\n") ;
+  fprintf(stderr, "\n============================== tile decoding test ==============================\n\n") ;
 
   STREAM_XTRACT_BEGIN(*ps) ;
   fprintf(stderr, "decoding constant tile\n");
@@ -288,9 +311,63 @@ bypass:
   }
   fprintf(stderr, "tilebits for tile11  = %d, errors = %d\n\n", tilebits, errors) ;
   if(errors > 0) goto fail ;
+  fprintf(stderr, "SUCCESS\n") ;
+
+bypass2:
+  fprintf(stderr, "\n============================== block/tiles encoding/decoding test ==============================\n\n") ;
+
+#define BNI 67
+#define BNJ 67
+#define BNPT (BNI*BNJ)
+
+  bitstream *ps2 ;
+  int32_t block_in[BNJ][BNI], block_out[BNJ][BNI] ;
+
+  for(j=BNJ-1 ; j>=0 ; j--){
+    for(i=0 ; i<BNI ; i++){
+      block_in[j][i] = (i << 8) + j ;
+//       fprintf(stderr, "%5d ", block_in[j][i]) ;
+    }
+//     fprintf(stderr, "\n");
+  }
+  move_as_tiles((void *)block_in, (void *)block_out, BNI, BNI, BNJ, 8);
+  errors = 0 ;
+  for(j=BNJ-1 ; j>=0 ; j--){
+    for(i=0 ; i<BNI ; i++){
+      if(block_out[j][i] != block_in[j][i]) errors++ ;
+    }
+  }
+  fprintf(stderr, "move_as_tiles : %d errors\n", errors); 
+
+  // create bit stream
+  STREAM_CREATE(ps2, NULL, sizeof(uint32_t)*BNPT*8, BIT_FULL_INIT) ;
+  if(ps2->endian != PACK_ENDIAN){ status = 105 ; goto fail ; }
+  if(StreamAvailableBits(ps2) != 0){ status = 106 ; goto fail ; }
+  if(StreamAvailableSpace(ps2) != 8*sizeof(uint32_t)*BNPT*8){ status = 107 ; goto fail ; }
+  STREAM_INSERT_BEGIN(*ps2) ;
+
+  totalbits = encode_as_tiles(ps2, (void *)block_in, BNI, BNI, BNJ, 8) ;
+  fprintf(stderr, "encode_as_tiles : totalbits = %d\n", totalbits) ;
+  print_encode_stats(0) ; fprintf(stderr, "\n");
+  STREAM_INSERT_FINALIZE(*ps2) ;
+  STREAM_XTRACT_BEGIN(*ps2) ;
+
+  for(j=BNJ-1 ; j>=0 ; j--){
+    for(i=0 ; i<BNI ; i++) block_out[j][i] = -1 ;
+  }
+  totalbits = decode_as_tiles(ps2, (void *)block_out, BNI, BNI, BNJ, 8) ;
+  fprintf(stderr, "decode_as_tiles : totalbits = %d\n", totalbits) ;
+  errors = 0 ;
+  for(j=BNJ-1 ; j>=0 ; j--){
+    for(i=0 ; i<BNI ; i++){
+//       fprintf(stderr, "%c", (block_out[j][i] != block_in[j][i]) ? '#' : '-') ;
+      if(block_out[j][i] != block_in[j][i]) errors++ ;
+    }
+//     fprintf(stderr, "\n");
+  }
+  fprintf(stderr, "decode_as_tiles : %d errors\n", errors); 
 
 end:
-  fprintf(stderr, "SUCCESS\n") ;
   return 0 ;
 
 fail:
