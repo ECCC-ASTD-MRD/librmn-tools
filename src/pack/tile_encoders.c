@@ -451,14 +451,12 @@ int encode_as_tiles(bitstream *s_in, int32_t *block, int lnis, int ni, int nj, i
   if(s_in == NULL) goto error ;
   s = *s_in ;        // take local copy of s_in
 
-  lnj = tsize ;
-  for(j0=0 ; j0<nj ; j0+=lnj){
+  for(j0=0, lnj = tsize ; j0<nj ; j0+=lnj){
     int32_t *src = block ;
     // length of this slice, make sure next slice would be at least (tsize>>1) long
     // this slice can be up to tsize+(tsize>>1)-1 long
     lnj = ((j0+tmax) > nj) ? (nj - j0) : tsize ;
-    lni = tsize ;
-    for(i0=0 ; i0<ni ; i0+=lni){
+    for(i0=0, lni = tsize ; i0<ni ; i0+=lni){
       // length of this slice, make sure next slice would be at least (tsize>>1) long
       // this slice can be up to tsize+(tsize>>1)-1 long
       lni = ((i0+tmax) > ni) ? (ni - i0) : tsize ;
@@ -497,14 +495,12 @@ int decode_as_tiles(bitstream *s_in, int32_t *block, int lnid, int ni, int nj, i
   if(s_in == NULL) goto error ;
   s = *s_in ;        // take local copy of s_in
 
-  lnj = tsize ;
-  for(j0=0 ; j0<nj ; j0+=lnj){
+  for(j0=0, lnj = tsize ; j0<nj ; j0+=lnj){
     int32_t *dst = block ;
     // length of this slice, make sure next slice would be at least (tsize>>1) long
     // this slice can be up to tsize+(tsize>>1)-1 long
     lnj = ((j0+tmax) > nj) ? (nj - j0) : tsize ;
-    lni = tsize ;
-    for(i0=0 ; i0<ni ; i0+=lni){
+    for(i0=0, lni = tsize ; i0<ni ; i0+=lni){
       // length of this slice, make sure next slice would be at least (tsize>>1) long
       // this slice can be up to tsize+(tsize>>1)-1 long
       lni = ((i0+tmax) > ni) ? (ni - i0) : tsize ;
