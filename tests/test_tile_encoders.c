@@ -317,8 +317,9 @@ bypass2:
   fprintf(stderr, "\n============================== block/tiles encoding/decoding test ==============================\n\n") ;
 
 #define BNI 67
-#define BNJ 67
+#define BNJ 68
 #define BNPT (BNI*BNJ)
+#define BSZ 8
 
   bitstream *ps2 ;
   int32_t block_in[BNJ][BNI], block_out[BNJ][BNI] ;
@@ -346,7 +347,7 @@ bypass2:
   if(StreamAvailableSpace(ps2) != 8*sizeof(uint32_t)*BNPT*8){ status = 107 ; goto fail ; }
   STREAM_INSERT_BEGIN(*ps2) ;
 
-  totalbits = encode_block(ps2, (void *)block_in, BNI, BNI, BNJ, 8) ;
+  totalbits = encode_block(ps2, (void *)block_in, BNI, BNI, BNJ, BSZ) ;
   fprintf(stderr, "encode_block : totalbits = %d\n", totalbits) ;
   print_encode_stats(0) ; fprintf(stderr, "\n");
   STREAM_INSERT_FINALIZE(*ps2) ;
@@ -355,7 +356,7 @@ bypass2:
   for(j=BNJ-1 ; j>=0 ; j--){
     for(i=0 ; i<BNI ; i++) block_out[j][i] = -1 ;
   }
-  totalbits = decode_block(ps2, (void *)block_out, BNI, BNI, BNJ, 8) ;
+  totalbits = decode_block(ps2, (void *)block_out, BNI, BNI, BNJ, BSZ) ;
   fprintf(stderr, "decode_block : totalbits = %d\n", totalbits) ;
   errors = 0 ;
   for(j=BNJ-1 ; j>=0 ; j--){

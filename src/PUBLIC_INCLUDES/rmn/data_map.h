@@ -189,7 +189,7 @@ typedef struct{
     union{
       uint32_t data_head ;  // target for & operator to get address of header
       struct{
-        uint32_t version : 8, // version marker
+        uint32_t version : 8, // version marker (same as in memory header)
                  stripe  : 8, // stripe width (last/top stripe may be narrower)
                  mextra  : 8, // extra global info length (in 32 bit units) (after size table)
                  flags   : 8; // reserved for flags

@@ -431,6 +431,24 @@ end:
   return totbits ;
 }
 
+typedef struct{
+  int32_t ln0 ;   // size of first piece
+  int32_t nbk ;   // number of pieces
+} split_pair ;
+// split n into pieces preferably of size bsize
+// n     [IN] : total number of pieces
+// bsize [IN] : desired size of pieces
+// the first piece may be smaller or larger than the desired size
+// if size is even, pieces will be >= bsize/2 or <  bsize + bsize/2
+// if size is odd,  pieces will be >  bsize/2 or <= bsize + bsize/2
+// pieces will smaller than the minimum only if n is also smaller
+static inline split_pair split_by(int n, int bsize){
+  split_pair r ;
+  r.nbk = (n + bsize/2) / bsize ;      // number of pieces
+  r.ln0 = n - (r.nbk - 1) * bsize ;    // size of first piece
+  return r ;
+}
+
 // encode a block as multiple tiles into a bit stream
 // block   [IN] : values to be encoded
 // lnis    [IN] : storage length of block rows
@@ -443,9 +461,14 @@ end:
 // the dimension of the last slice along i or j may be shorter or longer than tsize
 // in case of error, s_in is left as it was upon entry
 int encode_block(bitstream *s_in, int32_t *block, int lnis, int ni, int nj, int tsize){
-  tsize = tsize & 0x7FFFFFFF ;   // make sure tsize is EVEN
-  int i0, lni, j0, lnj, status, totbits, incr, tmax = tsize+(tsize>>1) ;
-  int32_t tile[tmax*tmax] ;
+  split_pair ri, rj ;
+  ri = split_by(ni, tsize) ;
+  rj = split_by(nj, tsize) ;
+fprintf(stderr, "ni = %d, nj = %d, blocks[%d(%d,%d),%d(%d,%d)]\n", ni, nj, ri.nbk, ri.ln0, tsize,  rj.nbk, rj.ln0, tsize) ;
+
+tsize = tsize & 0x7FFFFFFF ;   // make sure tsize is EVEN
+  int i0, lni, j0, lnj, status, totbits, tmax = tsize+(tsize>>1) ;
+  int32_t tile[tsize*tsize*4] ;
   block_properties bp ;
   bitstream s ;
 
@@ -453,24 +476,17 @@ int encode_block(bitstream *s_in, int32_t *block, int lnis, int ni, int nj, int 
   if(s_in == NULL) goto error ;
   s = *s_in ;        // take local copy of s_in
 
-  incr = tsize*lnis ;
   totbits = 0 ;
-  for(j0=0, lnj = tsize ; j0<nj ; j0+=lnj){
+  for(j0=0, lnj = rj.ln0 ; j0<nj ; j0+=lnj, lnj = tsize){
     int32_t *src = block ;
-    // length of this slice, make sure next slice would be at least (tsize>>1) long
-    // this slice can be up to tsize+(tsize>>1)-1 long
-    lnj = ((j0+tmax) > nj) ? (nj - j0) : tsize ;
-    for(i0=0, lni = tsize ; i0<ni ; i0+=lni){
-      // length of this slice, make sure next slice would be at least (tsize>>1) long
-      // this slice can be up to tsize+(tsize>>1)-1 long
-      lni = ((i0+tmax) > ni) ? (ni - i0) : tsize ;
+    for(i0=0, lni = ri.ln0 ; i0<ni ; i0+=lni, lni = tsize){
       move_w32_block(src, lnis, tile, lni, lni, lnj, &bp) ;  // get tile from block
       status = encode_tile(&s, tile, lni*lnj, &bp) ;           // encode tile
       if(status <= 0) goto error ;
       totbits += status ;
       src += lni ;
     }
-    block += incr ;
+    block += lnj * lnis ;
   }
 
   *s_in = s ;        // update s_in
@@ -492,9 +508,14 @@ error:
 // the dimension of the last slice along i or j may be shorter or longer than tsize
 // in case of error, s_in is left as it was upon entry
 int decode_block(bitstream *s_in, int32_t *block, int lnid, int ni, int nj, int tsize){
+  split_pair ri, rj ;
+  ri = split_by(ni, tsize) ;
+  rj = split_by(nj, tsize) ;
+fprintf(stderr, "ni = %d, nj = %d, blocks[%d(%d,%d),%d(%d,%d)]\n", ni, nj, ri.nbk, ri.ln0, tsize,  rj.nbk, rj.ln0, tsize) ;
+
   tsize = tsize & 0x7FFFFFFF ;   // make sure tsize is EVEN
-  int i0, lni, j0, lnj, status, totbits, incr, tmax = tsize+(tsize>>1) ;
-  int32_t tile[tmax*tmax] ;
+  int i0, lni, j0, lnj, status, totbits, tmax = tsize+(tsize>>1) ;
+  int32_t tile[tsize*tsize*4] ;
   bitstream s ;
 
   status = -1 ;
@@ -502,23 +523,16 @@ int decode_block(bitstream *s_in, int32_t *block, int lnid, int ni, int nj, int 
   s = *s_in ;        // take local copy of s_in
 
   totbits = 0 ;
-  incr = tsize*lnid ;
-  for(j0=0, lnj = tsize ; j0<nj ; j0+=lnj){
+  for(j0=0, lnj = rj.ln0 ; j0<nj ; j0+=lnj, lnj = tsize){
     int32_t *dst = block ;
-    // length of this slice, make sure next slice would be at least (tsize>>1) long
-    // this slice can be up to tsize+(tsize>>1)-1 long
-    lnj = ((j0+tmax) > nj) ? (nj - j0) : tsize ;
-    for(i0=0, lni = tsize ; i0<ni ; i0+=lni){
-      // length of this slice, make sure next slice would be at least (tsize>>1) long
-      // this slice can be up to tsize+(tsize>>1)-1 long
-      lni = ((i0+tmax) > ni) ? (ni - i0) : tsize ;
+    for(i0=0, lni = ri.ln0 ; i0<ni ; i0+=lni, lni = tsize){
       status = decode_tile(&s, tile, lni*lnj) ;                // decode tile
       move_w32_block(tile, lni, dst, lnid, lni, lnj, NULL) ;   // put tile into block
       if(status <= 0) goto error ;
       totbits += status ;
       dst += lni ;
     }
-    block += incr ;
+    block += lnj * lnid ;
   }
 
   *s_in = s ;        // update s_in
