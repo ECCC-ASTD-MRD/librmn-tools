@@ -76,7 +76,7 @@ set(PROJECT_H_FILES
   src/PUBLIC_INCLUDES/rmn/c_record_ioe.h
   src/PUBLIC_INCLUDES/rmn/common_stream.h
   src/PUBLIC_INCLUDES/rmn/compare_count.h
-  src/PUBLIC_INCLUDES/rmn/compress_data.h
+#   src/PUBLIC_INCLUDES/rmn/compress_data.h
   src/PUBLIC_INCLUDES/rmn/compress_expand.h
   src/PUBLIC_INCLUDES/rmn/ct_assert.h
   src/PUBLIC_INCLUDES/rmn/data_info.h
