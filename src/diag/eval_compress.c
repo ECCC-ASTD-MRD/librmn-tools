@@ -478,11 +478,11 @@ fprintf(stderr, " |%d,%d,%d,%d,%d,%d, %d ,%d,%d,%d,%d,%d,%d|\n",info[58],info[59
       STREAM_INSERT_BEGIN(*ps) ;
       STREAM_CREATE(ps0, stream_buffer0, sizeof(stream_buffer0)*8, BIT_FULL_INIT) ;
       STREAM_INSERT_BEGIN(*ps0) ;
-      int tilebits0 = encode_as_tiles(ps0, pred, in, in, jn, 8);
+      int tilebits0 = encode_block(ps0, pred, in, in, jn, 8);
 fprintf(stderr, "jn = %d, in = %d, tilebits0 = %d\n", jn, in, tilebits0) ;
       STREAM_INSERT_FINALIZE(*ps0) ;
       STREAM_XTRACT_BEGIN(*ps0) ;
-      int tilebits1 = decode_as_tiles(ps0, pred0, in, in, jn, 8);
+      int tilebits1 = decode_block(ps0, pred0, in, in, jn, 8);
       ndiff = 0 ;
       for(i=0 ; i<in*jn ; i++) if(pred0[i] != pred[i]) ndiff++ ;
 fprintf(stderr, "jn = %d, in = %d, tilebits1 = %d, ndiff = %d\n", jn, in, tilebits1, ndiff) ;

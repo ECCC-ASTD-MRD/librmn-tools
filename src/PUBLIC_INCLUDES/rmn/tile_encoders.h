@@ -24,10 +24,8 @@
 #include <rmn/move_blocks.h>
 #include <rmn/bitstream.h>
 
-// encoded tile layout (tentative) :
-//
-// ======================================= LAYOUT 3 (latest, more compact) =======================================
-// (revised 2025/02/18)
+// ======================================= encoded tile layout =======================================
+// (last revised 2025/03/22)
 //
 //
 // <- always -> <-----------------   as needed        -------------------->
@@ -97,8 +95,40 @@
 int encode_tile(bitstream *s, int32_t *tile, int32_t nval, block_properties *bp);
 int decode_tile(bitstream *s, int32_t *tile, int32_t nval);
 
-int encode_as_tiles(bitstream *s_in, int32_t *block, int lnis, int ni, int nj, int tile_size);
-int decode_as_tiles(bitstream *s_in, int32_t *block, int lnid, int ni, int nj, int tile_size);
+// ======================================= encoded block layout =======================================
+//         a BLOCK is subdivided for encoding into TILES
+//         (usual basic tile size = 8 x 8)
+//
+//         the last tile along a dimension may be shorter or longer than the basic size
+//         basic_size/2  <= last_tile_size < (basic_size + basic_size/2)
+//        <-- basic_size -->                                  < last_tile_size >
+//        +----------------+----------------------------------+----------------+    ^            ^
+//        |                |                                  |                |    |            |
+//        |  tile(0,ntj)   |                                  |  tile(nti,ntj) | last_tile_size  |
+//        |                |                                  |                |    |            |
+//        +----------------+----------------------------------+----------------+    v            |
+//        |                |                                  |                |                 |
+//        |                |                                  |                |                 |
+//        |                |                                  |                |            block size
+//        |                |                                  |                |                (nj)
+//        |                |                                  |                |                 |
+//        |                |                                  |                |                 |
+//        |                |                                  |                |                 |
+//        +----------------+----------------------------------+----------------+    ^            |
+//        |                |                                  |                |    |            |
+//        |  tile(0,0)     |                                  |  tile(nti,0)   | basic_size      |
+//        |                |                                  |                |    |            |
+//        +----------------+----------------------------------+----------------+    v            v
+//        <------- 8 ------>                                  < last_tile_size >
+//        <----------------------- block size (ni) ---------------------------->
+//
+//  nti = (ni + basic_size/2) / basic_size
+//  ntj = (ni + basic_size/2) / basic_size
+//  basic_size MUST BE EVEN
+// the last tile size along i and j may be different
+
+int encode_block(bitstream *s_in, int32_t *block, int lnis, int ni, int nj, int basic_size);
+int decode_block(bitstream *s_in, int32_t *block, int lnid, int ni, int nj, int basic_size);
 
 void print_encode_stats(int reset);
 

@@ -442,15 +442,19 @@ end:
 // tsize/2 <= dimension < tsize+tsize/2  (for both i and j tile dimensions)
 // the dimension of the last slice along i or j may be shorter or longer than tsize
 // in case of error, s_in is left as it was upon entry
-int encode_as_tiles(bitstream *s_in, int32_t *block, int lnis, int ni, int nj, int tsize){
-  int i0, lni, j0, lnj, status = -1, totbits = 0, incr = tsize*lnis, tmax = tsize+(tsize>>1) ;
+int encode_block(bitstream *s_in, int32_t *block, int lnis, int ni, int nj, int tsize){
+  tsize = tsize & 0x7FFFFFFF ;   // make sure tsize is EVEN
+  int i0, lni, j0, lnj, status, totbits, incr, tmax = tsize+(tsize>>1) ;
   int32_t tile[tmax*tmax] ;
   block_properties bp ;
   bitstream s ;
 
+  status = -1 ;
   if(s_in == NULL) goto error ;
   s = *s_in ;        // take local copy of s_in
 
+  incr = tsize*lnis ;
+  totbits = 0 ;
   for(j0=0, lnj = tsize ; j0<nj ; j0+=lnj){
     int32_t *src = block ;
     // length of this slice, make sure next slice would be at least (tsize>>1) long
@@ -487,14 +491,18 @@ error:
 // tsize/2 <= dimension < tsize+tsize/2  (for both i and j tile dimensions)
 // the dimension of the last slice along i or j may be shorter or longer than tsize
 // in case of error, s_in is left as it was upon entry
-int decode_as_tiles(bitstream *s_in, int32_t *block, int lnid, int ni, int nj, int tsize){
-  int i0, lni, j0, lnj, status = -1, totbits = 0, incr = tsize*lnid, tmax = tsize+(tsize>>1) ;
+int decode_block(bitstream *s_in, int32_t *block, int lnid, int ni, int nj, int tsize){
+  tsize = tsize & 0x7FFFFFFF ;   // make sure tsize is EVEN
+  int i0, lni, j0, lnj, status, totbits, incr, tmax = tsize+(tsize>>1) ;
   int32_t tile[tmax*tmax] ;
   bitstream s ;
 
+  status = -1 ;
   if(s_in == NULL) goto error ;
   s = *s_in ;        // take local copy of s_in
 
+  totbits = 0 ;
+  incr = tsize*lnid ;
   for(j0=0, lnj = tsize ; j0<nj ; j0+=lnj){
     int32_t *dst = block ;
     // length of this slice, make sure next slice would be at least (tsize>>1) long
@@ -517,10 +525,11 @@ int decode_as_tiles(bitstream *s_in, int32_t *block, int lnid, int ni, int nj, i
   return totbits ;
 
 error:
-fprintf(stderr, "decode_as_tiles : error %d\n", status) ;
+fprintf(stderr, "decode_block : error %d\n", status) ;
   return status ;
 }
 
+#if defined(USE_AEC_COMPRESSION)
 #include <libaec.h>
 
 static uint32_t block_size = 16;
@@ -595,3 +604,4 @@ fprintf(stderr, "aec_encode(&strm, AEC_FLUSH) != AEC_OK\n") ;
 
   return total_out ;
 }
+#endif

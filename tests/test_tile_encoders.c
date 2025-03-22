@@ -37,7 +37,7 @@
 #define NPTJ 8
 #define NPT (NPTI*NPTJ)
 
-void move_as_tiles(int32_t *block_in, int32_t *block_out, int lnix, int ni, int nj, int tile_size){
+void move_block(int32_t *block_in, int32_t *block_out, int lnix, int ni, int nj, int tile_size){
   int i0, lni, j0, lnj, nval = tile_size*tile_size ;
   int32_t tile[nval] ;
   int lnis = lnix, lnid = lnix ;
@@ -122,25 +122,25 @@ goto bypass2 ;
 
   totalbits = 0 ;
 //   tilebits = encode_tile(ps, tile00, NPT, &bp00) ;          // constant values
-  tilebits = encode_as_tiles(ps, tile00, NPTI, NPTI, NPTJ, NPTI) ;
+  tilebits = encode_block(ps, tile00, NPTI, NPTI, NPTJ, NPTI) ;
   totalbits += tilebits ;
   fprintf(stderr, "tilebits for tile00  = %d\n", tilebits) ;
   print_encode_stats(0) ; fprintf(stderr, "\n");
 
 //   tilebits = encode_tile(ps, tile01, NPT, &bp01) ;          // all values >= 0, nbits <= 16
-  tilebits = encode_as_tiles(ps, tile01, NPTI, NPTI, NPTJ, NPTI) ;
+  tilebits = encode_block(ps, tile01, NPTI, NPTI, NPTJ, NPTI) ;
   totalbits += tilebits ;
   fprintf(stderr, "tilebits for tile01  = %d\n", tilebits) ;
   print_encode_stats(0) ; fprintf(stderr, "\n");
 
 //   tilebits = encode_tile(ps, tile10, NPT, &bp10) ;          // all values <= 0, nbits <= 16
-  tilebits = encode_as_tiles(ps, tile10, NPTI, NPTI, NPTJ, NPTI) ;
+  tilebits = encode_block(ps, tile10, NPTI, NPTI, NPTJ, NPTI) ;
   totalbits += tilebits ;
   fprintf(stderr, "tilebits for tile10  = %d\n", tilebits) ;
   print_encode_stats(0) ; fprintf(stderr, "\n");
 
 //   tilebits = encode_tile(ps, tile11, NPT, &bp11) ;         // mixed signs, nbits <= 16
-  tilebits = encode_as_tiles(ps, tile11, NPTI, NPTI, NPTJ, NPTI) ;
+  tilebits = encode_block(ps, tile11, NPTI, NPTI, NPTJ, NPTI) ;
   print_int_props(bp11) ;
   totalbits += tilebits ;
   fprintf(stderr, "tilebits for tile11  = %d\n", tilebits) ;
@@ -150,7 +150,7 @@ goto bypass2 ;
 
   for(i=0 ; i<NPT ; i++) tile11[i] <<= 5 ;                 // mixed signs, nbits > 16
 //   tilebits = encode_tile(ps, tile11, NPT, NULL) ;          // block properties are no longer correct
-  tilebits = encode_as_tiles(ps, tile11, NPTI, NPTI, NPTJ, NPTI) ;
+  tilebits = encode_block(ps, tile11, NPTI, NPTI, NPTJ, NPTI) ;
   totalbits += tilebits ;
   fprintf(stderr, "tilebits for tile11a = %d\n", tilebits) ;
   print_encode_stats(0) ; fprintf(stderr, "\n");
@@ -158,7 +158,7 @@ goto bypass2 ;
   for(i=0 ; i<NPT ; i++) tile11[i] = (i - 3) * 64  ;       // mixed signs, nbits <= 16
   for(i=NPT/4 ; i<3*NPT/4 ; i++) tile11[i] = 0 ;           // make short/long encoding usable
 //   tilebits = encode_tile(ps, tile11, NPT, NULL) ;          // block properties are no longer correct
-  tilebits = encode_as_tiles(ps, tile11, NPTI, NPTI, NPTJ, NPTI) ;
+  tilebits = encode_block(ps, tile11, NPTI, NPTI, NPTJ, NPTI) ;
   totalbits += tilebits ;
   fprintf(stderr, "tilebits for tile11b = %d\n", tilebits) ;
   print_encode_stats(0) ; fprintf(stderr, "\n");
@@ -166,7 +166,7 @@ goto bypass2 ;
   for(i=0 ; i<NPT ; i++) tile11[i] <<= 5  ;                // mixed signs, nbits > 16
   for(i=NPT/4 ; i<3*NPT/4 ; i++) tile11[i] = 0 ;           // make short/long encoding usable
 //   tilebits = encode_tile(ps, tile11, NPT, NULL) ;          // block properties are no longer correct
-  tilebits = encode_as_tiles(ps, tile11, NPTI, NPTI, NPTJ, NPTI) ;
+  tilebits = encode_block(ps, tile11, NPTI, NPTI, NPTJ, NPTI) ;
   totalbits += tilebits ;
   fprintf(stderr, "tilebits for tile11c = %d\n", tilebits) ;
   print_encode_stats(0) ; fprintf(stderr, "\n");
@@ -175,7 +175,7 @@ goto bypass2 ;
   for(i=NPT/4 ; i<3*NPT/4 ; i++) tile11[i] = 0 ;           // make short/long encoding usable
   for(i=0 ; i<NPT ; i++) tile11[i] += 60000 ;              // force large offset
 //   tilebits = encode_tile(ps, tile11, NPT, NULL) ;          // block properties are no longer correct
-  tilebits = encode_as_tiles(ps, tile11, NPTI, NPTI, NPTJ, NPTI) ;
+  tilebits = encode_block(ps, tile11, NPTI, NPTI, NPTJ, NPTI) ;
   totalbits += tilebits ;
   fprintf(stderr, "tilebits for tile11d = %d\n", tilebits) ;
   print_encode_stats(0) ; fprintf(stderr, "\n");
@@ -184,7 +184,7 @@ goto bypass2 ;
   for(i=NPT/4 ; i<3*NPT/4 ; i++) tile11[i] = 0 ;           // make short/long encoding usable
   for(i=0 ; i<NPT ; i++) tile11[i] -= 10000 ;              // force large offset
 //   tilebits = encode_tile(ps, tile11, NPT, NULL) ;          // block properties are no longer correct
-  tilebits = encode_as_tiles(ps, tile11, NPTI, NPTI, NPTJ, NPTI) ;
+  tilebits = encode_block(ps, tile11, NPTI, NPTI, NPTJ, NPTI) ;
   totalbits += tilebits ;
   fprintf(stderr, "tilebits for tile11e = %d\n", tilebits) ;
   print_encode_stats(1) ; fprintf(stderr, "\n");
@@ -203,7 +203,7 @@ bypass1:
   STREAM_XTRACT_BEGIN(*ps) ;
   fprintf(stderr, "decoding constant tile\n");
 //   tilebits = decode_tile(ps, rest00, NPT) ;
-  tilebits = decode_as_tiles(ps, rest00, NPTI, NPTI, NPTJ, NPTI);
+  tilebits = decode_block(ps, rest00, NPTI, NPTI, NPTJ, NPTI);
   errors = 0 ;
   for(i=0 ; i<NPT ; i++) if(rest00[i] != tile00[i]){
     errors++ ;
@@ -214,7 +214,7 @@ bypass1:
 
   fprintf(stderr, "decoding all >= 0 tile\n");
 //   tilebits = decode_tile(ps, rest01, NPT) ;
-  tilebits = decode_as_tiles(ps, rest01, NPTI, NPTI, NPTJ, NPTI);
+  tilebits = decode_block(ps, rest01, NPTI, NPTI, NPTJ, NPTI);
   errors = 0 ;
   for(i=0 ; i<NPT ; i++) if(rest01[i] != tile01[i]){
     errors++ ;
@@ -225,7 +225,7 @@ bypass1:
 
   fprintf(stderr, "decoding all <= 0 tile\n");
 //   tilebits = decode_tile(ps, rest10, NPT) ;
-  tilebits = decode_as_tiles(ps, rest10, NPTI, NPTI, NPTJ, NPTI);
+  tilebits = decode_block(ps, rest10, NPTI, NPTI, NPTJ, NPTI);
   errors = 0 ;
   for(i=0 ; i<NPT ; i++) if(rest10[i] != tile10[i]){
     errors++ ;
@@ -237,7 +237,7 @@ bypass1:
   fprintf(stderr, "decoding mixed signs tile11\n");
   for(i=0 ; i<NPT ; i++) tile11[i] = (i - 3) * 64  ;   // mixed signs
 //   tilebits = decode_tile(ps, rest11, NPT) ;
-  tilebits = decode_as_tiles(ps, rest11, NPTI, NPTI, NPTJ, NPTI);
+  tilebits = decode_block(ps, rest11, NPTI, NPTI, NPTJ, NPTI);
   errors = 0 ;
   for(i=0 ; i<NPT ; i++) if(rest11[i] != tile11[i]){
     errors++ ;
@@ -249,7 +249,7 @@ bypass1:
   fprintf(stderr, "decoding mixed signs tile11a\n");
   for(i=0 ; i<NPT ; i++) tile11[i] <<= 5 ;                 // mixed signs, nbits > 16
 //   tilebits = decode_tile(ps, rest11, NPT) ;
-  tilebits = decode_as_tiles(ps, rest11, NPTI, NPTI, NPTJ, NPTI);
+  tilebits = decode_block(ps, rest11, NPTI, NPTI, NPTJ, NPTI);
   errors = 0 ;
   for(i=0 ; i<NPT ; i++) if(rest11[i] != tile11[i]){
     errors++ ;
@@ -262,7 +262,7 @@ bypass1:
   for(i=0 ; i<NPT ; i++) tile11[i] = (i - 3) * 64  ;       // mixed signs, nbits <= 16
   for(i=NPT/4 ; i<3*NPT/4 ; i++) tile11[i] = 0 ;           // make short/long encoding usable
 //   tilebits = decode_tile(ps, rest11, NPT) ;
-  tilebits = decode_as_tiles(ps, rest11, NPTI, NPTI, NPTJ, NPTI);
+  tilebits = decode_block(ps, rest11, NPTI, NPTI, NPTJ, NPTI);
   errors = 0 ;
   for(i=0 ; i<NPT ; i++) if(rest11[i] != tile11[i]){
     errors++ ;
@@ -275,7 +275,7 @@ bypass1:
   for(i=0 ; i<NPT ; i++) tile11[i] <<= 5  ;                // mixed signs, nbits > 16
   for(i=NPT/4 ; i<3*NPT/4 ; i++) tile11[i] = 0 ;           // make short/long encoding usable
 //   tilebits = decode_tile(ps, rest11, NPT) ;
-  tilebits = decode_as_tiles(ps, rest11, NPTI, NPTI, NPTJ, NPTI);
+  tilebits = decode_block(ps, rest11, NPTI, NPTI, NPTJ, NPTI);
   errors = 0 ;
   for(i=0 ; i<NPT ; i++) if(rest11[i] != tile11[i]){
     errors++ ;
@@ -289,7 +289,7 @@ bypass1:
   for(i=NPT/4 ; i<3*NPT/4 ; i++) tile11[i] = 0 ;           // make short/long encoding usable
   for(i=0 ; i<NPT ; i++) tile11[i] += 60000 ;              // force offset
 //   tilebits = decode_tile(ps, rest11, NPT) ;
-  tilebits = decode_as_tiles(ps, rest11, NPTI, NPTI, NPTJ, NPTI);
+  tilebits = decode_block(ps, rest11, NPTI, NPTI, NPTJ, NPTI);
   errors = 0 ;
   for(i=0 ; i<NPT ; i++) if(rest11[i] != tile11[i]){
     errors++ ;
@@ -303,7 +303,7 @@ bypass1:
   for(i=NPT/4 ; i<3*NPT/4 ; i++) tile11[i] = 0 ;           // make short/long encoding usable
   for(i=0 ; i<NPT ; i++) tile11[i] -= 10000 ;              // force offset
 //   tilebits = decode_tile(ps, rest11, NPT) ;
-  tilebits = decode_as_tiles(ps, rest11, NPTI, NPTI, NPTJ, NPTI);
+  tilebits = decode_block(ps, rest11, NPTI, NPTI, NPTJ, NPTI);
   errors = 0 ;
   for(i=0 ; i<NPT ; i++) if(rest11[i] != tile11[i]){
     errors++ ;
@@ -330,14 +330,14 @@ bypass2:
     }
 //     fprintf(stderr, "\n");
   }
-  move_as_tiles((void *)block_in, (void *)block_out, BNI, BNI, BNJ, 8);
+  move_block((void *)block_in, (void *)block_out, BNI, BNI, BNJ, 8);
   errors = 0 ;
   for(j=BNJ-1 ; j>=0 ; j--){
     for(i=0 ; i<BNI ; i++){
       if(block_out[j][i] != block_in[j][i]) errors++ ;
     }
   }
-  fprintf(stderr, "move_as_tiles : %d errors\n", errors); 
+  fprintf(stderr, "move_block : %d errors\n", errors); 
 
   // create bit stream
   STREAM_CREATE(ps2, NULL, sizeof(uint32_t)*BNPT*8, BIT_FULL_INIT) ;
@@ -346,8 +346,8 @@ bypass2:
   if(StreamAvailableSpace(ps2) != 8*sizeof(uint32_t)*BNPT*8){ status = 107 ; goto fail ; }
   STREAM_INSERT_BEGIN(*ps2) ;
 
-  totalbits = encode_as_tiles(ps2, (void *)block_in, BNI, BNI, BNJ, 8) ;
-  fprintf(stderr, "encode_as_tiles : totalbits = %d\n", totalbits) ;
+  totalbits = encode_block(ps2, (void *)block_in, BNI, BNI, BNJ, 8) ;
+  fprintf(stderr, "encode_block : totalbits = %d\n", totalbits) ;
   print_encode_stats(0) ; fprintf(stderr, "\n");
   STREAM_INSERT_FINALIZE(*ps2) ;
   STREAM_XTRACT_BEGIN(*ps2) ;
@@ -355,8 +355,8 @@ bypass2:
   for(j=BNJ-1 ; j>=0 ; j--){
     for(i=0 ; i<BNI ; i++) block_out[j][i] = -1 ;
   }
-  totalbits = decode_as_tiles(ps2, (void *)block_out, BNI, BNI, BNJ, 8) ;
-  fprintf(stderr, "decode_as_tiles : totalbits = %d\n", totalbits) ;
+  totalbits = decode_block(ps2, (void *)block_out, BNI, BNI, BNJ, 8) ;
+  fprintf(stderr, "decode_block : totalbits = %d\n", totalbits) ;
   errors = 0 ;
   for(j=BNJ-1 ; j>=0 ; j--){
     for(i=0 ; i<BNI ; i++){
@@ -365,7 +365,7 @@ bypass2:
     }
 //     fprintf(stderr, "\n");
   }
-  fprintf(stderr, "decode_as_tiles : %d errors\n", errors); 
+  fprintf(stderr, "decode_block : %d errors\n", errors); 
 
 end:
   return 0 ;
