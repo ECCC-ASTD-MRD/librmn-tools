@@ -92,8 +92,8 @@ zmap *array_to_zmap(zmap *map, array_2d *a_in, sfn_ptr fn, sfn_args *fnargs){
   fprintf(stderr, "array_to_zmap : stripe = %d, esize = %d\n", map->fhead.stripe, esize) ;
   fprintf(stderr, "map block sizes : ") ;for(zx=0 ; zx < map->fhead.zni * map->fhead.znj ; zx++){ fprintf(stderr, "%4d ",map->size[zx]);}  fprintf(stderr, "\n") ;
   for(zx=0 ; zx < map->fhead.zni * map->fhead.znj ; zx++){  // loop over zindex
-    ij_pair  ijp = Zindex_to_i_j(zx, map->fhead.zni, map->fhead.znj, map->fhead.stripe) ;
-    ij_range ijr = block_limits(map, ijp.i, ijp.j) ;
+    index_pair  ijp = Zindex_to_i_j(zx, map->fhead.zni, map->fhead.znj, map->fhead.stripe) ;
+    ij_range ijr = map_block_limits(map, ijp.i, ijp.j) ;
     int32_t gni = a.dim[0].gnn ;
     int32_t i0 = ijr.i0 ;
     int32_t in = ijr.in ;
@@ -150,7 +150,7 @@ zmap *array_to_zmap(zmap *map, array_2d *a_in, sfn_ptr fn, sfn_args *fnargs){
 
 int main(int argc, char **argv){
   int i, j, x[NTI], y[NTI], znij ;
-  ij_pair ijp ;
+  index_pair ijp ;
   ij_range ijr ;
 
   if(argc > 1 && argv[0] == NULL) return 1 ;  // useless code to get rid of compiler warning
@@ -288,9 +288,9 @@ int main(int argc, char **argv){
   fprintf(stderr, ", first block along j is  %s\n", map->fhead.ljx > map->fhead.lnj ? "longer" : "shorter") ;
   int32_t zx ;
   for(j = (int)map->fhead.znj ; j > 0 ; j--){
-    ijr = block_limits(map, 0, 0) ;       // no more warning about possibility of ijr.j0 to be uninitialized
+    ijr = map_block_limits(map, 0, 0) ;       // no more warning about possibility of ijr.j0 to be uninitialized
     for(i = 0 ; i < (int)map->fhead.zni ; i++){
-      ijr = block_limits(map, i, j-1) ;
+      ijr = map_block_limits(map, i, j-1) ;
 //       zx = Zindex_from_i_j(i, j-1, map->fhead.zni, map->fhead.znj, map->fhead.stripe);
       zx = Z_map_index(map, i, j-1) ;
       fprintf(stderr, "data[%4d:%4d,%4d:%4d](Z %2d)  ", ijr.i0, ijr.in, ijr.j0, ijr.jn, zx) ;
@@ -298,7 +298,7 @@ int main(int argc, char **argv){
     fprintf(stderr, "j_range : %4d)\n", ijr.jn - ijr.j0 + 1);
   }
   for(i = 0 ; i < (int)map->fhead.zni ; i++){
-    ijr = block_limits(map, i, 0) ;
+    ijr = map_block_limits(map, i, 0) ;
     fprintf(stderr, "i_range : %4d                   ", ijr.in - ijr.i0 + 1);
   }
   fprintf(stderr, "\n");

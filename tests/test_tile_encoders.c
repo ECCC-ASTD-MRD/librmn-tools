@@ -37,6 +37,13 @@
 #define NPTJ 8
 #define NPT (NPTI*NPTJ)
 
+void print_tile(int32_t *tile_in, int nval, char *msg){
+  int i ;
+  fprintf(stderr,"%s", msg) ;
+  for(i=0 ; i<nval ; i++) fprintf(stderr," %d", tile_in[i]) ;
+  fprintf(stderr,"\n") ;
+}
+
 void move_block(int32_t *block_in, int32_t *block_out, int lnix, int ni, int nj, int tile_size){
   int i0, lni, j0, lnj, nval = tile_size*tile_size ;
   int32_t tile[nval] ;

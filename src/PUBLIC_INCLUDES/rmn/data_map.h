@@ -111,6 +111,7 @@
 #include <stdlib.h>
 
 #include <rmn/ct_assert.h>
+#include <rmn/split_dimension.h>
 
 // packed data representation (as in buffer read from file or in memory)
 //
@@ -225,69 +226,12 @@ static inline int invalid_zmap(zmap *map){
   return 0 ;
 }
 
-// block index from index and sizes (along one dimension)
-// l   [IN] : index along a dimension of global array
-// ln  [IN] : size of all but first block along a dimension
-// ln0 [IN] : size of first block along a dimension (ln/2 <= ln0 < 2*ln -1 )
-// return block index along that dimension
-static inline int32_t b_index(int32_t l, int32_t ln, int32_t ln0){
-  return (l + ln - ln0)/ln ;
-}
-
-typedef struct{
-  int32_t i1 ;
-  int32_t i2 ;
-}int_pair ;              // pair of integers
-
-typedef struct{
-  int32_t i  ;
-  int32_t j  ;
-}ij_pair ;               // 2D coordinate pair
-
-typedef struct{
-  int32_t i0  ;          // index of first point along first dimension
-  int32_t in  ;          // index of last point along first dimension
-  int32_t j0  ;          // index of first point along second dimension
-  int32_t jn  ;          // index of last point along second dimension
-}ij_range ;              // 2D index range of coordinates
-
-// compute first block dimension and number of blocks from size and desired block size
-// array_dimension [IN] : size of array along one dimension
-// block_size      [IN] : desired block size
-// return integer pair, .i1 = number of blocks, .i2 = dimension of first block
-static inline int_pair split_array_dimension(int32_t array_dimension, int32_t block_size){
-  int_pair ijp = {.i1 = 0 , .i2 = 0 } ;   // in case of failure
-  ijp.i1 = array_dimension / block_size ;
-  int extra = array_dimension - ijp.i1  * block_size ;
-  if(extra < block_size/2){
-    ijp.i2 = block_size + extra ;    // first block will be longer than block_size
-  }else{
-    ijp.i1++ ;                       // one more block, shorter than block_size
-    ijp.i2 = extra ;
-  }
-  return ijp ;
-}
-
-
-// index range from block index and sizes (along one dimension)
-// bl  [IN] : block index along a dimension
-// ln  [IN] : size of all but first block along a dimension
-// ln0 [IN] : size of first block along a dimension (ln/2 <= ln0 < 2*ln -1 )
-// return index limits along a dimension for this block
-static inline ij_pair b_limits(int32_t bl, int32_t ln, int32_t ln0){
-  if(bl == 0){
-    return (ij_pair){.i = 0 , .j = ln0-1} ;
-  }else{
-    return (ij_pair){.i = (bl-1)*ln + ln0, .j = bl*ln + ln0 -1 } ;
-  }
-}
-
 int32_t Zindex_from_i_j(int32_t i, int32_t j, int32_t nti, int32_t ntj, int32_t sf0);
-ij_pair Zindex_to_i_j(int32_t zij, int32_t nti, int32_t ntj, int32_t sf0);
+index_pair Zindex_to_i_j(int32_t zij, int32_t nti, int32_t ntj, int32_t sf0);
 
 int32_t  Z_map_index(zmap *map, int32_t i, int32_t j);
-ij_pair  block_index(zmap *map, int32_t i, int32_t j);
-ij_range block_limits(zmap *map, int32_t i, int32_t j);
+index_pair  block_index(zmap *map, int32_t i, int32_t j);
+ij_range map_block_limits(zmap *map, int32_t i, int32_t j);
 
 zmap    *new_zmap(int32_t gni, int32_t gnj, int32_t stripe, size_t esize, int32_t extra);
 zblocks *mem_zmap(zmap *map, uint32_t *data);

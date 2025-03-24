@@ -19,6 +19,8 @@
 #include <rmn/tile_encoders.h>
 #include <rmn/be_stream.h>
 #include <rmn/compare_count.h>
+#include <rmn/split_dimension.h>
+#include <rmn/tile_encoders.h>
 
 // inline functions borrowed from other source code to minimize code dependencies
 
@@ -55,13 +57,6 @@ static int plus_minus = 0 ;
 static int saved_bits = 0 ;
 static int short_long[4] = {0,0,0,0} ;
 
-void print_tile(int32_t *tile_in, int nval, char *msg){
-  int i ;
-  fprintf(stderr,"%s", msg) ;
-  for(i=0 ; i<nval ; i++) fprintf(stderr," %d", tile_in[i]) ;
-  fprintf(stderr,"\n") ;
-}
-
 void print_encode_stats(int reset){
   fprintf(stderr, "encoding stats : %d blocks (%d constant, %d >=0, %d <=0, %d +/-) (%d with offset), ",
                                     nblocks, constant_block, all_plus, all_minus, plus_minus, with_offset) ;
@@ -80,8 +75,6 @@ void print_encode_stats(int reset){
     short_long[0] = short_long[1] = short_long[2] = short_long[3] = 0 ;
   }
 }
-
-#include <rmn/tile_encoders.h>
 
 // decode nval values from tile[nval] into a bit stream
 // tile    OUT] : values to be encoded
@@ -430,25 +423,61 @@ end:
 // fprintf(stderr, "encode_tile : SS = %d, M = %d, E = %d, nbits = %d, offset = %d\n", SS, M, E, nbits, offset) ;
   return totbits ;
 }
-
+#if 0
+// description of a split array dimension (axis)
 typedef struct{
-  int32_t ln0 ;   // size of first piece
-  int32_t nbk ;   // number of pieces
-} split_pair ;
+  int32_t nbk ;   // number of blocks along a dimension
+  int16_t ln0 ;   // size of first block along a dimension
+  int16_t ln1 ;   // size of next blocks along a dimension
+} array_axis ;
+
+// elements of an array block along a dimension
+typedef struct{
+  int32_t ix0 ;   // index of first element in block along a dimension
+  int32_t ixn ;   // index of last element in block along a dimension
+} index_range ;
+
+// get block ordinal that contains element number index along a dimension
+// axis  [IN] : axis description
+// index [IN] : index of array element along a dimension
+// return block ordinal containing requested element (-1 if error)
+static inline int32_t block_ordinal(array_axis axis,int32_t index){
+  if(index < 0) return -1 ;                           // invalid index
+//   int ordinal = 1 + (index - axis.ln0) / axis.ln1 ;   // ordinal with respect to block 1 + 1
+//   ordinal = (ordinal < 1) ? 0 : ordinal ;             // <1 means before block 1 (block 0)
+  int ordinal = (index + axis.ln1 - axis.ln0) / axis.ln1 ;
+  return (ordinal >= axis.nbk) ? -1 : ordinal ;       // chek for ordinal out of range (beyond last block)
+}
+// get index limits for block number index along a dimension
+// axis    [IN] : axis description
+// ordinal [IN] : block ordinal along axis
+// return first index and last index for requested block ordinal
+// { 0, -1 } is returned in case of errror
+static inline index_range block_limits(array_axis axis,int32_t ordinal){
+  if((ordinal >= axis.nbk) || (ordinal < 0)) return (index_range) { .ix0 = 0, .ixn = -1 } ;
+  if(ordinal == 0){
+    return (index_range) { .ix0 = 0,
+                          .ixn = axis.ln0 } ;
+  }else{
+    return (index_range) { .ix0 = axis.ln0 + (ordinal - 1) * axis.ln1 ,
+                           .ixn = axis.ln0 + (ordinal * axis.ln1) -1 } ;
+  }
+}
 // split n into pieces preferably of size bsize
 // n     [IN] : total number of pieces
-// bsize [IN] : desired size of pieces
-// the first piece may be smaller or larger than the desired size
+// bsize [IN] : requested size of pieces
+// the first piece may be smaller or larger than the requested size
 // if size is even, pieces will be >= bsize/2 or <  bsize + bsize/2
 // if size is odd,  pieces will be >  bsize/2 or <= bsize + bsize/2
 // pieces will smaller than the minimum only if n is also smaller
-static inline split_pair split_by(int n, int bsize){
-  split_pair r ;
+static inline array_axis split_axis(int n, int bsize){
+  array_axis r ;
   r.nbk = (n + bsize/2) / bsize ;      // number of pieces
   r.ln0 = n - (r.nbk - 1) * bsize ;    // size of first piece
+  r.ln1 = bsize ;
   return r ;
 }
-
+#endif
 // encode a block as multiple tiles into a bit stream
 // block   [IN] : values to be encoded
 // lnis    [IN] : storage length of block rows
@@ -461,9 +490,9 @@ static inline split_pair split_by(int n, int bsize){
 // the dimension of the last slice along i or j may be shorter or longer than tsize
 // in case of error, s_in is left as it was upon entry
 int encode_block(bitstream *s_in, int32_t *block, int lnis, int ni, int nj, int tsize){
-  split_pair ri, rj ;
-  ri = split_by(ni, tsize) ;
-  rj = split_by(nj, tsize) ;
+  array_axis ri, rj ;
+  ri = split_axis(ni, tsize) ;
+  rj = split_axis(nj, tsize) ;
 fprintf(stderr, "ni = %d, nj = %d, blocks[%d(%d,%d),%d(%d,%d)]\n", ni, nj, ri.nbk, ri.ln0, tsize,  rj.nbk, rj.ln0, tsize) ;
 
 tsize = tsize & 0x7FFFFFFF ;   // make sure tsize is EVEN
@@ -508,9 +537,9 @@ error:
 // the dimension of the last slice along i or j may be shorter or longer than tsize
 // in case of error, s_in is left as it was upon entry
 int decode_block(bitstream *s_in, int32_t *block, int lnid, int ni, int nj, int tsize){
-  split_pair ri, rj ;
-  ri = split_by(ni, tsize) ;
-  rj = split_by(nj, tsize) ;
+  array_axis ri, rj ;
+  ri = split_axis(ni, tsize) ;
+  rj = split_axis(nj, tsize) ;
 fprintf(stderr, "ni = %d, nj = %d, blocks[%d(%d,%d),%d(%d,%d)]\n", ni, nj, ri.nbk, ri.ln0, tsize,  rj.nbk, rj.ln0, tsize) ;
 
   tsize = tsize & 0x7FFFFFFF ;   // make sure tsize is EVEN

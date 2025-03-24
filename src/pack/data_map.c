@@ -28,8 +28,8 @@
 // ntj    [IN] : number of rows
 // sf0    [IN] : stripe width, last (top) stripe may be narrower
 // the function returns the i and j coordinates in struct ij_range
-ij_pair Zindex_to_i_j(int32_t zij, int32_t nti, int32_t ntj, int32_t sf0){
-  ij_pair ij ;
+index_pair Zindex_to_i_j(int32_t zij, int32_t nti, int32_t ntj, int32_t sf0){
+  index_pair ij ;
   int32_t sf1, i, j, st0, sz0, sti, stn, j0 ;
 
   ij.i = -1 ;                               // precondition for miserable failure
@@ -90,13 +90,15 @@ end:
 // i      [IN] : i (column) position in 2D grid
 // j      [IN] : j (row) position in 2D grid
 // return [i,j] block coordinates (different from z index)
-ij_pair block_index(zmap *map, int32_t i, int32_t j){
-  ij_pair ij = {.i = -1, .j = -1 } ;  // precondition for failure
+index_pair block_index(zmap *map, int32_t i, int32_t j){
+  index_pair ij = {.i = -1, .j = -1 } ;  // precondition for failure
   if(map->fhead.gni > i && map->fhead.gnj > j){
-    ij.i = (i - map->fhead.lix) / map->fhead.lni ;
-    ij.j = (j - map->fhead.ljx) / map->fhead.lnj ;
-    ij.i = (ij.i < 0) ? 0 : ij.i ;
-    ij.j = (ij.j < 0) ? 0 : ij.j ;
+    ij.i = b_index(i, map->fhead.lni, map->fhead.lix) ;
+    ij.j = b_index(j, map->fhead.lnj, map->fhead.ljx) ;
+//     ij.i = (i - map->fhead.lix) / map->fhead.lni ;
+//     ij.j = (j - map->fhead.ljx) / map->fhead.lnj ;
+//     ij.i = (ij.i < 0) ? 0 : ij.i ;
+//     ij.j = (ij.j < 0) ? 0 : ij.j ;
   }
   return ij ;
 }
@@ -107,7 +109,7 @@ ij_pair block_index(zmap *map, int32_t i, int32_t j){
 // j      [IN] : j (row) position in 2D block grid
 // return [ij] Z block index
 int32_t Z_map_index(zmap *map, int32_t i, int32_t j){
-//   ij_pair ij = block_index(map, i, j) ;
+//   index_pair ij = block_index(map, i, j) ;
   return Zindex_from_i_j(i, j, map->fhead.zni, map->fhead.znj, map->fhead.stripe) ;
 }
 
@@ -116,11 +118,11 @@ int32_t Z_map_index(zmap *map, int32_t i, int32_t j){
 // bi     [IN] : block column index
 // bj     [IN] : block row index
 // return i and j index limits for area covered by block[j][i]
-ij_range block_limits(zmap *map, int32_t bi, int32_t bj){
+ij_range map_block_limits(zmap *map, int32_t bi, int32_t bj){
   ij_range ij = {.i0 = -1, .in = -1, .j0 = -1, .jn = -1 } ;  // precondition for failure
 
   if(bi < map->fhead.zni && bj < map->fhead.znj){                        // inside map limits ?
-    ij_pair p ;
+    index_pair p ;
     p = b_limits(bi, map->fhead.lni, map->fhead.lix) ;                   // get block limits along first dimension (row)
     ij.i0 = p.i ; ij.in = p.j ;
     p = b_limits(bj, map->fhead.lnj, map->fhead.ljx) ;                   // get block limits along second dimension (column)
@@ -140,15 +142,15 @@ ij_range block_limits(zmap *map, int32_t bi, int32_t bj){
 zmap *new_zmap(int32_t gni, int32_t gnj, int32_t stripe, size_t esize, int32_t mextra){
   mextra = (mextra + sizeof(uint32_t) - 1) / sizeof(uint32_t) ; // round to multiple of uint32_t size
   int32_t bsize = 64 ;   // default block size of 64 x 64
-  int_pair p ;
-  p = split_array_dimension(gni, bsize) ;   // split first dimension of array
-  int32_t zni = p.i1 ;
-  int32_t lni = bsize ;
-  int32_t lix = p.i2 ;
-  p = split_array_dimension(gnj, bsize) ;   // split second dimension of array
-  int32_t znj = p.i1 ;
-  int32_t lnj = bsize ;
-  int32_t ljx = p.i2 ;
+  array_axis p ;
+  p = split_axis(gni, bsize) ;        // split first dimension of array
+  int32_t zni = p.nbk ;               // number of blocks along i
+  int32_t lni = p.ln1 ;               // bsize
+  int32_t lix = p.ln0 ;               // size of first block along i
+  p = split_axis(gnj, bsize) ;        // split second dimension of array
+  int32_t znj = p.nbk ;               // number of blocks along j
+  int32_t lnj = p.ln1 ;               // bsize
+  int32_t ljx = p.ln0 ;               // size of first block along j
   zmap *map = NULL ;
   ssize_t size = sizeof(zmap) + sizeof(uint16_t) * zni * znj ;  // size of data map itself, header + table of sizes
   size = size + mextra * sizeof(uint32_t) ;                     // size of global information

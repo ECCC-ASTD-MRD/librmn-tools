@@ -120,6 +120,7 @@ set(PROJECT_H_FILES
   src/PUBLIC_INCLUDES/rmn/simd_functions.h
   src/PUBLIC_INCLUDES/rmn/smooth124.h
   src/PUBLIC_INCLUDES/rmn/sparse_concat.h
+  src/PUBLIC_INCLUDES/rmn/split_dimension.h
   src/PUBLIC_INCLUDES/rmn/stream_pack.h
   src/PUBLIC_INCLUDES/rmn/timers.h
   src/PUBLIC_INCLUDES/rmn/tools_types.h
