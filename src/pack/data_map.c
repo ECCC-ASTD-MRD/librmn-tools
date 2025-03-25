@@ -28,7 +28,7 @@
 // ntj    [IN] : number of rows
 // sf0    [IN] : stripe width, last (top) stripe may be narrower
 // the function returns the i and j coordinates in struct ij_range
-index_pair Zindex_to_i_j(int32_t zij, int32_t nti, int32_t ntj, int32_t sf0){
+index_pair Zindex_to_ij(int32_t zij, int32_t nti, int32_t ntj, int32_t sf0){
   index_pair ij ;
   int32_t sf1, i, j, st0, sz0, sti, stn, j0 ;
 
@@ -63,7 +63,7 @@ end:
 // ntj    [IN] : number of rows
 // sf0    [IN] : stripe width (last stripe may be narrower)
 // the function returns the Z (zigzag) index associated with block(i,j)
-int32_t Zindex_from_i_j(int32_t i, int32_t j, int32_t nti, int32_t ntj, int32_t sf0){
+int32_t Zindex_from_ij(int32_t i, int32_t j, int32_t nti, int32_t ntj, int32_t sf0){
   int32_t zi, sf1, j0, stj, stn ;
 
   zi = -1 ;                                 // precondition for miserable failure
@@ -110,7 +110,7 @@ index_pair block_index(zmap *map, int32_t i, int32_t j){
 // return [ij] Z block index
 int32_t Z_map_index(zmap *map, int32_t i, int32_t j){
 //   index_pair ij = block_index(map, i, j) ;
-  return Zindex_from_i_j(i, j, map->fhead.zni, map->fhead.znj, map->fhead.stripe) ;
+  return Zindex_from_ij(i, j, map->fhead.zni, map->fhead.znj, map->fhead.stripe) ;
 }
 
 // area covered by block[j][i]
@@ -119,9 +119,9 @@ int32_t Z_map_index(zmap *map, int32_t i, int32_t j){
 // bj     [IN] : block row index
 // return i and j index limits for area covered by block[j][i]
 ij_range map_block_limits(zmap *map, int32_t bi, int32_t bj){
-  ij_range ij = {.i0 = -1, .in = -1, .j0 = -1, .jn = -1 } ;  // precondition for failure
+  ij_range ij = {.i0 = -1, .in = -2, .j0 = -1, .jn = -2 } ;  // precondition for failure
 
-  if(bi < map->fhead.zni && bj < map->fhead.znj){                        // inside map limits ?
+  if(bi < map->fhead.zni && bj < map->fhead.znj && bi >= 0 && bj >= 0){  // inside map limits ?
     index_pair p ;
     p = b_limits(bi, map->fhead.lni, map->fhead.lix) ;                   // get block limits along first dimension (row)
     ij.i0 = p.i ; ij.in = p.j ;
@@ -216,7 +216,7 @@ if(DEBUG) fprintf(stderr, "mem[0] offset : %ld\n",  (uint8_t *)map->mhead.mem[0]
         lsize = esize ;
         lsize = lbi * lbj * lsize ;   // worst case size for this block
         lsize = (lsize + sizeof(uint32_t) - 1) / sizeof(uint32_t) ;   // round to multiple of uint32_t size
-        zij = Zindex_from_i_j(i, j, zni, znj, stripe) ;
+        zij = Zindex_from_ij(i, j, zni, znj, stripe) ;
         map->size[zij] = lsize ;      // set worstcase size for this zigzag indexed block
         lbi = lni ;                   // after first column
       }
@@ -241,7 +241,7 @@ if(DEBUG) {
 
 for(j=znj ; j>0 ; j--){
   for(i=0 ; i<zni ; i++){
-    zij = Zindex_from_i_j(i, j-1, zni, znj, stripe) ;
+    zij = Zindex_from_ij(i, j-1, zni, znj, stripe) ;
     if(DEBUG) fprintf(stderr, "%6d[%2d,%2d](%2d)", map->size[zij], i, j-1, zij);
   }
   if(DEBUG) fprintf(stderr, "\n");

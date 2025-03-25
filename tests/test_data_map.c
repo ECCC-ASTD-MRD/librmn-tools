@@ -92,7 +92,7 @@ zmap *array_to_zmap(zmap *map, array_2d *a_in, sfn_ptr fn, sfn_args *fnargs){
   fprintf(stderr, "array_to_zmap : stripe = %d, esize = %d\n", map->fhead.stripe, esize) ;
   fprintf(stderr, "map block sizes : ") ;for(zx=0 ; zx < map->fhead.zni * map->fhead.znj ; zx++){ fprintf(stderr, "%4d ",map->size[zx]);}  fprintf(stderr, "\n") ;
   for(zx=0 ; zx < map->fhead.zni * map->fhead.znj ; zx++){  // loop over zindex
-    index_pair  ijp = Zindex_to_i_j(zx, map->fhead.zni, map->fhead.znj, map->fhead.stripe) ;
+    index_pair  ijp = Zindex_to_ij(zx, map->fhead.zni, map->fhead.znj, map->fhead.stripe) ;
     ij_range ijr = map_block_limits(map, ijp.i, ijp.j) ;
     int32_t gni = a.dim[0].gnn ;
     int32_t i0 = ijr.i0 ;
@@ -192,9 +192,9 @@ int main(int argc, char **argv){
   fprintf(stderr, "=============== zigzag block indexing ===============\n") ;
   for(j=NTJ-1 ; j>=0 ; j--){ 
     for(i=0 ; i<NTI ; i++) { 
-      x[i] = Zindex_from_i_j(i, j, NTI, NTJ, SF0) ;
-      y[i] = Zindex_from_i_j(i, j, NTI, NTJ, SF0) ;
-      ijp   = Zindex_to_i_j(y[i], NTI, NTJ, SF0) ;
+      x[i] = Zindex_from_ij(i, j, NTI, NTJ, SF0) ;
+      y[i] = Zindex_from_ij(i, j, NTI, NTJ, SF0) ;
+      ijp   = Zindex_to_ij(y[i], NTI, NTJ, SF0) ;
       if(ijp.i != i || ijp.j != j){
         fprintf(stderr, "ERROR: zij = %3d, expecting i,j = (%2d,%2d), got (%2d,%2d)\n", x[i], i, j, ijp.i, ijp.j) ;
         exit(1) ;
@@ -205,13 +205,13 @@ int main(int argc, char **argv){
       for(i=0 ; i<NTI ; i++) { fprintf(stderr, "| %3d  " ,       x[i]) ; } fprintf(stderr, "| (Z index)\n") ;
       for(i=0 ; i<NTI ; i++) { fprintf(stderr, "|%2d,%3d",    i,    j) ; } fprintf(stderr, "| (expected i,j)\n") ;
       for(i=0 ; i<NTI ; i++) { 
-        ijp   = Zindex_to_i_j(x[i], NTI, NTJ, SF0) ;
+        ijp   = Zindex_to_ij(x[i], NTI, NTJ, SF0) ;
         fprintf(stderr, "|%2d,%3d", ijp.i, ijp.j) ; 
       } fprintf(stderr, "| (computed i,j)\n") ;
     }else{
       for(j = NTJ ; j > 0 ; j--){
         for(i = 0 ; i < NTI ; i++){
-          fprintf(stderr, "%3d => [%2d,%2d] ", Zindex_from_i_j(i, j-1, NTI, NTJ, SF0), i, j-1) ;
+          fprintf(stderr, "%3d => [%2d,%2d] ", Zindex_from_ij(i, j-1, NTI, NTJ, SF0), i, j-1) ;
         }
         fprintf(stderr, "\n");
       }
@@ -291,7 +291,7 @@ int main(int argc, char **argv){
     ijr = map_block_limits(map, 0, 0) ;       // no more warning about possibility of ijr.j0 to be uninitialized
     for(i = 0 ; i < (int)map->fhead.zni ; i++){
       ijr = map_block_limits(map, i, j-1) ;
-//       zx = Zindex_from_i_j(i, j-1, map->fhead.zni, map->fhead.znj, map->fhead.stripe);
+//       zx = Zindex_from_ij(i, j-1, map->fhead.zni, map->fhead.znj, map->fhead.stripe);
       zx = Z_map_index(map, i, j-1) ;
       fprintf(stderr, "data[%4d:%4d,%4d:%4d](Z %2d)  ", ijr.i0, ijr.in, ijr.j0, ijr.jn, zx) ;
     }

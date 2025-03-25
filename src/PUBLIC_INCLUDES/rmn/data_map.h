@@ -146,12 +146,13 @@
 //   li/2 <= lix < li + li/2
 //   lj/2 <= ljx < lj + lj/2
 // either
-// - the first block along a dimension will be larger or smaller
+// - the first block along a dimension is larger or smaller
 //   block[0,0] : (lix,ljx)          (first block of first row)
 //   block[i,0] : ( li,ljx)  (i > 0) (first row)
 //   block[0,j] : (lix, lj)  (j > 0) (first column)
+//   block[i,j] : ( li, lj)  (i > 0, j > 0)
 // - all blocks have the same dimension 
-//   block[i,j] : (li,lj)
+//   block[i,j] : ( li, lj)
 //
 typedef uint32_t *zblocks ;   // zblocks[zi] is address of block[ zindex(i,j) ]
 
@@ -226,8 +227,8 @@ static inline int invalid_zmap(zmap *map){
   return 0 ;
 }
 
-int32_t Zindex_from_i_j(int32_t i, int32_t j, int32_t nti, int32_t ntj, int32_t sf0);
-index_pair Zindex_to_i_j(int32_t zij, int32_t nti, int32_t ntj, int32_t sf0);
+int32_t Zindex_from_ij(int32_t i, int32_t j, int32_t nti, int32_t ntj, int32_t sf0);
+index_pair Zindex_to_ij(int32_t zij, int32_t nti, int32_t ntj, int32_t sf0);
 
 int32_t  Z_map_index(zmap *map, int32_t i, int32_t j);
 index_pair  block_index(zmap *map, int32_t i, int32_t j);
