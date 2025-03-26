@@ -156,6 +156,17 @@ int main(int argc, char **argv){
   if(argc > 1 && argv[0] == NULL) return 1 ;  // useless code to get rid of compiler warning
 //   if(argc > 0) return 0 ;
 
+  fprintf(stderr, "=============== syntax test ===============\n") ;
+
+  sfn_args *sfn_t_args ;
+  malloc_sfn_args(sfn_t_args, 20) ;
+  if(sfn_t_args == NULL) goto fail ;
+  if(sfn_t_args->maxargs != 20){
+    fprintf(stderr, "ERROR : sfn_t_args->maxargs is %ld, expected 20\n", sfn_t_args->maxargs) ;
+    goto fail ;
+  }
+  fprintf(stderr, "SUCCESS\n") ;
+
   fprintf(stderr, "=============== block indexing ===============\n") ;
 
   int ln0, ln, l, i0, lb ;
@@ -311,4 +322,9 @@ int main(int argc, char **argv){
   zmap *result = array_to_zmap(map, &a2d, NULL, NULL) ;
   if(result == NULL) exit(1) ;
   fprintf(stderr, "SUCCESS\n") ;
+  return 0 ;
+
+fail:
+  fprintf(stderr, "FAIL\n") ;
+  return 1 ;
 }
