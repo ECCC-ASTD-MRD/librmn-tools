@@ -1,7 +1,5 @@
-#if 0
-
 // Hopefully useful code for C
-// Copyright (C) 2022  Recherche en Prevision Numerique
+// Copyright (C) 2022-2025  Recherche en Prevision Numerique
 //
 // This code is free software; you can redistribute it and/or
 // modify it under the terms of the GNU Lesser General Public
@@ -15,200 +13,156 @@
 //
 
 #include <stdio.h>
-#include <rmn/compress_data.h>
+// #include <rmn/compress_data.h>
 
 // Fortran style indexing (column major)  array(i,j) is array(col,row)
-#define INDEX2D_C(array, col, lrow, row) ((array) + (col) + (row)*(lrow))
+// #define INDEX2D_C(array, col, lrow, row) ((array) + (col) + (row)*(lrow))
 
-/*
-          a FIELD is subdivided into CHUNKS
-          (basic chunk size = 64/128/256 x 64/128/256)
-          either
-          - (last chunk along a dimension may be shorter)
-          - (first chunk along a dimension may be longer [up to 511 x 127])
-       <------ 256 ----->                                  <--- <= 256 ----->
-     ^ +----------------+----------------------------------+----------------+ ^
-     | |                |                                  |                | |
- <= 64 | chunk(0,ncj)   |                                  | chunk(nci,ncj) |<= 64
-     | |                |                                  |                | |
-     v +----------------+----------------------------------+----------------+ v
-       |                |                                  |                |
-       |                |                                  |                |
-       |                |                                  |                |
-       |                |                                  |                |
-       |                |                                  |                |
-       |                |                                  |                |
-       |                |                                  |                |
-     ^ +----------------+----------------------------------+----------------+ ^
-     | |                |                                  |                | |
- >= 64 | chunk(0,0)     |                                  | chunk(nci,0)   |>= 64
-     | |                |                                  |                | |
-     v +----------------+----------------------------------+----------------+ v
-       <--- >= 256 ----->                                  <--- <= 256 ----->
-
-         each CHUNK is then subdivided into quantization/prediction BLOCKS
-         (basic block size = 64 x 64)
-         either
-         - (last block along a dimension may be shorter [ normally at least 32 x 32])
-         - (first block along a dimension may be longer [ up to 95 x 95])
-       HUGE chunk (or field with only a single chunk)
-       <------ 64 ------>                                  <--- <= 64 ------>
-     ^ +----------------+----------------------------------+----------------+ ^
-     | |                |                                  |                | |
- <= 64 | block(0,nbj)   |                                  | block(nbi,nbj) |<= 64
-     | |                |                                  |                | |
-     v +----------------+----------------------------------+----------------+ v
-       |                |                                  |                |
-       |                |                                  |                |
-       |                |                                  |                |
-       |                |                                  |                |
-       |                |                                  |                |
-       |                |                                  |                |
-       |                |                                  |                |
-     ^ +----------------+----------------------------------+----------------+ ^
-     | |                |                                  |                | |
- >= 64 | block(0,0)     |                                  | block(nbi,0)   |>= 64
-     | |                |                                  |                | |
-     v +----------------+----------------------------------+----------------+ v
-       <--- >= 64 ------>                                  <--- <= 64 ------>
-
-       FULL chunk along J
-     ^ +----------------+----------------------------------+----------------+ ^
-     | |                |                                  |                | |
-    64 |   block(0)     |                                  |   block(nbi)   |64
-     | |                |                                  |                | |
-     v +----------------+----------------------------------+----------------+ v
-       <--- >= 64 ------>                                  <--- <= 64 ------>
-
-       SHORT chunk along J
-     ^ +----------------+----------------------------------+----------------+ ^
-     | |                |                                  |                | |
- <= 64 |   block(0)     |                                  |   block(nbi)   |<= 64
-     | |                |                                  |                | |
-     v +----------------+----------------------------------+----------------+ v
-       <--- >= 64 ------>                                  <--- <= 64 ------>
-
-       SHORT chunk along I and J
-     ^ +----------------+ ^
-     | |                | |
- <= 64 |   block(0)     |<= 64
-     | |                | |
-     v +----------------+ v
-       <--- <= 64 ------>
-
-        each BLOCK is then subdivided into encoding TILES
-        (basic tile size = 8 x 8)
-        either
-        - (last tile along a dimension may be shorter [to be avoided normally])
-        - (first tile along a dimension may be longer [up to 15 x 15])
-       <-- > 7 , < 16 -->                                  <---- <= 8 ------>
-     ^ +----------------+----------------------------------+----------------+ ^
-     | |                |                                  |                | |
-  <= 8 |  tile(0,ntj)   |                                  |  tile(nti,ntj) |<= 8
-     | |                |                                  |                | |
-     v +----------------+----------------------------------+----------------+ v
-       |                |                                  |                |
-       |                |                                  |                |
-       |                |                                  |                |
-       |                |                                  |                |
-       |                |                                  |                |
-       |                |                                  |                |
-       |                |                                  |                |
-     ^ +----------------+----------------------------------+----------------+ ^
-     | |                |                                  |                | |
-   > 7 |  tile(0,0)     |                                  |  tile(nti,0)   |> 7 , < 16
-     | |                |                                  |                | |
-     v +----------------+----------------------------------+----------------+ v
-       <-- > 7 , < 16 -->                                  <---- <= 8 ------>
-
-  field compression goes as follows:
-  - loop over chunks
-    instantiate a bit stream
-    insert chunk header into bit stream
-    - loop over blocks
-      quantize and predict (if useful) block
-      insert block header into bit stream
-      - loop over tiles
-        insert tile header into bit stream
-        encode tile into bit stream
-    close bit stream
-  we now have one bit stream per chunk, ready to be consolidated with field header
-
-  field restoration goes as follows:
-  - loop over chunks
-    instantiate a bit stream using compressed field stream
-    get chunk header from bit stream
-    - loop over blocks
-      get block header from bit stream
-      - loop over tiles
-        get tile header from bit stream
-        decode tile from bit stream
-      unpredict (if useful) and unquantize block
-    close bit stream
-  field restoration is now complete
-*/
+//
+//          a FIELD is normally subdivided into into quantization/prediction BLOCKS
+//          (basic block size = 64 x 64)
+//          - (the first block along a dimension may be shorter [ normally at least 32 x 32])
+//          - (the first block along a dimension may be longer [ up to 95 x 95])
+//        <- >= 32 , < 96 ->                                  <------- 64 ------>
+//      ^ +----------------+----------------+.....    .....+----------------+ ^
+//      | |                |                |              |                | |
+//     64 | block(0,nbj)   | block(1,nbj)   |              | block(nbi,nbj) | 64
+//      | |                |                |              |                | |
+//      x +----------------+----------------+.....    .....+----------------+ x
+//        ........................................    .......................
+//      x +----------------+----------------+.....    .....+----------------+ x
+//      | |                |                |              |                | |
+//     64 | block(0,1)     | block(1,1)     |              | block(nbi,1)   | 64
+//      | |                |                |              |                | |
+//      x +----------------+----------------+.....    .....+----------------+ x
+//      | |                |                |              |                | |
+//  >= 32 | block(0,0)     | block(1,0)     |              | block(nbi,0)   |>= 32 , < 96
+//      | |                |                |              |                | |
+//      v +----------------+----------------+.....    .....+----------------+ v
+//        <- >= 32 , < 96 -x------- 64 ----->              <------- 64 ----->
+// 
+//        single row, FULL blocks along J
+//      ^ +----------------+----------------+.....    .....+-----------------+ ^
+//      | |                |                |              |                 | |
+//     64 |   block(0)     |   block(1)     |              |   block(nbi)    |64
+//      | |                |                |              |                 | |
+//      v +----------------+----------------+.....    .....+-----------------+ v
+//        <- >= 32 , < 96 -x------- 64 ----->              <------- 64 ------>
+// 
+//        single row, SHORT/LONG blocks along J
+//      ^ +----------------+----------------+.....    .....+-----------------+ ^
+//      | |                |                |              |                 | |
+//   >= 1 |   block(0)     |   block(1)     |              |   block(nbi)    |>= 1 , < 96
+//      | |                |                |              |                 | |
+//      v +----------------+----------------+.....    .....+-----------------+ v
+//        <- >= 32 , < 96 -x------- 64 ----->              <------- 64 ------>
+// 
+//         single column            single column
+//        SHORT/LONG along I       FULL blocks along I
+//      ^ +--------------+         +--------------+ ^
+//      | |              |         |              | |
+//     64 | block(nbj)   |         | block(nbj)   | 64
+//      | |              |         |              | |
+//      v +--------------+         +--------------+ v
+//        ................         ................
+//      ^ +--------------+         +--------------+ ^
+//      | |              |         |              | |
+//     64 | block(1)     |         | block(1)     | 64
+//      | |              |         |              | |
+//      x +--------------+         +--------------+ x
+//      | |              |         |              | |
+//  >= 32 | block(0)     |         | block(0)     |>= 32 , < 96
+//      | |              |         |              | |
+//      v +--------------+         +--------------+ v
+//        < >= 32 , < 96 >         <----- 64 ----->
+// 
+//        single SHORT/LONG block along I and J
+//      ^ +----------------+ ^
+//      | |                | |
+//   >= 1 |   block(0)     |>= 1 , < 96
+//      | |                | |
+//      v +----------------+ v
+//        <- >= 1 , < 96 -->
+// 
+//         each BLOCK is then subdivided into encoding TILES
+//         (basic tile size = 8 x 8)
+//         either
+//         - (the first tile along a dimension may be shorter) [normally at least 4 x 4]
+//         - (the first tile along a dimension may be longer [up to 15 x 15])
+//        <-- > 3 , < 16 -->                                  <------- 8 ------>
+//      ^ +----------------+----------------+.....    .....+----------------+ ^
+//      | |                |                |              |                | |
+//      8 |  tile(0,ntj)   |  tile(1,ntj)   |              |  tile(nti,ntj) | 8
+//      | |                |                |              |                | |
+//      v +----------------+----------------+.....    .....+----------------+ v
+//        ........................................    .......................
+//      ^ +----------------+----------------+.....    .....+----------------+ ^
+//      | |                |                |              |                | |
+//      8 |  tile(0,1)     |  tile(1,1)     |              |  tile(nti,1)   | 8
+//      | |                |                |              |                | |
+//      ^ +----------------+----------------+              +----------------+ ^
+//      | |                |                |              |                | |
+//    > 3 |  tile(0,0)     |  tile(1,0)     |.....    .....|  tile(nti,0)   |> 3 , < 16
+//      | |                |                |              |                | |
+//      v +----------------+----------------+.....    .....-----------------+ v
+//        <-- > 3 , < 16 --x------- 8 ------>              <------- 8 ------>
+// 
+//        single row
+//      ^ +--------------+--------------+              +--------------+ ^
+//      | |              |              |              |              | |
+//  >=1 |  tile(0)       |  tile(1)     |.....    .....|  tile(nti)   |>=1 , < 16
+//      | |              |              |              |              | |
+//      v +--------------+--------------+.....    .....---------------+ v
+//        <- > 3 , < 16 -x------ 8 ----->              <------ 8 ----->
+// 
+//        single column
+//      ^ +--------------+  ^
+//      | |              |  |
+//      8 |  tile(ntj)   |  8
+//      | |              |  |
+//      v +--------------+  v
+//        ................
+//      ^ +--------------+  ^
+//      | |              |  |
+//      8 |  tile(1)     |  8
+//      | |              |  |
+//      ^ +--------------+  ^
+//      | |              |  |
+//    > 3 |  tile(0)     |  >3 , < 16
+//      | |              |  |
+//      v +--------------+  v
+//        <- > 1 , < 16 -x
+// 
+//   field compression goes as follows:
+//   - loop over chunks
+//     instantiate a bit stream
+//     insert chunk header into bit stream
+//     - loop over blocks
+//       quantize and predict (if useful) block
+//       insert block header into bit stream
+//       - loop over tiles
+//         insert tile header into bit stream
+//         encode tile into bit stream
+//     close bit stream
+//   we now have one bit stream per chunk, ready to be consolidated with field header
+// 
+//   field restoration goes as follows:
+//   - loop over chunks
+//     instantiate a bit stream using compressed field stream
+//     get chunk header from bit stream
+//     - loop over blocks
+//       get block header from bit stream
+//       - loop over tiles
+//         get tile header from bit stream
+//         decode tile from bit stream
+//       unpredict (if useful) and unquantize block
+//     close bit stream
+//   field restoration is now complete
 /*
 
   DATA MAP (map of chunk positions in data stream) (sizes and offsets in 32 bit units)
            (see typedef data_map in compress_data.h)
            (chunk size limited to 16GBytes)
-  evolution 1
-  data map size = (NCI * NCJ) * 2 + 2 (in 32 bit units)
-  +-------+-------+--------------+----------------+     +--------------+----------------+
-  |  NCI  |  NCJ  | Chunk size 1 | Chunk offset 1 | ... | Chunk size n | Chunk offset n |
-  +-------+-------+--------------+----------------+     +--------------+----------------+
-  <--32b--x--32b--x-----32b------x------32b------->     <-----32b------x------32b------->
-
-  evolution 2 (smaller size, no 16GB limit on offsets)
-  data map size = (NCI * NCJ) + 2 (in 32 bit units)
-  +-------+-------+--------------+     +--------------+
-  |  NCI  |  NCJ  | Chunk size 1 | ... | Chunk size n |
-  +-------+-------+--------------+     +--------------+
-  <--32b--x--32b--x-----32b------x     <-----32b------x
-
-  evolution 3 (no 16GB limit on offsets, row of blocks limited to 16Gbytes)
-  BCI (16 bits), BCJ (16 bits) : chunk dimensions
-  NPI = nb of points along i, NPJ = nb of points along j
-  NCI = (NPI + BCI - 1)/BCI, NCJ = (NPJ + BCJ - 1)/BCJ
-  data map size = (NCI+1) * NCJ + 4 (in 32 bit units)  N = NCI * NCJ
-  DT = data type (16 bits), DS = data size (16 bits)
-  +-------+-------+------+-------+------+-------+------------+     +--------------+--------------+     +--------------+
-  |  NPI  |  NPJ  |  DT  |  BCI  |  DS  |  BCJ  | Row size 1 | ... | Row size NCJ | Chunk size 1 | ... | Chunk size N |
-  +-------+-------+------+-------+------+-------+------------+     +--------------+--------------+     +--------------+
-  <--32b--x--32b--x-----32b------x-----32b------x-----32b----x     <------32b-----x-----32b------x     <-----32b------x
-
-  evolution 4a (16GB limit on offsets) simpler map
-  BCI (16 bits), BCJ (16 bits) : chunk dimensions
-  NPI = nb of points along i, NPJ = nb of points along j
-  NCI = (NPI + BCI - 1)/BCI, NCJ = (NPJ + BCJ - 1)/BCJ (number of chunks along i and j)
-  data map size = NCI * NCJ + 4 (in 32 bit units)  N = NCI * NCJ
-  DT = data type (16 bits), DS = data size (16 bits)
-  +-------+-------+------+-------+------+-------+----------------+     +----------------+
-  |  NPI  |  NPJ  |  DT  |  BCI  |  DS  |  BCJ  | Chunk offset 1 | ... | Chunk offset n |
-  +-------+-------+------+-------+------+-------+----------------+     +----------------+
-  <--32b--x--32b--x-----32b------x-----32b------x------32b------->     x------32b------->
-
-  evolution 4b (no 16GB limit on offsets, 256KB limit on chunk size) simpler map
-  BCI (16 bits), BCJ (16 bits) : chunk dimensions
-  NPI = nb of points along i, NPJ = nb of points along j
-  NCI = (NPI + BCI - 1)/BCI, NCJ = (NPJ + BCJ - 1)/BCJ (number of chunks along i and j)
-  data map size = (NCI * NCJ +1) / 2 + 4 (in 32 bit units)  N = NCI * NCJ
-  DT = data type (16 bits), DS = data size (16 bits)
-  +-------+-------+------+-------+------+-------+--------------+--------------+     +--------------+
-  |  NPI  |  NPJ  |  DT  |  BCI  |  DS  |  BCJ  | Chunk 1 size | Chunk 2 size | ... | Chunk n size |
-  +-------+-------+------+-------+------+-------+--------------+--------------+     +--------------+
-  <--32b--x--32b--x-----32b------x-----32b------x-------------32b------------->     x-----16b------>
-
-  evolution 4c (no 16GB limit on offsets, 256KB limit on chunk size) simpler map
-  BCI (16 bits), BCJ (16 bits) : chunk dimensions
-  NPI = nb of points along i, NPJ = nb of points along j
-  NCI = (NPI + BCI - 1)/BCI, NCJ = (NPJ + BCJ - 1)/BCJ (number of chunks along i and j)
-  data map size = (NCI * NCJ +1) / 2 + 3 (in 32 bit units)  N = NCI * NCJ
-  +-------+-------+-------+-------+--------------+--------------+     +--------------+
-  |  NPI  |  NPJ  |  BCI  |  BCJ  | Chunk 1 size | Chunk 2 size | ... | Chunk n size |
-  +-------+-------+-------+-------+--------------+--------------+     +--------------+
-  <--32b--x--32b--x------32b------x-------------32b------------->     x-----16b------>
-
   2024/08/xx
   evolution 4d (no 16GB limit on offsets, 256KB limit on chunk size) simpler map, no "small" chunks
   BCI (16 bits), BCJ (16 bits) : chunk dimensions (normally a multiple of 8)
@@ -256,7 +210,7 @@
   <-- TL bits -->
   (see tile_encoders.h for encoding tile layout)
 */
-
+#if 0
 // compress a 2D block as tiles into bit stream using compress rules
 void compress_2d_block(void *data, int lni, int ni, int nj, compress_rules r, bitstream *stream){
 }
