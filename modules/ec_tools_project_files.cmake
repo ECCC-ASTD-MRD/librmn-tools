@@ -7,7 +7,7 @@ set(PROJECT_C_FILES
   src/pack/bitstream.c
   src/diag/c_record_io.c
   src/diag/compare_count.c
-#   src/pack/compress_data.c
+  src/pack/compress_data.c
   src/pack/compress_expand.c
   src/diag/data_info.c
   src/pack/data_map.c
