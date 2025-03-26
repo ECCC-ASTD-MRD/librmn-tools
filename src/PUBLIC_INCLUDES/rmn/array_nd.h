@@ -54,7 +54,7 @@ typedef struct{          // generic struct for array with n dimensions
   uint8_t *limit ;       // pointer to 1 byte beyond array (byte pointer)
   uint32_t signature ;   // MUST be 0xBEBEFADA
   uint16_t esize ;       // size of array elements in bytes (1, 2, 4, 8, ..., )
-  uint8_t  type ;        // element type, see rmn/move_blocks.h
+  uint8_t  type ;        // element type, see rmn/data_kind.h
   uint8_t  flags:4, ndim:4 ;        // number of dimensions
   dim_desc dim[] ;       // dimension descriptor (flexible array member)
 } array_nd ;

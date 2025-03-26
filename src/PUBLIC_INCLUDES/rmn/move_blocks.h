@@ -23,19 +23,18 @@
 
 #include <rmn/data_kind.h>
 
-// generic signed/unsigned/float 32 bit word
-typedef union{
-  int32_t  i ;    // signed integer
-  uint32_t u ;    // unsigned integer
-  float    f ;    // float
-} iuf32_t ;
+// generic argument list
+typedef struct{
+  uint64_t nargs ;      // number of arguments
+  iuf64_t  args[] ;     // arguments ( [0] .. [nargs-1] )
+} sfn_args ;            // function argument list
 
 // basic block block properties, set while gathering block
 typedef struct{
-  iuf32_t  maxs ;      // max value in block
-  iuf32_t  mins ;      // min value in block
-  iuf32_t  minu ;      // min absolute value in block
-  iuf32_t  maxu ;      // max absolute value in block (needed for uint_data)
+  iuf32_t  maxs ;      // max signed value in block
+  iuf32_t  mins ;      // min signed value in block
+  iuf32_t  minu ;      // min unsigned value in block
+  iuf32_t  maxu ;      // max unsigned value in block (needed for uint_data)
   int32_t  zeros ;     // number of ZERO values in block (-1 if unknown)
   data_kind kind ;  // data type (signed / unsigned / float / unknown)
 } block_properties ;
@@ -77,22 +76,6 @@ void print_int_props(block_properties bp);
 int analyze_data32_block(void *restrict src, int lnis, int ni, int nj, block_properties *bp);
 void adjust_block_properties(block_properties *bp, data_kind datatype);
 void add_block_properties(block_properties *bp, block_properties *bp_extra);
-
-// generic 64 bit container
-typedef union{
-  double    d ;    // double
-  void     *p ;    // address
-  int64_t   l ;    // long long signed integer
-  uint64_t lu ;    // long long unsigned integer
-  int32_t   i ;    // signed integer
-  uint32_t  u ;    // unsigned integer
-  float     f ;    // float
-} iuf64_t ;
-
-typedef struct{
-  uint64_t nargs ;      // number of arguments
-  iuf64_t  args[] ;     // arguments ( [0] .. [nargs-1] )
-} sfn_args ;            // processing function argument list
 
 // allocate an argument list with room for at most nmax arguments
 static inline sfn_args *malloc_fn_args(uint32_t nmax) { return (sfn_args *) malloc(sizeof(sfn_args) + nmax * sizeof(iuf64_t)) ; }

@@ -25,10 +25,29 @@ typedef enum {
   int_data   = 1,     // 32 bit signed integers
   uint_data  = 2,     // 32 bit unsigned integers
   float_data = 3,     // 32 bit floats
-  raw_data   = 4,     // any 32 bit quantities (block_properties likely to be meaningless)
-  large_data = 5,     // multiple of 32 bit quantities (block_properties meaningless)
+  raw_data   = 4,     // any 32 bit items (block_properties likely to be meaningless)
+  large_data = 5,     // items use a multiple of 32 bits (block_properties are meaningless)
   any_data   = 6      // unknown or unspecified
 } data_kind ;
+
+// generic 64 bit container
+typedef union{
+  double    d ;    // double
+  int64_t   l ;    // long long signed integer
+  uint64_t lu ;    // long long unsigned integer
+  void     *p ;    // address
+  int32_t   i ;    // signed integer
+  uint32_t  u ;    // unsigned integer
+  float     f ;    // float
+} iuf64_t ;
+
+// generic 32 bit container
+typedef union{
+  int32_t  i ;    // signed integer
+  uint32_t u ;    // unsigned integer
+  float    f ;    // float
+} iuf32_t ;
+
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-variable"
 static const char *printable_type[7] = { "INVALID", "INT_32", "UINT_32", "FLOAT_32", "RAW_32", "LARGE", "UNKNOWN" } ;
