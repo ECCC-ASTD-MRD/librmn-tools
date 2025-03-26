@@ -29,6 +29,13 @@ typedef struct{
   int32_t j  ;
 }index_pair ;            // 2D coordinate pair
 
+// index trio for 3D array
+typedef struct{
+  int32_t i  ;
+  int32_t j  ;
+  int32_t k  ;
+}index_trio ;            // 3D coordinate trio
+
 // description of a split array dimension (axis)
 typedef struct{
   int32_t nbk ;   // number of blocks along a dimension
