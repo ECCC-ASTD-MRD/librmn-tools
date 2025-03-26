@@ -14,6 +14,11 @@
 // Author:
 //     M. Valin,   Recherche en Prevision Numerique, 2024
 //
+
+// test double include protection
+#include <rmn/data_kind.h>
+#include <rmn/data_kind.h>
+
 #include <stdio.h>
 #include <stdlib.h>
 

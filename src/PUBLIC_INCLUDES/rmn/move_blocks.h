@@ -15,13 +15,15 @@
 //     M. Valin,   Recherche en Prevision Numerique, 2023
 //
 
-#if ! defined(MOVE_BLOCKS_INCLUDED)
-#define MOVE_BLOCKS_INCLUDED
+#if ! defined(malloc_sfn_args)
 
 #include <stdlib.h>
 #include <stdint.h>
 
 #include <rmn/data_kind.h>
+
+// allocate an sfn argument list with room for at most nmax arguments
+#define malloc_sfn_args(arglist, nmax) { malloc_fn_args(arglist, nmax) ; }
 
 // basic block block properties, set while gathering block
 typedef struct{
@@ -38,10 +40,6 @@ typedef function_args sfn_args ;
 
 // pointer to sfn function
 typedef int (*sfn_ptr)(int lni, int ni, int nj, block_properties *bp, void *data, sfn_args *args) ;   // pointer to sfn processing function
-
-// allocate an argument list with room for at most nmax arguments
-// static inline sfn_args *malloc_sfn_args(uint32_t nmax) { return (sfn_args *) malloc_fn_args(nmax) ; }
-#define malloc_sfn_args(arglist, nmax) { malloc_fn_args(arglist, nmax) ; }
 
 // transform a float into a fake signed integer (comparison order preserving)
 static inline int32_t fake_int(float f){
