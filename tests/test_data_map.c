@@ -156,6 +156,7 @@ zmap *array_to_zmap(zmap *map, array_2d *a_in, sfn_ptr fn, sfn_args *fnargs){
 int main(int argc, char **argv){
   int i, j, x[NTI], y[NTI], znij ;
   index_pair ijp ;
+  index_range irange ;
   ij_range ijr ;
 
   if(argc > 1 && argv[0] == NULL) return 1 ;  // useless code to get rid of compiler warning
@@ -181,13 +182,16 @@ int main(int argc, char **argv){
     i0 = -1 ; lb = ln0 ;
     if(ln0==ln/2 || ln0==ln || ln0==2*ln-1) {
       fprintf(stderr, "ln0 = %3d, ln = %3d, %4d values,", ln0, ln, ln0 + (NTI-1)*ln) ;
-      ijp = b_limits(0, ln, ln0) ;
-      fprintf(stderr, " first block [%4d,%4d] (size = %3d),", ijp.i, ijp.j, ijp.j-ijp.i+1) ;
+//       ijp = b_limits(0, ln, ln0) ;
+      irange = r_limits(0, ln, ln0) ;
+      fprintf(stderr, " first block [%4d,%4d] (size = %3d),", irange.ix0, irange.ixn, irange.ixn-irange.ix0+1) ;
     }
     for(j=0 ; j<NTI ; j++, lb=ln){   // loop over blocks
-      ijp = b_limits(j, ln, ln0) ;
-      if(ijp.i != i0+1 || ijp.j != i0+lb){
-        fprintf(stderr, "ERROR: block %d limits, expected [%d,%d], got [%d,%d]\n", j, i0+1, i0+lb, ijp.i, ijp.j) ;
+//       ijp = b_limits(j, ln, ln0) ;
+      irange = r_limits(j, ln, ln0) ;
+//       if(ijp.i != i0+1 || ijp.j != i0+lb){
+      if(irange.ix0 != i0+1 || irange.ixn != i0+lb){
+        fprintf(stderr, "ERROR: block %d limits, expected [%d,%d], got [%d,%d]\n", j, i0+1, i0+lb, irange.ix0, irange.ixn) ;
         exit(1) ;
       }
       for(i=0 ; i<lb ; i++){
@@ -200,7 +204,7 @@ int main(int argc, char **argv){
       }
     }
     if(ln0==ln/2 || ln0==ln || ln0==2*ln-1) {
-      fprintf(stderr, " last block [%4d,%4d] (size = %d)\n", ijp.i, ijp.j, ijp.j-ijp.i+1) ;
+      fprintf(stderr, " last block [%4d,%4d] (size = %d)\n", irange.ix0, irange.ixn, irange.ixn-irange.ix0+1) ;
     }
   }
   fprintf(stderr, "SUCCESS\n") ;

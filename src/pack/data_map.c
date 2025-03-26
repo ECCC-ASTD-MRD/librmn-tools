@@ -122,11 +122,16 @@ ij_range map_block_limits(zmap *map, int32_t bi, int32_t bj){
   ij_range ij = {.i0 = -1, .in = -2, .j0 = -1, .jn = -2 } ;  // precondition for failure
 
   if(bi < map->fhead.zni && bj < map->fhead.znj && bi >= 0 && bj >= 0){  // inside map limits ?
-    index_pair p ;
-    p = b_limits(bi, map->fhead.lni, map->fhead.lix) ;                   // get block limits along first dimension (row)
-    ij.i0 = p.i ; ij.in = p.j ;
-    p = b_limits(bj, map->fhead.lnj, map->fhead.ljx) ;                   // get block limits along second dimension (column)
-    ij.j0 = p.i ; ij.jn = p.j ;
+//     index_pair p ;
+    index_range r ;
+//     p = b_limits(bi, map->fhead.lni, map->fhead.lix) ;                   // get block limits along first dimension (row)
+    r = r_limits(bi, map->fhead.lni, map->fhead.lix) ;                   // get block limits along first dimension (row)
+//     ij.i0 = p.i ; ij.in = p.j ;
+    ij.i0 = r.ix0 ; ij.in = r.ixn ;
+//     p = b_limits(bj, map->fhead.lnj, map->fhead.ljx) ;                   // get block limits along second dimension (column)
+    r = r_limits(bj, map->fhead.lnj, map->fhead.ljx) ;                   // get block limits along second dimension (column)
+//     ij.j0 = p.i ; ij.jn = p.j ;
+    ij.j0 = r.ix0 ; ij.jn = r.ixn ;
   }
   return ij ;
 }
