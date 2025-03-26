@@ -23,12 +23,6 @@
 
 #include <rmn/data_kind.h>
 
-// generic argument list
-typedef struct{
-  uint64_t nargs ;      // number of arguments
-  iuf64_t  args[] ;     // arguments ( [0] .. [nargs-1] )
-} sfn_args ;            // function argument list
-
 // basic block block properties, set while gathering block
 typedef struct{
   iuf32_t  maxs ;      // max signed value in block
@@ -39,6 +33,14 @@ typedef struct{
   data_kind kind ;  // data type (signed / unsigned / float / unknown)
 } block_properties ;
 
+// sfn argument list
+typedef fn_args sfn_args ;
+
+// pointer to sfn function
+typedef int (*sfn_ptr)(int lni, int ni, int nj, block_properties *bp, void *data, sfn_args *args) ;   // pointer to sfn processing function
+
+// allocate an argument list with room for at most nmax arguments
+static inline sfn_args *malloc_sfn_args(uint32_t nmax) { return (sfn_args *) malloc_fn_args(nmax) ; }
 
 // transform a float into a fake signed integer (comparison order preserving)
 static inline int32_t fake_int(float f){
@@ -76,11 +78,6 @@ void print_int_props(block_properties bp);
 int analyze_data32_block(void *restrict src, int lnis, int ni, int nj, block_properties *bp);
 void adjust_block_properties(block_properties *bp, data_kind datatype);
 void add_block_properties(block_properties *bp, block_properties *bp_extra);
-
-// allocate an argument list with room for at most nmax arguments
-static inline sfn_args *malloc_fn_args(uint32_t nmax) { return (sfn_args *) malloc(sizeof(sfn_args) + nmax * sizeof(iuf64_t)) ; }
-
-typedef int (*sfn_ptr)(int lni, int ni, int nj, block_properties *bp, void *data, sfn_args *args) ;   // pointer to processing function
 
 // int split_and_process(void *array, uint32_t lgni, uint32_t gni, uint32_t gnj, data_kind datatype, int ni, int nj, sfn_ptr fn, sfn_args *fnargs);
 #endif

@@ -21,13 +21,16 @@
 
 // expected data type codes
 typedef enum {
-  bad_data   = 0,     // invalid
-  int_data   = 1,     // 32 bit signed integers
-  uint_data  = 2,     // 32 bit unsigned integers
-  float_data = 3,     // 32 bit floats
-  raw_data   = 4,     // any 32 bit items (block_properties likely to be meaningless)
-  large_data = 5,     // items use a multiple of 32 bits (block_properties are meaningless)
-  any_data   = 6      // unknown or unspecified
+  bad_data    = 0,     // invalid
+  int_data    = 1,     // 32 bit signed integers
+  uint_data   = 2,     // 32 bit unsigned integers
+  float_data  = 3,     // 32 bit floats
+  raw_data    = 4,     // any 32 bit items (block_properties likely to be meaningless)
+  large_data  = 5,     // items use a multiple of 32 bits (block_properties are meaningless)
+  any_data    = 6,     // unknown or unspecified
+  long_data   = 7,     // 64 bit signed integers
+  ulong_data  = 8,     // 64 bit unsigned integers
+  double_data = 9      // 64 bit doubles
 } data_kind ;
 
 // generic 64 bit container
@@ -48,9 +51,18 @@ typedef union{
   float    f ;    // float
 } iuf32_t ;
 
+// generic argument list
+typedef struct{
+  uint64_t nargs ;      // number of arguments
+  iuf64_t  args[] ;     // arguments ( [0] .. [nargs-1] )
+} fn_args ;             // function argument list
+
+// allocate a generic argument list with room for at most nmax arguments
+static inline fn_args *malloc_fn_args(uint32_t nmax) { return (fn_args *) malloc(sizeof(fn_args) + nmax * sizeof(iuf64_t)) ; }
+
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-variable"
-static const char *printable_type[7] = { "INVALID", "INT_32", "UINT_32", "FLOAT_32", "RAW_32", "LARGE", "UNKNOWN" } ;
+static const char *printable_type[10] = { "INVALID", "INT_32", "UINT_32", "FLOAT", "RAW_32", "LARGE", "UNKNOWN" "INT_64", "UINT_64", "DOUBLE" } ;
 #pragma GCC diagnostic pop
 
 #endif
