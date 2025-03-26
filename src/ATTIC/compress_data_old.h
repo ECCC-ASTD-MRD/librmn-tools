@@ -1,0 +1,121 @@
+#if ! defined(CHUNK_I) && ! defined(CHUNK_J) && ! defined(BLK_I) && ! defined(BLK_J)
+
+#include <rmn/bi_endian_pack.h>
+#include <rmn/tile_encoders.h>
+
+// linear quantization header for style 0 (64 bits) (2 x 32 bits)
+typedef struct{
+  uint32_t bias:32;  // minimum absolute value (actually never more than 31 bits value)
+  uint32_t resv:19,  // reserved
+           shft:5 ,  // shift count (0 -> 31) for quanze/unquantize
+           nbts:5 ,  // number of bits (0 -> 31) per value (nbts == 0 : same value, same sign)
+           cnst:1 ,  // range is 0, constant absolute values
+           allp:1 ,  // all numbers are >= 0
+           allm:1 ;  // all numbers are < 0
+} ieee32_0 ;
+
+// linear quantization header for style 1 (64 bits) (2 x 32 bits)
+typedef struct {
+  uint32_t bias:32;  // integer offset reflecting minimum value of packed field
+  uint32_t resv:16,  // reserved
+           efac:8 ,  // exponent for quantization mutliplier
+           nbts:5 ,  // number of bits (0 -> 31) per value (nbts == 0 : same value, same sign)
+           cnst:1 ,  // range is 0, constant absolute values
+           allp:1 ,  // all numbers are >= 0
+           allm:1 ;  // all numbers are < 0
+} ieee32_1 ;
+
+// pseudo log quantization header (64 bits) (2 x 32 bits)
+typedef struct {
+  uint32_t resv:32;  // reserved
+  uint32_t emax:8 ,  // exponent of largest absolute value
+           emin:8 ,  // exponent of smallest absolute value
+           elow:8 ,  // exponent of smallest significant absolute value
+           nbts:5 ,  // number of bits (0 -> 31) per value (nbts == 0 : same value, same sign)
+           clip:1 ,  // original emin < elow, clipping may occur
+           allp:1 ,  // all numbers are >= 0
+           allm:1 ;  // all numbers are < 0
+} ieee32_p ;
+
+// BLK_I MUST BE a multiple of 8
+// BLK_J MUST BE a multiple of 8
+#define BLK_I 64
+#define BLK_J 64
+typedef struct{        // BLK_I x BLK_J quantization block header (96 bits) (3 x 32 bits)
+  // common part
+  struct{
+    uint32_t npti:8 ,  // first dimension of block (1->BLK_I)
+             nptj:8 ,  // second dimension of block (1->BLK_J)
+             qtyp:3 ,  // quantization type (q0/q1/qe/...)
+             pred:2 ,  // predictor type
+             bmap:8 ,  // bitmap length in 16 bit units (for special values)
+             resv:3;   // reserved
+  } bh ;
+  // quantizer dependent part
+  union{
+    ieee32_0 q0 ;      // linear quantization type 0
+    ieee32_1 q1 ;      // linear quantization type 1
+    ieee32_p qe ;      // pseudo log quantization
+  } q ;
+} block_base ;
+
+typedef union{
+  block_base bh ;                                       // base header
+  uint32_t u[(sizeof(block_base)+3)/sizeof(uint32_t)] ; // (n x 32 bits)
+//   uint32_t u[3] ;      // (3 x 32 bits)
+}block_header ;
+
+// CHUNK_I MUST BE a multiple of BLK_I (128 0r 256 ?)
+// CHUNK_J MUST BE a multiple of BLK_J (128 or 64 ?)
+#define CHUNK_I 128
+#define CHUNK_J 128
+typedef struct{                // CHUNK_I x CHUNK_J data chunk
+  uint32_t npti:16 ;           // first dimension of data chunk
+  uint32_t nptj:16 ;           // first dimension of data chunk
+} chunk_header ;
+
+typedef struct{                // compression parameters
+  union{
+    float   f ;                // largest absolute error (float)
+    int32_t i ;                // largest absolute error (integer)
+  } max_error ;
+  int32_t nbits:  6 ,          // max number of bits to be used by quantizer
+          dtype:  3 ,          // data type (int32/int16/int8/float/double)
+          qtype:  3 ,          // quantizer type (linear/log)
+          resv : 20 ;          // provision for max rel error, exponent range, ...
+} compress_rules ;
+
+typedef struct{
+  uint32_t npti ;              // first dimension of full data array
+  uint32_t nptj ;              // second dimension of full data array
+  compress_rules r ;           // compression rules ;
+  // need to add :
+  // nb_of_special_values   // 0 means no special values
+  // special_values[]       // list of 32 bit special values (used when data is restored)
+} field_header ;
+
+typedef struct{
+  uint32_t size ;              // compressed chunk size (in 32 bit units)
+  uint32_t offset ;            // compressed chunk offset (in 32 bit units) (offset might be omitted)
+} chunk_item ;
+
+typedef struct{                // 2D nci x ncj chunk array
+  uint32_t npi ;               // number of points along 1st dimension
+  uint32_t npj ;               // number of points along 2nd dimension
+  uint32_t bi0_bci ;           // chunk sizes along i (32 bit units)
+  uint32_t bj0_bcj ;           // chunk sizes along i (32 bit units)
+                               // bi0 = size along i of first chunk in each rows
+                               // bj0 = size along j of chunks in first row
+  chunk_item chunk[] ;         // flexible array, chunk layout
+} data_map ;
+
+typedef struct{
+  data_map *map ;             // pointer to data map
+  uint32_t *data ;            // pointer to data
+}compressed_field ;
+
+void compress_2d_block(void *data, int lni, int ni, int nj, compress_rules rules, bitstream *stream);
+bitstream *compress_2d_chunk(void *data, int lni, int ni, int nj, compress_rules rules);
+compressed_field compress_2d_data(void *data, int lni, int ni, int nj, compress_rules rules);
+
+#endif
