@@ -11,7 +11,7 @@ set(PROJECT_C_FILES
   src/pack/compress_expand.c
   src/diag/data_info.c
   src/pack/data_map.c
-  src/pack/dmapfilters.c
+  src/pack/dmap_filters.c
   src/pred/dwt_i_lgt53.c
   src/diag/entropy.c
   src/diag/eval_compress.c
@@ -82,7 +82,8 @@ set(PROJECT_H_FILES
   src/PUBLIC_INCLUDES/rmn/data_info.h
   src/PUBLIC_INCLUDES/rmn/data_kind.h
   src/PUBLIC_INCLUDES/rmn/data_map.h
-  src/PUBLIC_INCLUDES/rmn/dmapfilters.h
+  src/PUBLIC_INCLUDES/rmn/data_properties.h
+  src/PUBLIC_INCLUDES/rmn/dmap_filters.h
   src/PUBLIC_INCLUDES/rmn/dwt_i_lgt53.h
   src/PUBLIC_INCLUDES/rmn/entropy.h
   src/PUBLIC_INCLUDES/rmn/eval_compress.h

@@ -16,7 +16,7 @@
 //
 
 #include <stdlib.h>
-#include <rmn/dmapfilters.h>
+#include <rmn/dmap_filters.h>
 
 static dmapfilter_ptr dmapfilters[MAX_DMAPFILTERS] ;
 
