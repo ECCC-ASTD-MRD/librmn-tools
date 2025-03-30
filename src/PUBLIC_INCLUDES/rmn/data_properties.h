@@ -18,6 +18,20 @@
 
 #include <rmn/data_kind.h>
 
+// transform a float into a fake signed integer (comparison order preserving)
+static inline int32_t fake_int(float f){
+  iuf32_t iuf ;
+  iuf.f = f ;
+  return (iuf.i & 0x7FFFFFFF) ^ (iuf.i >> 31) ;
+}
+
+// restore float from fake integer representing float
+static inline float unfake_float(int32_t fake){
+  iuf32_t iuf ;
+  iuf.i = ((fake >> 31) ^ fake) | (fake & 0x80000000) ;
+  return iuf.f ;
+}
+
 // basic block block properties
 typedef struct{
   iuf32_t  maxs ;      // max signed value in block
@@ -25,19 +39,9 @@ typedef struct{
   iuf32_t  minu ;      // min unsigned value in block
   iuf32_t  maxu ;      // max unsigned value in block (needed for uint_data)
   int32_t  zeros ;     // number of ZERO values in block (-1 if unknown)
-  data_kind kind ;     // data type (signed / unsigned / float / unknown)
+  data_kind kind ;     // data type (signed / unsigned / float / unknown / ... )
 } block_properties ;
 
 #define NULL_PROPERTIES (block_properties) {.maxs = 0, .mins = 0, .minu = 0, .maxu = 0, .zeros = -1 , .kind = bad_data }
-// static const block_properties null_properties = NULL_PROPERTIES  ;
-
-// allocate an sfn argument list with room for at most nmax arguments
-#define malloc_sfn_args(arglist, nmax) { malloc_fn_args(arglist, nmax) ; }
-
-// sfn argument list
-typedef function_args sfn_args ;
-
-// pointer to sfn function
-typedef int (*sfn_ptr)(int lni, int ni, int nj, block_properties *bp, void *data, sfn_args *args) ;   // pointer to sfn processing function
 
 #endif

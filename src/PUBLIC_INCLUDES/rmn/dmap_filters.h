@@ -20,8 +20,8 @@
 
 #include <rmn/data_map.h>
 #include <rmn/array_nd.h>
+#include <rmn/bitstream.h>
 
-// code in pack/dmapfilter_nnn.c
 // allocate an argument list with room for at most nmax arguments
 typedef struct{
   uint32_t filter ;  // filter number
@@ -36,6 +36,31 @@ typedef struct{
     float     f ;    // 32 bit float
   } args[] ;         // arguments ( [0] .. [nargs-1] )
 } dmapfilter_args ;  // processing function argument list
+
+// generic data pipe filter arguments
+typedef struct{
+  uint32_t filter ;  // filter number
+  uint8_t args[] ;
+} dp_filter_args ;
+
+// list of pointers to dp_filter_args structures (NULL TERMINATED)
+typedef  dp_filter_args *dp_filter__list[] ;
+
+// generic data pipe filter function
+typedef ssize_t dp_filter(array_nd *, block_properties *, dp_filter__list, bitstream *) ;
+// generic pointer to data pipe filter function
+typedef dp_filter *dp_filter_ptr ;
+
+dp_filter dp_filter_000 ;
+dp_filter dp_filter_001 ;
+dp_filter dp_filter_002 ;
+
+static dp_filter_ptr dp_filters[4] = {
+  &dp_filter_000,
+  &dp_filter_001,
+  &dp_filter_002,
+  NULL
+} ;
 
 // list of pointers to dmapfilter_args structures
 typedef struct{

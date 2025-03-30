@@ -20,9 +20,6 @@
 
 #include <stdint.h>
 
-// allocate a generic argument list with room for at most nmax arguments
-#define malloc_fn_args(arglist, nmax) { arglist = (function_args *) malloc(sizeof(function_args) + nmax * sizeof(iuf64_t)) ; arglist->maxargs = nmax ; }
-
 // expected data type codes
 typedef enum {
   bad_data    = 0,     // invalid
@@ -57,10 +54,13 @@ typedef union{
 
 // generic argument list
 typedef struct{
-  uint64_t maxargs ;    // max number of arguments
-  uint64_t nargs ;      // number of arguments
+  uint32_t maxargs ;    // max number of arguments
+  uint32_t nargs ;      // number of arguments
   iuf64_t  args[] ;     // arguments ( [0] .. [nargs-1] )
 } function_args ;       // function argument list
+
+// allocate a generic argument list with room for at most nmax arguments
+#define malloc_fn_args(arglist, nmax) { arglist = (function_args *) malloc(sizeof(function_args) + nmax * sizeof(iuf64_t)) ; arglist->maxargs = nmax ; }
 
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-variable"

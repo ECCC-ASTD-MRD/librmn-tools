@@ -244,4 +244,15 @@ static inline int zmap_index_invalid(zmap *map, int index){
   return (index < 0 || index >= map->fhead.zni * map->fhead.znj) ;
 }
 
+#include <rmn/data_properties.h>
+
+// sfn argument list
+typedef function_args sfn_args ;
+
+// pointer to sfn function
+typedef int (*sfn_ptr)(int lni, int ni, int nj, block_properties *bp, void *data, sfn_args *args) ;   // pointer to sfn processing function
+
+// allocate an sfn argument list with room for at most nmax arguments
+#define malloc_sfn_args(arglist, nmax) { malloc_fn_args(arglist, nmax) ; }
+
 #endif
