@@ -14,6 +14,8 @@
 // Author:
 //     M. Valin,   Recherche en Prevision Numerique, 2025
 //
+#if ! defined(DMAP_FILTERS_000_007)
+#define DMAP_FILTERS_000_007
 
 #include <rmn/dmap_filters.h>
 
@@ -185,3 +187,5 @@ reverse:
 #undef FILTER_NAME
 #undef FILTER_ARGS
 #undef FILTER_ID
+
+#endif

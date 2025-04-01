@@ -87,6 +87,10 @@ set(PROJECT_H_FILES
   src/PUBLIC_INCLUDES/rmn/data_map.h
   src/PUBLIC_INCLUDES/rmn/data_properties.h
   src/PUBLIC_INCLUDES/rmn/dmap_filters.h
+  src/PUBLIC_INCLUDES/rmn/dmap_filters_000_007.h
+  src/PUBLIC_INCLUDES/rmn/dmap_filters_010_017.h
+  src/PUBLIC_INCLUDES/rmn/dmap_filters_020_027.h
+  src/PUBLIC_INCLUDES/rmn/dmap_filters_030_037.h
   src/PUBLIC_INCLUDES/rmn/dwt_i_lgt53.h
   src/PUBLIC_INCLUDES/rmn/entropy.h
   src/PUBLIC_INCLUDES/rmn/eval_compress.h

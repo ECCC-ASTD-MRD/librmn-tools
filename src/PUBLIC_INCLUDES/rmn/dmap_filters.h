@@ -58,57 +58,9 @@ typedef ssize_t dmap_filter(array_nd *, block_properties *, dmap_filter_list, bi
 typedef dmap_filter *dmap_filter_ptr ;
 
 #include <rmn/dmap_filters_000_007.h>
-
-#pragma weak dmap_filter_010
-dmap_filter  dmap_filter_010 ;
-#pragma weak dmap_filter_011
-dmap_filter  dmap_filter_011 ;
-#pragma weak dmap_filter_012
-dmap_filter  dmap_filter_012 ;
-#pragma weak dmap_filter_013
-dmap_filter  dmap_filter_013 ;
-#pragma weak dmap_filter_014
-dmap_filter  dmap_filter_014 ;
-#pragma weak dmap_filter_015
-dmap_filter  dmap_filter_015 ;
-#pragma weak dmap_filter_016
-dmap_filter  dmap_filter_016 ;
-#pragma weak dmap_filter_017
-dmap_filter  dmap_filter_017 ;
-
-#pragma weak dmap_filter_020
-dmap_filter  dmap_filter_020 ;
-#pragma weak dmap_filter_021
-dmap_filter  dmap_filter_021 ;
-#pragma weak dmap_filter_022
-dmap_filter  dmap_filter_022 ;
-#pragma weak dmap_filter_023
-dmap_filter  dmap_filter_023 ;
-#pragma weak dmap_filter_024
-dmap_filter  dmap_filter_024 ;
-#pragma weak dmap_filter_025
-dmap_filter  dmap_filter_025 ;
-#pragma weak dmap_filter_026
-dmap_filter  dmap_filter_026 ;
-#pragma weak dmap_filter_027
-dmap_filter  dmap_filter_027 ;
-
-#pragma weak dmap_filter_030
-dmap_filter  dmap_filter_030 ;
-#pragma weak dmap_filter_031
-dmap_filter  dmap_filter_031 ;
-#pragma weak dmap_filter_032
-dmap_filter  dmap_filter_032 ;
-#pragma weak dmap_filter_033
-dmap_filter  dmap_filter_033 ;
-#pragma weak dmap_filter_034
-dmap_filter  dmap_filter_034 ;
-#pragma weak dmap_filter_035
-dmap_filter  dmap_filter_035 ;
-#pragma weak dmap_filter_036
-dmap_filter  dmap_filter_036 ;
-#pragma weak dmap_filter_037
-dmap_filter  dmap_filter_037 ;
+#include <rmn/dmap_filters_010_017.h>
+#include <rmn/dmap_filters_020_027.h>
+#include <rmn/dmap_filters_030_037.h>
 
 // list of pointers to dmapfilter_args structures
 typedef struct{
@@ -125,24 +77,6 @@ typedef struct{
 #if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
 #define DMAPFILTER_PROLOG uint16_t id:7, flags:4, size:5 ; uint16_t meta0 ;
 #endif
-// #if __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
-// #define DMAPFILTER_PROLOG uint32_t meta0:16, size:5, flags:4, id:7
-// #endif
-
-// generic datamap filter metadata type, used for bit stream encoding
-// datamap filter metadata encoding used for
-// metadata output in forward mode and metadata input in reverse mode
-typedef struct{         // generic type used by the filter API
-  DMAPFILTER_PROLOG
-  uint32_t m32[] ;
-} dmapfilter_meta ;
-
-typedef struct{         // 16 bit metadata
-  DMAPFILTER_PROLOG
-  uint16_t m16[] ;
-} dmapfilter_m16 ;
-
-static const dmapfilter_meta dmeta_000 = { .id = 0, .flags = 0, .size = sizeof(dmapfilter_meta), .meta0 = 0 } ;
 
 // bit stream encoding of a datamap block :
 // number of filters (8 bits)
@@ -171,6 +105,5 @@ char *dmap_filter_name(int ordinal);
 // ssize_t dmap_filter_none(array_nd *a, block_properties *bp, dmap_filter_list dpfl, bitstream *stream);
 dmap_filter_ptr dmap_filter_next(dmap_filter_list dpfl);
 int dmap_filter_valid(dmap_filter_list dpfl, uint32_t id);
-
 
 #endif
