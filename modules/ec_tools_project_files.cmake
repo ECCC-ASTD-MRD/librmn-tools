@@ -12,6 +12,7 @@ set(PROJECT_C_FILES
   src/diag/data_info.c
   src/pack/data_map.c
   src/pack/dmap_filters.c
+  src/pack/dmap_filters_000_007.c
   src/pred/dwt_i_lgt53.c
   src/diag/entropy.c
   src/diag/eval_compress.c

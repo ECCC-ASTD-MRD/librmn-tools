@@ -39,6 +39,7 @@ typedef struct{
   } args[] ;         // arguments ( [0] .. [nargs-1] )
 } dmapfilter_args ;  // processing function argument list
 
+// forward filter control structure template
 // generic data pipe filter arguments
 typedef struct{
   uint32_t filter ;  // filter number
@@ -56,49 +57,7 @@ typedef ssize_t dmap_filter(array_nd *, block_properties *, dmap_filter_list, bi
 // generic pointer to data pipe filter function
 typedef dmap_filter *dmap_filter_ptr ;
 
-// forward filter control structure template
-// typedef struct{
-//   uint32_t filter ;  // filter number
-//   ............... ;  // necessary data for forward filter
-// } dmap_filter_arg_0xx ;
-
-#pragma weak dmap_filter_000
-dmap_filter  dmap_filter_000 ;
-typedef struct{
-  uint32_t filter ;  // filter number
-  float offset ;
-  float scale ;
-} dmap_filter_arg_000 ;
-
-#pragma weak dmap_filter_001
-dmap_filter  dmap_filter_001 ;
-typedef struct{
-  uint32_t filter ;  // filter number
-  int32_t offset ;
-  int32_t scale ;
-} dmap_filter_arg_001 ;
-
-#pragma weak dmap_filter_002
-dmap_filter  dmap_filter_002 ;
-typedef struct{
-  uint32_t filter ;  // filter number
-  int32_t flag ;
-} dmap_filter_arg_002 ;
-
-#pragma weak dmap_filter_003
-dmap_filter  dmap_filter_003 ;
-typedef struct{
-  uint32_t filter ;  // filter number
-} dmap_filter_arg_003 ;
-
-#pragma weak dmap_filter_004
-dmap_filter  dmap_filter_004 ;
-#pragma weak dmap_filter_005
-dmap_filter  dmap_filter_005 ;
-#pragma weak dmap_filter_006
-dmap_filter  dmap_filter_006 ;
-#pragma weak dmap_filter_007
-dmap_filter  dmap_filter_007 ;
+#include <rmn/dmap_filters_000_007.h>
 
 #pragma weak dmap_filter_010
 dmap_filter  dmap_filter_010 ;
@@ -211,7 +170,7 @@ char *dmap_filter_name(int ordinal);
 // ssize_t dmap_filter_bad(array_nd *a, block_properties *bp, dmap_filter_list dpfl, bitstream *stream);
 // ssize_t dmap_filter_none(array_nd *a, block_properties *bp, dmap_filter_list dpfl, bitstream *stream);
 dmap_filter_ptr dmap_filter_next(dmap_filter_list dpfl);
-int dmap_filter_id_invalid(dmap_filter_list dpfl, uint32_t id);
+int dmap_filter_valid(dmap_filter_list dpfl, uint32_t id);
 
 
 #endif

@@ -93,7 +93,7 @@ int main(int argc, char **argv){
 //   fprintf(stderr, "\n");
   STREAM_XTRACT_CHECK(*stream) ;
   STREAM_PEEK_NBITS(*stream, unfilter, 8) ;
-  while(unfilter >=0 && unfilter < MAX_DP_FILTERS){
+  while(unfilter < MAX_DP_FILTERS){
     fprintf(stderr, "filter test : reverse filter id = %d\n", unfilter) ;
     dmap_filter_ptr unfilter_ptr = dmap_filter_get(unfilter) ;
     status = (*unfilter_ptr)((array_nd *)&a2d, NULL, NULL, stream) ;
