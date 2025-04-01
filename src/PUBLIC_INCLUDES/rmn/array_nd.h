@@ -309,7 +309,7 @@ uint8_t  *subarray_address_nd(array_nd *a);
     )
 
 // users should call the generic function array_address rather than array_address_nd
-uint8_t  *array_address_nd(array_nd *a);
+void  *array_address_nd(array_nd *a);
 #define array_address(ARRAY) \
   _Generic((ARRAY), \
     array_nd *: array_address_nd((array_nd *)ARRAY), \

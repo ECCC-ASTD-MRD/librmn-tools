@@ -64,7 +64,7 @@ typedef struct{
 
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-variable"
-static const char *printable_type[10] = { "INVALID", "INT_32", "UINT_32", "FLOAT", "RAW_32", "LARGE", "UNKNOWN" "INT_64", "UINT_64", "DOUBLE" } ;
+static const char *printable_type[10] = { "INVALID", "INT_32", "UINT_32", "FLOAT", "RAW_32", "LARGE", "UNKNOWN", "INT_64", "UINT_64", "DOUBLE" } ;
 #pragma GCC diagnostic pop
 
 #endif

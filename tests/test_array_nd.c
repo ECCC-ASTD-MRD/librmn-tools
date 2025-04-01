@@ -215,6 +215,7 @@ int main(int argc, char **argv){
   return 0 ;
 
 fail:
+  if(errors > 0) fprintf(stderr, "errors = %d\n", errors) ;
   fprintf(stderr, "FAILED\n") ;
   exit(1) ;
 }

@@ -59,7 +59,7 @@ uint8_t *subarray_address_nd(array_nd *a){
 // get address of the first element of array a
 // a  [IN] : pointer to array_nd struct
 // return address of first element of array (NULL if error)
-uint8_t *array_address_nd(array_nd *a){
+void *array_address_nd(array_nd *a){
   if(a == NULL) return NULL ;
   return a->data ;                            // base address of full array
 }
@@ -96,7 +96,7 @@ array_nd *create_subarray(array_nd *a, array_nd *b){
 
 // allocate both array descriptor and space to accomodate array data
 // esize   [IN] : size of array elements in bytes
-// type    [IN] : data type, see type in array_nd struct
+// type    [IN] : data type, see type in rmn/data_kind.h
 // ndim    [IN] : number of dimensions
 // dm5[nd] [IN] : dimensions
 // return pointer to filled descriptor (NULL in case of error)
@@ -131,7 +131,7 @@ array_nd *create_array_nd(int32_t esize, int8_t type, int32_t ndim, int32_t ndm5
 // a    [INOUT] : pointer to nD array descriptor (if NULL a new descriptor will be created)
 // mem     [IN] : memory address for array. allocate automatically if NULL
 // esize   [IN] : size of array elements in bytes
-// type    [IN] : data type, see type in array_nd struct
+// type    [IN] : data type, see type in rmn/data_kind.h
 // ndim    [IN] : number of dimensions
 // dm5[nd] [IN] : dimensions
 void new_array_nd(array_nd *a, void *mem, int32_t esize, int8_t type, int32_t ndim, int32_t ndm5, __i32__5__ dm5){

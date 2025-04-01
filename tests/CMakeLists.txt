@@ -182,6 +182,7 @@ add_project_test(test_data_info_f test_data_info.F90 LINK_LIBS "rmn::rmn;libaec:
 
 add_project_test(test_bits test_bits.F90 DL LINK_LIBS "rmn::rmn;libaec::aec")
 add_project_test(test_pipe_filters test_pipe_filters.c LINK_LIBS "rmn::rmn-shared")
+add_project_test(test_dmap_filters test_dmap_filters.c LINK_LIBS "rmn::rmn-shared")
 add_project_test(test_atomic_functions test_atomic_functions.c LINK_LIBS "rmn::rmn-shared" NODIAG)
 add_project_test(test_pixmaps test_pixmaps.c LINK_LIBS "rmn::rmn-shared" NODIAG)
 add_project_test(test_wordstream test_wordstream.c LINK_LIBS "rmn::rmn-shared" NODIAG)

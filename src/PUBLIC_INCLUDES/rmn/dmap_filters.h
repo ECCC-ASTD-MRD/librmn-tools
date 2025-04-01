@@ -15,11 +15,13 @@
 //     M. Valin,   Recherche en Prevision Numerique, 2025
 //
 
-#if ! defined(MAX_DMAPFILTERS)
-#define MAX_DMAPFILTERS 128
+#if ! defined(MAX_DP_FILTERS)
+#define MAX_DP_FILTERS 32
 
+#include <rmn/cpp_extras.h>
 #include <rmn/data_map.h>
 #include <rmn/array_nd.h>
+#include <rmn/be_stream.h>
 #include <rmn/bitstream.h>
 
 // allocate an argument list with room for at most nmax arguments
@@ -41,26 +43,113 @@ typedef struct{
 typedef struct{
   uint32_t filter ;  // filter number
   uint8_t args[] ;
-} dp_filter_args ;
+} dmap_filter_args ;
 
-// list of pointers to dp_filter_args structures (NULL TERMINATED)
-typedef  dp_filter_args *dp_filter__list[] ;
+// pointer to data pipe filter arguments
+typedef dmap_filter_args *dmap_filter_args_ptr ;
+
+// list of pointers to dmap_filter_args structures (NULL TERMINATED)
+typedef  dmap_filter_args_ptr *dmap_filter_list ;
 
 // generic data pipe filter function
-typedef ssize_t dp_filter(array_nd *, block_properties *, dp_filter__list, bitstream *) ;
+typedef ssize_t dmap_filter(array_nd *, block_properties *, dmap_filter_list, bitstream *) ;
 // generic pointer to data pipe filter function
-typedef dp_filter *dp_filter_ptr ;
+typedef dmap_filter *dmap_filter_ptr ;
 
-dp_filter dp_filter_000 ;
-dp_filter dp_filter_001 ;
-dp_filter dp_filter_002 ;
+// forward filter control structure template
+// typedef struct{
+//   uint32_t filter ;  // filter number
+//   ............... ;  // necessary data for forward filter
+// } dmap_filter_arg_0xx ;
 
-static dp_filter_ptr dp_filters[4] = {
-  &dp_filter_000,
-  &dp_filter_001,
-  &dp_filter_002,
-  NULL
-} ;
+#pragma weak dmap_filter_000
+dmap_filter  dmap_filter_000 ;
+typedef struct{
+  uint32_t filter ;  // filter number
+  float offset ;
+  float scale ;
+} dmap_filter_arg_000 ;
+
+#pragma weak dmap_filter_001
+dmap_filter  dmap_filter_001 ;
+typedef struct{
+  uint32_t filter ;  // filter number
+  int32_t offset ;
+  int32_t scale ;
+} dmap_filter_arg_001 ;
+
+#pragma weak dmap_filter_002
+dmap_filter  dmap_filter_002 ;
+typedef struct{
+  uint32_t filter ;  // filter number
+  int32_t flag ;
+} dmap_filter_arg_002 ;
+
+#pragma weak dmap_filter_003
+dmap_filter  dmap_filter_003 ;
+typedef struct{
+  uint32_t filter ;  // filter number
+} dmap_filter_arg_003 ;
+
+#pragma weak dmap_filter_004
+dmap_filter  dmap_filter_004 ;
+#pragma weak dmap_filter_005
+dmap_filter  dmap_filter_005 ;
+#pragma weak dmap_filter_006
+dmap_filter  dmap_filter_006 ;
+#pragma weak dmap_filter_007
+dmap_filter  dmap_filter_007 ;
+
+#pragma weak dmap_filter_010
+dmap_filter  dmap_filter_010 ;
+#pragma weak dmap_filter_011
+dmap_filter  dmap_filter_011 ;
+#pragma weak dmap_filter_012
+dmap_filter  dmap_filter_012 ;
+#pragma weak dmap_filter_013
+dmap_filter  dmap_filter_013 ;
+#pragma weak dmap_filter_014
+dmap_filter  dmap_filter_014 ;
+#pragma weak dmap_filter_015
+dmap_filter  dmap_filter_015 ;
+#pragma weak dmap_filter_016
+dmap_filter  dmap_filter_016 ;
+#pragma weak dmap_filter_017
+dmap_filter  dmap_filter_017 ;
+
+#pragma weak dmap_filter_020
+dmap_filter  dmap_filter_020 ;
+#pragma weak dmap_filter_021
+dmap_filter  dmap_filter_021 ;
+#pragma weak dmap_filter_022
+dmap_filter  dmap_filter_022 ;
+#pragma weak dmap_filter_023
+dmap_filter  dmap_filter_023 ;
+#pragma weak dmap_filter_024
+dmap_filter  dmap_filter_024 ;
+#pragma weak dmap_filter_025
+dmap_filter  dmap_filter_025 ;
+#pragma weak dmap_filter_026
+dmap_filter  dmap_filter_026 ;
+#pragma weak dmap_filter_027
+dmap_filter  dmap_filter_027 ;
+
+#pragma weak dmap_filter_030
+dmap_filter  dmap_filter_030 ;
+#pragma weak dmap_filter_031
+dmap_filter  dmap_filter_031 ;
+#pragma weak dmap_filter_032
+dmap_filter  dmap_filter_032 ;
+#pragma weak dmap_filter_033
+dmap_filter  dmap_filter_033 ;
+#pragma weak dmap_filter_034
+dmap_filter  dmap_filter_034 ;
+#pragma weak dmap_filter_035
+dmap_filter  dmap_filter_035 ;
+#pragma weak dmap_filter_036
+dmap_filter  dmap_filter_036 ;
+#pragma weak dmap_filter_037
+dmap_filter  dmap_filter_037 ;
 
 // list of pointers to dmapfilter_args structures
 typedef struct{
@@ -107,11 +196,22 @@ static const dmapfilter_meta dmeta_000 = { .id = 0, .flags = 0, .size = sizeof(d
 // quantization filter | prediction filter | encoding filter
 
 // processed subarray will be stored into memory described by zmap table entries mem[index] and size[index]
-typedef int (*dmapfilter_ptr)(zmap *map, int index, array_nd *array, dmapfilter_args *args) ;   // pointer to processing function
+// typedef int (*dmapfilter_ptr)(zmap *map, int index, array_nd *array, dmapfilter_args *args) ;   // pointer to processing function
 
 
-static inline int dmapfilter_invalid(dmapfilter_args *args, uint32_t expected){
-  return (args->filter != expected) ;
-}
+// static inline int dmapfilter_invalid(dmapfilter_args *args, uint32_t expected){
+//   return (args->filter != expected) ;
+// }
+
+dmap_filter_ptr dmap_filter_get(int ordinal);
+int dmap_filter_set(dmap_filter_ptr filter, int ordinal, int force);
+int dmap_filter_exists(int ordinal);
+char *dmap_filter_name(int ordinal);
+
+// ssize_t dmap_filter_bad(array_nd *a, block_properties *bp, dmap_filter_list dpfl, bitstream *stream);
+// ssize_t dmap_filter_none(array_nd *a, block_properties *bp, dmap_filter_list dpfl, bitstream *stream);
+dmap_filter_ptr dmap_filter_next(dmap_filter_list dpfl);
+int dmap_filter_id_invalid(dmap_filter_list dpfl, uint32_t id);
+
 
 #endif

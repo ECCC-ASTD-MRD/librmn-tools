@@ -168,7 +168,7 @@ int main(int argc, char **argv){
   malloc_sfn_args(sfn_t_args, 20) ;
   if(sfn_t_args == NULL) goto fail ;
   if(sfn_t_args->maxargs != 20){
-    fprintf(stderr, "ERROR : sfn_t_args->maxargs is %ld, expected 20\n", sfn_t_args->maxargs) ;
+    fprintf(stderr, "ERROR : sfn_t_args->maxargs is %d, expected 20\n", sfn_t_args->maxargs) ;
     goto fail ;
   }
   fprintf(stderr, "SUCCESS\n") ;

@@ -78,6 +78,8 @@ set(PROJECT_H_FILES
   src/PUBLIC_INCLUDES/rmn/compare_count.h
 #   src/PUBLIC_INCLUDES/rmn/compress_data.h
   src/PUBLIC_INCLUDES/rmn/compress_expand.h
+  src/PUBLIC_INCLUDES/rmn/concat.h
+  src/PUBLIC_INCLUDES/rmn/cpp_extras.h
   src/PUBLIC_INCLUDES/rmn/ct_assert.h
   src/PUBLIC_INCLUDES/rmn/data_info.h
   src/PUBLIC_INCLUDES/rmn/data_kind.h
