@@ -99,9 +99,9 @@ int CONCAT(PREFIX,test)(){
         token = (i & mask) ;
         STREAM_INSERT_CHECK(s0) ;
         if(token){
-          STREAM_INSERT_1(s0) ;
+          STREAM_FAST_PUT_1(s0) ;
         }else{
-          STREAM_INSERT_0(s0) ;
+          STREAM_FAST_PUT_0(s0) ;
         }
       }
     }else{

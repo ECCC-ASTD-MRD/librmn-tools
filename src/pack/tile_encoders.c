@@ -399,13 +399,13 @@ int encode_tile(bitstream *s_in, int32_t *tile_in, int32_t nval, block_propertie
 // fprintf(stderr, " %d", token) ;
       STREAM_INSERT_CHECK(s) ;                  // make sure there is room for up to 32 bits
       if(token < shortref){                     // use "short" token
-        STREAM_INSERT_0(s) ;  ;                 // "short" token marker
+        STREAM_FAST_PUT_0(s) ;  ;            // "short" token marker
         if(nshort > 0){
           STREAM_PUT_NBITS(s, token, nshort) ;  // follow with nshort bits
         }
 //         checkbits += (nshort + 1) ;
       }else{                                    // use "long" token
-        STREAM_INSERT_1(s) ;                    // "long" token marker
+        STREAM_FAST_PUT_1(s) ;               // "long" token marker
         STREAM_PUT_NBITS(s, token, nbits) ;     // follow with nbits bits
 //         checkbits += (nbits + 1) ;
       }

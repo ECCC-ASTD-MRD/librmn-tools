@@ -49,25 +49,25 @@
 
 // insert the lower nbits bits from w32 into accumulator
 // this macro is unsafe, it assumes that nbits bits can be inserted into acumulator
-#undef INSERT_NBITS
-#define INSERT_NBITS(accum, insert, w32, nbits) \
+#undef FAST_PUT_NBITS
+#define FAST_PUT_NBITS(accum, insert, w32, nbits) \
         { uint64_t t=(w32) ; t <<= (64-(nbits)) ; t >>= insert ; insert += (nbits) ; accum |= t ; }
 
 // insert 1 into accumulator
 // this macro is unsafe, it assumes that nbits bits can be inserted into acumulator
-#undef INSERT_1
-#define INSERT_1(accum, insert) { uint64_t t=1 ; t <<= (63-insert) ; insert ++ ; accum |= t ; }
+#undef FAST_PUT_1
+#define FAST_PUT_1(accum, insert) { uint64_t t=1 ; t <<= (63-insert) ; insert ++ ; accum |= t ; }
 
 // insert 0 into accumulator
 // this macro is unsafe, it assumes that nbits bits can be inserted into acumulator
-#undef INSERT_0
-#define INSERT_0(accum, insert) { insert ++ ; }
+#undef FAST_PUT_0
+#define FAST_PUT_0(accum, insert) { insert ++ ; }
 
 // insert a stream of 0s into accumulator (equivalent of SKIP_NBITS in insert mode)
 // no action is needed for accum, argument is kept for compatoibility with LE version
 // this macro is unsafe, it assumes that nbits bits can be inserted into acumulator
-#undef INSERT_PAD0
-#define INSERT_PAD0(accum, insert, nbits) { insert+=nbits ; }
+#undef FAST_PUT_PAD0
+#define FAST_PUT_PAD0(accum, insert, nbits) { insert+=nbits ; }
 
 // check that 32 bits can be safely inserted into accumulator
 // if not possible, store upper 32 bits of accum into stream, update accum, insert, stream pointer
@@ -107,20 +107,20 @@
 #define XTRACT_BEGIN(accum, xtract, streamptr) { uint32_t t = *(streamptr) ; accum = t ; accum <<= 32 ; (streamptr)++ ; xtract = 32 ; }
 
 // take a peek at the next nbits bits from accumulator into w32 (unsafe, assumes that nbits bits are available)
-#undef PEEK_NBITS
-#define PEEK_NBITS(accum, xtract, w32, nbits) { w32 = (uint64_t)accum >> (64 - (nbits)) ; }
+#undef FAST_PEEK_NBITS
+#define FAST_PEEK_NBITS(accum, xtract, w32, nbits) { w32 = (uint64_t)accum >> (64 - (nbits)) ; }
 
 // take a peek at the next bit from accum into w32 (unsafe, assumes that 1 bit is available)
-#undef PEEK_1
-#define PEEK_1(accum, xtract, w32) { w32 = (accum >> 63) & 1 ; }
+#undef FAST_PEEK_1
+#define FAST_PEEK_1(accum, xtract, w32) { w32 = (accum >> 63) & 1 ; }
 
 // skip the next nbits bits from accumulator (unsafe, assumes that nbits bits are available)
-#undef SKIP_NBITS
-#define SKIP_NBITS(accum, xtract, nbits) { accum <<= (nbits) ; xtract -= (nbits) ; }
+#undef FAST_SKIP_NBITS
+#define FAST_SKIP_NBITS(accum, xtract, nbits) { accum <<= (nbits) ; xtract -= (nbits) ; }
 
 // skip the next bit from accumulator (unsafe, assumes that 1 bit is available)
-#undef SKIP_1
-#define SKIP_1(accum, xtract) { accum <<= 1 ; xtract-- ; }
+#undef FAST_SKIP_1
+#define FAST_SKIP_1(accum, xtract) { accum <<= 1 ; xtract-- ; }
 
 // check that 32 bits can be safely extracted from accum
 // if not possible, get extra 32 bits into accum from stresm, update accum, xtract, stream
