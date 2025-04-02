@@ -28,12 +28,12 @@
 int main(int argc, char **argv){
   dmap_filter_args_ptr dpfa[10] ;
   dmap_filter_list dpfl = &dpfa[0] ;
-  dmap_filter_arg_000 arg_000a = { 0000, 1.0f, 2.0f } ;
-  dmap_filter_arg_000 arg_000b = { 0000, 10.0f, 20.0f } ;
+  dmap_filter_arg_007 arg_007a = { 0007, 1.0f, 2.0f } ;
+  dmap_filter_arg_007 arg_007b = { 0007, 10.0f, 20.0f } ;
   dmap_filter_arg_001 arg_001a = { 0001, 5, 6 } ;
   dmap_filter_arg_002 arg_002a = { 0002, 0 } ;
-  dmap_filter_arg_003 arg_000z = { 0003 } ;
-  dmap_filter_arg_003 arg_000n = { 0177 } ;
+  dmap_filter_arg_003 arg_007z = { 0003 } ;
+  dmap_filter_arg_003 arg_007n = { 0177 } ;
   array_2d a2d ;
   block_properties bp2d ;
   bitstream *stream ;
@@ -70,34 +70,35 @@ int main(int argc, char **argv){
     }
   }
 
-  dpfl[0] = (dmap_filter_args_ptr)&arg_000a ;     // filter 000
-  dpfl[1] = (dmap_filter_args_ptr)&arg_000b ;     // filter 000
+  dpfl[0] = (dmap_filter_args_ptr)&arg_007a ;     // filter 007
+  dpfl[1] = (dmap_filter_args_ptr)&arg_007b ;     // filter 007
   dpfl[2] = (dmap_filter_args_ptr)&arg_001a ;     // filter 001
   dpfl[3] = (dmap_filter_args_ptr)&arg_002a ;     // filter 002
-  dpfl[4] = (dmap_filter_args_ptr)&arg_000z ;     // undefined filter 003
-  dpfl[5] = (dmap_filter_args_ptr)&arg_000n ;     // invalid filter 127
+  dpfl[4] = (dmap_filter_args_ptr)&arg_007z ;     // undefined filter 003
+  dpfl[5] = (dmap_filter_args_ptr)&arg_007n ;     // invalid filter 127
   dpfl[6] = NULL ;                                // end of filter list
   dpfl[6] = NULL ;
 
   STREAM_CREATE(stream, buffer, sizeof(buffer), 0) ;
   STREAM_INSERT_BEGIN(*stream) ;
   fprintf(stderr, "filter test : available space in stream %ld bits\n", StreamAvailableSpace(stream)) ;
-  status = dmap_filter_000((array_nd *)&a2d, &bp2d, dpfl, stream) ;   // activate filter chain
+  status = dmap_filter_007((array_nd *)&a2d, &bp2d, dpfl, stream) ;   // activate filter chain
   STREAM_PUT_NBITS(*stream, 255, 8) ;
   fprintf(stderr, "filter test : status = %ld\n", status) ;
   STREAM_FLUSH(*stream) ;
   STREAM_INSERT_ALIGN32(*stream) ;
   STREAM_REWIND(*stream, 1) ;
   fprintf(stderr, "filter test : available data in stream %ld bits\n", StreamAvailableBits(stream)) ;
-//   for(i=0 ; i<8 ; i++) fprintf(stderr, "%8.8x ", buffer[i]) ;
-//   fprintf(stderr, "\n");
-  STREAM_XTRACT_CHECK(*stream) ;
-  STREAM_PEEK_NBITS(*stream, unfilter, 8) ;
+
+  for(i=0 ; i<8 ; i++) fprintf(stderr, "%8.8x ", buffer[i]) ;
+  fprintf(stderr, "\n");
+
+  STREAM_XTRACT_CHECK(*stream) ; STREAM_FAST_PEEK_NBITS(*stream, unfilter, 8) ;
   while(unfilter < MAX_DP_FILTERS){
     fprintf(stderr, "filter test : reverse filter id = %d\n", unfilter) ;
     dmap_filter_ptr unfilter_ptr = dmap_filter_get(unfilter) ;
     status = (*unfilter_ptr)((array_nd *)&a2d, NULL, NULL, stream) ;
-    STREAM_PEEK_NBITS(*stream, unfilter, 8) ;
+    STREAM_XTRACT_CHECK(*stream) ; STREAM_FAST_PEEK_NBITS(*stream, unfilter, 8) ;
     if(StreamAvailableBits(stream) < 8) break ;
   }
   STREAM_GET_NBITS(*stream, unfilter, 8) ;

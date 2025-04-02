@@ -161,7 +161,7 @@ char *dmap_filter_name(int ordinal){
 // if id is outside table bounds, return dmap_filter_bad
 dmap_filter_ptr dmap_filter_get(int ordinal){
   if(ordinal < 0 || ordinal >= MAX_DP_FILTERS+3) return dmap_filter_bad ;
-  if(dmap_filter_table[ordinal] == NULL) return dmap_filter_none ;
+  if(dmap_filter_table[ordinal] == NULL)         return dmap_filter_none ;
   return dmap_filter_table[ordinal] ;
 }
 
@@ -185,53 +185,3 @@ dmap_filter_ptr dmap_filter_next(dmap_filter_list dpfl){
   int next_filter = dpfl[000]->filter ;
   return dmap_filter_get(next_filter) ;
 }
-
-#if defined(COMPILE_FILTER_TEMPLATE_NEVER_TRUE)
-
-#define FILTER_ID xxx
-#define FILTER_NAME CONCAT2(dmap_filter_,FILTER_ID)
-#define FILTER_ARGS CONCAT2(dmap_filter_arg_,FILTER_ID)
-// dpfl == NULL && bp == NULL indicates reverse filter call
-// for the reverse filter, the metadata from the bit stream provides the necessary information
-// the filter may modify the contents of the array described by a
-// in filter mode, bp == NULL if no properties information is available
-// the filter list MUST BE NULL TERMINATED
-ssize_t FILTER_NAME(array_nd *a, block_properties *bp, dmap_filter_list dpfl, bitstream *stream){
-  uint32_t me = FILTER_ID ;
-  if(a == NULL || stream == NULL) goto fail ;    // no array or no stream
-  void *array = array_address(a) ;               // get array address, dimension(s), and type
-  int ndim = a->ndim, type = a->type ;
-  ssize_t status = 0 ;
-  bitstream s ;                                  // local copy of stream control structure
-  if(dpfl == NULL && bp == NULL) goto reverse ;  // call to reverse filter
-  if(! dmap_filter_valid(dpfl,me)) goto fail ;   // not the right filter or NULL pointer
-  FILTER_ARGS *arg = (FILTER_ARGS *)(*dpfl) ;    // get parameters for this filter
-
-//
-// check a->type and a->ndim
-//
-// filter processing code goes here
-//
-  dpfl++ ;                                     // call next filter if there is one
-  dmap_filter_ptr next_filter = dmap_filter_next(dpfl) ;
-  s = *stream ;
-  status = (*next_filter)(a, bp, dpfl, stream) ;
-  if(status < 0) goto fail ;
-//
-// insert into bitstream the appropriate metadata for the reverse filter
-//
-end:
-  *stream = s ;   // SAVE stream changes
-  return status ;
-
-fail:
-  return -1 ;     // DO NOT SAVE stream changes
-
-reverse:
-  goto end ;
-}
-#undef FILTER_NAME
-#undef FILTER_ARGS
-#undef FILTER_ID
-
-#endif

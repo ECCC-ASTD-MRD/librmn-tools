@@ -17,12 +17,15 @@
 
 // dmap filters 000 to 007
 
+#if ! defined(DMAP_FILTERS_000_007)
+#define DMAP_FILTERS_000_007
+
 #pragma weak dmap_filter_000
 dmap_filter  dmap_filter_000 ;
 typedef struct{
   uint32_t filter ;  // filter number
-  float offset ;
-  float scale ;
+  float   maxerr ;
+  int32_t nbits ;
 } dmap_filter_arg_000 ;
 
 #pragma weak dmap_filter_001
@@ -76,5 +79,8 @@ dmap_filter  dmap_filter_007 ;
 dmap_filter  dmap_filter_007 ;
 typedef struct{
   uint32_t filter ;  // filter number
-  uint8_t args[] ;
+  float offset ;
+  float scale ;
 } dmap_filter_arg_007 ;
+
+#endif
