@@ -44,6 +44,7 @@
 // X 0010xxxx      reserved for future use
 // L 0011SSME      preamble of 12 bit long header      (> 16 bits / value) 0011SSME nnnn
 //   001100xx      NOT USED, constant blocks shall use the A type header (can be reserved for future use)
+//   00110000      USED IN TESTS
 // B 01MEnnnn      all values >= 0  ( 1->16 bits / value, nnnn == number of bits - 1)
 // C 10MEnnnn      all values <= 0  ( 1->16 bits / value, ABS(value), nnnn == number of bits - 1)
 // D 11MEnnnn      mixed signs      (1->16 bits / value, nnnn == number of bits - 1)

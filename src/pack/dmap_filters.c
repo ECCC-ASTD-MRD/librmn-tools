@@ -19,6 +19,7 @@
 #include <rmn/dmap_filters.h>
 
 // used to process undefined filters, does not interrupt filter chain
+// behaves like a null filter, MUST NEVER be called as an inverse filter
 static ssize_t dmap_filter_none(array_nd *a, block_properties *bp, dmap_filter_list dpfl, bitstream *stream){
   (void) (a) ;
   (void) (bp) ;
@@ -26,11 +27,12 @@ static ssize_t dmap_filter_none(array_nd *a, block_properties *bp, dmap_filter_l
   fprintf(stderr, "UNDEFINED FILTER (%d)\n", dpfl[0]->filter) ;
   dpfl++ ;                              // next filter
   dmap_filter_ptr next_filter = dmap_filter_next(dpfl) ;
-  if(next_filter != NULL) (*next_filter)(a, bp, dpfl, stream) ;
+  if(next_filter != NULL) return (*next_filter)(a, bp, dpfl, stream) ;
   return 0 ;
 }
 
 // used to process invalid filters, does not interrupt filter chain
+// behaves like a null filter, MUST NEVER be called as an inverse filter
 static ssize_t dmap_filter_bad(array_nd *a, block_properties *bp, dmap_filter_list dpfl, bitstream *stream){
   (void) (a) ;
   (void) (bp) ;
@@ -38,11 +40,11 @@ static ssize_t dmap_filter_bad(array_nd *a, block_properties *bp, dmap_filter_li
   fprintf(stderr, "INVALID FILTER (%d)\n", dpfl[0]->filter) ;
   dpfl++ ;                              // next filter
   dmap_filter_ptr next_filter = dmap_filter_next(dpfl) ;
-  if(next_filter != NULL) (*next_filter)(a, bp, dpfl, stream) ;
+  if(next_filter != NULL) return (*next_filter)(a, bp, dpfl, stream) ;
   return 0 ;
 }
 
-// terminate filter chain
+// this filter terminates the filter chain
 static ssize_t dmap_filter_last(array_nd *a, block_properties *bp, dmap_filter_list dpfl, bitstream *stream){
   (void) (a) ;
   (void) (bp) ;
@@ -52,15 +54,23 @@ static ssize_t dmap_filter_last(array_nd *a, block_properties *bp, dmap_filter_l
   return 0 ;
 }
 
+// insert END OF FILTER CHANI marker into bit stream
+ssize_t dmap_filter_end(bitstream *stream){
+  STREAM_PUT_NBITS(*stream, 255, 8) ;
+  return 8 ;
+}
+
+// table containing " understandable" filter names
+// 3 extra entries at end, for internal dummy filters
 static char *dmap_filter_names[MAX_DP_FILTERS+3] = {
-  "filter_000",
-  "filter_001",
-  "filter_002",
-  "filter_003",
-  "filter_004",
-  "filter_005",
-  "filter_006",
-  "filter_007",
+  "array dimensions and type",     // "filter_head",
+  "integer scale + offset",        // "filter_001",
+  "integer flag",                  // "filter_002",
+  "float linear quantizer",        // "filter_003",
+  "Lorenzo predictor",             // "filter_004",
+  "integer wavelet transform",     // "filter_005",
+  "bit stream encoder",            // "filter_006",
+  "float scale + offset",          // "filter_007",
   "filter_010",
   "filter_011",
   "filter_012",
@@ -90,8 +100,10 @@ static char *dmap_filter_names[MAX_DP_FILTERS+3] = {
   "filter_last"     // dummy filter
 } ;
 
+// table of filter addresses
+// 3 extra entries at end, for internal dummy filters
 static dmap_filter_ptr dmap_filter_table[MAX_DP_FILTERS+3] = {
-  dmap_filter_000,
+  dmap_filter_head,
   dmap_filter_001,
   dmap_filter_002,
   dmap_filter_003,

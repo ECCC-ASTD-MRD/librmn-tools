@@ -20,13 +20,9 @@
 #if ! defined(DMAP_FILTERS_000_007)
 #define DMAP_FILTERS_000_007
 
-#pragma weak dmap_filter_000
-dmap_filter  dmap_filter_000 ;
-typedef struct{
-  uint32_t filter ;  // filter number
-  float   maxerr ;
-  int32_t nbits ;
-} dmap_filter_arg_000 ;
+// filter 000 is a special case
+#pragma weak dmap_filter_head
+dmap_filter  dmap_filter_head ;
 
 #pragma weak dmap_filter_001
 dmap_filter  dmap_filter_001 ;
@@ -52,14 +48,12 @@ typedef struct{
 
 #pragma weak dmap_filter_004
 dmap_filter  dmap_filter_004 ;
-dmap_filter  dmap_filter_004 ;
 typedef struct{
   uint32_t filter ;  // filter number
   uint8_t args[] ;
 } dmap_filter_arg_004 ;
 
 #pragma weak dmap_filter_005
-dmap_filter  dmap_filter_005 ;
 dmap_filter  dmap_filter_005 ;
 typedef struct{
   uint32_t filter ;  // filter number
@@ -68,14 +62,15 @@ typedef struct{
 
 #pragma weak dmap_filter_006
 dmap_filter  dmap_filter_006 ;
-dmap_filter  dmap_filter_006 ;
 typedef struct{
   uint32_t filter ;  // filter number
-  uint8_t args[] ;
+  // mode >    0 : raw encoding using mode bits ( 1 - 64 )
+  // mode ==   0 : raw encoding using size from array descriptor
+  // mode >  100 : tile encoding with tile size mode - 100
+  uint32_t mode ;
 } dmap_filter_arg_006 ;
 
 #pragma weak dmap_filter_007
-dmap_filter  dmap_filter_007 ;
 dmap_filter  dmap_filter_007 ;
 typedef struct{
   uint32_t filter ;  // filter number
