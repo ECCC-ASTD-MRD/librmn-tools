@@ -45,99 +45,60 @@ static ssize_t dmap_filter_bad(array_nd *a, block_properties *bp, dmap_filter_li
 }
 
 // this filter terminates the filter chain
+// insert FILTER_CHAIN_END marker into bit stream
 static ssize_t dmap_filter_last(array_nd *a, block_properties *bp, dmap_filter_list dpfl, bitstream *stream){
   (void) (a) ;
   (void) (bp) ;
   (void) (dpfl) ;
-  (void) (stream) ;
+//   (void) (stream) ;
+  STREAM_PUT_NBITS(*stream, FILTER_CHAIN_END, 8) ;
   fprintf(stderr, "END of filter chain\n") ;
-  return 0 ;
-}
-
-// insert END OF FILTER CHANI marker into bit stream
-ssize_t dmap_filter_end(bitstream *stream){
-  STREAM_PUT_NBITS(*stream, 255, 8) ;
   return 8 ;
 }
 
-// table containing " understandable" filter names
-// 3 extra entries at end, for internal dummy filters
-static char *dmap_filter_names[MAX_DP_FILTERS+3] = {
-  "array dimensions and type",     // "filter_head",
-  "integer scale + offset",        // "filter_001",
-  "integer flag",                  // "filter_002",
-  "float linear quantizer",        // "filter_003",
-  "Lorenzo predictor",             // "filter_004",
-  "integer wavelet transform",     // "filter_005",
-  "bit stream encoder",            // "filter_006",
-  "float scale + offset",          // "filter_007",
-  "filter_010",
-  "filter_011",
-  "filter_012",
-  "filter_013",
-  "filter_014",
-  "filter_015",
-  "filter_016",
-  "filter_017",
-  "filter_020",
-  "filter_021",
-  "filter_022",
-  "filter_023",
-  "filter_024",
-  "filter_025",
-  "filter_026",
-  "filter_027",
-  "filter_030",
-  "filter_031",
-  "filter_032",
-  "filter_033",
-  "filter_034",
-  "filter_035",
-  "filter_036",
-  "filter_037",
-  "filter_none",    // dummy filter
-  "filter_bad",     // dummy filter
-  "filter_last"     // dummy filter
-} ;
+typedef struct{
+  dmap_filter_ptr ptr ;
+  char *name ;
+} filter_properties ;
 
-// table of filter addresses
+// table of filter addresses and names
 // 3 extra entries at end, for internal dummy filters
-static dmap_filter_ptr dmap_filter_table[MAX_DP_FILTERS+3] = {
-  dmap_filter_head,
-  dmap_filter_001,
-  dmap_filter_002,
-  dmap_filter_003,
-  dmap_filter_004,
-  dmap_filter_005,
-  dmap_filter_006,
-  dmap_filter_007,
-  dmap_filter_010,
-  dmap_filter_011,
-  dmap_filter_012,
-  dmap_filter_013,
-  dmap_filter_014,
-  dmap_filter_015,
-  dmap_filter_016,
-  dmap_filter_017,
-  dmap_filter_020,
-  dmap_filter_021,
-  dmap_filter_022,
-  dmap_filter_023,
-  dmap_filter_024,
-  dmap_filter_025,
-  dmap_filter_026,
-  dmap_filter_027,
-  dmap_filter_030,
-  dmap_filter_031,
-  dmap_filter_032,
-  dmap_filter_033,
-  dmap_filter_034,
-  dmap_filter_035,
-  dmap_filter_036,
-  dmap_filter_037,
-  dmap_filter_none,    // dummy filter
-  dmap_filter_bad,     // dummy filter
-  dmap_filter_last     // dummy filter
+static filter_properties filters[MAX_DP_FILTERS+3] = {
+  { dmap_filter_fwd,   "array dimensions and type"  } ,
+  { dmap_filter_001,   "integer scale + offset"     } ,
+  { dmap_filter_002,   "integer flag"               } ,
+  { dmap_filter_003,   "float linear quantizer"     } ,
+  { dmap_filter_004,   "Lorenzo predictor"          } ,
+  { dmap_filter_005,   "integer wavelet transform"  } ,
+  { dmap_filter_006,   "bit stream encoder"         } ,
+  { dmap_filter_007,   "float scale + offset"       } ,
+  { dmap_filter_010,   "filter_010"                 } ,
+  { dmap_filter_011,   "filter_011"                 } ,
+  { dmap_filter_012,   "filter_012"                 } ,
+  { dmap_filter_013,   "filter_013"                 } ,
+  { dmap_filter_014,   "filter_014"                 } ,
+  { dmap_filter_015,   "filter_015"                 } ,
+  { dmap_filter_016,   "filter_016"                 } ,
+  { dmap_filter_017,   "filter_017"                 } ,
+  { dmap_filter_020,   "filter_020"                 } ,
+  { dmap_filter_021,   "filter_021"                 } ,
+  { dmap_filter_022,   "filter_022"                 } ,
+  { dmap_filter_023,   "filter_023"                 } ,
+  { dmap_filter_024,   "filter_024"                 } ,
+  { dmap_filter_025,   "filter_025"                 } ,
+  { dmap_filter_026,   "filter_026"                 } ,
+  { dmap_filter_027,   "filter_027"                 } ,
+  { dmap_filter_030,   "filter_030"                 } ,
+  { dmap_filter_031,   "filter_031"                 } ,
+  { dmap_filter_032,   "filter_032"                 } ,
+  { dmap_filter_033,   "filter_033"                 } ,
+  { dmap_filter_034,   "filter_034"                 } ,
+  { dmap_filter_035,   "filter_035"                 } ,
+  { dmap_filter_036,   "filter_036"                 } ,
+  { dmap_filter_037,   "filter_037"                 } ,
+  { dmap_filter_none,  "filter_none"                } ,
+  { dmap_filter_bad,   "filter_bad"                 } ,
+  { dmap_filter_last,  "filter_last"                }
 } ;
 
 // dpfl [IN] : pointer to argument list for a filter
@@ -156,15 +117,15 @@ int dmap_filter_valid(dmap_filter_list dpfl, uint32_t id){
 // return 1 if filter entry exists and filter is defined
 int dmap_filter_exists(int ordinal){
   if(ordinal < 0 || ordinal >= MAX_DP_FILTERS+3) return 0 ;
-  return (dmap_filter_table[ordinal] != NULL) ;
+  return (filters[ordinal].ptr != NULL) ;
 }
 
 // ordinal [IN] : filter id
 // return name of filter having this id
 char *dmap_filter_name(int ordinal){
   if(ordinal < 0 || ordinal >= MAX_DP_FILTERS+3) return "filter_not_valid" ;
-  if(dmap_filter_table[ordinal] == NULL) return "filter_not_defined" ;
-  return dmap_filter_names[ordinal] ;
+  if(filters[ordinal].ptr == NULL) return "filter_not_defined" ;
+  return filters[ordinal].name ;
 }
 
 // ordinal [IN] : filter id
@@ -173,17 +134,17 @@ char *dmap_filter_name(int ordinal){
 // if id is outside table bounds, return dmap_filter_bad
 dmap_filter_ptr dmap_filter_get(int ordinal){
   if(ordinal < 0 || ordinal >= MAX_DP_FILTERS+3) return dmap_filter_bad ;
-  if(dmap_filter_table[ordinal] == NULL)         return dmap_filter_none ;
-  return dmap_filter_table[ordinal] ;
+  if(filters[ordinal].ptr == NULL)         return dmap_filter_none ;
+  return filters[ordinal].ptr ;
 }
 
 int dmap_filter_set(dmap_filter_ptr filter, int ordinal, int force){
   if(ordinal < 0 || ordinal >= MAX_DP_FILTERS) return -1 ;  // invalid filter ordinal
-  if(dmap_filter_table[ordinal] == NULL){                  // filter not already defined
-    dmap_filter_table[ordinal] = filter ;                  // set to filter
+  if(filters[ordinal].ptr == NULL){                  // filter not already defined
+    filters[ordinal].ptr = filter ;                  // set to filter
   }else{
     if(force == 0) return -2 ;                              // filter already defined
-    dmap_filter_table[ordinal] = filter ;                  // override previous filter
+    filters[ordinal].ptr = filter ;                  // override previous filter
   }
   return ordinal ;
 }
@@ -192,8 +153,26 @@ int dmap_filter_set(dmap_filter_ptr filter, int ordinal, int force){
 dmap_filter_ptr dmap_filter_next(dmap_filter_list dpfl){
   if(*dpfl == NULL){
     return dmap_filter_last ;   // end of filter chain
-//     return NULL ;
   }
   int next_filter = dpfl[000]->filter ;
   return dmap_filter_get(next_filter) ;
+}
+
+// call next inverse dmap filter
+ssize_t dmap_filter_inv(array_nd *a, bitstream *stream){
+  uint32_t id ;
+  ssize_t status ;
+  STREAM_PEEK_NBITS(*stream, id, 8) ;
+  if(id == FILTER_CHAIN_END){
+    STREAM_GET_NBITS(*stream, id, 8) ;
+    status = 8 ;
+// fprintf(stderr, "inv_next : reverse filter id = %d, status = %ld\n", id, status) ;
+    return status ;                                          // last filter, 8 bits processed
+  }
+  if(id >= MAX_DP_FILTERS) return -1 ;                  // ERROR, invalid filter id
+  dmap_filter_ptr filter = filters[id].ptr ;      // get filter address
+  if(filter == NULL) return -1 ;                        // ERROR, filter is not defined
+  status = (*filter)(a, NULL, NULL, stream) ;           // call selected inverse filter
+// fprintf(stderr, "inv_next : reverse filter id = %d, status = %ld\n", id, status) ;
+  return status ;
 }

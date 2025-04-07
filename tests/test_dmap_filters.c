@@ -31,7 +31,7 @@ int main(int argc, char **argv){
   dmap_filter_arg_007 arg_007a = { 0007, 1.0f, 2.0f } ;
   dmap_filter_arg_007 arg_007b = { 0007, 10.0f, 20.0f } ;
 //   dmap_filter_arg_001 arg_001a = { 0001, 5, 6 } ;
-  dmap_filter_arg_001 arg_001a = { 0006, 32 } ;
+  dmap_filter_arg_006 arg_001a = { 0006, 32 } ;
   dmap_filter_arg_002 arg_002a = { 0002, 0 } ;
   dmap_filter_arg_003 arg_037z = { 0036 } ;
   dmap_filter_arg_003 arg_177n = { 0177 } ;
@@ -45,7 +45,6 @@ int main(int argc, char **argv){
   float z[NJ][NI] ;
   float r[NJ][NI] ;
   uint32_t buffer[NI*NJ*2] ;
-  uint32_t unfilter ;
 //   TIME_LOOP_DATA ;
 
 // dummy code to avoid warnings
@@ -86,9 +85,7 @@ int main(int argc, char **argv){
   STREAM_CREATE(stream, buffer, sizeof(buffer), 0) ;
   STREAM_INSERT_BEGIN(*stream) ;
   fprintf(stderr, "filter test : available space in stream %ld bits\n", StreamAvailableSpace(stream)) ;
-//   status = dmap_filter_007((array_nd *)&a2d, &bp2d, dpfl, stream) ;   // activate filter chain
-  status = dmap_filter_head((array_nd *)&a2d, &bp2d, dpfl, stream) ;   // activate filter chain
-  status += dmap_filter_end(stream) ;                                 // mark end of filter chain
+  status = dmap_filter_fwd((array_nd *)&a2d, &bp2d, dpfl, stream) ;   // activate forward filter chain
 
   fprintf(stderr, "filter test : bits inserted = %ld\n", status) ;
   STREAM_FLUSH(*stream) ;
@@ -96,25 +93,28 @@ int main(int argc, char **argv){
   STREAM_REWIND(*stream, 1) ;
   fprintf(stderr, "filter test : available data in stream %ld bits\n", StreamAvailableBits(stream)) ;
 
-  for(i=0 ; i<8 ; i++) fprintf(stderr, "%8.8x ", buffer[i]) ;
+//   for(i=0 ; i<8 ; i++) fprintf(stderr, "%8.8x ", buffer[i]) ;
   fprintf(stderr, "\n");
+  ssize_t tot_status ;
+  uint32_t unfilter ;
 
-  STREAM_XTRACT_CHECK(*stream) ; STREAM_FAST_PEEK_NBITS(*stream, unfilter, 8) ;
-  ssize_t tot_status = 0 ;
-  int rounds = 0 ;
-  while(unfilter < MAX_DP_FILTERS){
-    dmap_filter_ptr unfilter_ptr = dmap_filter_get(unfilter) ;
-    status = (*unfilter_ptr)((array_nd *)&b2d, NULL, NULL, stream) ;
-    if(status < 0) goto fail ;
-    tot_status += status ;
-    fprintf(stderr, "filter test : reverse filter id = %d, status = %ld (%ld)\n", unfilter, status, tot_status) ;
-    STREAM_PEEK_NBITS(*stream, unfilter, 8) ;
-    if(StreamAvailableBits(stream) < 8) break ;
-    rounds++ ;
-    if(rounds > 10) break ;
-  }
-  STREAM_GET_NBITS(*stream, unfilter, 8) ;
-  tot_status += 8 ;
+  tot_status = dmap_filter_inv((array_nd *)&b2d, stream) ;
+  unfilter = 255 ;
+//   STREAM_XTRACT_CHECK(*stream) ; STREAM_FAST_PEEK_NBITS(*stream, unfilter, 8) ;
+//   int rounds = 0 ;
+//   while(unfilter < MAX_DP_FILTERS){
+//     dmap_filter_ptr unfilter_ptr = dmap_filter_get(unfilter) ;
+//     status = (*unfilter_ptr)((array_nd *)&b2d, NULL, NULL, stream) ;
+//     if(status < 0) goto fail ;
+//     tot_status += status ;
+//     fprintf(stderr, "filter test : reverse filter id = %d, status = %ld (%ld)\n", unfilter, status, tot_status) ;
+//     STREAM_PEEK_NBITS(*stream, unfilter, 8) ;
+//     if(StreamAvailableBits(stream) < 8) break ;
+//     rounds++ ;
+//     if(rounds > 10) break ;
+//   }
+//   STREAM_GET_NBITS(*stream, unfilter, 8) ;
+//   tot_status += 8 ;
   fprintf(stderr, "filter test : last id = %d, bits extracted = %ld\n", unfilter, tot_status) ;
   fprintf(stderr, "filter test : available data in stream %ld bits\n", StreamAvailableBits(stream)) ;
   STREAM_XTRACT_ALIGN32(*stream) ;        // align to a 32 bit boundary

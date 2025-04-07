@@ -20,9 +20,9 @@
 #if ! defined(DMAP_FILTERS_000_007)
 #define DMAP_FILTERS_000_007
 
-// filter 000 is a special case
-#pragma weak dmap_filter_head
-dmap_filter  dmap_filter_head ;
+// filter 000 is a special case, it MUST be present
+// there is no argument struct associated with it
+dmap_filter  dmap_filter_fwd ;
 
 #pragma weak dmap_filter_001
 dmap_filter  dmap_filter_001 ;

@@ -17,13 +17,17 @@
 
 #include <rmn/dmap_filters.h>
 
+#define FILTER_ID 000
 // ======================================= filter 000 =======================================
 // special filter used for array dimensions and type (found in dmap_filters.c)
 // this filter writes into bit stream BEFORE calling the chain instead of after like the other filters
 // this filter expects NO ARGUMENT from the filter list
 // this filter MUST be called first
-ssize_t dmap_filter_head(array_nd *a, block_properties *bp, dmap_filter_list dpfl, bitstream *stream){
-  uint32_t me = 000 ;
+// in reverse mode, it makes sure/verifies that the target array has the correct configuration
+// for data type and dimensions
+// TODO: allocate memory for the target array if necessary
+ssize_t dmap_filter_fwd(array_nd *a, block_properties *bp, dmap_filter_list dpfl, bitstream *stream){
+  uint32_t me = FILTER_ID ;
   if(a == NULL || stream == NULL) goto fail ;    // no array or no stream
   void *array = array_address(a) ;               // get array address, dimension(s), and type
   int ndim = a->ndim, type = a->type ;
@@ -48,7 +52,7 @@ ssize_t dmap_filter_head(array_nd *a, block_properties *bp, dmap_filter_list dpf
     fprintf(stderr, " %d", a->dim[i].gnn) ;
   }
   fprintf(stderr, "], dsize = %d\n", dsize) ;
-  // call next filter
+  // call next filter in list
   dmap_filter_ptr next_filter = dmap_filter_next(dpfl) ;
   status = (*next_filter)(a, bp, dpfl, &s) ;
   if(status < 0) goto fail ;
@@ -61,14 +65,16 @@ end:
 fail:
   return -1 ;     // DO NOT SAVE stream changes
 
+  uint32_t w32 ;
 reverse:
+  STREAM_GET_NBITS(s, w32, 8) ;
+//   fprintf(stderr, "reverse filter %3.3o, id = %d\n", FILTER_ID, w32) ;
+  if(w32 != FILTER_ID) goto fail ;                     // wrong id, MUST be FILTER_ID
   // get target array dimensions and type
   fprintf(stderr, "filter_head(OUT), type = %s, ndim = %d, [", printable_type[type], ndim) ;
   for(i=0 ; i<ndim ; i++){ fprintf(stderr, " %d", a->dim[i].gnn) ; }
   fprintf(stderr, "]\n");
   // get array dimensions and type from stream
-  STREAM_GET_NBITS(s, me,    8) ;
-  if(me != 0) goto fail ;                     // wrong id, MUST be 0
   int ndim2, type2 ;
   STREAM_GET_NBITS(s, ndim2,  3) ;            // number of dimensions
   if(ndim2 != ndim) goto fail ;               // rank mismatch
@@ -87,9 +93,13 @@ reverse:
     fprintf(stderr, " %d", a->dim[i].gnn) ;
   }
   fprintf(stderr, "], dsize = %d\n", dsize) ;
+
+  ssize_t status2 = dmap_filter_inv(a, &s) ;     // call next inverse filter
+  if(status2 < 0) goto fail ; else status += status2 ;
   *stream = s ;   // SAVE stream changes
   return status ;
 }
+#undef FILTER_ID
 
 // ======================================= filter 001 =======================================
 #define FILTER_ID 001
@@ -132,14 +142,20 @@ end:
 fail:
   return -1 ;     // DO NOT SAVE stream changes
 
-  uint32_t w32, t1, t2 ;
+  uint32_t w32 ;
 reverse:
   STREAM_GET_NBITS(s, w32, 8) ;
+//   fprintf(stderr, "reverse filter %3.3o, id = %d\n", FILTER_ID, w32) ;
+  if(w32 != FILTER_ID) goto fail ;                     // wrong id, MUST be FILTER_ID
+  uint32_t t1, t2 ;
   STREAM_GET_NBITS(s, t1, 32) ;
   STREAM_GET_NBITS(s, t2, 32) ;
   fprintf(stderr, "reverse filter %3.3o, id = %d, args = %8.8x, %8.8x\n", FILTER_ID, w32, t1, t2) ;
-  *stream = s ;
   status = 72 ;
+
+  ssize_t status2 = dmap_filter_inv(a, &s) ;     // call next inverse filter
+  if(status2 < 0) goto fail ; else status += status2 ;
+  *stream = s ;   // SAVE stream changes
   return status ;
 }
 #undef FILTER_NAME
@@ -184,13 +200,19 @@ end:
 fail:
   return -1 ;     // DO NOT SAVE stream changes
 
-  uint32_t w32, t ;
+  uint32_t w32 ;
 reverse:
   STREAM_GET_NBITS(s, w32, 8) ;
+//   fprintf(stderr, "reverse filter %3.3o, id = %d\n", FILTER_ID, w32) ;
+  if(w32 != FILTER_ID) goto fail ;                     // wrong id, MUST be FILTER_ID
+  uint32_t t ;
   STREAM_GET_NBITS(s, t, 8) ;
   fprintf(stderr, "reverse filter %3.3o, id = %d, t = %d\n", FILTER_ID, w32, t) ;
-  *stream = s ;
   status = 16 ;
+
+  ssize_t status2 = dmap_filter_inv(a, &s) ;     // call next inverse filter
+  if(status2 < 0) goto fail ; else status += status2 ;
+  *stream = s ;   // SAVE stream changes
   return status ;
 }
 #undef FILTER_NAME
@@ -236,10 +258,17 @@ end:
 fail:
   return -1 ;     // DO NOT SAVE stream changes
 
+  uint32_t w32 ;
 reverse:
+  STREAM_GET_NBITS(s, w32, 8) ;
+//   fprintf(stderr, "reverse filter %3.3o, id = %d\n", FILTER_ID, w32) ;
+  if(w32 != FILTER_ID) goto fail ;                     // wrong id, MUST be FILTER_ID
 //
 // inverse filter processing code goes here
 //
+
+  ssize_t status2 = dmap_filter_inv(a, &s) ;     // call next inverse filter
+  if(status2 < 0) goto fail ; else status += status2 ;
   *stream = s ;   // SAVE stream changes
   return status ;
 }
@@ -286,10 +315,17 @@ end:
 fail:
   return -1 ;     // DO NOT SAVE stream changes
 
+  uint32_t w32 ;
 reverse:
+  STREAM_GET_NBITS(s, w32, 8) ;
+//   fprintf(stderr, "reverse filter %3.3o, id = %d\n", FILTER_ID, w32) ;
+  if(w32 != FILTER_ID) goto fail ;                     // wrong id, MUST be FILTER_ID
 //
 // inverse filter processing code goes here
 //
+
+  ssize_t status2 = dmap_filter_inv(a, &s) ;     // call next inverse filter
+  if(status2 < 0) goto fail ; else status += status2 ;
   *stream = s ;   // SAVE stream changes
   return status ;
 }
@@ -336,10 +372,17 @@ end:
 fail:
   return -1 ;     // DO NOT SAVE stream changes
 
+  uint32_t w32 ;
 reverse:
+  STREAM_GET_NBITS(s, w32, 8) ;
+//   fprintf(stderr, "reverse filter %3.3o, id = %d\n", FILTER_ID, w32) ;
+  if(w32 != FILTER_ID) goto fail ;                     // wrong id, MUST be FILTER_ID
 //
 // inverse filter processing code goes here
 //
+
+  ssize_t status2 = dmap_filter_inv(a, &s) ;     // call next inverse filter
+  if(status2 < 0) goto fail ; else status += status2 ;
   *stream = s ;   // SAVE stream changes
   return status ;
 }
@@ -414,6 +457,8 @@ fail:
   uint32_t w32 ;
 reverse:
   STREAM_GET_NBITS(s, w32, 8) ;
+//   fprintf(stderr, "reverse filter %3.3o, id = %d\n", FILTER_ID, w32) ;
+  if(w32 != FILTER_ID) goto fail ;                     // wrong id, MUST be FILTER_ID
   STREAM_GET_NBITS(s, header, 8) ;
   STREAM_GET_NBITS(s, nbits, 8) ; nbits++ ;
   fprintf(stderr, "reverse filter %3.3o, id = %d, header = %2.2x\n", FILTER_ID, w32, header) ;
@@ -425,6 +470,9 @@ reverse:
   fprintf(stderr, "filter 006 restoring %d array elements\n", nelem) ;
   status = 24 ;
   for(i=0 ; i<nelem ; i++) { STREAM_GET_NBITS(s, z[i], nbits) ; status += nbits ; } ;
+
+  ssize_t status2 = dmap_filter_inv(a, &s) ;     // call next inverse filter
+  if(status2 < 0) goto fail ; else status += status2 ;
   *stream = s ;   // SAVE stream changes
   return status ;
 }
@@ -486,15 +534,20 @@ fail:
   fprintf(stderr, "filter 007 FAILED\n");
   return -1 ;     // DO NOT SAVE stream changes
 
-  uint32_t w32, t1, t2 ;
+  uint32_t w32 ;
 reverse:
   STREAM_GET_NBITS(s, w32, 8) ;
-  fprintf(stderr, "reverse filter %3.3o, id = %d\n", FILTER_ID, w32) ;
+//   fprintf(stderr, "reverse filter %3.3o, id = %d\n", FILTER_ID, w32) ;
+  if(w32 != FILTER_ID) goto fail ;                     // wrong id, MUST be FILTER_ID
+  uint32_t t1, t2 ;
   STREAM_GET_NBITS(s, t1, 32) ;
   STREAM_GET_NBITS(s, t2, 32) ;
   fprintf(stderr, "filter 007(R) %3.3o, %8.8x , %8.8x\n", FILTER_ID, t1, t2) ;
-  *stream = s ;
   status = 72 ;
+
+  ssize_t status2 = dmap_filter_inv(a, &s) ;     // call next inverse filter
+  if(status2 < 0) goto fail ; else status += status2 ;
+  *stream = s ;
   return status ;
 }
 #undef FILTER_NAME
@@ -544,10 +597,13 @@ fail:
   uint32_t w32 ;
 reverse:
   STREAM_GET_NBITS(s, w32, 8) ;
-  fprintf(stderr, "reverse filter %3.3o, id = %d\n", FILTER_ID, w32) ;
+//   fprintf(stderr, "reverse filter %3.3o, id = %d\n", FILTER_ID, w32) ;
+  if(w32 != FILTER_ID) goto fail ;                     // wrong id, MUST be FILTER_ID
 //
 // inverse filter processing code goes here
 //
+  ssize_t status2 = dmap_filter_inv(a, &s) ;     // call next inverse filter
+  if(status2 < 0) goto fail ; else status += status2 ;
   *stream = s ;   // SAVE stream changes
   return status ;
 }
