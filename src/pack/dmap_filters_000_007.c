@@ -20,7 +20,7 @@
 #define FILTER_ID 000
 // ======================================= filter 000 =======================================
 // special filter used for array dimensions and type (found in dmap_filters.c)
-// this filter writes into bit stream BEFORE calling the chain instead of after like the other filters
+// this filter writes into bit stream BEFORE calling the chain instead and AFTER calling the chain
 // this filter expects NO ARGUMENT from the filter list
 // this filter MUST be called first
 // in reverse mode, it makes sure/verifies that the target array has the correct configuration
@@ -35,29 +35,21 @@ ssize_t dmap_filter_fwd(array_nd *a, block_properties *bp, dmap_filter_list dpfl
   bitstream s = *stream ;                        // local copy of stream control structure
   if(dpfl == NULL && bp == NULL) goto reverse ;  // call to reverse filter
 
-  // put array dimensions into bit stream
-  int i, nbits = 24, dsize = 8 ;
-  for(i=0 ; i<ndim ; i++){
-    if(a->dim[i].gnn >   255) dsize = 16 ;   // will need 16 bits for dimensions
-    if(a->dim[i].gnn > 65535) dsize = 32 ;   // will need 32 bits for dimensions
-  }
-  STREAM_PUT_NBITS(s, me,      8) ;          // dummy filter id
-  STREAM_PUT_NBITS(s, ndim,    3) ;          // number of dimensions
-  STREAM_PUT_NBITS(s, dsize-1, 5) ;          // number of bits needed for dimensions - 1
-  STREAM_PUT_NBITS(s, type,  8) ;            // data type
-  fprintf(stderr, "filter_head(IN), type = %s, ndim = %d, [", printable_type[type], ndim) ;
-  for(i=0 ; i<ndim ; i++){
-    STREAM_PUT_NBITS(s, a->dim[i].gnn, dsize) ;
-    nbits += dsize ;
-    fprintf(stderr, " %d", a->dim[i].gnn) ;
-  }
-  fprintf(stderr, "], dsize = %d\n", dsize) ;
+  // put array information at the start of the bit stream
+  int32_t i, nbits, dsize ;
+  nbits = 8 ;
+  STREAM_PUT_NBITS(s, me,      8) ;              // dummy filter id
+  nbits += dmap_filter_put_array_info(a, &s) ;
+
   // call next filter in list
   dmap_filter_ptr next_filter = dmap_filter_next(dpfl) ;
   status = (*next_filter)(a, bp, dpfl, &s) ;
   if(status < 0) goto fail ;
 
 end:
+  // put end of filter chain data marker at the end of the bit stream
+  STREAM_PUT_NBITS(s, FILTER_CHAIN_END, 8) ;
+  nbits += 8 ;
   *stream = s ;   // SAVE stream changes
   status += nbits ;
   return status ;
@@ -68,31 +60,17 @@ fail:
   uint32_t w32 ;
 reverse:
   STREAM_GET_NBITS(s, w32, 8) ;
+  status = 8 ;
 //   fprintf(stderr, "reverse filter %3.3o, id = %d\n", FILTER_ID, w32) ;
-  if(w32 != FILTER_ID) goto fail ;                     // wrong id, MUST be FILTER_ID
-  // get target array dimensions and type
+  if(w32 != FILTER_ID) goto fail ;                     // wrong id, MUST be FILTER_ID (0)
+
+  // get array dimensions and type from stream (check that it matches a)
+  int32_t temp = dmap_filter_get_array_info(a, &s) ;
+  if(temp < 0) goto fail ;
+  status += temp ;
   fprintf(stderr, "filter_head(OUT), type = %s, ndim = %d, [", printable_type[type], ndim) ;
   for(i=0 ; i<ndim ; i++){ fprintf(stderr, " %d", a->dim[i].gnn) ; }
   fprintf(stderr, "]\n");
-  // get array dimensions and type from stream
-  int ndim2, type2 ;
-  STREAM_GET_NBITS(s, ndim2,  3) ;            // number of dimensions
-  if(ndim2 != ndim) goto fail ;               // rank mismatch
-  STREAM_GET_NBITS(s, dsize, 5) ; dsize++ ;   // number of bits needed to store dimensions
-  STREAM_GET_NBITS(s, type2,  8) ;            // data type
-  if(size_of_type[type2] != size_of_type[type]) goto fail ;   // type size mismatch
-  a->type = type2 ;                           // set correct target type
-  status = 24 ;
-  fprintf(stderr, "filter_head(OUT), type = %s, ndim = %d, [", printable_type[type2], ndim2) ;
-  for(i=0 ; i<ndim2 ; i++){
-    uint32_t ugnn ;
-    int32_t gnn ;
-    STREAM_GET_NBITS(s, ugnn, dsize) ; gnn = ugnn ;
-    if(a->dim[i].gnn != gnn) goto fail ;      // dimension mismatch
-    status += dsize ;
-    fprintf(stderr, " %d", a->dim[i].gnn) ;
-  }
-  fprintf(stderr, "], dsize = %d\n", dsize) ;
 
   ssize_t status2 = dmap_filter_inv(a, &s) ;     // call next inverse filter
   if(status2 < 0) goto fail ; else status += status2 ;

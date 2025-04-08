@@ -50,8 +50,7 @@ static ssize_t dmap_filter_last(array_nd *a, block_properties *bp, dmap_filter_l
   (void) (a) ;
   (void) (bp) ;
   (void) (dpfl) ;
-//   (void) (stream) ;
-  STREAM_PUT_NBITS(*stream, FILTER_CHAIN_END, 8) ;
+  (void) (stream) ;
   fprintf(stderr, "END of filter chain\n") ;
   return 8 ;
 }
@@ -163,16 +162,69 @@ ssize_t dmap_filter_inv(array_nd *a, bitstream *stream){
   uint32_t id ;
   ssize_t status ;
   STREAM_PEEK_NBITS(*stream, id, 8) ;
+fprintf(stderr, "inv_next : next reverse filter id = %d\n", id) ;
   if(id == FILTER_CHAIN_END){
     STREAM_GET_NBITS(*stream, id, 8) ;
     status = 8 ;
-// fprintf(stderr, "inv_next : reverse filter id = %d, status = %ld\n", id, status) ;
+fprintf(stderr, "inv_next : reverse filter id = %d, status = %ld\n", id, status) ;
     return status ;                                          // last filter, 8 bits processed
   }
   if(id >= MAX_DP_FILTERS) return -1 ;                  // ERROR, invalid filter id
   dmap_filter_ptr filter = filters[id].ptr ;      // get filter address
   if(filter == NULL) return -1 ;                        // ERROR, filter is not defined
   status = (*filter)(a, NULL, NULL, stream) ;           // call selected inverse filter
-// fprintf(stderr, "inv_next : reverse filter id = %d, status = %ld\n", id, status) ;
+fprintf(stderr, "inv_next : reverse filter id = %d, status = %ld\n", id, status) ;
   return status ;
+}
+
+// get array dimension and type information from bit stream
+// a         [IN] : array descriptor
+// stream [INOUT] : bit stream
+// return number of bits extracted from bit stream (-1 if error)
+int32_t dmap_filter_get_array_info(array_nd *a, bitstream *stream){
+  int i, nbits, ndim, type, dsize, iw32, gnn ;
+  uint32_t w32 ;
+  STREAM_GET_NBITS(*stream, ndim,  3) ;            // number of dimensions
+  if(a->ndim == 0) a->ndim = ndim ;
+  if(a->ndim != ndim) goto fail ;                  // number of dimensions mismatch
+  STREAM_GET_NBITS(*stream, dsize, 5) ; dsize++ ;  // number of bits needed for dimensions - 1
+  STREAM_GET_NBITS(*stream, type,  8) ;            // data type
+  if(a->type == 0) a->type = type ;
+  if(size_of_type[type] != size_of_type[a->type]) goto fail ;  // type size mismatch
+  nbits = 16 ;
+  for(i=0 ; i<ndim ; i++){
+    STREAM_GET_NBITS(*stream, w32, dsize) ; gnn = w32 ;
+    if(a->dim[i].gnn == 0) a->dim[i].gnn = gnn ;
+    if(a->dim[i].gnn != gnn) goto fail ;
+    nbits += dsize ;
+  }
+  return nbits ;
+
+fail:
+fprintf(stderr, "dmap_filter_get_array_info : ERROR\n");
+  return -1 ;
+}
+
+// put array dimension and type information into bit stream
+// a      [INOUT] : array descriptor
+// stream [INOUT] : bit stream
+// return number of bits inserted into bi stream
+int32_t dmap_filter_put_array_info(array_nd *a, bitstream *stream){
+  int32_t ndim = a->ndim, i, dimmax = a->dim[0].gnn, dsize = 8, type = a->type, nbits = 16 ;
+  for(i=1 ; i<ndim ; i++){ dimmax = (a->dim[i].gnn > dimmax) ? a->dim[i].gnn : dimmax ; }
+  for(i=0 ; i<ndim ; i++){
+    if(dimmax >   255) dsize = 16 ;          // will need 16 bits for dimensions
+    if(dimmax > 65535) dsize = 32 ;          // will need 32 bits for dimensions
+  }
+  STREAM_PUT_NBITS(*stream, ndim,    3) ;          // number of dimensions
+  STREAM_PUT_NBITS(*stream, dsize-1, 5) ;          // number of bits needed for dimensions - 1
+  STREAM_PUT_NBITS(*stream, type,    8) ;          // data type
+//   fprintf(stderr, "filter_head(IN), type = %s, ndim = %d, [", printable_type[type], ndim) ;
+  for(i=0 ; i<ndim ; i++){
+    STREAM_PUT_NBITS(*stream, a->dim[i].gnn, dsize) ;
+    nbits += dsize ;
+//     fprintf(stderr, " %d", a->dim[i].gnn) ;
+  }
+//   fprintf(stderr, "], dsize = %d, nbits = %d\n", dsize, nbits) ;
+  return nbits ;
 }

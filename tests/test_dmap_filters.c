@@ -75,12 +75,12 @@ int main(int argc, char **argv){
 
   dpfl[0] = (dmap_filter_args_ptr)&arg_007a ;     // filter 007
   dpfl[1] = (dmap_filter_args_ptr)&arg_007b ;     // filter 007
-  dpfl[2] = (dmap_filter_args_ptr)&arg_001a ;     // filter 001
+  dpfl[2] = (dmap_filter_args_ptr)&arg_001a ;     // filter 006
   dpfl[3] = (dmap_filter_args_ptr)&arg_002a ;     // filter 002
   dpfl[4] = (dmap_filter_args_ptr)&arg_037z ;     // undefined filter 037
   dpfl[5] = (dmap_filter_args_ptr)&arg_177n ;     // invalid filter 127
   dpfl[6] = NULL ;                                // end of filter list
-  dpfl[6] = NULL ;
+  dpfl[3] = NULL ;
 
   STREAM_CREATE(stream, buffer, sizeof(buffer), 0) ;
   STREAM_INSERT_BEGIN(*stream) ;
@@ -93,7 +93,7 @@ int main(int argc, char **argv){
   STREAM_REWIND(*stream, 1) ;
   fprintf(stderr, "filter test : available data in stream %ld bits\n", StreamAvailableBits(stream)) ;
 
-//   for(i=0 ; i<8 ; i++) fprintf(stderr, "%8.8x ", buffer[i]) ;
+  for(i=0 ; i<12 ; i++) fprintf(stderr, "%8.8x ", buffer[i]) ;
   fprintf(stderr, "\n");
   ssize_t tot_status ;
   uint32_t unfilter ;
@@ -126,6 +126,7 @@ int main(int argc, char **argv){
       if(z[j][i] != r[j][i]) errors++ ;
     }
   }
+  fprintf(stderr, "%f %f %f %f\n", z[0][0], z[NJ-1][NI-1], r[0][0], r[NJ-1][NI-1]) ;
   fprintf(stderr, "filter test : %d differences between r and z\n", errors) ;
 
 end:
