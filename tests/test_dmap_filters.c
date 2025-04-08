@@ -98,7 +98,10 @@ int main(int argc, char **argv){
   ssize_t tot_status ;
   uint32_t unfilter ;
 
+  fprintf(stderr, "filter test : old b2d address = %p\n", (void *)b2d.data) ;
+  b2d.data = NULL ;
   tot_status = dmap_filter_inv((array_nd *)&b2d, stream) ;
+  fprintf(stderr, "filter test : new b2d address = %p\n", (void *)b2d.data) ;
   unfilter = 255 ;
 //   STREAM_XTRACT_CHECK(*stream) ; STREAM_FAST_PEEK_NBITS(*stream, unfilter, 8) ;
 //   int rounds = 0 ;
@@ -120,14 +123,14 @@ int main(int argc, char **argv){
   STREAM_XTRACT_ALIGN32(*stream) ;        // align to a 32 bit boundary
   fprintf(stderr, "filter test : available data in stream %ld bits\n", StreamAvailableBits(stream)) ;
 
-  int errors = 0 ;
-  for(j=0 ; j<NJ ; j++){
-    for(i=0 ; i<NI ; i++){
-      if(z[j][i] != r[j][i]) errors++ ;
-    }
+  int errors = NI*NJ ;
+  float *pz = (float *) a2d.data ;
+  float *pr = (float *) b2d.data ;
+  for(i=0 ; i<NI*NJ ; i++){
+    if(pz[i] == pr[i]) errors-- ;
   }
-  fprintf(stderr, "%f %f %f %f\n", z[0][0], z[NJ-1][NI-1], r[0][0], r[NJ-1][NI-1]) ;
-  fprintf(stderr, "filter test : %d differences between r and z\n", errors) ;
+  if(errors > 0) fprintf(stderr, "%f %f %f %f\n", z[0][0], z[NJ-1][NI-1], r[0][0], r[NJ-1][NI-1]) ;
+  fprintf(stderr, "filter test : %d differences between r and z (%d values)\n", errors, NI*NJ) ;
 
 end:
   fprintf(stderr, "SUCCESS\n") ;

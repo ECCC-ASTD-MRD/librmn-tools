@@ -168,6 +168,36 @@ void new_array_nd(array_nd *a, void *mem, int32_t esize, int8_t type, int32_t nd
 // fprintf(stderr,"]\n");
 }
 
+// fix array storage according to dimensions and esize
+// a    [INOUT] : pointer to nD array descriptor
+// return array size, 0 in case of error
+size_t fix_array_nd(array_nd *a){
+  if(a == NULL) goto fail ;
+  int32_t i, ndim = a->ndim ;
+  ssize_t sz = 1 ;
+
+  a->signature = IS_ARRAY ;
+  a->flags     = 0 ;
+  for(i = 0 ; i < ndim ; i++){            // number of elements in array
+    if(a->dim[i].gnn <= 0) goto fail ;
+    sz *= a->dim[i].gnn ;
+  }
+  sz *= a->esize ;                        // * element size
+  if(a->data == NULL){                    // allocate memory if data pointer is NULL
+    a->data = malloc(a->esize * sz) ;
+    if(a->data == NULL) goto fail ;
+    a->limit = a->data + sz ;
+  }
+  for(i = 0 ; i < ndim ; i++){            // set local indexes to global values
+    a->dim[i].ln0 = a->dim[i].gn0 = 0 ;
+    a->dim[i].lnn = a->dim[i].gnn ;
+  }
+  return sz ;
+
+fail:
+  return 0 ;
+}
+
 // set global indexing lower bounds for all dimensions of array
 // a    [INOUT] : pointer to nD array descriptor (if NULL a new descriptor will be created)
 // ndim    [IN] : number of values in lb5 (MUST match number of dimensions)

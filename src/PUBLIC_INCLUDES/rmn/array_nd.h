@@ -384,4 +384,15 @@ static inline char *array_kind_nd(array_nd *a){
     array_1d *: array_kind_nd((array_nd *)ARRAY)  \
   )
 
+size_t fix_array_nd(array_nd *a);
+#define fix_array(ARRAY) \
+  _Generic((ARRAY), \
+    array_nd *: fix_array_nd((array_nd *)ARRAY), \
+    array_5d *: fix_array_nd((array_nd *)ARRAY), \
+    array_4d *: fix_array_nd((array_nd *)ARRAY), \
+    array_3d *: fix_array_nd((array_nd *)ARRAY), \
+    array_2d *: fix_array_nd((array_nd *)ARRAY), \
+    array_1d *: fix_array_nd((array_nd *)ARRAY)  \
+  )
+
 #endif

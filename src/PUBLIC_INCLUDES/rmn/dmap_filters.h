@@ -111,6 +111,6 @@ dmap_filter_ptr dmap_filter_next(dmap_filter_list dpfl);
 int dmap_filter_valid(dmap_filter_list dpfl, uint32_t id);
 ssize_t dmap_filter_inv(array_nd *a, bitstream *stream);
 int32_t dmap_filter_put_array_info(array_nd *a, bitstream *stream);
-int32_t dmap_filter_get_array_info(array_nd *a, bitstream *stream);
+int32_t dmap_filter_get_array_info(array_nd *a, bitstream *stream, int allocate);
 
 #endif

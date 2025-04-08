@@ -180,16 +180,21 @@ fprintf(stderr, "inv_next : reverse filter id = %d, status = %ld\n", id, status)
 // get array dimension and type information from bit stream
 // a         [IN] : array descriptor
 // stream [INOUT] : bit stream
+// allocate  [IN] : if nonzero, allocate spacefor data
 // return number of bits extracted from bit stream (-1 if error)
-int32_t dmap_filter_get_array_info(array_nd *a, bitstream *stream){
+int32_t dmap_filter_get_array_info(array_nd *a, bitstream *stream, int allocate){
   int i, nbits, ndim, type, dsize, iw32, gnn ;
+  size_t sz = 1 ;
   uint32_t w32 ;
   STREAM_GET_NBITS(*stream, ndim,  3) ;            // number of dimensions
   if(a->ndim == 0) a->ndim = ndim ;
   if(a->ndim != ndim) goto fail ;                  // number of dimensions mismatch
   STREAM_GET_NBITS(*stream, dsize, 5) ; dsize++ ;  // number of bits needed for dimensions - 1
   STREAM_GET_NBITS(*stream, type,  8) ;            // data type
-  if(a->type == 0) a->type = type ;
+  if(a->type == 0){
+    a->type = type ;
+    a->esize = size_of_type[type] ;
+  }
   if(size_of_type[type] != size_of_type[a->type]) goto fail ;  // type size mismatch
   nbits = 16 ;
   for(i=0 ; i<ndim ; i++){
@@ -197,7 +202,16 @@ int32_t dmap_filter_get_array_info(array_nd *a, bitstream *stream){
     if(a->dim[i].gnn == 0) a->dim[i].gnn = gnn ;
     if(a->dim[i].gnn != gnn) goto fail ;
     nbits += dsize ;
+    sz *= gnn ;
   }
+  if(allocate && a->data == NULL){  // allocate storage, fix dimensions
+fprintf(stderr, "dmap_filter_get_array_info : calling fix_array\n");
+    if(fix_array(a) == 0) goto fail ;
+//     a->data = malloc(sz * a->esize) ;
+//     if(a->data == NULL) goto fail ;
+//     a->limit = a->data + (sz * a->esize) ;
+  }
+fprintf(stderr, "dmap_filter_get_array_info : array size = %ld, esize = %d\n", sz, a->esize) ;
   return nbits ;
 
 fail:

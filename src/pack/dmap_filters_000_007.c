@@ -19,11 +19,11 @@
 
 #define FILTER_ID 000
 // ======================================= filter 000 =======================================
-// special filter used for array dimensions and type (found in dmap_filters.c)
-// this filter writes into bit stream BEFORE calling the chain instead and AFTER calling the chain
+// special filter used to get/put array dimensions and type information (found in dmap_filters.c)
+// this filter writes into bit stream BEFORE calling the filter chain and AFTER calling said chain
 // this filter expects NO ARGUMENT from the filter list
 // this filter MUST be called first
-// in reverse mode, it makes sure/verifies that the target array has the correct configuration
+// in reverse mode, it makes sure that the target array has the correct configuration
 // for data type and dimensions
 // TODO: allocate memory for the target array if necessary
 ssize_t dmap_filter_fwd(array_nd *a, block_properties *bp, dmap_filter_list dpfl, bitstream *stream){
@@ -65,7 +65,7 @@ reverse:
   if(w32 != FILTER_ID) goto fail ;                     // wrong id, MUST be FILTER_ID (0)
 
   // get array dimensions and type from stream (check that it matches a)
-  int32_t temp = dmap_filter_get_array_info(a, &s) ;
+  int32_t temp = dmap_filter_get_array_info(a, &s, 1) ;
   if(temp < 0) goto fail ;
   status += temp ;
   fprintf(stderr, "filter_head(OUT), type = %s, ndim = %d, [", printable_type[type], ndim) ;
