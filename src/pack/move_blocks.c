@@ -471,6 +471,8 @@ void adjust_block_properties(block_properties *bp, data_kind datatype){
     // if no negative values are present, bp->maxu.i will be equal to bp->maxs.i
   }else if(datatype == uint_data){
     bp->kind = uint_data ;
+//     bp->maxs.u = bp->maxu.u ;
+//     bp->mins.u = bp->minu.u ;
     // bp->maxs and bp->mins  are meaningless
   }else if(datatype == raw_data){
     bp->kind = raw_data ;

@@ -49,7 +49,7 @@ int main(int argc, char **argv){
   float t0 ;
   TIME_LOOP_DATA ;
 
-  start_of_test("basic test of block move functions") ;
+//   start_of_test("basic test of block move functions") ;
 
   if(cycles_overhead == 0) cycles_overhead = 1;
   if(argc >= 0){
@@ -81,6 +81,7 @@ int main(int argc, char **argv){
       }
     }
   }
+  fprintf(stderr, "NaN test :float_NaN() =  %f\n", float_NaN()) ;
   fprintf(stderr, "SUCCESS : float -> fake int -> float test\n") ;
 
   ni = 127 ; nj = 125 ;
@@ -96,12 +97,33 @@ int main(int argc, char **argv){
       move_w32_block(ff,  LNI, blk, ni, 2*ni/3, 2*nj/3, &bp) ;
     }
     print_float_props(bp) ;
+    fprintf(stderr, "FLOAT_MAX_VALUE = %f, FLOAT_MIN_VALUE = %f, FLOAT_MAX_ABS = %f, FLOAT_MIN_ABS = %f\n",
+                     FLOAT_MAX_VALUE(bp),  FLOAT_MIN_VALUE(bp),  FLOAT_MAX_ABS(bp),  FLOAT_MIN_ABS(bp)) ;
+    fprintf(stderr, "UINT_MAX_VALUE = %8.8x, UINT_MIN_VALUE = %8.8x, UINT_MAX_ABS = %8.8x, UINT_MIN_ABS = %8.8x\n",
+                     UINT_MAX_VALUE(bp),     UINT_MIN_VALUE(bp),     UINT_MAX_ABS(bp),     UINT_MIN_ABS(bp)) ;
+    fprintf(stderr, "INT_MAX_VALUE = %d, INT_MIN_VALUE = %d, INT_MAX_ABS = %u, INT_MIN_ABS = %u\n",
+                     INT_MAX_VALUE(bp),  INT_MIN_VALUE(bp),  INT_MAX_ABS(bp),  INT_MIN_ABS(bp)) ;
+    fprintf(stderr, "\n") ;
 
     move_w32_block((float *)f2, LNI, blk, ni, 2*ni/3, 2*nj/3, &bp) ;
     print_float_props(bp) ;
+    fprintf(stderr, "FLOAT_MAX_VALUE = %f, FLOAT_MIN_VALUE = %f, FLOAT_MAX_ABS = %f, FLOAT_MIN_ABS = %f\n",
+                     FLOAT_MAX_VALUE(bp),  FLOAT_MIN_VALUE(bp),  FLOAT_MAX_ABS(bp),  FLOAT_MIN_ABS(bp)) ;
+    fprintf(stderr, "UINT_MAX_VALUE = %8.8x, UINT_MIN_VALUE = %8.8x, UINT_MAX_ABS = %8.8x, UINT_MIN_ABS = %8.8x\n",
+                     UINT_MAX_VALUE(bp),     UINT_MIN_VALUE(bp),     UINT_MAX_ABS(bp),     UINT_MIN_ABS(bp)) ;
+    fprintf(stderr, "INT_MAX_VALUE = %d, INT_MIN_VALUE = %d, INT_MAX_ABS = %u, INT_MIN_ABS = %u\n",
+                     INT_MAX_VALUE(bp),  INT_MIN_VALUE(bp),  INT_MAX_ABS(bp),  INT_MIN_ABS(bp)) ;
+    fprintf(stderr, "\n") ;
 
     move_w32_block((float *)f3, LNI, blk, ni, 2*ni/3, 2*nj/3, &bp) ;
     print_float_props(bp) ;
+    fprintf(stderr, "FLOAT_MAX_VALUE = %f, FLOAT_MIN_VALUE = %f, FLOAT_MAX_ABS = %f, FLOAT_MIN_ABS = %f\n",
+                     FLOAT_MAX_VALUE(bp),  FLOAT_MIN_VALUE(bp),  FLOAT_MAX_ABS(bp),  FLOAT_MIN_ABS(bp)) ;
+    fprintf(stderr, "UINT_MAX_VALUE = %8.8x, UINT_MIN_VALUE = %8.8x, UINT_MAX_ABS = %8.8x, UINT_MIN_ABS = %8.8x\n",
+                     UINT_MAX_VALUE(bp),     UINT_MIN_VALUE(bp),     UINT_MAX_ABS(bp),     UINT_MIN_ABS(bp)) ;
+    fprintf(stderr, "INT_MAX_VALUE = %d, INT_MIN_VALUE = %d, INT_MAX_ABS = %u, INT_MIN_ABS = %u\n",
+                     INT_MAX_VALUE(bp),  INT_MIN_VALUE(bp),  INT_MAX_ABS(bp),  INT_MIN_ABS(bp)) ;
+    fprintf(stderr, "\n") ;
 
     for(j=0 ; j<1 ; j++){
       for(i=0 ; i<ni ; i++){
@@ -110,9 +132,23 @@ int main(int argc, char **argv){
     }
     move_w32_block((uint32_t *) &z[0][0], LNI, blk, ni, ni,     nj,     &bp) ;
     print_int_props(bp) ;
+    fprintf(stderr, "FLOAT_MAX_VALUE = %f, FLOAT_MIN_VALUE = %f, FLOAT_MAX_ABS = %f, FLOAT_MIN_ABS = %f\n",
+                     FLOAT_MAX_VALUE(bp),  FLOAT_MIN_VALUE(bp),  FLOAT_MAX_ABS(bp),  FLOAT_MIN_ABS(bp)) ;
+    fprintf(stderr, "UINT_MAX_VALUE = %8.8x, UINT_MIN_VALUE = %8.8x, UINT_MAX_ABS = %8.8x, UINT_MIN_ABS = %8.8x\n",
+                     UINT_MAX_VALUE(bp),     UINT_MIN_VALUE(bp),     UINT_MAX_ABS(bp),     UINT_MIN_ABS(bp)) ;
+    fprintf(stderr, "INT_MAX_VALUE = %d, INT_MIN_VALUE = %d, INT_MAX_ABS = %u, INT_MIN_ABS = %u\n",
+                     INT_MAX_VALUE(bp),  INT_MIN_VALUE(bp),  INT_MAX_ABS(bp),  INT_MIN_ABS(bp)) ;
+    fprintf(stderr, "\n") ;
 
     move_w32_block((int32_t *)  &z[0][0], LNI, blk, ni, ni,     nj,     &bp) ;
     print_int_props(bp) ;
+    fprintf(stderr, "FLOAT_MAX_VALUE = %f, FLOAT_MIN_VALUE = %f, FLOAT_MAX_ABS = %f, FLOAT_MIN_ABS = %f\n",
+                     FLOAT_MAX_VALUE(bp),  FLOAT_MIN_VALUE(bp),  FLOAT_MAX_ABS(bp),  FLOAT_MIN_ABS(bp)) ;
+    fprintf(stderr, "UINT_MAX_VALUE = %8.8x, UINT_MIN_VALUE = %8.8x, UINT_MAX_ABS = %8.8x, UINT_MIN_ABS = %8.8x\n",
+                     UINT_MAX_VALUE(bp),     UINT_MIN_VALUE(bp),     UINT_MAX_ABS(bp),     UINT_MIN_ABS(bp)) ;
+    fprintf(stderr, "INT_MAX_VALUE = %d, INT_MIN_VALUE = %d, INT_MAX_ABS = %u, INT_MIN_ABS = %u\n",
+                     INT_MAX_VALUE(bp),  INT_MIN_VALUE(bp),  INT_MAX_ABS(bp),  INT_MIN_ABS(bp)) ;
+    fprintf(stderr, "\n") ;
 
     errors = 0 ;
     for(j=0 ; j<nj ; j++){
