@@ -14,7 +14,6 @@
 // Author:
 //     M. Valin,   Recherche en Prevision Numerique, 2025
 //
-
 #if ! defined(MAX_DP_FILTERS)
 #define MAX_DP_FILTERS 32
 
@@ -112,5 +111,8 @@ int dmap_filter_valid(dmap_filter_list dpfl, uint32_t id);
 ssize_t dmap_filter_inv(array_nd *a, bitstream *stream);
 int32_t dmap_filter_put_array_info(array_nd *a, bitstream *stream);
 int32_t dmap_filter_get_array_info(array_nd *a, bitstream *stream, int allocate);
+
+int dmap_strict_mode(int mode);
+int dmap_debug_mode(int mode);
 
 #endif

@@ -33,11 +33,12 @@ int main(int argc, char **argv){
 //   dmap_filter_arg_001 arg_001a = { 0001, 5, 6 } ;
   dmap_filter_arg_006 arg_001a = { 0006, 32 } ;
   dmap_filter_arg_002 arg_002a = { 0002, 0 } ;
-  dmap_filter_arg_003 arg_037z = { 0036 } ;
-  dmap_filter_arg_003 arg_177n = { 0177 } ;
+  dmap_filter_arg_003 arg_003a = { 0003, .5f, 12 } ;
+  dmap_filter_arg_036 arg_036z = { 0036 } ;
+  dmap_filter_arg_036 arg_177n = { 0177 } ;
   array_2d a2d, b2d ;
   block_properties bp2d ;
-  bitstream *stream ;
+  bitstream *stream = NULL ;
   ssize_t status ;
   uint64_t freq ;
   double nano ;
@@ -77,15 +78,21 @@ int main(int argc, char **argv){
   dpfl[1] = (dmap_filter_args_ptr)&arg_007b ;     // filter 007
   dpfl[2] = (dmap_filter_args_ptr)&arg_001a ;     // filter 006
   dpfl[3] = (dmap_filter_args_ptr)&arg_002a ;     // filter 002
-  dpfl[4] = (dmap_filter_args_ptr)&arg_037z ;     // undefined filter 037
+  dpfl[4] = (dmap_filter_args_ptr)&arg_036z ;     // undefined filter 036
   dpfl[5] = (dmap_filter_args_ptr)&arg_177n ;     // invalid filter 127
   dpfl[6] = NULL ;                                // end of filter list
-  dpfl[3] = NULL ;
+  dpfl[4] = (dmap_filter_args_ptr)&arg_003a ;     // filter 003, linear float quantizer
+  dpfl[5] = NULL ;                                // end of filter list
 
   STREAM_CREATE(stream, buffer, sizeof(buffer), 0) ;
   STREAM_INSERT_BEGIN(*stream) ;
   fprintf(stderr, "filter test : available space in stream %ld bits\n", StreamAvailableSpace(stream)) ;
+  int debug_mode = dmap_debug_mode(1) ;
+  int strict_mode = dmap_strict_mode(1) ;
   status = dmap_filter_fwd((array_nd *)&a2d, &bp2d, dpfl, stream) ;   // activate forward filter chain
+  if(status < 0) goto fail ;
+  debug_mode = dmap_debug_mode(1)   ; dmap_debug_mode(debug_mode) ;
+  strict_mode = dmap_strict_mode(0) ; dmap_strict_mode(strict_mode) ;
 
   fprintf(stderr, "filter test : bits inserted = %ld\n", status) ;
   STREAM_FLUSH(*stream) ;
@@ -96,29 +103,12 @@ int main(int argc, char **argv){
   for(i=0 ; i<12 ; i++) fprintf(stderr, "%8.8x ", buffer[i]) ;
   fprintf(stderr, "\n");
   ssize_t tot_status ;
-  uint32_t unfilter ;
 
   fprintf(stderr, "filter test : old b2d address = %p\n", (void *)b2d.data) ;
   b2d.data = NULL ;
   tot_status = dmap_filter_inv((array_nd *)&b2d, stream) ;
   fprintf(stderr, "filter test : new b2d address = %p\n", (void *)b2d.data) ;
-  unfilter = 255 ;
-//   STREAM_XTRACT_CHECK(*stream) ; STREAM_FAST_PEEK_NBITS(*stream, unfilter, 8) ;
-//   int rounds = 0 ;
-//   while(unfilter < MAX_DP_FILTERS){
-//     dmap_filter_ptr unfilter_ptr = dmap_filter_get(unfilter) ;
-//     status = (*unfilter_ptr)((array_nd *)&b2d, NULL, NULL, stream) ;
-//     if(status < 0) goto fail ;
-//     tot_status += status ;
-//     fprintf(stderr, "filter test : reverse filter id = %d, status = %ld (%ld)\n", unfilter, status, tot_status) ;
-//     STREAM_PEEK_NBITS(*stream, unfilter, 8) ;
-//     if(StreamAvailableBits(stream) < 8) break ;
-//     rounds++ ;
-//     if(rounds > 10) break ;
-//   }
-//   STREAM_GET_NBITS(*stream, unfilter, 8) ;
-//   tot_status += 8 ;
-  fprintf(stderr, "filter test : last id = %d, bits extracted = %ld\n", unfilter, tot_status) ;
+  fprintf(stderr, "filter test : bits extracted = %ld\n", tot_status) ;
   fprintf(stderr, "filter test : available data in stream %ld bits\n", StreamAvailableBits(stream)) ;
   STREAM_XTRACT_ALIGN32(*stream) ;        // align to a 32 bit boundary
   fprintf(stderr, "filter test : available data in stream %ld bits\n", StreamAvailableBits(stream)) ;
@@ -136,6 +126,7 @@ end:
   fprintf(stderr, "SUCCESS\n") ;
   return 0 ;
 fail:
+  fprintf(stderr, "filter test : available data in stream %ld bits\n", StreamAvailableBits(stream)) ;
   fprintf(stderr, "FAIL\n") ;
   return 1 ;
 }

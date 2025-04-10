@@ -218,36 +218,54 @@ ssize_t FILTER_NAME(array_nd *a, block_properties *bp, dmap_filter_list dpfl, bi
   FILTER_ARGS *arg = (FILTER_ARGS *)(*dpfl) ;    // get parameters for this filter
 
 //
-// check a->type and a->ndim
+  if(type != float_data) goto fail ;
+  if(ndim != 2) goto fail ;
 //
-// filter processing code goes here
+// filter processing code goes here  (FWD)
+  iuf32_t maxerr ; maxerr.f = arg->maxerr ;
+  uint32_t err_exp = (maxerr.u >> 23) & 0xFF ;
+  fprintf(stderr, "filter %3.3o, maxerr = %f(%d), nbits = %d\n", FILTER_ID, arg->maxerr, err_exp, arg->nbits) ;
+  if(arg->maxerr < 0 || arg->nbits <= 0) goto fail ;
 //
   dpfl++ ;                                     // call next filter if there is one
   dmap_filter_ptr next_filter = dmap_filter_next(dpfl) ;
   status = (*next_filter)(a, bp, dpfl, &s) ;
   if(status < 0) goto fail ;
 //
-// insert into bitstream the appropriate metadata for the reverse filter
+// insert into bitstream the appropriate information for the reverse filter (PUT)
 //
+  STREAM_PUT_NBITS(s, FILTER_ID, 8) ;
+  status += 8 ;     // 8 bits inserted so far
+  STREAM_PUT_NBITS(s, err_exp, 8) ;
+  uint32_t nbits = arg->nbits - 1 ;
+  STREAM_PUT_NBITS(s, nbits, 5) ;
+  status += 13 ;
+//
+  STREAM_INSERT_PUSH(s) ;
 end:
-  *stream = s ;   // SAVE stream changes
+  *stream = s ;   // success, SAVE stream changes
   return status ;
 
 fail:
-  return -1 ;     // DO NOT SAVE stream changes
+  return -1 ;     // failure, DO NOT SAVE stream changes
 
   uint32_t w32 ;
 reverse:
+// get from bitstream the appropriate information for the reverse filter (GET)
+  status = 8 ;                                         // 8 bits extracted so far
   STREAM_GET_NBITS(s, w32, 8) ;
-//   fprintf(stderr, "reverse filter %3.3o, id = %d\n", FILTER_ID, w32) ;
   if(w32 != FILTER_ID) goto fail ;                     // wrong id, MUST be FILTER_ID
+  STREAM_GET_NBITS(s, err_exp, 8) ;
+  STREAM_GET_NBITS(s, nbits, 5) ; nbits++ ;
+  status += 13 ;
+  maxerr.u = (err_exp << 23) ;
+  fprintf(stderr, "reverse filter %3.3o, id = %d, maxerr = %f, nbits = %d\n", FILTER_ID, w32, maxerr.f, nbits) ;
 //
-// inverse filter processing code goes here
+// inverse filter processing code goes here  (INV)
 //
-
-  ssize_t status2 = dmap_filter_inv(a, &s) ;     // call next inverse filter
+  ssize_t status2 = dmap_filter_inv(a, &s) ;           // call next inverse filter
   if(status2 < 0) goto fail ; else status += status2 ;
-  *stream = s ;   // SAVE stream changes
+  *stream = s ;                                        // SAVE stream changes
   return status ;
 }
 #undef FILTER_NAME
@@ -531,62 +549,3 @@ reverse:
 #undef FILTER_NAME
 #undef FILTER_ARGS
 #undef FILTER_ID
-
-#if defined(COMPILE_FILTER_TEMPLATE_NEVER_TRUE)
-
-#define FILTER_ID xxx
-#define FILTER_NAME CONCAT2(dmap_filter_,FILTER_ID)
-#define FILTER_ARGS CONCAT2(dmap_filter_arg_,FILTER_ID)
-// dpfl == NULL && bp == NULL indicates reverse filter call
-// for the reverse filter, the metadata from the bit stream provides the necessary information
-// the filter may modify the contents of the array described by a
-// in filter mode, bp == NULL if no properties information is available
-// the filter list MUST BE NULL TERMINATED
-ssize_t FILTER_NAME(array_nd *a, block_properties *bp, dmap_filter_list dpfl, bitstream *stream){
-  uint32_t me = FILTER_ID ;
-  if(a == NULL || stream == NULL) goto fail ;    // no array or no stream
-  void *array = array_address(a) ;               // get array address, dimension(s), and type
-  int ndim = a->ndim, type = a->type ;
-  ssize_t status = 0 ;
-  bitstream s = *stream ;                        // local copy of stream control structure
-  if(dpfl == NULL && bp == NULL) goto reverse ;  // call to reverse filter
-  if(! dmap_filter_valid(dpfl,me)) goto fail ;   // not the right filter or NULL pointer
-  FILTER_ARGS *arg = (FILTER_ARGS *)(*dpfl) ;    // get parameters for this filter
-
-//
-// check a->type and a->ndim
-//
-// filter processing code goes here
-//
-  dpfl++ ;                                     // call next filter if there is one
-  dmap_filter_ptr next_filter = dmap_filter_next(dpfl) ;
-  status = (*next_filter)(a, bp, dpfl, &s) ;
-  if(status < 0) goto fail ;
-//
-// insert into bitstream the appropriate metadata for the reverse filter
-//
-end:
-  *stream = s ;   // SAVE stream changes
-  return status ;
-
-fail:
-  return -1 ;     // DO NOT SAVE stream changes
-
-  uint32_t w32 ;
-reverse:
-  STREAM_GET_NBITS(s, w32, 8) ;
-//   fprintf(stderr, "reverse filter %3.3o, id = %d\n", FILTER_ID, w32) ;
-  if(w32 != FILTER_ID) goto fail ;                     // wrong id, MUST be FILTER_ID
-//
-// inverse filter processing code goes here
-//
-  ssize_t status2 = dmap_filter_inv(a, &s) ;     // call next inverse filter
-  if(status2 < 0) goto fail ; else status += status2 ;
-  *stream = s ;   // SAVE stream changes
-  return status ;
-}
-#undef FILTER_NAME
-#undef FILTER_ARGS
-#undef FILTER_ID
-
-#endif

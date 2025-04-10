@@ -14,9 +14,127 @@
 // Author:
 //     M. Valin,   Recherche en Prevision Numerique, 2025
 //
+//  filter chain quick description
+//
+//              fwd filter 0         filter 1           filter 2                 filter N
+//   FWD------->+----------+       +----------+       +----------+             +----------+
+//   (start)    |   PUT    |   +-->|          |   +-->|          |      +-..-->|          |
+//              | (start)  |   |   |   FWD    |   |   |   FWD    |      |      |   FWD    |
+//              |   call   |>--+   |   call   |>--+   |   call   |>....-+      |          |>-+------+
+//   (end)      +==========+       +==========+       +==========+             +==========+  | LAST |
+//   FWD<---+   |          |<--+   |          |<--+   |          |<-...-+      |          |<-+------+
+//          |   |   PUT    |   |   |   PUT    |   |   |   PUT    |      |      |   PUT    |
+//          +--<|  (end)   |   +--<|   call   |   +--<|   call   |      +-...-<|   call   |
+//              +==========+       +==========+       +==========+             +==========+
+//   INV------->+   GET    +   +-->|   GET    |   +-->|   GET    |      +-...->|   GET    |
+//   (start)    |   INV    |   |   |   INV    |   |   |   INV    |      |      |   INV    |
+//              |   call   |>--+   |   call   |>--+   |   call   |>....-+      |   call   |--> INV
+//              +----------+       +----------+       +----------+             +----------+   (end)
+//              inv filter 0
+//    FWD  : apply forward filter
+//    PUT  : write into bit stream
+//    INV  : apply inverse filter
+//    GET  : read from bit stream
+//    LAST : specail last forward filter (turnaround)
+//
+// in forward (FWD) mode
+//    the start filter (ID == 0)
+//       writes array information into the bit stream
+//       calls the next filter
+//    the next filter is called 
+//       after performing the filter action onto the array
+//       before writing the information needed by the reverse filter
+// this makes it easy for the inverse filter chain to be applied in reverse order
+// in inverse (INV) mode
+//    the start filter  (ID == 0)
+//       reads array information from the bit stream
+//       sets/checks the array
+//       calls the filter chain
+//    each filter in turn calls the next one until the end of the chain
+//
+// ================================= generic template for filters =================================
+//
+#if defined(COMPILE_FILTER_TEMPLATE_NEVER_TRUE)
 
+#define FILTER_ID xxx
+#define FILTER_NAME CONCAT2(dmap_filter_,FILTER_ID)
+#define FILTER_ARGS CONCAT2(dmap_filter_arg_,FILTER_ID)
+// dpfl == NULL && bp == NULL indicates reverse filter call
+// for the reverse filter, the metadata from the bit stream provides the necessary information
+// the filter may modify the contents of the array described by a
+// in filter mode, bp == NULL if no properties information is available
+// the filter list MUST BE NULL TERMINATED
+ssize_t FILTER_NAME(array_nd *a, block_properties *bp, dmap_filter_list dpfl, bitstream *stream){
+  uint32_t me = FILTER_ID ;
+  if(a == NULL || stream == NULL) goto fail ;    // no array or no stream
+  void *array = array_address(a) ;               // get array address, dimension(s), and type
+  int ndim = a->ndim, type = a->type ;
+  ssize_t status = 0 ;
+  bitstream s = *stream ;                        // local copy of stream control structure
+  if(dpfl == NULL && bp == NULL) goto reverse ;  // call to reverse filter
+  if(! dmap_filter_valid(dpfl,me)) goto fail ;   // not the right filter or NULL pointer
+  FILTER_ARGS *arg = (FILTER_ARGS *)(*dpfl) ;    // get parameters for this filter
+
+//
+// check a->type and a->ndim as needed
+//
+// filter processing code goes here  (FWD)
+//
+  dpfl++ ;                                     // call next filter if there is one
+  dmap_filter_ptr next_filter = dmap_filter_next(dpfl) ;
+  status = (*next_filter)(a, bp, dpfl, &s) ;
+  if(status < 0) goto fail ;
+//
+// insert into bitstream the appropriate information for the reverse filter (PUT)
+//
+  STREAM_PUT_NBITS(s, FILTER_ID, 8) ;
+  status += 8 ;     // 8 bits inserted so far
+//
+  STREAM_INSERT_PUSH(s) ;
+end:
+  *stream = s ;   // success, SAVE stream changes
+  return status ;
+
+fail:
+  return -1 ;     // failure, DO NOT SAVE stream changes
+
+  uint32_t w32 ;
+reverse:
+// get from bitstream the appropriate information for the reverse filter (GET)
+  status = 8 ;                                         // 8 bits extracted so far
+  STREAM_GET_NBITS(s, w32, 8) ;
+//   fprintf(stderr, "reverse filter %3.3o, id = %d\n", FILTER_ID, w32) ;
+  if(w32 != FILTER_ID) goto fail ;                     // wrong id, MUST be FILTER_ID
+//
+// inverse filter processing code goes here  (INV)
+//
+  ssize_t status2 = dmap_filter_inv(a, &s) ;           // call next inverse filter
+  if(status2 < 0) goto fail ; else status += status2 ;
+  *stream = s ;                                        // SAVE stream changes
+  return status ;
+}
+#undef FILTER_NAME
+#undef FILTER_ARGS
+#undef FILTER_ID
+
+#endif
 #include <stdlib.h>
 #include <rmn/dmap_filters.h>
+
+static int strict_mode = 0 ;
+static int debug_mode = 1 ;
+
+int dmap_strict_mode(int mode){
+  int old_mode = strict_mode ;
+  strict_mode = mode ;
+  return old_mode ;
+}
+
+int dmap_debug_mode(int mode){
+  int old_mode = debug_mode ;
+  debug_mode = mode ;
+  return old_mode ;
+}
 
 // used to process undefined filters, does not interrupt filter chain
 // behaves like a null filter, MUST NEVER be called as an inverse filter
@@ -24,7 +142,8 @@ static ssize_t dmap_filter_none(array_nd *a, block_properties *bp, dmap_filter_l
   (void) (a) ;
   (void) (bp) ;
   (void) (stream) ;
-  fprintf(stderr, "UNDEFINED FILTER (%d)\n", dpfl[0]->filter) ;
+  if(strict_mode > 1) return -1 ;
+  if(debug_mode) fprintf(stderr, "UNDEFINED FILTER (%d)\n", dpfl[0]->filter) ;
   dpfl++ ;                              // next filter
   dmap_filter_ptr next_filter = dmap_filter_next(dpfl) ;
   if(next_filter != NULL) return (*next_filter)(a, bp, dpfl, stream) ;
@@ -37,7 +156,8 @@ static ssize_t dmap_filter_bad(array_nd *a, block_properties *bp, dmap_filter_li
   (void) (a) ;
   (void) (bp) ;
   (void) (stream) ;
-  fprintf(stderr, "INVALID FILTER (%d)\n", dpfl[0]->filter) ;
+  if(strict_mode) return -1 ;
+  if(debug_mode) fprintf(stderr, "INVALID FILTER (%d)\n", dpfl[0]->filter) ;
   dpfl++ ;                              // next filter
   dmap_filter_ptr next_filter = dmap_filter_next(dpfl) ;
   if(next_filter != NULL) return (*next_filter)(a, bp, dpfl, stream) ;
@@ -51,8 +171,8 @@ static ssize_t dmap_filter_last(array_nd *a, block_properties *bp, dmap_filter_l
   (void) (bp) ;
   (void) (dpfl) ;
   (void) (stream) ;
-  fprintf(stderr, "END of filter chain\n") ;
-  return 8 ;
+  if(debug_mode) fprintf(stderr, "END of filter chain\n") ;
+  return 0 ;
 }
 
 typedef struct{

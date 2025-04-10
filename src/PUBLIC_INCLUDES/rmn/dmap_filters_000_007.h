@@ -43,7 +43,8 @@ typedef struct{
 dmap_filter  dmap_filter_003 ;
 typedef struct{
   uint32_t filter ;  // filter number
-  uint8_t args[] ;
+  float maxerr ;
+  uint32_t nbits ;
 } dmap_filter_arg_003 ;
 
 #pragma weak dmap_filter_004

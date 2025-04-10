@@ -21,19 +21,58 @@
 
 #pragma weak dmap_filter_030
 dmap_filter  dmap_filter_030 ;
+typedef struct{
+  uint32_t filter ;  // filter number
+  uint8_t args[] ;
+} dmap_filter_arg_030 ;
+
 #pragma weak dmap_filter_031
 dmap_filter  dmap_filter_031 ;
+typedef struct{
+  uint32_t filter ;  // filter number
+  uint8_t args[] ;
+} dmap_filter_arg_031 ;
+
 #pragma weak dmap_filter_032
 dmap_filter  dmap_filter_032 ;
+typedef struct{
+  uint32_t filter ;  // filter number
+  uint8_t args[] ;
+} dmap_filter_arg_032 ;
+
 #pragma weak dmap_filter_033
 dmap_filter  dmap_filter_033 ;
+typedef struct{
+  uint32_t filter ;  // filter number
+  uint8_t args[] ;
+} dmap_filter_arg_033 ;
+
 #pragma weak dmap_filter_034
 dmap_filter  dmap_filter_034 ;
+typedef struct{
+  uint32_t filter ;  // filter number
+  uint8_t args[] ;
+} dmap_filter_arg_034 ;
+
 #pragma weak dmap_filter_035
 dmap_filter  dmap_filter_035 ;
+typedef struct{
+  uint32_t filter ;  // filter number
+  uint8_t args[] ;
+} dmap_filter_arg_035 ;
+
 #pragma weak dmap_filter_036
 dmap_filter  dmap_filter_036 ;
+typedef struct{
+  uint32_t filter ;  // filter number
+  uint8_t args[] ;
+} dmap_filter_arg_036 ;
+
 #pragma weak dmap_filter_037
 dmap_filter  dmap_filter_037 ;
+typedef struct{
+  uint32_t filter ;  // filter number
+  uint8_t args[] ;
+} dmap_filter_arg_037 ;
 
 #endif
