@@ -109,6 +109,7 @@ set(PROJECT_H_FILES
   src/PUBLIC_INCLUDES/rmn/identify_compiler_c.h
   src/PUBLIC_INCLUDES/rmn/identify_compiler_f.hf
   src/PUBLIC_INCLUDES/rmn/identify_mpi_child.h
+  src/PUBLIC_INCLUDES/rmn/ieee_functions.h
   src/PUBLIC_INCLUDES/rmn/ieee_quantize.h
   src/PUBLIC_INCLUDES/rmn/is_fortran_compiler.h
   src/PUBLIC_INCLUDES/rmn/le_stream.h

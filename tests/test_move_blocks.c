@@ -22,6 +22,7 @@
 
 #include <rmn/test_helpers.h>
 #include <rmn/move_blocks.h>
+#include <rmn/ieee_functions.h>
 
 #define NITER 100
 #define WITH_TIMING
@@ -73,8 +74,8 @@ int main(int argc, char **argv){
   errors = 0 ;
   for(j=0 ; j<NJ ; j++){
     for(i=0 ; i<LNI ; i++){
-      int32_t fake = fake_int(f1[j][i]) ;
-      float r = unfake_float(fake) ;
+      int32_t fake = fp32_as_int(f1[j][i]) ;
+      float r = int_as_fp32(fake) ;
       if(r != f1[j][i]) {
         fprintf(stderr, "ERROR: expecting %f1, got %f1, fake = %8.8x\n", f1[j][i], r, fake) ;
         exit(1) ;
@@ -82,7 +83,7 @@ int main(int argc, char **argv){
     }
   }
   fprintf(stderr, "NaN test :float_NaN() =  %f\n", float_NaN()) ;
-  fprintf(stderr, "SUCCESS : float -> fake int -> float test\n") ;
+  fprintf(stderr, "SUCCESS : 'float' -> 'float as int' -> 'float' test\n") ;
 
   ni = 127 ; nj = 125 ;
   {

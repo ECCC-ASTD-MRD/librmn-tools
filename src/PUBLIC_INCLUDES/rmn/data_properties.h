@@ -18,19 +18,19 @@
 
 #include <rmn/data_kind.h>
 
-// transform a float into a fake signed integer (comparison order preserving)
-static inline int32_t fake_int(float f){
-  iuf32_t iuf ;
-  iuf.f = f ;
-  return (iuf.i & 0x7FFFFFFF) ^ (iuf.i >> 31) ;
-}
-
-// restore float from fake integer representing float
-static inline float unfake_float(int32_t fake){
-  iuf32_t iuf ;
-  iuf.i = ((fake >> 31) ^ fake) | (fake & 0x80000000) ;
-  return iuf.f ;
-}
+// // transform a float into a fake signed integer (comparison order preserving)
+// static inline int32_t fake_int(float f){
+//   iuf32_t iuf ;
+//   iuf.f = f ;
+//   return (iuf.i & 0x7FFFFFFF) ^ (iuf.i >> 31) ;
+// }
+// 
+// // restore float from fake integer representing float
+// static inline float unfake_float(int32_t fake){
+//   iuf32_t iuf ;
+//   iuf.i = ((fake >> 31) ^ fake) | (fake & 0x80000000) ;
+//   return iuf.f ;
+// }
 
 // basic block block properties
 typedef struct{
