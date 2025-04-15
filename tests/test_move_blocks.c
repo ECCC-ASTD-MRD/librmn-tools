@@ -82,7 +82,10 @@ int main(int argc, char **argv){
       }
     }
   }
-  fprintf(stderr, "NaN test :float_NaN() =  %f\n", float_NaN()) ;
+  fprintf(stderr, "NaN test :fp32_nan() =  %f (%f)\n", fp32_nan(0), fp32_nan(1)) ;
+  fprintf(stderr, "truncate and round +1.5 to a power of 2 trunc = %5.1f, round = %5.1f\n", fp32_pow2_trunc(+1.5f), fp32_pow2_round(+1.5f)) ;
+  fprintf(stderr, "truncate and round -1.5 to a power of 2 trunc = %5.1f, round = %5.1f\n", fp32_pow2_trunc(-1.5f), fp32_pow2_round(-1.5f)) ;
+  fprintf(stderr, "2.0 to the power 5 = %f\n", fp32_pow2(5)) ;
   fprintf(stderr, "SUCCESS : 'float' -> 'float as int' -> 'float' test\n") ;
 
   ni = 127 ; nj = 125 ;

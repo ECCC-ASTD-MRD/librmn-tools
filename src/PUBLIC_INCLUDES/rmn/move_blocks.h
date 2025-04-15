@@ -46,12 +46,6 @@ int analyze_data32_block(void *restrict src, int lnis, int ni, int nj, block_pro
 void adjust_block_properties(block_properties *bp, data_kind datatype);
 void add_block_properties(block_properties *bp, block_properties *bp_extra);
 
-static inline float float_NaN(){
-  iuf32_t t ;
-  t.u = 0x7FFFFFFF ;
-  return t.f ;
-}
-
 static inline int int_max_abs(block_properties bp){
   uint32_t max1, max2 ;
   if(bp.maxs.i <= 0) return -bp.mins.i ;  // all negative or 0
@@ -70,10 +64,10 @@ static inline int int_min_abs(block_properties bp){
   return (min1 < min2) ? min1 : min2 ;
 }
 
-#define FLOAT_MAX_VALUE(BP) ( ((BP).kind == float_data) ? (BP).maxs.f : float_NaN() )
-#define FLOAT_MIN_VALUE(BP) ( ((BP).kind == float_data) ? (BP).mins.f : float_NaN() )
-#define FLOAT_MAX_ABS(BP)   ( ((BP).kind == float_data) ? (BP).maxu.f : float_NaN() )
-#define FLOAT_MIN_ABS(BP)   ( ((BP).kind == float_data) ? (BP).minu.f : float_NaN() )
+#define FLOAT_MAX_VALUE(BP) ( ((BP).kind == float_data) ? (BP).maxs.f : fp32_nan(0) )
+#define FLOAT_MIN_VALUE(BP) ( ((BP).kind == float_data) ? (BP).mins.f : fp32_nan(0) )
+#define FLOAT_MAX_ABS(BP)   ( ((BP).kind == float_data) ? (BP).maxu.f : fp32_nan(0) )
+#define FLOAT_MIN_ABS(BP)   ( ((BP).kind == float_data) ? (BP).minu.f : fp32_nan(0) )
 
 #define INT_MAX_VALUE(BP)   ( ((BP).kind == int_data) ? (BP).maxs.i     : 0x80000000 )
 #define INT_MIN_VALUE(BP)   ( ((BP).kind == int_data) ? (BP).mins.i     : 0x7FFFFFFF )
