@@ -29,28 +29,28 @@ typedef struct{
 }fp32_sem ;
 
 // get mantissa from float value z
-int fp32_mant(float z){
+static inline int fp32_mant(float z){
   union{ int i ; float f ; } u ;
   u.f = z ;
   return (u.i & 0x7FFFFF) ;
 }
 
 // get sign of z
-int fp32_sign(float z){
+static inline int fp32_sign(float z){
   union{ int i ; float f ; } u ;
   u.f = z ;
   return (u.i >> 31) ;
 }
 
 // get unbiased exponent from z
-int fp32_exp(float z){
+static inline int fp32_exp(float z){
   union{ int i ; float f ; } u ;
   u.f = z ;
   return ((u.i >> 23) & 0xFF) -127 ;
 }
 
 // split 32 bit float z into sign, exponent (unbiased), and mantissa
-fp32_sem fp32_to_sem(float z){
+static inline fp32_sem fp32_to_sem(float z){
   fp32_sem r ;
   r.s = fp32_sign(z) ;
   r.e = fp32_exp(z) ;
@@ -59,7 +59,7 @@ fp32_sem fp32_to_sem(float z){
 }
 
 // is z a NaN (not a number) ?
-int fp32_isnan(float z){
+static inline int fp32_isnan(float z){
   union{ int i ; float f ; } u ;
   u.f = z ;
   if((u.i & 0x7FFFFF) == 0) return 0 ;       // infinity
@@ -67,7 +67,7 @@ int fp32_isnan(float z){
 }
 
 // is z equal to infinity ?
-int fp32_isinf(float z){
+static inline int fp32_isinf(float z){
   union{ int i ; float f ; } u ;
   u.f = z ;
   if((u.i & 0x7FFFFF) != 0) return 0 ;       // NaN or valid float
@@ -75,14 +75,14 @@ int fp32_isinf(float z){
 }
 
 // generate a "quiet" or a "signaling" NaN
-float fp32_nan(int signaling){
+static inline float fp32_nan(int signaling){
   union{ int i ; float f ; } r ;
   r.i = 0X7F800001 | (signaling << 22) ;
   return r.f ;
 }
 
 // truncate z to the power of 2 <= z
-float fp32_pow2_trunc(float z){
+static inline float fp32_pow2_trunc(float z){
   union{ int i ; float f ; } r ;
   r.f = z ;
   r.i &= 0xFF800000 ;   // get rid of mantissa
@@ -90,7 +90,7 @@ float fp32_pow2_trunc(float z){
 }
 
 // round z to the nearest power of 2
-float fp32_pow2_round(float z){
+static inline float fp32_pow2_round(float z){
   union{ int i ; float f ; } r ;
   r.f = z ;
   r.i += 0x00400000 ;   // round up in value
@@ -99,14 +99,14 @@ float fp32_pow2_round(float z){
 }
 
 // return 2.0 to the power p
-float fp32_pow2(int p){
+static inline float fp32_pow2(int p){
   union{ int i ; float f ; } r ;
   r.i = (p <=127 && p >= -127) ? ((p +127) << 23) : 0X7F800001 ;
   return r.f ;
 }
 
 // re-create 32 bit float from 3 values (sign, unbiased exponent, mantissa)
-float fp32_from_i3(int s, int e, int m){
+static inline float fp32_from_i3(int s, int e, int m){
   union{ int i ; float f ; } r ;
   r.i = s ; r.i <<= 31 ;      // MSB is sign
   e = ((e + 127) & 0xFF) ;    // add bias to exponent
@@ -117,7 +117,7 @@ float fp32_from_i3(int s, int e, int m){
 }
 
 // re-create 32 bit float from sign/exponent/mantissa struct
-float fp32_from_sem(fp32_sem sem){
+static inline float fp32_from_sem(fp32_sem sem){
   return fp32_from_i3(sem.s, sem.e, sem.m) ;
 }
 
