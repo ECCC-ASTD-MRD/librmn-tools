@@ -19,6 +19,8 @@
 #include <rmn/timers.h>
 #include <rmn/test_helpers.h>
 #include <rmn/dmap_filters.h>
+#include <rmn/move_blocks.h>
+#include <rmn/split_dimension.h>
 
 // end of section to be moved to dmap_filters.c
 
@@ -121,6 +123,78 @@ int main(int argc, char **argv){
   }
   if(errors > 0) fprintf(stderr, "%f %f %f %f\n", z[0][0], z[NJ-1][NI-1], r[0][0], r[NJ-1][NI-1]) ;
   fprintf(stderr, "filter test : %d differences between r and z (%d values)\n", errors, NI*NJ) ;
+  if(errors > 0) goto fail ;
+  fprintf(stderr, "SUCCESS\n") ;
+
+  fprintf(stderr, "============================== array test ==============================\n") ;
+#undef NI
+#undef NJ
+#define NI 194
+#define NJ 62
+#define BLOCKSIZE 64
+  float z2[NJ][NI], r2[NJ][NI] ;   // 3 tiles horizontally, 1 tile vertically
+  uint32_t buf2[NI*NJ*2] ;         // enough space for stream packing
+  bitstream *stream2 = NULL ;
+  dmap_filter_arg_003 quantize = DMAP_FILTER_003( .maxerr = .5f, .nbits = 12) ;
+
+  dpfl[0] = (dmap_filter_args_ptr)&quantize ;     // filter 003, linear float quantizer
+  dpfl[1] = NULL ;                                // end of filter list
+
+  STREAM_CREATE(stream, buf2, sizeof(buf2), 0) ;
+  STREAM_INSERT_BEGIN(*stream) ;
+
+  for(j=0 ; j<NJ ; j++){
+    for(i=0 ; i<NI ; i++){
+      z2[j][i] = j * ( i - (NI-1)*.5f ) ;
+      r2[j][i] = 999999.0 ;
+    }
+  }
+  int i0, j0 ;
+  array_2d z2d ;
+  new_array(&z2d, (void *)&z2, sizeof(float), float_data, NI, NJ) ;
+  array_axis iaxis, jaxis ;
+  iaxis = split_axis(NI, BLOCKSIZE) ;
+  jaxis = split_axis(NJ, BLOCKSIZE) ;
+  for(j0 = 0 ; j0<jaxis.nbk ; j0++){
+    index_range jrange = block_limits(jaxis, j0) ;
+    int jsize = jrange.ixn - jrange.ix0 + 1 ;
+    for(i0=0 ; i0<iaxis.nbk ; i0++){
+      //  get the float block to process
+      index_range irange = block_limits(iaxis, i0) ;
+      int isize = irange.ixn - irange.ix0 + 1 ;
+      fprintf(stderr, "block[%d,%d] limits = [%3d:%3d,%3d:%3d] (%3dx%3d)\n", i0, j0, irange.ix0, irange.ixn, jrange.ix0, jrange.ixn, isize, jsize) ;
+      if(2 != set_array_lbounds(&z2d, irange.ix0, irange.ixn, jrange.ix0, jrange.ixn)) goto fail ;
+      float block[jsize][isize] ;
+      array_2d b2d ;
+      new_array(&b2d, (void *)&block, sizeof(float), float_data, isize, jsize) ;
+      block_properties bp ;
+      float *src = (float *)subarray_address(&z2d) ; // address within z2d
+      if(isize*jsize != move_w32_block(src, NI, block, isize, isize, jsize, &bp)) goto fail ;
+      float xmin, xmax ;
+      xmin = xmax = z2[jrange.ix0][irange.ix0] ;
+      for(j=jrange.ix0 ; j<=jrange.ixn ; j++){      // explicit check for min and max
+        for(i=irange.ix0 ; i<=irange.ixn ; i++){
+          xmin = (z2[j][i] < xmin) ? z2[j][i] : xmin ;
+          xmax = (z2[j][i] > xmax) ? z2[j][i] : xmax ;
+        }
+      }
+      print_float_props(bp) ;
+      if(xmin != FLOAT_MIN_VALUE(bp) || xmax != FLOAT_MAX_VALUE(bp)) {
+        fprintf(stderr, "expected : min = %f, max = %f, found : min = %f, max = %f\n", xmin, xmax, FLOAT_MIN_VALUE(bp), FLOAT_MAX_VALUE(bp)) ;
+        goto fail ;
+      }
+      // process subarray
+      status = dmap_filter_fwd((array_nd *)&a2d, &bp2d, dpfl, stream) ;   // activate forward filter chain
+      if(status < 0) goto fail ;
+      debug_mode = dmap_debug_mode(1)   ; dmap_debug_mode(debug_mode) ;
+
+      fprintf(stderr, "filter test : bits inserted = %ld\n", status) ;
+      STREAM_FLUSH(*stream) ;
+      STREAM_INSERT_ALIGN32(*stream) ;        // align to a 32 bit boundary
+      fprintf(stderr, "filter test : available data in stream %ld bits\n", StreamAvailableBits(stream)) ;
+break ;
+    }
+  }
 
 end:
   fprintf(stderr, "SUCCESS\n") ;

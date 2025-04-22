@@ -46,6 +46,7 @@ typedef struct{
   float maxerr ;
   uint32_t nbits ;
 } dmap_filter_arg_003 ;
+#define DMAP_FILTER_003(...) (dmap_filter_arg_003) { 003 __VA_OPT__(,) __VA_ARGS__ }
 
 #pragma weak dmap_filter_004
 dmap_filter  dmap_filter_004 ;

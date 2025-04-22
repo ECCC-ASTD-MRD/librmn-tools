@@ -40,18 +40,22 @@ ssize_t dmap_filter_fwd(array_nd *a, block_properties *bp, dmap_filter_list dpfl
   nbits = 8 ;
   STREAM_PUT_NBITS(s, me,      8) ;              // dummy filter id
   nbits += dmap_filter_put_array_info(a, &s) ;
+  fprintf(stderr, "dmap_filter_fwd(HEAD) : inserted %d bits\n", nbits) ;
 
   // call next filter in list
   dmap_filter_ptr next_filter = dmap_filter_next(dpfl) ;
   status = (*next_filter)(a, bp, dpfl, &s) ;
   if(status < 0) goto fail ;
+//   fprintf(stderr, "dmap_filter_fwd(MID) : nbits in stream = %ld\n", nbits+status) ;
 
 end:
   // put end of filter chain data marker at the end of the bit stream
   STREAM_PUT_NBITS(s, FILTER_CHAIN_END, 8) ;
   nbits += 8 ;
+  fprintf(stderr, "dmap_filter_fwd(TAIL) : inserted %d bits\n", nbits) ;
   *stream = s ;   // SAVE stream changes
   status += nbits ;
+  fprintf(stderr, "dmap_filter_fwd(TAIL) : nbits in stream = %ld\n", status) ;
   return status ;
 
 fail:
@@ -198,6 +202,7 @@ reverse:
 #undef FILTER_ID
 
 // ======================================= filter 003 =======================================
+// 32 bit float linear quantizer
 #define FILTER_ID 003
 #define FILTER_NAME CONCAT2(dmap_filter_,FILTER_ID)
 #define FILTER_ARGS CONCAT2(dmap_filter_arg_,FILTER_ID)
@@ -218,13 +223,14 @@ ssize_t FILTER_NAME(array_nd *a, block_properties *bp, dmap_filter_list dpfl, bi
   FILTER_ARGS *arg = (FILTER_ARGS *)(*dpfl) ;    // get parameters for this filter
 
 //
-  if(type != float_data) goto fail ;
-  if(ndim != 2) goto fail ;
+  if(type != float_data) goto fail ;             // data type MUST BE FLOAT
+  if(ndim != 2) goto fail ;                      // only 2D is supported at this time
 //
 // filter processing code goes here  (FWD)
   iuf32_t maxerr ; maxerr.f = arg->maxerr ;
   uint32_t err_exp = (maxerr.u >> 23) & 0xFF ;
   fprintf(stderr, "filter %3.3o, maxerr = %f(%d), nbits = %d\n", FILTER_ID, arg->maxerr, err_exp, arg->nbits) ;
+// call linear fp32 quantizer code
   if(arg->maxerr < 0 || arg->nbits <= 0) goto fail ;
 //
   dpfl++ ;                                     // call next filter if there is one
@@ -234,14 +240,17 @@ ssize_t FILTER_NAME(array_nd *a, block_properties *bp, dmap_filter_list dpfl, bi
 //
 // insert into bitstream the appropriate information for the reverse filter (PUT)
 //
+  int inserted = 0 ;
   STREAM_PUT_NBITS(s, FILTER_ID, 8) ;
-  status += 8 ;     // 8 bits inserted so far
+  inserted += 8 ;     // 8 bits inserted so far
   STREAM_PUT_NBITS(s, err_exp, 8) ;
   uint32_t nbits = arg->nbits - 1 ;
   STREAM_PUT_NBITS(s, nbits, 5) ;
-  status += 13 ;
+  inserted += 13 ;
 //
   STREAM_INSERT_PUSH(s) ;
+  status += inserted ;
+  fprintf(stderr, "filter %3.3o : inserted %d bits\n", FILTER_ID, inserted) ;
 end:
   *stream = s ;   // success, SAVE stream changes
   return status ;

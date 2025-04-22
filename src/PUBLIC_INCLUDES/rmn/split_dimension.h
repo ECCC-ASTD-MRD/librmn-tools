@@ -78,7 +78,7 @@ static inline int32_t block_ordinal(array_axis axis,int32_t index){
 
 // index range from block index and sizes (along one dimension) (unsafe)
 // bl  [IN] : block index along a dimension
-// ln  [IN] : size of all but first block along a dimension
+// ln1 [IN] : size of all but first block along a dimension
 // ln0 [IN] : size of first block along a dimension (ln/2 <= ln0 < 2*ln)
 // return index limits along a dimension for this block
 static inline index_range r_limits(int32_t bl, int32_t ln1, int32_t ln0){

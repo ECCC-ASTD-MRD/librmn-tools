@@ -72,20 +72,39 @@ int main(int argc, char **argv){
   f1[0][0] = 0.5f ;
 //   f1[0][1] = 2.5f ;
   errors = 0 ;
-  for(j=0 ; j<NJ ; j++){
-    for(i=0 ; i<LNI ; i++){
-      int32_t fake = fp32_as_int(f1[j][i]) ;
-      float r = int_as_fp32(fake) ;
-      if(r != f1[j][i]) {
-        fprintf(stderr, "ERROR: expecting %f1, got %f1, fake = %8.8x\n", f1[j][i], r, fake) ;
-        exit(1) ;
-      }
+//   for(j=0 ; j<NJ ; j++){
+//     for(i=0 ; i<LNI ; i++){
+//       int32_t fake = fp32_as_int(f1[j][i]) ;
+//       float r = int_as_fp32(fake) ;
+//       if(r != f1[j][i]) {
+//         fprintf(stderr, "ERROR: expecting %f1, got %f1, fake = %8.8x\n", f1[j][i], r, fake) ;
+//         exit(1) ;
+//       }
+//     }
+//   }
+  int i0 = -0x7FFFFFFF - 1 ;
+  int64_t i64 = 0 ;
+  for(i = i0 ; i <= 0x7FFFFFFF ; i+=3){
+    float r = int_as_fp32(i) ;
+    if(i != fp32_as_int(r)) {
+      fprintf(stderr, "ERROR: expecting %d from %f, got %d\n", i, r, fp32_as_int(r)) ;
+      exit(1) ;
     }
+    i64++ ;
+    if(0x7FFFFFFF-3 < i) break ;
+//     if(i == 0x7FFFFFFF) break ;
   }
-  fprintf(stderr, "NaN test :fp32_nan() =  %f (%f)\n", fp32_nan(0), fp32_nan(1)) ;
+  fprintf(stderr, "SUCCESS : fake integer to/from real test %ld values (%8.8x to %8.8x)\n", i64, i0, i) ;
+  fprintf(stderr, "NaN test :fp32_nan(0/1) =  %f (%f)\n", fp32_nan(0), fp32_nan(1)) ;
   fprintf(stderr, "truncate and round +1.5 to a power of 2 trunc = %5.1f, round = %5.1f\n", fp32_pow2_trunc(+1.5f), fp32_pow2_round(+1.5f)) ;
   fprintf(stderr, "truncate and round -1.5 to a power of 2 trunc = %5.1f, round = %5.1f\n", fp32_pow2_trunc(-1.5f), fp32_pow2_round(-1.5f)) ;
   fprintf(stderr, "2.0 to the power 5 = %f\n", fp32_pow2(5)) ;
+  for(i=0 ; i<127 ; i++){
+    if(fp32_pow2(-i)*fp32_pow2(i) != 1.0f) {
+      fprintf(stderr, "ERROR : fp32_pow2(-%d)*fp32_pow2(%d) != 1.0f, got %G \n", i, i, fp32_pow2(-i)*fp32_pow2(i)) ;
+      goto fail ;
+    }
+  }
   fprintf(stderr, "SUCCESS : 'float' -> 'float as int' -> 'float' test\n") ;
 
   ni = 127 ; nj = 125 ;
@@ -243,4 +262,7 @@ int main(int argc, char **argv){
 //   split_and_process(z, LNI, NI, NJ, int_data, 64, 64, NULL, NULL) ;  // demo mode 
 
   return 0 ;
+fail:
+  fprintf(stderr, "FAIL\n") ;
+  return 1 ;
 }
