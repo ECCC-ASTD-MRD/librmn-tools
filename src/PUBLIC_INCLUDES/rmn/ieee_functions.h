@@ -19,7 +19,6 @@
 #define IEEE_FUNCTIONS
 
 #include <stdint.h>
-#include <rmn/data_kind.h>
 
 // sign, exponent, mantissa from 32 bit float
 typedef struct{
@@ -27,13 +26,6 @@ typedef struct{
   int16_t e ;
   int32_t m ;
 }fp32_sem ;
-
-// get mantissa from float value z
-static inline int fp32_mant(float z){
-  union{ int i ; float f ; } u ;
-  u.f = z ;
-  return (u.i & 0x7FFFFF) ;
-}
 
 // get sign of z
 static inline int fp32_sign(float z){
@@ -49,13 +41,11 @@ static inline int fp32_exp(float z){
   return ((u.i >> 23) & 0xFF) -127 ;
 }
 
-// split 32 bit float z into sign, exponent (unbiased), and mantissa
-static inline fp32_sem fp32_to_sem(float z){
-  fp32_sem r ;
-  r.s = fp32_sign(z) ;
-  r.e = fp32_exp(z) ;
-  r.m = fp32_mant(z) ;
-  return r ;
+// get mantissa from float value z
+static inline int fp32_mant(float z){
+  union{ int i ; float f ; } u ;
+  u.f = z ;
+  return (u.i & 0x7FFFFF) ;
 }
 
 // is z a NaN (not a number) ?
@@ -114,6 +104,15 @@ static inline float fp32_from_i3(int s, int e, int m){
   m &= 0x7FFFFF ;             // only use lower 23 bits of mantissa
   r.i |= m ;                  // install mantissa
   return r.f ;
+}
+
+// split 32 bit float z into sign, exponent (unbiased), and mantissa
+static inline fp32_sem fp32_to_sem(float z){
+  fp32_sem r ;
+  r.s = fp32_sign(z) ;
+  r.e = fp32_exp(z) ;
+  r.m = fp32_mant(z) ;
+  return r ;
 }
 
 // re-create 32 bit float from sign/exponent/mantissa struct
