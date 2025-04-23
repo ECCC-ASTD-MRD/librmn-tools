@@ -36,6 +36,7 @@ set(PROJECT_C_FILES
   src/pack/pixmaps.c
   src/plugins/plugin_code.c
   src/diag/print_helpers.c
+  src/pack/quantizers.c
   src/timers/rmn_timers.c
   src/pack/serialized_functions.c
   src/diag/simd_compare.c
@@ -123,6 +124,7 @@ set(PROJECT_H_FILES
   src/PUBLIC_INCLUDES/rmn/pipe_filters.h
   src/PUBLIC_INCLUDES/rmn/pixmaps.h
 #   src/PUBLIC_INCLUDES/rmn/print_bitstream.h
+  src/PUBLIC_INCLUDES/rmn/quantizers.h
   src/PUBLIC_INCLUDES/rmn/rmn_tools.h
   src/PUBLIC_INCLUDES/rmn/serialized_functions.h
   src/PUBLIC_INCLUDES/rmn/simd_compare.h

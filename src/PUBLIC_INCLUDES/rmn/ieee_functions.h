@@ -15,8 +15,8 @@
 //     M. Valin,   Recherche en Prevision Numerique, 2025
 //
 
-#if ! defined(IEEE_FUNCTIONS)
-#define IEEE_FUNCTIONS
+#if ! defined(IEEE_FUNCTIONS_DEFINED)
+#define IEEE_FUNCTIONS_DEFINED
 
 #include <stdint.h>
 
@@ -137,24 +137,6 @@ static inline float int_as_fp32(int32_t fake){
   union{ int32_t i ; uint32_t u ; float f ; } r ;
   r.i = ((fake >> 31) ^ fake) | (fake & 0x80000000) ;
   return r.f ;
-}
-
-// linear quantizer for float values
-// z      [IN] : 32 bit float
-//ovd     [IN] : inverse of discretization quantum (32 bit float, ideally a power of 2)
-// return quantized value (32 bit integer)
-static inline int32_t fp2q_lin_(float z, float ovd){
-  int32_t t = (z * ovd) + ((z < 0) ? -.5f : .5f) ;
-  return t ;
-}
-
-// linear de_quantizer (inverse of fp2q_lin_)
-// q [IN] : quantized value (32 bit integer)
-// d [IN] : float discretization quantum
-// return restored float value
-static inline float q2fp_lin_(int32_t q, float d){
-  float t = q * d ;
-  return t ;
 }
 
 #endif
