@@ -34,6 +34,10 @@ typedef enum {
   double_data = 9      // 64 bit doubles
 } data_kind ;
 
+static inline int data_kind_valid(int kind){
+  return (kind > bad_data && kind <= double_data) ? 1 : 0 ;
+}
+
 // generic 64 bit container
 typedef union{
   double    d ;    // double

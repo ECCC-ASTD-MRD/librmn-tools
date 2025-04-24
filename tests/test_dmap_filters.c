@@ -33,9 +33,9 @@ int main(int argc, char **argv){
   dmap_filter_arg_007 arg_007a = { 0007, 1.0f, 2.0f } ;
   dmap_filter_arg_007 arg_007b = { 0007, 10.0f, 20.0f } ;
 //   dmap_filter_arg_001 arg_001a = { 0001, 5, 6 } ;
-  dmap_filter_arg_006 arg_001a = { 0006, 32 } ;
+  dmap_filter_arg_006 arg_006a = { 0006, 32 } ;
   dmap_filter_arg_002 arg_002a = { 0002, 0 } ;
-  dmap_filter_arg_003 arg_003a = { 0003, .5f, 12 } ;
+  dmap_filter_arg_003 arg_003a = { 0003, .25f, 12, 0 } ;
   dmap_filter_arg_036 arg_036z = { 0036 } ;
   dmap_filter_arg_036 arg_177n = { 0177 } ;
   array_2d a2d, b2d ;
@@ -47,6 +47,7 @@ int main(int argc, char **argv){
   int i, j ;
   float z[NJ][NI] ;
   float r[NJ][NI] ;
+  float Z[NJ][NI] ;
   uint32_t buffer[NI*NJ*2] ;
 //   TIME_LOOP_DATA ;
 
@@ -72,25 +73,31 @@ int main(int argc, char **argv){
   for(j=0 ; j<NJ ; j++){
     for(i=0 ; i<NI ; i++){
       z[j][i] = (i - (NI-1)*.5f) + (j - (NJ-1)*.5f) ;
+      Z[j][i] = z[j][i] ;
       r[j][i] = 999999.0f ;
     }
   }
 
   dpfl[0] = (dmap_filter_args_ptr)&arg_007a ;     // filter 007
   dpfl[1] = (dmap_filter_args_ptr)&arg_007b ;     // filter 007
-  dpfl[2] = (dmap_filter_args_ptr)&arg_001a ;     // filter 006
+  dpfl[2] = (dmap_filter_args_ptr)&arg_006a ;     // filter 006
   dpfl[3] = (dmap_filter_args_ptr)&arg_002a ;     // filter 002
   dpfl[4] = (dmap_filter_args_ptr)&arg_036z ;     // undefined filter 036
   dpfl[5] = (dmap_filter_args_ptr)&arg_177n ;     // invalid filter 127
   dpfl[6] = NULL ;                                // end of filter list
-  dpfl[4] = (dmap_filter_args_ptr)&arg_003a ;     // filter 003, linear float quantizer
-  dpfl[5] = NULL ;                                // end of filter list
-
+  arg_003a = DMAP_FILTER_003( .maxerr = .25f, .nbits = 12, .offset = 0x7FFFFFFF ) ;
+  dpfl[0] = (dmap_filter_args_ptr)&arg_003a ;     // filter 003, linear float quantizer
+  arg_006a = DMAP_FILTER_006( .mode = 32 ) ;
+  dpfl[1] = (dmap_filter_args_ptr)&arg_006a ;     // 32 bit raw encoding
+  dpfl[2] = NULL ;                                // end of filter list
+// goto array_test ;
   STREAM_CREATE(stream, buffer, sizeof(buffer), 0) ;
   STREAM_INSERT_BEGIN(*stream) ;
   fprintf(stderr, "filter test : available space in stream %ld bits\n", StreamAvailableSpace(stream)) ;
+
   int debug_mode = dmap_debug_mode(1) ;
   int strict_mode = dmap_strict_mode(1) ;
+  bp2d = NULL_BLOCK_PROPERTIES ; // data properties are not valid
   status = dmap_filter_fwd((array_nd *)&a2d, &bp2d, dpfl, stream) ;   // activate forward filter chain
   if(status < 0) goto fail ;
   debug_mode = dmap_debug_mode(1)   ; dmap_debug_mode(debug_mode) ;
@@ -116,8 +123,14 @@ int main(int argc, char **argv){
   fprintf(stderr, "filter test : available data in stream %ld bits\n", StreamAvailableBits(stream)) ;
 
   int errors = NI*NJ ;
-  float *pz = (float *) a2d.data ;
+//   float *pz = (float *) a2d.data ;
+  float *pz = (float *) Z ;
   float *pr = (float *) b2d.data ;
+  block_properties bp_out, bp_in ;
+  analyze_data32_block((void *) pz, NI, NI, NJ, &bp_in)  ; adjust_block_properties(&bp_in,  float_data) ;
+  print_float_props(bp_in) ;
+  analyze_data32_block((void *) pr, NI, NI, NJ, &bp_out) ; adjust_block_properties(&bp_out, float_data) ;
+  print_float_props(bp_out);
   for(i=0 ; i<NI*NJ ; i++){
     if(pz[i] == pr[i]) errors-- ;
   }
@@ -126,6 +139,7 @@ int main(int argc, char **argv){
   if(errors > 0) goto fail ;
   fprintf(stderr, "SUCCESS\n") ;
 
+array_test:
   fprintf(stderr, "============================== array test ==============================\n") ;
 #undef NI
 #undef NJ
@@ -134,10 +148,12 @@ int main(int argc, char **argv){
 #define BLOCKSIZE 64
   float z2[NJ][NI], r2[NJ][NI] ;   // 3 tiles horizontally, 1 tile vertically
   uint32_t buf2[NI*NJ*2] ;         // enough space for stream packing
-  bitstream *stream2 = NULL ;
-  dmap_filter_arg_003 quantize = DMAP_FILTER_003( .maxerr = .5f, .nbits = 12) ;
+//   bitstream *stream2 = NULL ;
+  dmap_filter_arg_003 quantize = DMAP_FILTER_003( .maxerr = .25f, .nbits = 12) ;
+  dmap_filter_arg_006 encode   = DMAP_FILTER_006( .mode = 24 ) ;
 
   dpfl[0] = (dmap_filter_args_ptr)&quantize ;     // filter 003, linear float quantizer
+  dpfl[1] = (dmap_filter_args_ptr)&encode ;       // filter 006, bit encoder
   dpfl[1] = NULL ;                                // end of filter list
 
   STREAM_CREATE(stream, buf2, sizeof(buf2), 0) ;
@@ -150,8 +166,9 @@ int main(int argc, char **argv){
     }
   }
   int i0, j0 ;
-  array_2d z2d ;
+  array_2d z2d ;    // GLOBAL array
   new_array(&z2d, (void *)&z2, sizeof(float), float_data, NI, NJ) ;
+
   array_axis iaxis, jaxis ;
   iaxis = split_axis(NI, BLOCKSIZE) ;
   jaxis = split_axis(NJ, BLOCKSIZE) ;
@@ -164,12 +181,15 @@ int main(int argc, char **argv){
       int isize = irange.ixn - irange.ix0 + 1 ;
       fprintf(stderr, "block[%d,%d] limits = [%3d:%3d,%3d:%3d] (%3dx%3d)\n", i0, j0, irange.ix0, irange.ixn, jrange.ix0, jrange.ixn, isize, jsize) ;
       if(2 != set_array_lbounds(&z2d, irange.ix0, irange.ixn, jrange.ix0, jrange.ixn)) goto fail ;
-      float block[jsize][isize] ;
-      array_2d b2d ;
+
+      float block[jsize][isize] ;     // storage for BLOCK
+      array_2d b2d ;                  // LOCAL BLOCK
       new_array(&b2d, (void *)&block, sizeof(float), float_data, isize, jsize) ;
       block_properties bp ;
       float *src = (float *)subarray_address(&z2d) ; // address within z2d
-      if(isize*jsize != move_w32_block(src, NI, block, isize, isize, jsize, &bp)) goto fail ;
+      if(isize*jsize != move_w32_block(src, NI, block, isize, isize, jsize, &bp)) goto fail ;   // copy from GLOBAL to LOCAL BLOCK
+      b2d.type = float_data ;                                                                   // LOCAL contains floats
+
       float xmin, xmax ;
       xmin = xmax = z2[jrange.ix0][irange.ix0] ;
       for(j=jrange.ix0 ; j<=jrange.ixn ; j++){      // explicit check for min and max
@@ -184,15 +204,15 @@ int main(int argc, char **argv){
         goto fail ;
       }
       // process subarray
-      status = dmap_filter_fwd((array_nd *)&a2d, &bp2d, dpfl, stream) ;   // activate forward filter chain
+      status = dmap_filter_fwd((array_nd *)&b2d, &bp, dpfl, stream) ;   // activate forward filter chain
       if(status < 0) goto fail ;
       debug_mode = dmap_debug_mode(1)   ; dmap_debug_mode(debug_mode) ;
 
       fprintf(stderr, "filter test : bits inserted = %ld\n", status) ;
       STREAM_FLUSH(*stream) ;
       STREAM_INSERT_ALIGN32(*stream) ;        // align to a 32 bit boundary
-      fprintf(stderr, "filter test : available data in stream %ld bits\n", StreamAvailableBits(stream)) ;
-break ;
+      fprintf(stderr, "filter test : available data in stream %ld bits\n\n", StreamAvailableBits(stream)) ;
+// break ;
     }
   }
 

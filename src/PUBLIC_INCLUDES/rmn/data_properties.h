@@ -14,7 +14,7 @@
 // Author:
 //     M. Valin,   Recherche en Prevision Numerique, 2025
 
-#if ! defined(NULL_PROPERTIES)
+#if ! defined(NULL_BLOCK_PROPERTIES)
 
 #include <rmn/data_kind.h>
 
@@ -28,7 +28,8 @@ typedef struct{
   data_kind kind ;     // data type (signed / unsigned / float / unknown / ... )
 } block_properties ;
 
-#define NULL_PROPERTIES (block_properties) {.maxs = 0, .mins = 0, .minu = 0, .maxu = 0, .zeros = -1 , .kind = bad_data }
+#define NULL_BLOCK_PROPERTIES (block_properties) {.maxs = {0}, .mins = {0}, .minu = {0}, .maxu = {0}, .zeros = -1 , .kind = bad_data }
+// #define NULL_BLOCK_PROPERTIES (block_properties) { .kind = bad_data }
 
 static inline int int_max_abs(block_properties bp){
   uint32_t max1, max2 ;

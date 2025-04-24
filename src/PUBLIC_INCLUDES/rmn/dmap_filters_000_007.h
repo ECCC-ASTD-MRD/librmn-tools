@@ -31,6 +31,7 @@ typedef struct{
   int32_t offset ;
   int32_t scale ;
 } dmap_filter_arg_001 ;
+#define DMAP_FILTER_001(...) (dmap_filter_arg_001) { 001 __VA_OPT__(,) __VA_ARGS__ }
 
 #pragma weak dmap_filter_002
 dmap_filter  dmap_filter_002 ;
@@ -43,8 +44,9 @@ typedef struct{
 dmap_filter  dmap_filter_003 ;
 typedef struct{
   uint32_t filter ;  // filter number
-  float maxerr ;
-  uint32_t nbits ;
+  float    maxerr ;  // maximum absolute error
+  uint32_t nbits ;   // maximum number of bits for quantized values
+  int32_t  offset ;  // use this offset if non zero (use minimum quantized value if 0x7FFFFFFF)
 } dmap_filter_arg_003 ;
 #define DMAP_FILTER_003(...) (dmap_filter_arg_003) { 003 __VA_OPT__(,) __VA_ARGS__ }
 
@@ -71,6 +73,7 @@ typedef struct{
   // mode >  100 : tile encoding with tile size mode - 100
   uint32_t mode ;
 } dmap_filter_arg_006 ;
+#define DMAP_FILTER_006(...) (dmap_filter_arg_006) { 006 __VA_OPT__(,) __VA_ARGS__ }
 
 #pragma weak dmap_filter_007
 dmap_filter  dmap_filter_007 ;

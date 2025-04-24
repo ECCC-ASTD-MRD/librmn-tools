@@ -117,7 +117,8 @@ reverse:
 #undef FILTER_ARGS
 #undef FILTER_ID
 
-#endif
+#endif      // COMPILE_FILTER_TEMPLATE_NEVER_TRUE
+
 #include <stdlib.h>
 #include <rmn/dmap_filters.h>
 
@@ -184,8 +185,8 @@ typedef struct{
 // 3 extra entries at end, for internal dummy filters
 static filter_properties filters[MAX_DP_FILTERS+3] = {
   { dmap_filter_fwd,  "array dimensions and type"  } ,   // filter 000 is a special filter, always present, hidden
-  { dmap_filter_001,  "integer scale + offset"     } ,
-  { dmap_filter_002,  "integer flag"               } ,
+  { dmap_filter_001,  "integer scale + offset"     } ,   // test filter
+  { dmap_filter_002,  "integer flag"               } ,   // test filter
   { dmap_filter_003,  "float linear quantizer"     } ,
   { dmap_filter_004,  "Lorenzo predictor"          } ,
   { dmap_filter_005,  "integer wavelet transform"  } ,
@@ -344,21 +345,24 @@ fprintf(stderr, "dmap_filter_get_array_info : ERROR\n");
 // stream [INOUT] : bit stream
 // return number of bits inserted into bi stream
 int32_t dmap_filter_put_array_info(array_nd *a, bitstream *stream){
-  int32_t ndim = a->ndim, i, dimmax = a->dim[0].gnn, dsize = 8, type = a->type, nbits = 16 ;
+  int32_t ndim = a->ndim, i, dimmax = a->dim[0].gnn, dsize = 8, type = a->type, nbits = 0 ;
   for(i=1 ; i<ndim ; i++){ dimmax = (a->dim[i].gnn > dimmax) ? a->dim[i].gnn : dimmax ; }
   for(i=0 ; i<ndim ; i++){
-    if(dimmax >   255) dsize = 16 ;          // will need 16 bits for dimensions
-    if(dimmax > 65535) dsize = 32 ;          // will need 32 bits for dimensions
+    if(dimmax >     0xFF) dsize = 12 ;          // will need 12 bits for dimensions
+    if(dimmax >    0xFFF) dsize = 16 ;          // will need 16 bits for dimensions
+    if(dimmax >   0xFFFF) dsize = 24 ;          // will need 24 bits for dimensions
+    if(dimmax > 0xFFFFFF) dsize = 32 ;          // will need 32 bits for dimensions
   }
   STREAM_PUT_NBITS(*stream, ndim,    3) ;          // number of dimensions
   STREAM_PUT_NBITS(*stream, dsize-1, 5) ;          // number of bits needed for dimensions - 1
   STREAM_PUT_NBITS(*stream, type,    8) ;          // data type
-//   fprintf(stderr, "filter_head(IN), type = %s, ndim = %d, [", printable_type[type], ndim) ;
+  nbits += 16 ;
+  fprintf(stderr, "filter_head(IN), type = %s, ndim = %d, [", printable_type[type], ndim) ;
   for(i=0 ; i<ndim ; i++){
     STREAM_PUT_NBITS(*stream, a->dim[i].gnn, dsize) ;
     nbits += dsize ;
-//     fprintf(stderr, " %d", a->dim[i].gnn) ;
+    fprintf(stderr, " %d", a->dim[i].gnn) ;
   }
-//   fprintf(stderr, "], dsize = %d, nbits = %d\n", dsize, nbits) ;
+  fprintf(stderr, "], dsize = %d, nbits = %d\n", dsize, nbits) ;
   return nbits ;
 }
