@@ -28,6 +28,23 @@
 #define NJ 65
 
 int main(int argc, char **argv){
+  bitstream *stream = NULL ;
+
+// on intuitive order to get rid of warnings about skipping initialization code
+  goto code ;
+
+end:
+  fprintf(stderr, "SUCCESS\n") ;
+  return 0 ;
+
+fail:
+  fprintf(stderr, "filter test : available data in stream %ld bits\n", StreamAvailableBits(stream)) ;
+  fprintf(stderr, "FAIL\n") ;
+  return 1 ;
+
+code:
+  if(argc > 500) goto fail ;
+
   dmap_filter_args_ptr dpfa[10] ;
   dmap_filter_list dpfl = &dpfa[0] ;
   dmap_filter_arg_007 arg_007a = { 0007, 1.0f, 2.0f } ;
@@ -40,7 +57,6 @@ int main(int argc, char **argv){
   dmap_filter_arg_036 arg_177n = { 0177 } ;
   array_2d a2d, b2d ;
   block_properties bp2d ;
-  bitstream *stream = NULL ;
   ssize_t status ;
   uint64_t freq ;
   double nano ;
@@ -139,14 +155,14 @@ int main(int argc, char **argv){
   if(errors > 0) goto fail ;
   fprintf(stderr, "SUCCESS\n") ;
 
-array_test:
+// array_test:
   fprintf(stderr, "============================== array test ==============================\n") ;
 #undef NI
 #undef NJ
 #define NI 194
 #define NJ 62
 #define BLOCKSIZE 64
-  float z2[NJ][NI], r2[NJ][NI] ;   // 3 tiles horizontally, 1 tile vertically
+  float z2[NJ][NI] ; // , r2[NJ][NI] ;   // 3 tiles horizontally, 1 tile vertically
   uint32_t buf2[NI*NJ*2] ;         // enough space for stream packing
 //   bitstream *stream2 = NULL ;
   dmap_filter_arg_003 quantize = DMAP_FILTER_003( .maxerr = .25f, .nbits = 12) ;
@@ -162,7 +178,7 @@ array_test:
   for(j=0 ; j<NJ ; j++){
     for(i=0 ; i<NI ; i++){
       z2[j][i] = j * ( i - (NI-1)*.5f ) ;
-      r2[j][i] = 999999.0 ;
+//       r2[j][i] = 999999.0 ;
     }
   }
   int i0, j0 ;
@@ -216,11 +232,5 @@ array_test:
     }
   }
 
-end:
-  fprintf(stderr, "SUCCESS\n") ;
-  return 0 ;
-fail:
-  fprintf(stderr, "filter test : available data in stream %ld bits\n", StreamAvailableBits(stream)) ;
-  fprintf(stderr, "FAIL\n") ;
-  return 1 ;
+  goto end ;
 }
