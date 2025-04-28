@@ -15,8 +15,28 @@
 //     M. Valin,   Recherche en Prevision Numerique, 2025
 
 #include <rmn/quantizers.h>
+#include <rmn/ieee_functions.h>
 
 // ======================= linear quantizers =======================
+
+// compute the discretization quantum exponent from largest value, nbits , max error
+// maxabs [IN] : largest absolute value in array
+// maxerr [IN] : largest absolute error desired
+// nbits  [IN] : max number of bits to use
+// return the unbiased power of 2 for the discretization quantum
+int32_t fp2q_exp(float maxabs, float maxerr, int32_t nbits){
+  int32_t err_exp, min_exp ;
+  // the discretization quantum exponent is determined by the larger of 2 values
+  // - the first power of 2 <= 2.0 * max error
+  // - the first power of 2 <= largest absolute value / 2.0 ** nbits
+  nbits = (nbits == 0) ? 24 : nbits ;             // if nbits is 0, set to 24
+  nbits = (nbits < 25) ? nbits : 24 ;             // nbits should be <= 24
+  err_exp = fp32_exp(maxerr) ;            // exponent from max desired absolute error
+  min_exp = fp32_exp(maxabs) - nbits ;    // smallest acceptable value for err_exp
+  err_exp = (min_exp > err_exp) ? min_exp : err_exp ;
+
+  return err_exp + 1 ;
+}
 
 // linear quantizer for float values
 // z   [IN] : 32 bit float float array

@@ -212,7 +212,7 @@ reverse:
 #define FILTER_ARGS CONCAT2(dmap_filter_arg_,FILTER_ID)
 // dpfl == NULL && bp == NULL indicates reverse filter call
 // for the reverse filter, the metadata from the bit stream provides the necessary information
-// the filter may modify the contents of the array described by a
+// the filter may modify the contents of the array described by a and of the data properties bp
 // in filter mode, bp == NULL if no properties information is available
 // the filter list MUST BE NULL TERMINATED
 ssize_t FILTER_NAME(array_nd *a, block_properties *bp, dmap_filter_list dpfl, bitstream *stream){
@@ -232,16 +232,37 @@ ssize_t FILTER_NAME(array_nd *a, block_properties *bp, dmap_filter_list dpfl, bi
 //
 // filter processing code goes here  (FWD)
 //
-  iuf32_t maxerr ; maxerr.f = arg->maxerr ;
-  iuf32_t offset ; offset.i = arg->offset ;
-  if(arg->maxerr < 0 || arg->nbits <= 0) goto fail ;
-  uint32_t err_exp = fp32_exp(maxerr.f) ;
-  float quantum = fp32_pow2(err_exp+1) ;
-  float ovq = fp32_pow2( -(err_exp+1) ) ;
-  int32_t nvalues = a->dim[0].gnn * a->dim[1].gnn ;
-  fprintf(stderr, "filter %3.3o, maxerr = %f(%d), quantum = %f, ovq = %f, nbits = %d, offset = %d\n", FILTER_ID, arg->maxerr, err_exp, quantum, ovq, arg->nbits, arg->offset) ;
+  int32_t nbits = arg->nbits ;
+  iuf32_t maxerr ; maxerr.f = arg->maxerr ;      // largest absolute error desired
+  iuf32_t offset ; offset.i = arg->offset ;      // discretization offset
+  if(maxerr.f < 0) goto fail ;                   // maxerr MUST BE >= 0
+  if(nbits    < 0) goto fail ;                   // nbits MUST BE >= 0
+  if(nbits == 0 && maxerr.f == 0) goto fail ;    // BOTH cannot be 0
+
+  if(! data_kind_valid(bp->kind)){               // if the data properties are not valid
+    analyze_data32_block((void *)array, a->dim[0].gnn, a->dim[0].gnn, a->dim[1].gnn, bp) ;
+    adjust_block_properties(bp, float_data) ;
+    fprintf(stderr, "filter %3.3o, computing data properties\n", FILTER_ID) ;
+  }
+
+  int32_t q_exp, nvalues ;
+  float maxabs, quantum, ovq ;
+  maxabs = FLOAT_MAX_ABS(*bp) ;                  // largest absolute value in array
+
+  q_exp = fp2q_exp(maxabs, maxerr.f, nbits) ;
+  quantum = fp32_pow2(q_exp) ;                   // discretization quantum, first power of 2 >= maxerr
+  ovq = fp32_pow2( -q_exp ) ;                    // discretization mutiplier, inverse of quantum
+
+  nvalues = a->dim[0].gnn * a->dim[1].gnn ;      // number of values in array
+  fprintf(stderr, "filter %3.3o, maxerr = %f(%d), quantum = %f, ovq = %f, nbits = %d, offset = %d\n",
+                  FILTER_ID, arg->maxerr,q_exp-1, quantum, ovq, arg->nbits, arg->offset) ;
   fprintf(stderr, "filter %3.3o, array[%d,%d](%d)\n", FILTER_ID, a->dim[0].gnn, a->dim[1].gnn, nvalues) ;
-// ==================== call linear fp32 quantizer code ====================
+  if(offset.u == 0x7FFFFFFF){                    // use quantized value of minimum value as offset
+    float minval = FLOAT_MIN_VALUE(*bp) ;        // minimum value
+    offset.i = fp2q_lin_(minval, ovq) ;          // quantized value of minimum value
+    fprintf(stderr, "filter %3.3o, setting offset to %d (%f)\n", FILTER_ID, offset.i, minval) ;
+  }
+
 //   block_properties bp_in, bp_out ;
 //   int nvalues_in = analyze_data32_block((void *) array, a->dim[0].gnn, a->dim[0].gnn, a->dim[1].gnn, &bp_in) ;
 //   if(nvalues_in != a->dim[0].gnn *a->dim[1].gnn){
@@ -250,17 +271,7 @@ ssize_t FILTER_NAME(array_nd *a, block_properties *bp, dmap_filter_list dpfl, bi
 //   }
 //   adjust_block_properties(&bp_in, float_data);
 //   print_float_props(bp_in);
-
-  if(offset.u == 0x7FFFFFFF){
-    if(! data_kind_valid(bp->kind)){
-      analyze_data32_block((void *)array, a->dim[0].gnn, a->dim[0].gnn, a->dim[1].gnn, bp) ;
-      adjust_block_properties(bp, float_data) ;
-      fprintf(stderr, "filter %3.3o, computing data properties\n", FILTER_ID) ;
-    }
-    float minval = FLOAT_MIN_VALUE(*bp) ;
-    offset.i = fp2q_lin_(minval, ovq) ;
-    fprintf(stderr, "filter %3.3o, setting offset to %d (%f)\n", FILTER_ID, offset.i, minval) ;
-  }
+// ==================== call linear fp32 quantizer ====================
   fp2q_lin((float *)array, (int32_t *)array, nvalues, ovq, offset.i);
   a->type = int_data ;
 
@@ -282,15 +293,14 @@ ssize_t FILTER_NAME(array_nd *a, block_properties *bp, dmap_filter_list dpfl, bi
 //
   int inserted = 0 ;
   STREAM_PUT_NBITS(s, FILTER_ID, 8) ;
-  inserted += 8 ;     // 8 bits inserted so far
-  err_exp = fp32_exp(quantum) + 127 ;
-  STREAM_PUT_NBITS(s, err_exp, 8) ;
+  inserted += 8 ;                                 // 8 bits inserted so far
+  q_exp = fp32_exp(quantum) + 127 ;               // biased exponent from quantum
+  STREAM_PUT_NBITS(s, q_exp, 8) ;
   inserted += 8 ;
-  uint32_t nbits = 0 ;
   if(offset.i != 0){
     uint32_t zigzag = to_zigzag_32(offset.i) ;
     nbits = BitsNeeded_u32(zigzag) ;
-    nbits = (nbits < 3) ? 3 : nbits ;
+    nbits = (nbits < 2) ? 2 : nbits ;             // nbits for offset SHALL NOT BE < 2
     STREAM_PUT_NBITS(s, (nbits-1), 5) ;
     inserted += 5 ;
     STREAM_PUT_NBITS(s, zigzag, nbits) ;
@@ -303,7 +313,7 @@ ssize_t FILTER_NAME(array_nd *a, block_properties *bp, dmap_filter_list dpfl, bi
 //
   STREAM_INSERT_PUSH(s) ;
   status += inserted ;
-  fprintf(stderr, "filter %3.3o : inserted %d bits, quantum = %f, exp = %d\n", FILTER_ID, inserted, quantum, err_exp) ;
+  fprintf(stderr, "filter %3.3o : inserted %d bits, quantum = %f, exp = %d\n", FILTER_ID, inserted, quantum, q_exp) ;
 end:
   *stream = s ;   // success, SAVE stream changes
   return status ;
@@ -317,10 +327,10 @@ reverse:
   status = 8 ;                                         // 8 bits extracted so far
   STREAM_GET_NBITS(s, w32, 8) ;
   if(w32 != FILTER_ID) goto fail ;                     // wrong id, MUST be FILTER_ID
-  STREAM_GET_NBITS(s, err_exp, 8) ;
+  STREAM_GET_NBITS(s, q_exp, 8) ;
   STREAM_GET_NBITS(s, nbits, 5) ; nbits++ ;
   status += 13 ;
-  if(nbits > 1){
+  if(nbits > 1){                                       // nbits == 0 means no offset
     uint32_t zigzag ;
     STREAM_GET_NBITS(s, zigzag, nbits) ;
     offset.i = from_zigzag_32(zigzag) ;
@@ -328,7 +338,7 @@ reverse:
   }else{
     offset.i = 0 ;
   }
-  maxerr.u = (err_exp << 23) ; quantum = maxerr.f ;
+  maxerr.u = (q_exp << 23) ; quantum = maxerr.f ;
   fprintf(stderr, "reverse filter %3.3o, id = %d, quantum = %f, nbits = %d, offset = %d\n", FILTER_ID, w32, quantum, nbits, offset.i) ;
 //
 // inverse filter processing code goes here  (INV)
@@ -499,12 +509,14 @@ ssize_t FILTER_NAME(array_nd *a, block_properties *bp, dmap_filter_list dpfl, bi
   if(! dmap_filter_valid(dpfl,me)) goto fail ;   // not the right filter or NULL pointer
   FILTER_ARGS *arg = (FILTER_ARGS *)(*dpfl) ;    // get parameters for this filter
 
-  // mode ==   0   : raw encoding using size from array descriptor
-  // 0 < mode < 65 : raw encoding using mode bits ( 1 - 64 )
-  // mode >  100   : tile encoding with tile size mode - 100
-  int mode = arg->mode, nbits = 0 ;
-  if(mode > 64) goto fail ;                      // unsupported for now
-  if(mode < 65) nbits = mode ;
+  // mode ==   0      : raw encoding using size from array descriptor
+  // 0   < mode <  65 : raw encoding using mode bits ( 1 - 64 )
+  // 100 < mode < 165 : zigzag encoding using mode - 100 bits ( 1 - 64 )
+  // mode >  100      : tile encoding with tile size mode - 100
+  int mode = arg->mode, nbits = 0, zigzag = 0 ;
+  if(mode > 164) goto fail ;                     // unsupported for now
+  if(mode < 65) { nbits = mode ; zigzag = 0 ; }
+  if(mode > 100) { nbits = mode - 100 ; zigzag = 1 ; }
   if(nbits == 0) nbits = a->esize * 8 ;
   if(nbits > 32) goto fail ;                     // unsupported for now
   fprintf(stderr, "filter 006, mode = %d\n", arg->mode) ;
@@ -515,6 +527,7 @@ ssize_t FILTER_NAME(array_nd *a, block_properties *bp, dmap_filter_list dpfl, bi
 // filter processing code goes here
   int32_t i, nelem = array_dimension(a) ;
   uint32_t *z = (uint32_t *) array ;
+  int32_t *sz = (int32_t *) array ;
   fprintf(stderr, "filter 006 saving %d array elements\n", nelem) ;
 //
   dpfl++ ;                                     // call next filter if there is one
@@ -527,16 +540,22 @@ ssize_t FILTER_NAME(array_nd *a, block_properties *bp, dmap_filter_list dpfl, bi
 //
   uint32_t header ;
 end:
-  if(mode < 65){
+  if(mode < 165){
+    int32_t *zz = (int32_t *)z, min = 0x7FFFFFFF, max = -min ;
+    uint32_t umax = 0 ;
+    for(i=0 ; i<nelem ; i++) { min = (sz[i] < min) ? sz[i] : min ; max = (sz[i] > max) ? sz[i] : max ; } ;
+    if(zigzag != 0){
+      for(i=0 ; i<nelem ; i++) { z[i] = to_zigzag_32(sz[i]) ; umax = (z[i] > umax) ? z[i] : umax ; } ;
+      nbits = BitsNeeded_u32(umax) ;
+    }
     header = 0b00110000 ;
     STREAM_PUT_NBITS(s, FILTER_ID, 8) ;
     STREAM_PUT_NBITS(s, header , 8) ;
     STREAM_PUT_NBITS(s, nbits-1, 8) ;
-    status += 24 ;
+    STREAM_PUT_NBITS(s, zigzag, 1) ;
+    status += 25 ;
     for(i=0 ; i<nelem ; i++) { STREAM_PUT_NBITS(s, z[i], nbits) ; status += nbits ; } ;
-    int32_t *zz = (int32_t *)z, min = 0x7FFFFFFF ;
-    for(i=0 ; i<nelem ; i++) { min = (zz[i] < min) ? zz[i] : min ; } ;
-    fprintf(stderr, "filter 006(X) : min = %d\n", min) ;
+    fprintf(stderr, "filter 006(X) : mode = %d, min = %d, max = %d, zigzag = %d, umax = %d, nbits = %d\n", mode, min, max, zigzag, umax, nbits) ;
     STREAM_INSERT_PUSH(s) ;
   }
   *stream = s ;   // SAVE stream changes
@@ -554,18 +573,23 @@ reverse:
   if(w32 != FILTER_ID) goto fail ;                     // wrong id, MUST be FILTER_ID
   STREAM_GET_NBITS(s, header, 8) ;
   STREAM_GET_NBITS(s, nbits, 8) ; nbits++ ;
-  fprintf(stderr, "reverse filter %3.3o, id = %d, header = %2.2x\n", FILTER_ID, w32, header) ;
+  STREAM_GET_NBITS(s, zigzag, 1) ;
+  fprintf(stderr, "reverse filter %3.3o, id = %d, header = %2.2x, nbits = %d\n", FILTER_ID, w32, header, nbits) ;
   if(w32 != FILTER_ID)     goto fail ;
   if(header != 0b00110000) goto fail ;
   if(nbits > 32)           goto fail ;                    // unsupported for now
   nelem = array_dimension(a) ;
   z = (uint32_t *) array ;
+  sz = (int32_t *) array ;
   fprintf(stderr, "reverse filter %3.3o restoring %d array elements\n", FILTER_ID, nelem) ;
   status = 24 ;
   for(i=0 ; i<nelem ; i++) { STREAM_GET_NBITS(s, z[i], nbits) ; status += nbits ; } ;
-  int32_t *zz = (int32_t *)z, min = 0x7FFFFFFF ;
-  for(i=0 ; i<nelem ; i++) { min = (zz[i] < min) ? zz[i] : min ; } ;
-  fprintf(stderr, "reverse filter %3.3o min = %d\n", FILTER_ID, min) ;
+  if(zigzag != 0){
+    for(i=0 ; i<nelem ; i++) { sz[i] = from_zigzag_32(z[i]) ; } ;
+  }
+  int32_t *zz = (int32_t *)z, min = 0x7FFFFFFF, max = -min ;
+  for(i=0 ; i<nelem ; i++) { min = (zz[i] < min) ? zz[i] : min ; max = (zz[i] > max) ? zz[i] : max ; } ;
+  fprintf(stderr, "reverse filter %3.3o min = %d, max = %d, zigzag = %d\n", FILTER_ID, min, max, zigzag) ;
 
   ssize_t status2 = dmap_filter_inv(a, &s) ;     // call next inverse filter
   if(status2 < 0) goto fail ; else status += status2 ;

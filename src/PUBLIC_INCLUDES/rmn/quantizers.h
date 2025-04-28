@@ -19,6 +19,8 @@
 
 #include <stdint.h>
 
+int32_t fp2q_exp(float maxabs, float maxerr, int32_t nbits);
+
 // linear quantizer for float values
 // z      [IN] : 32 bit float
 //ovd     [IN] : inverse of discretization quantum (32 bit float, ideally a power of 2)

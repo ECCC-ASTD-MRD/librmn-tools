@@ -68,9 +68,10 @@ typedef struct{
 dmap_filter  dmap_filter_006 ;
 typedef struct{
   uint32_t filter ;  // filter number
+  // mode >  200 : tile encoding with tile size mode - 200
+  // mode >  100 : zigzag encoding using mode - 100 bits ( 101 - 164 )
   // mode >    0 : raw encoding using mode bits ( 1 - 64 )
   // mode ==   0 : raw encoding using size from array descriptor
-  // mode >  100 : tile encoding with tile size mode - 100
   uint32_t mode ;
 } dmap_filter_arg_006 ;
 #define DMAP_FILTER_006(...) (dmap_filter_arg_006) { 006 __VA_OPT__(,) __VA_ARGS__ }

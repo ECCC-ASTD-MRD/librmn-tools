@@ -101,9 +101,12 @@ code:
   dpfl[4] = (dmap_filter_args_ptr)&arg_036z ;     // undefined filter 036
   dpfl[5] = (dmap_filter_args_ptr)&arg_177n ;     // invalid filter 127
   dpfl[6] = NULL ;                                // end of filter list
-  arg_003a = DMAP_FILTER_003( .maxerr = .25f, .nbits = 12, .offset = 0x7FFFFFFF ) ;
+//   arg_003a = DMAP_FILTER_003( .maxerr = .25f, .nbits = 12, .offset = 0x7FFFFFFF ) ;
+  arg_003a = DMAP_FILTER_003( .maxerr = .25f, .nbits = 12, .offset = 0 ) ;
+//   arg_003a = DMAP_FILTER_003( .maxerr = .00000025f, .nbits = 8, .offset = 0x7FFFFFFF ) ;
+//   arg_003a = DMAP_FILTER_003( .maxerr = .00000025f, .nbits = 8, .offset = 0 ) ;
   dpfl[0] = (dmap_filter_args_ptr)&arg_003a ;     // filter 003, linear float quantizer
-  arg_006a = DMAP_FILTER_006( .mode = 32 ) ;
+  arg_006a = DMAP_FILTER_006( .mode = 116 ) ;
   dpfl[1] = (dmap_filter_args_ptr)&arg_006a ;     // 32 bit raw encoding
   dpfl[2] = NULL ;                                // end of filter list
 // goto array_test ;
@@ -147,14 +150,18 @@ code:
   print_float_props(bp_in) ;
   analyze_data32_block((void *) pr, NI, NI, NJ, &bp_out) ; adjust_block_properties(&bp_out, float_data) ;
   print_float_props(bp_out);
+  float maxdiff = 0.0f ;
   for(i=0 ; i<NI*NJ ; i++){
+    float err = pz[i] - pr[i] ;
+    err = (err < 0) ? -err : err ;
+    maxdiff = (err > maxdiff) ? err : maxdiff ;
     if(pz[i] == pr[i]) errors-- ;
   }
   if(errors > 0) fprintf(stderr, "%f %f %f %f\n", z[0][0], z[NJ-1][NI-1], r[0][0], r[NJ-1][NI-1]) ;
-  fprintf(stderr, "filter test : %d differences between r and z (%d values)\n", errors, NI*NJ) ;
+  fprintf(stderr, "filter test : %d differences between r and z (%d values), max = %f\n", errors, NI*NJ, maxdiff) ;
   if(errors > 0) goto fail ;
   fprintf(stderr, "SUCCESS\n") ;
-
+goto end ;
 // array_test:
   fprintf(stderr, "============================== array test ==============================\n") ;
 #undef NI
