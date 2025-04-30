@@ -273,10 +273,12 @@ ssize_t FILTER_NAME(array_nd *a, block_properties *bp, dmap_filter_list dpfl, bi
     float minval = FLOAT_MIN_VALUE(*bp) ;        // minimum value
     offset.i = fp2q_lin_(minval, ovq) ;          // quantized value of minimum value in array
     fprintf(stderr, "filter %3.3o, setting offset to %d (%f)\n", FILTER_ID, offset.i, minval) ;
+    a->type = uint_data ;                        // mark data as unsigned integer data
+  }else{
+    a->type = int_data ;                         // mark data as signed integer data
   }
 // ==================== call linear fp32 quantizer ====================
   fp2q_lin((float *)array, (int32_t *)array, nvalues, ovq, offset.i);
-  a->type = int_data ;                           // mark data as integer data
 
   dpfl++ ;                                       // call next filter if there is one
   dmap_filter_ptr next_filter = dmap_filter_next(dpfl) ;

@@ -30,6 +30,8 @@ static inline int32_t fp2q_lin_(float z, float ovd){
   return t ;
 }
 
+void fp2q_lin(float *z, int *q, int n, float ovd, int32_t offset);
+
 void q2fp_lin(float *z, int *q, int n, float d, int32_t offset);
 
 // linear de_quantizer (inverse of fp2q_lin_)
@@ -40,7 +42,5 @@ static inline float q2fp_lin_(int32_t q, float d){
   float t = q * d ;
   return t ;
 }
-
-void fp2q_lin(float *z, int *q, int n, float ovd, int32_t offset);
 
 #endif
