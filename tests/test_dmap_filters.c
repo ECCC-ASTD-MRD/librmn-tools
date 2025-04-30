@@ -56,7 +56,7 @@ code:
   dmap_filter_arg_036 arg_036z = { 0036 } ;
   dmap_filter_arg_036 arg_177n = { 0177 } ;
   array_2d a2d, b2d ;
-  block_properties bp2d ;
+//   block_properties bp2d ;
   ssize_t status ;
   uint64_t freq ;
   double nano ;
@@ -101,14 +101,17 @@ code:
   dpfl[4] = (dmap_filter_args_ptr)&arg_036z ;     // undefined filter 036
   dpfl[5] = (dmap_filter_args_ptr)&arg_177n ;     // invalid filter 127
   dpfl[6] = NULL ;                                // end of filter list
-//   arg_003a = DMAP_FILTER_003( .maxerr = .25f, .nbits = 12, .offset = 0x7FFFFFFF ) ;
-  arg_003a = DMAP_FILTER_003( .maxerr = .25f, .nbits = 12, .offset = 0 ) ;
-//   arg_003a = DMAP_FILTER_003( .maxerr = .00000025f, .nbits = 8, .offset = 0x7FFFFFFF ) ;
-//   arg_003a = DMAP_FILTER_003( .maxerr = .00000025f, .nbits = 8, .offset = 0 ) ;
+//   arg_003a = DMAP_FLOAT_QUANTIZE( .maxerr = .25f, .nbits = 12, .offset = 0x7FFFFFFF ) ;
+  arg_003a = DMAP_FLOAT_QUANTIZE( .maxerr = .25f, .nbits = 12, .offset = 0 ) ;
+//   arg_003a = DMAP_FLOAT_QUANTIZE( .maxerr = .00000025f, .nbits = 8, .offset = 0x7FFFFFFF ) ;
+//   arg_003a = DMAP_FLOAT_QUANTIZE( .maxerr = .00000025f, .nbits = 8, .offset = 0 ) ;
   dpfl[0] = (dmap_filter_args_ptr)&arg_003a ;     // filter 003, linear float quantizer
-  arg_006a = DMAP_FILTER_006( .mode = 116 ) ;
+//   arg_006a = DMAP_ENCODE( .mode = 116 ) ;
+  arg_006a = DMAP_ENCODE( .mode = 0 ) ;
   dpfl[1] = (dmap_filter_args_ptr)&arg_006a ;     // 32 bit raw encoding
   dpfl[2] = NULL ;                                // end of filter list
+//   dpfl[2] = (dmap_filter_args_ptr)&arg_036z ;     // undefined filter 036
+  dpfl[3] = NULL ;                                // end of filter list
 // goto array_test ;
   STREAM_CREATE(stream, buffer, sizeof(buffer), 0) ;
   STREAM_INSERT_BEGIN(*stream) ;
@@ -116,8 +119,10 @@ code:
 
   int debug_mode = dmap_debug_mode(1) ;
   int strict_mode = dmap_strict_mode(1) ;
-  bp2d = NULL_BLOCK_PROPERTIES ; // data properties are not valid
-  status = dmap_filter_fwd((array_nd *)&a2d, &bp2d, dpfl, stream) ;   // activate forward filter chain
+//   bp2d = NULL_BLOCK_PROPERTIES ; // data properties are not valid
+//   status = dmap_filter_fwd((array_nd *)&a2d, &bp2d, dpfl, stream) ;   // activate forward filter chain
+  // no data properties available, pass NULL
+  status = dmap_filter_fwd((array_nd *)&a2d, NULL, dpfl, stream) ;   // activate forward filter chain
   if(status < 0) goto fail ;
   debug_mode = dmap_debug_mode(1)   ; dmap_debug_mode(debug_mode) ;
   strict_mode = dmap_strict_mode(0) ; dmap_strict_mode(strict_mode) ;

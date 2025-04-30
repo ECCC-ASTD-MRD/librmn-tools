@@ -340,13 +340,13 @@ STATIC inline int32_t v_from_zigzag_32_inplace(int32_t * restrict src, int ni){
     v0  = _mm256_loadu_si256((__m256i *) src) ;
     _mm256_storeu_si256((__m256i *) dst, vr) ;            // delayed store
     vr  = _mm256_fromzigzag_epi32(v0) ;
-    vma = _mm256_max_epu32(vma, vr) ;                     // running max
+    vma = _mm256_max_epi32(vma, vr) ;                     // running max
     dst = src ; src += 8 ;
   }
   _mm256_storeu_si256((__m256i *) dst, vr) ;              // delayed store
-  vt = _mm_max_epu32( _mm256_extractf128_si256 (vma,0) , _mm256_extractf128_si256 (vma,1) ) ;  // 4 values
-  vt = _mm_max_epu32( vt , _mm_shuffle_epi32(vt, 0b11101110) ) ;     // 2 values max( [0,1,2,3] , [2,3,2,3])
-  vt = _mm_max_epu32( vt , _mm_shuffle_epi32(vt, 0b01010101) ) ;     // 1 value  max( [0,1,2,3] . [1,1,1,1])
+  vt = _mm_max_epi32( _mm256_extractf128_si256 (vma,0) , _mm256_extractf128_si256 (vma,1) ) ;  // 4 values
+  vt = _mm_max_epi32( vt , _mm_shuffle_epi32(vt, 0b11101110) ) ;     // 2 values max( [0,1,2,3] , [2,3,2,3])
+  vt = _mm_max_epi32( vt , _mm_shuffle_epi32(vt, 0b01010101) ) ;     // 1 value  max( [0,1,2,3] . [1,1,1,1])
   _mm_storeu_si32(&max, vt) ;                                        // store reduced max
   return max ;
 }

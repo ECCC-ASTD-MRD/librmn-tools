@@ -108,6 +108,7 @@ char *dmap_filter_name(int ordinal);
 // ssize_t dmap_filter_end(bitstream *stream);
 dmap_filter_ptr dmap_filter_next(dmap_filter_list dpfl);
 int dmap_filter_valid(dmap_filter_list dpfl, uint32_t id);
+int dmap_filter_is_last(dmap_filter_list dpfl);
 ssize_t dmap_filter_inv(array_nd *a, bitstream *stream);
 int32_t dmap_filter_put_array_info(array_nd *a, bitstream *stream);
 int32_t dmap_filter_get_array_info(array_nd *a, bitstream *stream, int allocate);

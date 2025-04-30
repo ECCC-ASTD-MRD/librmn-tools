@@ -59,8 +59,8 @@
 #define FILTER_ID xxx
 #define FILTER_NAME CONCAT2(dmap_filter_,FILTER_ID)
 #define FILTER_ARGS CONCAT2(dmap_filter_arg_,FILTER_ID)
-// dpfl == NULL && bp == NULL indicates reverse filter call
-// for the reverse filter, the metadata from the bit stream provides the necessary information
+// dpfl == NULL means a reverse filter call
+// for the reverse filter, the data from the bit stream provides the necessary information
 // the filter may modify the contents of the array described by a
 // in filter mode, bp == NULL if no properties information is available
 // the filter list MUST BE NULL TERMINATED
@@ -71,7 +71,10 @@ ssize_t FILTER_NAME(array_nd *a, block_properties *bp, dmap_filter_list dpfl, bi
   int ndim = a->ndim, type = a->type ;
   ssize_t status = 0 ;
   bitstream s = *stream ;                        // local copy of stream control structure
-  if(dpfl == NULL && bp == NULL) goto reverse ;  // call to reverse filter
+//   block_properties lbp ;
+// 
+//   if(bp == NULL) { bp = &lbp ; lbp.kind = bad_data ; }
+  if(dpfl == NULL) goto reverse ;                // call to reverse filter
   if(! dmap_filter_valid(dpfl,me)) goto fail ;   // not the right filter or NULL pointer
   FILTER_ARGS *arg = (FILTER_ARGS *)(*dpfl) ;    // get parameters for this filter
 
@@ -98,13 +101,13 @@ end:
 fail:
   return -1 ;     // failure, DO NOT SAVE stream changes
 
-  uint32_t w32 ;
+  uint32_t filter ;
 reverse:
 // get from bitstream the appropriate information for the reverse filter (GET)
   status = 8 ;                                         // 8 bits extracted so far
-  STREAM_GET_NBITS(s, w32, 8) ;
-//   fprintf(stderr, "reverse filter %3.3o, id = %d\n", FILTER_ID, w32) ;
-  if(w32 != FILTER_ID) goto fail ;                     // wrong id, MUST be FILTER_ID
+  STREAM_GET_NBITS(s, filter, 8) ;
+//   fprintf(stderr, "reverse filter %3.3o, id = %d\n", FILTER_ID, filter) ;
+  if(filter != FILTER_ID) goto fail ;                  // wrong id, MUST be FILTER_ID
 //
 // inverse filter processing code goes here  (INV)
 //
@@ -231,6 +234,12 @@ int dmap_filter_valid(dmap_filter_list dpfl, uint32_t id){
     return 0 ;
   }
   return 1 ;
+}
+
+// is this filter the last one in list
+int dmap_filter_is_last(dmap_filter_list dpfl){
+  if(dpfl == NULL) return 0 ;
+  return (dpfl[1] == NULL) ;    // true if next list entry is NULL (no next filter)
 }
 
 // ordinal [IN] : filter id

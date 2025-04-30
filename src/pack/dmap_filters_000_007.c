@@ -16,6 +16,9 @@
 //
 
 #include <rmn/dmap_filters.h>
+#include <rmn/ieee_functions.h>
+#include <rmn/move_blocks.h>
+#include <rmn/misc_operators.h>
 
 #define FILTER_ID 000
 // ======================================= filter 000 =======================================
@@ -33,7 +36,10 @@ ssize_t dmap_filter_fwd(array_nd *a, block_properties *bp, dmap_filter_list dpfl
   int ndim = a->ndim, type = a->type ;
   ssize_t status = 0 ;
   bitstream s = *stream ;                        // local copy of stream control structure
-  if(dpfl == NULL && bp == NULL) goto reverse ;  // call to reverse filter
+//   block_properties lbp ;
+// 
+//   if(bp == NULL) { bp = &lbp ; lbp.kind = bad_data ; }
+  if(dpfl == NULL) goto reverse ;                // call to reverse filter
 
   // put array information at the start of the bit stream
   int32_t i, nbits, dsize ;
@@ -60,12 +66,12 @@ end:
 fail:
   return -1 ;     // DO NOT SAVE stream changes
 
-  uint32_t w32 ;
+  uint32_t filter ;
 reverse:
-  STREAM_GET_NBITS(s, w32, 8) ;
+  STREAM_GET_NBITS(s, filter, 8) ;
   status = 8 ;
-//   fprintf(stderr, "reverse filter %3.3o, id = %d\n", FILTER_ID, w32) ;
-  if(w32 != FILTER_ID) goto fail ;                     // wrong id, MUST be FILTER_ID (0)
+//   fprintf(stderr, "reverse filter %3.3o, id = %d\n", FILTER_ID, filter) ;
+  if(filter != FILTER_ID) goto fail ;                     // wrong id, MUST be FILTER_ID (0)
 
   // get array dimensions and type from stream (check that it matches a)
   int32_t temp = dmap_filter_get_array_info(a, &s, 1) ;
@@ -93,7 +99,10 @@ ssize_t FILTER_NAME(array_nd *a, block_properties *bp, dmap_filter_list dpfl, bi
   int ndim = a->ndim, type = a->type ;
   ssize_t status = 0 ;
   bitstream s = *stream ;                        // local copy of stream control structure
-  if(dpfl == NULL && bp == NULL) goto reverse ;  // call to reverse filter
+//   block_properties lbp ;
+// 
+//   if(bp == NULL) { bp = &lbp ; lbp.kind = bad_data ; }
+  if(dpfl == NULL) goto reverse ;                // call to reverse filter
   if(! dmap_filter_valid(dpfl,me)) goto fail ;   // not the right filter or NULL pointer
   FILTER_ARGS *arg = (FILTER_ARGS *)(*dpfl) ;    // get parameters for this filter
 
@@ -123,15 +132,15 @@ end:
 fail:
   return -1 ;     // DO NOT SAVE stream changes
 
-  uint32_t w32 ;
+  uint32_t filter ;
 reverse:
-  STREAM_GET_NBITS(s, w32, 8) ;
-//   fprintf(stderr, "reverse filter %3.3o, id = %d\n", FILTER_ID, w32) ;
-  if(w32 != FILTER_ID) goto fail ;                     // wrong id, MUST be FILTER_ID
+  STREAM_GET_NBITS(s, filter, 8) ;
+//   fprintf(stderr, "reverse filter %3.3o, id = %d\n", FILTER_ID, filter) ;
+  if(filter != FILTER_ID) goto fail ;                     // wrong id, MUST be FILTER_ID
   uint32_t t1, t2 ;
   STREAM_GET_NBITS(s, t1, 32) ;
   STREAM_GET_NBITS(s, t2, 32) ;
-  fprintf(stderr, "reverse filter %3.3o, id = %d, args = %8.8x, %8.8x\n", FILTER_ID, w32, t1, t2) ;
+  fprintf(stderr, "reverse filter %3.3o, id = %d, args = %8.8x, %8.8x\n", FILTER_ID, filter, t1, t2) ;
   status = 72 ;
 
   ssize_t status2 = dmap_filter_inv(a, &s) ;     // call next inverse filter
@@ -154,7 +163,10 @@ ssize_t FILTER_NAME(array_nd *a, block_properties *bp, dmap_filter_list dpfl, bi
   int ndim = a->ndim, type = a->type ;
   ssize_t status = 0 ;
   bitstream s = *stream ;                        // local copy of stream control structure
-  if(dpfl == NULL && bp == NULL) goto reverse ;  // call to reverse filter
+//   block_properties lbp ;
+// 
+//   if(bp == NULL) { bp = &lbp ; lbp.kind = bad_data ; }
+  if(dpfl == NULL) goto reverse ;                // call to reverse filter
   if(! dmap_filter_valid(dpfl,me)) goto fail ;   // not the right filter or NULL pointer
   FILTER_ARGS *arg = (FILTER_ARGS *)(*dpfl) ;    // get parameters for this filter
 
@@ -181,14 +193,14 @@ end:
 fail:
   return -1 ;     // DO NOT SAVE stream changes
 
-  uint32_t w32 ;
+  uint32_t filter ;
 reverse:
-  STREAM_GET_NBITS(s, w32, 8) ;
-//   fprintf(stderr, "reverse filter %3.3o, id = %d\n", FILTER_ID, w32) ;
-  if(w32 != FILTER_ID) goto fail ;                     // wrong id, MUST be FILTER_ID
+  STREAM_GET_NBITS(s, filter, 8) ;
+//   fprintf(stderr, "reverse filter %3.3o, id = %d\n", FILTER_ID, filter) ;
+  if(filter != FILTER_ID) goto fail ;                     // wrong id, MUST be FILTER_ID
   uint32_t t ;
   STREAM_GET_NBITS(s, t, 8) ;
-  fprintf(stderr, "reverse filter %3.3o, id = %d, t = %d\n", FILTER_ID, w32, t) ;
+  fprintf(stderr, "reverse filter %3.3o, id = %d, t = %d\n", FILTER_ID, filter, t) ;
   status = 16 ;
 
   ssize_t status2 = dmap_filter_inv(a, &s) ;     // call next inverse filter
@@ -202,16 +214,13 @@ reverse:
 
 // ======================================= filter 003 =======================================
 #include <rmn/quantizers.h>
-#include <rmn/ieee_functions.h>
-#include <rmn/move_blocks.h>
-#include <rmn/misc_operators.h>
 
 // 32 bit float linear quantizer
 #define FILTER_ID 003
 #define FILTER_NAME CONCAT2(dmap_filter_,FILTER_ID)
 #define FILTER_ARGS CONCAT2(dmap_filter_arg_,FILTER_ID)
-// dpfl == NULL && bp == NULL indicates reverse filter call
-// for the reverse filter, the metadata from the bit stream provides the necessary information
+// dpfl == NULL means a reverse filter call
+// for the reverse filter, the data from the bit stream provides the necessary information
 // the filter may modify the contents of the array described by a and of the data properties bp
 // in filter mode, bp == NULL if no properties information is available
 // the filter list MUST BE NULL TERMINATED
@@ -222,7 +231,10 @@ ssize_t FILTER_NAME(array_nd *a, block_properties *bp, dmap_filter_list dpfl, bi
   int ndim = a->ndim, type = a->type ;
   ssize_t status = 0 ;
   bitstream s = *stream ;                        // local copy of stream control structure
-  if(dpfl == NULL && bp == NULL) goto reverse ;  // call to reverse filter
+  block_properties lbp ;
+
+  if(bp == NULL) { bp = &lbp ; lbp.kind = bad_data ; }
+  if(dpfl == NULL ) goto reverse ;               // this is a call to the reverse filter
   if(! dmap_filter_valid(dpfl,me)) goto fail ;   // not the right filter or NULL pointer
   FILTER_ARGS *arg = (FILTER_ARGS *)(*dpfl) ;    // get parameters for this filter
 
@@ -230,18 +242,18 @@ ssize_t FILTER_NAME(array_nd *a, block_properties *bp, dmap_filter_list dpfl, bi
   if(type != float_data) goto fail ;             // data type MUST BE FLOAT
   if(ndim != 2) goto fail ;                      // only 2D is supported at this time
 //
-// filter processing code goes here  (FWD)
+// filter processing code
 //
-  int32_t nbits = arg->nbits ;
-  iuf32_t maxerr ; maxerr.f = arg->maxerr ;      // largest absolute error desired
-  iuf32_t offset ; offset.i = arg->offset ;      // discretization offset
-  if(maxerr.f < 0) goto fail ;                   // maxerr MUST BE >= 0
+  int32_t nbits = arg->nbits ;                   // max number of bits to be used for quantization
   if(nbits    < 0) goto fail ;                   // nbits MUST BE >= 0
-  if(nbits == 0 && maxerr.f == 0) goto fail ;    // BOTH cannot be 0
+  iuf32_t maxerr ; maxerr.f = arg->maxerr ;      // largest absolute error desired
+  if(maxerr.f < 0) goto fail ;                   // maxerr MUST BE >= 0
+  iuf32_t offset ; offset.i = arg->offset ;      // discretization offset (ox7FFFFFFF means minimum quantized value)
+  if(nbits == 0 && maxerr.f == 0) goto fail ;    // cannot be BOTH 0
 
   if(! data_kind_valid(bp->kind)){               // if the data properties are not valid
     analyze_data32_block((void *)array, a->dim[0].gnn, a->dim[0].gnn, a->dim[1].gnn, bp) ;
-    adjust_block_properties(bp, float_data) ;
+    adjust_block_properties(bp, float_data) ;    // adjust properties for float data
     fprintf(stderr, "filter %3.3o, computing data properties\n", FILTER_ID) ;
   }
 
@@ -249,7 +261,7 @@ ssize_t FILTER_NAME(array_nd *a, block_properties *bp, dmap_filter_list dpfl, bi
   float maxabs, quantum, ovq ;
   maxabs = FLOAT_MAX_ABS(*bp) ;                  // largest absolute value in array
 
-  q_exp = fp2q_exp(maxabs, maxerr.f, nbits) ;
+  q_exp = fp2q_exp(maxabs, maxerr.f, nbits) ;    // compute power of 2 to use for quantum from max error and nbits
   quantum = fp32_pow2(q_exp) ;                   // discretization quantum, first power of 2 >= maxerr
   ovq = fp32_pow2( -q_exp ) ;                    // discretization mutiplier, inverse of quantum
 
@@ -259,37 +271,19 @@ ssize_t FILTER_NAME(array_nd *a, block_properties *bp, dmap_filter_list dpfl, bi
   fprintf(stderr, "filter %3.3o, array[%d,%d](%d)\n", FILTER_ID, a->dim[0].gnn, a->dim[1].gnn, nvalues) ;
   if(offset.u == 0x7FFFFFFF){                    // use quantized value of minimum value as offset
     float minval = FLOAT_MIN_VALUE(*bp) ;        // minimum value
-    offset.i = fp2q_lin_(minval, ovq) ;          // quantized value of minimum value
+    offset.i = fp2q_lin_(minval, ovq) ;          // quantized value of minimum value in array
     fprintf(stderr, "filter %3.3o, setting offset to %d (%f)\n", FILTER_ID, offset.i, minval) ;
   }
-
-//   block_properties bp_in, bp_out ;
-//   int nvalues_in = analyze_data32_block((void *) array, a->dim[0].gnn, a->dim[0].gnn, a->dim[1].gnn, &bp_in) ;
-//   if(nvalues_in != a->dim[0].gnn *a->dim[1].gnn){
-//     fprintf(stderr, "ERROR: expecting %d values, got %d\n", a->dim[0].gnn *a->dim[1].gnn, nvalues_in) ;
-//     goto fail ;
-//   }
-//   adjust_block_properties(&bp_in, float_data);
-//   print_float_props(bp_in);
 // ==================== call linear fp32 quantizer ====================
   fp2q_lin((float *)array, (int32_t *)array, nvalues, ovq, offset.i);
-  a->type = int_data ;
+  a->type = int_data ;                           // mark data as integer data
 
-//   int nvalues_out = analyze_data32_block((void *) array, a->dim[0].gnn, a->dim[0].gnn, a->dim[1].gnn, &bp_in) ;
-//   if(nvalues_out != a->dim[0].gnn *a->dim[1].gnn){
-//     fprintf(stderr, "ERROR: expecting %d values, got %d\n", a->dim[0].gnn *a->dim[1].gnn, nvalues_out) ;
-//     goto fail ;
-//   }
-//   adjust_block_properties(&bp_in, int_data);
-//   print_int_props(bp_in);
-//   fprintf(stderr, "filter %3.3o, values = %d %d %d\n", FILTER_ID, a->dim[0].gnn *a->dim[1].gnn, nvalues_in, nvalues_out) ;
-//
-  dpfl++ ;                                     // call next filter if there is one
+  dpfl++ ;                                       // call next filter if there is one
   dmap_filter_ptr next_filter = dmap_filter_next(dpfl) ;
-  status = (*next_filter)(a, bp, dpfl, &s) ;
+  status = (*next_filter)(a, NULL, dpfl, &s) ;   // bloc properties are non longer valid
   if(status < 0) goto fail ;
 //
-// insert into bitstream the appropriate information for the reverse filter (PUT)
+// insert into bitstream the appropriate data for the reverse filter (PUT)
 //
   int inserted = 0 ;
   STREAM_PUT_NBITS(s, FILTER_ID, 8) ;
@@ -307,7 +301,7 @@ ssize_t FILTER_NAME(array_nd *a, block_properties *bp, dmap_filter_list dpfl, bi
     inserted += nbits ;
   }else{
     nbits = 0 ;
-    STREAM_PUT_NBITS(s, nbits, 5) ;
+    STREAM_PUT_NBITS(s, nbits, 5) ;               // nbits == 0 (decoded as 1) means offset is not used
     inserted += 5 ;
   }
 //
@@ -321,48 +315,34 @@ end:
 fail:
   return -1 ;     // failure, DO NOT SAVE stream changes
 
-  uint32_t w32 ;
+  uint32_t filter, nbitsd ;
 reverse:
 // get from bitstream the appropriate information for the reverse filter (GET)
+  STREAM_GET_NBITS(s, filter, 8) ;
   status = 8 ;                                         // 8 bits extracted so far
-  STREAM_GET_NBITS(s, w32, 8) ;
-  if(w32 != FILTER_ID) goto fail ;                     // wrong id, MUST be FILTER_ID
-  STREAM_GET_NBITS(s, q_exp, 8) ;
-  STREAM_GET_NBITS(s, nbits, 5) ; nbits++ ;
-  status += 13 ;
-  if(nbits > 1){                                       // nbits == 0 means no offset
+  if(filter != FILTER_ID) goto fail ;                  // wrong id, MUST be FILTER_ID
+  STREAM_GET_NBITS(s, q_exp,  8) ;                     // quantum exponent (biased)
+  STREAM_GET_NBITS(s, nbitsd, 5) ;                     // number of bits for offset
+  status += 13 ;                                       // bits extracted so far
+  if(nbitsd > 0){                                      // nbitsd == 0 means no offset
     uint32_t zigzag ;
-    STREAM_GET_NBITS(s, zigzag, nbits) ;
-    offset.i = from_zigzag_32(zigzag) ;
-    status += nbits ;
+    nbitsd++ ;
+    STREAM_GET_NBITS(s, zigzag, nbitsd) ;              // zigzag encoding of offfset
+    offset.i = from_zigzag_32(zigzag) ;                // restore to signed integer
+    status += nbitsd ;
   }else{
     offset.i = 0 ;
   }
-  maxerr.u = (q_exp << 23) ; quantum = maxerr.f ;
-  fprintf(stderr, "reverse filter %3.3o, id = %d, quantum = %f, nbits = %d, offset = %d\n", FILTER_ID, w32, quantum, nbits, offset.i) ;
+  maxerr.u = (q_exp << 23) ; quantum = maxerr.f ;      // float quantum
+  fprintf(stderr, "reverse filter %3.3o, id = %d, quantum = %f, nbits = %d, offset = %d\n", FILTER_ID, filter, quantum, nbits, offset.i) ;
 //
 // inverse filter processing code goes here  (INV)
 //
   nvalues = a->dim[0].gnn * a->dim[1].gnn ;
   fprintf(stderr, "reverse filter %3.3o, array[%d,%d](%d)\n", FILTER_ID, a->dim[0].gnn, a->dim[1].gnn, nvalues) ;
-//   nvalues_in = analyze_data32_block((void *) array, a->dim[0].gnn, a->dim[0].gnn, a->dim[1].gnn, &bp_in) ;
-//   if(nvalues != nvalues_in){
-//     fprintf(stderr, "ERROR: expecting %d values in, got %d\n", a->dim[0].gnn *a->dim[1].gnn, nvalues_in) ;
-//     goto fail ;
-//   }
-//   adjust_block_properties(&bp_in, int_data);
-//   print_int_props(bp_in);
-// ==================== call linear fp32 de-quantizer code ====================
+// ==================== call linear fp32 de-quantizer ====================
   q2fp_lin((float *)array, (int32_t *)array, nvalues, quantum, offset.i) ;
-  a->type = float_data ;
-
-//   nvalues_out = analyze_data32_block((void *) array, a->dim[0].gnn, a->dim[0].gnn, a->dim[1].gnn, &bp_in) ;
-//   if(nvalues != nvalues_out){
-//     fprintf(stderr, "ERROR: expecting %d values out, got %d\n", a->dim[0].gnn *a->dim[1].gnn, nvalues_out) ;
-//     goto fail ;
-//   }
-//   adjust_block_properties(&bp_in, float_data);
-//   print_float_props(bp_in);
+  a->type = float_data ;                               // mark data as float data
 
   ssize_t status2 = dmap_filter_inv(a, &s) ;           // call next inverse filter
   if(status2 < 0) goto fail ; else status += status2 ;
@@ -377,7 +357,7 @@ reverse:
 #define FILTER_ID 004
 #define FILTER_NAME CONCAT2(dmap_filter_,FILTER_ID)
 #define FILTER_ARGS CONCAT2(dmap_filter_arg_,FILTER_ID)
-// dpfl == NULL && bp == NULL indicates reverse filter call
+// dpfl == NULL means a reverse filter call
 // for the reverse filter, the metadata from the bit stream provides the necessary information
 // the filter may modify the contents of the array described by a
 // in filter mode, bp == NULL if no properties information is available
@@ -389,7 +369,10 @@ ssize_t FILTER_NAME(array_nd *a, block_properties *bp, dmap_filter_list dpfl, bi
   int ndim = a->ndim, type = a->type ;
   ssize_t status = 0 ;
   bitstream s = *stream ;                        // local copy of stream control structure
-  if(dpfl == NULL && bp == NULL) goto reverse ;  // call to reverse filter
+//   block_properties lbp ;
+// 
+//   if(bp == NULL) { bp = &lbp ; lbp.kind = bad_data ; }
+  if(dpfl == NULL) goto reverse ;                // call to reverse filter
   if(! dmap_filter_valid(dpfl,me)) goto fail ;   // not the right filter or NULL pointer
   FILTER_ARGS *arg = (FILTER_ARGS *)(*dpfl) ;    // get parameters for this filter
 
@@ -412,11 +395,11 @@ end:
 fail:
   return -1 ;     // DO NOT SAVE stream changes
 
-  uint32_t w32 ;
+  uint32_t filter ;
 reverse:
-  STREAM_GET_NBITS(s, w32, 8) ;
-//   fprintf(stderr, "reverse filter %3.3o, id = %d\n", FILTER_ID, w32) ;
-  if(w32 != FILTER_ID) goto fail ;                     // wrong id, MUST be FILTER_ID
+  STREAM_GET_NBITS(s, filter, 8) ;
+//   fprintf(stderr, "reverse filter %3.3o, id = %d\n", FILTER_ID, filter) ;
+  if(filter != FILTER_ID) goto fail ;                     // wrong id, MUST be FILTER_ID
 //
 // inverse filter processing code goes here
 //
@@ -434,7 +417,7 @@ reverse:
 #define FILTER_ID 005
 #define FILTER_NAME CONCAT2(dmap_filter_,FILTER_ID)
 #define FILTER_ARGS CONCAT2(dmap_filter_arg_,FILTER_ID)
-// dpfl == NULL && bp == NULL indicates reverse filter call
+// dpfl == NULL means a reverse filter call
 // for the reverse filter, the metadata from the bit stream provides the necessary information
 // the filter may modify the contents of the array described by a
 // in filter mode, bp == NULL if no properties information is available
@@ -446,7 +429,10 @@ ssize_t FILTER_NAME(array_nd *a, block_properties *bp, dmap_filter_list dpfl, bi
   int ndim = a->ndim, type = a->type ;
   ssize_t status = 0 ;
   bitstream s = *stream ;                        // local copy of stream control structure
-  if(dpfl == NULL && bp == NULL) goto reverse ;  // call to reverse filter
+//   block_properties lbp ;
+// 
+//   if(bp == NULL) { bp = &lbp ; lbp.kind = bad_data ; }
+  if(dpfl == NULL) goto reverse ;                // call to reverse filter
   if(! dmap_filter_valid(dpfl,me)) goto fail ;   // not the right filter or NULL pointer
   FILTER_ARGS *arg = (FILTER_ARGS *)(*dpfl) ;    // get parameters for this filter
 
@@ -469,11 +455,11 @@ end:
 fail:
   return -1 ;     // DO NOT SAVE stream changes
 
-  uint32_t w32 ;
+  uint32_t filter ;
 reverse:
-  STREAM_GET_NBITS(s, w32, 8) ;
-//   fprintf(stderr, "reverse filter %3.3o, id = %d\n", FILTER_ID, w32) ;
-  if(w32 != FILTER_ID) goto fail ;                     // wrong id, MUST be FILTER_ID
+  STREAM_GET_NBITS(s, filter, 8) ;
+//   fprintf(stderr, "reverse filter %3.3o, id = %d\n", FILTER_ID, filter) ;
+  if(filter != FILTER_ID) goto fail ;                     // wrong id, MUST be FILTER_ID
 //
 // inverse filter processing code goes here
 //
@@ -492,7 +478,7 @@ reverse:
 #define FILTER_ID 006
 #define FILTER_NAME CONCAT2(dmap_filter_,FILTER_ID)
 #define FILTER_ARGS CONCAT2(dmap_filter_arg_,FILTER_ID)
-// dpfl == NULL && bp == NULL indicates reverse filter call
+// dpfl == NULL means a reverse filter call
 // for the reverse filter, the metadata from the bit stream provides the necessary information
 // the filter may modify the contents of the array described by a
 // in filter mode, bp == NULL if no properties information is available
@@ -505,30 +491,39 @@ ssize_t FILTER_NAME(array_nd *a, block_properties *bp, dmap_filter_list dpfl, bi
   int ndim = a->ndim, type = a->type ;
   ssize_t status = 0 ;
   bitstream s = *stream ;                        // local copy of stream control structure
-  if(dpfl == NULL && bp == NULL) goto reverse ;  // call to reverse filter
+//   block_properties lbp ;
+// 
+//   if(bp == NULL) { bp = &lbp ; lbp.kind = bad_data ; }
+  if(dpfl == NULL) goto reverse ;                // call to reverse filter
   if(! dmap_filter_valid(dpfl,me)) goto fail ;   // not the right filter or NULL pointer
   FILTER_ARGS *arg = (FILTER_ARGS *)(*dpfl) ;    // get parameters for this filter
 
-  // mode ==   0      : raw encoding using size from array descriptor
-  // 0   < mode <  65 : raw encoding using mode bits ( 1 - 64 )
-  // 100 < mode < 165 : zigzag encoding using mode - 100 bits ( 1 - 64 )
-  // mode >  100      : tile encoding with tile size mode - 100
-  int mode = arg->mode, nbits = 0, zigzag = 0 ;
-  if(mode > 164) goto fail ;                     // unsupported for now
-  if(mode < 65) { nbits = mode ; zigzag = 0 ; }
-  if(mode > 100) { nbits = mode - 100 ; zigzag = 1 ; }
-  if(nbits == 0) nbits = a->esize * 8 ;
-  if(nbits > 32) goto fail ;                     // unsupported for now
-  fprintf(stderr, "filter 006, mode = %d\n", arg->mode) ;
-  fprintf(stderr, "filter 006(E) : available space in stream %ld bits\n", StreamAvailableSpace(&s)) ;
-//
-// check a->type and a->ndim
-//
 // filter processing code goes here
-  int32_t i, nelem = array_dimension(a) ;
-  uint32_t *z = (uint32_t *) array ;
-  int32_t *sz = (int32_t *) array ;
-  fprintf(stderr, "filter 006 saving %d array elements\n", nelem) ;
+  if(! dmap_filter_is_last(dpfl)){
+    fprintf(stderr, "ERROR : filter 006 MUST BE THE LAST FILTER\n") ;
+    goto fail ;
+  }
+
+  // data must be integer (signed or unsigned)
+  if(type != int_data && type != uint_data) goto fail ;
+
+  // mode ==  -1       : raw encoding using size from array descriptor
+  // 0   <= mode <  65 : raw encoding using mode bits ( 0 - 64 )
+  // 100 <= mode < 165 : force zigzag encoding using mode - 100 bits ( 0 - 64 )
+  // mode >=  200      : tile encoding with tile size mode - 100 (nbits computed independently for each tile)
+  // nbits == 0        : auto adjust number of bits and zigzag flag to data values
+  // nbits > 0         : force value of nbits (at own risk)
+  // mode 0 and 100 both set nbits to 0 (automatic mode)
+  int32_t mode = arg->mode, nbits = 0, zigzag = 0 ;
+  if(mode ==  -1) nbits = a->esize * 8 ;
+  if(mode >=   0) { nbits = mode       ; zigzag = 0 ; }
+  if(mode >= 100) { nbits = mode - 100 ; zigzag = 1 ; }
+  if(mode >= 200) goto fail ;                     // not supported yet
+
+  if(nbits > 32) goto fail ;                     // not supported yet
+  fprintf(stderr, "filter 006(E) : available space in stream %ld bits, mode = %d, nbits = %d\n", StreamAvailableSpace(&s), mode, nbits) ;
+//
+  fprintf(stderr, "filter 006 saving %d array elements\n", array_dimension(a)) ;
 //
   dpfl++ ;                                     // call next filter if there is one
   dmap_filter_ptr next_filter = dmap_filter_next(dpfl) ;
@@ -536,26 +531,38 @@ ssize_t FILTER_NAME(array_nd *a, block_properties *bp, dmap_filter_list dpfl, bi
   if(status < 0) goto fail ;
   fprintf(stderr, "filter 006(M) : status = %ld, available space in stream %ld bits\n", status, StreamAvailableSpace(&s)) ;
 //
-// insert into bitstream the appropriate metadata for the reverse filter
+// insert into bitstream the appropriate data for the reverse filter
 //
   uint32_t header ;
-end:
-  if(mode < 165){
-    int32_t *zz = (int32_t *)z, min = 0x7FFFFFFF, max = -min ;
+  uint32_t *z = (uint32_t *) array ;
+  int32_t i, nelem = array_dimension(a) ;
+// end:
+  if(mode > 200){                // tile encoding not implemented yet
+
+  }else{                         // constant nbits, 1 block, non tiling
+    if(nbits == 0){              // find number of bits to use and appropriate value fot zigzag flag
+      block_properties bp0 ;
+      if(nelem != analyze_data32_block((void *)array, nelem, nelem, 1, &bp0)) goto fail ;
+      if(bp0.mins.i < 0 && type == int_data){
+        zigzag = 1 ;             // negative values are present, must use zigzag encoding
+      }else{                     // negative values are not present, no need for zigzag
+        zigzag = 0 ;             // max value will be used to determine nb of bits needed
+        nbits = BitsNeeded_u32(bp0.maxu.u) ;
+      }
+    }
     uint32_t umax = 0 ;
-    for(i=0 ; i<nelem ; i++) { min = (sz[i] < min) ? sz[i] : min ; max = (sz[i] > max) ? sz[i] : max ; } ;
-    if(zigzag != 0){
-      for(i=0 ; i<nelem ; i++) { z[i] = to_zigzag_32(sz[i]) ; umax = (z[i] > umax) ? z[i] : umax ; } ;
+    if(zigzag == 1){       // if zigzag encoding is selected, use absolute max value to set nbits
+      umax = v_to_zigzag_32_inplace((int32_t *)array, nelem) ;    // transform into zigzag form
       nbits = BitsNeeded_u32(umax) ;
     }
     header = 0b00110000 ;
     STREAM_PUT_NBITS(s, FILTER_ID, 8) ;
-    STREAM_PUT_NBITS(s, header , 8) ;
-    STREAM_PUT_NBITS(s, nbits-1, 8) ;
-    STREAM_PUT_NBITS(s, zigzag, 1) ;
-    status += 25 ;
+    STREAM_PUT_NBITS(s, header   , 8) ;
+    STREAM_PUT_NBITS(s, nbits-1  , 7) ;
+    STREAM_PUT_NBITS(s, zigzag   , 1) ;
+    status += 24 ;
     for(i=0 ; i<nelem ; i++) { STREAM_PUT_NBITS(s, z[i], nbits) ; status += nbits ; } ;
-    fprintf(stderr, "filter 006(X) : mode = %d, min = %d, max = %d, zigzag = %d, umax = %d, nbits = %d\n", mode, min, max, zigzag, umax, nbits) ;
+    fprintf(stderr, "filter 006(X) : mode = %d, zigzag = %d, umax = %d, nbits = %d\n", mode, zigzag, umax, nbits) ;
     STREAM_INSERT_PUSH(s) ;
   }
   *stream = s ;   // SAVE stream changes
@@ -566,30 +573,32 @@ fail:
   fprintf(stderr, "filter 006 FAILED\n");
   return -1 ;     // DO NOT SAVE stream changes
 
-  uint32_t w32 ;
+// decode bit stream encoded by forward filter
+  int32_t *sz = (int32_t *) array ;
+  uint32_t filter ;
 reverse:
-  STREAM_GET_NBITS(s, w32, 8) ;
-//   fprintf(stderr, "reverse filter %3.3o, id = %d\n", FILTER_ID, w32) ;
-  if(w32 != FILTER_ID) goto fail ;                     // wrong id, MUST be FILTER_ID
+  STREAM_GET_NBITS(s, filter, 8) ;
+  if(filter != FILTER_ID) goto fail ;                   // wrong id, MUST be FILTER_ID
+
   STREAM_GET_NBITS(s, header, 8) ;
-  STREAM_GET_NBITS(s, nbits, 8) ; nbits++ ;
-  STREAM_GET_NBITS(s, zigzag, 1) ;
-  fprintf(stderr, "reverse filter %3.3o, id = %d, header = %2.2x, nbits = %d\n", FILTER_ID, w32, header, nbits) ;
-  if(w32 != FILTER_ID)     goto fail ;
-  if(header != 0b00110000) goto fail ;
-  if(nbits > 32)           goto fail ;                    // unsupported for now
-  nelem = array_dimension(a) ;
-  z = (uint32_t *) array ;
-  sz = (int32_t *) array ;
-  fprintf(stderr, "reverse filter %3.3o restoring %d array elements\n", FILTER_ID, nelem) ;
-  status = 24 ;
-  for(i=0 ; i<nelem ; i++) { STREAM_GET_NBITS(s, z[i], nbits) ; status += nbits ; } ;
-  if(zigzag != 0){
-    for(i=0 ; i<nelem ; i++) { sz[i] = from_zigzag_32(z[i]) ; } ;
+  if(header == 0b00110000){                              // nbits per value, no tiling
+    STREAM_GET_NBITS(s, nbits , 7) ; nbits++ ;           // nbits -1 was encoded
+    STREAM_GET_NBITS(s, zigzag, 1) ;                     // zigzag mode
+    status = 24 ;
+    fprintf(stderr, "reverse filter %3.3o, id = %d, header = 0x%2.2x, nbits = %d\n", FILTER_ID, filter, header, nbits) ;
+    if(nbits > 32)           goto fail ;                 // not supported yet
+    nelem = array_dimension(a) ;
+    z = (uint32_t *) array ;
+    int32_t max ;
+    fprintf(stderr, "reverse filter %3.3o restoring %d array elements\n", FILTER_ID, nelem) ;
+    for(i=0 ; i<nelem ; i++) { STREAM_GET_NBITS(s, z[i], nbits) ; status += nbits ; } ;
+    if(zigzag != 0){                                     // restore from zigzag
+      max = v_from_zigzag_32_inplace((int32_t *)array, nelem) ;
+    }
+    fprintf(stderr, "reverse filter %3.3o, max = %d, zigzag = %d\n", FILTER_ID, max, zigzag) ;
+  }else{
+    goto fail ;
   }
-  int32_t *zz = (int32_t *)z, min = 0x7FFFFFFF, max = -min ;
-  for(i=0 ; i<nelem ; i++) { min = (zz[i] < min) ? zz[i] : min ; max = (zz[i] > max) ? zz[i] : max ; } ;
-  fprintf(stderr, "reverse filter %3.3o min = %d, max = %d, zigzag = %d\n", FILTER_ID, min, max, zigzag) ;
 
   ssize_t status2 = dmap_filter_inv(a, &s) ;     // call next inverse filter
   if(status2 < 0) goto fail ; else status += status2 ;
@@ -611,7 +620,10 @@ ssize_t FILTER_NAME(array_nd *a, block_properties *bp, dmap_filter_list dpfl, bi
   int ndim = a->ndim, type = a->type ;
   ssize_t status = 0 ;
   bitstream s = *stream ;                        // local copy of stream control structure
-  if(dpfl == NULL && bp == NULL) goto reverse ;  // call to reverse filter
+//   block_properties lbp ;
+// 
+//   if(bp == NULL) { bp = &lbp ; lbp.kind = bad_data ; }
+  if(dpfl == NULL) goto reverse ;                // call to reverse filter
   if(! dmap_filter_valid(dpfl,me)) goto fail ;   // not the right filter or NULL pointer
   FILTER_ARGS *arg = (FILTER_ARGS *)(*dpfl) ;    // get parameters for this filter
 
@@ -654,11 +666,11 @@ fail:
   fprintf(stderr, "filter 007 FAILED\n");
   return -1 ;     // DO NOT SAVE stream changes
 
-  uint32_t w32 ;
+  uint32_t filter ;
 reverse:
-  STREAM_GET_NBITS(s, w32, 8) ;
-//   fprintf(stderr, "reverse filter %3.3o, id = %d\n", FILTER_ID, w32) ;
-  if(w32 != FILTER_ID) goto fail ;                     // wrong id, MUST be FILTER_ID
+  STREAM_GET_NBITS(s, filter, 8) ;
+//   fprintf(stderr, "reverse filter %3.3o, id = %d\n", FILTER_ID, filter) ;
+  if(filter != FILTER_ID) goto fail ;                     // wrong id, MUST be FILTER_ID
   uint32_t t1, t2 ;
   STREAM_GET_NBITS(s, t1, 32) ;
   STREAM_GET_NBITS(s, t2, 32) ;

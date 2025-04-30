@@ -39,16 +39,18 @@ typedef struct{
   uint32_t filter ;  // filter number
   int32_t flag ;
 } dmap_filter_arg_002 ;
+#define DMAP_FILTER_002(...) (dmap_filter_arg_002) { 002 __VA_OPT__(,) __VA_ARGS__ }
 
 #pragma weak dmap_filter_003
 dmap_filter  dmap_filter_003 ;
 typedef struct{
   uint32_t filter ;  // filter number
   float    maxerr ;  // maximum absolute error
-  uint32_t nbits ;   // maximum number of bits for quantized values
+  uint32_t nbits ;   // maximum number of bits for quantized values (1 -> 24)
   int32_t  offset ;  // use this offset if non zero (use minimum quantized value if 0x7FFFFFFF)
 } dmap_filter_arg_003 ;
 #define DMAP_FILTER_003(...) (dmap_filter_arg_003) { 003 __VA_OPT__(,) __VA_ARGS__ }
+#define DMAP_FLOAT_QUANTIZE(...) (dmap_filter_arg_003) { 003 __VA_OPT__(,) __VA_ARGS__ }
 
 #pragma weak dmap_filter_004
 dmap_filter  dmap_filter_004 ;
@@ -56,6 +58,7 @@ typedef struct{
   uint32_t filter ;  // filter number
   uint8_t args[] ;
 } dmap_filter_arg_004 ;
+#define DMAP_FILTER_004(...) (dmap_filter_arg_004) { 004 __VA_OPT__(,) __VA_ARGS__ }
 
 #pragma weak dmap_filter_005
 dmap_filter  dmap_filter_005 ;
@@ -63,18 +66,20 @@ typedef struct{
   uint32_t filter ;  // filter number
   uint8_t args[] ;
 } dmap_filter_arg_005 ;
+#define DMAP_FILTER_005(...) (dmap_filter_arg_005) { 005 __VA_OPT__(,) __VA_ARGS__ }
 
 #pragma weak dmap_filter_006
 dmap_filter  dmap_filter_006 ;
 typedef struct{
   uint32_t filter ;  // filter number
   // mode >  200 : tile encoding with tile size mode - 200
-  // mode >  100 : zigzag encoding using mode - 100 bits ( 101 - 164 )
-  // mode >    0 : raw encoding using mode bits ( 1 - 64 )
+  // mode >  100 : zigzag encoding using mode - 100 bits ( 101 -> 164 )
+  // mode >    0 : raw encoding using mode bits ( 1 -> 64 )
   // mode ==   0 : raw encoding using size from array descriptor
-  uint32_t mode ;
+  int32_t mode ;
 } dmap_filter_arg_006 ;
 #define DMAP_FILTER_006(...) (dmap_filter_arg_006) { 006 __VA_OPT__(,) __VA_ARGS__ }
+#define DMAP_ENCODE(...) (dmap_filter_arg_006) { 006 __VA_OPT__(,) __VA_ARGS__ }
 
 #pragma weak dmap_filter_007
 dmap_filter  dmap_filter_007 ;
@@ -83,5 +88,6 @@ typedef struct{
   float offset ;
   float scale ;
 } dmap_filter_arg_007 ;
+#define DMAP_FILTER_007(...) (dmap_filter_arg_007) { 007 __VA_OPT__(,) __VA_ARGS__ }
 
 #endif
