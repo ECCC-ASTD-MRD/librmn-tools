@@ -56,17 +56,18 @@ typedef struct{
 dmap_filter  dmap_filter_004 ;
 typedef struct{
   uint32_t filter ;  // filter number
-  uint8_t args[] ;
 } dmap_filter_arg_004 ;
 #define DMAP_FILTER_004(...) (dmap_filter_arg_004) { 004 __VA_OPT__(,) __VA_ARGS__ }
+#define DMAP_LORENZO(...) (dmap_filter_arg_004) { 004 __VA_OPT__(,) __VA_ARGS__ }
 
 #pragma weak dmap_filter_005
 dmap_filter  dmap_filter_005 ;
 typedef struct{
   uint32_t filter ;  // filter number
-  uint8_t args[] ;
+  uint32_t levels ;
 } dmap_filter_arg_005 ;
 #define DMAP_FILTER_005(...) (dmap_filter_arg_005) { 005 __VA_OPT__(,) __VA_ARGS__ }
+#define DMAP_WAVELET(...) (dmap_filter_arg_005) { 005 __VA_OPT__(,) __VA_ARGS__ }
 
 #pragma weak dmap_filter_006
 dmap_filter  dmap_filter_006 ;

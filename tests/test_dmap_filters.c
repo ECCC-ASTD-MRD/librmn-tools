@@ -106,12 +106,14 @@ code:
 //   arg_003a = DMAP_FLOAT_QUANTIZE( .maxerr = .00000025f, .nbits = 8, .offset = 0x7FFFFFFF ) ;
 //   arg_003a = DMAP_FLOAT_QUANTIZE( .maxerr = .00000025f, .nbits = 8, .offset = 0 ) ;
   dpfl[0] = (dmap_filter_args_ptr)&arg_003a ;     // filter 003, linear float quantizer
-//   arg_006a = DMAP_ENCODE( .mode = 116 ) ;
-  arg_006a = DMAP_ENCODE( .mode = 0 ) ;
-  dpfl[1] = (dmap_filter_args_ptr)&arg_006a ;     // 32 bit raw encoding
-  dpfl[2] = NULL ;                                // end of filter list
-//   dpfl[2] = (dmap_filter_args_ptr)&arg_036z ;     // undefined filter 036
-  dpfl[3] = NULL ;                                // end of filter list
+//   dmap_filter_arg_006 arg_006 = DMAP_ENCODE( .mode = 116 ) ;
+  dmap_filter_arg_004 arg_004 = DMAP_LORENZO() ;
+  dmap_filter_arg_005 arg_005 = DMAP_WAVELET(.levels = 2 ) ;
+  dmap_filter_arg_006 arg_006 = DMAP_ENCODE( .mode = 0 ) ;
+  dpfl[1] = (dmap_filter_args_ptr)&arg_005 ;     // integer wavelet
+  dpfl[1] = (dmap_filter_args_ptr)&arg_004 ;     // Lorenzo predictor
+  dpfl[2] = (dmap_filter_args_ptr)&arg_006 ;     // 32 bit raw encoding
+  dpfl[3] = NULL ;                               // end of filter list
 // goto array_test ;
   STREAM_CREATE(stream, buffer, sizeof(buffer), 0) ;
   STREAM_INSERT_BEGIN(*stream) ;

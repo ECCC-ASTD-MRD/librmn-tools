@@ -20,9 +20,9 @@
 // the in place calls are now handled by the normal calls
 
 void LorenzoPredict(int32_t *orig, int32_t *diff, int ni, int lnio, int lnid, int nj);
-// void LorenzoPredictInplace(int32_t * restrict orig, int ni, int lnio, int nj);
+void LorenzoPredictInplace(int32_t * restrict orig, int ni, int lnio, int nj);
 void LorenzoUnpredict(int32_t *orig, int32_t *diff, int ni, int lnio, int lnid, int nj);
-// void LorenzoUnpredictInplace(int32_t * restrict orig, int ni, int lnio, int nj);
+void LorenzoUnpredictInplace(int32_t * restrict orig, int ni, int lnio, int nj);
 
 #define LorenzoPredict1D(orig, diff, ni)   LorenzoPredict(orig, diff, ni, ni, ni, 1)
 #define LorenzoUnpredict1D(orig, diff, ni) LorenzoUnpredict(orig, diff, ni, ni, ni, 1)

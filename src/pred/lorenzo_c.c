@@ -269,8 +269,8 @@ STATIC inline void LorenzoPredictRowJ_inplace(int32_t * restrict top, int32_t * 
 // lnio : row storage dimension for orig
 // nj   : number of rows
 // the SIMD version tends to be 1.5-4 times faster than the non SIMD version
-STATIC void LorenzoPredictInplace(int32_t * restrict orig, int ni, int lnio, int nj){
-
+void LorenzoPredictInplace(int32_t * restrict orig, int ni, int lnio, int nj){
+fprintf(stderr, "LorenzoPredictInplace : ni = %d, lni = %d, nj = %d\n", ni, lnio, nj) ;
   orig += (lnio * (nj - 1)) ;
   while(--nj > 0){                                    // all rows other than bottom row
     LorenzoPredictRowJ_inplace(orig, orig-lnio, ni) ; // predict upper row in row pair -> diff
@@ -328,12 +328,13 @@ void LorenzoPredict(int32_t * restrict orig, int32_t * restrict diff, int ni, in
 // nj   : number of rows
 // NOTE : no SIMD version exists, as the process is fully recursive
 // NOTE : nj == 1 may be used for 1D prediction restore
-STATIC void LorenzoUnpredictInplace(int32_t *orig, int ni, int lnio, int nj){
+void LorenzoUnpredictInplace(int32_t *orig, int ni, int lnio, int nj){
   int i ;
   int32_t *top, *bot ;
   int32_t d00, d01, d10, d11 ;
 //   d01 d11   unpredict : d11 = d11 + d01 + d10 - d00
 //   d00 d10
+fprintf(stderr, "LorenzoUnpredictInplace : ni = %d, lni = %d, nj = %d\n", ni, lnio, nj) ;
 
   d00 = orig[0] ;                                    // first point in bottom row
   for(i=1 ; i<ni ; i++) {                            // remainder of bottom row
