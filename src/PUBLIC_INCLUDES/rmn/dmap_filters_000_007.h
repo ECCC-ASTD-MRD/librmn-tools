@@ -40,6 +40,7 @@ typedef struct{
   int32_t flag ;
 } dmap_filter_arg_002 ;
 #define DMAP_FILTER_002(...) (dmap_filter_arg_002) { 002 __VA_OPT__(,) __VA_ARGS__ }
+#define DMAP_FP_LOG_QUANTIZE(...) (dmap_filter_arg_002) { 002 __VA_OPT__(,) __VA_ARGS__ }
 
 #pragma weak dmap_filter_003
 dmap_filter  dmap_filter_003 ;
@@ -49,14 +50,16 @@ typedef struct{
   uint32_t nbits ;   // maximum number of bits for quantized values (1 -> 24)
   int32_t  offset ;  // use this offset if non zero (use minimum quantized value if 0x7FFFFFFF)
 } dmap_filter_arg_003 ;
+typedef dmap_filter_arg_003 dmap_fp_linear_quantize ;
 #define DMAP_FILTER_003(...) (dmap_filter_arg_003) { 003 __VA_OPT__(,) __VA_ARGS__ }
-#define DMAP_FLOAT_QUANTIZE(...) (dmap_filter_arg_003) { 003 __VA_OPT__(,) __VA_ARGS__ }
+#define DMAP_FP_LINEAR_QUANTIZE(...) (dmap_filter_arg_003) { 003 __VA_OPT__(,) __VA_ARGS__ }
 
 #pragma weak dmap_filter_004
 dmap_filter  dmap_filter_004 ;
 typedef struct{
   uint32_t filter ;  // filter number
 } dmap_filter_arg_004 ;
+typedef dmap_filter_arg_004 dmap_lorenzo_arg ;
 #define DMAP_FILTER_004(...) (dmap_filter_arg_004) { 004 __VA_OPT__(,) __VA_ARGS__ }
 #define DMAP_LORENZO(...) (dmap_filter_arg_004) { 004 __VA_OPT__(,) __VA_ARGS__ }
 
@@ -66,6 +69,7 @@ typedef struct{
   uint32_t filter ;  // filter number
   uint32_t levels ;
 } dmap_filter_arg_005 ;
+typedef dmap_filter_arg_005 dmap_wavelet_arg ;
 #define DMAP_FILTER_005(...) (dmap_filter_arg_005) { 005 __VA_OPT__(,) __VA_ARGS__ }
 #define DMAP_WAVELET(...) (dmap_filter_arg_005) { 005 __VA_OPT__(,) __VA_ARGS__ }
 
@@ -79,6 +83,7 @@ typedef struct{
   // mode ==   0 : raw encoding using size from array descriptor
   int32_t mode ;
 } dmap_filter_arg_006 ;
+typedef dmap_filter_arg_006 dmap_encode_arg ;
 #define DMAP_FILTER_006(...) (dmap_filter_arg_006) { 006 __VA_OPT__(,) __VA_ARGS__ }
 #define DMAP_ENCODE(...) (dmap_filter_arg_006) { 006 __VA_OPT__(,) __VA_ARGS__ }
 

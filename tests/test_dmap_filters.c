@@ -50,9 +50,9 @@ code:
   dmap_filter_arg_007 arg_007a = { 0007, 1.0f, 2.0f } ;
   dmap_filter_arg_007 arg_007b = { 0007, 10.0f, 20.0f } ;
 //   dmap_filter_arg_001 arg_001a = { 0001, 5, 6 } ;
-  dmap_filter_arg_006 arg_006a = { 0006, 32 } ;
+  dmap_encode_arg arg_006a = { 0006, 32 } ;
   dmap_filter_arg_002 arg_002a = { 0002, 0 } ;
-  dmap_filter_arg_003 arg_003a = { 0003, .25f, 12, 0 } ;
+  dmap_fp_linear_quantize arg_003a = { 0003, .25f, 12, 0 } ;
   dmap_filter_arg_036 arg_036z = { 0036 } ;
   dmap_filter_arg_036 arg_177n = { 0177 } ;
   array_2d a2d, b2d ;
@@ -101,15 +101,15 @@ code:
   dpfl[4] = (dmap_filter_args_ptr)&arg_036z ;     // undefined filter 036
   dpfl[5] = (dmap_filter_args_ptr)&arg_177n ;     // invalid filter 127
   dpfl[6] = NULL ;                                // end of filter list
-//   arg_003a = DMAP_FLOAT_QUANTIZE( .maxerr = .25f, .nbits = 12, .offset = 0x7FFFFFFF ) ;
-  arg_003a = DMAP_FLOAT_QUANTIZE( .maxerr = .25f, .nbits = 12, .offset = 0 ) ;
-//   arg_003a = DMAP_FLOAT_QUANTIZE( .maxerr = .00000025f, .nbits = 8, .offset = 0x7FFFFFFF ) ;
-//   arg_003a = DMAP_FLOAT_QUANTIZE( .maxerr = .00000025f, .nbits = 8, .offset = 0 ) ;
+//   arg_003a = DMAP_FP_LINEAR_QUANTIZE( .maxerr = .25f, .nbits = 12, .offset = 0x7FFFFFFF ) ;
+  arg_003a = DMAP_FP_LINEAR_QUANTIZE( .maxerr = .25f, .nbits = 12, .offset = 0 ) ;
+//   arg_003a = DMAP_FP_LINEAR_QUANTIZE( .maxerr = .00000025f, .nbits = 8, .offset = 0x7FFFFFFF ) ;
+//   arg_003a = DMAP_FP_LINEAR_QUANTIZE( .maxerr = .00000025f, .nbits = 8, .offset = 0 ) ;
   dpfl[0] = (dmap_filter_args_ptr)&arg_003a ;     // filter 003, linear float quantizer
-//   dmap_filter_arg_006 arg_006 = DMAP_ENCODE( .mode = 116 ) ;
-  dmap_filter_arg_004 arg_004 = DMAP_LORENZO() ;
-  dmap_filter_arg_005 arg_005 = DMAP_WAVELET(.levels = 2 ) ;
-  dmap_filter_arg_006 arg_006 = DMAP_ENCODE( .mode = 0 ) ;
+//   dmap_encode_arg arg_006 = DMAP_ENCODE( .mode = 116 ) ;
+  dmap_lorenzo_arg arg_004 = DMAP_LORENZO() ;
+  dmap_wavelet_arg arg_005 = DMAP_WAVELET(.levels = 2 ) ;
+  dmap_encode_arg arg_006 = DMAP_ENCODE( .mode = 0 ) ;
   dpfl[1] = (dmap_filter_args_ptr)&arg_005 ;     // integer wavelet
   dpfl[1] = (dmap_filter_args_ptr)&arg_004 ;     // Lorenzo predictor
   dpfl[2] = (dmap_filter_args_ptr)&arg_006 ;     // 32 bit raw encoding

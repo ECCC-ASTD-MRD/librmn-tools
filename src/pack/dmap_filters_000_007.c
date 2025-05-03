@@ -153,6 +153,9 @@ reverse:
 #undef FILTER_ID
 
 // ======================================= filter 002 =======================================
+#include <rmn/quantizers.h>
+
+// 32 bit float pseudo log quantizer
 #define FILTER_ID 002
 #define FILTER_NAME CONCAT2(dmap_filter_,FILTER_ID)
 #define FILTER_ARGS CONCAT2(dmap_filter_arg_,FILTER_ID)
@@ -196,12 +199,13 @@ fail:
   uint32_t filter ;
 reverse:
   STREAM_GET_NBITS(s, filter, 8) ;
+  status = 8 ;                                         // 8 bits extracted so far
 //   fprintf(stderr, "reverse filter %3.3o, id = %d\n", FILTER_ID, filter) ;
-  if(filter != FILTER_ID) goto fail ;                     // wrong id, MUST be FILTER_ID
+  if(filter != FILTER_ID) goto fail ;                  // wrong id, MUST be FILTER_ID
   uint32_t t ;
   STREAM_GET_NBITS(s, t, 8) ;
   fprintf(stderr, "reverse filter %3.3o, id = %d, t = %d\n", FILTER_ID, filter, t) ;
-  status = 16 ;
+  status += 8 ;
 
   ssize_t status2 = dmap_filter_inv(a, &s) ;     // call next inverse filter
   if(status2 < 0) goto fail ; else status += status2 ;
@@ -262,9 +266,9 @@ ssize_t FILTER_NAME(array_nd *a, block_properties *bp, dmap_filter_list dpfl, bi
   float maxabs, quantum, ovq ;
   maxabs = FLOAT_MAX_ABS(*bp) ;                  // largest absolute value in array
 
-  q_exp = fp2q_exp(maxabs, maxerr.f, nbits) ;    // compute power of 2 to use for quantum from max error and nbits
-  quantum = fp32_pow2(q_exp) ;                   // discretization quantum, first power of 2 >= maxerr
-  ovq = fp32_pow2( -q_exp ) ;                    // discretization mutiplier, inverse of quantum
+  q_exp = fp2q_exp(maxabs, maxerr.f, nbits) ;    // compute power of 2 to use for quantum given max error and nbits
+  quantum = fp32_pow2(q_exp) ;                   // discretization quantum, first power of 2 >= 2.0 * maxerr
+  ovq = fp32_pow2( -q_exp ) ;                    // discretization mutiplier, 1.0 / quantum
 
   nvalues = a->dim[0].gnn * a->dim[1].gnn ;      // number of values in array
   fprintf(stderr, "filter %3.3o, maxerr = %f(%d), quantum = %f, ovq = %f, nbits = %d, offset = %d\n",
@@ -311,6 +315,7 @@ ssize_t FILTER_NAME(array_nd *a, block_properties *bp, dmap_filter_list dpfl, bi
   STREAM_INSERT_PUSH(s) ;
   status += inserted ;
   fprintf(stderr, "filter %3.3o : inserted %d bits, quantum = %f, exp = %d\n", FILTER_ID, inserted, quantum, q_exp) ;
+
 end:
   *stream = s ;   // success, SAVE stream changes
   return status ;
