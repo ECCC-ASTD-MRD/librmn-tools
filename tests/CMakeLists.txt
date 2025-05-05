@@ -1,4 +1,4 @@
-# target check to run all tests
+# # target check to run all tests
 add_custom_target(check COMMAND CTEST_OUTPUT_ON_FAILURE=true ${CMAKE_CTEST_COMMAND})
 message(STATUS "(EC) Generating librmntools tests")
 
@@ -152,6 +152,7 @@ endif()
 add_project_test(test_fstd_compress  test_fstd_compress.F90 LINK_LIBS "rmn::rmn;libaec::aec" DL NOCTEST)   # not included in ctest for now
 # add_project_test(fstd_to_raw  fstd_to_raw.F90 LINK_LIBS "rmn::rmn" DL NOCTEST)   # not included in ctest for now
 add_project_test(fstd_to_raw  fstd_to_raw.F90 LINK_LIBS "rmn::rmn-shared;libaec::aec" DL NOCTEST)   # not included in ctest for now
+add_project_test(fstd_analyze  fstd_analyze.F90 LINK_LIBS "rmn::rmn-shared" DL NOCTEST)   # not included in ctest for now
 if(NOT ( ${COMPILER_SUITE} MATCHES  "nvhpc") )
 # problem building fstd_to_raw_s with Nvidia compiler (dl library symbol missing)
 add_project_test(fstd_to_raw_s  fstd_to_raw.F90 STATIC LINK_LIBS "rmn::rmn-static" DL NOCTEST)   # not included in ctest for now

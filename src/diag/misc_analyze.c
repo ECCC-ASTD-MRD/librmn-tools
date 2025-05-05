@@ -16,6 +16,98 @@
 #include <stdint.h>
 #include <math.h>
 
+#include <rmn/data_kind.h>
+
+static int32_t ediff[256] ;
+
+void Analyze_4x4_reset(){
+  uint32_t i ;
+  for(i = 0 ; i < (sizeof(ediff) / sizeof(int32_t)) ; i++ ) ediff[i] = 0 ;
+}
+
+#define TSZ 4
+
+void Analyze_NxN(float *f_, int32_t ni, int32_t nj, char *name){
+  float (* f)[ni] = (void *)f_ ;
+  int i, j, i0, j0, tiles = 0 ;
+  int32_t e_min = 0 ;
+  iuf32_t iuf ;
+  float fmin, fmax, zero, errf, errmax ;
+  int32_t min, max ;
+  fmin = fmax = f[0][0] ;
+  for(j=0 ; j<nj ; j++){
+    for(i=0 ; i<ni ; i++){
+      fmin = (f[j][i] < fmin) ? f[j][i] : fmin ;
+      fmax = (f[j][i] > fmax) ? f[j][i] : fmax ;
+    }
+  }
+  iuf.f = fmax ;
+  iuf.i = iuf.i & 0x7FFFFFFF ;
+  e_min = iuf.i >> 23 ;
+  e_min = e_min - 15 ;
+  if(e_min < 0) e_min = 0 ;
+  iuf.i = e_min << 23 ;
+  zero = iuf.f ;
+  fprintf(stderr, "%4s : min = %10.3G, max = %10.3G, zero = %10.3E, ", name, fmin, fmax, zero) ;
+  errmax = 0.0f ;
+  for(j0=0 ; j0<nj-TSZ+1 ; j0+=TSZ){
+    for(i0=0 ; i0<ni-TSZ+1 ; i0+=TSZ){
+      min = 0x7FFFFFFF ;
+      max = -min ;
+      for(j=j0 ; j<j0+TSZ ; j++){
+        for(i=0 ; i<i0+TSZ ; i++){
+          iuf.f = f[j][i] ;
+          if(iuf.f < zero) iuf.i = 0 ;
+          iuf.i = iuf.i & 0x7FFFFFFF ;          // absolute value
+          min = (iuf.i < min) ? iuf.i : min ;
+          max = (iuf.i > max) ? iuf.i : max ;
+        }
+      }
+      tiles++ ;
+      max >>= 23 ;
+      min >>= 23 ;
+      if(max < e_min){
+        max = e_min ;
+        min = max - 18 ;
+      }
+      if((max - min) > 15){
+        min = max - 18 ;
+      }
+      ediff[max-min]++ ;
+      for(j=j0 ; j<j0+TSZ ; j++){
+        for(i=0 ; i<i0+TSZ ; i++){
+          iuf32_t s, d ;
+          uint32_t sign ;
+          s.f = f[j][i] ;
+          sign = s.u & 0x80000000u ;
+          d.u = s.u & 0x7FFFFFFFu ;     // abs value
+//           d.u += (1 << 6) ;             // rounding term
+          d.u = d.u & 0x7FFFF800u ;     // clip after rounding
+          if(d.f < zero){
+            d.f = 0.0f ;
+          }else{
+            d.u |= sign ;
+          }
+          errf = d.f - s.f ;
+          errf = (errf < 0) ? -errf : errf ;
+          errmax = (errf > errmax) ? errf : errmax ;
+        }
+      }
+    }
+  }
+  for(i=0 ; i<19 ; i++){
+    ediff[255] += ediff[i] ;
+  }
+  if(ediff[255] != tiles) exit(1) ;
+
+  fprintf(stderr, "%6d tiles [ ", tiles) ;
+  for(i=0 ; i<19 ; i++){
+    fprintf(stderr, " %6d", ediff[i]) ;
+  }
+  fprintf(stderr, "] %4.1f%% (%10.3E)\n\n", 100.0f*ediff[18]/tiles, errmax) ;
+  Analyze_4x4_reset() ;
+}
+
 // quick and dirty evaluations of compression losses
 void AnalyzeCompressionErrors(float *fa, float *fb, int np, float small, char *str){  // will have to add a few options
   int i;
