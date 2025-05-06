@@ -43,4 +43,7 @@ static inline float q2fp_lin_(int32_t q, float d){
   return t ;
 }
 
+uint32_t fp2q_log_(float z, int32_t e_base, float qzero, int32_t mbits, uint32_t round);
+float q2fp_log_(int32_t q, int32_t e_base, int32_t mbits);
+
 #endif

@@ -34,6 +34,13 @@ static inline int32_t fp32_sign(float z){
   return (r.i >> 31) ;  // will return 0 or -1
 }
 
+// get biased exponent from z
+static inline int32_t fp32_exp_raw(float z){
+  union{ int32_t i ; uint32_t u ; float f ; } r ;
+  r.f = z ;
+  return ((r.i >> 23) & 0xFF) ;
+}
+
 // get unbiased exponent from z
 static inline int32_t fp32_exp(float z){
   union{ int32_t i ; uint32_t u ; float f ; } r ;
@@ -70,6 +77,15 @@ static inline int fp32_isinf(float z){
 static inline float fp32_nan(int signaling){
   union{ int32_t i ; uint32_t u ; float f ; } r ;
   r.u = 0X7F800001 | ((signaling & 1) << 22) ;
+  return r.f ;
+}
+
+// bump |z| to the power of 2 >= |z|, keep sign intact
+static inline float fp32_pow2_ceil(float z){
+  union{ int32_t i ; uint32_t u ; float f ; } r ;
+  r.f = z ;
+  r.u += 0x007FFFFFu ;   // round up to ceiling
+  r.u &= 0xFF800000u ;   // get rid of mantissa
   return r.f ;
 }
 

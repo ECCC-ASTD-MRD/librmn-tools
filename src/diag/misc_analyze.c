@@ -25,7 +25,10 @@ void Analyze_4x4_reset(){
   for(i = 0 ; i < (sizeof(ediff) / sizeof(int32_t)) ; i++ ) ediff[i] = 0 ;
 }
 
-#define TSZ 4
+#define TSZ 8
+
+// #include <rmn/ieee_functions.h>
+#include <rmn/move_blocks.h>
 
 void Analyze_NxN(float *f_, int32_t ni, int32_t nj, char *name){
   float (* f)[ni] = (void *)f_ ;
@@ -34,6 +37,7 @@ void Analyze_NxN(float *f_, int32_t ni, int32_t nj, char *name){
   iuf32_t iuf ;
   float fmin, fmax, zero, errf, errmax ;
   int32_t min, max ;
+
   fmin = fmax = f[0][0] ;
   for(j=0 ; j<nj ; j++){
     for(i=0 ; i<ni ; i++){
@@ -49,6 +53,7 @@ void Analyze_NxN(float *f_, int32_t ni, int32_t nj, char *name){
   iuf.i = e_min << 23 ;
   zero = iuf.f ;
   fprintf(stderr, "%4s : min = %10.3G, max = %10.3G, zero = %10.3E, ", name, fmin, fmax, zero) ;
+
   errmax = 0.0f ;
   for(j0=0 ; j0<nj-TSZ+1 ; j0+=TSZ){
     for(i0=0 ; i0<ni-TSZ+1 ; i0+=TSZ){
@@ -81,7 +86,7 @@ void Analyze_NxN(float *f_, int32_t ni, int32_t nj, char *name){
           s.f = f[j][i] ;
           sign = s.u & 0x80000000u ;
           d.u = s.u & 0x7FFFFFFFu ;     // abs value
-//           d.u += (1 << 6) ;             // rounding term
+          d.u += (1 << 6) ;             // rounding term
           d.u = d.u & 0x7FFFF800u ;     // clip after rounding
           if(d.f < zero){
             d.f = 0.0f ;
