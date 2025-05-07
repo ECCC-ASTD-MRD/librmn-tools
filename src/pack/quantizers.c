@@ -63,54 +63,106 @@ void q2fp_lin(float *z, int *q, int n, float d, int32_t offset){
 // ======================= pseudo log quantizers =======================
 #include <stdio.h>
 // round is 0 if mbits == 23, 1 << (22 -mbits) if mbits < 23
+// this will only work if e_base < 0
+uint32_t fp2q_log1_(float z, int32_t e_base, int32_t mbits, uint32_t round){
+  union{ uint32_t i ; float f ; } iuf ;
+  int32_t mant ;
+  int32_t e_z ;
+  float mult2 = 1.0f ;
+
+  iuf.f = z ;
+  iuf.i += round ;                   // apply rounding (this may increase exponent)
+
+  if(e_base > 0){
+    int delta = e_base + 1 ;
+    e_base -= delta ;
+    mult2 = fp32_pow2(-delta) ;
+  }
+  float mult = fp32_pow2(-(127+e_base)) ;
+  iuf.f *= mult2 ;
+  iuf.f *= mult ;                    // |z| < 2.0**e_base will produce a "denorm"
+  mant = iuf.i ;
+  mant >>= (23 - mbits) ;            // eliminate unwanted bits from mantissa
+  return mant ;
+}
+#if 0
 uint32_t fp2q_log_(float z, int32_t e_base, float zero, int32_t mbits, uint32_t round){
   union{ uint32_t u ; float f ; } iuf ;
   uint32_t sign, mant ;
   int32_t e_z ;
-fprintf(stderr, ">>>> fp2q_log_ z = %f\n", z);
-  if(z < zero) return 0 ;
+//   int32_t e_zero = fp32_exp(zero) ;
+//   e_base = (e_zero > e_base) ? e_zero : e_base ;
+// fprintf(stderr, ">>>> fp2q_log_ z = %f\n", z);
+
   iuf.f = z ;
   sign = iuf.u >> 31 ;               // get sign
   iuf.u &= 0x7FFFFFFFu ;             // suppress sign
+//   if(iuf.f < zero) return 0 ;
   iuf.u += round ;                   // apply rounding (this may increase exponent)
 
-  mant = iuf.u & 0x7FFFFFu ;         // extract mantissa (lower 23 bits)
-  e_z  = (iuf.u >> 23) - 127 ;       // get IEEE exponent (without 127 bias)
-fprintf(stderr, "e_z = %d, e_base = %d, diff = %d, mant = %8.8x, mbits = %d\n", e_z, e_base, e_z-e_base, mant, mbits) ;
-  e_z -= e_base ;                    // subtract reference exponent
-  if(e_z < 0) return 0 ;
-  mant |= (e_z << 23) ;              // add exponent difference (never < 0) to mantissa
-fprintf(stderr, "mant = %8.8x\n", mant) ;
+  float mult = fp32_pow2(-(127+e_base)) ;
+// fprintf(stderr, "mult = %G\n", mult) ;
+  iuf.f *= mult ;
+  mant = iuf.u ;
+//   mant = iuf.u & 0x7FFFFFu ;         // extract mantissa (lower 23 bits)
+//   e_z  = (iuf.u >> 23) - 127 ;       // get IEEE exponent (without 127 bias)
+// fprintf(stderr, "e_z = %d, e_base = %d, diff = %d, mant = %8.8x, mbits = %d\n", e_z, e_base, e_z-e_base, mant, mbits) ;
+//   e_z -= e_base ;                    // subtract reference exponent
+//   if(e_z < 0) return 0 ;
+//   mant |= (e_z << 23) ;              // add exponent difference (never < 0) to mantissa
+// fprintf(stderr, "mant = %8.8x\n", mant) ;
 
   mant >>= (23 - mbits) ;            // eliminate unwanted bits from mantissa
-fprintf(stderr, "mant = %8.8x, sign = %d\n", mant, sign) ;
+// fprintf(stderr, "mant = %8.8x, sign = %d\n", mant, sign) ;
   mant = (mant << 1) | sign ;        // add sign as LSB
-fprintf(stderr, "mant = %8.8x, sign = %d\n", mant, sign) ;
-  mant += 1 ;                        // add 1 to never produce 0 except for values that would be restored as 0
-fprintf(stderr, "mant = %8.8x\n", mant) ;
-  return (z < zero) ? 0 : mant ;     // encoded version
+// fprintf(stderr, "mant = %8.8x, sign = %d\n", mant, sign) ;
+//   mant += 1 ;                        // add 1 to never produce 0 except for values that would be restored as 0
+// fprintf(stderr, "mant = %8.8x\n", mant) ;
+//   return (z < zero) ? 0 : mant ;     // encoded version
+  return mant ;
 }
-
+#endif
 // restore float from quantized value (fp2q_log_)
 // q      [IN] : quantized value
 // e_base [IN] : exponent offset to be applied (does not include IEEE bias)
 // mbits  [IN] : number of mantissa bits kept
 // return restored float value
+// this will only work if e_base < 0
+float q2fp_log1_(int32_t q, int32_t e_base, int32_t mbits){
+  union{ int32_t i ; float f ; } iuf ;
+  float mult2 = 1.0f ;
+  if(e_base > 0){
+    int delta = e_base + 1 ;
+    e_base -= delta ;
+    mult2 = fp32_pow2(delta) ;
+  }
+  float mult = fp32_pow2((127+e_base)) ;
+  e_base += 127 ;
+  iuf.i = q ;
+  iuf.i <<= (23 - mbits) ;             // mantissa in bits 0->22, exp in bits 23->30, sign in bit 31
+  iuf.f *= mult2 ;
+  iuf.f *= mult ;
+  return iuf.f ;
+}
+#if 0
 float q2fp_log_(int32_t q, int32_t e_base, int32_t mbits){
   union{ int32_t i ; float f ; } iuf ;
   int32_t sign ;
-fprintf(stderr, "<<<< q2fp_log_ q = %8.8x, e_base = %d, mbits = %d\n", q, e_base, mbits);
+  float mult = fp32_pow2((127+e_base)) ;
   e_base += 127 ;
-  iuf.i = q - 1 ;                                // remove bias of 1
+  iuf.i = q ;
   sign  = iuf.i & 1 ;                            // LSB is sign
-fprintf(stderr, "sign = %d\n", sign) ;
+// fprintf(stderr, "<<<< q2fp_log_ q = %8.8x, e_base = %d, mbits = %d, mult = %G, sign = %d\n", q, e_base, mbits, mult, sign);
   iuf.i >>= 1 ;                                  // get rid of sign
+
   iuf.i <<= (23 - mbits) ;                       // mantissa in bits 0->22, exp in bits 23->30
-  iuf.i += (e_base << 23) ;                      // add exponent offset
+  iuf.f *= mult ;
+//   iuf.i += (e_base << 23) ;                      // add exponent offset
+
   iuf.f = (sign != 0) ? (-iuf.f) : iuf.f ;       // restore sign
   return (q == 0) ? 0.0f : iuf.f ;               // q == 0 restores as 0
 }
-
+#endif
 // qzero [IN] : any z[i] < qzero will be treated as if it were 0
 // mbits [IN] : number of mantissa bits to keep (significant bits)
 // nexp  [IN} : any z[i] < zmax / (2**nexp) will be treated as if it were 0
