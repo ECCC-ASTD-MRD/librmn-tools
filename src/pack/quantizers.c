@@ -64,26 +64,101 @@ void q2fp_lin(float *z, int *q, int n, float d, int32_t offset){
 #include <stdio.h>
 // round is 0 if mbits == 23, 1 << (22 -mbits) if mbits < 23
 // this will only work if e_base < 0
-uint32_t fp2q_log1_(float z, int32_t e_base, int32_t mbits, uint32_t round){
-  union{ uint32_t i ; float f ; } iuf ;
-  int32_t mant ;
-  int32_t e_z ;
-  float mult2 = 1.0f ;
+int32_t fp2q_log1_(float z, int32_t e_base, int32_t mbits, uint32_t round){
+  union{ int32_t i ; float f ; } iuf ;
+  int32_t q, sign ;
 
-  iuf.f = z ;
-  iuf.i += round ;                   // apply rounding (this may increase exponent)
-
+  float mult2 = 1.0f ;                    // "neutral" multiplier 2
   if(e_base > 0){
     int delta = e_base + 1 ;
-    e_base -= delta ;
-    mult2 = fp32_pow2(-delta) ;
+    e_base -= delta ;                     // adjust e_base
+    mult2 = fp32_pow2(-delta) ;           // multiplier 2
   }
-  float mult = fp32_pow2(-(127+e_base)) ;
-  iuf.f *= mult2 ;
-  iuf.f *= mult ;                    // |z| < 2.0**e_base will produce a "denorm"
-  mant = iuf.i ;
-  mant >>= (23 - mbits) ;            // eliminate unwanted bits from mantissa
-  return mant ;
+  float mult = fp32_pow2(-(127+e_base)) ; // multiplier 1
+
+  iuf.f = z ;
+  sign = iuf.i >> 31 ;                    // capture sign
+  iuf.i &= 0x7FFFFFFFu ;                  // take absolute value
+  iuf.i += round ;                        // apply rounding (this may increase exponent)
+  iuf.f *= mult2 ;                        // apply multipliers
+  iuf.f *= mult ;                         // |z| < 2.0**e_base will produce a "denorm"
+  q = iuf.i >> (23 - mbits) ;             // eliminate unwanted bits from mantissa
+  q = (q ^ sign) - sign ;                 // restore sign (2's complement formula)
+  return q ;
+}
+
+void fp2q_logn_(float *z, int32_t *q, int n, int32_t e_base, int32_t mbits, int32_t round){
+  union{ int32_t i ; float f ; } iuf ;
+  int32_t sign ;
+
+  float mult2 = 1.0f ;                    // "neutral" multiplier 2
+  if(e_base > 0){
+    int delta = e_base + 1 ;
+    e_base -= delta ;                     // adjust e_base
+    mult2 = fp32_pow2(-delta) ;           // multiplier 2
+  }
+  float mult = fp32_pow2(-(127+e_base)) ; // multiplier 1
+
+  int i ;
+  for(i=0 ; i<n ; i++){
+    iuf.f = z[i] ;
+    sign = iuf.i >> 31 ;                    // capture sign
+    iuf.i &= 0x7FFFFFFFu ;                  // take absolute value
+    iuf.i += round ;                        // apply rounding (this may increase exponent)
+    iuf.f *= mult2 ;                        // apply multipliers
+    iuf.f *= mult ;                         // |z| < 2.0**e_base will produce a "denorm"
+    q[i] = iuf.i >> (23 - mbits) ;          // eliminate unwanted bits from mantissa
+    q[i] = (q[i] ^ sign) - sign ;           // restore sign (2's complement formula)
+  }
+}
+
+// restore float from quantized value (fp2q_log_)
+// q      [IN] : quantized value
+// e_base [IN] : exponent offset to be applied (does not include IEEE bias)
+// mbits  [IN] : number of mantissa bits kept
+// return restored float value
+// this will only work if e_base < 0
+float q2fp_log1_(int32_t q, int32_t e_base, int32_t mbits){
+  union{ int32_t i ; float f ; } iuf ;
+
+  float mult2 = 1.0f ;                    // "neutral" multiplier 2
+  if(e_base > 0){                         // exponent would be too large for single multiplier
+    int delta = e_base + 1 ;
+    e_base -= delta ;                     // adjust e_base
+    mult2 = fp32_pow2(delta) ;            // multiplier 2
+  }
+  float mult = fp32_pow2((127+e_base)) ;  // multiplier 1
+
+  int32_t sign = q >> 31 ;                // capture sign
+  iuf.i = (q ^ sign) - sign ;             // take absolute value (2's complement formula)
+  iuf.i <<= (23 - mbits) ;                // mantissa in bits 0->22, exp in bits 23->30, sign in bit 31
+  iuf.f *= mult2 ;                        // allpy multipliers
+  iuf.f *= mult ;
+  iuf.i |= (sign << 31) ;                 // restore sign
+  return iuf.f ;
+}
+
+void q2fp_logn_(float *z, int32_t *q, int n, int32_t e_base, int32_t mbits){
+  union{ int32_t i ; float f ; } iuf ;
+
+  float mult2 = 1.0f ;                    // "neutral" multiplier 2
+  if(e_base > 0){                         // exponent would be too large for single multiplier
+    int delta = e_base + 1 ;
+    e_base -= delta ;                     // adjust e_base
+    mult2 = fp32_pow2(delta) ;            // multiplier 2
+  }
+  float mult = fp32_pow2((127+e_base)) ;  // multiplier 1
+
+  int i ;
+  for(i=0 ; i<n ; i++){
+    int32_t sign = q[i] >> 31 ;                // capture sign
+    iuf.i = (q[i] ^ sign) - sign ;             // take absolute value (2's complement formula)
+    iuf.i <<= (23 - mbits) ;                // mantissa in bits 0->22, exp in bits 23->30, sign in bit 31
+    iuf.f *= mult2 ;                        // allpy multipliers
+    iuf.f *= mult ;
+    iuf.i |= (sign << 31) ;                 // restore sign
+    z[i] = iuf.f ;
+  }
 }
 #if 0
 uint32_t fp2q_log_(float z, int32_t e_base, float zero, int32_t mbits, uint32_t round){
@@ -122,28 +197,6 @@ uint32_t fp2q_log_(float z, int32_t e_base, float zero, int32_t mbits, uint32_t 
   return mant ;
 }
 #endif
-// restore float from quantized value (fp2q_log_)
-// q      [IN] : quantized value
-// e_base [IN] : exponent offset to be applied (does not include IEEE bias)
-// mbits  [IN] : number of mantissa bits kept
-// return restored float value
-// this will only work if e_base < 0
-float q2fp_log1_(int32_t q, int32_t e_base, int32_t mbits){
-  union{ int32_t i ; float f ; } iuf ;
-  float mult2 = 1.0f ;
-  if(e_base > 0){
-    int delta = e_base + 1 ;
-    e_base -= delta ;
-    mult2 = fp32_pow2(delta) ;
-  }
-  float mult = fp32_pow2((127+e_base)) ;
-  e_base += 127 ;
-  iuf.i = q ;
-  iuf.i <<= (23 - mbits) ;             // mantissa in bits 0->22, exp in bits 23->30, sign in bit 31
-  iuf.f *= mult2 ;
-  iuf.f *= mult ;
-  return iuf.f ;
-}
 #if 0
 float q2fp_log_(int32_t q, int32_t e_base, int32_t mbits){
   union{ int32_t i ; float f ; } iuf ;

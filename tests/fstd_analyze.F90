@@ -3,7 +3,7 @@ module analyze_itf
   implicit none
   interface
     subroutine Analyze_NxN(f, ni, nj, varname) bind(C, name='Analyze_NxN')
-      import :: C_FLOAT, C_INT32_T
+      import :: C_FLOAT, C_INT32_T, C_CHAR
       implicit none
       integer(C_INT32_T), intent(IN), value :: ni, nj
       real(C_FLOAT), dimension(ni,nj), intent(IN) :: f
