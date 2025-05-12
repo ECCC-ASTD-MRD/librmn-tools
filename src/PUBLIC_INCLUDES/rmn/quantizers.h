@@ -24,7 +24,7 @@ float fp2q_quantum(float maxabs, float maxerr, int32_t nbits);
 // linear quantizer for float values
 // z   [IN] : 32 bit float
 //ovdq [IN] : inverse of discretization quantum (32 bit float, ideally a power of 2)
-// return quantized value (32 bit integer)
+// return quantized value (32 bit integer) (including proper rounding)
 static inline int32_t fp2q_lin_(float z, float ovdq){
   int32_t t = (z * ovdq) + ((z < 0) ? -.5f : .5f) ;
   return t ;
@@ -45,10 +45,10 @@ static inline float q2fp_lin_(int32_t q, float dq){
 
 // uint32_t fp2q_log_(float z, int32_t e_base, float qzero, int32_t mbits, uint32_t round);
 int32_t fp2q_log1_(float z, int32_t e_base, int32_t mbits, uint32_t round);
-int32_t fp2q_logn_(float *z, int32_t *q, int n, float vref, int32_t mbits);
+int32_t fp2q_log(float *z, int32_t *q, int n, float vref, int32_t mbits);
 
 // float q2fp_log_(int32_t q, int32_t e_base, int32_t mbits);
 float q2fp_log1_(int32_t q, int32_t e_base, int32_t mbits);
-void q2fp_logn_(float *z, int32_t *q, int n, int32_t e_base, int32_t mbits);
+void q2fp_log(float *z, int32_t *q, int n, int32_t e_base, int32_t mbits);
 
 #endif

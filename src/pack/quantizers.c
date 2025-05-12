@@ -22,12 +22,13 @@
 // ======================= linear quantization =======================
 
 // compute the discretization quantum exponent from largest value, nbits , max error
-// maxabs [IN] : largest absolute value in array
+// maxabs [IN] : largest absolute value in array (set to 0.0f to ignore it)
 // maxerr [IN] : largest absolute error desired
 // nbits  [IN] : max number of bits to use
 // return the discretization quantum
 float fp2q_quantum(float maxabs, float maxerr, int32_t nbits){
   int32_t err_exp, min_exp ;
+  if(nbits < 0) goto fail ;
   // the discretization quantum exponent is determined by the larger of 2 values
   // - the first power of 2 <= 2.0 * max error
   // - the first power of 2 <= largest absolute value / 2.0 ** nbits
@@ -37,7 +38,10 @@ float fp2q_quantum(float maxabs, float maxerr, int32_t nbits){
   min_exp = fp32_exp(maxabs) - nbits ;    // smallest acceptable value for err_exp
   err_exp = (min_exp > err_exp) ? min_exp : err_exp ;
 
-  return fp32_pow2(err_exp + 1) ;
+  if(err_exp > -127) return fp32_pow2(err_exp + 1) ;  // err_exp <= -127 is too small a value
+
+fail:
+  return 0.0f ;
 }
 
 // linear quantizer for float values
@@ -95,10 +99,10 @@ int32_t fp2q_log1_(float z, int32_t e_base, int32_t mbits, uint32_t round){
 // z     [IN] : float values to be quantized
 // q    [OUT] : quantized values
 // n     [IN] : number of values
-// vref  [IN] : float values < vref will start losing significant bits in mantissa and may become 0
+// vref  [IN] : |values| < |vref| will start losing significant bits in mantissa and may become 0
 // mbits [IN] : number of mantissa bits to keep
 // return the exponent base used for restoring floats from quantized values
-int32_t fp2q_logn_(float *z, int32_t *q, int n, float vref, int32_t mbits){
+int32_t fp2q_log(float *z, int32_t *q, int n, float vref, int32_t mbits){
   union{ int32_t i ; float f ; } iuf ;
   int32_t sign, i ;
   int32_t round = 0 ;
@@ -165,7 +169,7 @@ float q2fp_log1_(int32_t q, int32_t e_base, int32_t mbits){
 // n      [IN] : number of values
 // e_base [IN] : exponent offset to be applied (from fp2q_logn_)
 // mbits  [IN] : number of mantissa bits kept
-void q2fp_logn_(float *z, int32_t *q, int n, int32_t e_base, int32_t mbits){
+void q2fp_log(float *z, int32_t *q, int n, int32_t e_base, int32_t mbits){
   union{ int32_t i ; float f ; } iuf ;
   float mult2 = 1.0f ;                    // "neutral" multiplier 2
 
@@ -190,15 +194,30 @@ void q2fp_logn_(float *z, int32_t *q, int n, int32_t e_base, int32_t mbits){
 
 // =======================  quantization =======================
 
-int32_t fp2q_n(float *z, int32_t *q, int n, float max_abs, float max_err, float vref, int32_t nbits, int32_t mode){
+// if max_abs == 0.0f, if will be ignored
+// if max_err == 0.0f, it will be computed using other variables
+int32_t fp2q_n(float *z, int32_t *q, int n, float max_abs, float max_err, float vref, int32_t nbits, int32_t offset, int32_t mode){
+  float quantum ;
+  int32_t e_base ;
+  int32_t result ;
+  if(max_abs < 0 || max_err < 0 || vref < 0 || nbits < 0) goto fail ;
   switch(mode){
-    case 0:        // linear quantizer, use max_abs, max_err, nbits
+    case 0:        // linear quantizer, use max_abs, max_err, offset, nbits
+      quantum = fp2q_quantum(max_abs, max_err, nbits) ;
+      if(quantum == 0.0f) goto fail ;
+      result = fp2q_lin((void *)z, (void *)q, n, quantum, offset) ;
       break ;
-    case 1:        // log quantizer, use max_err, vref, nbits
-      break;
+    case 1:        // log quantizer, use max_abs, max_err, vref, nbits
+      if(vref < max_abs * max_err) vref = max_abs * max_err ;
+      result = fp2q_log((void *)z, (void *)q, n, vref, nbits) ;
+      break ;
     default:       // ERROR
-      return -1 ;
+      goto fail ;
   }
+  return result ;
+
+fail:
+  return 0x7FFFFFFF ;  // huge value, ERROR
 }
 
 #if 0

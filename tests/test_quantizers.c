@@ -92,10 +92,10 @@ test:
   fprintf(stderr, "============================== linear timingss ==============================\n") ;
 
   TIME_LOOP(timer_min, timer_max, timer_avg, niter, nij, timer_msg, timer_msg_size, e_base = fp2q_lin((void *)z, (void *)q, nij, quantum, offset)) ;
-  fprintf(stderr,"%s\n", timer_msg) ;
+  fprintf(stderr,"quantize : %s\n", timer_msg) ;
 
   TIME_LOOP(timer_min, timer_max, timer_avg, niter, nij, timer_msg, timer_msg_size, q2fp_lin((void *)z, (void *)q, nij, e_base, offset)) ;
-  fprintf(stderr,"%s\n", timer_msg) ;
+  fprintf(stderr,"restore  : %s\n", timer_msg) ;
 
   fprintf(stderr, "============================== pseudo log quantizers ==============================\n") ;
 
@@ -127,10 +127,10 @@ test:
   errmax = 0.0f ;
   float vmax = 999999.0f, verr = 999999.0f ;
 
-  e_base0 = fp2q_logn_((float *)Z, (int32_t *)q, nij, vref, mbits) ;
+  e_base0 = fp2q_log((float *)Z, (int32_t *)q, nij, vref, mbits) ;
   if(e_base0 != e_base) goto fail ;
 
-  q2fp_logn_((float *)r, (int32_t *)q, nij, e_base0, mbits) ;
+  q2fp_log((float *)r, (int32_t *)q, nij, e_base0, mbits) ;
 //   for(j=0 ; j<NJ ; j++){
 //     for(i=0 ; i<NI ; i++){
 //       q[j][i] = fp2q_log1_(Z[j][i], e_base, mbits, round);
@@ -200,11 +200,11 @@ test:
 
   fprintf(stderr, "============================== pseudo log timingss ==============================\n") ;
 
-  TIME_LOOP(timer_min, timer_max, timer_avg, niter, nij, timer_msg, timer_msg_size, e_base0 = fp2q_logn_((float *)Z, (int32_t *)q, nij, vref, mbits)) ;
-  fprintf(stderr,"%s\n", timer_msg) ;
+  TIME_LOOP(timer_min, timer_max, timer_avg, niter, nij, timer_msg, timer_msg_size, e_base0 = fp2q_log((float *)Z, (int32_t *)q, nij, vref, mbits)) ;
+  fprintf(stderr,"quantize : %s\n", timer_msg) ;
 
-  TIME_LOOP(timer_min, timer_max, timer_avg, niter, nij, timer_msg, timer_msg_size, q2fp_logn_((float *)r, (int32_t *)q, nij, e_base0, mbits)) ;
-  fprintf(stderr,"%s\n", timer_msg) ;
+  TIME_LOOP(timer_min, timer_max, timer_avg, niter, nij, timer_msg, timer_msg_size, q2fp_log((float *)r, (int32_t *)q, nij, e_base0, mbits)) ;
+  fprintf(stderr,"restore  : %s\n", timer_msg) ;
 
   goto end ;
 }
