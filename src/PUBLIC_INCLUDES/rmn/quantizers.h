@@ -19,33 +19,33 @@
 
 #include <stdint.h>
 
-int32_t fp2q_exp(float maxabs, float maxerr, int32_t nbits);
+float fp2q_quantum(float maxabs, float maxerr, int32_t nbits);
 
 // linear quantizer for float values
-// z      [IN] : 32 bit float
-//ovd     [IN] : inverse of discretization quantum (32 bit float, ideally a power of 2)
+// z   [IN] : 32 bit float
+//ovdq [IN] : inverse of discretization quantum (32 bit float, ideally a power of 2)
 // return quantized value (32 bit integer)
-static inline int32_t fp2q_lin_(float z, float ovd){
-  int32_t t = (z * ovd) + ((z < 0) ? -.5f : .5f) ;
+static inline int32_t fp2q_lin_(float z, float ovdq){
+  int32_t t = (z * ovdq) + ((z < 0) ? -.5f : .5f) ;
   return t ;
 }
 
-void fp2q_lin(float *z, int *q, int n, float ovd, int32_t offset);
+int32_t fp2q_lin(float *z, int *q, int n, float dq, int32_t offset);
 
-void q2fp_lin(float *z, int *q, int n, float d, int32_t offset);
+void q2fp_lin(float *z, int *q, int n, int32_t e_base, int32_t offset);
 
 // linear de_quantizer (inverse of fp2q_lin_)
-// q [IN] : quantized value (32 bit integer)
-// d [IN] : float discretization quantum
+// q  [IN] : quantized value (32 bit integer)
+// dq [IN] : float discretization quantum
 // return restored float value
-static inline float q2fp_lin_(int32_t q, float d){
-  float t = q * d ;
+static inline float q2fp_lin_(int32_t q, float dq){
+  float t = q * dq ;
   return t ;
 }
 
 // uint32_t fp2q_log_(float z, int32_t e_base, float qzero, int32_t mbits, uint32_t round);
 int32_t fp2q_log1_(float z, int32_t e_base, int32_t mbits, uint32_t round);
-void fp2q_logn_(float *z, int32_t *q, int n, int32_t e_base, int32_t mbits, int32_t round);
+int32_t fp2q_logn_(float *z, int32_t *q, int n, float vref, int32_t mbits);
 
 // float q2fp_log_(int32_t q, int32_t e_base, int32_t mbits);
 float q2fp_log1_(int32_t q, int32_t e_base, int32_t mbits);

@@ -14,17 +14,19 @@
 // Author:
 //     M. Valin,   Recherche en Prevision Numerique, 2025
 
+// #include <stdio.h>
+
 #include <rmn/quantizers.h>
 #include <rmn/ieee_functions.h>
 
-// ======================= linear quantizers =======================
+// ======================= linear quantization =======================
 
 // compute the discretization quantum exponent from largest value, nbits , max error
 // maxabs [IN] : largest absolute value in array
 // maxerr [IN] : largest absolute error desired
 // nbits  [IN] : max number of bits to use
-// return the unbiased power of 2 for the discretization quantum
-int32_t fp2q_exp(float maxabs, float maxerr, int32_t nbits){
+// return the discretization quantum
+float fp2q_quantum(float maxabs, float maxerr, int32_t nbits){
   int32_t err_exp, min_exp ;
   // the discretization quantum exponent is determined by the larger of 2 values
   // - the first power of 2 <= 2.0 * max error
@@ -35,35 +37,38 @@ int32_t fp2q_exp(float maxabs, float maxerr, int32_t nbits){
   min_exp = fp32_exp(maxabs) - nbits ;    // smallest acceptable value for err_exp
   err_exp = (min_exp > err_exp) ? min_exp : err_exp ;
 
-  return err_exp + 1 ;
+  return fp32_pow2(err_exp + 1) ;
 }
 
 // linear quantizer for float values
-// z   [IN] : 32 bit float float array
-// q  [OUT] : 32 bit integer array, result of linear quantification
-// n   [IN] : number of values
-//ovd  [IN] : inverse of discretization quantum (32 bit float, ideally a power of 2)
+// z      [IN] : 32 bit float float array
+// q     [OUT] : 32 bit integer array, result of linear quantification
+// n      [IN] : number of values
+// dq     [IN] : discretization quantum (float, will be truncated down to a power of 2)
 // offset [IN] : discretization offset (removed from quantized values)
-void fp2q_lin(float *z, int *q, int n, float ovd, int32_t offset){
+int32_t fp2q_lin(float *z, int *q, int n, float dq, int32_t offset){
+  int32_t e_base = fp32_exp(dq) ;
+  dq = fp32_pow2(-e_base) ;     // 1.0 / dq
   int i ;
-  for(i=0 ; i<n ; i++) q[i] = fp2q_lin_( z[i], ovd ) - offset ;
+  for(i=0 ; i<n ; i++) q[i] = fp2q_lin_( z[i], dq ) - offset ;
+  return e_base ;
 }
 
 // linear de_quantizer (inverse of fp2q_lin_1)
-// z     [OUT] : 32 bit float float array
+// z     [OUT] : restored 32 bit float float array
 // q      [IN] : 32 bit integer array, from linear quantification
 // n      [IN] : number of values
-// d      [IN] : discretization quantum (32 bit float, ideally a power of 2)
+// e_base [IN] : discretization quantum exponent (from fp2q_lin)
 // offset [IN] : discretization offset (to be added to quantized values)
-void q2fp_lin(float *z, int *q, int n, float d, int32_t offset){
+void q2fp_lin(float *z, int *q, int n, int32_t e_base, int32_t offset){
   int i ;
+  float d = fp32_pow2(e_base) ;
   for(i=0 ; i<n ; i++) z[i] = q2fp_lin_( q[i] + offset, d) ;
 }
 
-// ======================= pseudo log quantizers =======================
-#include <stdio.h>
+// ======================= pseudo log quantization =======================
+
 // round is 0 if mbits == 23, 1 << (22 -mbits) if mbits < 23
-// this will only work if e_base < 0
 int32_t fp2q_log1_(float z, int32_t e_base, int32_t mbits, uint32_t round){
   union{ int32_t i ; float f ; } iuf ;
   int32_t q, sign ;
@@ -87,10 +92,26 @@ int32_t fp2q_log1_(float z, int32_t e_base, int32_t mbits, uint32_t round){
   return q ;
 }
 
-void fp2q_logn_(float *z, int32_t *q, int n, int32_t e_base, int32_t mbits, int32_t round){
+// z     [IN] : float values to be quantized
+// q    [OUT] : quantized values
+// n     [IN] : number of values
+// vref  [IN] : float values < vref will start losing significant bits in mantissa and may become 0
+// mbits [IN] : number of mantissa bits to keep
+// return the exponent base used for restoring floats from quantized values
+int32_t fp2q_logn_(float *z, int32_t *q, int n, float vref, int32_t mbits){
   union{ int32_t i ; float f ; } iuf ;
-  int32_t sign ;
+  int32_t sign, i ;
+  int32_t round = 0 ;
+  int32_t e_base = fp32_exp(vref) ;
+  int32_t e_ret = e_base ;
 
+  // rounding term
+  if(mbits < 23){                         // less than full mantissa
+    round = (1 << (22 - mbits)) ;         // add 1 below last mantissa bit kept
+  }else{
+    mbits = 23 ;                          // full mantissa (23 bits)
+  }
+  // multiplier(s)
   float mult2 = 1.0f ;                    // "neutral" multiplier 2
   if(e_base > 0){
     int delta = e_base + 1 ;
@@ -98,11 +119,10 @@ void fp2q_logn_(float *z, int32_t *q, int n, int32_t e_base, int32_t mbits, int3
     mult2 = fp32_pow2(-delta) ;           // multiplier 2
   }
   float mult = fp32_pow2(-(127+e_base)) ; // multiplier 1
-
-  int i ;
+  // discretization (quantization) loop
   for(i=0 ; i<n ; i++){
     iuf.f = z[i] ;
-    sign = iuf.i >> 31 ;                    // capture sign
+    sign = iuf.i >> 31 ;                    // capture sign (-1 or 0)
     iuf.i &= 0x7FFFFFFFu ;                  // take absolute value
     iuf.i += round ;                        // apply rounding (this may increase exponent)
     iuf.f *= mult2 ;                        // apply multipliers
@@ -110,6 +130,7 @@ void fp2q_logn_(float *z, int32_t *q, int n, int32_t e_base, int32_t mbits, int3
     q[i] = iuf.i >> (23 - mbits) ;          // eliminate unwanted bits from mantissa
     q[i] = (q[i] ^ sign) - sign ;           // restore sign (2's complement formula)
   }
+  return e_ret ;
 }
 
 // restore float from quantized value (fp2q_log_)
@@ -138,12 +159,18 @@ float q2fp_log1_(int32_t q, int32_t e_base, int32_t mbits){
   return iuf.f ;
 }
 
+// restore floats from quantized values (inverse of fp2q_log_)
+// z     [OUT] : restored values
+// q      [IN] : quantized values
+// n      [IN] : number of values
+// e_base [IN] : exponent offset to be applied (from fp2q_logn_)
+// mbits  [IN] : number of mantissa bits kept
 void q2fp_logn_(float *z, int32_t *q, int n, int32_t e_base, int32_t mbits){
   union{ int32_t i ; float f ; } iuf ;
-
   float mult2 = 1.0f ;                    // "neutral" multiplier 2
+
   if(e_base > 0){                         // exponent would be too large for single multiplier
-    int delta = e_base + 1 ;
+    int32_t delta = e_base + 1 ;
     e_base -= delta ;                     // adjust e_base
     mult2 = fp32_pow2(delta) ;            // multiplier 2
   }
@@ -154,12 +181,26 @@ void q2fp_logn_(float *z, int32_t *q, int n, int32_t e_base, int32_t mbits){
     int32_t sign = q[i] >> 31 ;                // capture sign
     iuf.i = (q[i] ^ sign) - sign ;             // take absolute value (2's complement formula)
     iuf.i <<= (23 - mbits) ;                // mantissa in bits 0->22, exp in bits 23->30, sign in bit 31
-    iuf.f *= mult2 ;                        // allpy multipliers
+    iuf.f *= mult2 ;                        // apply multipliers
     iuf.f *= mult ;
     iuf.i |= (sign << 31) ;                 // restore sign
     z[i] = iuf.f ;
   }
 }
+
+// =======================  quantization =======================
+
+int32_t fp2q_n(float *z, int32_t *q, int n, float max_abs, float max_err, float vref, int32_t nbits, int32_t mode){
+  switch(mode){
+    case 0:        // linear quantizer, use max_abs, max_err, nbits
+      break ;
+    case 1:        // log quantizer, use max_err, vref, nbits
+      break;
+    default:       // ERROR
+      return -1 ;
+  }
+}
+
 #if 0
 uint32_t fp2q_log_(float z, int32_t e_base, float zero, int32_t mbits, uint32_t round){
   union{ uint32_t u ; float f ; } iuf ;
@@ -196,8 +237,7 @@ uint32_t fp2q_log_(float z, int32_t e_base, float zero, int32_t mbits, uint32_t 
 //   return (z < zero) ? 0 : mant ;     // encoded version
   return mant ;
 }
-#endif
-#if 0
+
 float q2fp_log_(int32_t q, int32_t e_base, int32_t mbits){
   union{ int32_t i ; float f ; } iuf ;
   int32_t sign ;

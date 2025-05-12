@@ -266,8 +266,10 @@ ssize_t FILTER_NAME(array_nd *a, block_properties *bp, dmap_filter_list dpfl, bi
   float maxabs, quantum, ovq ;
   maxabs = FLOAT_MAX_ABS(*bp) ;                  // largest absolute value in array
 
-  q_exp = fp2q_exp(maxabs, maxerr.f, nbits) ;    // compute power of 2 to use for quantum given max error and nbits
-  quantum = fp32_pow2(q_exp) ;                   // discretization quantum, first power of 2 >= 2.0 * maxerr
+  // compute power of 2 to use for quantum given max error and nbits
+  // discretization quantum, first power of 2 >= 2.0 * maxerr
+  quantum = fp2q_quantum(maxabs, maxerr.f, nbits) ;
+  q_exp = fp32_exp(quantum) ;
   ovq = fp32_pow2( -q_exp ) ;                    // discretization mutiplier, 1.0 / quantum
 
   nvalues = a->dim[0].gnn * a->dim[1].gnn ;      // number of values in array
@@ -283,7 +285,7 @@ ssize_t FILTER_NAME(array_nd *a, block_properties *bp, dmap_filter_list dpfl, bi
     a->type = int_data ;                         // mark data as signed integer data
   }
 // ==================== call linear fp32 quantizer ====================
-  fp2q_lin((float *)array, (int32_t *)array, nvalues, ovq, offset.i);
+  fp2q_lin((float *)array, (int32_t *)array, nvalues, quantum, offset.i);
 
   dpfl++ ;                                       // call next filter if there is one
   dmap_filter_ptr next_filter = dmap_filter_next(dpfl) ;
@@ -350,7 +352,8 @@ reverse:
   nvalues = a->dim[0].gnn * a->dim[1].gnn ;
   fprintf(stderr, "reverse filter %3.3o, array[%d,%d](%d)\n", FILTER_ID, a->dim[0].gnn, a->dim[1].gnn, nvalues) ;
 // ==================== call linear fp32 de-quantizer ====================
-  q2fp_lin((float *)array, (int32_t *)array, nvalues, quantum, offset.i) ;
+  q_exp -= 127 ;
+  q2fp_lin((float *)array, (int32_t *)array, nvalues, q_exp, offset.i) ;
   a->type = float_data ;                               // mark data as float data
 
   ssize_t status2 = dmap_filter_inv(a, &s) ;           // call next inverse filter

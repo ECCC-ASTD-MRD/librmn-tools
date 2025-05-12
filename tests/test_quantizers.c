@@ -31,13 +31,26 @@ int main(int argc, char **argv){
   float r[NJ][NI] ;
   int32_t q[NJ][NI] ;
   int i, j, nij ;
-  float ovd, errmax, err ;
+  float errmax, err, target, quantum ;
   int32_t offset ;
   block_properties bp ;
   uint64_t freq ;
   double nano ;
   TIME_LOOP_DATA ;
+  int niter = 100 ;
+  int32_t e_base = 255, e_base0 = -255 ;
 
+  goto test ;
+
+end:
+  fprintf(stderr, "SUCCESS\n") ;
+  return 0 ;
+
+fail:
+  fprintf(stderr, "FAILED\n") ;
+  return 1 ;
+
+test:
   if(argc > 100) return 1 ;
 
   freq = cycles_counter_freq() ;
@@ -59,12 +72,13 @@ int main(int argc, char **argv){
   adjust_block_properties(&bp, float_data) ;
 
   offset = 0 ;
-  ovd = .25f ;
+  quantum = 4.0f ;
   nij = NI*NJ ;
-  fp2q_lin((void *)z, (void *)q, nij, ovd, offset);
-  q2fp_lin((void *)r, (void *)q, nij, 1.0f/ovd, offset);
+  e_base = fp2q_lin((void *)z, (void *)q, nij, quantum, offset);
+  q2fp_lin((void *)r, (void *)q, nij, e_base, offset);
 
   errmax = 0.0f ;
+  target = 0.5f*quantum ;
   for(j=0 ; j<NJ ; j++){
     for(i=0 ; i<NI ; i++){
       err = z[j][i] - r[j][i] ;
@@ -72,7 +86,16 @@ int main(int argc, char **argv){
       errmax = (err > errmax) ? err : errmax ;
     }
   }
-  fprintf(stderr, "min = %f, max = %f, errmax = %f, target = %f\n",FLOAT_MIN_VALUE(bp), FLOAT_MAX_VALUE(bp), errmax, 0.5f/ovd) ;
+  fprintf(stderr, "min = %f, max = %f, errmax = %f, target = %f\n",FLOAT_MIN_VALUE(bp), FLOAT_MAX_VALUE(bp), errmax, target) ;
+  if(errmax > target) goto fail ;
+
+  fprintf(stderr, "============================== linear timingss ==============================\n") ;
+
+  TIME_LOOP(timer_min, timer_max, timer_avg, niter, nij, timer_msg, timer_msg_size, e_base = fp2q_lin((void *)z, (void *)q, nij, quantum, offset)) ;
+  fprintf(stderr,"%s\n", timer_msg) ;
+
+  TIME_LOOP(timer_min, timer_max, timer_avg, niter, nij, timer_msg, timer_msg_size, q2fp_lin((void *)z, (void *)q, nij, e_base, offset)) ;
+  fprintf(stderr,"%s\n", timer_msg) ;
 
   fprintf(stderr, "============================== pseudo log quantizers ==============================\n") ;
 
@@ -82,17 +105,20 @@ int main(int argc, char **argv){
 
   int32_t mbits = 11 ;
   uint32_t round = (1 << (22 - mbits)), e_range = 0 ;
-  float qzero = 32.0f ;
-  int32_t e_base = fp32_exp(FLOAT_MIN_ABS(bp)) ;
+  float vref = 32.0f ;
+  e_base = 255 ; e_base0 = -255 ;
+
+  e_base  = fp32_exp(FLOAT_MIN_ABS(bp)) ;
   e_range = fp32_exp(FLOAT_MAX_ABS(bp)) - e_base ;
   fprintf(stderr, "exponent range = %d, e_base = %d\n", e_range, e_base) ;
-  if(fp32_exp(qzero) > e_base){
-    e_base = fp32_exp(qzero) ;
+  if(fp32_exp(vref) > e_base){
+    e_base = fp32_exp(vref) ;
     e_range = fp32_exp(FLOAT_MAX_ABS(bp)) - e_base ;
     fprintf(stderr, "revised exponent range = %d, e_base = %d\n", e_range, e_base) ;
   }
+
   int32_t e_bits = BitsNeeded_u32(e_range) ;
-  fprintf(stderr, "%d bits needed for exponent, qzero = %f, %d bits for mantissa\n", e_bits, qzero, mbits) ;
+  fprintf(stderr, "%d bits needed for exponent, vref = %f, %d bits for mantissa\n", e_bits, vref, mbits) ;
   for(j=0 ; j<NJ ; j++){
     for(i=0 ; i<NI ; i++){
       r[j][i] = 999999.0f ;
@@ -100,8 +126,11 @@ int main(int argc, char **argv){
   }
   errmax = 0.0f ;
   float vmax = 999999.0f, verr = 999999.0f ;
-  fp2q_logn_((float *)Z, (int32_t *)q, nij, e_base, mbits, round);
-  q2fp_logn_((float *)r, (int32_t *)q, nij, e_base, mbits);
+
+  e_base0 = fp2q_logn_((float *)Z, (int32_t *)q, nij, vref, mbits) ;
+  if(e_base0 != e_base) goto fail ;
+
+  q2fp_logn_((float *)r, (int32_t *)q, nij, e_base0, mbits) ;
 //   for(j=0 ; j<NJ ; j++){
 //     for(i=0 ; i<NI ; i++){
 //       q[j][i] = fp2q_log1_(Z[j][i], e_base, mbits, round);
@@ -111,7 +140,7 @@ int main(int argc, char **argv){
   for(j=0 ; j<NJ ; j++){
     for(i=0 ; i<NI ; i++){
       float absz = (Z[j][i] < 0) ? -Z[j][i] : Z[j][i] ;
-      if(Z[j][i] != 0 && absz > qzero) err = (Z[j][i] - r[j][i]) / Z[j][i] ;
+      if(Z[j][i] != 0 && absz > vref) err = (Z[j][i] - r[j][i]) / Z[j][i] ;
       err = (err <0) ? (-err) : err ;
       if(err > errmax){
         errmax = err ;
@@ -145,14 +174,14 @@ int main(int argc, char **argv){
   int32_t uq ;
   float ur ;
 
-  uq = fp2q_log1_(qzero*.00001f, e_base, mbits, round) ; ur = q2fp_log1_(uq, e_base, mbits) ;
-  fprintf(stderr, "%8.8x = fp2q_log1_(%f) [%f]\n", uq, qzero*.00001f, ur ) ;
+  uq = fp2q_log1_(vref*.00001f, e_base, mbits, round) ; ur = q2fp_log1_(uq, e_base, mbits) ;
+  fprintf(stderr, "%8.8x = fp2q_log1_(%f) [%f]\n", uq, vref*.00001f, ur ) ;
 
-  uq = fp2q_log1_(qzero*.001f, e_base, mbits, round) ; ur = q2fp_log1_(uq, e_base, mbits) ;
-  fprintf(stderr, "%8.8x = fp2q_log1_(%f) [%f]\n", uq, qzero*.001f, ur ) ;
+  uq = fp2q_log1_(vref*.001f, e_base, mbits, round) ; ur = q2fp_log1_(uq, e_base, mbits) ;
+  fprintf(stderr, "%8.8x = fp2q_log1_(%f) [%f]\n", uq, vref*.001f, ur ) ;
 
-  uq = fp2q_log1_(qzero*.1f, e_base, mbits, round) ; ur = q2fp_log1_(uq, e_base, mbits) ;
-  fprintf(stderr, "%8.8x = fp2q_log1_(%f) [%f]\n", uq, qzero*.1f, ur ) ;
+  uq = fp2q_log1_(vref*.1f, e_base, mbits, round) ; ur = q2fp_log1_(uq, e_base, mbits) ;
+  fprintf(stderr, "%8.8x = fp2q_log1_(%f) [%f]\n", uq, vref*.1f, ur ) ;
 
   uq = fp2q_log1_(FLOAT_MIN_ABS(bp), e_base, mbits, round) ; ur = q2fp_log1_(uq, e_base, mbits) ;
   fprintf(stderr, "%8.8x = fp2q_log1_(%f) [%f]\n", uq, FLOAT_MIN_ABS(bp), ur ) ;
@@ -170,11 +199,12 @@ int main(int argc, char **argv){
   fprintf(stderr, "%8.8x = fp2q_log1_(%f) [%f]\n", uq, FLOAT_MIN_VALUE(bp), ur ) ;
 
   fprintf(stderr, "============================== pseudo log timingss ==============================\n") ;
-  int niter = 100 ;
 
-  TIME_LOOP(timer_min, timer_max, timer_avg, niter, nij, timer_msg, timer_msg_size, fp2q_logn_((float *)Z, (int32_t *)q, nij, e_base, mbits, round)) ;
+  TIME_LOOP(timer_min, timer_max, timer_avg, niter, nij, timer_msg, timer_msg_size, e_base0 = fp2q_logn_((float *)Z, (int32_t *)q, nij, vref, mbits)) ;
   fprintf(stderr,"%s\n", timer_msg) ;
 
-  TIME_LOOP(timer_min, timer_max, timer_avg, niter, nij, timer_msg, timer_msg_size, q2fp_logn_((float *)r, (int32_t *)q, nij, e_base, mbits)) ;
+  TIME_LOOP(timer_min, timer_max, timer_avg, niter, nij, timer_msg, timer_msg_size, q2fp_logn_((float *)r, (int32_t *)q, nij, e_base0, mbits)) ;
   fprintf(stderr,"%s\n", timer_msg) ;
+
+  goto end ;
 }
