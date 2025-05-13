@@ -17,8 +17,7 @@
 
 // dmap filters 000 to 007
 
-#if ! defined(DMAP_FILTERS_000_007)
-#define DMAP_FILTERS_000_007
+#if ! defined(DMAP_FILTER_001)
 
 // filter 000 is a special case, it MUST be present
 // there is no argument struct associated with it
@@ -47,12 +46,13 @@ dmap_filter  dmap_filter_003 ;
 typedef struct{
   uint32_t filter ;  // filter number
   float    maxerr ;  // maximum absolute error
-  uint32_t nbits ;   // maximum number of bits for quantized values (1 -> 24)
+  int32_t  nbits ;   // maximum number of bits for quantized values (1 -> 24)
   int32_t  offset ;  // use this offset if non zero (use minimum quantized value if 0x7FFFFFFF)
+  int32_t  mode ;    // quantization mode 0 : linear, 1 : pseudo log
 } dmap_filter_arg_003 ;
-typedef dmap_filter_arg_003 dmap_fp_linear_quantize ;
+typedef dmap_filter_arg_003 dmap_fp_quantize ;
 #define DMAP_FILTER_003(...) (dmap_filter_arg_003) { 003 __VA_OPT__(,) __VA_ARGS__ }
-#define DMAP_FP_LINEAR_QUANTIZE(...) (dmap_filter_arg_003) { 003 __VA_OPT__(,) __VA_ARGS__ }
+#define DMAP_FP_QUANTIZE(...) (dmap_filter_arg_003) { 003 __VA_OPT__(,) __VA_ARGS__ }
 
 #pragma weak dmap_filter_004
 dmap_filter  dmap_filter_004 ;

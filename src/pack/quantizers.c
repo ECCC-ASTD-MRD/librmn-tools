@@ -14,10 +14,12 @@
 // Author:
 //     M. Valin,   Recherche en Prevision Numerique, 2025
 
-// #include <stdio.h>
+#include <stdio.h>
+#include <stdlib.h>
 
 #include <rmn/quantizers.h>
 #include <rmn/ieee_functions.h>
+#include <rmn/move_blocks.h>
 
 // ======================= linear quantization =======================
 
@@ -32,8 +34,8 @@ float fp2q_quantum(float maxabs, float maxerr, int32_t nbits){
   // the discretization quantum exponent is determined by the larger of 2 values
   // - the first power of 2 <= 2.0 * max error
   // - the first power of 2 <= largest absolute value / 2.0 ** nbits
-  nbits = (nbits == 0) ? 24 : nbits ;             // if nbits is 0, set to 24
-  nbits = (nbits < 25) ? nbits : 24 ;             // nbits should be <= 24
+  nbits = (nbits == 0) ? 24 : nbits ;     // if nbits is 0, set to 24
+  nbits = (nbits < 25) ? nbits : 24 ;     // nbits should be <= 24
   err_exp = fp32_exp(maxerr) ;            // exponent from max desired absolute error
   min_exp = fp32_exp(maxabs) - nbits ;    // smallest acceptable value for err_exp
   err_exp = (min_exp > err_exp) ? min_exp : err_exp ;
@@ -99,14 +101,14 @@ int32_t fp2q_log1_(float z, int32_t e_base, int32_t mbits, uint32_t round){
 // z     [IN] : float values to be quantized
 // q    [OUT] : quantized values
 // n     [IN] : number of values
-// vref  [IN] : |values| < |vref| will start losing significant bits in mantissa and may become 0
+// vmin  [IN] : |values| < |vmin| will start losing significant bits in mantissa and may become 0
 // mbits [IN] : number of mantissa bits to keep
 // return the exponent base used for restoring floats from quantized values
-int32_t fp2q_log(float *z, int32_t *q, int n, float vref, int32_t mbits){
+int32_t fp2q_log(float *z, int32_t *q, int n, float vmin, int32_t mbits){
   union{ int32_t i ; float f ; } iuf ;
   int32_t sign, i ;
   int32_t round = 0 ;
-  int32_t e_base = fp32_exp(vref) ;
+  int32_t e_base = fp32_exp(vmin) ;
   int32_t e_ret = e_base ;
 
   // rounding term
@@ -192,24 +194,39 @@ void q2fp_log(float *z, int32_t *q, int n, int32_t e_base, int32_t mbits){
   }
 }
 
-// =======================  quantization =======================
+// =======================  generic functions =======================
 
-// if max_abs == 0.0f, if will be ignored
 // if max_err == 0.0f, it will be computed using other variables
-int32_t fp2q_n(float *z, int32_t *q, int n, float max_abs, float max_err, float vref, int32_t nbits, int32_t offset, int32_t mode){
-  float quantum ;
+int32_t fp2q_n(float *z, int32_t *q, int n, block_properties *bp, float max_err, int32_t nbits, int32_t *offset, int32_t mode){
+  float quantum, min_abs, max_abs, min_val ;
   int32_t e_base ;
   int32_t result ;
-  if(max_abs < 0 || max_err < 0 || vref < 0 || nbits < 0) goto fail ;
+  block_properties bp0 ;
+
+  if(bp == NULL){ bp = &bp0 ;  bp0.kind = bad_data ; }
+  if(! data_kind_valid(bp->kind)){                 // if the data properties are not valid
+    analyze_data32_block((void *)z, n, n, 1, bp) ; // get data block properties
+    adjust_block_properties(bp, float_data) ;      // adjust properties for float data
+  }
+  if(bp->kind != float_data) goto fail ;
+  max_abs = FLOAT_MAX_ABS(*bp) ;
+  min_val = FLOAT_MIN_VALUE(*bp) ;
+
   switch(mode){
     case 0:        // linear quantizer, use max_abs, max_err, offset, nbits
+      if(max_err < 0 || nbits < 0) goto fail ;
       quantum = fp2q_quantum(max_abs, max_err, nbits) ;
       if(quantum == 0.0f) goto fail ;
-      result = fp2q_lin((void *)z, (void *)q, n, quantum, offset) ;
+      if(*offset == 0x7FFFFFFF){                   // flag to set offset minimum
+        int32_t e_base = fp32_exp(quantum) ;
+        float ovq = fp32_pow2(-e_base) ;           // 1.0 / quantum
+        *offset = fp2q_lin_(min_val, ovq) ;        // quantized value of minimum value in array
+      }
+      result = fp2q_lin((void *)z, (void *)q, n, quantum, *offset) ;
       break ;
-    case 1:        // log quantizer, use max_abs, max_err, vref, nbits
-      if(vref < max_abs * max_err) vref = max_abs * max_err ;
-      result = fp2q_log((void *)z, (void *)q, n, vref, nbits) ;
+    case 1:        // pseudo log quantizer, use min_abs, max_abs, max_err, min_val, nbits
+      if(min_val < max_abs * max_err) min_val = max_abs * max_err ;
+      result = fp2q_log((void *)z, (void *)q, n, min_val, nbits) ;
       break ;
     default:       // ERROR
       goto fail ;
@@ -218,6 +235,19 @@ int32_t fp2q_n(float *z, int32_t *q, int n, float max_abs, float max_err, float 
 
 fail:
   return 0x7FFFFFFF ;  // huge value, ERROR
+}
+
+int32_t q2fp_n(float *z, int32_t *q, int n, int32_t e_base, int32_t mbits, int32_t offset, int32_t mode){
+  switch(mode){
+    case 0:        // linear quantizer
+      q2fp_lin((void *)z, (void *)q, n, e_base, offset) ;
+      break ;
+    case 1:
+      break ;
+    default:
+      return 1 ;
+  }
+  return 0 ;
 }
 
 #if 0

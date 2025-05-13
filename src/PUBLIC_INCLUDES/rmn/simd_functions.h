@@ -610,14 +610,14 @@ SIMD_FN(SIMD_STATIC, __m128i, 4, blendv_v4i(__m128i A, __m128i B, __m128i MASK),
 // ================================== print vectors ==================================
 
 // print 128 bit vectors
-static void print_v2d(char *msg, __v128d vm){
+SIMD_STATIC void print_v2d(char *msg, __v128d vm){
   int i ; vec_128 v ;
   storeu_v128((__v128i *) &v, __V128i vm) ;
   fprintf(stderr, "%s : ", msg) ;
   for(i=0 ; i<2 ; i++) fprintf(stderr, "%23.16E ", v.d[i]);
   fprintf(stderr, "\n") ;
 }
-static void print_v4f(char *msg, __v128 vm){
+SIMD_STATIC void print_v4f(char *msg, __v128 vm){
   int i ; vec_128 v ;
   storeu_v128((__v128i *) &v, __V128i vm) ;
   fprintf(stderr, "%s : ", msg) ;
@@ -625,28 +625,28 @@ static void print_v4f(char *msg, __v128 vm){
   for(i=0 ; i<4 ; i++) fprintf(stderr, (v.f[i]>.01 || v.f[i]<99999.0f) ? "%11.4F" : "%11.4E ", v.f[i]);
   fprintf(stderr, "\n") ;
 }
-static void print_v2l(char *msg, __v128i vm){
+SIMD_STATIC void print_v2l(char *msg, __v128i vm){
   int i ; vec_128 v ;
   storeu_v128((__v128i *) &v, vm) ;
   fprintf(stderr, "%s : ", msg) ;
   for(i=0 ; i<2 ; i++) fprintf(stderr, "%23.16lx ", v.i64[i]);
   fprintf(stderr, "\n") ;
 }
-static void print_v4i(char *msg, __v128i vm){
+SIMD_STATIC void print_v4i(char *msg, __v128i vm){
   int i ; vec_128 v ;
   storeu_v128((__v128i *) &v, vm) ;
   fprintf(stderr, "%s : ", msg) ;
   for(i=0 ; i<4 ; i++) fprintf(stderr, "%11.8x ", v.u32[i]);
   fprintf(stderr, "\n") ;
 }
-static void print_v8h(char *msg, __v128i vm){
+SIMD_STATIC void print_v8h(char *msg, __v128i vm){
   int i ; vec_128 v ;
   storeu_v128((__v128i *) &v, vm) ;
   fprintf(stderr, "%s : ", msg) ;
   for(i=0 ; i<8 ; i++) fprintf(stderr, "%5.4x ", v.u16[i]);
   fprintf(stderr, "\n") ;
 }
-static void print_v16c(char *msg, __v128i vm){
+SIMD_STATIC void print_v16c(char *msg, __v128i vm){
   int i ; vec_128 v ;
   storeu_v128((__v128i *) &v, vm) ;
   fprintf(stderr, "%s : ", msg) ;
@@ -655,14 +655,14 @@ static void print_v16c(char *msg, __v128i vm){
 }
 
 // print 256 bit vectors
-static void print_v4d(char *msg, __v256d vm){
+SIMD_STATIC void print_v4d(char *msg, __v256d vm){
   int i ; vec_256 v ;
   storeu_v256((__v256i *) &v, __V256i vm) ;
   fprintf(stderr, "%s : ", msg) ;
   for(i=0 ; i<4 ; i++) fprintf(stderr, "%23.16E ", v.d[i]);
   fprintf(stderr, "\n") ;
 }
-static void print_v8f(char *msg, __v256 vm){
+SIMD_STATIC void print_v8f(char *msg, __v256 vm){
   int i ; vec_256 v ;
   storeu_v256((__v256i *) &v, __V256i vm) ;
   fprintf(stderr, "%s : ", msg) ;
@@ -670,28 +670,28 @@ static void print_v8f(char *msg, __v256 vm){
   for(i=0 ; i<8 ; i++) fprintf(stderr, (v.f[i]>.01 || v.f[i]<99999.0f) ? "%11.4F" : "%11.4E ", v.f[i]);
   fprintf(stderr, "\n") ;
 }
-static void print_v4l(char *msg, __v256i vm){
+SIMD_STATIC void print_v4l(char *msg, __v256i vm){
   int i ; vec_256 v ;
   storeu_v256((__v256i *) &v, vm) ;
   fprintf(stderr, "%s : ", msg) ;
   for(i=0 ; i<4 ; i++) fprintf(stderr, "%23.16lx ", v.i64[i]);
   fprintf(stderr, "\n") ;
 }
-static void print_v8i(char *msg, __v256i vm){
+SIMD_STATIC void print_v8i(char *msg, __v256i vm){
   int i ; vec_256 v ;
   storeu_v256((__v256i *) &v, vm) ;
   fprintf(stderr, "%s : ", msg) ;
   for(i=0 ; i<8 ; i++) fprintf(stderr, "%11.8x ", v.u32[i]);
   fprintf(stderr, "\n") ;
 }
-static void print_v16h(char *msg, __v256i vm){
+SIMD_STATIC void print_v16h(char *msg, __v256i vm){
   int i ; vec_256 v ;
   storeu_v256((__v256i *) &v, vm) ;
   fprintf(stderr, "%s : ", msg) ;
   for(i=0 ; i<16 ; i++) fprintf(stderr, "%5.4x ", v.u16[i]);
   fprintf(stderr, "\n") ;
 }
-static void _mm256_print_epu8(char *msg, __v256i vm){
+SIMD_STATIC void _mm256_print_epu8(char *msg, __v256i vm){
   int i ; vec_256 v ;
   storeu_v256((__v256i *) &v, vm) ;
   fprintf(stderr, "%s : ", msg) ;

@@ -32,13 +32,14 @@ int main(int argc, char **argv){
   int32_t q[NJ][NI] ;
   int i, j, nij ;
   float errmax, err, target, quantum ;
-  int32_t offset ;
+  int32_t offset, nbits, mode, status ;
   block_properties bp ;
   uint64_t freq ;
   double nano ;
   TIME_LOOP_DATA ;
-  int niter = 100 ;
+  int niter = 5 ;
   int32_t e_base = 255, e_base0 = -255 ;
+  char *msg = "generic error" ;
 
   goto test ;
 
@@ -47,7 +48,7 @@ end:
   return 0 ;
 
 fail:
-  fprintf(stderr, "FAILED\n") ;
+  fprintf(stderr, "FAILED : %s\n", msg) ;
   return 1 ;
 
 test:
@@ -73,9 +74,16 @@ test:
 
   offset = 0 ;
   quantum = 4.0f ;
+  nbits = 0 ;
+  mode = FP_QUANTIZE_LIN ;
   nij = NI*NJ ;
-  e_base = fp2q_lin((void *)z, (void *)q, nij, quantum, offset);
-  q2fp_lin((void *)r, (void *)q, nij, e_base, offset);
+//   e_base = fp2q_lin((void *)z, (void *)q, nij, quantum, offset);
+  e_base = fp2q_n((void *)z, (void *)q, nij, NULL, quantum * .5f, nbits, &offset, mode) ;
+  nbits = -1 ;
+//   q2fp_lin((void *)r, (void *)q, nij, e_base, offset);
+  status = q2fp_n((void *)r, (void *)q, nij, e_base, nbits, offset, mode) ;
+  msg = "status from q2fp_n not 0" ;
+  if(status != 0) goto fail ;
 
   errmax = 0.0f ;
   target = 0.5f*quantum ;
@@ -86,7 +94,8 @@ test:
       errmax = (err > errmax) ? err : errmax ;
     }
   }
-  fprintf(stderr, "min = %f, max = %f, errmax = %f, target = %f\n",FLOAT_MIN_VALUE(bp), FLOAT_MAX_VALUE(bp), errmax, target) ;
+  fprintf(stderr, "min = %f, max = %f, errmax = %f, target = %f, status = %d\n",FLOAT_MIN_VALUE(bp), FLOAT_MAX_VALUE(bp), errmax, target, status) ;
+  msg = "errmax > target" ;
   if(errmax > target) goto fail ;
 
   fprintf(stderr, "============================== linear timingss ==============================\n") ;
@@ -128,6 +137,7 @@ test:
   float vmax = 999999.0f, verr = 999999.0f ;
 
   e_base0 = fp2q_log((float *)Z, (int32_t *)q, nij, vref, mbits) ;
+  msg = "e_base0 != e_base" ;
   if(e_base0 != e_base) goto fail ;
 
   q2fp_log((float *)r, (int32_t *)q, nij, e_base0, mbits) ;

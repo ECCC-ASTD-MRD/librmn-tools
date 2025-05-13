@@ -21,6 +21,7 @@
 #include <rmn/dmap_filters.h>
 #include <rmn/move_blocks.h>
 #include <rmn/split_dimension.h>
+#include <rmn/quantizers.h>
 
 // end of section to be moved to dmap_filters.c
 
@@ -52,7 +53,7 @@ code:
 //   dmap_filter_arg_001 arg_001a = { 0001, 5, 6 } ;
   dmap_encode_arg arg_006a = { 0006, 32 } ;
   dmap_filter_arg_002 arg_002a = { 0002, 0 } ;
-  dmap_fp_linear_quantize arg_003a = { 0003, .25f, 12, 0 } ;
+  dmap_fp_quantize arg_003a ; // = { 0003, .25f, 12, 0, FP_QUANTIZE_LIN } ;
   dmap_filter_arg_036 arg_036z = { 0036 } ;
   dmap_filter_arg_036 arg_177n = { 0177 } ;
   array_2d a2d, b2d ;
@@ -101,10 +102,10 @@ code:
   dpfl[4] = (dmap_filter_args_ptr)&arg_036z ;     // undefined filter 036
   dpfl[5] = (dmap_filter_args_ptr)&arg_177n ;     // invalid filter 127
   dpfl[6] = NULL ;                                // end of filter list
-//   arg_003a = DMAP_FP_LINEAR_QUANTIZE( .maxerr = .25f, .nbits = 12, .offset = 0x7FFFFFFF ) ;
-  arg_003a = DMAP_FP_LINEAR_QUANTIZE( .maxerr = .25f, .nbits = 12, .offset = 0 ) ;
-//   arg_003a = DMAP_FP_LINEAR_QUANTIZE( .maxerr = .00000025f, .nbits = 8, .offset = 0x7FFFFFFF ) ;
-//   arg_003a = DMAP_FP_LINEAR_QUANTIZE( .maxerr = .00000025f, .nbits = 8, .offset = 0 ) ;
+  arg_003a = DMAP_FP_QUANTIZE( .maxerr = .25f, .nbits = 12, .offset = 0x7FFFFFFF, .mode = FP_QUANTIZE_LIN ) ;
+//   arg_003a = DMAP_FP_QUANTIZE( .maxerr = .25f, .nbits = 12, .offset = 0, .mode = FP_QUANTIZE_LIN ) ;
+//   arg_003a = DMAP_FP_QUANTIZE( .maxerr = .00000025f, .nbits = 8, .offset = 0x7FFFFFFF, .mode = FP_QUANTIZE_LIN ) ;
+//   arg_003a = DMAP_FP_QUANTIZE( .maxerr = .00000025f, .nbits = 8, .offset = 0, .mode = FP_QUANTIZE_LIN ) ;
   dpfl[0] = (dmap_filter_args_ptr)&arg_003a ;     // filter 003, linear float quantizer
 //   dmap_encode_arg arg_006 = DMAP_ENCODE( .mode = 116 ) ;
   dmap_lorenzo_arg arg_004 = DMAP_LORENZO() ;

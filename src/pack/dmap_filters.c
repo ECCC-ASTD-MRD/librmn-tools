@@ -191,8 +191,8 @@ typedef struct{
 static filter_properties filters[MAX_DP_FILTERS+3] = {
   { dmap_filter_fwd,  "array dimensions and type"  } ,   // filter 000 is a special filter, always present, hidden
   { dmap_filter_001,  "integer scale + offset"     } ,   // test filter for now
-  { dmap_filter_002,  "float pseudo log quantizer" } ,
-  { dmap_filter_003,  "float linear quantizer"     } ,
+  { dmap_filter_002,  "filter_002"                 } ,
+  { dmap_filter_003,  "float quantizer"            } ,
   { dmap_filter_004,  "integer Lorenzo predictor"  } ,
   { dmap_filter_005,  "integer wavelet transform"  } ,
   { dmap_filter_006,  "bit stream encoder"         } ,
