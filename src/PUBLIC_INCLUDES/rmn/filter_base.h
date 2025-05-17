@@ -20,18 +20,21 @@
 
 #include <stdint.h>
 
+// get CAT macro
+#include <rmn/cpp_extras.h>
+
 // N.B. ID MUST BE a 3 character number e.g. 002 013 000 099 234, <= 255
-#define FILTER_CONCAT2(str1,str2) str1 ## str2
-#define FILTER_CONCAT3(str1,str2,str3) str1 ## str2 ## str3
+// #define FILTER_CONCAT2(str1,str2) str1 ## str2
+// #define FILTER_CONCAT3(str1,str2,str3) str1 ## str2 ## str3
 // create filter ID type structs as typedefs
-#define FILTER_TYPE(ID) FILTER_CONCAT2(filter_ , ID)
+#define FILTER_TYPE(ID) CAT(filter_ , ID)
 // create filter function name for filter type ID
-#define FILTER_FUNCTION(ID) FILTER_CONCAT2(pipe_filter_ , ID)
+#define FILTER_FUNCTION(ID) CAT(pipe_filter_ , ID)
 // create filter null initializer name for filter type ID
-#define FILTER_NULL(ID) FILTER_CONCAT3(filter_ , ID , _null)
+#define FILTER_NULL(ID) CAT(filter_ , ID , _null)
 // create contents of null initializer for filter type ID
-// FILTER_CONCAT2(1,fid)-1000 avoids octal confusion problem in cases like fid = 009
-#define FILTER_BASE(fid) .size = W32_SIZEOF(FILTER_TYPE(fid)), .id = (FILTER_CONCAT2(1,fid)-1000), .flags = 0
+// CAT(1,fid)-1000 avoids octal confusion problem in cases like fid = 009
+#define FILTER_BASE(fid) .size = W32_SIZEOF(FILTER_TYPE(fid)), .id = (CAT(1,fid)-1000), .flags = 0
 
 #if 0
 // for a typical filter nnn

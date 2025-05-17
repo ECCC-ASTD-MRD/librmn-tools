@@ -18,3 +18,4 @@
 #include <rmn/ct_assert.h>
 #include <rmn/va_args_num.h>
 #include <rmn/concat.h>
+#include <rmn/cpp_loop.h>

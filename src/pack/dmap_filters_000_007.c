@@ -90,8 +90,8 @@ reverse:
 
 // ======================================= filter 001 =======================================
 #define FILTER_ID 001
-#define FILTER_NAME CONCAT2(dmap_filter_,FILTER_ID)
-#define FILTER_ARGS CONCAT2(dmap_filter_arg_,FILTER_ID)
+#define FILTER_NAME CAT(dmap_filter_,FILTER_ID)
+#define FILTER_ARGS CAT(dmap_filter_arg_,FILTER_ID)
 ssize_t FILTER_NAME(array_nd *a, block_properties *bp, dmap_filter_list dpfl, bitstream *stream){
   uint32_t me = FILTER_ID ;
   if(a == NULL || stream == NULL) goto fail ;    // no array or no stream
@@ -157,8 +157,8 @@ reverse:
 
 // 32 bit float pseudo log quantizer
 #define FILTER_ID 002
-#define FILTER_NAME CONCAT2(dmap_filter_,FILTER_ID)
-#define FILTER_ARGS CONCAT2(dmap_filter_arg_,FILTER_ID)
+#define FILTER_NAME CAT(dmap_filter_,FILTER_ID)
+#define FILTER_ARGS CAT(dmap_filter_arg_,FILTER_ID)
 ssize_t FILTER_NAME(array_nd *a, block_properties *bp, dmap_filter_list dpfl, bitstream *stream){
   uint32_t me = FILTER_ID ;
   if(a == NULL || stream == NULL) goto fail ;    // no array or no stream
@@ -221,8 +221,8 @@ reverse:
 
 // 32 bit float quantizer
 #define FILTER_ID 003
-#define FILTER_NAME CONCAT2(dmap_filter_,FILTER_ID)
-#define FILTER_ARGS CONCAT2(dmap_filter_arg_,FILTER_ID)
+#define FILTER_NAME CAT(dmap_filter_,FILTER_ID)
+#define FILTER_ARGS CAT(dmap_filter_arg_,FILTER_ID)
 // dpfl == NULL means a reverse filter call
 // for the reverse filter, the data from the bit stream provides the necessary information
 // the filter may modify the contents of the array described by a and of the data properties bp
@@ -303,10 +303,11 @@ ssize_t FILTER_NAME(array_nd *a, block_properties *bp, dmap_filter_list dpfl, bi
   inserted += 8 ;                                 // 8 bits inserted so far
   STREAM_PUT_NBITS(s, (mode & 0x3), 2) ;
   inserted += 2 ;
-  STREAM_PUT_NBITS(s, (nbits & 0x3F), 6) ;
-  inserted += 6 ;
-//   q_exp = fp32_exp(quantum) + 127 ;               // biased exponent from quantum
-  q_exp = e_base + 127 ;
+  if(mode == FP_QUANTIZE_LOG){
+    STREAM_PUT_NBITS(s, (nbits & 0x3F), 6) ;      // 0 -> 23 (only useful for pseudo log quantizer)
+    inserted += 6 ;
+  }
+  q_exp = e_base + 127 ;                          // biased exponent from quantum
   STREAM_PUT_NBITS(s, q_exp, 8) ;
   inserted += 8 ;
   if(offset != 0){
@@ -344,8 +345,10 @@ reverse:
   if(filter != FILTER_ID) goto fail ;                  // wrong id, MUST be FILTER_ID
   STREAM_GET_NBITS(s, mode, 2) ;
   status += 2 ;
-  STREAM_GET_NBITS(s, nbits, 6) ;
-  status += 6 ;
+  if(mode == FP_QUANTIZE_LOG){                         // 0 -> 23 (only useful for pseudo log quantizer)
+    STREAM_GET_NBITS(s, nbits, 6) ;
+    status += 6 ;
+  }
   STREAM_GET_NBITS(s, q_exp,  8) ;                     // quantum exponent (biased)
   STREAM_GET_NBITS(s, nbitsd, 5) ;                     // number of bits for offset
   status += 13 ;                                       // bits extracted so far
@@ -387,8 +390,8 @@ reverse:
 // Lorenzo predictor
 #include <rmn/lorenzo.h>
 #define FILTER_ID 004
-#define FILTER_NAME CONCAT2(dmap_filter_,FILTER_ID)
-#define FILTER_ARGS CONCAT2(dmap_filter_arg_,FILTER_ID)
+#define FILTER_NAME CAT(dmap_filter_,FILTER_ID)
+#define FILTER_ARGS CAT(dmap_filter_arg_,FILTER_ID)
 // dpfl == NULL means a reverse filter call
 // for the reverse filter, the metadata from the bit stream provides the necessary information
 // the filter may modify the contents of the array described by a
@@ -465,8 +468,8 @@ reverse:
 // ======================================= filter 005 =======================================
 // integer wavelet transform
 #define FILTER_ID 005
-#define FILTER_NAME CONCAT2(dmap_filter_,FILTER_ID)
-#define FILTER_ARGS CONCAT2(dmap_filter_arg_,FILTER_ID)
+#define FILTER_NAME CAT(dmap_filter_,FILTER_ID)
+#define FILTER_ARGS CAT(dmap_filter_arg_,FILTER_ID)
 // dpfl == NULL means a reverse filter call
 // for the reverse filter, the metadata from the bit stream provides the necessary information
 // the filter may modify the contents of the array described by a
@@ -531,8 +534,8 @@ reverse:
 // ======================================= filter 006 =======================================
 // bit stream encoder
 #define FILTER_ID 006
-#define FILTER_NAME CONCAT2(dmap_filter_,FILTER_ID)
-#define FILTER_ARGS CONCAT2(dmap_filter_arg_,FILTER_ID)
+#define FILTER_NAME CAT(dmap_filter_,FILTER_ID)
+#define FILTER_ARGS CAT(dmap_filter_arg_,FILTER_ID)
 // dpfl == NULL means a reverse filter call
 // for the reverse filter, the metadata from the bit stream provides the necessary information
 // the filter may modify the contents of the array described by a
@@ -669,8 +672,8 @@ reverse:
 
 // ======================================= filter 007 =======================================
 #define FILTER_ID 007
-#define FILTER_NAME CONCAT2(dmap_filter_,FILTER_ID)
-#define FILTER_ARGS CONCAT2(dmap_filter_arg_,FILTER_ID)
+#define FILTER_NAME CAT(dmap_filter_,FILTER_ID)
+#define FILTER_ARGS CAT(dmap_filter_arg_,FILTER_ID)
 ssize_t FILTER_NAME(array_nd *a, block_properties *bp, dmap_filter_list dpfl, bitstream *stream){
   uint32_t me = FILTER_ID ;
   if(a == NULL || stream == NULL) goto fail ;    // no array or no stream
