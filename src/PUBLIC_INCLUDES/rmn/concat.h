@@ -17,11 +17,12 @@
 
 #include <rmn/va_args_num.h>
 
-#define CONCATENATE(X,Y)  X##Y
+#define CONCATENATE_(X,Y)  X##Y
+#define CONCATENATE(X,Y) CONCATENATE_(X,Y)
 #define CAT_0(...)
 
 #define CAT_1(X)          X
-#define CAT_2(X,  Y, ...) CONCATENATE(X, Y)
+#define CAT_2(X,  Y, ...) CONCATENATE_(X, Y)
 #define CAT_3(X,  Y ,...) CAT_2( X##Y , CAT_1(__VA_ARGS__) )
 #define CAT_4(X,  Y ,...) CAT_2( X##Y , CAT_2(__VA_ARGS__) )
 #define CAT_5(X,  Y ,...) CAT_2( X##Y , CAT_3(__VA_ARGS__) )
