@@ -23,6 +23,8 @@
 
 // ======================= linear quantization =======================
 
+// constant absolute max error quantizer/de-quantizer
+
 // compute the discretization quantum exponent from largest value, nbits , max error
 // maxabs [IN] : largest absolute value in array (set to 0.0f to ignore it)
 // maxerr [IN] : largest absolute error desired
@@ -48,7 +50,7 @@ fail:
 
 // linear quantizer for float values
 // z      [IN] : 32 bit float float array
-// q     [OUT] : 32 bit integer array, result of linear quantification
+// q     [OUT] : 32 bit integer array, result of quantification
 // n      [IN] : number of values
 // dq     [IN] : discretization quantum (float, will be truncated down to a power of 2)
 // offset [IN] : discretization offset (removed from quantized values)
@@ -74,13 +76,23 @@ void q2fp_lin(float *z, int *q, int n, int32_t e_base, int32_t offset){
 
 // ======================= pseudo log quantization =======================
 
-// round is 0 if mbits == 23, 1 << (22 -mbits) if mbits < 23
+// constant relative max error quantizer/de-quantizer
+
+// z      [IN] : 32 bit float float
+// n      [IN] : number of values
+// e_base [IN] : power of 2 <= smallest significant value
+// mbits  [IN] : number of mantissa bits to keep
+// round  [IN] : normally 0 if mbits == 23, 1 << (22 -mbits) if mbits < 23
+// return integer result of quantization (sign, reduced exponent, reduced mantissa)
+// for values < 2.0**e_base, a "denormalized" style result is produced
+// N.B. some aggressive optimization by compilers may result in an attempt to combine
+//      the two multipliers into a single one, mult1*mult2 with potentially disastrous results
 int32_t fp2q_log1_(float z, int32_t e_base, int32_t mbits, uint32_t round){
   union{ int32_t i ; float f ; } iuf ;
   int32_t q, sign ;
 
   float mult2 = 1.0f ;                    // "neutral" multiplier 2
-  if(e_base > 0){
+  if(e_base > 0){                         // single multiplier would be too large for float format
     int delta = e_base + 1 ;
     e_base -= delta ;                     // adjust e_base
     mult2 = fp32_pow2(-delta) ;           // multiplier 2
@@ -103,12 +115,14 @@ int32_t fp2q_log1_(float z, int32_t e_base, int32_t mbits, uint32_t round){
 // n     [IN] : number of values
 // vmin  [IN] : |values| < |vmin| will start losing significant bits in mantissa and may become 0
 // mbits [IN] : number of mantissa bits to keep
-// return the exponent base used for restoring floats from quantized values
+// return the exponent base to be used for restoring floats from quantized values (passed to q2fp_log)
+// N.B. some aggressive optimization by compilers may result in an attempt to combine
+//      the two multipliers into a single one, mult1*mult2 with potentially disastrous results
 int32_t fp2q_log(float *z, int32_t *q, int n, float vmin, int32_t mbits){
   union{ int32_t i ; float f ; } iuf ;
   int32_t sign, i ;
   int32_t round = 0 ;
-  int32_t e_base = fp32_exp(vmin) ;
+  int32_t e_base = fp32_exp(vmin) ;       // unbiased exponent from vmin
   int32_t e_ret = e_base ;
 
   // rounding term
@@ -119,13 +133,16 @@ int32_t fp2q_log(float *z, int32_t *q, int n, float vmin, int32_t mbits){
   }
   // multiplier(s)
   float mult2 = 1.0f ;                    // "neutral" multiplier 2
-  if(e_base > 0){
+  if(e_base > 0){                         // single multiplier would be too large for float format
     int delta = e_base + 1 ;
     e_base -= delta ;                     // adjust e_base
     mult2 = fp32_pow2(-delta) ;           // multiplier 2
   }
   float mult = fp32_pow2(-(127+e_base)) ; // multiplier 1
   // discretization (quantization) loop
+  // values having an IEEE exponent equal to the IEEE exponent of vmin will end up
+  // with an IEEE exponent of 0 (denorm format)
+  // values < vmin / 2.0 ** mbits will end up as 0
   for(i=0 ; i<n ; i++){
     iuf.f = z[i] ;
     sign = iuf.i >> 31 ;                    // capture sign (-1 or 0)
@@ -145,6 +162,8 @@ int32_t fp2q_log(float *z, int32_t *q, int n, float vmin, int32_t mbits){
 // mbits  [IN] : number of mantissa bits kept
 // return restored float value
 // this will only work if e_base < 0
+// N.B. some aggressive optimization by compilers may result in an attempt to combine
+//      the two multipliers into a single one, mult1*mult2 with potentially disastrous results
 float q2fp_log1_(int32_t q, int32_t e_base, int32_t mbits){
   union{ int32_t i ; float f ; } iuf ;
 
@@ -171,6 +190,8 @@ float q2fp_log1_(int32_t q, int32_t e_base, int32_t mbits){
 // n      [IN] : number of values
 // e_base [IN] : exponent offset to be applied (from fp2q_logn_)
 // mbits  [IN] : number of mantissa bits kept
+// N.B. some aggressive optimization by compilers may result in an attempt to combine
+//      the two multipliers into a single one, mult1*mult2 with potentially disastrous results
 void q2fp_log(float *z, int32_t *q, int n, int32_t e_base, int32_t mbits){
   union{ int32_t i ; float f ; } iuf ;
   float mult2 = 1.0f ;                    // "neutral" multiplier 2
@@ -196,6 +217,7 @@ void q2fp_log(float *z, int32_t *q, int n, int32_t e_base, int32_t mbits){
 
 // =======================  generic functions =======================
 
+// 32 bit float quantizer
 // if max_err == 0.0f, it will be computed using other variables
 int32_t fp2q_n(float *z, int32_t *q, int n, block_properties *bp, float max_err, int32_t nbits, int32_t *offset, int32_t mode){
   float quantum, min_abs, max_abs, min_val ;
@@ -213,18 +235,18 @@ int32_t fp2q_n(float *z, int32_t *q, int n, block_properties *bp, float max_err,
   min_val = FLOAT_MIN_VALUE(*bp) ;
 
   switch(mode){
-    case 0:        // linear quantizer, use max_abs, max_err, offset, nbits
+    case 0:        // linear quantizer, uses max_abs, max_err, offset, nbits
       if(max_err < 0 || nbits < 0) goto fail ;
       quantum = fp2q_quantum(max_abs, max_err, nbits) ;
       if(quantum == 0.0f) goto fail ;
-      if(*offset == 0x7FFFFFFF){                   // flag to set offset minimum
+      if(*offset == 0x7FFFFFFF){                   // flag to set offset to quantized minimum
         int32_t e_base = fp32_exp(quantum) ;
         float ovq = fp32_pow2(-e_base) ;           // 1.0 / quantum
         *offset = fp2q_lin_(min_val, ovq) ;        // quantized value of minimum value in array
       }
       result = fp2q_lin((void *)z, (void *)q, n, quantum, *offset) ;
       break ;
-    case 1:        // pseudo log quantizer, use min_abs, max_abs, max_err, min_val, nbits
+    case 1:        // pseudo log quantizer, uses min_abs, max_abs, max_err, min_val, nbits
       if(min_val < max_abs * max_err) min_val = max_abs * max_err ;
       result = fp2q_log((void *)z, (void *)q, n, min_val, nbits) ;
       break ;
@@ -237,12 +259,14 @@ fail:
   return 0x7FFFFFFF ;  // huge value, ERROR
 }
 
+// 32 bit float de-quantizer
 int32_t q2fp_n(float *z, int32_t *q, int n, int32_t e_base, int32_t mbits, int32_t offset, int32_t mode){
   switch(mode){
-    case 0:        // linear quantizer
+    case 0:        // linear de-quantizer, uses e_base, offset
       q2fp_lin((void *)z, (void *)q, n, e_base, offset) ;
       break ;
-    case 1:
+    case 1:        // pseudo log de-quantizer, uses e_base, mbits
+      q2fp_log((void *)z, (void *)q, n, e_base, mbits) ;
       break ;
     default:
       return 1 ;

@@ -29,6 +29,7 @@ program fstd_to_raw
   integer :: sizep
   character (len=128) :: filename, varname
   integer c1, c2, c0
+  logical :: e32
 
   c0 = command_argument_count()
   if(c0 < 2 .or. c0 > 4) then
@@ -74,16 +75,22 @@ program fstd_to_raw
       call fstprm(key,date,deet,npas,ni,nj,nk,nbits,datyp,ip1,ip2,ip3,  &
                   typvar,nomvar,etiket,grtyp,ig1,ig2,ig3,ig4,           &
                   swa,lng,dltf,ubc,extra1,extra2,extra3)
-      if(nomvar(1:4) == varname(1:4) .or. varname(1:1) == '+') then  ! select desired variable name
+      ! add other selection criteria (e.g. datyp/nbits combinations)
+      e32 = nbits .eq. 32
+      e32 = e32 .and. (datyp .eq. 5 .or. datyp .eq. 133)
+      e32 = e32 .and. (nomvar(1:4) == varname(1:4) .or. varname(1:1) == '+')
+!       if(e32) write(0,*) nomvar(1:4) // 'is e32'
+!       if(nomvar(1:4) == varname(1:4) .or. varname(1:1) == '+') then  ! select desired variable name
+      if(e32) then  ! select desired variable name
         call fstluk(p,key,ni,nj,nk)
 !         write(0,*)'processing '//nomvar(1:4), ni, 'x', nj
         call Analyze_NxN(p, ni, nj, nomvar//char(0))
         irec = irec + 1
       else
-        write(0,*)'ignoring '//nomvar(1:4), ni, 'x', nj
+!         write(0,*)'ignoring '//nomvar(1:4), ni, 'x', nj
       endif    ! select desired variable name
     else
-      write(0,*)'skipping ni =',ni,', nj =',nj
+!       write(0,*)'skipping ni =',ni,', nj =',nj
     endif      ! ni>10 .and. nj>10
     key = fstsui(iun,ni,nj,nk)
   enddo        ! while(key >= 0)

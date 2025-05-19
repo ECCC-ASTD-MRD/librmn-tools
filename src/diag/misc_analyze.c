@@ -15,14 +15,44 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <math.h>
+#include <string.h>
 
 #include <rmn/data_kind.h>
 
-static int32_t ediff[256] ;
+typedef struct{
+  char *name ;
+  float zero ;
+} var_params ;
+static var_params vp[] =
+{
+       { "PR  ", .000001f },
+       { "PC  ", .000001f },
+       { "RT  ", .000000001f },
+       { "RC  ", .000000001f },
+       { "RN  ", .000000001f },
+       { NULL  , 0.0f }
+} ;
+
+float var_zero(char *name, float zdef){
+  var_params *p = vp ;
+  while(p->name != NULL){
+    if( 0 == strncmp(name,p->name,4) ){
+      return p->zero ;
+    }
+    p++ ;
+  }
+  return zdef ;   // name not found in variable name table
+}
+
+#define NEDIFF 260
+static int32_t ediff[NEDIFF] ;
+static int32_t zeros = 0, under = 0 ;
 
 void Analyze_4x4_reset(){
   uint32_t i ;
-  for(i = 0 ; i < (sizeof(ediff) / sizeof(int32_t)) ; i++ ) ediff[i] = 0 ;
+  zeros = 0 ;
+  under = 0 ;
+  for(i = 0 ; i < NEDIFF ; i++ ) ediff[i] = 0 ;
 }
 
 #define TSZ 8
@@ -33,71 +63,76 @@ void Analyze_4x4_reset(){
 void Analyze_NxN(float *f_, int32_t ni, int32_t nj, char *name){
   float (* f)[ni] = (void *)f_ ;
   int i, j, i0, j0, tiles = 0 ;
-  int32_t e_min = 0 ;
+  int32_t e_zero = 0 ;
   iuf32_t iuf ;
-  float fmin, fmax, zero, errf, errmax ;
-  int32_t min, max ;
+  float fmin, fmax, amin, amax, zero, errf, errmax, zdef ;
+  int32_t min, max, values ;
+  block_properties bp ;
 
   fmin = fmax = f[0][0] ;
-  for(j=0 ; j<nj ; j++){
-    for(i=0 ; i<ni ; i++){
-      fmin = (f[j][i] < fmin) ? f[j][i] : fmin ;
-      fmax = (f[j][i] > fmax) ? f[j][i] : fmax ;
-    }
-  }
-  iuf.f = fmax ;
-  iuf.i = iuf.i & 0x7FFFFFFF ;
-  e_min = iuf.i >> 23 ;
-  e_min = e_min - 15 ;
-  if(e_min < 0) e_min = 0 ;
-  iuf.i = e_min << 23 ;
-  zero = iuf.f ;
-  fprintf(stderr, "%4s : min = %10.3G, max = %10.3G, zero = %10.3E, ", name, fmin, fmax, zero) ;
+  analyze_data32_block((void *)f_, ni, ni, nj, &bp) ;
+  adjust_block_properties(&bp, float_data);
+  fmin = FLOAT_MIN_VALUE(bp) ;
+  fmax = FLOAT_MAX_VALUE(bp) ;
+  amin = FLOAT_MIN_ABS(bp) ;
+  amax = FLOAT_MAX_ABS(bp) ;
+  iuf.f = amax ;
+  e_zero = ((iuf.i >> 23) & 0xFF) - 15 ;
+  e_zero = (e_zero > 0) ? e_zero : 1 ;
+  iuf.i = e_zero << 23 ; zdef = iuf.f ;
+  zero = var_zero(name, zdef) ;
+  e_zero = fp32_exp_raw(zero) ;
 
   errmax = 0.0f ;
+  float local[TSZ][TSZ] ;
+  int32_t ztiles = 0 ;
+  fprintf(stderr, "%4s : min=%9.3G[%9.3G], max=%9.3G[%9.3G], zero=%9.3E(%3d), ", name, fmin, amin, fmax, amax, zero, e_zero) ;
+  values = 0 ;
   for(j0=0 ; j0<nj-TSZ+1 ; j0+=TSZ){
     for(i0=0 ; i0<ni-TSZ+1 ; i0+=TSZ){
-      min = 0x7FFFFFFF ;
-      max = -min ;
-      for(j=j0 ; j<j0+TSZ ; j++){
-        for(i=0 ; i<i0+TSZ ; i++){
-          iuf.f = f[j][i] ;
-          if(iuf.f < zero) iuf.i = 0 ;
-          iuf.i = iuf.i & 0x7FFFFFFF ;          // absolute value
-          min = (iuf.i < min) ? iuf.i : min ;
-          max = (iuf.i > max) ? iuf.i : max ;
-        }
-      }
+      values += (TSZ * TSZ) ;
+      move_float_block((void *)(&f[j0][i0]), ni, (void *)local, TSZ, TSZ, TSZ, &bp) ;
+      iuf.f = FLOAT_MIN_ABS(bp) ; min = iuf.i ; if(min < e_zero) e_zero = e_zero ;
+      iuf.f = FLOAT_MAX_ABS(bp) ; max = iuf.i ;
       tiles++ ;
-      max >>= 23 ;
-      min >>= 23 ;
-      if(max < e_min){
-        max = e_min ;
-        min = max - 18 ;
+      max >>= 23 ; min >>= 23 ;
+      if(max < e_zero){            // "zero" tiles
+        max = e_zero ;
+        min = max - 12 ;
+        ztiles++ ;
       }
-      if((max - min) > 15){
-        min = max - 18 ;
+      if((max - min) > 16){       // tiles with "too large" exponent range
+        min = max - 18 ;          // set range to 18
+        under++ ;
       }
       ediff[max-min]++ ;
-      for(j=j0 ; j<j0+TSZ ; j++){
-        for(i=0 ; i<i0+TSZ ; i++){
-          iuf32_t s, d ;
-          uint32_t sign ;
-          s.f = f[j][i] ;
-          sign = s.u & 0x80000000u ;
-          d.u = s.u & 0x7FFFFFFFu ;     // abs value
-          d.u += (1 << 6) ;             // rounding term
-          d.u = d.u & 0x7FFFF800u ;     // clip after rounding
-          if(d.f < zero){
-            d.f = 0.0f ;
-          }else{
-            d.u |= sign ;
-          }
-          errf = d.f - s.f ;
-          errf = (errf < 0) ? -errf : errf ;
-          errmax = (errf > errmax) ? errf : errmax ;
+      for(j=0 ; j<TSZ ; j++){     // count number of "zero" values
+        for(i=0 ; i<TSZ ; i++){
+          iuf32_t s ;
+          s.f = local[j][i] ;
+          if( ((s.u >> 23) & 0xFF) < e_zero) zeros++ ;
         }
       }
+//       for(j=j0 ; j<j0+TSZ ; j++){
+//         for(i=i0 ; i<i0+TSZ ; i++){
+//           iuf32_t s, d ;
+//           uint32_t sign ;
+//           s.f = f[j][i] ;
+//           sign = s.u & 0x80000000u ;
+//           d.u = s.u & 0x7FFFFFFFu ;     // abs value
+//           d.u += (1 << 6) ;             // rounding term
+//           d.u = d.u & 0x7FFFF800u ;     // clip after rounding
+//           if(d.f < zero){
+//             d.f = 0.0f ;
+//             zeros++ ;
+//           }else{
+//             d.u |= sign ;
+//           }
+//           errf = d.f - s.f ;
+//           errf = (errf < 0) ? -errf : errf ;
+//           errmax = (errf > errmax) ? errf : errmax ;
+//         }
+//       }
     }
   }
   for(i=0 ; i<19 ; i++){
@@ -106,10 +141,16 @@ void Analyze_NxN(float *f_, int32_t ni, int32_t nj, char *name){
   if(ediff[255] != tiles) exit(1) ;
 
   fprintf(stderr, "%6d tiles [ ", tiles) ;
-  for(i=0 ; i<19 ; i++){
-    fprintf(stderr, " %6d", ediff[i]) ;
+  ediff[17] = -ztiles ;   // "zero" tiles
+//   ediff[18] = number of tiles with "too large" exponent range
+  ediff[19] = values ;
+  if(ediff[18] != under) exit(1) ;   // ERROR, inconsistent counts
+  ediff[20] = -zeros ;    // "zero" values
+  for(i=0 ; i<22 ; i++){
+    fprintf(stderr, " %5d", ediff[i]) ;
   }
-  fprintf(stderr, "] %4.1f%% (%10.3E)\n\n", 100.0f*ediff[18]/tiles, errmax) ;
+//   fprintf(stderr, "] %4.1f%% (%10.3E)\n\n", 100.0f*ediff[18]/tiles, errmax) ;
+  fprintf(stderr, "] %4.1f%% %4.1f%%\n\n", 100.0f*ediff[18]/tiles, -100.0f*ediff[17]/tiles) ;
   Analyze_4x4_reset() ;
 }
 
