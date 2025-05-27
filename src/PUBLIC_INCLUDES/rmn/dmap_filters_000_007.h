@@ -45,7 +45,8 @@ typedef struct{
 dmap_filter  dmap_filter_003 ;
 typedef struct{
   uint32_t filter ;  // filter number
-  float    maxerr ;  // maximum absolute error
+  float    maxerr ;  // maximum absolute or relative error
+  float    maxsig ;  // values below maxsig are considered NOT SIGNIFICANT
   int32_t  nbits ;   // maximum number of bits for quantized values (1 -> 24)
   int32_t  offset ;  // use this offset if non zero (use minimum quantized value if 0x7FFFFFFF)
   int32_t  mode ;    // quantization mode 0 : linear, 1 : pseudo log

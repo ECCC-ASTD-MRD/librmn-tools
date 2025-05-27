@@ -49,7 +49,7 @@ static inline float q2fp_lin_(int32_t q, float dq){
 // uint32_t fp2q_log_(float z, int32_t e_base, float qzero, int32_t mbits, uint32_t round);
 int32_t fp2q_log1_(float z, int32_t e_base, int32_t mbits, uint32_t round);
 int32_t fp2q_log(float *z, int32_t *q, int n, float vref, int32_t mbits);
-int32_t fp2q_n(float *z, int32_t *q, int n, block_properties *bp, float max_err, int32_t nbits, int32_t *offset, int32_t mode);
+int32_t fp2q_n(float *z, int32_t *q, int n, block_properties *bp, float max_err, float max_sig, int32_t nbits, int32_t *offset, int32_t mode);
 
 
 // float q2fp_log_(int32_t q, int32_t e_base, int32_t mbits);

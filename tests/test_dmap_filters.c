@@ -102,7 +102,7 @@ code:
   dpfl[4] = (dmap_filter_args_ptr)&arg_036z ;     // undefined filter 036
   dpfl[5] = (dmap_filter_args_ptr)&arg_177n ;     // invalid filter 127
   dpfl[6] = NULL ;                                // end of filter list
-  arg_003a = DMAP_FP_QUANTIZE( .maxerr = .25f, .nbits = 12, .offset = 0x7FFFFFFF, .mode = FP_QUANTIZE_LIN ) ;
+  arg_003a = DMAP_FP_QUANTIZE( .maxerr = .25f, .maxsig = 0.0f, .nbits = 12, .offset = 0x7FFFFFFF, .mode = FP_QUANTIZE_LIN ) ;
 //   arg_003a = DMAP_FP_QUANTIZE( .maxerr = .25f, .nbits = 12, .offset = 0, .mode = FP_QUANTIZE_LIN ) ;
 //   arg_003a = DMAP_FP_QUANTIZE( .maxerr = .00000025f, .nbits = 8, .offset = 0x7FFFFFFF, .mode = FP_QUANTIZE_LIN ) ;
 //   arg_003a = DMAP_FP_QUANTIZE( .maxerr = .00000025f, .nbits = 8, .offset = 0, .mode = FP_QUANTIZE_LIN ) ;
