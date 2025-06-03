@@ -55,7 +55,7 @@ void Analyze_4x4_reset(){
   for(i = 0 ; i < NEDIFF ; i++ ) ediff[i] = 0 ;
 }
 
-#define TSZ 8
+#define TSZ 4
 
 // #include <rmn/ieee_functions.h>
 #include <rmn/move_blocks.h>
@@ -65,7 +65,7 @@ void Analyze_NxN(float *f_, int32_t ni, int32_t nj, char *name){
   int i, j, i0, j0, tiles = 0 ;
   int32_t e_zero = 0 ;
   iuf32_t iuf ;
-  float fmin, fmax, amin, amax, zero, errf, errmax, zdef ;
+  float fmin, fmax, amin, amax, zero, zdef ;
   int32_t min, max, values ;
   block_properties bp ;
 
@@ -83,7 +83,7 @@ void Analyze_NxN(float *f_, int32_t ni, int32_t nj, char *name){
   zero = var_zero(name, zdef) ;
   e_zero = fp32_exp_raw(zero) ;
 
-  errmax = 0.0f ;
+//   errmax = 0.0f ;
   float local[TSZ][TSZ] ;
   int32_t ztiles = 0 ;
   fprintf(stderr, "%4s : min=%9.3G[%9.3G], max=%9.3G[%9.3G], zero=%9.3E(%3d), ", name, fmin, amin, fmax, amax, zero, e_zero) ;
@@ -141,16 +141,27 @@ void Analyze_NxN(float *f_, int32_t ni, int32_t nj, char *name){
   if(ediff[255] != tiles) exit(1) ;
 
   fprintf(stderr, "%6d tiles [ ", tiles) ;
-  ediff[17] = -ztiles ;   // "zero" tiles
+  ediff[17] = ztiles ;   // "zero" tiles
 //   ediff[18] = number of tiles with "too large" exponent range
   ediff[19] = values ;
+  ediff[20] = zeros ;    // "zero" values
+
+  ediff[2] = ediff[2] + ediff[3] ;   // 2 bits for exponent
+  ediff[3] = ediff[4] + ediff[5] + ediff[6] + ediff[7] ;   // 3 bits for exponent
+  ediff[4] = ediff[8] + ediff[9] + ediff[10] + ediff[11] + ediff[12] + ediff[13] + ediff[14] + ediff[15] ;   // 4 bits for exponent
+  ediff[5] = ediff[16] ;
+  for(i=6 ; i<17 ; i++){ ediff[i] = 0 ; }
   if(ediff[18] != under) exit(1) ;   // ERROR, inconsistent counts
-  ediff[20] = -zeros ;    // "zero" values
-  for(i=0 ; i<22 ; i++){
-    fprintf(stderr, " %5d", ediff[i]) ;
+  for(i=0 ; i<21 ; i++){
+    if(i>5 && i<17) continue ;
+    if(i == 17) fprintf(stderr, ", tiles0 =");
+    if(i == 18) fprintf(stderr, ", bigexp =");
+    if(i == 19) fprintf(stderr, ", values =");
+    if(i == 20) fprintf(stderr, ", pts0 =");
+    fprintf(stderr, (i<6) ? " %5d" : " %7d" , ediff[i]) ;
   }
 //   fprintf(stderr, "] %4.1f%% (%10.3E)\n\n", 100.0f*ediff[18]/tiles, errmax) ;
-  fprintf(stderr, "] %4.1f%% %4.1f%%\n\n", 100.0f*ediff[18]/tiles, -100.0f*ediff[17]/tiles) ;
+  fprintf(stderr, "] bigexp = %4.1f%% tiles0 = %4.1f%%\n\n", 100.0f*ediff[18]/tiles, 100.0f*ediff[17]/tiles) ;
   Analyze_4x4_reset() ;
 }
 
