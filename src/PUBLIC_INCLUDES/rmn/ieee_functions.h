@@ -80,6 +80,18 @@ static inline float fp32_nan(int signaling){
   return r.f ;
 }
 
+// positive power of 2 >= |z| if z >= 1.0
+// positive power of 2 <= |z| if z < 1.0
+static inline float fp32_pow2_factor(float z){
+  union{ int32_t i ; uint32_t u ; float f ; } r ;
+  r.f = z ;
+  if( ((r.u >> 23) & 0xFF) >= 127 ){    // |z| >= 1.0 (exponent >= 127)
+    r.u += 0x7FFFFF ;                   // bump up
+  }
+  r.u &= 0x7F800000 ;                   // only keep exponent
+  return r.f ;
+}
+
 // bump |z| to the power of 2 >= |z|, keep sign intact
 static inline float fp32_pow2_ceil(float z){
   union{ int32_t i ; uint32_t u ; float f ; } r ;
