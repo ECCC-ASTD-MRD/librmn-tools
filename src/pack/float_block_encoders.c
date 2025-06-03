@@ -15,6 +15,7 @@
 //     M. Valin,   Recherche en Prevision Numerique, 2024
 
 #include <stdint.h>
+#include <stdlib.h>
 #include <immintrin.h>
 
 #include <rmn/bits.h>
