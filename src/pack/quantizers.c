@@ -16,6 +16,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+// #include <immintrin.h>
 
 #include <rmn/quantizers.h>
 #include <rmn/ieee_functions.h>
@@ -96,9 +97,11 @@ int32_t fp2q_log1_(float z, int32_t e_base, int32_t mbits, uint32_t round){
   union{ int32_t i ; float f ; } iuf ;
   int32_t q, sign ;
 
+  e_base-- ;
+// _MM_SET_FLUSH_ZERO_MODE(_MM_FLUSH_ZERO_OFF) ;
   float mult2 = 1.0f ;                    // "neutral" multiplier 2
-  if(e_base > 0){                         // single multiplier would be too large for float format
-    int delta = e_base + 1 ;
+  if(e_base > -2){                        // single multiplier would be too large for float format
+    int delta = e_base + 62 ;
     e_base -= delta ;                     // adjust e_base
     mult2 = fp32_pow2(-delta) ;           // multiplier 2
   }
@@ -109,9 +112,11 @@ int32_t fp2q_log1_(float z, int32_t e_base, int32_t mbits, uint32_t round){
   iuf.i &= 0x7FFFFFFFu ;                  // take absolute value
   iuf.i += round ;                        // apply rounding (this may increase exponent)
   iuf.f *= mult2 ;                        // apply multipliers
-  iuf.f *= mult ;                         // |z| < 2.0**e_base will produce a "denorm"
+  iuf.f *= mult ;                         // |z| < 2.0**e_base may produce a "denorm"
+//   iuf.i = (iuf.i >> 23) ? iuf.i : 0 ;     // force denormalized to zero
   q = iuf.i >> (23 - mbits) ;             // eliminate unwanted bits from mantissa
   q = (q ^ sign) - sign ;                 // restore sign (2's complement formula)
+// fprintf(stderr, "mult = %G %G\n", mult, mult2) ;
   return q ;
 }
 
@@ -133,6 +138,7 @@ int32_t fp2q_log(float *z, int32_t *q, int n, float vsig, int32_t mbits){
   int32_t e_base = fp32_exp(vsig) ;       // unbiased exponent from vsig
   int32_t e_ret = e_base ;
 
+  e_base-- ;
   // rounding term
   if(mbits < 23){                         // less than full mantissa
     round = (1 << (22 - mbits)) ;         // add 1 below last mantissa bit kept
@@ -142,8 +148,8 @@ int32_t fp2q_log(float *z, int32_t *q, int n, float vsig, int32_t mbits){
   }
   // multiplier(s)
   float mult2 = 1.0f ;                    // "neutral" multiplier 2
-  if(e_base > 0){                         // single multiplier would be too large for float format
-    int delta = e_base + 1 ;
+  if(e_base > -2){                         // single multiplier would be too large for float format
+    int delta = e_base + 62 ;
     e_base -= delta ;                     // adjust e_base
     mult2 = fp32_pow2(-delta) ;           // multiplier 2
   }
@@ -159,6 +165,7 @@ int32_t fp2q_log(float *z, int32_t *q, int n, float vsig, int32_t mbits){
     iuf.i += round ;                        // apply rounding (this may increase exponent)
     iuf.f *= mult2 ;                        // apply multipliers
     iuf.f *= mult ;                         // |z| < 2.0**e_base will produce a "denorm"
+//     iuf.i = (iuf.i >> 23) ? iuf.i : 0 ;     // force denormalized to zero
     q[i] = iuf.i >> (23 - mbits) ;          // eliminate unwanted bits from mantissa
     q[i] = (q[i] ^ sign) - sign ;           // restore sign (2's complement formula)
   }
@@ -176,9 +183,11 @@ int32_t fp2q_log(float *z, int32_t *q, int n, float vsig, int32_t mbits){
 float q2fp_log1_(int32_t q, int32_t e_base, int32_t mbits){
   union{ int32_t i ; float f ; } iuf ;
 
+  e_base-- ;
+// _MM_SET_FLUSH_ZERO_MODE(_MM_FLUSH_ZERO_OFF) ;
   float mult2 = 1.0f ;                    // "neutral" multiplier 2
-  if(e_base > 0){                         // exponent would be too large for single multiplier
-    int delta = e_base + 1 ;
+  if(e_base > -2){                         // exponent would be too large for single multiplier
+    int delta = e_base + 62 ;
     e_base -= delta ;                     // adjust e_base
     mult2 = fp32_pow2(delta) ;            // multiplier 2
   }
@@ -205,8 +214,9 @@ void q2fp_log(float *z, int32_t *q, int n, int32_t e_base, int32_t mbits){
   union{ int32_t i ; float f ; } iuf ;
   float mult2 = 1.0f ;                    // "neutral" multiplier 2
 
-  if(e_base > 0){                         // exponent would be too large for single multiplier
-    int32_t delta = e_base + 1 ;
+  e_base-- ;
+  if(e_base > -2){                         // exponent would be too large for single multiplier
+    int32_t delta = e_base + 62 ;
     e_base -= delta ;                     // adjust e_base
     mult2 = fp32_pow2(delta) ;            // multiplier 2
   }
@@ -294,12 +304,12 @@ fprintf(stderr, "fp2q_n : max_err = %f, nbits = %d, max_sig = %f, min_abs = %f\n
       if(e_sig < e_min) e_sig = e_min ;
       if(max_sig < 0){     // quantized value of max_sig will be 0
 fprintf(stderr, "fp2q_n : e_sig = %d, nbits = %d, maxabs = %f", e_sig, nbits, max_abs) ;
-        e_sig += (nbits -1) ;
+        e_sig += (nbits - 1) ;
         if(e_sig > e_max) e_sig = e_max -1 ;  // e_sig cannot be greater than e_max - 1
 fprintf(stderr, ", e_sig = %d, e_max = %d\n", e_sig, e_max) ;
       }
       max_sig = fp32_pow2(e_sig - 127) ;
-fprintf(stderr, "fp2q_n : max_err = %f, nbits = %d, max_sig = %f, min_abs = %f\n", fp32_pow2(-nbits), nbits, max_sig, min_abs) ;
+fprintf(stderr, "fp2q_n : max_err = %f, nbits = %d, max_sig = %f => (%d), min_abs = %f\n", fp32_pow2(-nbits), nbits, max_sig, fp2q_log1_(max_sig*1.5, e_sig - 127, nbits, 0), min_abs) ;
       result = fp2q_log((void *)z, (void *)q, n, max_sig, nbits) ;
       break ;
     default:       // ERROR
