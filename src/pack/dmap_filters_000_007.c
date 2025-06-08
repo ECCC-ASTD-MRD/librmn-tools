@@ -375,7 +375,8 @@ reverse:
   fprintf(stderr, "reverse filter %3.3o, array[%d,%d](%d)\n", FILTER_ID, a->dim[0].gnn, a->dim[1].gnn, nvalues) ;
 // ==================== call fp32 de-quantizer ====================
 //   q2fp_lin((float *)array, (int32_t *)array, nvalues, e_base, offset) ;
-  status = q2fp_n((float *)array, (int32_t *)array, nvalues, e_base, nbits, offset, mode) ;
+//   status = q2fp_n((float *)array, (int32_t *)array, nvalues, e_base, nbits, offset, mode) ;
+  status = q2fp_n((float *)array, (int32_t *)array, nvalues, e_base, offset, mode) ;
   if(status != 0) goto fail ;
   a->type = float_data ;                               // mark data as float data
 

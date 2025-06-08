@@ -54,7 +54,7 @@ int32_t fp2q_n(float *z, int32_t *q, int n, block_properties *bp, float max_err,
 
 // float q2fp_log_(int32_t q, int32_t e_base, int32_t mbits);
 float q2fp_log1_(int32_t q, int32_t e_base, int32_t mbits);
-void q2fp_log(float *z, int32_t *q, int n, int32_t e_base, int32_t mbits);
-int32_t q2fp_n(float *z, int32_t *q, int n, int32_t e_base, int32_t mbits, int32_t offset, int32_t mode);
+void q2fp_log(float *z, int32_t *q, int n, int32_t e_base);
+int32_t q2fp_n(float *z, int32_t *q, int n, int32_t e_base, int32_t offset, int32_t mode);
 
 #endif
