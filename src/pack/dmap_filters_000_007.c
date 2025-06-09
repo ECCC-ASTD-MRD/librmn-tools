@@ -309,7 +309,7 @@ ssize_t FILTER_NAME(array_nd *a, block_properties *bp, dmap_filter_list dpfl, bi
     STREAM_PUT_NBITS(s, (nbits & 0x3F), 6) ;      // 0 -> 23 (only useful for pseudo log quantizer)
     inserted += 6 ;
   }
-  q_exp = e_base + 127 ;                          // biased exponent from quantum
+  q_exp = e_base & 0xFF ;                         // biased exponent from restoring
   STREAM_PUT_NBITS(s, q_exp, 8) ;
   inserted += 8 ;
   if(offset != 0){
@@ -363,7 +363,7 @@ reverse:
   }else{
     offset = 0 ;
   }
-  e_base = q_exp - 127 ;
+  e_base = q_exp | (nbits << 8) ;
 //   quantum = fp32_pow2(e_base) ;                        // float quantum
 //   maxerr.u = (q_exp << 23) ; quantum = maxerr.f ;
   fprintf(stderr, "reverse filter %3.3o, id = %d, quantum = %f, nbits = %d, offset = %d, mode = %d\n",

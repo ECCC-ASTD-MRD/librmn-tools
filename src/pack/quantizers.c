@@ -46,7 +46,7 @@ float fp2q_quantum(float maxabs, float maxerr, int32_t nbits){
   // quantum is twice the max absolute error (add 1 to exponent of error)
   if(err_exp > -127) return fp32_pow2(err_exp + 1) ;  // err_exp <= -127 is too small a value
 
-fail:
+fail :
   return 0.0f ;
 }
 
@@ -56,12 +56,14 @@ fail:
 // n      [IN] : number of values
 // dq     [IN] : discretization quantum (float, will be truncated down to a power of 2)
 // offset [IN] : discretization offset (removed from quantized values)
+// return biased exponent to be passed to q2fp_lin
 int32_t fp2q_lin(float *z, int *q, int n, float dq, int32_t offset){
   int32_t e_base = fp32_exp(dq) ;
-  dq = fp32_pow2(-e_base) ;     // 1.0 / dq
+  dq = fp32_pow2(-e_base) ;        // 1.0 / dq
   int i ;
+  // quantization loop, uses fp2q_lin_ from rmn/quantizers.h
   for(i=0 ; i<n ; i++) q[i] = fp2q_lin_( z[i], dq ) - offset ;
-  return e_base ;
+  return (e_base + 127) ;          // add exponent bias
 }
 
 // linear de_quantizer (inverse of fp2q_lin_1)
@@ -72,7 +74,9 @@ int32_t fp2q_lin(float *z, int *q, int n, float dq, int32_t offset){
 // offset [IN] : discretization offset (to be added to quantized values)
 void q2fp_lin(float *z, int *q, int n, int32_t e_base, int32_t offset){
   int i ;
+  e_base -= 127 ;                  // remove exponent bias
   float d = fp32_pow2(e_base) ;
+  // restore loop, uses q2fp_lin_ from rmn/quantizers.h
   for(i=0 ; i<n ; i++) z[i] = q2fp_lin_( q[i] + offset, d) ;
 }
 
@@ -117,7 +121,7 @@ int32_t fp2q_log1_(float z, int32_t e_base, int32_t mbits, uint32_t round){
   q = iuf.i >> (23 - mbits) ;             // eliminate unwanted bits from mantissa
   q = (q ^ sign) - sign ;                 // restore sign (2's complement formula)
 // fprintf(stderr, "mult = %G %G\n", mult, mult2) ;
-  return q ;
+  return q ;    // quantized value
 }
 
 // z     [IN] : float values to be quantized
@@ -170,7 +174,8 @@ int32_t fp2q_log(float *z, int32_t *q, int n, float vsig, int32_t mbits){
     q[i] = (q[i] ^ sign) - sign ;           // restore sign (2's complement formula)
   }
 // fprintf(stderr, "fp2q_log : e_ret = %d, mbits = %d\n", e_ret, mbits) ;
-  return ((e_ret + 127) << 8) + mbits ;
+//   return ((e_ret + 127) << 8) + mbits ;
+  return ((e_ret + 127)) + (mbits << 8) ;
 }
 
 // restore float from quantized value (fp2q_log_)
@@ -192,15 +197,15 @@ float q2fp_log1_(int32_t q, int32_t e_base, int32_t mbits){
     e_base -= delta ;                     // adjust e_base
     mult2 = fp32_pow2(delta) ;            // multiplier 2
   }
-  float mult = fp32_pow2((127+e_base)) ;  // multiplier 1
+  float mult1 = fp32_pow2((127+e_base)) ;  // multiplier 1
 
   int32_t sign = q >> 31 ;                // capture sign
   iuf.i = (q ^ sign) - sign ;             // take absolute value (2's complement formula)
   iuf.i <<= (23 - mbits) ;                // mantissa in bits 0->22, exp in bits 23->30, sign in bit 31
-  iuf.f *= mult2 ;                        // allpy multipliers
-  iuf.f *= mult ;
+  iuf.f *= mult2 ;                        // apply multipliers
+  iuf.f *= mult1 ;
   iuf.i |= (sign << 31) ;                 // restore sign
-  return iuf.f ;
+  return iuf.f ;                          // restored value
 }
 
 // restore floats from quantized values (inverse of fp2q_log)
@@ -214,8 +219,10 @@ float q2fp_log1_(int32_t q, int32_t e_base, int32_t mbits){
 void q2fp_log(float *z, int32_t *q, int n, int32_t e_base_){
   union{ int32_t i ; float f ; } iuf ;
   float mult2 = 1.0f ;                    // "neutral" multiplier 2
-  int32_t e_base = (e_base_ >> 8 ) - 127 ;
-  int32_t mbits = (e_base_ & 0xFF) ;
+//   int32_t e_base = (e_base_ >> 8 ) - 127 ;
+//   int32_t mbits = (e_base_ & 0xFF) ;
+  int32_t e_base = (e_base_ & 0xFF ) - 127 ;
+  int32_t mbits = (e_base_ >> 8) ;
 
   e_base-- ;
   if(e_base > -2){                         // exponent would be too large for single multiplier
@@ -277,7 +284,8 @@ int32_t fp2q_n(float *z, int32_t *q, int n, block_properties *bp, float max_err,
   max_abs = FLOAT_MAX_ABS(*bp) ;
 
   switch(mode){
-    case 0:        // linear quantizer, uses max_abs, max_err, offset, nbits
+
+    case FP_QUANTIZE_LIN:        // linear quantizer, uses max_abs, max_err, offset, nbits
       quantum = fp2q_quantum(max_abs, max_err, nbits) ;    // compute quantum
       if(quantum == 0.0f) goto fail ;
       if(*offset == 0x7FFFFFFF){                   // flag to set offset to quantized minimum
@@ -286,9 +294,12 @@ int32_t fp2q_n(float *z, int32_t *q, int n, block_properties *bp, float max_err,
         min_val = FLOAT_MIN_VALUE(*bp) ;
         *offset = fp2q_lin_(min_val, ovq) ;        // quantized value of minimum value in array
       }
-      result = fp2q_lin((void *)z, (void *)q, n, quantum, *offset) + 127 ;
+      result = fp2q_lin((void *)z, (void *)q, n, quantum, *offset) ;
+fprintf(stderr, "fp2q_n : result = %d, offset = %d, quantum = %f\n", result, *offset, quantum) ;
+{int i ; for(i=0 ; i<10 ; i++){fprintf(stderr, "%f ", z[i]) ; } ; fprintf(stderr, "\n") ;}
       break ;
-    case 1:        // pseudo log quantizer, uses min_abs, max_abs, max_err, max_sig, nbits
+
+    case FP_QUANTIZE_LOG:        // pseudo log quantizer, uses min_abs, max_abs, max_err, max_sig, nbits
       min_abs = FLOAT_MIN_ABS(*bp) ;
       e_err = fp32_exp_raw(max_err) ;              // raw (biased) exponent (MUST BE < 127)
 // fprintf(stderr, "fp2q_n : max_err = %f, nbits = %d, max_sig = %f, min_abs = %f\n", max_err, nbits, max_sig, min_abs) ;
@@ -319,6 +330,7 @@ int32_t fp2q_n(float *z, int32_t *q, int n, block_properties *bp, float max_err,
 // fprintf(stderr, "fp2q_n : result = %8.8x, e_base = %d, nbits = %d\n", result, (result >> 8) - 127, result & 0xFF) ;
 //       result = (result << 8) + nbits ;
       break ;
+
     default:       // ERROR
       goto fail ;
   }
@@ -333,12 +345,15 @@ fprintf(stderr, "fp2q_n : max_err = %f, nbits = %d, max_sig = %f, min_abs = %f\n
 // 32 bit float de-quantizer
 int32_t q2fp_n(float *z, int32_t *q, int n, int32_t e_base, int32_t offset, int32_t mode){
   switch(mode){
-    case 0:        // linear de-quantizer, uses e_base, offset
+
+    case FP_QUANTIZE_LIN :        // linear de-quantizer, uses e_base, offset
       q2fp_lin((void *)z, (void *)q, n, e_base, offset) ;
       break ;
-    case 1:        // pseudo log de-quantizer, uses e_base
+
+    case FP_QUANTIZE_LOG :        // pseudo log de-quantizer, uses e_base
       q2fp_log((void *)z, (void *)q, n, e_base) ;
       break ;
+
     default:
       return 1 ;
   }

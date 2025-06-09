@@ -48,13 +48,15 @@ float fp_fudge2(float f, int nbits, int lsbs){
 #define ABS(x) (((x) < 0) ? (-(x)) : (x))
 
 void verify_log(float r[NJ][NI], int32_t q[NJ][NI], int nij, int32_t e_base, float Z[NJ][NI]){
-  int32_t e_base0 = (e_base >> 8) - 127 ;
-//   int32_t mbits = e_base & 0xFF ;
+//   int32_t e_base0 = (e_base >> 8) - 127 ;
+  int32_t e_base0 = (e_base & 0xFF) - 127 ;
+//   int32_t mbits = e_base >> 8 ;
   int i, j, n = 0, erri, errj, zero = 0, qi ;
   float errmax = 0.0f, vmax = 999999.0f, verr = 999999.0f, errpt = 0.0f, vrest = 999999.0f ;
   float vref = fp32_pow2(e_base0 + 0) ;
-fprintf(stderr,"verify_log : vref = %f, e_base0 = %d, nij = %d\n", vref, e_base0, nij) ;
+// fprintf(stderr,"verify_log : vref = %f, e_base0 = %d, nij = %d\n", vref, e_base0, nij) ;
   q2fp_log((float *)r, (int32_t *)q, nij, e_base) ;
+//   q2fp_n((void *)r, (void *)q, n, e_base, 0, FP_QUANTIZE_LOG) ;
   for(j=0 ; j<NJ ; j++){
     for(i=0 ; i<NI ; i++){
       float err ;
@@ -94,13 +96,18 @@ int main(int argc, char **argv){
   double nano ;
   TIME_LOOP_DATA ;
   int niter = 5 ;
-  int32_t e_base = 255, e_base0 = -255 ;
+  int32_t e_base, e_base0 ;
   char *msg = "generic error" ;
 fprintf(stderr, "_MM_GET_ROUNDING_MODE = %8.8x, %8.8x, %8.8x, %8.8x, %8.8x\n", _MM_GET_ROUNDING_MODE(),_MM_ROUND_NEAREST, _MM_ROUND_DOWN, _MM_ROUND_UP, _MM_ROUND_TOWARD_ZERO );
-int csrmode = _mm_getcsr() ;
-csrmode = csrmode & (~0x0040) ;   // no Denormalized As Zero
-csrmode = csrmode & (~0x8000) ;   // no Flush To Zero
-_mm_setcsr(csrmode) ;
+
+  int32_t csrmode ;
+  csrmode = fp32_disallow_denorm() ;
+  fprintf(stderr, "csr = %8.8x, ", csrmode) ;
+  csrmode = fp32_allow_denorm() ;
+  fprintf(stderr, "csr = %8.8x, ", csrmode) ;
+  csrmode = get_cpu_csr() ;
+  fprintf(stderr, "csr = %8.8x\n", csrmode) ;
+
   goto test ;
 
 end:
@@ -122,13 +129,14 @@ test:
 
   start_of_test(argv[0]);
   fprintf(stderr, "============================== linear quantizers ==============================\n") ;
-
+  nij = 0 ;
   for(j=0 ; j<NJ ; j++){
     for(i=0 ; i<NI ; i++){
       z[j][i] = (i - (NI-1)*.5f) + (j - (NJ-1)*.5f) + .5 ;
 //       Z[j][i] = z[j][i] * ((z[j][i] < 0) ? (-z[j][i]) : z[j][i] ) ;
       Z[j][i] = z[j][i] * z[j][i] * z[j][i] * 1.9f ;
       r[j][i] = 999999.0f ;
+      nij++ ;
     }
   }
   nij = analyze_data32_block((void *)z, NI, NI, NJ, &bp) ;
@@ -147,33 +155,37 @@ test:
   msg = "status from q2fp_n not 0" ;
   if(status != 0) goto fail ;
 
+  nij = 0 ;
   errmax = 0.0f ;
   target = 0.5f*quantum ;
   for(j=0 ; j<NJ ; j++){
     for(i=0 ; i<NI ; i++){
       err = z[j][i] - r[j][i] ;
-      err = (err <0) ? (-err) : err ;
+      err = (err < 0) ? (-err) : err ;
       errmax = (err > errmax) ? err : errmax ;
+      nij++ ;
     }
   }
-  fprintf(stderr, "min = %f, max = %f, errmax = %f, target = %f, status = %d\n",FLOAT_MIN_VALUE(bp), FLOAT_MAX_VALUE(bp), errmax, target, status) ;
+  fprintf(stderr, "%d values : min = %f, max = %f, errmax = %f, target = %f, status = %d\n", nij, FLOAT_MIN_VALUE(bp), FLOAT_MAX_VALUE(bp), errmax, target, status) ;
   msg = "errmax > target" ;
   if(errmax > target) goto fail ;
 
   fprintf(stderr, "============================== linear timingss ==============================\n") ;
 
-//   TIME_LOOP_EZ(niter, nij, e_base = fp2q_lin((void *)z, (void *)q, nij, quantum, offset)) ;
-//   fprintf(stderr,"quantize : %s\n", timer_msg) ;
-// 
-//   TIME_LOOP_EZ(niter, nij, q2fp_lin((void *)z, (void *)q, nij, e_base, offset)) ;
-//   fprintf(stderr,"restore  : %s\n", timer_msg) ;
+  niter = 100 ;
+  TIME_LOOP_EZ(niter, nij, e_base = fp2q_lin((void *)z, (void *)q, nij, quantum, offset)) ;
+  fprintf(stderr,"quantize : %s\n", timer_msg) ;
+
+  TIME_LOOP_EZ(niter, nij, q2fp_lin((void *)z, (void *)q, nij, e_base, offset)) ;
+  fprintf(stderr,"restore  : %s\n", timer_msg) ;
+
+  fprintf(stderr, "SUCCESS\n");
 
   fprintf(stderr, "============================== pseudo log quantizers ==============================\n") ;
 
-  int32_t mbits = 11, mbits0 ;
-  uint32_t round = (1 << (22 - mbits)), e_range = 0 ;
+  int32_t mbits = 11, mbits0, e_range ;
+  uint32_t round = (1 << (22 - mbits)) ;
   float vref = 32.0f ;
-  e_base = 255 ; e_base0 = -255 ;
 
   int32_t uq ;
   float ur ;
@@ -203,49 +215,51 @@ test:
 
   float vref0 = vref*4.0f, vref1, vref2 ;
 
-  vref2 = fp_fudge2(vref, mbits, 0xF) ; ;
+  vref2 = fp_fudge2(vref, mbits, 0x1) ; ;
   uq = fp2q_log1_(vref2, e_base, mbits, round) ; ur = q2fp_log1_(uq, e_base, mbits) ;
-  fprintf(stderr, "%8.8x = fp2q_log1_(%10.6f) [%10.6f] [%6.0f]\n", uq, vref2, ur, ABS(vref2/(ur-vref2)) ) ;
+  fprintf(stderr, "%8.8x = fp2q_log1_(%12.8f) [%12.8f] [%8.0f]\n", uq, vref2, ur, ABS(vref2/(ur-vref2)) ) ;
 
-  vref1 = fp_fudge1(vref0, mbits) ;
+  vref1 = fp_fudge1(vref0, mbits) ;           // fudge for worst case error
   uq = fp2q_log1_(vref1, e_base, mbits, round) ; ur = q2fp_log1_(uq, e_base, mbits) ;
-  fprintf(stderr, "%8.8x = fp2q_log1_(%10.6f) [%10.6f] [%6.0f]\n", uq, vref1, ur, ABS(vref1/(ur-vref1)) ) ;
-  vref2 = fp_fudge2(vref0, mbits, 0x1F) ;
+  fprintf(stderr, "%8.8x = fp2q_log1_(%12.8f) [%12.8f] [%8.0f]\n", uq, vref1, ur, ABS(vref1/(ur-vref1)) ) ;
+  vref2 = fp_fudge2(vref0, mbits, 0x1) ;      // fudge for smallest error
   uq = fp2q_log1_(vref2, e_base, mbits, round) ; ur = q2fp_log1_(uq, e_base, mbits) ;
-  fprintf(stderr, "%8.8x = fp2q_log1_(%10.6f) [%10.6f] [%6.0f]\n", uq, vref2, ur, ABS(vref2/(ur-vref2)) ) ;
+  fprintf(stderr, "%8.8x = fp2q_log1_(%12.8f) [%12.8f] [%8.0f]\n", uq, vref2, ur, ABS(vref2/(ur-vref2)) ) ;
   for(i=mbits+3 ; i>0 ; i-=3){
     fprintf(stderr, "\n") ;
     vref0 *= .125f ;
-    vref1 = fp_fudge1(vref0, mbits) ;
+    vref1 = fp_fudge1(vref0, mbits) ;         // fudge for worst case error
     uq = fp2q_log1_(vref1, e_base, mbits, round) ; ur = q2fp_log1_(uq, e_base, mbits) ;
-    fprintf(stderr, "%8.8x = fp2q_log1_(%10.6f) [%10.6f] [%6.0f]\n", uq, vref1, ur, ABS(vref1/(ur-vref1)) ) ;
-    vref2 = fp_fudge2(vref0, mbits, 0x1F) ;
+    fprintf(stderr, "%8.8x = fp2q_log1_(%12.8f) [%12.8f] [%8.0f]\n", uq, vref1, ur, ABS(vref1/(ur-vref1)) ) ;
+    vref2 = fp_fudge2(vref0, mbits, 0x1) ;    // fudge for smallest error
     uq = fp2q_log1_(vref2, e_base, mbits, round) ; ur = q2fp_log1_(uq, e_base, mbits) ;
-    fprintf(stderr, "%8.8x = fp2q_log1_(%10.6f) [%10.6f] [%6.0f]\n", uq, vref2, ur, ABS(vref2/(ur-vref2)) ) ;
+    fprintf(stderr, "%8.8x = fp2q_log1_(%12.8f) [%12.8f] [%8.0f]\n", uq, vref2, ur, ABS(vref2/(ur-vref2)) ) ;
   }
   fprintf(stderr, "\n") ;
 
   vref2 = FLOAT_MIN_ABS(bp) ;
   uq = fp2q_log1_(vref2, e_base, mbits, round) ; ur = q2fp_log1_(uq, e_base, mbits) ;
-  fprintf(stderr, "%8.8x = fp2q_log1_(%10.6f) [%10.6f] [%6.0f]\n", uq, vref2, ur, ABS(vref2/(ur-vref2)) ) ;
+  fprintf(stderr, "%8.8x = fp2q_log1_(%12.8f) [%12.8f] [%8.0f]\n", uq, vref2, ur, ABS(vref2/(ur-vref2)) ) ;
 
   vref2 = +78.5001f ;
   uq = fp2q_log1_(vref2, e_base, mbits, round) ; ur = q2fp_log1_(uq, e_base, mbits) ;
-  fprintf(stderr, "%8.8x = fp2q_log1_(%10.6f) [%10.6f] [%6.0f]\n", uq, vref2, ur, ABS(vref2/(ur-vref2)) ) ;
+  fprintf(stderr, "%8.8x = fp2q_log1_(%12.8f) [%12.8f] [%8.0f]\n", uq, vref2, ur, ABS(vref2/(ur-vref2)) ) ;
 
   vref2 = -78.5001f ;
   uq = fp2q_log1_(vref2, e_base, mbits, round) ; ur = q2fp_log1_(uq, e_base, mbits) ;
-  fprintf(stderr, "%8.8x = fp2q_log1_(%10.6f) [%10.6f] [%6.0f]\n", uq, vref2, ur, ABS(vref2/(ur-vref2)) ) ;
+  fprintf(stderr, "%8.8x = fp2q_log1_(%12.8f) [%12.8f] [%8.0f]\n", uq, vref2, ur, ABS(vref2/(ur-vref2)) ) ;
 
   vref2 = FLOAT_MAX_VALUE(bp) ;
   uq = fp2q_log1_(vref2, e_base, mbits, round) ; ur = q2fp_log1_(uq, e_base, mbits) ;
-  fprintf(stderr, "%8.8x = fp2q_log1_(%10.6f) [%10.6f] [%6.0f]\n", uq, vref2, ur, ABS(vref2/(ur-vref2)) ) ;
+  fprintf(stderr, "%8.8x = fp2q_log1_(%12.8f) [%12.8f] [%8.0f]\n", uq, vref2, ur, ABS(vref2/(ur-vref2)) ) ;
 
   vref2 = FLOAT_MIN_VALUE(bp) ;
   uq = fp2q_log1_(vref2, e_base, mbits, round) ; ur = q2fp_log1_(uq, e_base, mbits) ;
-  fprintf(stderr, "%8.8x = fp2q_log1_(%10.6f) [%10.6f] [%6.0f]\n", uq, vref2, ur, ABS(vref2/(ur-vref2)) ) ;
+  fprintf(stderr, "%8.8x = fp2q_log1_(%12.8f) [%12.8f] [%8.0f]\n", uq, vref2, ur, ABS(vref2/(ur-vref2)) ) ;
 
   fprintf(stderr, "\n") ;
+
+// testing generic function in LOG mode (verify_log uses generic function to restore)
 
   e_base0 = fp2q_n((float *)Z, (int32_t *)q, nij, NULL, 0.00003f, mbits,  vref, NULL, FP_QUANTIZE_LOG) ;
   verify_log((void *)r, (void *)q, nij, e_base0, (void *)Z) ;
@@ -271,11 +285,14 @@ test:
 // return 0 ;
   fprintf(stderr, "============================== pseudo log timingss ==============================\n") ;
 
+  niter = 100 ;
   TIME_LOOP_EZ(niter, nij, e_base0 = fp2q_log((float *)Z, (int32_t *)q, nij, vref, mbits)) ;
   fprintf(stderr,"quantize : %s\n", timer_msg) ;
 
   TIME_LOOP_EZ(niter, nij, q2fp_log((float *)r, (int32_t *)q, nij, e_base0)) ;
   fprintf(stderr,"restore  : %s\n", timer_msg) ;
+
+  fprintf(stderr, "SUCCESS\n");
 
   goto end ;
 }
