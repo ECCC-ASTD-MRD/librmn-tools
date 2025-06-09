@@ -20,6 +20,47 @@
 
 #include <stdint.h>
 
+// get cpu float control register
+static inline int32_t get_cpu_csr(void){
+#if defined(__x86_64__)
+  int32_t csr ;
+  asm volatile ( "stmxcsr %[csr]" : [csr]  "=m" (csr) : ) ;
+  return csr ;
+#else
+  return 0 ;
+#endif
+}
+
+// set cpu float control register
+static inline void set_cpu_csr(int32_t t){
+#if defined(__x86_64__)
+  int32_t csr = t ;
+  asm volatile ( "ldmxcsr %[csr]" : : [csr]  "m" (csr) : ) ;
+#endif
+}
+
+// disallow processing of denormalized numbers (process as zero values)
+static inline int32_t fp32_disallow_denorm(void){
+#if defined(__x86_64__)
+  int32_t csr = get_cpu_csr() ;
+  set_cpu_csr(csr | (0x0040) | (0x8000)) ;
+  return csr ;
+#else
+  return 0 ;
+#endif
+}
+
+// allow full processing of denormalized numbers
+static inline int32_t fp32_allow_denorm(void){
+#if defined(__x86_64__)
+  int32_t csr = get_cpu_csr() ;
+  set_cpu_csr(csr & (~0x0040) & (~0x8000)) ;
+  return csr ;
+#else
+  return 0 ;
+#endif
+}
+
 // sign, exponent, mantissa from 32 bit float
 typedef struct{
   int16_t  s ;
@@ -35,7 +76,7 @@ static inline int32_t fp32_sign(float z){
 }
 
 // get biased exponent from z
-static inline int32_t fp32_exp_raw(float z){
+static inline uint32_t fp32_exp_raw(float z){
   union{ int32_t i ; uint32_t u ; float f ; } r ;
   r.f = z ;
   return ((r.i >> 23) & 0xFF) ;
