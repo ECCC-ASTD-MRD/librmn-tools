@@ -61,6 +61,44 @@ static inline int32_t fp32_allow_denorm(void){
 #endif
 }
 
+// transform a float into a fake signed integer (comparison order preserving)
+// static inline int32_t fp32_as_int(float f){
+//   union{ int32_t i ; uint32_t u ; float f ; } r ;
+//   r.f = f ;
+//   return (r.i & 0x7FFFFFFF) ^ (r.i >> 31) ;
+// }
+
+// sign magnitude float to signed integer, order preserving
+static inline int32_t fp32_to_fi32(float f){
+  union{ int32_t i ; uint32_t u ; float f ; } r ;
+  r.f = f ;
+  if(r.u != 0x80000000u){       // handles -0.0
+    int32_t t = (r.i >> 31) ;   // 0 or 0xFFFFFFFF
+    r.i &= 0x7FFFFFFF ;         // get rid of sign
+    r.i ^= t ;                  // no-op if t == 0, negate if t == 0xFFFFFFFF
+    r.i -= t ;                  // complement and add 1 is 2's complement negate
+  }
+  return r.i ;                  // float represented as an integer
+}
+
+// restore float from fake integer representing float
+// static inline float int_as_fp32(int32_t fake){
+//   union{ int32_t i ; uint32_t u ; float f ; } r ;
+//   r.i = ((fake >> 31) ^ fake) | (fake & 0x80000000) ;
+//   return r.f ;
+// }
+
+// signed integer to sign magnitude float, order preserving
+static inline float fi32_to_fp32(int32_t i){
+  union{ int32_t i ; float f ; } r ;
+  r.i = i ;
+  int32_t t = (r.i >> 31) ;     // 0 or 0xFFFFFFFF
+  r.i ^= t ;                    // no-op if t == 0, negate if t == 0xFFFFFFFF
+  r.i -= t ;                    // complement and add 1 is 2's complement negate
+  r.i |= (t << 31) ;            // restore sign bit
+  return r.f ;                  // restored float
+}
+
 // sign, exponent, mantissa from 32 bit float
 typedef struct{
   int16_t  s ;
@@ -118,6 +156,17 @@ static inline int fp32_isinf(float z){
 static inline float fp32_nan(int signaling){
   union{ int32_t i ; uint32_t u ; float f ; } r ;
   r.u = 0X7F800001 | ((signaling & 1) << 22) ;
+  r.u |= (signaling  << 31) ;
+  return r.f ;
+}
+
+// generate a positive or negative infinite value
+// sign LSB == 0 : generate a "positive" InF
+// sign LSB == 1 : generate a "negative" InF
+static inline float fp32_inf(int sign){
+  union{ int32_t i ; uint32_t u ; float f ; } r ;
+  r.u = 0xFF << 23 ;
+  r.u |= (sign << 31) ;
   return r.f ;
 }
 
@@ -192,20 +241,6 @@ static inline fp32_sem fp32_to_sem(float z){
 // re-create 32 bit float from sign/exponent/mantissa struct
 static inline float fp32_from_sem(fp32_sem sem){
   return fp32_from_i3(sem.s, sem.e, sem.m) ;
-}
-
-// transform a float into a fake signed integer (comparison order preserving)
-static inline int32_t fp32_as_int(float f){
-  union{ int32_t i ; uint32_t u ; float f ; } r ;
-  r.f = f ;
-  return (r.i & 0x7FFFFFFF) ^ (r.i >> 31) ;
-}
-
-// restore float from fake integer representing float
-static inline float int_as_fp32(int32_t fake){
-  union{ int32_t i ; uint32_t u ; float f ; } r ;
-  r.i = ((fake >> 31) ^ fake) | (fake & 0x80000000) ;
-  return r.f ;
 }
 
 #endif

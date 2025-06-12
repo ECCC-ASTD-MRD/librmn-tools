@@ -45,7 +45,7 @@ float fp_fudge2(float f, int nbits, int lsbs){
   return uf.f ;
 }
 
-#define ABS(x) (((x) < 0) ? (-(x)) : (x))
+// #define ABS(x) (((x) < 0) ? (-(x)) : (x))
 
 void verify_log(float r[NJ][NI], int32_t q[NJ][NI], int nij, int32_t e_base, float Z[NJ][NI]){
 //   int32_t e_base0 = (e_base >> 8) - 127 ;
