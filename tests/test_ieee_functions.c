@@ -5,12 +5,44 @@
 #include <rmn/ieee_functions.h>
 #include <rmn/test_helpers.h>
 
+void scale_floats(float *f, int n , float fact);
+
 int main(int argc, char **argv){
   (void) (argc) ;
-  int mant, exp, sign, i, i0 ;
+  int mant, exp, sign, i, i0, incr = 1 ;
   int64_t i64 = 0 ;
+  float fact = 0.5f ;
 
   start_of_test(argv[0]);
+  if(argc > 1) incr = atoi(argv[1]) ;
+
+  fprintf(stderr, "============================== IEEE subnormal test ==============================\n") ;
+
+  int32_t csr ;
+  float vd[32] ;
+
+  csr = fp32_disallow_denorm() ;
+  fprintf(stderr, "disallow_denorm, old csr = %8.8x, new csr = %8.8x\n", csr, get_cpu_csr()) ;
+  union{float f ; int32_t i ; } fi ;
+  fi.i = 1 << 23 ;
+  fi.i |= (1 << 22) ;
+  vd[0] = fi.f ;
+  scale_floats(vd, 32, fact) ;
+  fprintf(stderr, "fact = %f, f = %12G", fact, vd[0]) ;
+  for(i=1 ; i<32 ; i+=5){
+    fprintf(stderr, ", %12G ", vd[i]) ;
+  }
+  fprintf(stderr, "\n");
+
+  csr = fp32_allow_denorm() ;
+  fprintf(stderr, "   allow_denorm, old csr = %8.8x, new csr = %8.8x\n", csr, get_cpu_csr()) ;
+  scale_floats(vd, 32, fact) ;
+  fprintf(stderr, "fact = %f, f = %12G", fact, vd[0]) ;
+  for(i=1 ; i<32 ; i+=5){
+    fprintf(stderr, ", %12G ", vd[i]) ;
+  }
+  fprintf(stderr, "\n");
+
   fprintf(stderr, "============================== IEEE manipulation functions ==============================\n") ;
 
   fp32_allow_denorm() ;     // do not consider denormalized numbers as 0
@@ -18,21 +50,22 @@ int main(int argc, char **argv){
   i0 = -0x7FFFFFFF - 1 ;
   fprintf(stderr, "fp32_to_fi32(%4.0f) = %8.8x\n",-0.0, fp32_to_fi32(-0.0)) ;
   fprintf(stderr, "fp32_to_fi32(%4.0f) = %8.8x\n",0.0, fp32_to_fi32(0.0)) ;
-  for(i64 = i0 ; i64 <= 0x7FFFFFFF ; i64++){
+  for(i64 = i0 ; i64 <= 0x7FFFFFFF ; i64+=incr){
     i = i64 ;
     float r   = fi32_to_fp32(i) ;
     int32_t t = fp32_to_fi32(r) ;
+    if(r == -0.0f) t = -0x7FFFFFFF - 1 ;   // 0x80000000 -> -0.0, -0.0 -> 0
     if(i != t) {
       fprintf(stderr, "ERROR: expecting %d from %f, got %d\n", i, r, t) ;
       exit(1) ;
     }
   }
-  fprintf(stderr, "SUCCESS : fake integer to/from real test %ld values (%8.8x to %8.0x)\n", i64, i0, i) ;
+  fprintf(stderr, "SUCCESS : fake integer to/from real test %ld values (%8.8x to %8.0x by %d)\n", i64, i0, i, incr) ;
 
   i64 = 0 ;
   for(sign=0 ; sign <2 ; sign++){
     for(exp=0 ; exp<255 ; exp++){
-      for(mant=0 ; mant < 0x800000 ; mant+=1, i64++){
+      for(mant=0 ; mant < 0x800000 ; mant+=incr, i64++){
         union{ int32_t i ; uint32_t u ; float f ; } iuf ;
         int32_t t ;
         iuf.i = mant | (exp << 23) | (sign << 31) ;   // build float from sign/exponent/mantissa
@@ -41,7 +74,7 @@ int main(int argc, char **argv){
       }
     }
   }
-  fprintf(stderr, "SUCCESS : 'float' -> 'fp32_to_fi32(float)' -> 'float' test (%8.8lx values)\n", i64) ;
+  fprintf(stderr, "SUCCESS : 'float' -> 'fp32_to_fi32(float)' -> 'float' test (%8.8lx values every %d)\n", i64, incr) ;
 
   fprintf(stderr, "NaN test : fp32_nan(0/1) = %f (%f), isnan(0/1) = %d, %d, isinf(0/1) = %d, %d\n",
                   fp32_nan(0), fp32_nan(1), fp32_isnan(fp32_nan(0)), fp32_isnan(fp32_nan(1)), fp32_isinf(fp32_nan(0)), fp32_isinf(fp32_nan(1))) ;

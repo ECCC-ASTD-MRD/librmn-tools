@@ -26,6 +26,10 @@ static inline int32_t get_cpu_csr(void){
   int32_t csr ;
   asm volatile ( "stmxcsr %[csr]" : [csr]  "=m" (csr) : ) ;
   return csr ;
+#elif defined(__aarch64__)
+  int64_t csr ;
+  asm volatile ("mrs %[csr], fpcr" : [csr] "=r" (csr) : );
+  return csr ;
 #else
   return 0 ;
 #endif
@@ -34,16 +38,23 @@ static inline int32_t get_cpu_csr(void){
 // set cpu float control register
 static inline void set_cpu_csr(int32_t t){
 #if defined(__x86_64__)
-  int32_t csr = t ;
-  asm volatile ( "ldmxcsr %[csr]" : : [csr]  "m" (csr) : ) ;
+  asm volatile ( "ldmxcsr %[t]" : : [t]  "m" (t) : ) ;
+#elif defined(__aarch64__)
+  asm volatile ("msr fpcr, %[t]" : : [t] "r" (t) : ) ;
 #endif
 }
 
 // disallow processing of denormalized numbers (process as zero values)
 static inline int32_t fp32_disallow_denorm(void){
-#if defined(__x86_64__)
   int32_t csr = get_cpu_csr() ;
-  set_cpu_csr(csr | (0x0040) | (0x8000)) ;
+#if defined(__x86_64__)
+  int32_t newcsr = (csr | (0x0040) | (0x8000)) & (~0x003F) ;
+  set_cpu_csr(newcsr) ;
+//   set_cpu_csr(csr | (0x0040) | (0x8000)) ;
+  return csr ;
+#elif defined(__aarch64__)
+  // flush to zero is FIZ bit 24, 1 to flush to zero
+  set_cpu_csr(csr | (1 << 24)) ;
   return csr ;
 #else
   return 0 ;
@@ -52,9 +63,14 @@ static inline int32_t fp32_disallow_denorm(void){
 
 // allow full processing of denormalized numbers
 static inline int32_t fp32_allow_denorm(void){
-#if defined(__x86_64__)
   int32_t csr = get_cpu_csr() ;
-  set_cpu_csr(csr & (~0x0040) & (~0x8000)) ;
+#if defined(__x86_64__)
+  int32_t newcsr = csr & (~0x0040) & (~0x8000) & (~0x003F) ;
+  set_cpu_csr(newcsr) ;
+  return csr ;
+#elif defined(__aarch64__)
+  // flush to zero is FIZ bit 24, 1 to flush to zero
+  set_cpu_csr(csr & (~(1 << 24)) ) ;
   return csr ;
 #else
   return 0 ;
@@ -69,16 +85,15 @@ static inline int32_t fp32_allow_denorm(void){
 // }
 
 // sign magnitude float to signed integer, order preserving
+// both 0.0 and -0.0 come back as 0
 static inline int32_t fp32_to_fi32(float f){
   union{ int32_t i ; uint32_t u ; float f ; } r ;
   r.f = f ;
-  if(r.u != 0x80000000u){       // handles -0.0
-    int32_t t = (r.i >> 31) ;   // 0 or 0xFFFFFFFF
-    r.i &= 0x7FFFFFFF ;         // get rid of sign
-    r.i ^= t ;                  // no-op if t == 0, negate if t == 0xFFFFFFFF
-    r.i -= t ;                  // complement and add 1 is 2's complement negate
-  }
-  return r.i ;                  // float represented as an integer
+  int32_t t = (r.i >> 31) ;   // 0 or 0xFFFFFFFF
+  r.i &= 0x7FFFFFFF ;         // get rid of sign
+  r.i ^= t ;                  // no-op if t == 0, negate if t == 0xFFFFFFFF
+  r.i -= t ;                  // complement and add 1 is 2's complement negate
+  return r.i ;                // float represented as an integer
 }
 
 // restore float from fake integer representing float
