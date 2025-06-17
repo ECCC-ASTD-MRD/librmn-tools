@@ -53,7 +53,7 @@ static inline int32_t fp32_disallow_denorm(void){
 //   set_cpu_csr(csr | (0x0040) | (0x8000)) ;
   return csr ;
 #elif defined(__aarch64__)
-  // flush to zero is FIZ bit 24, 1 to flush to zero
+  // flush to zero is FIZ (bit 24), 1 to flush to zero
   set_cpu_csr(csr | (1 << 24)) ;
   return csr ;
 #else
@@ -69,7 +69,7 @@ static inline int32_t fp32_allow_denorm(void){
   set_cpu_csr(newcsr) ;
   return csr ;
 #elif defined(__aarch64__)
-  // flush to zero is FIZ bit 24, 1 to flush to zero
+  // flush to zero is FIZ (bit 24), 1 to flush to zero
   set_cpu_csr(csr & (~(1 << 24)) ) ;
   return csr ;
 #else

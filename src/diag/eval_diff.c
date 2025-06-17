@@ -92,7 +92,7 @@ int32_t array_compare_masked(void *f1, void *f2, int n, uint32_t mask){
   return errors ;
 }
 
-// scale floating point values for some tests
+// recursively scale floating point values for some exponent range tests
 void scale_floats(float *f, int n , float fact){
   int i ;
   for(i=1 ; i<n ; i++) f[i] = f[i-1] * fact ;
