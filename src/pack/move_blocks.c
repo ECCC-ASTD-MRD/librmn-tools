@@ -299,8 +299,12 @@ int analyze_data32_block(void *restrict src, int lnis, int ni, int nj, block_pro
   bp->kind   = bad_data ;
 
   if(ni  <  8) {
-    int32_t maxs = 0x80000000, mins = 0x7FFFFFFF, t ;
-    uint32_t minu = 0xFFFFFFFFu, maxu = 0 ;
+//     int32_t maxs = 0x80000000, mins = 0x7FFFFFFF, t ;
+//     uint32_t minu = 0xFFFFFFFFu, maxu = 0 ;
+    int32_t maxs, mins, t ;
+    uint32_t minu, maxu ;
+    maxs = mins = s[0] ;
+    maxu = minu = (uint32_t)s[0] ;
     while(nj--){
       switch(ni & 7){   // switch on row length
         //       copy value        signed min    signed max    unsigned min             unsigned max
@@ -320,11 +324,12 @@ int analyze_data32_block(void *restrict src, int lnis, int ni, int nj, block_pro
     int32_t *s0 ;
     int ni7, n ;
 
-    v1111 = ones_v256() ;
-    vmins = srli_v8i(v1111, 1)  ;  // 0x7FFFFFFF  huge positive
-    vmaxs = slli_v8i(v1111, 31) ;  // 0x80000000  huge negative
-    vminu = v1111 ;                // 0xFFFFFFFF  huge positive
-    vmaxu = zero_v256() ;
+//     v1111 = ones_v256() ;
+//     vmins = srli_v8i(v1111, 1)  ;  // 0x7FFFFFFF  huge positive
+//     vmaxs = slli_v8i(v1111, 31) ;  // 0x80000000  huge negative
+//     vminu = v1111 ;                // 0xFFFFFFFF  huge positive
+//     vmaxu = zero_v256() ;
+    vmins = vmaxs = vminu = vmaxu = loadu_v256((__v256i *)s) ;
     ni7 = (ni & 7) ;               // modulo(ni , 8)
     while(nj--){                                 // loop over rows
       n = ni ; s0 = s ;
@@ -383,8 +388,12 @@ int move_data32_block(void *restrict src, int lnis, void *restrict dst, int lnid
   bp->kind   = bad_data ;
 
   if(ni  <  8) {             // row is shorter than 8, pure scalar code
-    int32_t maxs = 0x80000000, mins = 0x7FFFFFFF, t ;
-    uint32_t minu = 0xFFFFFFFFu, maxu = 0 ;
+//     int32_t maxs = 0x80000000, mins = 0x7FFFFFFF, t ;
+//     uint32_t minu = 0xFFFFFFFFu, maxu = 0 ;
+    int32_t maxs, mins, t ;
+    uint32_t minu, maxu ;
+    maxs = mins = s[0] ;
+    maxu = minu = (uint32_t)s[0] ;
     while(nj--){
       switch(ni & 7){   // switch on row length
         //       copy value        signed min    signed max    unsigned min             unsigned max
@@ -404,11 +413,12 @@ int move_data32_block(void *restrict src, int lnis, void *restrict dst, int lnid
     int32_t *s0, *d0 ;
     int ni7, n ;
 
-    v1111 = ones_v256() ;                        // all ones 0xFFFFFFFF
-    vmins = srli_v8i(v1111, 1)  ;                // 0x7FFFFFFF  huge signed positive
-    vmaxs = slli_v8i(v1111, 31) ;                // 0x80000000  huge signed negative
-    vminu = v1111 ;                              // 0xFFFFFFFF  huge unsigned positive
-    vmaxu = zero_v256() ;                        // 0
+//     v1111 = ones_v256() ;                        // all ones 0xFFFFFFFF
+//     vmins = srli_v8i(v1111, 1)  ;                // 0x7FFFFFFF  huge signed positive
+//     vmaxs = slli_v8i(v1111, 31) ;                // 0x80000000  huge signed negative
+//     vminu = v1111 ;                              // 0xFFFFFFFF  huge unsigned positive
+//     vmaxu = zero_v256() ;                        // 0
+    vmins = vmaxs = vminu = vmaxu = loadu_v256((__v256i *)s) ;
     ni7 = (ni & 7) ;                             // modulo(ni , 8)
     while(nj--){                                 // loop over rows
       n = ni ; s0 = s ; d0 = d ;
@@ -557,47 +567,3 @@ int move_uint32_block(uint32_t *restrict src, int lnis, void *restrict dst, int 
   if(rc != 0) adjust_block_properties(bp, uint_data) ;
   return rc ;
 }
-// to be suppressed eventually
-#if 0
-// move a block (ni x nj) of 32 bit items from src to dst and compute properties
-// src      [IN] : array the data comes from
-// lnis     [IN] : row storage size of src
-// dst     [OUT] : array to receive data
-// lnid     [IN] : row storage size of dst
-// ni       [IN] : row size (row storage size of blk)
-// nj       [IN] : number of rows
-// datatype [IN] : data type int_data / uint_data / float_data / raw_data
-// bp      [OUT] : pointer to block properties struct (min / max / min abs) (IGNORED if NULL)
-// return number of values processed
-// to just analyze a block, call with dst == src, lnid == lnis, bp != NULL, datatype == float_data or int_data or uint_data
-int move_word32_block(void *restrict src, int lnis, void *restrict dst, int lnid, int ni, int nj, data_kind datatype, block_properties *bp){
-  if(datatype == float_data && bp != NULL){
-    return move_float_block(src, lnis, dst, lnid, ni, nj, bp) ;
-
-  }else if(datatype == int_data && bp != NULL){
-    return move_int32_block(src, lnis, dst, lnid, ni, nj, bp) ;
-
-  }else if(datatype == uint_data && bp != NULL){
-    return move_uint32_block(src, lnis, dst, lnid, ni, nj, bp) ;
-
-  }else if(datatype == raw_data || bp == NULL){     // no data analysis will be performed
-    int nij = move_mem32_block(src, lnis, dst, lnid, ni, nj, NULL) ;
-    if(bp != NULL){
-      bp->maxu.u = 0 ;
-      bp->maxs.u = 0 ;
-      bp->minu.u = 0 ;
-      bp->mins.u = 0 ;
-      bp->kind   = (nij > 0) ? raw_data : bad_data ;
-      bp->zeros  = -1 ;
-    }
-    return nij ;
-
-  }else{       // bad data type
-    if(bp != NULL){
-      bp->kind   = bad_data ;
-      bp->zeros  = -1 ;
-    }
-    return -1 ;
-  }
-}
-#endif
