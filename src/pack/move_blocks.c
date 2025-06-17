@@ -300,7 +300,7 @@ int analyze_data32_block(void *restrict src, int lnis, int ni, int nj, block_pro
 
   if(ni  <  8) {
     int32_t maxs = 0x80000000, mins = 0x7FFFFFFF, t ;
-    uint32_t minu = 0x7FFFFFFF, maxu = 0 ;
+    uint32_t minu = 0xFFFFFFFFu, maxu = 0 ;
     while(nj--){
       switch(ni & 7){   // switch on row length
         //       copy value        signed min    signed max    unsigned min             unsigned max
@@ -384,7 +384,7 @@ int move_data32_block(void *restrict src, int lnis, void *restrict dst, int lnid
 
   if(ni  <  8) {             // row is shorter than 8, pure scalar code
     int32_t maxs = 0x80000000, mins = 0x7FFFFFFF, t ;
-    uint32_t minu = 0x7FFFFFFF, maxu = 0 ;
+    uint32_t minu = 0xFFFFFFFFu, maxu = 0 ;
     while(nj--){
       switch(ni & 7){   // switch on row length
         //       copy value        signed min    signed max    unsigned min             unsigned max
