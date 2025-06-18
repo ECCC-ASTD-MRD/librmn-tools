@@ -54,8 +54,7 @@ int main(int argc, char **argv){
     i = i64 ;
     float r   = fi32_to_fp32(i) ;
     int32_t t = fp32_to_fi32(r) ;
-    // 0x80000000 -> -0.0, -0.0 -> 0
-    if(i == i0 && t == 0) continue ;
+    if(i == i0 && t == 0) continue ;    // 0x80000000 -> -0.0, -0.0 -> 0
     if(i != t) {
       fprintf(stderr, "ERROR: expecting %d from %f, got %d\n", i, r, t) ;
       goto fail ;
