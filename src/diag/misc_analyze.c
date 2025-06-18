@@ -55,16 +55,129 @@ void Analyze_4x4_reset(){
   for(i = 0 ; i < NEDIFF ; i++ ) ediff[i] = 0 ;
 }
 
-#define TSZ 4
+int64_t block_sum(int32_t ni, int32_t nj, int32_t nbits[nj][ni], int32_t bsz){
+  int i0, j0, in, jn, i, j ;
+  int64_t total = 0 ;
+  for(j0=0 ; j0<nj ; j0+=bsz){
+    jn = ((j0+bsz) < (nj+1)) ? (j0+bsz) : nj ;
+    for(i0=0 ; i0<ni ; i0+=bsz){
+      in = ((i0+bsz) < (ni+1)) ? (i0+bsz) : nj ;
+      int32_t bmax = 0 ;
+      for(j=j0 ; j<jn ; j++){
+        for(i=i0 ; i<in ; i++){
+          bmax = (nbits[j][i] > bmax) ? nbits[j][i] : bmax ;
+        }
+      }
+      total = total + bmax * (jn-j0) * (in-i0) + 8 ;
+      if(bmax > 15) total += 4 ;
+    }
+  }
+  return total ;
+}
+
+// #define TSZ 8
 
 // #include <rmn/ieee_functions.h>
 #include <rmn/move_blocks.h>
+#include <rmn/bits.h>
 
-void Analyze_NxN(float *f_, int32_t ni, int32_t nj, char *name){
+// analyze 1D array f[1][ni] or 2D array f[nj][ni]
+void Analyze_N(float *zf, int32_t ni, int32_t nj, char *name){
+  union{ int32_t i ; uint32_t u ; float f ; } iuf1 ;
+  int32_t i, j, t, zi[nj][ni], nbits[nj][ni], errors ;
+  int32_t mind, maxd ;
+  float fmin, fmax, amin, amax ;
+  float (*z)[ni] = (void *)zf ;
+  float zr[nj][ni] ;
+  block_properties bp ;
+  int32_t bits[33] ;
+  int64_t /*tbits,*/ tbits0 ;
+
+  analyze_data32_block(zf, ni, ni, nj, &bp) ;
+  adjust_block_properties(&bp, float_data);
+  fmin = FLOAT_MIN_VALUE(bp) ;
+  fmax = FLOAT_MAX_VALUE(bp) ;
+  amin = FLOAT_MIN_ABS(bp) ;
+  amax = FLOAT_MAX_ABS(bp) ;
+  fprintf(stderr, "%4s[%d,%d] : min=%9.3G[%9.3G], max=%9.3G[%9.3G]", name, ni, nj, fmin, amin, fmax, amax) ;
+
+  if(nj == 1){
+    for(i=0 ; i<33 ; i++) bits[i] = 0 ;
+    mind = 0x7FFFFFFF ;
+    maxd = 0x80000000 ;
+//     tbits = 0 ;
+    for(i=1 ; i<ni*nj ; i++){
+      t = fp32_to_fi32(zf[i]) - fp32_to_fi32(zf[i-1]) ;
+      t = (t < 0) ? -t : t ;
+      maxd = (t > maxd) ? t : maxd ;
+      mind = (t < mind) ? t : mind ;
+      bits[33-lzcnt_32(t)]++ ;
+//       tbits += (33-lzcnt_32(t)) ;
+      nbits[0][i] = (33-lzcnt_32(t)) ;
+    }
+    tbits0 = block_sum(ni, nj, nbits, 32) ;
+    fprintf(stderr, ", mind = %8.8x, maxd = %8.8x\n", mind, maxd) ;
+    for(i=0 ; i<16 ; i++) fprintf(stderr, "%6d ",bits[i]) ;
+    fprintf(stderr, "\n") ;
+    for(i=16 ; i<33 ; i++) fprintf(stderr, "%6d ",bits[i]) ;
+    fprintf(stderr, " [%ld] %4.2f/pt\n\n", tbits0, tbits0*1.0f/(ni*nj)) ;
+
+    return ;
+  }
+// nj > 1
+  fprintf(stderr, "\n") ;
+  for(j=0 ; j<nj ; j++){
+    for(i=0 ; i<ni ; i++){
+      zi[j][i] = fp32_to_fi32(z[j][i]) ;
+//       zi[j][i] >>= 7 ;
+    }
+  }
+  for(j=0 ; j<nj ; j++){
+    for(i=0 ; i<ni ; i++){
+      t = zi[j][i] ;
+      zr[j][i] = fi32_to_fp32(t) ;
+    }
+  }
+  errors = 0 ;
+  for(j=0 ; j<nj ; j++){
+    for(i=0 ; i<ni ; i++){
+      if(zr[j][i] != z[j][i]) errors++ ;
+    }
+  }
+  fprintf(stderr,"zr vs z errors = %d\n", errors) ;
+  for(j=nj-1 ; j>0 ; j--){
+    for(i=ni-1 ; i>0 ; i--){
+      zi[j][i] = (zi[j][i] - zi[j][i-1]) + (zi[j-1][i-1] - zi[j-1][i]) ;
+    }
+    zi[j][0] = zi[j][0] - zi[j-1][0] ;
+  }
+  for(i=ni-1 ; i > 0 ; i--) { zi[0][i] = zi[0][i] - zi[0][i-1] ; }
+
+//   tbits = 0 ;
+  for(i=0 ; i<33 ; i++) bits[i] = 0 ;
+  for(j=0 ; j<nj ; j++){
+    for(i=0 ; i<ni ; i++){
+      int32_t t = zi[j][i] ;
+      t = (t < 0) ? -t : t ;
+      bits[33-lzcnt_32(t)]++ ;
+//       tbits += (33-lzcnt_32(t)) ;
+      nbits[j][i] = (33-lzcnt_32(t)) ;
+    }
+  }
+  tbits0 = block_sum(ni, nj, nbits, 8) ;
+  for(i=0 ; i<16 ; i++) fprintf(stderr, "%6d ",bits[i]) ;
+  fprintf(stderr, "\n") ;
+  for(i=16 ; i<33 ; i++) fprintf(stderr, "%6d ",bits[i]) ;
+    fprintf(stderr, " [%ld] %4.2f/pt\n\n", tbits0, tbits0*1.0f/(ni*nj)) ;
+}
+
+// analyze TSZ x TSZ sub blocks from array f_[nj][ni]
+void Analyze_NxN(float *f_, int32_t ni, int32_t nj, char *name, int TSZ){
   float (* f)[ni] = (void *)f_ ;
   int i, j, i0, j0, tiles = 0 ;
   int32_t e_zero = 0 ;
-  iuf32_t iuf ;
+//   iuf32_t iuf1 ;
+  union{ int32_t i ; uint32_t u ; float f ; } iuf1, iuf2 ;
   float fmin, fmax, amin, amax, zero, zdef ;
   int32_t min, max, values ;
   block_properties bp ;
@@ -76,69 +189,49 @@ void Analyze_NxN(float *f_, int32_t ni, int32_t nj, char *name){
   fmax = FLOAT_MAX_VALUE(bp) ;
   amin = FLOAT_MIN_ABS(bp) ;
   amax = FLOAT_MAX_ABS(bp) ;
-  iuf.f = amax ;
-  e_zero = ((iuf.i >> 23) & 0xFF) - 15 ;
+  iuf1.f = amax ;
+  e_zero = ((iuf1.i >> 23) & 0xFF) - 15 ;
   e_zero = (e_zero > 0) ? e_zero : 1 ;
-  iuf.i = e_zero << 23 ; zdef = iuf.f ;
+  iuf1.i = e_zero << 23 ; zdef = iuf1.f ;
   zero = var_zero(name, zdef) ;
   e_zero = fp32_exp_raw(zero) ;
 
 //   errmax = 0.0f ;
   float local[TSZ][TSZ] ;
   int32_t ztiles = 0 ;
-  fprintf(stderr, "%4s : min=%9.3G[%9.3G], max=%9.3G[%9.3G], zero=%9.3E(%3d), ", name, fmin, amin, fmax, amax, zero, e_zero) ;
+  fprintf(stderr, "%4s[%d,%d] : min=%9.3G[%9.3G], max=%9.3G[%9.3G], zero=%9.3E(%3d), ", name, ni, nj, fmin, amin, fmax, amax, zero, e_zero) ;
   values = 0 ;
   for(j0=0 ; j0<nj-TSZ+1 ; j0+=TSZ){
     for(i0=0 ; i0<ni-TSZ+1 ; i0+=TSZ){
-      values += (TSZ * TSZ) ;
-      move_float_block((void *)(&f[j0][i0]), ni, (void *)local, TSZ, TSZ, TSZ, &bp) ;
-      iuf.f = FLOAT_MIN_ABS(bp) ; min = iuf.i ; if(min < e_zero) e_zero = e_zero ;
-      iuf.f = FLOAT_MAX_ABS(bp) ; max = iuf.i ;
       tiles++ ;
-      max >>= 23 ; min >>= 23 ;
+      values += (TSZ * TSZ) ;
+      move_float_block((void *)(&f[j0][i0]), TSZ, (void *)local, TSZ, TSZ, TSZ, &bp) ;
+      iuf1.f = FLOAT_MIN_ABS(bp) ; min = (iuf1.u >> 23) & 0xFF ; if(min < e_zero) min = e_zero ;
+      iuf2.f = FLOAT_MAX_ABS(bp) ; max = (iuf2.u >> 23) & 0xFF ;
       if(max < e_zero){            // "zero" tiles
         max = e_zero ;
         min = max - 12 ;
         ztiles++ ;
       }
-      if((max - min) > 16){       // tiles with "too large" exponent range
-        min = max - 18 ;          // set range to 18
+      if((max - min) > 16){       // tiles with "too large" an exponent range
+        min = max - 18 ;          // arbitrarily set range to 18
         under++ ;
       }
-      ediff[max-min]++ ;
+      ediff[max-min]++ ;          // increment count for this difference between max and min
       for(j=0 ; j<TSZ ; j++){     // count number of "zero" values
         for(i=0 ; i<TSZ ; i++){
           iuf32_t s ;
           s.f = local[j][i] ;
-          if( ((s.u >> 23) & 0xFF) < e_zero) zeros++ ;
+          if( ((s.i >> 23) & 0xFF) < e_zero) zeros++ ;
         }
       }
-//       for(j=j0 ; j<j0+TSZ ; j++){
-//         for(i=i0 ; i<i0+TSZ ; i++){
-//           iuf32_t s, d ;
-//           uint32_t sign ;
-//           s.f = f[j][i] ;
-//           sign = s.u & 0x80000000u ;
-//           d.u = s.u & 0x7FFFFFFFu ;     // abs value
-//           d.u += (1 << 6) ;             // rounding term
-//           d.u = d.u & 0x7FFFF800u ;     // clip after rounding
-//           if(d.f < zero){
-//             d.f = 0.0f ;
-//             zeros++ ;
-//           }else{
-//             d.u |= sign ;
-//           }
-//           errf = d.f - s.f ;
-//           errf = (errf < 0) ? -errf : errf ;
-//           errmax = (errf > errmax) ? errf : errmax ;
-//         }
-//       }
     }
   }
+  ediff[255] = 0 ;
   for(i=0 ; i<19 ; i++){
     ediff[255] += ediff[i] ;
   }
-  if(ediff[255] != tiles) exit(1) ;
+  if(ediff[255] != tiles) exit(1) ;   // inconsistent tile count
 
   fprintf(stderr, "%6d tiles [ ", tiles) ;
   ediff[17] = ztiles ;   // "zero" tiles
@@ -154,6 +247,7 @@ void Analyze_NxN(float *f_, int32_t ni, int32_t nj, char *name){
   if(ediff[18] != under) exit(1) ;   // ERROR, inconsistent counts
   for(i=0 ; i<21 ; i++){
     if(i>5 && i<17) continue ;
+//     if(i ==  0) fprintf(stderr, ", same =");
     if(i == 17) fprintf(stderr, ", tiles0 =");
     if(i == 18) fprintf(stderr, ", bigexp =");
     if(i == 19) fprintf(stderr, ", values =");

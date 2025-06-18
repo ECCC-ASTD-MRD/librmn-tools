@@ -2,10 +2,17 @@ module analyze_itf
   use ISO_C_BINDING
   implicit none
   interface
-    subroutine Analyze_NxN(f, ni, nj, varname) bind(C, name='Analyze_NxN')
+    subroutine Analyze_N(f, ni, nj, varname) bind(C, name='Analyze_N')
       import :: C_FLOAT, C_INT32_T, C_CHAR
       implicit none
       integer(C_INT32_T), intent(IN), value :: ni, nj
+      real(C_FLOAT), dimension(ni), intent(IN) :: f
+      character(C_CHAR), dimension(4) :: varname
+    end subroutine
+    subroutine Analyze_NxN(f, ni, nj, varname, tsz) bind(C, name='Analyze_NxN')
+      import :: C_FLOAT, C_INT32_T, C_CHAR
+      implicit none
+      integer(C_INT32_T), intent(IN), value :: ni, nj, tsz
       real(C_FLOAT), dimension(ni,nj), intent(IN) :: f
       character(C_CHAR), dimension(4) :: varname
     end subroutine
@@ -66,6 +73,26 @@ program fstd_to_raw
 
   key = fstinf(iun,ni,nj,nk,-1,'            ',-1,-1,-1,'  ','    ') ! select any record
   do while(key >= 0)
+    if(ni ==1 .or. nj == 1)then
+      if(ni*nj*nk > sizep) then
+        if(associated(p)) deallocate(p)
+        sizep = ni*nj*nk
+        allocate(p(sizep))
+      endif
+      call fstprm(key,date,deet,npas,ni,nj,nk,nbits,datyp,ip1,ip2,ip3,  &
+                  typvar,nomvar,etiket,grtyp,ig1,ig2,ig3,ig4,           &
+                  swa,lng,dltf,ubc,extra1,extra2,extra3)
+      e32 = nbits .eq. 32
+      e32 = e32 .and. (datyp .eq. 5 .or. datyp .eq. 133)
+      if(e32) then  ! select desired variable name
+        call fstluk(p,key,ni,nj,nk)
+!         write(0,*)'processing '//nomvar(1:4), ni, 'x', nj
+        call Analyze_N(p, ni*nj, 1, nomvar//char(0))
+        irec = irec + 1
+      else
+!         write(0,*)'ignoring '//nomvar(1:4), ni, 'x', nj
+      endif    ! select desired variable name
+    endif
     if(ni>10 .and. nj>10) then
       if(ni*nj*nk > sizep) then
         if(associated(p)) deallocate(p)
@@ -84,7 +111,9 @@ program fstd_to_raw
       if(e32) then  ! select desired variable name
         call fstluk(p,key,ni,nj,nk)
 !         write(0,*)'processing '//nomvar(1:4), ni, 'x', nj
-        call Analyze_NxN(p, ni, nj, nomvar//char(0))
+!         call Analyze_N(p, ni*nj, 1, nomvar//char(0))
+        call Analyze_N(p, ni, nj, nomvar//char(0))
+        call Analyze_NxN(p, ni, nj, nomvar//char(0), 8)
         irec = irec + 1
       else
 !         write(0,*)'ignoring '//nomvar(1:4), ni, 'x', nj
