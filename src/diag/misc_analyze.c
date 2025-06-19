@@ -65,10 +65,12 @@ void copy_32(int32_t *dst, int32_t *src, int32_t n){
 
 int32_t compare_floats(float *old, float *new, int32_t n){
   int32_t i, diff = 0;
-  float err, maxerr = 0.0f, relerr = 0.0f ; ;
+  float err, maxerr = 0.0f, relerr = 0.0f ;
+  double bias = 0.0 ;
   for(i=0 ; i<n ; i++) {
     if(old[i] != new[i]) diff++ ;
     err = old[i] - new[i] ;
+    bias += err ;
     err = (err < 0) ? (-err) : err ;
     maxerr = (err > maxerr) ? err : maxerr ;
     if(new[i] != 0.0f){
@@ -77,7 +79,7 @@ int32_t compare_floats(float *old, float *new, int32_t n){
       relerr = (err > relerr) ? err : relerr ;
     }
   }
-  fprintf(stderr, "max abs err = %9.2E, max relerr = 1 part in %9.0f\n", maxerr, 1.0f/relerr) ;
+  fprintf(stderr, "max abs err = %9.2E, max relerr = 1 part in %9.0f, bias = %9.2E\n", maxerr, 1.0f/relerr, bias / n) ;
   return diff ;
 }
 
@@ -196,10 +198,13 @@ void Analyze_N(float *zf, int32_t ni, int32_t nj, char *name){
 
   }else{
     fprintf(stderr, "\n") ;
+    int32_t shift = 11 ;
     for(j=0 ; j<nj ; j++){
       for(i=0 ; i<ni ; i++){
-        zi[j][i] = fp32_to_fi32(z[j][i]) ;
-        zi[j][i] >>= 7 ;
+        zi[j][i] = fp32_to_fsi32(z[j][i], shift) ;
+//         zi[j][i] = fp32_to_fi32(z[j][i]) ;
+//         zi[j][i] += (1 << 6) ;
+//         zi[j][i] >>= 7 ;
       }
     }
     copy_32((void *)ri, (void *)zi, ni*nj) ;
@@ -218,8 +223,9 @@ void Analyze_N(float *zf, int32_t ni, int32_t nj, char *name){
     for(j=0 ; j<nj ; j++){
       for(i=0 ; i<ni ; i++){
         t = zi[j][i] ;
-        t <<= 7 ;
-        zr[j][i] = fi32_to_fp32(t) ;
+//         t <<= 7 ;
+//         zr[j][i] = fi32_to_fp32(t) ;
+        zr[j][i] = fsi32_to_fp32(t, shift) ;
       }
     }
     errors = compare_floats((void *)zr, (void *)z, ni*nj) ;

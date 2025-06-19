@@ -96,6 +96,21 @@ static inline int32_t fp32_to_fi32(float f){
   return r.i ;                // float represented as an integer
 }
 
+// sign magnitude float to rounded and scaled signed integer, order preserving
+// both 0.0 and -0.0 come back as 0
+static inline int32_t fp32_to_fsi32(float f, int nbits){
+  union{ int32_t i ; uint32_t u ; float f ; } r ;
+  r.f = f ;
+  int32_t round = ((1 << nbits) >> 1) ;
+  int32_t t = (r.i >> 31) ;   // 0 or 0xFFFFFFFF
+  r.i &= 0x7FFFFFFF ;         // get rid of sign
+  r.i = (r.i + round) ;       // round
+  r.i >>= nbits ;             // scale the absolute value, then apply sign
+  r.i ^= t ;                  // no-op if t == 0, negate if t == 0xFFFFFFFF
+  r.i -= t ;                  // complement and add 1 is 2's complement negate
+  return r.i ;                // float represented as an integer
+}
+
 // restore float from fake integer representing float
 // static inline float int_as_fp32(int32_t fake){
 //   union{ int32_t i ; uint32_t u ; float f ; } r ;
@@ -110,6 +125,18 @@ static inline float fi32_to_fp32(int32_t i){
   int32_t t = (r.i >> 31) ;     // 0 or 0xFFFFFFFF
   r.i ^= t ;                    // no-op if t == 0, negate if t == 0xFFFFFFFF
   r.i -= t ;                    // complement and add 1 is 2's complement negate
+  r.i |= (t << 31) ;            // restore sign bit
+  return r.f ;                  // restored float
+}
+
+// rounded and scaled signed integer to sign magnitude float, order preserving
+static inline float fsi32_to_fp32(int32_t i, int nbits){
+  union{ int32_t i ; float f ; } r ;
+  int32_t t = (i >> 31) ;       // 0 or 0xFFFFFFFF
+  r.i = i ;                     // will need absolute value of i
+  r.i ^= t ;                    // no-op if t == 0, negate if t == 0xFFFFFFFF
+  r.i -= t ;                    // complement and add 1 is 2's complement negate
+  r.i <<= nbits ;               // unscale the absolute value
   r.i |= (t << 31) ;            // restore sign bit
   return r.f ;                  // restored float
 }
