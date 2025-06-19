@@ -78,12 +78,6 @@ static inline int32_t fp32_allow_denorm(void){
 }
 
 // transform a float into a fake signed integer (comparison order preserving)
-// static inline int32_t fp32_as_int(float f){
-//   union{ int32_t i ; uint32_t u ; float f ; } r ;
-//   r.f = f ;
-//   return (r.i & 0x7FFFFFFF) ^ (r.i >> 31) ;
-// }
-
 // sign magnitude float to signed integer, order preserving
 // both 0.0 and -0.0 come back as 0
 static inline int32_t fp32_to_fi32(float f){
@@ -104,7 +98,7 @@ static inline int32_t fp32_to_fsi32(float f, int nbits){
   int32_t round = ((1 << nbits) >> 1) ;
   int32_t t = (r.i >> 31) ;   // 0 or 0xFFFFFFFF
   r.i &= 0x7FFFFFFF ;         // get rid of sign
-  r.i = (r.i + round) ;       // round
+  r.i = (r.i + round) ;       // apply rounding term to absolute value
   r.i >>= nbits ;             // scale the absolute value, then apply sign
   r.i ^= t ;                  // no-op if t == 0, negate if t == 0xFFFFFFFF
   r.i -= t ;                  // complement and add 1 is 2's complement negate
@@ -112,12 +106,6 @@ static inline int32_t fp32_to_fsi32(float f, int nbits){
 }
 
 // restore float from fake integer representing float
-// static inline float int_as_fp32(int32_t fake){
-//   union{ int32_t i ; uint32_t u ; float f ; } r ;
-//   r.i = ((fake >> 31) ^ fake) | (fake & 0x80000000) ;
-//   return r.f ;
-// }
-
 // signed integer to sign magnitude float, order preserving
 static inline float fi32_to_fp32(int32_t i){
   union{ int32_t i ; float f ; } r ;
@@ -137,7 +125,7 @@ static inline float fsi32_to_fp32(int32_t i, int nbits){
   r.i ^= t ;                    // no-op if t == 0, negate if t == 0xFFFFFFFF
   r.i -= t ;                    // complement and add 1 is 2's complement negate
   r.i <<= nbits ;               // unscale the absolute value
-  r.i |= (t << 31) ;            // restore sign bit
+  r.i |= (t << 31) ;            // restore the sign bit
   return r.f ;                  // restored float
 }
 

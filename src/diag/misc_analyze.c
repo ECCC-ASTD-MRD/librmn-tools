@@ -219,7 +219,7 @@ void Analyze_N(float *zf, int32_t ni, int32_t nj, char *name){
 
     unpredict((int32_t *)zi, ni, nj) ;
     errors = compare_ints((void *)zi, (void *)ri, ni*nj) ;
-    fprintf(stderr,"zi vs ri errors = %d\n", errors) ;
+    fprintf(stderr,"zi vs ri differences = %d\n", errors) ;
     for(j=0 ; j<nj ; j++){
       for(i=0 ; i<ni ; i++){
         t = zi[j][i] ;
@@ -229,7 +229,7 @@ void Analyze_N(float *zf, int32_t ni, int32_t nj, char *name){
       }
     }
     errors = compare_floats((void *)zr, (void *)z, ni*nj) ;
-    fprintf(stderr,"zr vs z errors = %d\n", errors) ;
+    fprintf(stderr,"zr vs z differences = %d\n", errors) ;
   }
 }
 
