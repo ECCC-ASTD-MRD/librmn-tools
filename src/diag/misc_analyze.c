@@ -18,6 +18,9 @@
 #include <string.h>
 
 #include <rmn/data_kind.h>
+// #include <rmn/ieee_functions.h>
+#include <rmn/move_blocks.h>
+#include <rmn/bits.h>
 
 typedef struct{
   char *name ;
@@ -55,6 +58,77 @@ void Analyze_4x4_reset(){
   for(i = 0 ; i < NEDIFF ; i++ ) ediff[i] = 0 ;
 }
 
+void copy_32(int32_t *dst, int32_t *src, int32_t n){
+  int32_t i ;
+  for(i=0 ; i<n ; i++){ dst[i] = src[i] ; } ;
+}
+
+int32_t compare_floats(float *old, float *new, int32_t n){
+  int32_t i, diff = 0;
+  float err, maxerr = 0.0f, relerr = 0.0f ; ;
+  for(i=0 ; i<n ; i++) {
+    if(old[i] != new[i]) diff++ ;
+    err = old[i] - new[i] ;
+    err = (err < 0) ? (-err) : err ;
+    maxerr = (err > maxerr) ? err : maxerr ;
+    if(new[i] != 0.0f){
+      err = err / old[i] ;
+      err = (err < 0) ? (-err) : err ;
+      relerr = (err > relerr) ? err : relerr ;
+    }
+  }
+  fprintf(stderr, "max abs err = %9.2E, max relerr = 1 part in %9.0f\n", maxerr, 1.0f/relerr) ;
+  return diff ;
+}
+
+int32_t compare_ints(uint32_t *old, uint32_t *new, int32_t n){
+  int32_t i, diff = 0;
+  for(i=0 ; i<n ; i++) {
+    if(old[i] != new[i]) diff++ ;
+  }
+  return diff ;
+}
+
+// Lorenzo inverse predictor
+void unpredict(int32_t *what, int32_t ni, int32_t nj){
+  int32_t i, j, (* zi)[ni] = (void *) what ;
+  for(i=1 ; i<ni ; i++){ zi[0][i] = zi[0][i] + zi[0][i-1] ; }
+  for(j=1 ; j<nj ; j++){
+    zi[j][0] = zi[j][0] + zi[j-1][0] ;
+    for(i=1 ; i<ni ; i++) { zi[j][i] = zi[j][i] + zi[j][i-1] + zi[j-1][i] - zi[j-1][i-1] ; }
+  }
+}
+
+// Lorenzo predictor
+void predict(int32_t *what, int32_t ni, int32_t nj){
+  int32_t i, j, (* zi)[ni] = (void *) what ;
+  int32_t  t[ni] ;
+  for(j=nj-1 ; j>0 ; j--){
+    t[0] = zi[j][0] - zi[j-1][0] ;
+    for(i=1 ; i<ni ; i++){ t[i] = (zi[j][i] - zi[j][i-1]) + (zi[j-1][i-1] - zi[j-1][i]) ; }
+    for(i=0 ; i<ni ; i++){ zi[j][i] = t[i] ; }
+  }
+  for(i=1 ; i<ni ; i++){ t[i] = zi[0][i] - zi[0][i-1] ; }
+  for(i=1 ; i<ni ; i++){ zi[0][i] = t[i] ; }
+}
+
+int64_t count_bits(int32_t ni, int32_t nj, int32_t nbits[nj][ni], int32_t zi[nj][ni], int32_t bits[33]){
+  int i, j ;
+  int64_t totbits = 0 ;
+  for(i=0 ; i<33 ; i++) bits[i] = 0 ;
+  for(j=0 ; j<nj ; j++){
+    for(i=0 ; i<ni ; i++){
+      int32_t t = zi[j][i] ;
+      t = (t < 0) ? -t : t ;
+      int32_t n = (33-lzcnt_32(t)) ;
+      nbits[j][i] = n ;
+      bits[n]++ ;
+      totbits += n ;
+    }
+  }
+  return totbits ;
+}
+
 int64_t block_sum(int32_t ni, int32_t nj, int32_t nbits[nj][ni], int32_t bsz){
   int i0, j0, in, jn, i, j ;
   int64_t total = 0 ;
@@ -77,21 +151,17 @@ int64_t block_sum(int32_t ni, int32_t nj, int32_t nbits[nj][ni], int32_t bsz){
 
 // #define TSZ 8
 
-// #include <rmn/ieee_functions.h>
-#include <rmn/move_blocks.h>
-#include <rmn/bits.h>
-
 // analyze 1D array f[1][ni] or 2D array f[nj][ni]
 void Analyze_N(float *zf, int32_t ni, int32_t nj, char *name){
   union{ int32_t i ; uint32_t u ; float f ; } iuf1 ;
-  int32_t i, j, t, zi[nj][ni], nbits[nj][ni], errors ;
+  int32_t i, j, t, zi[nj][ni], ri[nj][ni], nbits[nj][ni], errors ;
   int32_t mind, maxd ;
   float fmin, fmax, amin, amax ;
   float (*z)[ni] = (void *)zf ;
   float zr[nj][ni] ;
   block_properties bp ;
   int32_t bits[33] ;
-  int64_t /*tbits,*/ tbits0 ;
+  int64_t tbits, tbits0 ;
 
   analyze_data32_block(zf, ni, ni, nj, &bp) ;
   adjust_block_properties(&bp, float_data);
@@ -105,70 +175,56 @@ void Analyze_N(float *zf, int32_t ni, int32_t nj, char *name){
     for(i=0 ; i<33 ; i++) bits[i] = 0 ;
     mind = 0x7FFFFFFF ;
     maxd = 0x80000000 ;
-//     tbits = 0 ;
+    tbits = 0 ;
+    nbits[0][0] = 32 ;
     for(i=1 ; i<ni*nj ; i++){
       t = fp32_to_fi32(zf[i]) - fp32_to_fi32(zf[i-1]) ;
       t = (t < 0) ? -t : t ;
+      int32_t nb = (33-lzcnt_32(t)) ;
       maxd = (t > maxd) ? t : maxd ;
       mind = (t < mind) ? t : mind ;
-      bits[33-lzcnt_32(t)]++ ;
-//       tbits += (33-lzcnt_32(t)) ;
-      nbits[0][i] = (33-lzcnt_32(t)) ;
+      bits[nb]++ ;
+      nbits[0][i] = nb ;
+      tbits += nb ;
     }
     tbits0 = block_sum(ni, nj, nbits, 32) ;
     fprintf(stderr, ", mind = %8.8x, maxd = %8.8x\n", mind, maxd) ;
     for(i=0 ; i<16 ; i++) fprintf(stderr, "%6d ",bits[i]) ;
     fprintf(stderr, "\n") ;
     for(i=16 ; i<33 ; i++) fprintf(stderr, "%6d ",bits[i]) ;
-    fprintf(stderr, " [%ld] %4.2f/pt\n\n", tbits0, tbits0*1.0f/(ni*nj)) ;
+    fprintf(stderr, " [%ld|%ld] %4.2f bits/pt\n\n", tbits, tbits0, tbits0*1.0f/(ni*nj)) ;
 
-    return ;
-  }
-// nj > 1
-  fprintf(stderr, "\n") ;
-  for(j=0 ; j<nj ; j++){
-    for(i=0 ; i<ni ; i++){
-      zi[j][i] = fp32_to_fi32(z[j][i]) ;
-//       zi[j][i] >>= 7 ;
+  }else{
+    fprintf(stderr, "\n") ;
+    for(j=0 ; j<nj ; j++){
+      for(i=0 ; i<ni ; i++){
+        zi[j][i] = fp32_to_fi32(z[j][i]) ;
+        zi[j][i] >>= 7 ;
+      }
     }
-  }
-  for(j=0 ; j<nj ; j++){
-    for(i=0 ; i<ni ; i++){
-      t = zi[j][i] ;
-      zr[j][i] = fi32_to_fp32(t) ;
-    }
-  }
-  errors = 0 ;
-  for(j=0 ; j<nj ; j++){
-    for(i=0 ; i<ni ; i++){
-      if(zr[j][i] != z[j][i]) errors++ ;
-    }
-  }
-  fprintf(stderr,"zr vs z errors = %d\n", errors) ;
-  for(j=nj-1 ; j>0 ; j--){
-    for(i=ni-1 ; i>0 ; i--){
-      zi[j][i] = (zi[j][i] - zi[j][i-1]) + (zi[j-1][i-1] - zi[j-1][i]) ;
-    }
-    zi[j][0] = zi[j][0] - zi[j-1][0] ;
-  }
-  for(i=ni-1 ; i > 0 ; i--) { zi[0][i] = zi[0][i] - zi[0][i-1] ; }
+    copy_32((void *)ri, (void *)zi, ni*nj) ;
+    predict((int32_t *)zi, ni, nj) ;
 
-//   tbits = 0 ;
-  for(i=0 ; i<33 ; i++) bits[i] = 0 ;
-  for(j=0 ; j<nj ; j++){
-    for(i=0 ; i<ni ; i++){
-      int32_t t = zi[j][i] ;
-      t = (t < 0) ? -t : t ;
-      bits[33-lzcnt_32(t)]++ ;
-//       tbits += (33-lzcnt_32(t)) ;
-      nbits[j][i] = (33-lzcnt_32(t)) ;
+    tbits = count_bits(ni, nj, nbits, zi, bits) ;
+    tbits0 = block_sum(ni, nj, nbits, 4) ;
+    for(i=0  ; i<16 ; i++){ fprintf(stderr, "%6d ",bits[i]) ; }
+    fprintf(stderr, "\n") ;
+    for(i=16 ; i<33 ; i++){ fprintf(stderr, "%6d ",bits[i]) ; }
+    fprintf(stderr, " [%ld|%ld] %4.2f bits/pt\n\n", tbits, tbits0, tbits0*1.0f/(ni*nj)) ;
+
+    unpredict((int32_t *)zi, ni, nj) ;
+    errors = compare_ints((void *)zi, (void *)ri, ni*nj) ;
+    fprintf(stderr,"zi vs ri errors = %d\n", errors) ;
+    for(j=0 ; j<nj ; j++){
+      for(i=0 ; i<ni ; i++){
+        t = zi[j][i] ;
+        t <<= 7 ;
+        zr[j][i] = fi32_to_fp32(t) ;
+      }
     }
+    errors = compare_floats((void *)zr, (void *)z, ni*nj) ;
+    fprintf(stderr,"zr vs z errors = %d\n", errors) ;
   }
-  tbits0 = block_sum(ni, nj, nbits, 8) ;
-  for(i=0 ; i<16 ; i++) fprintf(stderr, "%6d ",bits[i]) ;
-  fprintf(stderr, "\n") ;
-  for(i=16 ; i<33 ; i++) fprintf(stderr, "%6d ",bits[i]) ;
-    fprintf(stderr, " [%ld] %4.2f/pt\n\n", tbits0, tbits0*1.0f/(ni*nj)) ;
 }
 
 // analyze TSZ x TSZ sub blocks from array f_[nj][ni]
