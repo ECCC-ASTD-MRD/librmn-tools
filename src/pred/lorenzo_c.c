@@ -270,7 +270,7 @@ STATIC inline void LorenzoPredictRowJ_inplace(int32_t * restrict top, int32_t * 
 // nj   : number of rows
 // the SIMD version tends to be 1.5-4 times faster than the non SIMD version
 void LorenzoPredictInplace(int32_t * restrict orig, int ni, int lnio, int nj){
-fprintf(stderr, "LorenzoPredictInplace : ni = %d, lni = %d, nj = %d\n", ni, lnio, nj) ;
+// fprintf(stderr, "LorenzoPredictInplace : ni = %d, lni = %d, nj = %d\n", ni, lnio, nj) ;
   orig += (lnio * (nj - 1)) ;
   while(--nj > 0){                                    // all rows other than bottom row
     LorenzoPredictRowJ_inplace(orig, orig-lnio, ni) ; // predict upper row in row pair -> diff
@@ -334,7 +334,7 @@ void LorenzoUnpredictInplace(int32_t *orig, int ni, int lnio, int nj){
   int32_t d00, d01, d10, d11 ;
 //   d01 d11   unpredict : d11 = d11 + d01 + d10 - d00
 //   d00 d10
-fprintf(stderr, "LorenzoUnpredictInplace : ni = %d, lni = %d, nj = %d\n", ni, lnio, nj) ;
+// fprintf(stderr, "LorenzoUnpredictInplace : ni = %d, lni = %d, nj = %d\n", ni, lnio, nj) ;
 
   d00 = orig[0] ;                                    // first point in bottom row
   for(i=1 ; i<ni ; i++) {                            // remainder of bottom row
