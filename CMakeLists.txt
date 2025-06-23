@@ -513,7 +513,7 @@ add_static_lib_link(rmntoolsf librmntoolsf_${PROJECT_VERSION}.a)
 endif()
 
 #install public includes
-file(GLOB PROJECT_INCLUDE_FILES src/PUBLIC_INCLUDES/rmn/*)
+file(GLOB PROJECT_INCLUDE_FILES src/PUBLIC_INCLUDES/rmn/*.h src/PUBLIC_INCLUDES/rmn/*.hf)
 install(FILES ${PROJECT_INCLUDE_FILES} DESTINATION include/rmn)
 
 # Generate the config file for the project to be usable via cmake's find_package command
