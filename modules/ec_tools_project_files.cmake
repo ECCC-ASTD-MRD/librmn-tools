@@ -80,9 +80,10 @@ set(PROJECT_H_FILES
   src/PUBLIC_INCLUDES/rmn/compare_count.h
 #   src/PUBLIC_INCLUDES/rmn/compress_data.h
   src/PUBLIC_INCLUDES/rmn/compress_expand.h
-  src/PUBLIC_INCLUDES/rmn/concat.h
-  src/PUBLIC_INCLUDES/rmn/cpp_extras.h
-  src/PUBLIC_INCLUDES/rmn/ct_assert.h
+#   src/PUBLIC_INCLUDES/rmn/cpp_concat.h
+#   src/PUBLIC_INCLUDES/rmn/cpp_extras.h
+#   src/PUBLIC_INCLUDES/rmn/cpp_loop.h
+#   src/PUBLIC_INCLUDES/rmn/ct_assert.h
   src/PUBLIC_INCLUDES/rmn/data_info.h
   src/PUBLIC_INCLUDES/rmn/data_kind.h
   src/PUBLIC_INCLUDES/rmn/data_map.h
@@ -141,7 +142,7 @@ set(PROJECT_H_FILES
   src/PUBLIC_INCLUDES/rmn/tools_plugins.h
   src/PUBLIC_INCLUDES/rmn/tools_plugins.hf
   src/PUBLIC_INCLUDES/rmn/tracked_malloc.h
-  src/PUBLIC_INCLUDES/rmn/va_args_num.h
+#   src/PUBLIC_INCLUDES/rmn/va_args_num.h
   src/PUBLIC_INCLUDES/rmn/word_stream.h
   src/PUBLIC_INCLUDES/rmn/x86-simd.h
 )
