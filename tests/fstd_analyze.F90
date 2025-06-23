@@ -16,6 +16,20 @@ module analyze_itf
       real(C_FLOAT), dimension(ni,nj), intent(IN) :: f
       character(C_CHAR), dimension(4) :: varname
     end subroutine
+    subroutine predict(what, ni, nj) bind(C, name='Predict')
+      import :: C_INT32_T
+      implicit none
+      integer(C_INT32_T), intent(IN), value :: ni, nj
+      integer(C_INT32_T), intent(INOUT), dimension(ni,nj) :: what
+    end subroutine
+    subroutine unpredict(what, ni, nj) bind(C, name='Unpredict')
+      import :: C_INT32_T
+      implicit none
+      integer(C_INT32_T), intent(IN), value :: ni, nj
+      integer(C_INT32_T), intent(INOUT), dimension(ni,nj) :: what
+    end subroutine
+    subroutine testpredict() bind(C, name='testpredict')
+    end subroutine
   end interface
 end module
 
@@ -39,13 +53,19 @@ program fstd_to_raw
   logical :: e32
 
   c0 = command_argument_count()
-  if(c0 < 2 .or. c0 > 4) then
+  iun=0
+  if(c0 == 0) then
+    write(0,*)'======= predict / unpredict test ======='
+    call testpredict
+    goto 888
+  endif
+  if(c0 < 2 .or. c0 > 2) then
     call get_command_argument(0,filename,ilen,status)
-    print *,'usage : '//trim(filename)//' standard_file variable_name'
+    write(0,*)'usage : '//trim(filename)//' standard_file variable_name'
     stop
   endif
+
   write(0,*)'======= analyzing RPN standard file contents ======='
-  iun=0
   call get_command_argument(1,filename,ilen,status)
   if(status .ne. 0) stop
   c2 = len(trim(filename))   ! eliminate first 11 chars of input file name (postfix to new file name)
@@ -54,17 +74,11 @@ program fstd_to_raw
   if(status .ne. 0) stop
 
   status = fnom(iun,trim(filename),'RND+STD+R/O+OLD',0) ! existing std file opened in read-only mode
-  if(c0 > 3) then   ! reuse file name for postfix to new file name
-    call get_command_argument(4,filename,ilen,status)
-    filename = trim(filename)   ! explicit postfix
-    c1 = 1
-    c2 = len(trim(filename))
-    if(status .ne. 0) stop
-  endif
   call fstopi("MSGLVL",0,0)
   if(status < 0) goto 999
   status = fstouv(iun,'RND')
   if(status < 0) goto 999    ! error opening source file
+
   nrec = fstnbr(iun)
   irec = 0
   ilev = 0
@@ -124,6 +138,7 @@ program fstd_to_raw
     key = fstsui(iun,ni,nj,nk)
   enddo        ! while(key >= 0)
   write(0,*)'number of records processed:',irec,' out of',nrec
+888 continue
   if(iun .ne. 0) call fstfrm(iun)       ! close input file
   stop
 999 continue

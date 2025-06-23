@@ -17,10 +17,15 @@
 #include <math.h>
 #include <string.h>
 
+// the following item should now come from librmn includes
+#include <rmn/cpp_extras.h>
+
 #include <rmn/data_kind.h>
 // #include <rmn/ieee_functions.h>
 #include <rmn/move_blocks.h>
 #include <rmn/bits.h>
+#include <rmn/lorenzo.h>
+#include <rmn/tile_encoders.h>
 
 typedef struct{
   char *name ;
@@ -91,27 +96,65 @@ int32_t compare_ints(uint32_t *old, uint32_t *new, int32_t n){
   return diff ;
 }
 
-// Lorenzo inverse predictor
-void unpredict(int32_t *what, int32_t ni, int32_t nj){
-  int32_t i, j, (* zi)[ni] = (void *) what ;
-  for(i=1 ; i<ni ; i++){ zi[0][i] = zi[0][i] + zi[0][i-1] ; }
-  for(j=1 ; j<nj ; j++){
-    zi[j][0] = zi[j][0] + zi[j-1][0] ;
-    for(i=1 ; i<ni ; i++) { zi[j][i] = zi[j][i] + zi[j][i-1] + zi[j-1][i] - zi[j-1][i-1] ; }
-  }
+// inverse predictor
+void Unpredict(void *what, int32_t ni, int32_t nj){
+  LorenzoUnpredictInplace(what, ni, ni, nj) ;
+  return ;
+//   int32_t i, j, (* zi)[ni] = (void *) what ;
+//   for(i=1 ; i<ni ; i++){ zi[0][i] = zi[0][i] + zi[0][i-1] ; }
+//   for(j=1 ; j<nj ; j++){
+//     zi[j][0] = zi[j][0] + zi[j-1][0] ;
+//     for(i=1 ; i<ni ; i++) { zi[j][i] = zi[j][i] + ( (zi[j][i-1] + zi[j-1][i]) - zi[j-1][i-1] ) ; }
+//   }
 }
 
-// Lorenzo predictor
-void predict(int32_t *what, int32_t ni, int32_t nj){
+// predictor
+void Predict(void *what, int32_t ni, int32_t nj){
+  LorenzoPredictInplace(what, ni, ni, nj) ;
+  return ;
+//   int32_t i, j, (* zi)[ni] = (void *) what ;
+//   int32_t  t[ni] ;
+//   for(j=nj-1 ; j>0 ; j--){
+//     t[0] = zi[j][0] - zi[j-1][0] ;
+//     for(i=1 ; i<ni ; i++){ t[i] = t[i] = zi[j][i] - ( (zi[j][i-1] + zi[j-1][i]) - zi[j-1][i-1] ) ; }
+//     for(i=0 ; i<ni ; i++){ zi[j][i] = t[i] ; }
+//   }
+//   for(i=1 ; i<ni ; i++){ t[i] = zi[0][i] - zi[0][i-1] ; }
+//   for(i=1 ; i<ni ; i++){ zi[0][i] = t[i] ; }
+}
+
+void print_ninj(void *what, int32_t ni, int32_t nj){
   int32_t i, j, (* zi)[ni] = (void *) what ;
-  int32_t  t[ni] ;
-  for(j=nj-1 ; j>0 ; j--){
-    t[0] = zi[j][0] - zi[j-1][0] ;
-    for(i=1 ; i<ni ; i++){ t[i] = (zi[j][i] - zi[j][i-1]) + (zi[j-1][i-1] - zi[j-1][i]) ; }
-    for(i=0 ; i<ni ; i++){ zi[j][i] = t[i] ; }
+  for(j=nj-1 ; j>=0 ; j--){
+    for(i=0 ; i<ni ; i++){ fprintf(stderr, "%8.8x ", zi[j][i]) ; }
+    for(i=0 ; i<ni ; i++){ fprintf(stderr, " %12d", zi[j][i]) ; }
+    fprintf(stderr, "\n");
   }
-  for(i=1 ; i<ni ; i++){ t[i] = zi[0][i] - zi[0][i-1] ; }
-  for(i=1 ; i<ni ; i++){ zi[0][i] = t[i] ; }
+  fprintf(stderr, "\n");
+}
+
+void testpredict(){
+  uint32_t s4[4][4], r4[4][4] ;
+  int i, j;
+  for(j=0 ; j<4 ; j++){
+    for(i=0 ; i<4 ; i++){
+      int32_t ij = ((i+j) & 1) ;
+      s4[j][i] = ij ? 0x7FFFFFFFu : 0x80000000u ;
+//       s4[j][i] = ij ? 0x80000000u : 0x7FFFFFFFu ;
+      s4[j][i] ^= (i + j * 4) ;
+      r4[j][i] = s4[j][i] ;
+    }
+  }
+  print_ninj(s4, 4, 4) ;
+  Predict(s4, 4, 4) ;
+  print_ninj(s4, 4, 4) ;
+  Unpredict(s4, 4, 4) ;
+  for(j=0 ; j<4 ; j++){
+    for(i=0 ; i<4 ; i++){
+      s4[j][i] ^= r4[j][i] ;
+    }
+  }
+  print_ninj(s4, 4, 4) ;
 }
 
 int64_t count_bits(int32_t ni, int32_t nj, int32_t nbits[nj][ni], int32_t zi[nj][ni], int32_t bits[33]){
@@ -198,18 +241,19 @@ void Analyze_N(float *zf, int32_t ni, int32_t nj, char *name){
 
   }else{
     fprintf(stderr, "\n") ;
-    int32_t shift = 11 ;
+    int32_t bit_shift = 11 ;
+    // float -> integer representation
     for(j=0 ; j<nj ; j++){
       for(i=0 ; i<ni ; i++){
-        zi[j][i] = fp32_to_fsi32(z[j][i], shift) ;
-//         zi[j][i] = fp32_to_fi32(z[j][i]) ;
-//         zi[j][i] += (1 << 6) ;
-//         zi[j][i] >>= 7 ;
+        zi[j][i] = fp32_to_fsi32(z[j][i], bit_shift) ;
       }
     }
+    // keep integer reference
     copy_32((void *)ri, (void *)zi, ni*nj) ;
-    predict((int32_t *)zi, ni, nj) ;
+    // apply predictor
+    Predict((int32_t *)zi, ni, nj) ;
 
+    // find number of bits needed
     tbits = count_bits(ni, nj, nbits, zi, bits) ;
     tbits0 = block_sum(ni, nj, nbits, 4) ;
     for(i=0  ; i<16 ; i++){ fprintf(stderr, "%6d ",bits[i]) ; }
@@ -217,20 +261,34 @@ void Analyze_N(float *zf, int32_t ni, int32_t nj, char *name){
     for(i=16 ; i<33 ; i++){ fprintf(stderr, "%6d ",bits[i]) ; }
     fprintf(stderr, " [%ld|%ld] %4.2f bits/pt\n\n", tbits, tbits0, tbits0*1.0f/(ni*nj)) ;
 
-    unpredict((int32_t *)zi, ni, nj) ;
+    //int encode_block(bitstream *s_in, int32_t *block, int lnis, int ni, int nj, int tsize)
+    //int decode_block(bitstream *s_in, int32_t *block, int lnid, int ni, int nj, int tsize)
+
+    // un predict
+    Unpredict((int32_t *)zi, ni, nj) ;
+    // compare to integer reference
     errors = compare_ints((void *)zi, (void *)ri, ni*nj) ;
-    fprintf(stderr,"zi vs ri differences = %d\n", errors) ;
+    if(errors > 0){
+      fprintf(stderr,"zi vs ri differences = %d\n", errors) ;
+      goto fail ;
+    }
+    // integer representation -> float
     for(j=0 ; j<nj ; j++){
       for(i=0 ; i<ni ; i++){
-        t = zi[j][i] ;
-//         t <<= 7 ;
-//         zr[j][i] = fi32_to_fp32(t) ;
-        zr[j][i] = fsi32_to_fp32(t, shift) ;
+        zr[j][i] = fsi32_to_fp32(zi[j][i], bit_shift) ;
       }
     }
+    // compare to float reference
     errors = compare_floats((void *)zr, (void *)z, ni*nj) ;
-    fprintf(stderr,"zr vs z differences = %d\n", errors) ;
+    if(bit_shift == 0 && errors > 0){
+      fprintf(stderr,"ERROR : zr vs z differences = %d\n", errors) ;
+      goto fail ;
+    }
   }
+  return ;
+
+fail:
+  fprintf(stderr,"FAIL\n") ;
 }
 
 // analyze TSZ x TSZ sub blocks from array f_[nj][ni]
