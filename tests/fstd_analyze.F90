@@ -2,10 +2,10 @@ module analyze_itf
   use ISO_C_BINDING
   implicit none
   interface
-    subroutine Analyze_N(f, ni, nj, varname) bind(C, name='Analyze_N')
+    subroutine Analyze_N(f, ni, nj, varname, bitshift) bind(C, name='Analyze_N')
       import :: C_FLOAT, C_INT32_T, C_CHAR
       implicit none
-      integer(C_INT32_T), intent(IN), value :: ni, nj
+      integer(C_INT32_T), intent(IN), value :: ni, nj, bitshift
       real(C_FLOAT), dimension(ni), intent(IN) :: f
       character(C_CHAR), dimension(4) :: varname
     end subroutine
@@ -47,8 +47,8 @@ program fstd_to_raw
   character(len=4) :: nomvar
   character(len=12) :: etiket
   real, dimension(:), pointer :: p=>NULL()
-  integer :: sizep
-  character (len=128) :: filename, varname
+  integer :: sizep, shiftcount
+  character (len=128) :: filename, varname, shiftname
   integer c1, c2, c0
   logical :: e32
 
@@ -59,7 +59,7 @@ program fstd_to_raw
     call testpredict
     goto 888
   endif
-  if(c0 < 2 .or. c0 > 2) then
+  if(c0 < 2 .or. c0 > 3) then
     call get_command_argument(0,filename,ilen,status)
     write(0,*)'usage : '//trim(filename)//' standard_file variable_name'
     stop
@@ -72,6 +72,13 @@ program fstd_to_raw
   c1 = c2-11
   call get_command_argument(2,varname,ilen,status)
   if(status .ne. 0) stop
+  shiftcount = 0
+  if(c0 == 3) then
+    call get_command_argument(3,shiftname,ilen,status)
+    if(status .ne. 0) stop
+    read(shiftname,*) shiftcount
+    write(0,*)'setting shift count to', shiftcount
+  endif
 
   status = fnom(iun,trim(filename),'RND+STD+R/O+OLD',0) ! existing std file opened in read-only mode
   call fstopi("MSGLVL",0,0)
@@ -101,7 +108,7 @@ program fstd_to_raw
       if(e32) then  ! select desired variable name
         call fstluk(p,key,ni,nj,nk)
 !         write(0,*)'processing '//nomvar(1:4), ni, 'x', nj
-        call Analyze_N(p, ni*nj, 1, nomvar//char(0))
+        call Analyze_N(p, ni, nj, nomvar//char(0), shiftcount)
         irec = irec + 1
       else
 !         write(0,*)'ignoring '//nomvar(1:4), ni, 'x', nj
@@ -126,8 +133,8 @@ program fstd_to_raw
         call fstluk(p,key,ni,nj,nk)
 !         write(0,*)'processing '//nomvar(1:4), ni, 'x', nj
 !         call Analyze_N(p, ni*nj, 1, nomvar//char(0))
-        call Analyze_N(p, ni, nj, nomvar//char(0))
-        call Analyze_NxN(p, ni, nj, nomvar//char(0), 8)
+        call Analyze_N(p, ni, nj, nomvar//char(0), shiftcount)
+!         call Analyze_NxN(p, ni, nj, nomvar//char(0), 8)
         irec = irec + 1
       else
 !         write(0,*)'ignoring '//nomvar(1:4), ni, 'x', nj

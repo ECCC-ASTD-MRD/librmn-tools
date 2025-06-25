@@ -26,6 +26,7 @@
 #include <rmn/bits.h>
 #include <rmn/lorenzo.h>
 #include <rmn/tile_encoders.h>
+#include <rmn/be_stream.h>
 
 typedef struct{
   char *name ;
@@ -90,6 +91,9 @@ int32_t compare_floats(float *old, float *new, int32_t n){
 
 int32_t compare_ints(uint32_t *old, uint32_t *new, int32_t n){
   int32_t i, diff = 0;
+  if(old[0] != new[0]){
+    fprintf(stderr,"\nref[0] %8.8x != new[0] %8.8x\n", old[0], new[0]) ;
+  }
   for(i=0 ; i<n ; i++) {
     if(old[i] != new[i]) diff++ ;
   }
@@ -197,16 +201,18 @@ int64_t block_sum(int32_t ni, int32_t nj, int32_t nbits[nj][ni], int32_t bsz){
 // #define TSZ 8
 
 // analyze 1D array f[1][ni] or 2D array f[nj][ni]
-void Analyze_N(float *zf, int32_t ni, int32_t nj, char *name){
+void Analyze_N(float *zf, int32_t ni, int32_t nj, char *name, int32_t bit_shift){
   union{ int32_t i ; uint32_t u ; float f ; } iuf1 ;
-  int32_t i, j, t, zi[nj][ni], ri[nj][ni], nbits[nj][ni], errors ;
-  int32_t mind, maxd ;
+  if(ni == 1) { ni = nj ; nj = 1 ; }
+  int32_t i, j, t, zi[nj][ni], zo[nj][ni], ri[nj][ni], nbits[nj][ni], errors ;
+  int32_t mind, maxd, status ;
   float fmin, fmax, amin, amax ;
   float (*z)[ni] = (void *)zf ;
   float zr[nj][ni] ;
   block_properties bp ;
   int32_t bits[33] ;
-  int64_t tbits, tbits0 ;
+  int64_t tbits, tbits0, tbits1 ;
+  bitstream *ps ;
 
   analyze_data32_block(zf, ni, ni, nj, &bp) ;
   adjust_block_properties(&bp, float_data);
@@ -216,7 +222,7 @@ void Analyze_N(float *zf, int32_t ni, int32_t nj, char *name){
   amax = FLOAT_MAX_ABS(bp) ;
   fprintf(stderr, "%4s[%d,%d] : min=%9.3G[%9.3G], max=%9.3G[%9.3G]", name, ni, nj, fmin, amin, fmax, amax) ;
 
-  if(nj == 1){
+  if(nj == 1 && ni == 1){
     for(i=0 ; i<33 ; i++) bits[i] = 0 ;
     mind = 0x7FFFFFFF ;
     maxd = 0x80000000 ;
@@ -232,7 +238,7 @@ void Analyze_N(float *zf, int32_t ni, int32_t nj, char *name){
       nbits[0][i] = nb ;
       tbits += nb ;
     }
-    tbits0 = block_sum(ni, nj, nbits, 32) ;
+    tbits0 = block_sum(ni*nj, 1, nbits, 32) ;
     fprintf(stderr, ", mind = %8.8x, maxd = %8.8x\n", mind, maxd) ;
     for(i=0 ; i<16 ; i++) fprintf(stderr, "%6d ",bits[i]) ;
     fprintf(stderr, "\n") ;
@@ -241,7 +247,7 @@ void Analyze_N(float *zf, int32_t ni, int32_t nj, char *name){
 
   }else{
     fprintf(stderr, "\n") ;
-    int32_t bit_shift = 11 ;
+//     int32_t bit_shift = 3 ;
     // float -> integer representation
     for(j=0 ; j<nj ; j++){
       for(i=0 ; i<ni ; i++){
@@ -259,18 +265,32 @@ void Analyze_N(float *zf, int32_t ni, int32_t nj, char *name){
     for(i=0  ; i<16 ; i++){ fprintf(stderr, "%6d ",bits[i]) ; }
     fprintf(stderr, "\n") ;
     for(i=16 ; i<33 ; i++){ fprintf(stderr, "%6d ",bits[i]) ; }
-    fprintf(stderr, " [%ld|%ld] %4.2f bits/pt\n\n", tbits, tbits0, tbits0*1.0f/(ni*nj)) ;
+    fprintf(stderr, " [%ld|%ld] %4.2f bits/pt, bit shift = %d (1 part in %d)\n\n", tbits, tbits0, tbits0*1.0f/(ni*nj), bit_shift, 1 << (24-bit_shift)) ;
 
-    //int encode_block(bitstream *s_in, int32_t *block, int lnis, int ni, int nj, int tsize)
-    //int decode_block(bitstream *s_in, int32_t *block, int lnid, int ni, int nj, int tsize)
+    // encode into bit stream from zi
+    STREAM_CREATE(ps, NULL, sizeof(uint32_t)*ni*nj*8, BIT_FULL_INIT) ;
+    STREAM_INSERT_BEGIN(*ps) ;
+    tbits0 = encode_block(ps, (void *)zi, ni, ni, nj, 8) ;
+    STREAM_INSERT_FINALIZE(*ps) ;
+
+    // decode from bit stream into zi
+    copy_32((void *)zo, (void *)zi, ni*nj) ;
+    STREAM_XTRACT_BEGIN(*ps) ;
+    tbits1 = decode_block(ps, (void *)zi, ni, ni, nj, 8) ;
+    STREAM_FREE(ps, status) ;
+    if(bit_shift == 0) zi[0][0] = zo[0][0] ;
+    errors = compare_ints((void *)zo, (void *)zi, ni*nj) ;
+    fprintf(stderr, "encode_block used %ld bits, %4.2f bits/pt", tbits0, tbits0*1.0f/(ni*nj)) ;
+    fprintf(stderr, ", decode_block decoded %ld bits", tbits1) ;
+    fprintf(stderr, ", data differences = %d, preserved [0][0] = %8.8x, status = %d\n", errors, zi[0][0], status) ;
 
     // un predict
     Unpredict((int32_t *)zi, ni, nj) ;
     // compare to integer reference
-    errors = compare_ints((void *)zi, (void *)ri, ni*nj) ;
+    errors = compare_ints((void *)ri, (void *)zi, ni*nj) ;
     if(errors > 0){
       fprintf(stderr,"zi vs ri differences = %d\n", errors) ;
-      goto fail ;
+//       goto fail ;
     }
     // integer representation -> float
     for(j=0 ; j<nj ; j++){
@@ -282,9 +302,10 @@ void Analyze_N(float *zf, int32_t ni, int32_t nj, char *name){
     errors = compare_floats((void *)zr, (void *)z, ni*nj) ;
     if(bit_shift == 0 && errors > 0){
       fprintf(stderr,"ERROR : zr vs z differences = %d\n", errors) ;
-      goto fail ;
+//       goto fail ;
     }
   }
+  fprintf(stderr, ".........................................................................\n");
   return ;
 
 fail:

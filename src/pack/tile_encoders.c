@@ -489,11 +489,41 @@ static inline array_axis split_axis(int n, int bsize){
 // tsize/2 <= dimension < tsize+tsize/2  (for both i and j tile dimensions)
 // the dimension of the last slice along i or j may be shorter or longer than tsize
 // in case of error, s_in is left as it was upon entry
+int encode_block_1d(bitstream *s_in, int32_t *block, int ni, int tsize){
+  int i0, lni, status, totbits ;
+  int32_t *tile ;
+  block_properties bp ;
+  bitstream s ;
+
+  status = -1 ;
+  if(s_in == NULL) goto error ;
+  s = *s_in ;        // take local copy of s_in
+
+  totbits = 0 ;
+  lni = tsize ;
+  for(i0=0 ; i0<ni ; i0+=tsize){
+    if( i0+tsize >= ni) lni = ni - i0 ;
+    tile = block + i0 ;
+    analyze_data32_block(tile, lni, lni, 1, &bp) ;
+    status = encode_tile(&s, tile, lni, &bp) ;
+    if(status <= 0) goto error ;
+    totbits += status ;
+  }
+
+  *s_in = s ;        // update s_in if successful
+  return totbits ;
+
+error:
+  return status ;
+}
 int encode_block(bitstream *s_in, int32_t *block, int lnis, int ni, int nj, int tsize){
+
+  if(ni == 1 || nj == 1) return encode_block_1d(s_in, block, ni*nj, tsize) ;
+
   array_axis ri, rj ;
   ri = split_axis(ni, tsize) ;
   rj = split_axis(nj, tsize) ;
-fprintf(stderr, "ni = %d, nj = %d, blocks[%d(%d,%d),%d(%d,%d)]\n", ni, nj, ri.nbk, ri.ln0, tsize,  rj.nbk, rj.ln0, tsize) ;
+// fprintf(stderr, "ni = %d, nj = %d, blocks[%d(%d,%d),%d(%d,%d)]\n", ni, nj, ri.nbk, ri.ln0, tsize,  rj.nbk, rj.ln0, tsize) ;
 
 tsize = tsize & 0x7FFFFFFF ;   // make sure tsize is EVEN
   int i0, lni, j0, lnj, status, totbits, tmax = tsize+(tsize>>1) ;
@@ -510,7 +540,7 @@ tsize = tsize & 0x7FFFFFFF ;   // make sure tsize is EVEN
     int32_t *src = block ;
     for(i0=0, lni = ri.ln0 ; i0<ni ; i0+=lni, lni = tsize){
       move_w32_block(src, lnis, tile, lni, lni, lnj, &bp) ;  // get tile from block
-      status = encode_tile(&s, tile, lni*lnj, &bp) ;           // encode tile
+      status = encode_tile(&s, tile, lni*lnj, &bp) ;         // encode tile
       if(status <= 0) goto error ;
       totbits += status ;
       src += lni ;
@@ -536,11 +566,39 @@ error:
 // tsize/2 <= dimension < tsize+tsize/2  (for both i and j tile dimensions)
 // the dimension of the last slice along i or j may be shorter or longer than tsize
 // in case of error, s_in is left as it was upon entry
+int decode_block_1d(bitstream *s_in, int32_t *block, int ni, int tsize){
+  int i0, lni, status, totbits ;
+  int32_t *tile ;
+  bitstream s ;
+
+  status = -1 ;
+  if(s_in == NULL) goto error ;
+  s = *s_in ;        // take local copy of s_in
+
+  totbits = 0 ;
+  lni = tsize ;
+  for(i0=0 ; i0<ni ; i0+=tsize){
+    if( i0+tsize >= ni) lni = ni - i0 ;
+    tile = block + i0 ;
+    status = decode_tile(&s, tile, lni) ;
+    if(status <= 0) goto error ;
+    totbits += status ;
+  }
+
+  *s_in = s ;        // update s_in if successful
+  return totbits ;
+
+error:
+  return status ;
+}
 int decode_block(bitstream *s_in, int32_t *block, int lnid, int ni, int nj, int tsize){
+
+  if(ni == 1 || nj == 1) return decode_block_1d(s_in, block, ni*nj, tsize) ;
+
   array_axis ri, rj ;
   ri = split_axis(ni, tsize) ;
   rj = split_axis(nj, tsize) ;
-fprintf(stderr, "ni = %d, nj = %d, blocks[%d(%d,%d),%d(%d,%d)]\n", ni, nj, ri.nbk, ri.ln0, tsize,  rj.nbk, rj.ln0, tsize) ;
+// fprintf(stderr, "ni = %d, nj = %d, blocks[%d(%d,%d),%d(%d,%d)]\n", ni, nj, ri.nbk, ri.ln0, tsize,  rj.nbk, rj.ln0, tsize) ;
 
   tsize = tsize & 0x7FFFFFFF ;   // make sure tsize is EVEN
   int i0, lni, j0, lnj, status, totbits, tmax = tsize+(tsize>>1) ;
