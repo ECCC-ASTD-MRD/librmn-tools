@@ -184,3 +184,7 @@
 // create stream and set it to the proper endian mode
 #undef STREAM_CREATE
 #define STREAM_CREATE(ps, mem, size, mode) { ps = CreateStream(mem, size, mode) ; SET_STREAM_ENDIANNESS(*(ps)) ; }
+
+// destroy a stream
+#undef STREAM_FREE
+#define STREAM_FREE(ps, status) { ps = FreeStream(ps, &status) ; }
