@@ -110,11 +110,11 @@ bitstream *CreateStream(void *mem, size_t size, int mode){
 // s    [IN] : pointer to an existing bitstream structure
 // return 0 if operation successful, non zero if there was an error
 bitstream *FreeStream(bitstream *s, int *error){
-fprintf(stderr, "FreeStream\n") ;
+// fprintf(stderr, "FreeStream\n") ;
   if(StreamIsInvalid(s)){     // not a valid stream
     *error = 1 ;
     s = NULL ;
-fprintf(stderr, "invalid stream\n");
+fprintf(stderr, "FreeStream : invalid stream\n");
     goto end ;
   }
 
@@ -122,7 +122,7 @@ fprintf(stderr, "invalid stream\n");
     free(s) ;
     s = NULL ;
     *error = 0 ;
-fprintf(stderr, "freed fully allocated stream\n");
+fprintf(stderr, "FreeStream : freed fully allocated stream\n");
     goto end ;
   }
 // fprintf(stderr, "stream with buffer at %p, alloc = %d\n", (void *)s->first, s->alloc);
@@ -130,7 +130,7 @@ fprintf(stderr, "freed fully allocated stream\n");
     free(s->first) ;  // the stream buffer was supplied by the user
     s->first = s->in = s->out = s->limit = NULL ;
     *error = 0 ;
-fprintf(stderr, "freed stream buffer\n");
+fprintf(stderr, "FreeStream : freed stream buffer\n");
   }
 
   *s = NULL_BITSTREAM ;          // blank stream
