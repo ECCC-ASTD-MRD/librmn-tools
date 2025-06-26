@@ -456,7 +456,7 @@ reverse:
   if(type != int_data) goto fail ;
   errmsg = "expecting 2 D array" ;
   if(ndim != 2)        goto fail ;
-  // call Lorezo inverse predictor
+  // call Lorenzo inverse predictor in place
   LorenzoUnpredictInplace((int32_t *)array, a->dim[0].gnn, a->dim[0].gnn, a->dim[1].gnn) ;
   a->type = int_data ;
   ssize_t status2 = dmap_filter_inv(a, &s) ;     // call next reverse filter
