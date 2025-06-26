@@ -280,9 +280,9 @@ void Analyze_N(float *zf, int32_t ni, int32_t nj, char *name, int32_t bit_shift)
     STREAM_FREE(ps, status) ;
     if(bit_shift == 0) zi[0][0] = zo[0][0] ;
     errors = compare_ints((void *)zo, (void *)zi, ni*nj) ;
-    fprintf(stderr, "encode_block used %ld bits, %4.2f bits/pt", tbits0, tbits0*1.0f/(ni*nj)) ;
+    fprintf(stderr, "encode_block used %ld bits", tbits0) ;
     fprintf(stderr, ", decode_block decoded %ld bits", tbits1) ;
-    fprintf(stderr, ", data differences = %d, preserved [0][0] = %8.8x, status = %d\n", errors, zi[0][0], status) ;
+    fprintf(stderr, ", data differences = %d, preserved [0][0] = %8.8x, status = %d, %4.2f bits/pt\n", errors, zi[0][0], status, tbits0*1.0f/(ni*nj)) ;
 
     // un predict
     Unpredict((int32_t *)zi, ni, nj) ;
@@ -290,7 +290,7 @@ void Analyze_N(float *zf, int32_t ni, int32_t nj, char *name, int32_t bit_shift)
     errors = compare_ints((void *)ri, (void *)zi, ni*nj) ;
     if(errors > 0){
       fprintf(stderr,"zi vs ri differences = %d\n", errors) ;
-//       goto fail ;
+      goto fail ;
     }
     // integer representation -> float
     for(j=0 ; j<nj ; j++){
@@ -302,7 +302,7 @@ void Analyze_N(float *zf, int32_t ni, int32_t nj, char *name, int32_t bit_shift)
     errors = compare_floats((void *)zr, (void *)z, ni*nj) ;
     if(bit_shift == 0 && errors > 0){
       fprintf(stderr,"ERROR : zr vs z differences = %d\n", errors) ;
-//       goto fail ;
+      goto fail ;
     }
   }
   fprintf(stderr, ".........................................................................\n");
