@@ -91,6 +91,7 @@
 //
 #include <stdio.h>
 #include <stdint.h>
+#include <stdlib.h>
 
 // #include <immintrin.h>
 #define USE_SIMD_INTRINSICS
