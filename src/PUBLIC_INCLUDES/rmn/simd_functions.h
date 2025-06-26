@@ -15,28 +15,43 @@
 // protect the whole file againt double inclusion
 #if ! defined(SIMD_LOOP)
 
+// use SIMD intrinsics by default
+#if ! defined(NO_SIMD) && ! defined(EMULATE_SIMD)
+#define USE_SIMD_INTRINSICS
+#endif
+
 #if defined(USE_SIMD_INTRINSICS)
-#if defined(__x86_64__)
+
+#if defined(__x86_64__)          // for now only X86_64 intrinsics are supported
 #define USE_INTEL_SIMD_INTRINSICS
-#endif
-#endif
+
+#else                            // other platforms
+#define EMULATE_SIMD
+#define NO_SIMD
+#undef USE_SIMD_INTRINSICS
+#undef USE_INTEL_SIMD_INTRINSICS
+#define ALIAS_INTEL_SIMD_INTRINSICS
+
+#endif                           // defined(__x86_64__)
+
+#endif   // defined(USE_SIMD_INTRINSICS)
 
 #if defined(NO_SIMD) || defined(EMULATE_SIMD)
 
-// do not attempt to use the Intel SIMD intrincics
+// do not attempt to use the Intel or other SIMD intrincics
 #undef USE_INTEL_SIMD_INTRINSICS
-// emulate them if found in code
-#if defined(__x86_64__)
+#undef USE_SIMD_INTRINSICS
+// emulate Intel intrinsics if found in code
 #define ALIAS_INTEL_SIMD_INTRINSICS
-#endif
-#if ! defined(ALIAS_INTEL_SIMD_INTRINSICS)
-#define ALIAS_INTEL_SIMD_INTRINSICS
-#endif
 
-#else // NO_SIMD EMULATE_SIMD
-
+#else // neither NO_SIMD nor EMULATE_SIMD
 #define WITH_SIMD
-#define ALIAS_INTEL_SIMD_INTRINSICS
+
+#if defined(__x86_64__)                // for now only X86_64 intrinsics are supported
+#define USE_INTEL_SIMD_INTRINSICS
+#else
+#define ALIAS_INTEL_SIMD_INTRINSICS    // other platforms
+#endif
 
 #endif // NO_SIMD EMULATE_SIMD
 // =================================================================================================================
@@ -60,9 +75,8 @@ CT_ASSERT(sizeof(vec_256) == 32, "ERROR: sizeof(vec_256) MUST BE 32")
 
 #if defined(USE_INTEL_SIMD_INTRINSICS)
 
-#undef ALIAS_INTEL_SIMD_INTRINSICS
-
 #if defined(__x86_64__)
+#undef ALIAS_INTEL_SIMD_INTRINSICS
 #include <immintrin.h>
 #endif
 
@@ -70,13 +84,15 @@ CT_ASSERT(sizeof(vec_256) == 32, "ERROR: sizeof(vec_256) MUST BE 32")
 #warning "simd_functions : using Intel SIMD intrinsics"
 #endif
 
-#else     // defined(USE_INTEL_SIMD_INTRINSICS)
+#else     // not defined(USE_INTEL_SIMD_INTRINSICS)
 
+#define ALIAS_INTEL_SIMD_INTRINSICS
 #if defined(VERBOSE_SIMD)
 #warning "simd_functions : using EMULATED Intel SIMD intrinsics"
 #endif
 
 #endif    // defined(USE_INTEL_SIMD_INTRINSICS)
+
 #if defined(ALIAS_INTEL_SIMD_INTRINSICS) && defined(VERBOSE_SIMD)   // not true if defined(USE_INTEL_SIMD_INTRINSICS)
 #warning "simd_functions : ALIASING Intel SIMD intrinsics"
 #endif   // defined(ALIAS_INTEL_SIMD_INTRINSICS)
