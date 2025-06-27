@@ -24,10 +24,12 @@
 
 #if defined(__x86_64__)          // for now only X86_64 intrinsics are supported
 #define USE_INTEL_SIMD_INTRINSICS
+#define WITH_SIMD
+#undef NO_SIMD
+#undef EMULATE_SIMD
 
 #else                            // other platforms
 #define EMULATE_SIMD
-#define NO_SIMD
 #undef USE_SIMD_INTRINSICS
 #undef USE_INTEL_SIMD_INTRINSICS
 #define ALIAS_INTEL_SIMD_INTRINSICS
@@ -54,6 +56,10 @@
 #endif
 
 #endif // NO_SIMD EMULATE_SIMD
+
+#if defined(NO_SIMD)
+#undef WITH_SIMD     // EMULATE_SIMD does not force NO_SIMD
+#endif
 // =================================================================================================================
 #include <stdio.h>
 #include <stdint.h>
