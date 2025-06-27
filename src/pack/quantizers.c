@@ -244,6 +244,43 @@ void q2fp_log(float *z, int32_t *q, int n, int32_t e_base_){
   }
 }
 
+// quick and dirty "log" type quantification
+// the IEEE exponent is used as most significant bits
+// the IEEE mantissa is used as least significant bits
+// the IEEE hidden 1 is accounted for as a "significant" mantissa bit
+// nbits >= 23 leads to a LOSSLESS conversion
+// nbits == 0 will essentially discard the mantissa
+
+// sign magnitude float to rounded and scaled signed integer, order preserving
+// both 0.0 and -0.0 come back as 0
+// z      [IN] : float values
+// q     [OUT] : transformed integer values
+// n      [IN] : number of values
+// nbits  [IN] : number of desired significant mantissa bits
+void fp2fsi_n(float *z, int32_t *q, int n, int32_t nbits){
+  int32_t i ;
+  nbits = (nbits < 0) ? 0 : nbits ;
+  nbits = 23 - nbits ;
+  nbits = (nbits < 0) ? 0 : nbits ;
+  for(i=0 ; i<n ; i++){
+    q[i] = fp32_to_fsi32(z[i], nbits) ;
+  }
+}
+
+// rounded and scaled signed integer to sign magnitude float, order preserving
+// z     [OUT] : restored float values
+// q      [IN] : integer values
+// n      [IN] : number of values
+// nbits  [IN] : number of significant mantissa bits
+void fsi2fp_n(float *z, int32_t *q, int n, int32_t nbits){
+  int32_t i ;
+  nbits = (nbits < 0) ? 0 : nbits ;
+  nbits = 23 - nbits ;
+  nbits = (nbits < 0) ? 0 : nbits ;
+  for(i=0 ; i<n ; i++){
+    z[i] = fsi32_to_fp32(q[i], nbits) ;
+  }
+}
 // =======================  generic functions =======================
 #define ABS(x) (((x) < 0) ? (-(x)) : (x))
 
