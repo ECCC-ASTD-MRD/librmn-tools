@@ -205,7 +205,7 @@ if( ${CMAKE_C_COMPILER} MATCHES  "/icc" )
 endif()
 add_custom_command(
     OUTPUT ${CMAKE_CURRENT_SOURCE_DIR}/src/PUBLIC_INCLUDES/c_binding_extras.hf
-    PRE_BUILD
+#     PRE_BUILD
     COMMAND ${CMAKE_C_COMPILER} ${C_10441} ${CMAKE_CURRENT_SOURCE_DIR}/tools/c_binding_extras.c -o ${CMAKE_CURRENT_BINARY_DIR}/c_binding_extras.exe
     COMMAND ${CMAKE_CURRENT_BINARY_DIR}/c_binding_extras.exe >${CMAKE_CURRENT_SOURCE_DIR}/src/PUBLIC_INCLUDES/rmn/c_binding_extras.hf
     COMMAND rm -f ${CMAKE_CURRENT_BINARY_DIR}/c_binding_extras.exe
