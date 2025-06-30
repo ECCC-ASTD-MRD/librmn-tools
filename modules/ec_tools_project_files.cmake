@@ -5,7 +5,7 @@ set(PROJECT_C_FILES
 #   src/pack/bi_endian_pack.c
   src/pack/bits.c
   src/pack/bitstream.c
-  src/diag/c_record_io.c
+#   src/diag/c_record_io.c
   src/diag/compare_count.c
   src/pack/compress_data.c
   src/pack/compress_expand.c
@@ -75,7 +75,7 @@ set(PROJECT_H_FILES
   src/PUBLIC_INCLUDES/rmn/bits.h
   src/PUBLIC_INCLUDES/rmn/bitstream.h
   src/PUBLIC_INCLUDES/rmn/c_binding_extras.hf
-  src/PUBLIC_INCLUDES/rmn/c_record_ioe.h
+#   src/PUBLIC_INCLUDES/rmn/c_record_io.h
   src/PUBLIC_INCLUDES/rmn/common_stream.h
   src/PUBLIC_INCLUDES/rmn/compare_count.h
 #   src/PUBLIC_INCLUDES/rmn/compress_data.h

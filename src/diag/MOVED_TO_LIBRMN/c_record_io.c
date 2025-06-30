@@ -148,7 +148,7 @@ int write_32bit_data_record_named(char *filename, int *fdi, int *dims, int ndim,
   int fd = *fdi ;
   ssize_t nc = 4 ;
   ssize_t nr ;
-  int ndims, ntot, i, clos = (*fdi < 0) ;
+  int ndims, ntot = 0, i, clos = (*fdi < 0) ;
 
   fd = (fd < 0) ? -fd : fd ;                                   // ABS(fd), negative fdi means close after reading record
   if(fd == 0 && filename[0] == '\0') return -1 ;               // filename MUST be valid if fd == 0
@@ -178,5 +178,6 @@ end:
   if(clos) close(fd) ;
   return ntot ;
 error:
+  ntot = -1 ;
   goto end ;
 }
