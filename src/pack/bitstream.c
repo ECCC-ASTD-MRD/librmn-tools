@@ -122,7 +122,7 @@ fprintf(stderr, "FreeStream : invalid stream\n");
     free(s) ;
     s = NULL ;
     *error = 0 ;
-fprintf(stderr, "FreeStream : freed fully allocated stream\n");
+// fprintf(stderr, "FreeStream : freed fully allocated stream\n");
     goto end ;
   }
 // fprintf(stderr, "stream with buffer at %p, alloc = %d\n", (void *)s->first, s->alloc);
@@ -130,7 +130,7 @@ fprintf(stderr, "FreeStream : freed fully allocated stream\n");
     free(s->first) ;  // the stream buffer was supplied by the user
     s->first = s->in = s->out = s->limit = NULL ;
     *error = 0 ;
-fprintf(stderr, "FreeStream : freed stream buffer\n");
+// fprintf(stderr, "FreeStream : freed stream buffer\n");
   }
 
   *s = NULL_BITSTREAM ;          // blank stream
