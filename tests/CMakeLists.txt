@@ -8,7 +8,9 @@ function(add_project_test name source)
   # NO_TOOLS  : do not use project libraries
   # MPI       : build using MPI
   # LINK_LIBS : extra libraries needed
-  cmake_parse_arguments(PARSE_ARGV 0 "TN" "NOCTEST;NODIAG;STATIC;NO_TOOLS;DL" "" "MPI;LINK_LIBS")
+  # DL        : libdl needed
+  # BSD       : libbsd needed
+  cmake_parse_arguments(PARSE_ARGV 0 "TN" "NOCTEST;NODIAG;STATIC;NO_TOOLS;DL;BSD" "" "MPI;LINK_LIBS")
   # Use same name for target and executable file
   add_executable(${name} ${source})
   set(PROJECT_STATIC_TEST_LIBRARIES rmntoolsf rmntools)
@@ -17,6 +19,13 @@ function(add_project_test name source)
   if( TN_NODIAG AND ${COMPILER_SUITE} MATCHES  "nvhpc" AND ${source} MATCHES ".c")
     SET_SOURCE_FILES_PROPERTIES( ${source} PROPERTIES 
       COMPILE_OPTIONS "--diag_suppress;declared_but_not_referenced;--diag_suppress;set_but_not_used;--diag_suppress;code_is_unreachable" )
+  endif()
+  # needs libbsd
+  if(TN_BSD)
+    set(libbsd "-lbsd")
+    if(NOT TN_STATIC)
+      set(TN_LINK_LIBS "${TN_LINK_LIBS};-lbsd")
+    endif()
   endif()
   # needs libdl
   if(TN_DL)
@@ -30,7 +39,7 @@ function(add_project_test name source)
       target_link_libraries(${name} PRIVATE ${TN_LINK_LIBS})
 #       message(STATUS "target_link_libraries(${name} PRIVATE ${TN_LINK_LIBS})")
     else()
-      target_link_libraries(${name} PRIVATE -Bstatic ${PROJECT_STATIC_TEST_LIBRARIES} ${TN_LINK_LIBS} -Bdynamic ${libdl})
+      target_link_libraries(${name} PRIVATE -Bstatic ${PROJECT_STATIC_TEST_LIBRARIES} ${TN_LINK_LIBS} -Bdynamic ${libdl} ${libbsd})
 #       message(STATUS "target_link_libraries(${name} PRIVATE -Bstatic ${PROJECT_STATIC_TEST_LIBRARIES} ${TN_LINK_LIBS} -Bdynamic)")
     endif()
   else()
@@ -144,12 +153,12 @@ if(NOT ( ${COMPILER_SUITE} MATCHES  "nvhpc") )
 # problem building test_lorenzo_f_static with Nvidia compiler (dl library symbol missing)
 add_project_test(test_lorenzo_f_static test_lorenzo.F90 STATIC LINK_LIBS "rmn::rmn-static" DL)        # build with static libraries
 else()
-# add_project_test(test_lorenzo_f_static test_lorenzo.F90 STATIC LINK_LIBS "rmn::rmn-static" DL)        # build with static libraries
+add_project_test(test_lorenzo_f_static test_lorenzo.F90 STATIC LINK_LIBS "rmn::rmn-static" DL)        # build with static libraries
 endif()
 # add_project_test(test_lorenzo_f_static test_lorenzo.F90 STATIC LINK_LIBS rmn::rmn-static)                          # build with static libraries
 # SET_SOURCE_FILES_PROPERTIES( test_lorenzo.F90 PROPERTIES COMPILE_OPTIONS -DNO_FORTRAN_CODE )
 
-add_project_test(test_fstd_compress  test_fstd_compress.F90 LINK_LIBS "rmn::rmn;libaec::aec" DL NOCTEST)   # not included in ctest for now
+add_project_test(test_fstd_compress  test_fstd_compress.F90 LINK_LIBS "rmn::rmn;libaec::aec" DL BSD NOCTEST)   # not included in ctest for now
 # add_project_test(fstd_to_raw  fstd_to_raw.F90 LINK_LIBS "rmn::rmn" DL NOCTEST)   # not included in ctest for now
 add_project_test(fstd_to_raw  fstd_to_raw.F90 LINK_LIBS "rmn::rmn-shared;libaec::aec" DL NOCTEST)   # not included in ctest for now
 add_project_test(fstd_analyze  fstd_analyze.F90 LINK_LIBS "rmn::rmn-shared" DL NOCTEST)   # not included in ctest for now
@@ -157,7 +166,7 @@ add_project_test(test_quantizers test_quantizers.c LINK_LIBS "rmn::rmn-shared" N
 add_project_test(test_ieee_functions test_ieee_functions.c LINK_LIBS "rmn::rmn-shared" NOCTEST)    # not included in ctest for now
 if(NOT ( ${COMPILER_SUITE} MATCHES  "nvhpc") )
 # problem building fstd_to_raw_s with Nvidia compiler (dl library symbol missing)
-add_project_test(fstd_to_raw_s  fstd_to_raw.F90 STATIC LINK_LIBS "rmn::rmn-static" DL NOCTEST)   # not included in ctest for now
+add_project_test(fstd_to_raw_s  fstd_to_raw.F90 STATIC LINK_LIBS "rmn::rmn-static" DL BSD NOCTEST)   # not included in ctest for now
 endif()
 
 add_project_test(test_c_record_io test_c_record_io.c LINK_LIBS "rmn::rmn-shared" NOCTEST)    # not included in ctest for now
