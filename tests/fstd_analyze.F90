@@ -47,7 +47,7 @@ program fstd_to_raw
   character(len=4) :: nomvar
   character(len=12) :: etiket
   real, dimension(:), pointer :: p=>NULL()
-  integer :: sizep, shiftcount
+  integer :: sizep, mant_bits
   character (len=128) :: filename, varname, shiftname
   integer c1, c2, c0
   logical :: e32
@@ -72,12 +72,12 @@ program fstd_to_raw
   c1 = c2-11
   call get_command_argument(2,varname,ilen,status)
   if(status .ne. 0) stop
-  shiftcount = 0
+  mant_bits = 0
   if(c0 == 3) then
     call get_command_argument(3,shiftname,ilen,status)
     if(status .ne. 0) stop
-    read(shiftname,*) shiftcount
-    write(0,*)'setting shift count to', shiftcount
+    read(shiftname,*) mant_bits
+    write(0,*)'setting shift count to', mant_bits
   endif
 
   status = fnom(iun,trim(filename),'RND+STD+R/O+OLD',0) ! existing std file opened in read-only mode
@@ -108,7 +108,7 @@ program fstd_to_raw
       if(e32) then  ! select desired variable name
         call fstluk(p,key,ni,nj,nk)
 !         write(0,*)'processing '//nomvar(1:4), ni, 'x', nj
-        call Analyze_N(p, ni, nj, nomvar//char(0), shiftcount)
+!         call Analyze_N(p, ni, nj, nomvar//char(0), mant_bits)
         irec = irec + 1
       else
 !         write(0,*)'ignoring '//nomvar(1:4), ni, 'x', nj
@@ -133,7 +133,7 @@ program fstd_to_raw
         call fstluk(p,key,ni,nj,nk)
 !         write(0,*)'processing '//nomvar(1:4), ni, 'x', nj
 !         call Analyze_N(p, ni*nj, 1, nomvar//char(0))
-        call Analyze_N(p, ni, nj, nomvar//char(0), shiftcount)
+        call Analyze_N(p, ni, nj, nomvar//char(0), mant_bits)
 !         call Analyze_NxN(p, ni, nj, nomvar//char(0), 8)
         irec = irec + 1
       else

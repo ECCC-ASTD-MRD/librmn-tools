@@ -56,4 +56,9 @@ int32_t fp2q_n(float *z, int32_t *q, int n, block_properties *bp, float max_err,
 
 int32_t q2fp_n(float *z, int32_t *q, int n, int32_t e_base, int32_t offset, int32_t mode);
 
+void fp2fsi_n(float *z, int32_t *q, int n, int32_t nbits);
+
+void fsi2fp_n(float *z, int32_t *q, int n, int32_t nbits);
+
+
 #endif

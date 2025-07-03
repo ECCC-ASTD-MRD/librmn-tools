@@ -244,9 +244,11 @@ void q2fp_log(float *z, int32_t *q, int n, int32_t e_base_){
   }
 }
 
-// quick and dirty "log" type quantification
-// the IEEE exponent is used as most significant bits
-// the IEEE mantissa is used as least significant bits
+// ======================= quantization with fake integers  =======================
+
+// fake integers "log" type quantization
+// the IEEE exponent is used as the most significant bits
+// the IEEE mantissa is used as the least significant bits
 // the IEEE hidden 1 is accounted for as a "significant" mantissa bit
 // nbits >= 23 leads to a LOSSLESS conversion
 // nbits == 0 will essentially discard the mantissa

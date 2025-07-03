@@ -25,6 +25,7 @@
 #include <rmn/move_blocks.h>
 #include <rmn/bits.h>
 #include <rmn/lorenzo.h>
+#include <rmn/quantizers.h>
 #include <rmn/tile_encoders.h>
 #include <rmn/be_stream.h>
 
@@ -95,7 +96,12 @@ int32_t compare_ints(uint32_t *old, uint32_t *new, int32_t n){
     fprintf(stderr,"\nref[0] %8.8x != new[0] %8.8x\n", old[0], new[0]) ;
   }
   for(i=0 ; i<n ; i++) {
-    if(old[i] != new[i]) diff++ ;
+    if(old[i] != new[i]){
+      diff++ ;
+      int jj = i/2560 ;
+      int ii = i - jj * 2560 ;
+      if(diff < 10 && diff > 0) fprintf(stderr,"difference at [%d,%d], expected %8.8x, got %8.8x\n", ii, jj, old[i], new[i]) ;
+    }
   }
   return diff ;
 }
@@ -201,10 +207,10 @@ int64_t block_sum(int32_t ni, int32_t nj, int32_t nbits[nj][ni], int32_t bsz){
 // #define TSZ 8
 
 // analyze 1D array f[1][ni] or 2D array f[nj][ni]
-void Analyze_N(float *zf, int32_t ni, int32_t nj, char *name, int32_t bit_shift){
+void Analyze_N(float *zf, int32_t ni, int32_t nj, char *name, int32_t mant_bits){
   union{ int32_t i ; uint32_t u ; float f ; } iuf1 ;
   if(ni == 1) { ni = nj ; nj = 1 ; }
-  int32_t i, j, t, zi[nj][ni], zo[nj][ni], ri[nj][ni], nbits[nj][ni], errors ;
+  int32_t i, j, t, zi[nj][ni], zo[nj][ni], zp[nj][ni], ri[nj][ni], nbits[nj][ni], errors ;
   int32_t mind, maxd, status ;
   float fmin, fmax, amin, amax ;
   float (*z)[ni] = (void *)zf ;
@@ -247,17 +253,25 @@ void Analyze_N(float *zf, int32_t ni, int32_t nj, char *name, int32_t bit_shift)
 
   }else{
     fprintf(stderr, "\n") ;
-//     int32_t bit_shift = 3 ;
+//     int32_t mant_bits = 3 ;
     // float -> integer representation
-    for(j=0 ; j<nj ; j++){
-      for(i=0 ; i<ni ; i++){
-        zi[j][i] = fp32_to_fsi32(z[j][i], bit_shift) ;
-      }
-    }
-    // keep integer reference
+    fp2fsi_n((float *)z, (int32_t *)zi, ni*nj, mant_bits) ;
+//     for(j=0 ; j<nj ; j++){
+//       for(i=0 ; i<ni ; i++){
+//         zi[j][i] = fp32_to_fsi32(z[j][i], mant_bits) ;
+//       }
+//     }
+    // keep integer reference : copy zi into ri
     copy_32((void *)ri, (void *)zi, ni*nj) ;
-    // apply predictor
+    // apply predictor to zi
     Predict((int32_t *)zi, ni, nj) ;
+    // keep a copy of zi as a reference
+    copy_32((void *)zo, (void *)zi, ni*nj) ;
+    block_properties bp0 ;
+    int32_t nbpts = analyze_data32_block((void *)zo, ni, ni, nj, &bp0) ;
+    if(nbpts != ni*nj) goto fail ;
+    bp0.kind = int_data ;
+    print_int_props(bp0) ;
 
     // find number of bits needed
     tbits = count_bits(ni, nj, nbits, zi, bits) ;
@@ -265,24 +279,27 @@ void Analyze_N(float *zf, int32_t ni, int32_t nj, char *name, int32_t bit_shift)
     for(i=0  ; i<16 ; i++){ fprintf(stderr, "%6d ",bits[i]) ; }
     fprintf(stderr, "\n") ;
     for(i=16 ; i<33 ; i++){ fprintf(stderr, "%6d ",bits[i]) ; }
-    fprintf(stderr, " [%ld|%ld] %4.2f bits/pt, bit shift = %d (1 part in %d)\n\n", tbits, tbits0, tbits0*1.0f/(ni*nj), bit_shift, 1 << (24-bit_shift)) ;
-
+    fprintf(stderr, " [%ld|%ld] %4.2f bits/pt, bit shift = %d (1 part in %d)\n\n", tbits, tbits0, tbits0*1.0f/(ni*nj), mant_bits, 1 << (24-mant_bits)) ;
+tbits0 = tbits1 = 0 ;
+if(mant_bits > 22) goto bypass_encoding ;
     // encode into bit stream from zi
-    STREAM_CREATE(ps, NULL, sizeof(uint32_t)*ni*nj*8, BIT_FULL_INIT) ;
+    STREAM_CREATE(ps, NULL, sizeof(uint32_t)*ni*nj*9, BIT_FULL_INIT) ;
     STREAM_INSERT_BEGIN(*ps) ;
     tbits0 = encode_block(ps, (void *)zi, ni, ni, nj, 8) ;
     STREAM_INSERT_FINALIZE(*ps) ;
+print_encode_stats(1) ;
 
     // decode from bit stream into zi
-    copy_32((void *)zo, (void *)zi, ni*nj) ;
     STREAM_XTRACT_BEGIN(*ps) ;
     tbits1 = decode_block(ps, (void *)zi, ni, ni, nj, 8) ;
     STREAM_FREE(ps, status) ;
-    if(bit_shift == 0) zi[0][0] = zo[0][0] ;
+    /*if(mant_bits == 23)*/ zi[0][0] = zo[0][0] ;
+bypass_encoding :
     errors = compare_ints((void *)zo, (void *)zi, ni*nj) ;
     fprintf(stderr, "encode_block used %ld bits", tbits0) ;
     fprintf(stderr, ", decode_block decoded %ld bits", tbits1) ;
-    fprintf(stderr, ", data differences = %d, preserved [0][0] = %8.8x, status = %d, %4.2f bits/pt\n", errors, zi[0][0], status, tbits0*1.0f/(ni*nj)) ;
+    fprintf(stderr, ", decoding differences = %d, preserved [0][0] = %8.8x, status = %d, %4.2f bits/pt\n", errors, zi[0][0], status, tbits0*1.0f/(ni*nj)) ;
+    if(errors > 0) goto fail ;
 
     // un predict
     Unpredict((int32_t *)zi, ni, nj) ;
@@ -293,14 +310,15 @@ void Analyze_N(float *zf, int32_t ni, int32_t nj, char *name, int32_t bit_shift)
       goto fail ;
     }
     // integer representation -> float
-    for(j=0 ; j<nj ; j++){
-      for(i=0 ; i<ni ; i++){
-        zr[j][i] = fsi32_to_fp32(zi[j][i], bit_shift) ;
-      }
-    }
+    fsi2fp_n((float *)zr, (int32_t *)zi, ni*nj, mant_bits) ;
+//     for(j=0 ; j<nj ; j++){
+//       for(i=0 ; i<ni ; i++){
+//         zr[j][i] = fsi32_to_fp32(zi[j][i], mant_bits) ;
+//       }
+//     }
     // compare to float reference
     errors = compare_floats((void *)zr, (void *)z, ni*nj) ;
-    if(bit_shift == 0 && errors > 0){
+    if(mant_bits == 23 && errors > 0){
       fprintf(stderr,"ERROR : zr vs z differences = %d\n", errors) ;
       goto fail ;
     }
@@ -310,6 +328,7 @@ void Analyze_N(float *zf, int32_t ni, int32_t nj, char *name, int32_t bit_shift)
 
 fail:
   fprintf(stderr,"FAIL\n") ;
+  exit(1) ;
 }
 
 // analyze TSZ x TSZ sub blocks from array f_[nj][ni]
