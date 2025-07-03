@@ -2,7 +2,8 @@
 #include <stdint.h>
 #include <stdlib.h>
 
-#include <rmn/ieee_functions.h>
+// #include <rmn/ieee_functions.h>
+#include <rmn/ieee_extras.h>
 #include <rmn/test_helpers.h>
 
 void scale_floats(float *f, int n , float fact);
