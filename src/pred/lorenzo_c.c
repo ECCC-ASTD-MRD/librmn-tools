@@ -19,12 +19,13 @@
 // uncomment the following line to only use PLAIN C code
 // #define USE_PLAIN_C
 
-// comment the following line to use emulated Intel SIMD intrinsics
-#define ALIAS_INTEL_SIMD_INTRINSICS
+// uncomment the following line to use emulated Intel SIMD intrinsics
+// #define ALIAS_INTEL_SIMD_INTRINSICS
+
 // comment the following line to activate SIMD code
 // #define EMULATE_SIMD
 
-// include SIMD intrinsics
+// use SIMD intrinsics by default
 #include <rmn/simd_functions.h>
 
 #define STATIC static
