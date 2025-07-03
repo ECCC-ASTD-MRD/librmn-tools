@@ -281,7 +281,7 @@ void Analyze_N(float *zf, int32_t ni, int32_t nj, char *name, int32_t mant_bits)
     for(i=16 ; i<33 ; i++){ fprintf(stderr, "%6d ",bits[i]) ; }
     fprintf(stderr, " [%ld|%ld] %4.2f bits/pt, bit shift = %d (1 part in %d)\n\n", tbits, tbits0, tbits0*1.0f/(ni*nj), mant_bits, 1 << (24-mant_bits)) ;
 tbits0 = tbits1 = 0 ;
-if(mant_bits > 22) goto bypass_encoding ;
+// if(mant_bits > 22) goto bypass_encoding ;
     // encode into bit stream from zi
     STREAM_CREATE(ps, NULL, sizeof(uint32_t)*ni*nj*9, BIT_FULL_INIT) ;
     STREAM_INSERT_BEGIN(*ps) ;
@@ -294,7 +294,7 @@ print_encode_stats(1) ;
     tbits1 = decode_block(ps, (void *)zi, ni, ni, nj, 8) ;
     STREAM_FREE(ps, status) ;
     /*if(mant_bits == 23)*/ zi[0][0] = zo[0][0] ;
-bypass_encoding :
+// bypass_encoding :
     errors = compare_ints((void *)zo, (void *)zi, ni*nj) ;
     fprintf(stderr, "encode_block used %ld bits", tbits0) ;
     fprintf(stderr, ", decode_block decoded %ld bits", tbits1) ;

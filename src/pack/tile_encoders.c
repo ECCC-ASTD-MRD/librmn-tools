@@ -580,9 +580,9 @@ int encode_block(bitstream *s_in, int32_t *block, int lnis, int ni, int nj, int 
   int32_t tile[tsize*tsize*4] ;
   block_properties bp ;
   bitstream s ;
-bitstream s0, *ps0 ;
-int32_t til2[tsize*tsize*4], badtiles = 0 ;
-ps0 = &s0 ;
+// bitstream s0, *ps0 ;
+// int32_t til2[tsize*tsize*4], badtiles = 0 ;
+// ps0 = &s0 ;
 
   status = -1 ;
   if(s_in == NULL) goto error ;
@@ -593,45 +593,45 @@ ps0 = &s0 ;
     int32_t *src = block ;
     for(i0=0, lni = ri.ln0 ; i0<ni ; i0+=lni, lni = tsize){
       move_w32_block(src, lnis, tile, lni, lni, lnj, &bp) ;  // get tile from block
-STREAM_CREATE(ps0, NULL, sizeof(tile)*16, BIT_FULL_INIT) ;
-STREAM_INSERT_BEGIN(*ps0) ;
-encode_tile(ps0, tile, lni*lnj, &bp) ;
-STREAM_INSERT_FINALIZE(*ps0) ;
-STREAM_XTRACT_BEGIN(*ps0) ;
-decode_tile(ps0, til2, lni*lnj) ;
-int errors, i ;
-STREAM_FREE(ps0, errors) ;
-errors = 0 ;
-for(i=0 ; i<lni*lnj ; i++){
-  if(tile[i] != til2[i]){
-    errors++ ;
-    fprintf(stderr, "error at [%d,%d], expected %8.8x, got %8.8x, tile[%d][%d]\n", i - ((i/lni)*lni), i/lni, tile[i], til2[i], lni, lnj) ;
-  }
-}
-if(errors > 0){
-  badtiles++ ;
-  fprintf(stderr, "BAD tile encode/decode, %d errors \n", errors);
-  for(i=0 ; i<lni*lnj ; i++){
-    fprintf(stderr, "%8.8x ", tile[i]) ;
-    int ii = i - ((i/lni)*lni) ;
-    if(ii == lni-1 ) fprintf(stderr, "\n") ;
-  }
-  fprintf(stderr, "\n") ;
-  for(i=0 ; i<lni*lnj ; i++){
-    fprintf(stderr, "%8.8x ", til2[i]) ;
-    int ii = i - ((i/lni)*lni) ;
-    if(ii == lni-1 ) fprintf(stderr, "\n") ;
-  }
-verbose = 0 ;
-STREAM_CREATE(ps0, NULL, sizeof(tile)*16, BIT_FULL_INIT) ;
-STREAM_INSERT_BEGIN(*ps0) ;
-encode_tile(ps0, tile, lni*lnj, &bp) ;
-STREAM_INSERT_FINALIZE(*ps0) ;
-STREAM_XTRACT_BEGIN(*ps0) ;
-decode_tile(ps0, til2, lni*lnj) ;
-STREAM_FREE(ps0, errors) ;
-exit(1) ;
-}
+// STREAM_CREATE(ps0, NULL, sizeof(tile)*16, BIT_FULL_INIT) ;
+// STREAM_INSERT_BEGIN(*ps0) ;
+// encode_tile(ps0, tile, lni*lnj, &bp) ;
+// STREAM_INSERT_FINALIZE(*ps0) ;
+// STREAM_XTRACT_BEGIN(*ps0) ;
+// decode_tile(ps0, til2, lni*lnj) ;
+// int errors, i ;
+// STREAM_FREE(ps0, errors) ;
+// errors = 0 ;
+// for(i=0 ; i<lni*lnj ; i++){
+//   if(tile[i] != til2[i]){
+//     errors++ ;
+//     fprintf(stderr, "error at [%d,%d], expected %8.8x, got %8.8x, tile[%d][%d]\n", i - ((i/lni)*lni), i/lni, tile[i], til2[i], lni, lnj) ;
+//   }
+// }
+// if(errors > 0){
+//   badtiles++ ;
+//   fprintf(stderr, "BAD tile encode/decode, %d errors \n", errors);
+//   for(i=0 ; i<lni*lnj ; i++){
+//     fprintf(stderr, "%8.8x ", tile[i]) ;
+//     int ii = i - ((i/lni)*lni) ;
+//     if(ii == lni-1 ) fprintf(stderr, "\n") ;
+//   }
+//   fprintf(stderr, "\n") ;
+//   for(i=0 ; i<lni*lnj ; i++){
+//     fprintf(stderr, "%8.8x ", til2[i]) ;
+//     int ii = i - ((i/lni)*lni) ;
+//     if(ii == lni-1 ) fprintf(stderr, "\n") ;
+//   }
+// verbose = 0 ;
+// STREAM_CREATE(ps0, NULL, sizeof(tile)*16, BIT_FULL_INIT) ;
+// STREAM_INSERT_BEGIN(*ps0) ;
+// encode_tile(ps0, tile, lni*lnj, &bp) ;
+// STREAM_INSERT_FINALIZE(*ps0) ;
+// STREAM_XTRACT_BEGIN(*ps0) ;
+// decode_tile(ps0, til2, lni*lnj) ;
+// STREAM_FREE(ps0, errors) ;
+// exit(1) ;
+// }
       status = encode_tile(&s, tile, lni*lnj, &bp) ;         // encode tile
       if(status <= 0) goto error ;
       totbits += status ;
@@ -639,7 +639,7 @@ exit(1) ;
     }
     block += lnj * lnis ;
   }
-fprintf(stderr, "%d BAD tiles\n", badtiles) ;
+// fprintf(stderr, "%d BAD tiles\n", badtiles) ;
 
   *s_in = s ;        // update s_in
   return totbits ;

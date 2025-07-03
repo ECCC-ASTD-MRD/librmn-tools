@@ -153,7 +153,7 @@ if(NOT ( ${COMPILER_SUITE} MATCHES  "nvhpc") )
 # problem building test_lorenzo_f_static with Nvidia compiler (dl library symbol missing)
 add_project_test(test_lorenzo_f_static test_lorenzo.F90 STATIC LINK_LIBS "rmn::rmn-static" DL)        # build with static libraries
 else()
-add_project_test(test_lorenzo_f_static test_lorenzo.F90 STATIC LINK_LIBS "rmn::rmn-static" DL)        # build with static libraries
+# add_project_test(test_lorenzo_f_static test_lorenzo.F90 STATIC LINK_LIBS "rmn::rmn-static" DL)        # build with static libraries
 endif()
 # add_project_test(test_lorenzo_f_static test_lorenzo.F90 STATIC LINK_LIBS rmn::rmn-static)                          # build with static libraries
 # SET_SOURCE_FILES_PROPERTIES( test_lorenzo.F90 PROPERTIES COMPILE_OPTIONS -DNO_FORTRAN_CODE )
