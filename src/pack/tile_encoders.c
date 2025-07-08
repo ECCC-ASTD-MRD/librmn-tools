@@ -580,9 +580,6 @@ int encode_block(bitstream *s_in, int32_t *block, int lnis, int ni, int nj, int 
   int32_t tile[tsize*tsize*4] ;
   block_properties bp ;
   bitstream s ;
-// bitstream s0, *ps0 ;
-// int32_t til2[tsize*tsize*4], badtiles = 0 ;
-// ps0 = &s0 ;
 
   status = -1 ;
   if(s_in == NULL) goto error ;
@@ -593,6 +590,10 @@ int encode_block(bitstream *s_in, int32_t *block, int lnis, int ni, int nj, int 
     int32_t *src = block ;
     for(i0=0, lni = ri.ln0 ; i0<ni ; i0+=lni, lni = tsize){
       move_w32_block(src, lnis, tile, lni, lni, lnj, &bp) ;  // get tile from block
+// encode , decode , verify , print and abort upon error
+// bitstream s0, *ps0 ;
+// int32_t til2[tsize*tsize*4], badtiles = 0 ;
+// ps0 = &s0 ;
 // STREAM_CREATE(ps0, NULL, sizeof(tile)*16, BIT_FULL_INIT) ;
 // STREAM_INSERT_BEGIN(*ps0) ;
 // encode_tile(ps0, tile, lni*lnj, &bp) ;
