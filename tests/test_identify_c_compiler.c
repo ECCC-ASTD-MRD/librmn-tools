@@ -8,7 +8,7 @@ int identify_address_mode() ;
 
 // int main(int argc, char **argv){
 int main(){
-  start_of_test("identify_compiler_c");
+  start_of_test("identify_c_compiler");
   fprintf(stderr, "compiler = '%s', address mode = %d bits\n", C_COMPILER_NAME, ADDRESS_MODE) ;
   fprintf(stderr, "identify_c_compiler() = '%s'\n", identify_c_compiler()) ;
   fprintf(stderr, "identify_address_mode() = %d\n", identify_address_mode()) ;
