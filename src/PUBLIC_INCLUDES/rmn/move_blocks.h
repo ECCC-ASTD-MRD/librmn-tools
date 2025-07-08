@@ -23,7 +23,7 @@
 
 #include <rmn/data_kind.h>
 #include <rmn/data_properties.h>
-#include <rmn/ieee_functions.h>
+#include <rmn/ieee_extras.h>
 
 // move_w32_block(void *restrict src, int lnis, void *restrict dst, int lnid, int ni, int nj[, block_properties *bp]);
 // generic interface to block movers. bp is absent if src is not a pointer to int/uint/float/void

@@ -22,7 +22,6 @@
 
 #include <rmn/test_helpers.h>
 #include <rmn/move_blocks.h>
-#include <rmn/ieee_functions.h>
 
 #define NITER 100
 #define WITH_TIMING

@@ -19,7 +19,7 @@
 // #include <immintrin.h>
 
 #include <rmn/quantizers.h>
-#include <rmn/ieee_functions.h>
+#include <rmn/ieee_extras.h>
 #include <rmn/move_blocks.h>
 
 // ======================= linear quantization =======================

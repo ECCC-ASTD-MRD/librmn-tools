@@ -16,7 +16,7 @@
 //
 
 #include <rmn/dmap_filters.h>
-#include <rmn/ieee_functions.h>
+#include <rmn/ieee_extras.h>
 #include <rmn/move_blocks.h>
 #include <rmn/misc_operators.h>
 
