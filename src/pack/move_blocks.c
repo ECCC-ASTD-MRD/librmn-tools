@@ -58,92 +58,10 @@
 #include <rmn/simd_functions.h>
 #include <rmn/move_blocks.h>
 
+#undef MIN
 #define MIN(OLD,NEW) OLD = (NEW < OLD) ? NEW : OLD
+#undef MAX
 #define MAX(OLD,NEW) OLD = (NEW > OLD) ? NEW : OLD
-
-#if 0
-// compute what is necessary to split a data block along one of its dimensions
-// gdim   [IN] : size of data block along a dimension
-// ldim   [IN] : desired size of sub-blocks along a dimension
-// nsub  [OUT] : number of sub-blocks needed
-// ldim0 [OUT] : size of first/last sub-block along that dimension
-// normally, ldim/2 <= ldim0 < ldim + ldim/2 (extra small blocks are deemed undesirable)
-// the only exception would be nsub ==1 because gdim < ldim/2
-// the first block may be longer than ldim, the last block may be shorter than ldim
-void split_block_dimension(uint32_t gdim, uint32_t ldim, uint32_t *nsub, uint32_t *ldim0){
-  uint32_t nparts = gdim / ldim ;
-  uint32_t extra = gdim - (nparts * ldim) ;   // modulo( gdim , ldim )
-  if(extra < ldim/2){
-    *ldim0 = ldim + extra ;    // < ldim + ldim/2
-    *nsub = nparts ;
-  }else{
-    *ldim0 = extra ;           // >= ldim / 2
-    *nsub = nparts + 1 ;       // need one more sub-block
-  }
-}
-
-// demo diagnostic function for split_and_process
-// data[nj][lni] : sub-block
-// lni           : storage length of data rows
-// ni            : number of useful values in data rows
-// nj            : number of rows
-// fnargs        : reference point in sub-block, if NULL, data[0][0] is used
-// TODO add properties argument (it will just be checked for validity)
-static int diag_fn(int lni, int ni, int nj, block_properties *bp, void *data, sfn_args *fnargs){
-  void *args = fnargs ? fnargs : data ;
-  uint64_t offset  = ((char *)data - (char *)args)/sizeof(uint32_t) ;
-  uint64_t offsetj = offset / lni ;
-  uint64_t offseti = offset - (offsetj * lni) ;
-  fprintf(stderr, "lni = %3d, ni = %3d, nj = %3d range = (%4ld,%4ld) (%4ld,%4ld), type = %s\n",
-          lni, ni, nj, offseti, offsetj, offseti+ni-1, offsetj+nj-1, printable_type[bp->kind]) ;
-//   fprintf(stderr, "lni = %3d, ni = %3d, nj = %3d, address = %p, args = %p, range = (%4ld,%4ld) (%4ld,%4ld)\n",
-//           lni, ni, nj, data, args, offseti, offsetj, offseti+ni-1, offsetj+nj-1) ;
-  return 0 ;
-}
-
-// VLA (variable Length Array) style version
-// lgni   [IN] : storage length of rows in array
-// gni    [IN] : number of useful elements in an array row
-// gnj    [IN] : number of rows in array
-// array  [IN] : data array (lgni * gnj elements)
-// ni     [IN] : number of elements in sub-block rows
-// nj     [IN] : number of rows in sub-block
-// fnptr  [IN] : function to be called to process sub-block
-//               if NULL, private diagnostic function will be called
-// fnargs [IN] : argument list to be passed to function
-// return error code from fn
-// TODO add data type to arguments
-// TODO adjust for longer first block / shorter last block strategy
-static int split_and_process_(uint32_t lgni, uint32_t gni, uint32_t gnj, data_kind datatype, uint32_t array[gnj][lgni], int ni, int nj, sfn_ptr fn, sfn_args *fnargs){
-  uint32_t ni0, nj0, nbi, nbj, i, j, deltai, deltaj ;
-  int status ;
-  block_properties bp ;
-
-  split_block_dimension(gni, ni, &nbi, &ni0) ;
-  split_block_dimension(gnj, nj, &nbj, &nj0) ;
-
-  if(fn == NULL){           // use private diagnostic function
-    fn = diag_fn ;          // point to diagnostic function
-    fnargs = NULL ;         // address of array[j][i] will be used
-  }
-
-  deltaj = nj0 ;            // if nj0 > nj
-  for(j=0 ; j<gnj ; j+=deltaj , deltaj=nj){
-    // if j+deltaj > gnj, deltaj = gnj-j
-    deltai = ni0 ;          // if ni0 > ni
-    for(i=0 ; i<gni ; i+=deltai , deltai = ni){
-      // if i+deltai > gni, deltai = gni-i
-      // extract sub_block[deltaj][deltai]
-      // move_word32_block(&(array[j][i]), gni, sub_block, deltai, deltai, deltaj, datatype, &bp) ;
-      // status = (*fn)(deltai, deltai, deltaj, sub_block, fnargs) ;
-      bp.kind = datatype ;
-      status = (*fn)(gni, deltai, deltaj, &bp, &(array[j][i]), fnargs) ;
-      if(status != 0) return status ;
-    }
-  }
-  return 0 ;
-}
-#endif
 
 // bp  [IN] : block properties struct (min / max / min abs)
 void print_int_props(block_properties bp){
@@ -153,9 +71,11 @@ void print_int_props(block_properties bp){
     amin = (bp.mins.i) < 0 ? -bp.mins.i : bp.mins.i ;
     absmax = (amax > amin) ? amax : amin ;
     absmin = (amax < amin) ? amax : amin ;
-    fprintf(stderr, "int   props : mins = %12d, maxs = %12d, minu = %12d, maxu = %12d, mina = %12d, maxa = %12d\n", bp.mins.i, bp.maxs.i, bp.minu.i, bp.maxu.i, absmin, absmax) ;
+    fprintf(stderr, "int   props : mins = %12d, maxs = %12d, minu = %12d, maxu = %12d, mina = %12d, maxa = %12d\n",
+            bp.mins.i, bp.maxs.i, bp.minu.i, bp.maxu.i, absmin, absmax) ;
   }else{
-    fprintf(stderr, "uint  props : mins = %12.8x, maxs = %12.8x, minu = %12.8x, maxu = %12.8x\n", bp.mins.u, bp.maxs.u, bp.minu.u, bp.maxu.u) ;
+    fprintf(stderr, "uint  props : mins = %12.8x, maxs = %12.8x, minu = %12.8x, maxu = %12.8x\n",
+            bp.mins.u, bp.maxs.u, bp.minu.u, bp.maxu.u) ;
   }
 }
 
@@ -481,8 +401,6 @@ void adjust_block_properties(block_properties *bp, data_kind datatype){
     // if no negative values are present, bp->maxu.i will be equal to bp->maxs.i
   }else if(datatype == uint_data){
     bp->kind = uint_data ;
-//     bp->maxs.u = bp->maxu.u ;
-//     bp->mins.u = bp->minu.u ;
     // bp->maxs and bp->mins  are meaningless
   }else if(datatype == raw_data){
     bp->kind = raw_data ;
@@ -501,18 +419,18 @@ void add_block_properties(block_properties *bp, block_properties *bp_extra){
   if(bp_extra->kind != datatype) return ;
 
   if(datatype == float_data){
-    bp->maxs.f = (bp_extra->maxs.f > bp->maxs.f) ? bp_extra->maxs.f : bp->maxs.f ;
-    bp->mins.f = (bp_extra->mins.f < bp->mins.f) ? bp_extra->mins.f : bp->mins.f ;
-    bp->maxu.f = (bp_extra->maxu.f > bp->maxu.f) ? bp_extra->maxu.f : bp->maxu.f ;
-    bp->minu.f = (bp_extra->minu.f < bp->minu.f) ? bp_extra->minu.f : bp->minu.f ;
+    bp->maxs.f = MAX(bp_extra->maxs.f , bp->maxs.f) ;
+    bp->mins.f = MIN(bp_extra->mins.f , bp->mins.f) ;
+    bp->maxu.f = MAX(bp_extra->maxu.f , bp->maxu.f) ;
+    bp->minu.f = MIN(bp_extra->minu.f , bp->minu.f) ;
   }else if(datatype == int_data){
-    bp->maxs.i = (bp_extra->maxs.i > bp->maxs.i) ? bp_extra->maxs.i : bp->maxs.i ;
-    bp->mins.i = (bp_extra->mins.i < bp->mins.i) ? bp_extra->mins.i : bp->mins.i ;
-    bp->maxu.u = (bp_extra->maxu.u > bp->maxu.u) ? bp_extra->maxu.u : bp->maxu.u ;
-    bp->minu.u = (bp_extra->minu.u < bp->minu.u) ? bp_extra->minu.u : bp->minu.u ;
+    bp->maxs.i = MAX(bp_extra->maxs.i , bp->maxs.i) ;
+    bp->mins.i = MIN(bp_extra->mins.i , bp->mins.i) ;
+    bp->maxu.u = MAX(bp_extra->maxu.u , bp->maxu.u) ;
+    bp->minu.u = MIN(bp_extra->minu.u , bp->minu.u) ;
   }else if(datatype == uint_data){
-    bp->maxu.u = (bp_extra->maxu.u > bp->maxu.u) ? bp_extra->maxu.u : bp->maxu.u ;
-    bp->minu.u = (bp_extra->minu.u < bp->minu.u) ? bp_extra->minu.u : bp->minu.u ;
+    bp->maxu.u = MAX(bp_extra->maxu.u , bp->maxu.u) ;
+    bp->minu.u = MIN(bp_extra->minu.u , bp->minu.u) ;
   }
   if( (bp->zeros > 0) && (bp_extra->zeros > 0) ) bp->zeros += bp_extra->zeros ;
 }
@@ -531,7 +449,6 @@ int move_float_block(float *restrict src, int lnis, void *restrict dst, int lnid
   if(bp == NULL) return move_mem32_block(src, lnis, dst, lnid, ni, nj) ;
 
   int rc = move_data32_block(src, lnis, dst, lnid, ni, nj, bp) ;
-// fprintf(stderr,"move_float_block     : mins = %8.8x, maxs = %8.8x, minu = %8.8x, maxu = %8.8x\n",bp->mins.u, bp->maxs.u, bp->minu.u, bp->maxu.u);
   if(rc != 0) adjust_block_properties(bp, float_data) ;
   return rc ;
 }
@@ -552,7 +469,6 @@ int move_int32_block(int32_t *restrict src, int lnis, void *restrict dst, int ln
   if(bp == NULL) return move_mem32_block(src, lnis, dst, lnid, ni, nj) ;
 
   int rc = move_data32_block(src, lnis, dst, lnid, ni, nj, bp) ;
-// fprintf(stderr,"move_int32_block      : mins = %8.8x, maxs = %8.8x, minu = %8.8x, maxu = %8.8x\n",bp->mins.u, bp->maxs.u, bp->minu.u, bp->maxu.u);
   if(rc != 0) adjust_block_properties(bp, int_data) ;
   return rc ;
 }
