@@ -22,7 +22,6 @@
 #include <stdlib.h>
 #include <float.h>
 
-#include <rmn/misc_operators.h>
 #include <rmn/data_info.h>
 
 // compute maxa (largest absolute value) for 32 bit integers
