@@ -114,7 +114,7 @@ bitstream *FreeStream(bitstream *s, int *error){
   if(StreamIsInvalid(s)){     // not a valid stream
     *error = 1 ;
     s = NULL ;
-fprintf(stderr, "FreeStream : invalid stream\n");
+// fprintf(stderr, "FreeStream : invalid stream\n");
     goto end ;
   }
 
@@ -298,6 +298,7 @@ ssize_t StreamDataCopy(bitstream *s, void *mem, size_t size){
   return nborig ;                                          // return unrounded result
 }
 
+// =======================       diagnostic functions       =======================
 // =======================  print stream data and metadata  =======================
 // print some elements at the beginning and at the end of the bit stream data buffer
 // (see bi_endian_pack.h)
