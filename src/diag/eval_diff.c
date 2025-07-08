@@ -13,7 +13,12 @@
 //
 
 #include <stdlib.h>
-#include <rmn/misc_operators.h>
+#include <stdint.h>
+
+#define MAX(a,b) ( ((a) > (b)) ? (a) : (b) )
+#define MIN(a,b) ( ((a) < (b)) ? (a) : (b) )
+#define ABS(val) ( ((val) < 0) ? (-(val)) : (val) )
+
 #include <rmn/eval_diff.h>
 #include <rmn/tee_print.h>
 
