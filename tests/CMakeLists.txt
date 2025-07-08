@@ -181,7 +181,7 @@ add_project_test(test_serialized_functions test_serialized_functions.c LINK_LIBS
 # SET_SOURCE_FILES_PROPERTIES( test_serialized_functions PROPERTIES COMPILE_OPTIONS -O0 )
 # endif()
 
-add_project_test(test_ieeequantize test_ieeequantize.c LINK_LIBS "rmn::rmn-shared" NODIAG)
+# add_project_test(test_ieeequantize test_ieeequantize.c LINK_LIBS "rmn::rmn-shared" NODIAG)
 
 add_project_test(test_logquantize test_logquantize.c LINK_LIBS "rmn::rmn-shared" NODIAG)
 # add_project_test(test_encoders test_encoders.c LINK_LIBS "rmn::rmn-shared" NODIAG)

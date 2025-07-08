@@ -26,7 +26,7 @@ set(PROJECT_C_FILES
   src/pack/float_block_encoders.c
   src/id/identify_compiler.c
   src/id/identify_mpi_child.c
-  src/pack/ieee_quantize.c
+#   src/pack/ieee_quantize.c
   src/pred/lorenzo_c.c
   src/diag/misc_analyze.c
   src/pack/misc_operators.c
