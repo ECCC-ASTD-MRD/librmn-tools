@@ -129,7 +129,7 @@ set(PROJECT_H_FILES
   src/PUBLIC_INCLUDES/rmn/rmn_tools.h
   src/PUBLIC_INCLUDES/rmn/serialized_functions.h
   src/PUBLIC_INCLUDES/rmn/simd_compare.h
-  src/PUBLIC_INCLUDES/rmn/simd_functions.h
+#   src/PUBLIC_INCLUDES/rmn/simd_functions.h
   src/PUBLIC_INCLUDES/rmn/smooth124.h
   src/PUBLIC_INCLUDES/rmn/sparse_concat.h
   src/PUBLIC_INCLUDES/rmn/split_dimension.h
