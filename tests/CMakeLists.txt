@@ -130,8 +130,8 @@ endforeach()
 
 add_project_test(test_identify_mpi_child test_identify_mpi_child.c LINK_LIBS "rmn::rmn-shared" MPI "mpirun -n 2 ")
 
-add_project_test(test_identify_compiler_c test_identify_compiler_c.c LINK_LIBS "rmn::rmn-shared")
-add_project_test(test_identify_compiler_f test_identify_compiler_f.F90 DL LINK_LIBS "rmn::rmn-shared;libaec::aec")
+add_project_test(test_identify_c_compiler test_identify_c_compiler.c LINK_LIBS "rmn::rmn-shared")
+add_project_test(test_identify_fortran_compiler test_identify_fortran_compiler.F90 DL LINK_LIBS "rmn::rmn-shared;libaec::aec")
 add_project_test(test_timers test_timers.c LINK_LIBS "rmn::rmn-shared")
 
 add_project_test(test_tee_file test_tee_file.c LINK_LIBS "rmn::rmn-shared")

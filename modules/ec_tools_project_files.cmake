@@ -108,8 +108,8 @@ set(PROJECT_H_FILES
   src/PUBLIC_INCLUDES/rmn/filter_255.h
   src/PUBLIC_INCLUDES/rmn/float_block_encoders.h
   src/PUBLIC_INCLUDES/rmn/function_pointers.h
-  src/PUBLIC_INCLUDES/rmn/identify_compiler_c.h
-  src/PUBLIC_INCLUDES/rmn/identify_compiler_f.hf
+  src/PUBLIC_INCLUDES/rmn/identify_c_compiler.h
+  src/PUBLIC_INCLUDES/rmn/identify_fortran_compiler.hf
   src/PUBLIC_INCLUDES/rmn/identify_mpi_child.h
   src/PUBLIC_INCLUDES/rmn/ieee_functions.h
   src/PUBLIC_INCLUDES/rmn/ieee_quantize.h

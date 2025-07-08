@@ -2,7 +2,7 @@
 
 program identify_compiler
   implicit none
-#include <rmn/identify_compiler_f.hf>
+#include <rmn/identify_fortran_compiler.hf>
 
   call start_of_test("is fortran compiler"//achar(0))
 #if defined(IN_FORTRAN_CODE)
@@ -11,6 +11,7 @@ program identify_compiler
   print *, "IN_FORTRAN_CODE is NOT defined"
 #endif
 
-  print *, "compiler = '"//FORTRAN_COMPILER//"'"
+  print *, "string = '"//fortran_compiler_name//"'"
+  print *, "macro  = '"//FORTRAN_COMPILER_NAME//"'"
   print *, "address size =", ADDRESS_SIZE
 end

@@ -19,7 +19,7 @@
 !  #include <rmn/identify_compiler_f.hf>
 !
 !  N.B.
-!    FORTRAN_COMPILER value consistent with value FORTRAN_COMPILER_KIND from is_fortran_compiler.h
+!    Fortran_Compiler_Namevalue consistent with value FORTRAN_COMPILER_NAME_KIND from is_fortran_compiler.h
 #if defined(__x86_64__) || defined(__LP64__)
   integer, parameter :: ADDRESS_SIZE = 64   ! 64 bit addresses
 
@@ -31,25 +31,34 @@
 
 #endif
 
+#undef FORTRAN_COMPILER_NAME
+
 #if defined(__GFORTRAN__)
-  character(len=*), parameter :: FORTRAN_COMPILER = 'GNU'            ! gfortran
+#define FORTRAN_COMPILER_NAME 'GNU'
+  character(len=*), parameter :: Fortran_Compiler_Name= 'GNU'            ! gfortran
 
 #elif defined(__INTEL_LLVM_COMPILER)
-    character(len=*), parameter :: FORTRAN_COMPILER = 'INTEL-IFX'    ! ifx
+#define FORTRAN_COMPILER_NAME 'INTEL-IFX'
+    character(len=*), parameter :: Fortran_Compiler_Name= 'INTEL-IFX'    ! ifx
 
 #elif defined(__INTEL_COMPILER)
-    character(len=*), parameter :: FORTRAN_COMPILER = 'INTEL-IFORT'  ! ifort
+#define FORTRAN_COMPILER_NAME 'INTEL-IFORT'
+    character(len=*), parameter :: Fortran_Compiler_Name= 'INTEL-IFORT'  ! ifort
 
 #elif defined(__PGIF90__)
-  character(len=*), parameter :: FORTRAN_COMPILER = 'PGI-Nvidia'     ! pgfortran/nvfortran
+#define FORTRAN_COMPILER_NAME 'PGI-Nvidia'
+  character(len=*), parameter :: Fortran_Compiler_Name= 'PGI-Nvidia'     ! pgfortran/nvfortran
 
 #elif defined(__FLANG)
-  character(len=*), parameter :: FORTRAN_COMPILER = 'FLANG-TRADITIONAL'           ! aocc flang
+#define FORTRAN_COMPILER_NAME 'FLANG-TRADITIONAL'
+  character(len=*), parameter :: Fortran_Compiler_Name= 'FLANG-TRADITIONAL'           ! aocc flang
 
 #elif defined(__flang__)
-  character(len=*), parameter :: FORTRAN_COMPILER = 'FLANG-LLVM'           ! llvm flang
+#define FORTRAN_COMPILER_NAME 'FLANG-LLVM'
+  character(len=*), parameter :: Fortran_Compiler_Name= 'FLANG-LLVM'           ! llvm flang
 
 #else
-  character(len=*), parameter :: FORTRAN_COMPILER = 'UNKNOWN'        ! unknown
+#define FORTRAN_COMPILER_NAME 'UNKNOWN'
+  character(len=*), parameter :: Fortran_Compiler_Name= 'UNKNOWN'        ! unknown
 
 #endif
