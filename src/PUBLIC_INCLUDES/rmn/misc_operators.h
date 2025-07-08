@@ -300,7 +300,7 @@ STATIC inline uint32_t v_to_zigzag_32_inplace(int32_t * restrict src, int ni){
   uint32_t max = 0 ;
   for(i=0 ; i<ni ; i++){
     src[i] = to_zigzag_32(src[i]) ;
-    max = (src[i] > max) ? src[i] : max ;
+    max = ((uint32_t)src[i] > max) ? src[i] : max ;
   }
   return max ;
 }
@@ -312,7 +312,7 @@ STATIC inline int32_t v_to_zigzag_32(int32_t * restrict src, uint32_t * restrict
   uint32_t max=0 ;
   for(i=0 ; i<ni ; i++){
     dst[i] = to_zigzag_32(src[i]) ;
-    max = (dst[i] > max) ? dst[i] : max ;
+    max = ((uint32_t)dst[i] > max) ? dst[i] : max ;
   }
   return max ;
 }
@@ -353,7 +353,7 @@ STATIC inline int32_t v_from_zigzag_32_inplace(int32_t * restrict src, int ni){
 #else
 STATIC inline int32_t v_from_zigzag_32_inplace(int32_t * restrict src, int ni){
   int i ;
-  uint32_t max=0 ;
+  uint32_t max=0x80000000 ;
   for(i=0 ; i<ni ; i++){
     src[i] = from_zigzag_32(src[i]) ;
     max = (src[i] > max) ? src[i] : max ;
@@ -364,7 +364,7 @@ STATIC inline int32_t v_from_zigzag_32_inplace(int32_t * restrict src, int ni){
 
 // convert array from sign and magnitude form, sign is Least Significant Bit
 STATIC inline int32_t v_from_zigzag_32(uint32_t * restrict src, int32_t * restrict dst, int ni){
-  int32_t i, max=0 ;
+  int32_t i, max=0x80000000 ;
   for(i=0 ; i<ni ; i++){
     dst[i] = from_zigzag_32(src[i]) ;
     max = (dst[i] > max) ? dst[i] : max ;
