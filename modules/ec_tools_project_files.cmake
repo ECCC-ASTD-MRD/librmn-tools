@@ -137,7 +137,7 @@ set(PROJECT_H_FILES
   src/PUBLIC_INCLUDES/rmn/timers.h
   src/PUBLIC_INCLUDES/rmn/tools_types.h
   src/PUBLIC_INCLUDES/rmn/tee_print.h
-  src/PUBLIC_INCLUDES/rmn/test_helpers.h
+#   src/PUBLIC_INCLUDES/rmn/test_helpers.h
   src/PUBLIC_INCLUDES/rmn/tile_encoders.h
   src/PUBLIC_INCLUDES/rmn/tools_plugins.h
   src/PUBLIC_INCLUDES/rmn/tools_plugins.hf
