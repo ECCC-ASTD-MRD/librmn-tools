@@ -217,8 +217,9 @@ add_project_test(test_lgt53 test_lgt53.c LINK_LIBS "rmn::rmn" NODIAG)
 add_project_test(test_compare_count test_compare_count.c LINK_LIBS "rmn::rmn" NODIAG)
 
 add_project_test(test_eval_compress test_eval_compress.c LINK_LIBS "rmn::rmn" NODIAG)
-add_project_test(test_va_args test_va_args.c LINK_LIBS "rmn::rmn" NODIAG)
-add_project_test(test_syntax test_syntax.c NO_TOOLS DL )
 
 add_project_test(test_simd_functions_ref test_simd_functions_ref.c LINK_LIBS "rmn::rmn" NODIAG)
 add_project_test(test_simd_functions test_simd_functions.c LINK_LIBS "rmn::rmn" NODIAG)
+
+add_project_test(test_syntax  test_syntax.c  LINK_LIBS "rmn::rmn" NO_TOOLS DL )
+add_project_test(test_va_args test_va_args.c LINK_LIBS "rmn::rmn" NO_TOOLS )
