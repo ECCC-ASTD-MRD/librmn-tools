@@ -98,11 +98,15 @@ if (NOT rmn_FOUND)
 #    find_package(rmn ${rmn_REQ_VERSION} COMPONENTS REQUIRED)
    find_package(rmn ${rmn_REQ_VERSION} REQUIRED)
 endif()
+get_target_property(rmn_INCLUDE_DIR rmn::rmn INTERFACE_INCLUDE_DIRECTORIES)            # includes from librmn (rmn::rmn)
+message(STATUS "rmn_INCLUDE_DIR = ${rmn_INCLUDE_DIR}")
+
 if (NOT libaec_FOUND)
    find_package(libaec REQUIRED)
 endif()
 message(STATUS "(AEC includes) : ${libaec_INCLUDE_DIR}")
 message(STATUS "(AEC includes) : ${LIBAEC_INCLUDE_DIR}")
+
 if (NOT zfp_FOUND)
    find_package(zfp REQUIRED)
 endif()
@@ -218,130 +222,16 @@ add_custom_target(CBindingExtras DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/src/PUBLIC_
 # include source files lists
 include(ec_tools_project_files)
 
-# set(PROJECT_C_FILES 
-#   src/id/identify_compiler.c
-#   src/id/identify_mpi_child.c
-#   src/timers/rmn_timers.c
-#   src/pred/lorenzo_c.c
-#   src/pred/smooth124.c
-#   src/pred/average_2x2.c
-#   src/pack/bits.c
-#   src/pack/bi_endian_pack.c
-#   src/pack/data_map.c
-#   src/pack/misc_pack.c
-#   src/pack/stream_pack.c
-# #   src/pack/copy_swap.c
-#   src/pack/misc_operators.c
-#   src/pack/ieee_quantize.c
-#   src/pack/move_blocks.c
-#   src/pack/compress_data.c
-#   src/pack/tile_encoders.c
-#   src/pack/serialized_functions.c
-#   src/pack/pixmaps.c
-#   src/pack/compress_expand.c
-#   src/pack/pipe_filters.c
-#   src/pack/filter_000.c
-#   src/pack/filter_001.c
-#   src/pack/filter_100.c
-#   src/pack/filter_110.c
-#   src/pack/filter_254.c
-#   src/pack/filter_255.c
-#   src/pack/tracked_malloc.c
-#   src/diag/tee_print.c
-#   src/diag/test_helpers.c
-#   src/diag/print_helpers.c
-#   src/diag/misc_analyze.c
-#   src/diag/data_info.c
-#   src/diag/c_record_io.c
-#   src/diag/eval_diff.c
-#   src/diag/entropy.c
-#   src/diag/sparse_concat.c
-#   src/diag/simd_compare.c
-#   src/plugins/plugin_code.c
-# )
 SET_SOURCE_FILES_PROPERTIES( src/pack/ieee_quantize.c PROPERTIES COMPILE_OPTIONS "-O3;-DQUIET_SIMD")
-# set(PROJECT_PLUGIN_FILES 
-#   src/pred/lorenzo_c.c
-#   src/pack/bi_endian_pack.c
-# )
+
 SET_SOURCE_FILES_PROPERTIES( src/pred/lorenzo_c.c PROPERTIES COMPILE_OPTIONS "-O3;-DQUIET_SIMD")
 # SET_SOURCE_FILES_PROPERTIES( src/pred/lorenzo_c.c PROPERTIES COMPILE_OPTIONS -I${CMAKE_CURRENT_SOURCE_DIR}/include)
 # SET_SOURCE_FILES_PROPERTIES( src/pack/pixmaps.c PROPERTIES COMPILE_OPTIONS "-O3")
 SET_SOURCE_FILES_PROPERTIES( src/pred/bi_endian_pack.c PROPERTIES COMPILE_OPTIONS "-O3")
 
-# set(PROJECT_F_FILES
-#   src/timers/rmn_timers_mod.F90
-#   src/pred/lorenzo_mod.F90
-#   src/pred/analyze_data.F90
-#   src/plugins/fortran_plugins.F90
-#   src/pred/misc_operators_mod.F90
-#   src/diag/data_info_mod.F90
-#   src/diag/readlx_new.F90
-# )
 SET_SOURCE_FILES_PROPERTIES( src/pred/lorenzo_mod.F90 PROPERTIES COMPILE_OPTIONS -DNO_EXTRA_FORTRAN )
 
-# set(PROJECT_H_FILES
-#   src/PUBLIC_INCLUDES/rmntools.h
-#   src/PUBLIC_INCLUDES/rmn/atomic_functions.h
-#   src/PUBLIC_INCLUDES/rmn/ct_assert.h
-#   src/PUBLIC_INCLUDES/rmn/function_pointers.h
-#   src/PUBLIC_INCLUDES/rmn/lorenzo.h
-#   src/PUBLIC_INCLUDES/rmn/smooth124.h
-#   src/PUBLIC_INCLUDES/rmn/rmn_tools.h
-#   src/PUBLIC_INCLUDES/rmn/identify_compiler_f.hf
-#   src/PUBLIC_INCLUDES/rmn/timers.h
-#   src/PUBLIC_INCLUDES/rmn/tools_types.h
-#   src/PUBLIC_INCLUDES/rmn/pack_macros.h
-#   src/PUBLIC_INCLUDES/rmn/bi_endian_pack.h
-#   src/PUBLIC_INCLUDES/rmn/data_map.h
-#   src/PUBLIC_INCLUDES/rmn/word_stream.h
-#   src/PUBLIC_INCLUDES/rmn/bit_stream.h
-#   src/PUBLIC_INCLUDES/rmn/stream_pack.h
-#   src/PUBLIC_INCLUDES/rmn/bit_pack_macros.h
-#   src/PUBLIC_INCLUDES/rmn/print_bitstream.h
-#   src/PUBLIC_INCLUDES/rmn/bits.h
-#   src/PUBLIC_INCLUDES/rmn/pixmaps.h
-#   src/PUBLIC_INCLUDES/rmn/compress_expand.h
-#   src/PUBLIC_INCLUDES/rmn/tee_print.h
-#   src/PUBLIC_INCLUDES/rmn/test_helpers.h
-#   src/PUBLIC_INCLUDES/rmn/identify_compiler_c.h
-#   src/PUBLIC_INCLUDES/rmn/identify_mpi_child.h
-#   src/PUBLIC_INCLUDES/rmn/is_fortran_compiler.h
-#   src/PUBLIC_INCLUDES/rmn/tools_plugins.h
-#   src/PUBLIC_INCLUDES/rmn/tools_plugins.hf
-#   src/PUBLIC_INCLUDES/rmn/sparse_concat.h
-#   src/PUBLIC_INCLUDES/rmn/simd_compare.h
-#   src/PUBLIC_INCLUDES/rmn/move_blocks.h
-# #   src/PUBLIC_INCLUDES/rmn/copy_swap.h
-#   src/PUBLIC_INCLUDES/rmn/misc_pack.h
-#   src/PUBLIC_INCLUDES/rmn/misc_pack.hf
-#   src/PUBLIC_INCLUDES/rmn/compress_data.h
-#   src/PUBLIC_INCLUDES/rmn/tile_encoders.h
-#   src/PUBLIC_INCLUDES/rmn/misc_analyze.h
-#   src/PUBLIC_INCLUDES/rmn/ieee_quantize.h
-#   src/PUBLIC_INCLUDES/rmn/c_record_ioe.h
-#   src/PUBLIC_INCLUDES/rmn/serialized_functions.h
-#   src/PUBLIC_INCLUDES/rmn/c_binding_extras.hf
-#   src/PUBLIC_INCLUDES/rmn/misc_operators.h
-#   src/PUBLIC_INCLUDES/rmn/data_info.h
-#   src/PUBLIC_INCLUDES/rmn/eval_diff.h
-#   src/PUBLIC_INCLUDES/rmn/entropy.h
-#   src/PUBLIC_INCLUDES/rmn/x86-simd.h
-#   src/PUBLIC_INCLUDES/rmn/fastapprox.h
-#   src/PUBLIC_INCLUDES/rmn/pipe_filters.h
-#   src/PUBLIC_INCLUDES/rmn/filter_base.h
-#   src/PUBLIC_INCLUDES/rmn/filter_all.h
-#   src/PUBLIC_INCLUDES/rmn/filter_000.h
-#   src/PUBLIC_INCLUDES/rmn/filter_001.h
-#   src/PUBLIC_INCLUDES/rmn/filter_100.h
-#   src/PUBLIC_INCLUDES/rmn/filter_110.h
-#   src/PUBLIC_INCLUDES/rmn/filter_254.h
-#   src/PUBLIC_INCLUDES/rmn/filter_255.h
-#   src/PUBLIC_INCLUDES/rmn/tracked_malloc.h
-#   src/PUBLIC_INCLUDES/rmn/simd_functions.h
-# )
-
-set(INCLUDE_DIRECTORIES ${CMAKE_SOURCE_DIR}/include ${CMAKE_SOURCE_DIR}/src/PUBLIC_INCLUDES ${libaec_INCLUDE_DIR})
+set(INCLUDE_DIRECTORIES ${CMAKE_SOURCE_DIR}/include ${CMAKE_SOURCE_DIR}/src/PUBLIC_INCLUDES ${rmn_INCLUDE_DIR} ${libaec_INCLUDE_DIR})
 # set(INCLUDE_DIRECTORIES ${CMAKE_CURRENT_SOURCE_DIR}/include ${CMAKE_CURRENT_SOURCE_DIR}/src/PUBLIC_INCLUDES)
 #set(PROJECT_INCLUDES
 #   -I${CMAKE_CURRENT_SOURCE_DIR}/include
@@ -459,18 +349,19 @@ endif(BUILD_SHARED_LIBS)
 
 get_target_property(rmn_INCLUDES rmn::rmn INTERFACE_INCLUDE_DIRECTORIES)            # includes from librmn (rmn::rmn)
 cmake_path(GET rmn_INCLUDES PARENT_PATH rmn_PREFIX)
+message(STATUS "rmn_INCLUDES = ${rmn_INCLUDES}")
 # message(STATUS "rmn_PREFIX = ${rmn_PREFIX}")
-# get_target_property(rmn_LIBRARIES rmn::rmn INTERFACE_LINK_DIRECTORIES)            # includes from librmn (rmn::rmn)
+# get_target_property(rmn_LIBRARIES rmn::rmn INTERFACE_LINK_DIRECTORIES)            # libraries from librmn (rmn::rmn)
 foreach(TARGET IN ITEMS ${TARGETS})
     # avoid ninja problem with multiple rules generating the same target
     # only install from modules, but build into/from modules or modules/${TARGET}
     # after install one can ignore extra  modules/${TARGET}
     if(${TARGET} MATCHES ".*shared" AND BUILD_STATIC_LIBS)
       set_target_properties(${TARGET} PROPERTIES Fortran_MODULE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/modules_${TARGET})
-message(STATUS "${TARGET} : Fortran_MODULE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/modules_${TARGET}")
+      message(STATUS "${TARGET} : Fortran_MODULE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/modules_${TARGET}")
     else()
       set_target_properties(${TARGET} PROPERTIES Fortran_MODULE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/modules)
-message(STATUS "${TARGET} : Fortran_MODULE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/modules")
+      message(STATUS "${TARGET} : Fortran_MODULE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/modules")
     endif()
 #     target_link_libraries(${TARGET} PRIVATE rmn::rmn)  # rmn libraries not needed nor desired, includes from rmn are needed
 #     target_link_libraries(${TARGET} PRIVATE dl m)        # libdl and libm are useful with some compilers
