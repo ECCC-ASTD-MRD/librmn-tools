@@ -163,7 +163,6 @@ add_project_test(test_fstd_compress  test_fstd_compress.F90 LINK_LIBS "rmn::rmn;
 add_project_test(fstd_to_raw  fstd_to_raw.F90 LINK_LIBS "rmn::rmn-shared;libaec::aec" DL NOCTEST)   # not included in ctest for now
 add_project_test(fstd_analyze  fstd_analyze.F90 LINK_LIBS "rmn::rmn-shared" DL NOCTEST)   # not included in ctest for now
 add_project_test(test_quantizers test_quantizers.c LINK_LIBS "rmn::rmn-shared" NOCTEST)    # not included in ctest for now
-add_project_test(test_ieee_extras test_ieee_extras.c LINK_LIBS "rmn::rmn-shared" NOCTEST)    # not included in ctest for now
 if(NOT ( ${COMPILER_SUITE} MATCHES  "nvhpc") )
 # problem building fstd_to_raw_s with Nvidia compiler (dl library symbol missing)
 add_project_test(fstd_to_raw_s  fstd_to_raw.F90 STATIC LINK_LIBS "rmn::rmn-static" DL BSD NOCTEST)   # not included in ctest for now
@@ -220,6 +219,8 @@ add_project_test(test_eval_compress test_eval_compress.c LINK_LIBS "rmn::rmn" NO
 
 add_project_test(test_simd_functions_ref test_simd_functions_ref.c LINK_LIBS "rmn::rmn" NODIAG)
 add_project_test(test_simd_functions test_simd_functions.c LINK_LIBS "rmn::rmn" NODIAG)
+
+add_project_test(test_ieee_extras test_ieee_extras.c LINK_LIBS "rmn::rmn-shared" )    # not included in ctest for now
 
 add_project_test(test_syntax  test_syntax.c  LINK_LIBS "rmn::rmn" NO_TOOLS DL )
 add_project_test(test_va_args test_va_args.c LINK_LIBS "rmn::rmn" NO_TOOLS )
