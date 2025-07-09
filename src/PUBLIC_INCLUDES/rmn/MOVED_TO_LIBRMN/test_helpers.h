@@ -13,8 +13,30 @@
  * Library General Public License for more details.
  *
  */
+#include <stdio.h>
+#include <stdlib.h>
 
-void end_of_test(void) ;
-void start_of_test(char *name) ;
-void end_of_test_notime(void) ;
-void start_of_test_notime(char *name) ;
+static void end_of_test(void){
+  fprintf(stderr,"==================== end of test  ==================== ") ;
+  system("date '+%Y-%m-%d_%H.%M.%S' 1>&2") ;
+}
+
+static void end_of_test_notime(void){
+  fprintf(stderr,"==================== end of test  ==================== \n") ;
+}
+
+static void start_of_test(char *name){
+  fprintf(stderr,"==================== test : %s ==================== ", name) ;
+  system("date '+%Y-%m-%d_%H.%M.%S' 1>&2") ;
+  atexit(end_of_test) ;
+}
+
+static void start_of_test_notime(char *name){
+  fprintf(stderr,"==================== test : %s ==================== \n", name) ;
+  atexit(end_of_test_notime) ;
+}
+
+// void end_of_test(void) ;
+// void start_of_test(char *name) ;
+// void end_of_test_notime(void) ;
+// void start_of_test_notime(char *name) ;
