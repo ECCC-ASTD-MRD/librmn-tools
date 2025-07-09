@@ -231,7 +231,8 @@ SET_SOURCE_FILES_PROPERTIES( src/pred/bi_endian_pack.c PROPERTIES COMPILE_OPTION
 
 SET_SOURCE_FILES_PROPERTIES( src/pred/lorenzo_mod.F90 PROPERTIES COMPILE_OPTIONS -DNO_EXTRA_FORTRAN )
 
-set(INCLUDE_DIRECTORIES ${CMAKE_SOURCE_DIR}/include ${CMAKE_SOURCE_DIR}/src/PUBLIC_INCLUDES ${rmn_INCLUDE_DIR} ${libaec_INCLUDE_DIR})
+# set(INCLUDE_DIRECTORIES ${CMAKE_SOURCE_DIR}/include ${CMAKE_SOURCE_DIR}/src/PUBLIC_INCLUDES ${rmn_INCLUDE_DIR} ${libaec_INCLUDE_DIR})
+include_directories(${CMAKE_SOURCE_DIR}/include ${CMAKE_SOURCE_DIR}/src/PUBLIC_INCLUDES ${rmn_INCLUDE_DIR} ${libaec_INCLUDE_DIR})
 # set(INCLUDE_DIRECTORIES ${CMAKE_CURRENT_SOURCE_DIR}/include ${CMAKE_CURRENT_SOURCE_DIR}/src/PUBLIC_INCLUDES)
 #set(PROJECT_INCLUDES
 #   -I${CMAKE_CURRENT_SOURCE_DIR}/include
@@ -368,7 +369,7 @@ foreach(TARGET IN ITEMS ${TARGETS})
     target_link_libraries(${TARGET} PRIVATE m)           # libm is useful with some compilers
     target_include_directories(${TARGET}
         PUBLIC
-            ${rmn_INCLUDES}/                                                        # public includes from librmn
+            ${rmn_INCLUDE_DIR}/                                                        # public includes from librmn
             ${libaec_INCLUDE_DIR}/
             $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>                  # project private includes
             $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/PUBLIC_INCLUDES>      # project public includes
