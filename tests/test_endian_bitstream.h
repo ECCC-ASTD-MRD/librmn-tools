@@ -14,17 +14,19 @@
 // Author:
 //     M. Valin,   Recherche en Prevision Numerique, 2025
 //
+#undef NPTS
+#define NPTS 4096
 
 int CONCAT(PREFIX,test)(){
-  int i, nbits = 12, npts = 4095, errors, status, token ;
+  int i, nbits, npts, errors, status ;
   ssize_t totbits = 0, copybits ;
-  uint32_t w32, sbuf[4096], copy_buffer[4096] ;
+  uint32_t token, w32, sbuf[NPTS], copy_buffer[NPTS] ;
   bitstream s0 ;
 
   fprintf(stderr, "============================== base test ==============================\n\n") ;
 
   s0 = NULL_BITSTREAM ;
-//   InitStream(&s0, sbuf, sizeof(sbuf), 0); SET_STREAM_ENDIANNESS(s0) ;
+  //  initialize bit stream, set endianness
   STREAM_INIT(&s0, sbuf, sizeof(sbuf), 0) ;
   if(s0.endian != PACK_ENDIAN) return 1 ;
 
@@ -40,6 +42,8 @@ int CONCAT(PREFIX,test)(){
     return 3 ;
   }
 
+  nbits = 12 ;
+  npts  = NPTS -1 ;
   for(i=0 ; i<npts ; i++){
     STREAM_PUT_NBITS(s0, i, nbits) ;
     totbits += nbits ;
@@ -86,8 +90,8 @@ int CONCAT(PREFIX,test)(){
   fprintf(stderr, "SUCCESS\n") ;
 
   fprintf(stderr, "============================== nbits = 1->32 test ==============================\n\n") ;
-  npts = 4096 ;
-  uint32_t mask ;
+  npts = NPTS ;
+  uint32_t mask, token_or, token_and ;
   InitStream(&s0, sbuf, sizeof(sbuf), BIT_FULL_INIT) ;
   s0.endian = PACK_ENDIAN ;
   for(nbits = 1 ; nbits < 33 ; nbits++){
@@ -105,10 +109,14 @@ int CONCAT(PREFIX,test)(){
         }
       }
     }else{
+      token_or = 0 ; token_and = 0xFFFFFFFFu ;
       for(i=0 ; i<npts ; i++){
-        token = (i & mask) ;
+        token = ((i-npts/2) & mask) ;
+        token_or |= token ; token_and &= token ;
         STREAM_PUT_NBITS(s0, token, nbits) ;
       }
+      if(token_or  != mask) return 100 ;  // check that there is a 1 in all bit positions in one of the tokens
+      if(token_and !=    0) return 101 ;  // check that there is a 0 in all bit positions in one of the tokens
     }
     STREAM_FLUSH(s0) ; STREAM_INSERT_FINALIZE(s0) ; StreamFlush(&s0) ;
     STREAM_REWIND(s0, 1) ; StreamRewind(&s0, 1) ;
@@ -123,7 +131,8 @@ int CONCAT(PREFIX,test)(){
     }else{
       for(i=0 ; i<npts ; i++){
         STREAM_GET_NBITS(s0, w32, nbits) ;
-        if(w32 != (uint32_t)(i&mask)) errors++ ;
+        token = ((i-npts/2) & mask) ;
+        if(w32 != token) errors++ ;
       }
     }
     if(errors > 0) {
@@ -135,8 +144,8 @@ int CONCAT(PREFIX,test)(){
 
   fprintf(stderr, "============================== free/resize test ==============================\n\n") ;
 
-  bitstream s1, s2, *ps0, *ps1, *ps2, *ps3 ;
-  npts = 4097 ;
+  bitstream s1, s2, *ps0, *ps1, *ps2 ;
+  npts = NPTS + 1 ;
 
   STREAM_INIT(&s1, NULL, sizeof(sbuf), 0) ;
   ps1 = FreeStream(&s1, &status) ;

@@ -32,6 +32,14 @@
 #define SET_BIG_ENDIAN      16
 #define SET_LITTLE_ENDIAN   32
 
+// stream pack/unpack options
+// default is init and finalize for GET
+// default is init and flush for PUT
+#define GET_NO_INIT     0x00000001
+#define GET_NO_FINALIZE 0x00000002
+#define PUT_NO_INIT     0x00000004
+#define PUT_NO_FLUSH    0x00000008
+
 // endianness codes, MUST MATCH PACK_ENDIAN macro (le_stream.h/be_stream.h)
 // #define STREAM_BE 0xBE
 #define STREAM_BE 'B'
@@ -148,10 +156,11 @@ int StreamFlush(bitstream *s);
 void StreamPrintData(bitstream s, char *msg, int edge);
 void StreamPrintParams(bitstream s, char *msg, char *expected_mode);
 
-#endif
+#endif    // defined(VALID_STREAM)
 
 #undef NULL_BITSTREAM
 #undef SET_STREAM_ENDIANNESS
+
 #if defined(PACK_ENDIAN)
 #define SET_STREAM_ENDIANNESS(s) (s).endian = PACK_ENDIAN ;
 // all fields set to 0, makes for a fast initialization with xxx = NULL_BITSTREAM

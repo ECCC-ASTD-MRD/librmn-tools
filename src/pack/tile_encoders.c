@@ -17,9 +17,11 @@
 #include <stdio.h>
 // #include <rmn/print_bitstream.h>
 #include <rmn/tile_encoders.h>
+// use Big Endian stream encoding
 #include <rmn/be_stream.h>
 #include <rmn/compare_count.h>
 #include <rmn/split_dimension.h>
+// deliberate double inclusion
 #include <rmn/tile_encoders.h>
 
 // inline functions borrowed from other source code to minimize code dependencies

@@ -44,11 +44,11 @@ int main(int argc, char **argv){
   }
   fprintf(stderr, " (debug = %d) ==============================\n", StreamDebugGet()) ;
 
-  fprintf(stderr, "\n============================== LE test ==============================\n\n") ;
-  if((err = le_test()) != 0) goto fail ;
-
   fprintf(stderr, "\n============================== BE test ==============================\n\n") ;
   if((err = be_test()) != 0) goto fail ;
+
+  fprintf(stderr, "\n============================== LE test ==============================\n\n") ;
+  if((err = le_test()) != 0) goto fail ;
 
   fprintf(stderr, "SUCCESS(status = %d)\n", err) ;
   return 0 ;

@@ -206,7 +206,7 @@ typedef struct{
   uint64_t acc_x ;      // accumulator for extraction
 //   uint32_t data[] ;    // dynamic array, only used if alloc is true
 } stream32 ;
-CT_ASSERT(sizeof(stream32) == 64, "wordstream size MUST be 56 bytes")    // 8 x 64 bits (6 x 64 bits + 4 x 32 bits)
+CT_ASSERT(sizeof(stream32) == 64, "size of stream32 struct MUST be 64 bytes")    // 8 x 64 bits (6 x 64 bits + 4 x 32 bits)
 
 // old style behavior interface (less safe, no indication of pak dimansion)
 uint32_t pack_w32(void *unp, void *pak, int nbits, int n) ;
