@@ -18,16 +18,15 @@
 
 #include <rmn/bitstream.h>
 
-uint32_t be_pack_u32(bitstream *s, uint32_t *in, int nbits, int n, uint32_t options);
-// uint32_t be_pack_i32(bitstream *s, int32_t *in, int nbits, int n, uint32_t options);
-uint32_t be_unpack_u32(bitstream *s, uint32_t *out, int nbits, int n, uint32_t options);
-uint32_t be_unpack_i32(bitstream *s, int32_t *out, int nbits, int n, uint32_t options);
+static uint32_t be_pack_u32(bitstream *s, uint32_t *in, int nbits, int n, uint32_t options);
+static uint32_t be_unpack_u32(bitstream *s, uint32_t *out, int nbits, int n, uint32_t options);
+static uint32_t be_unpack_i32(bitstream *s, int32_t *out, int nbits, int n, uint32_t options);
 
-uint32_t le_pack_u32(bitstream *s, uint32_t *in, int nbits, int n, uint32_t options);
-// uint32_t le_pack_i32(bitstream *s, int32_t *in, int nbits, int n, uint32_t options);
-uint32_t le_unpack_u32(bitstream *s, uint32_t *out, int nbits, int n, uint32_t options);
-uint32_t le_unpack_i32(bitstream *s, int32_t *out, int nbits, int n, uint32_t options);
+static uint32_t le_pack_u32(bitstream *s, uint32_t *in, int nbits, int n, uint32_t options);
+static uint32_t le_unpack_u32(bitstream *s, uint32_t *out, int nbits, int n, uint32_t options);
+static uint32_t le_unpack_i32(bitstream *s, int32_t *out, int nbits, int n, uint32_t options);
 
+// insert the lower nbits bits of n unsigned integers from array in into stream s
 uint32_t stream_pack_u32(bitstream *s, void *in, int nbits, int n, uint32_t options){
   if(s == NULL || in == NULL) return 0 ;
   if(nbits < 1 || nbits > 32) return 0 ;
@@ -40,8 +39,8 @@ uint32_t stream_pack_u32(bitstream *s, void *in, int nbits, int n, uint32_t opti
   return 0 ;
 }
 
+// extract n unsigned integers nbits long from stream s and sore them into array out
 uint32_t stream_unpack_u32(bitstream *s, void *out, int nbits, int n, uint32_t options){
-// fprintf(stderr, "stream_unpack_u32, s = %p, out = %p, nbits = %d\n", s, out, nbits) ;
   if(s == NULL || out == NULL) return 0 ;
   if(nbits < 1 || nbits > 32)  return 0 ;
   if(STREAM_IS_BIG_ENDIAN(*s)){
@@ -50,14 +49,15 @@ uint32_t stream_unpack_u32(bitstream *s, void *out, int nbits, int n, uint32_t o
   if(STREAM_IS_LITTLE_ENDIAN(*s)){
     return le_unpack_u32(s, out, nbits, n, options) ;
   }
-// fprintf(stderr, "stream_unpack_u32, endianness not recognized\n");
   return 0 ;
 }
 
+// insert the lower nbits bits of n signed integers from array in into stream s
 uint32_t stream_pack_i32(bitstream *s, void *in, int nbits, int n, uint32_t options){
   return stream_pack_u32(s, in, nbits, n, options) ;
 }
 
+// extract n unsigned integers nbits long from stream s and sore them into array out
 uint32_t stream_unpack_i32(bitstream *s, void *out, int nbits, int n, uint32_t options){
   if(s == NULL || out == NULL) return 0 ;
   if(nbits < 1 || nbits > 32)  return 0 ;
@@ -96,10 +96,6 @@ uint32_t be_unpack_u32(bitstream *s, uint32_t *out, int nbits, int n, uint32_t o
   *s = s0 ;
   return n * nbits ;
 }
-
-// uint32_t be_pack_i32(bitstream *s, int32_t *in, int nbits, int n, uint32_t options){
-//   return be_pack_u32(s, (uint32_t *)in, nbits, n, options) ;
-// }
 
 uint32_t be_unpack_i32(bitstream *s, int32_t *out, int nbits, int n, uint32_t options){
   int i ;
@@ -142,12 +138,6 @@ uint32_t le_unpack_u32(bitstream *s, uint32_t *out, int nbits, int n, uint32_t o
   *s = s0 ;
   return n * nbits ;
 }
-
-// uint32_t le_pack_i32(bitstream *s, int32_t *in, int nbits, int n, uint32_t options){
-//   int i ;
-//   for(i=0 ; i<n ; i++){
-//   }
-// }
 
 uint32_t le_unpack_i32(bitstream *s, int32_t *out, int nbits, int n, uint32_t options){
   int i ;
