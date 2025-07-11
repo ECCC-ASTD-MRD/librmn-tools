@@ -26,16 +26,16 @@
 #include <stdint.h>
 
 #if ! defined(STATIC)
-#define STATIC static
+#define STATIC static inline
 #define STATIC_DEFINED_HERE
 #endif
 
 static double NaNoSeC = 0.0 ;
 
-STATIC inline uint64_t cycles_counter_freq(void) ;
+STATIC uint64_t cycles_counter_freq(void) ;
 #define TIME_CONVERT_INIT if(NaNoSeC == 0) NaNoSeC = 1.0E+9f / cycles_counter_freq() ;
 
-STATIC inline double cycles_to_ns(uint64_t t){
+STATIC double cycles_to_ns(uint64_t t){
   TIME_CONVERT_INIT ;
   return t * NaNoSeC ;
 }
@@ -127,7 +127,7 @@ STATIC inline double cycles_to_ns(uint64_t t){
 
 // elapsed microseconds of wall clock time
 // an effective resolution of O(microsecond) is assumed for gettimeofday
-STATIC inline uint64_t elapsed_us(void){
+STATIC uint64_t elapsed_us(void){
   struct timeval t ;
   uint64_t elapsed ;
   gettimeofday(&t, NULL) ;
@@ -138,7 +138,7 @@ STATIC inline uint64_t elapsed_us(void){
 }
 
 // elapsed timer ticks, NO serializing, NO fencing
-STATIC inline uint64_t elapsed_cycles_fast(void) {
+STATIC uint64_t elapsed_cycles_fast(void) {
 #if defined(__x86_64__)
   uint64_t lo, hi ;
   __asm__ volatile ("rdtsc" : /* outputs   */ "=a" (lo), "=d" (hi) );
@@ -154,7 +154,7 @@ STATIC inline uint64_t elapsed_cycles_fast(void) {
 
 static uint64_t misc = 0ul ;
 // elapsed timer ticks, WITH serializing, NO fencing
-static inline uint64_t elapsed_cycles_nofence(void) {
+STATIC uint64_t elapsed_cycles_nofence(void) {
 #if defined(__x86_64__)
   uint64_t lo, hi ;
   __asm__ volatile ("rdtscp": /* outputs   */ "=a" (lo), "=d" (hi), "=c" (misc) );
@@ -169,7 +169,7 @@ static inline uint64_t elapsed_cycles_nofence(void) {
 }
 
 // elapsed timer ticks, WITH serializing, WITH memory fencing after
-static inline uint64_t elapsed_cycles_fenced(void) {
+STATIC uint64_t elapsed_cycles_fenced(void) {
 #if defined(__x86_64__)
   uint64_t lo, hi ;
   __asm__ volatile ("rdtscp": /* outputs   */ "=a" (lo), "=d" (hi), "=c" (misc) );
@@ -191,7 +191,7 @@ static inline uint64_t elapsed_cycles_fenced(void) {
 #pragma GCC diagnostic ignored "-Wunused-variable"
 static uint64_t cycles_overhead = 0 ;
 #pragma GCC diagnostic pop
-STATIC inline uint64_t elapsed_cycles_raw(void) {
+STATIC uint64_t elapsed_cycles_raw(void) {
 #if defined(__x86_64__)
   uint64_t lo, hi ;
   __asm__ volatile ("lfence");
@@ -205,7 +205,7 @@ STATIC inline uint64_t elapsed_cycles_raw(void) {
   return elapsed_us() * 1000 ;  // nanoseconds
 #endif
 }
-STATIC inline uint64_t get_cycles_overhead(){
+STATIC uint64_t get_cycles_overhead(){
   uint64_t t0, t1, overhead ;
   int i ;
   t0 = elapsed_cycles_fast() ;
@@ -219,7 +219,7 @@ STATIC inline uint64_t get_cycles_overhead(){
 //   overhead = overhead - (overhead >> 3) ; // keep 7/8 of value
   return overhead ;
 }
-STATIC inline uint64_t elapsed_cycles(void) {
+STATIC uint64_t elapsed_cycles(void) {
 //   if(cycles_overhead == 0) cycles_overhead = get_cycles_overhead() ;
 #if defined(__x86_64__)
   uint64_t lo, hi, t ;
@@ -237,7 +237,7 @@ STATIC inline uint64_t elapsed_cycles(void) {
 }
 
 // determine the timer tick frequency (in Hz)
-STATIC inline uint64_t cycles_counter_freq(void){
+STATIC uint64_t cycles_counter_freq(void){
   static uint64_t timerfreq = 0;
   uint64_t t1, t2, tc1, tc2 ;
 
