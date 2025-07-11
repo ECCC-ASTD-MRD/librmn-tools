@@ -33,12 +33,13 @@
 #define SET_LITTLE_ENDIAN   32
 
 // stream pack/unpack options
-// default is init and finalize for GET
-// default is init and flush for PUT
-#define GET_NO_INIT     0x00000001
-#define GET_NO_FINALIZE 0x00000002
-#define PUT_NO_INIT     0x00000004
-#define PUT_NO_FLUSH    0x00000008
+// default is init and finalize for pack and unpack
+#define UNPACK_INIT     0x00000001
+#define UNPACK_FINALIZE 0x00000002
+#define PACK_INIT       0x00000004
+#define PACK_FINALIZE   0x00000008
+#define PACK_ALIGN32    0x00000010
+#define UNPACK_ALIGN32  0x00000020
 
 // endianness codes, MUST MATCH PACK_ENDIAN macro (le_stream.h/be_stream.h)
 // #define STREAM_BE 0xBE
@@ -155,6 +156,12 @@ int StreamFlush(bitstream *s);
 
 void StreamPrintData(bitstream s, char *msg, int edge);
 void StreamPrintParams(bitstream s, char *msg, char *expected_mode);
+
+uint32_t stream_pack_u32(bitstream *s, void *in, int nbits, int n, uint32_t options);
+uint32_t stream_unpack_u32(bitstream *s, void *in, int nbits, int n, uint32_t options);
+
+uint32_t stream_pack_i32(bitstream *s, void *in, int nbits, int n, uint32_t options);
+uint32_t stream_unpack_i32(bitstream *s, void *in, int nbits, int n, uint32_t options);
 
 #endif    // defined(VALID_STREAM)
 

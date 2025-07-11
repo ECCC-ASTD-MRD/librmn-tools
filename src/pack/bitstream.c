@@ -169,8 +169,9 @@ int StreamFlush(bitstream *s){
 // NOTE : replaced by macro ?
 int StreamRewind(bitstream *s, int force_read){
   if(! StreamIsValid(s)) return 1 ;           // invalid stream
-  if(s->insert > 0) StreamFlush(s) ;          // data left in insert accumulator ?
   if(force_read) s->xtract = 0 ;
+  if(s->xtract < 0) return 1 ;                // not in read mode, error
+  if(s->insert > 0) StreamFlush(s) ;          // data left in insert accumulator ?
   if(s->xtract >= 0){
     s->acc_x  = 0 ;
     s->out = s->first ;
@@ -185,9 +186,15 @@ int StreamRewind(bitstream *s, int force_read){
 int StreamRewrite(bitstream *s, int force_write){
   if(! StreamIsValid(s)) return 1 ;           // invalid stream
   if(force_write) s->insert = 0 ;
+  if(s->insert < 0) return 1 ;                // not in write mode, error
   if(s->insert > 0) StreamFlush(s) ;          // data left in insert accumulator ?
   s->acc_i  = 0 ;
   s->in = s->first ;
+  if(s->xtract >= 0){                         // there is now no valid data to extract
+    s->acc_x  = 0 ;                           // if read mode is allowed
+    s->out = s->first ;
+    s->xtract = 0 ;
+  }
   return 0 ;
 }
 

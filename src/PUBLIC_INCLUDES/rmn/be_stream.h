@@ -107,8 +107,11 @@
 #define XTRACT_BEGIN(accum, xtract, streamptr) { uint32_t t = *(streamptr) ; accum = t ; accum <<= 32 ; (streamptr)++ ; xtract = 32 ; }
 
 // take a peek at the next nbits bits from accumulator into w32 (unsafe, assumes that nbits bits are available)
+// if w32 is a signed integer, the extraction result will be signed
+// if w32 is an unsigned integer, the extraction result will be unsigned
 #undef FAST_PEEK_NBITS
-#define FAST_PEEK_NBITS(accum, xtract, w32, nbits) { w32 = (uint64_t)accum >> (64 - (nbits)) ; }
+// #define FAST_PEEK_NBITS(accum, xtract, w32, nbits) { w32 = (uint64_t)accum >> (64 - (nbits)) ; }
+#define FAST_PEEK_NBITS(accum, xtract, w32, nbits) { w32 = (uint64_t)accum >> 32 ; w32 >>= (32 - (nbits)) ; }
 
 // take a peek at the next bit from accum into w32 (unsafe, assumes that 1 bit is available)
 #undef FAST_PEEK_1

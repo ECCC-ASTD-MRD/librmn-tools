@@ -220,7 +220,9 @@ add_project_test(test_eval_compress test_eval_compress.c LINK_LIBS "rmn::rmn" NO
 add_project_test(test_simd_functions_ref test_simd_functions_ref.c LINK_LIBS "rmn::rmn" NODIAG)
 add_project_test(test_simd_functions test_simd_functions.c LINK_LIBS "rmn::rmn" NODIAG)
 
-add_project_test(test_ieee_extras test_ieee_extras.c LINK_LIBS "rmn::rmn-shared" )    # not included in ctest for now
+add_project_test(test_ieee_extras test_ieee_extras.c LINK_LIBS "rmn::rmn-shared" )
+
+add_project_test(test_be_le_bitstream test_be_le_bitstream.c LINK_LIBS "rmn::rmn-shared" )
 
 add_project_test(test_syntax  test_syntax.c  LINK_LIBS "rmn::rmn" NO_TOOLS DL )
 add_project_test(test_va_args test_va_args.c LINK_LIBS "rmn::rmn" NO_TOOLS )

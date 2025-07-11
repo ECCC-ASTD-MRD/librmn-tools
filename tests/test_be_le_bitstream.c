@@ -1,0 +1,147 @@
+#include <stdio.h>
+
+// #include <rmn/be_stream.h>
+#include <rmn/bitstream.h>
+
+#undef NPTS
+#define NPTS 4097
+
+int main(int argc, char **argv){
+  int32_t in[NPTS], outs[NPTS], i, nbits ;
+  uint32_t outu[NPTS], mask, sbufb[NPTS * 33], sbufl[NPTS * 33], pbits ;
+  ssize_t sbits ;
+  bitstream sbe, sle ;
+
+  fprintf(stderr, "==================== %s ====================\n", argv[0]);
+  while(--argc > 0){
+    argv++ ;
+    fprintf(stderr, "%s ", argv[0]);
+  }
+  fprintf(stderr, "==================== (debug = %d) ====================\n", StreamDebugGet()) ;
+
+  sbe = NULL_BITSTREAM ;
+  sle = NULL_BITSTREAM ;
+  //  initialize bit stream, set endianness
+//   STREAM_INIT(&sbe, sbufb, sizeof(sbufb), 0) ;
+//   if(sbe.endian != PACK_ENDIAN) goto fail ;
+  InitStream(&sbe, sbufb, sizeof(sbufb), BIT_FULL_INIT | SET_BIG_ENDIAN) ;
+  InitStream(&sle, sbufl, sizeof(sbufb), BIT_FULL_INIT | SET_LITTLE_ENDIAN) ;
+
+  if(StreamAvailableBits(&sbe) != 0){                         // test failed
+    fprintf(stderr, "BE StreamAvailableBits = %ld, expecting 0\n", StreamAvailableBits(&sbe)) ;
+    goto fail ;
+  }
+  if(StreamAvailableSpace(&sbe) != 8*sizeof(sbufb)){           // test failed
+    fprintf(stderr, "BE StreamAvailableSpace = %ld, expecting %ld\n", StreamAvailableSpace(&sbe), 8*sizeof(sbufb)) ;
+    goto fail ;
+  }
+  fprintf(stderr, "BE Stream created, %s%s , size = %ld bits, buffer at %p\n",
+          STREAM_IS_BIG_ENDIAN(sbe)    ? "Big Endian   " : "" ,
+          STREAM_IS_LITTLE_ENDIAN(sbe) ? "Little Endian" : "" ,
+          StreamAvailableSpace(&sbe), (void *)&sbufb[0]);
+
+  if(StreamAvailableBits(&sle) != 0){                         // test failed
+    fprintf(stderr, "LE StreamAvailableBits = %ld, expecting 0\n", StreamAvailableBits(&sle)) ;
+    goto fail ;
+  }
+  if(StreamAvailableSpace(&sle) != 8*sizeof(sbufb)){           // test failed
+    fprintf(stderr, "LE StreamAvailableSpace = %ld, expecting %ld\n", StreamAvailableSpace(&sle), 8*sizeof(sbufb)) ;
+    goto fail ;
+  }
+  fprintf(stderr, "LE Stream created, %s%s , size = %ld bits, buffer at %p\n",
+          STREAM_IS_BIG_ENDIAN(sle)    ? "Big Endian   " : "" ,
+          STREAM_IS_LITTLE_ENDIAN(sle) ? "Little Endian" : "" ,
+          StreamAvailableSpace(&sle), (void *)&sbufl[0]);
+
+  // pack into stream, align to 32 bit boundary between values of nbits
+  for(i=0 ; i<sizeof(sbufb)/sizeof(uint32_t) ; i++){ sbufb[i] = sbufl[i] = 0 ; }
+  for(nbits=1 ; nbits<33 ; nbits+=1){
+    mask = 0xFFFFFFFFu >> (32-nbits) ;
+    for(i=0 ; i<NPTS ; i++){
+      in[i] = (i-NPTS/2) ;
+    }
+    pbits = stream_pack_u32(&sbe, in, nbits, NPTS, PACK_FINALIZE | PACK_ALIGN32) ;
+    pbits = stream_pack_u32(&sle, in, nbits, NPTS, PACK_FINALIZE | PACK_ALIGN32) ;
+  }
+  fprintf(stderr, "PACKBE : StreamAvailableSpace = %ld, StreamAvailableBits = %ld\n",
+          StreamAvailableSpace(&sbe), StreamAvailableBits(&sbe)) ;
+  fprintf(stderr, "PACKLE : StreamAvailableSpace = %ld, StreamAvailableBits = %ld\n",
+          StreamAvailableSpace(&sle), StreamAvailableBits(&sle)) ;
+
+  for(nbits=1 ; nbits<33 ; nbits+=1){
+    pbits = stream_unpack_u32(&sbe, outu, nbits, NPTS, UNPACK_ALIGN32 ) ;
+    sbits = StreamAvailableBits(&sbe) ;
+    mask = 0xFFFFFFFFu >> (32-nbits) ;
+    for(i=0 ; i<NPTS ; i++){
+      in[i] = (i-NPTS/2) & mask ;
+      if(in[i] != outu[i]){
+        fprintf(stderr, "UNPACK : i = %2d, expecting %8.8x, got %8.8x\n", i, in[i], outu[i]) ;
+        goto fail ;
+      }
+    }
+  }
+  fprintf(stderr, "UNPACKBE : StreamAvailableSpace = %ld, StreamAvailableBits = %ld\n",
+          StreamAvailableSpace(&sbe), StreamAvailableBits(&sbe)) ;
+  StreamRewind(&sbe, 1) ;
+  fprintf(stderr, "REWINDBE : StreamAvailableSpace = %ld, StreamAvailableBits = %ld\n",
+          StreamAvailableSpace(&sbe), StreamAvailableBits(&sbe)) ;
+
+  for(nbits=1 ; nbits<33 ; nbits+=1){
+    pbits = stream_unpack_u32(&sle, outu, nbits, NPTS, UNPACK_ALIGN32 ) ;
+    sbits = StreamAvailableBits(&sle) ;
+    mask = 0xFFFFFFFFu >> (32-nbits) ;
+    for(i=0 ; i<NPTS ; i++){
+      in[i] = (i-NPTS/2) & mask ;
+      if(in[i] != outu[i]){
+        fprintf(stderr, "UNPACK : i = %2d, expecting %8.8x, got %8.8x\n", i, in[i], outu[i]) ;
+        goto fail ;
+      }
+    }
+  }
+  fprintf(stderr, "UNPACKLE : StreamAvailableSpace = %ld, StreamAvailableBits = %ld\n",
+          StreamAvailableSpace(&sle), StreamAvailableBits(&sle)) ;
+  StreamRewind(&sle, 1) ;
+  fprintf(stderr, "REWINDLE : StreamAvailableSpace = %ld, StreamAvailableBits = %ld\n",
+          StreamAvailableSpace(&sle), StreamAvailableBits(&sle)) ;
+
+  for(nbits=1 ; nbits<33 ; nbits+=1){
+    pbits = stream_unpack_i32(&sbe, outs, nbits, NPTS, UNPACK_ALIGN32 ) ;
+    for(i=0 ; i<NPTS ; i++){
+      in[i] = (i-NPTS/2) ;
+      in[i] <<= (32-nbits) ;
+      in[i] >>= (32-nbits) ;
+      if(in[i] != outs[i]){
+        fprintf(stderr, "UNPACKBE : nbits = %2d, i = %2d, expecting %8.8x, got %8.8x\n", nbits, i, in[i], outu[i]) ;
+        goto fail ;
+      }
+    }
+  }
+
+  StreamRewrite(&sbe, 1) ;
+  fprintf(stderr, "REWRITBE : StreamAvailableSpace = %ld, StreamAvailableBits = %ld\n",
+          StreamAvailableSpace(&sbe), StreamAvailableBits(&sbe)) ;
+
+  for(nbits=1 ; nbits<33 ; nbits+=1){
+    pbits = stream_unpack_i32(&sle, outs, nbits, NPTS, UNPACK_ALIGN32 ) ;
+    for(i=0 ; i<NPTS ; i++){
+      in[i] = (i-NPTS/2) ;
+      in[i] <<= (32-nbits) ;
+      in[i] >>= (32-nbits) ;
+      if(in[i] != outs[i]){
+        fprintf(stderr, "UNPACKLE : nbits = %2d, i = %2d, expecting %8.8x, got %8.8x\n", nbits, i, in[i], outu[i]) ;
+        goto fail ;
+      }
+    }
+  }
+
+  StreamRewrite(&sle, 1) ;
+  fprintf(stderr, "REWRITLE : StreamAvailableSpace = %ld, StreamAvailableBits = %ld\n",
+          StreamAvailableSpace(&sle), StreamAvailableBits(&sle)) ;
+
+  fprintf(stderr, "SUCCESS\n") ;
+  return 0 ;
+
+fail:
+  fprintf(stderr, "FAIL\n") ;
+  return 1 ;
+}

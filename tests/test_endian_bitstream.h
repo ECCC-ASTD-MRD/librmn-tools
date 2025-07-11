@@ -111,11 +111,12 @@ int CONCAT(PREFIX,test)(){
     }else{
       token_or = 0 ; token_and = 0xFFFFFFFFu ;
       for(i=0 ; i<npts ; i++){
-        token = ((i-npts/2) & mask) ;
-        token_or |= token ; token_and &= token ;
+        token = (i-npts/2) ;    // token = ((i-npts/2) & mask) ; // masking not needed
         STREAM_PUT_NBITS(s0, token, nbits) ;
+        token &= mask ;
+        token_or |= token ; token_and &= token ;
       }
-      if(token_or  != mask) return 100 ;  // check that there is a 1 in all bit positions in one of the tokens
+      if(token_or  != mask) return 100 ;  // check that there is a 1 in all useful bit positions in one of the tokens
       if(token_and !=    0) return 101 ;  // check that there is a 0 in all bit positions in one of the tokens
     }
     STREAM_FLUSH(s0) ; STREAM_INSERT_FINALIZE(s0) ; StreamFlush(&s0) ;
@@ -132,7 +133,11 @@ int CONCAT(PREFIX,test)(){
       for(i=0 ; i<npts ; i++){
         STREAM_GET_NBITS(s0, w32, nbits) ;
         token = ((i-npts/2) & mask) ;
-        if(w32 != token) errors++ ;
+        if(w32 != token){
+          fprintf(stderr, "i = %d, expected %8.8x, got %8.8x\n", i, token, w32) ;
+          return 7 ;
+          errors++ ;
+        }
       }
     }
     if(errors > 0) {
