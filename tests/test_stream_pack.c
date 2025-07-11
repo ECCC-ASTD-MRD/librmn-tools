@@ -98,7 +98,7 @@ int main(int argc, char **argv){
   }
 
   fprintf(stderr, "                                      macros                          stream\n") ;
-  fprintf(stderr, "timings :                     pack unpack(u) unpack(s)      pack unpack(u) unpack(s)\n") ;
+  fprintf(stderr, "timings (ns/pt) :              pack unpack(u) unpack(s)      pack unpack(u) unpack(s)\n") ;
   for(nbits=1 ; nbits <33 ; nbits+=1) {
 
     maskn = ~((0xFFFFFFFFu) << nbits) ; maskn >>= 1 ;
