@@ -25,11 +25,13 @@
 #define CONCAT(A,B) CONCAT_(A,B)
 
 // test functions in Big Endian mode
+#include <rmn/no_stream.h>
 #include <rmn/be_stream.h>
 #define PREFIX be_
 #include "test_endian_bitstream.h"
 
 // test functions in Little Endian mode
+#include <rmn/no_stream.h>
 #include <rmn/le_stream.h>
 #define PREFIX le_
 #include "test_endian_bitstream.h"

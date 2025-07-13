@@ -1,6 +1,6 @@
 /*
  * Hopefully useful code for C
- * Copyright (C) 2022  Recherche en Prevision Numerique
+ * Copyright (C) 2022-2025  Recherche en Prevision Numerique
  *
  * This code is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -13,7 +13,7 @@
  * Library General Public License for more details.
  *
  * in the ARM V8 case, all the functions use the same instruction
- * in the X86_64 case, various instructions and fences are used
+ * in the X86_64 case, several instructions and fences are used
  *
  * useful references :
  * https://sites.utexas.edu/jdm4372/2018/07/   John McCalpin's blog
@@ -26,7 +26,7 @@
 #include <stdint.h>
 
 #if ! defined(STATIC)
-#define STATIC static inline
+#define STATIC static inline  __attribute__((always_inline))
 #define STATIC_DEFINED_HERE
 #endif
 
@@ -124,6 +124,20 @@ STATIC double cycles_to_ns(uint64_t t){
 #include <stdint.h>
 #include <sys/time.h>
 #include <stddef.h>
+
+// get core number using rdtscp instruction to get info from special register set by linux
+STATIC int core_number(){
+  uint64_t a, d, c ;
+  __asm__ volatile("rdtscp" : "=a" (a), "=d" (d), "=c" (c));
+  return (c & 0xFFFUL) ;
+}
+
+// get socket number using rdtscp instruction to get info from special register set by linux
+STATIC int socket_number(){
+  uint64_t a, d, c ;
+  __asm__ volatile("rdtscp" : "=a" (a), "=d" (d), "=c" (c));
+  return ( (c & 0xF000UL)>>12 ) ;
+}
 
 // elapsed microseconds of wall clock time
 // an effective resolution of O(microsecond) is assumed for gettimeofday

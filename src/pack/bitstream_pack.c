@@ -18,6 +18,8 @@
 
 #include <rmn/bitstream.h>
 
+#define static
+
 static uint32_t be_pack_u32(bitstream *s, uint32_t *in, int nbits, int n, uint32_t options);
 static uint32_t be_unpack_u32(bitstream *s, uint32_t *out, int nbits, int n, uint32_t options);
 static uint32_t be_unpack_i32(bitstream *s, int32_t *out, int nbits, int n, uint32_t options);

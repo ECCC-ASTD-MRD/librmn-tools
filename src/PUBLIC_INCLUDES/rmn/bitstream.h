@@ -167,6 +167,7 @@ uint32_t stream_unpack_i32(bitstream *s, void *in, int nbits, int n, uint32_t op
 
 #undef NULL_BITSTREAM
 #undef SET_STREAM_ENDIANNESS
+#undef SET_NULL_BITSTREAM
 
 #if defined(PACK_ENDIAN)
 #define SET_STREAM_ENDIANNESS(s) (s).endian = PACK_ENDIAN ;
@@ -179,3 +180,5 @@ uint32_t stream_unpack_i32(bitstream *s, void *in, int nbits, int n, uint32_t op
                                      .first = NULL, .in = NULL, .out = NULL, .limit = NULL, .full = 0, \
                                      .alloc = 0, .user = 0, .endian = 0, .spare = 0, .valid = 0 } ;
 #endif
+
+#define SET_NULL_BITSTREAM(s) (s) = NULL_BITSTREAM

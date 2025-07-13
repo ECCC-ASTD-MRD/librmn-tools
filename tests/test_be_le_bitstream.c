@@ -2,22 +2,23 @@
 
 // #include <rmn/be_stream.h>
 #include <rmn/bitstream.h>
+#include <rmn/timers.h>
 
 #undef NPTS
-#define NPTS 4097
+#define NPTS 1024
 
 int main(int argc, char **argv){
   int32_t in[NPTS], outs[NPTS], i, nbits ;
   uint32_t outu[NPTS], mask, sbufb[NPTS * 33], sbufl[NPTS * 33], pbits ;
   ssize_t sbits ;
-  bitstream sbe, sle ;
+  bitstream sbe, sle, sbe0, sle0, sbe1, sle1 ;
 
   fprintf(stderr, "==================== %s ====================\n", argv[0]);
   while(--argc > 0){
     argv++ ;
     fprintf(stderr, "%s ", argv[0]);
   }
-  fprintf(stderr, "==================== (debug = %d) ====================\n", StreamDebugGet()) ;
+//   fprintf(stderr, "==================== (debug = %d) ====================\n", StreamDebugGet()) ;
 
   sbe = NULL_BITSTREAM ;
   sle = NULL_BITSTREAM ;
@@ -25,7 +26,9 @@ int main(int argc, char **argv){
 //   STREAM_INIT(&sbe, sbufb, sizeof(sbufb), 0) ;
 //   if(sbe.endian != PACK_ENDIAN) goto fail ;
   InitStream(&sbe, sbufb, sizeof(sbufb), BIT_FULL_INIT | SET_BIG_ENDIAN) ;
+  sbe0 = sbe ;     // save sbe state after initialization
   InitStream(&sle, sbufl, sizeof(sbufb), BIT_FULL_INIT | SET_LITTLE_ENDIAN) ;
+  sle0 = sle ;     // save sle state after initialization
 
   if(StreamAvailableBits(&sbe) != 0){                         // test failed
     fprintf(stderr, "BE StreamAvailableBits = %ld, expecting 0\n", StreamAvailableBits(&sbe)) ;
@@ -63,9 +66,11 @@ int main(int argc, char **argv){
     pbits = stream_pack_u32(&sbe, in, nbits, NPTS, PACK_FINALIZE | PACK_ALIGN32) ;
     pbits = stream_pack_u32(&sle, in, nbits, NPTS, PACK_FINALIZE | PACK_ALIGN32) ;
   }
-  fprintf(stderr, "PACKBE : StreamAvailableSpace = %ld, StreamAvailableBits = %ld\n",
+  sbe1 = sbe ;     // save sbe state after pack
+  sle1 = sle ;     // save sle state after pack
+  fprintf(stderr, "PACK-BE   : StreamAvailableSpace = %ld, StreamAvailableBits = %ld\n",
           StreamAvailableSpace(&sbe), StreamAvailableBits(&sbe)) ;
-  fprintf(stderr, "PACKLE : StreamAvailableSpace = %ld, StreamAvailableBits = %ld\n",
+  fprintf(stderr, "PACK-LE   : StreamAvailableSpace = %ld, StreamAvailableBits = %ld\n",
           StreamAvailableSpace(&sle), StreamAvailableBits(&sle)) ;
 
   for(nbits=1 ; nbits<33 ; nbits+=1){
@@ -80,10 +85,10 @@ int main(int argc, char **argv){
       }
     }
   }
-  fprintf(stderr, "UNPACKBE : StreamAvailableSpace = %ld, StreamAvailableBits = %ld\n",
+  fprintf(stderr, "UNPACK-BE : StreamAvailableSpace = %ld, StreamAvailableBits = %ld\n",
           StreamAvailableSpace(&sbe), StreamAvailableBits(&sbe)) ;
   StreamRewind(&sbe, 1) ;
-  fprintf(stderr, "REWINDBE : StreamAvailableSpace = %ld, StreamAvailableBits = %ld\n",
+  fprintf(stderr, "REWIND-BE : StreamAvailableSpace = %ld, StreamAvailableBits = %ld\n",
           StreamAvailableSpace(&sbe), StreamAvailableBits(&sbe)) ;
 
   for(nbits=1 ; nbits<33 ; nbits+=1){
@@ -98,10 +103,10 @@ int main(int argc, char **argv){
       }
     }
   }
-  fprintf(stderr, "UNPACKLE : StreamAvailableSpace = %ld, StreamAvailableBits = %ld\n",
+  fprintf(stderr, "UNPACK-LE : StreamAvailableSpace = %ld, StreamAvailableBits = %ld\n",
           StreamAvailableSpace(&sle), StreamAvailableBits(&sle)) ;
   StreamRewind(&sle, 1) ;
-  fprintf(stderr, "REWINDLE : StreamAvailableSpace = %ld, StreamAvailableBits = %ld\n",
+  fprintf(stderr, "REWIND-LE : StreamAvailableSpace = %ld, StreamAvailableBits = %ld\n",
           StreamAvailableSpace(&sle), StreamAvailableBits(&sle)) ;
 
   for(nbits=1 ; nbits<33 ; nbits+=1){
@@ -111,14 +116,14 @@ int main(int argc, char **argv){
       in[i] <<= (32-nbits) ;
       in[i] >>= (32-nbits) ;
       if(in[i] != outs[i]){
-        fprintf(stderr, "UNPACKBE : nbits = %2d, i = %2d, expecting %8.8x, got %8.8x\n", nbits, i, in[i], outu[i]) ;
+        fprintf(stderr, "UNPACK-BE : nbits = %2d, i = %2d, expecting %8.8x, got %8.8x\n", nbits, i, in[i], outu[i]) ;
         goto fail ;
       }
     }
   }
 
   StreamRewrite(&sbe, 1) ;
-  fprintf(stderr, "REWRITBE : StreamAvailableSpace = %ld, StreamAvailableBits = %ld\n",
+  fprintf(stderr, "REWRIT-BE : StreamAvailableSpace = %ld, StreamAvailableBits = %ld\n",
           StreamAvailableSpace(&sbe), StreamAvailableBits(&sbe)) ;
 
   for(nbits=1 ; nbits<33 ; nbits+=1){
@@ -128,15 +133,71 @@ int main(int argc, char **argv){
       in[i] <<= (32-nbits) ;
       in[i] >>= (32-nbits) ;
       if(in[i] != outs[i]){
-        fprintf(stderr, "UNPACKLE : nbits = %2d, i = %2d, expecting %8.8x, got %8.8x\n", nbits, i, in[i], outu[i]) ;
+        fprintf(stderr, "UNPACK-LE : nbits = %2d, i = %2d, expecting %8.8x, got %8.8x\n", nbits, i, in[i], outu[i]) ;
         goto fail ;
       }
     }
   }
 
   StreamRewrite(&sle, 1) ;
-  fprintf(stderr, "REWRITLE : StreamAvailableSpace = %ld, StreamAvailableBits = %ld\n",
+  fprintf(stderr, "REWRIT-LE : StreamAvailableSpace = %ld, StreamAvailableBits = %ld\n",
           StreamAvailableSpace(&sle), StreamAvailableBits(&sle)) ;
+
+  fprintf(stderr, "SUCCESS\n") ;
+
+  fprintf(stderr, "==================== timing tests ====================\n", argv[0]);
+  uint64_t freq, tpack_be[33], tpack_le[33], tupku_be[33], tupks_be[33], tupku_le[33], tupks_le[33], t0 ;
+  double nano ;
+  int npts ;
+  freq = cycles_counter_freq() ;
+  nano = 1000000000.0f ;
+  nano = nano / freq ;
+  npts = NPTS ;
+  fprintf(stderr, "timing freq = %f GHz, timing tick = %8.2G ns, %d values\n", freq/1000000000.0f, nano, npts) ;
+
+  sbe = sbe0 ;
+  sle = sle0 ;
+  for(i=0 ; i<npts ; i++){
+    in[i] = (i-npts/2) ;
+  }
+  for(nbits=1 ; nbits<33 ; nbits+=1){
+    t0 = elapsed_cycles() ;
+    pbits = stream_pack_u32(&sbe, in, nbits, NPTS, PACK_FINALIZE | PACK_ALIGN32) ;
+    tpack_be[nbits] = elapsed_cycles() - t0 ;
+  }
+  for(nbits=1 ; nbits<33 ; nbits+=1){
+    t0 = elapsed_cycles() ;
+    pbits = stream_pack_u32(&sle, in, nbits, NPTS, PACK_FINALIZE | PACK_ALIGN32) ;
+    tpack_le[nbits] = elapsed_cycles() - t0 ;
+  }
+  for(nbits=1 ; nbits<33 ; nbits+=1){
+    t0 = elapsed_cycles() ;
+    pbits = stream_unpack_u32(&sbe, outu, nbits, NPTS, UNPACK_ALIGN32 ) ;
+    tupku_be[nbits] = elapsed_cycles() - t0 ;
+  }
+  for(nbits=1 ; nbits<33 ; nbits+=1){
+    t0 = elapsed_cycles() ;
+    pbits = stream_unpack_u32(&sle, outu, nbits, NPTS, UNPACK_ALIGN32 ) ;
+    tupku_le[nbits] = elapsed_cycles() - t0 ;
+  }
+  for(nbits=1 ; nbits<33 ; nbits+=1){
+    t0 = elapsed_cycles() ;
+    pbits = stream_unpack_i32(&sbe, outs, nbits, NPTS, UNPACK_ALIGN32 ) ;
+    tupks_be[nbits] = elapsed_cycles() - t0 ;
+  }
+  for(nbits=1 ; nbits<33 ; nbits+=1){
+    t0 = elapsed_cycles() ;
+    pbits = stream_unpack_i32(&sle, outs, nbits, NPTS, UNPACK_ALIGN32 ) ;
+    tupks_le[nbits] = elapsed_cycles() - t0 ;
+  }
+  fprintf(stderr, "ns/pt          Pack              Unpack unsigned   Unpack signed\n") ;
+  fprintf(stderr, "                BE        LE      BE       LE       BE       LE\n") ;
+  for(nbits=1 ; nbits<33 ; nbits+=1){
+    fprintf(stderr, "nbits = %2d %8.2f %8.2f %8.2f %8.2f %8.2f %8.2f\n", nbits,
+            (tpack_be[nbits])*nano/npts, (tpack_le[nbits])*nano/npts,
+            (tupku_be[nbits])*nano/npts, (tupku_le[nbits])*nano/npts,
+            (tupks_be[nbits])*nano/npts, (tupks_le[nbits])*nano/npts) ;
+  }
 
   fprintf(stderr, "SUCCESS\n") ;
   return 0 ;

@@ -28,7 +28,7 @@ int CONCAT(PREFIX,test)(){
   s0 = NULL_BITSTREAM ;
   //  initialize bit stream, set endianness
   STREAM_INIT(&s0, sbuf, sizeof(sbuf), 0) ;
-  if(s0.endian != PACK_ENDIAN) return 1 ;
+  if(s0.endian != PACK_ENDIAN) return 1 ;                    // test failed
 
   StreamPrintParams(s0, "after InitStream", NULL) ;
   StreamPrintData(s0, "s0", 2) ;
@@ -95,7 +95,8 @@ int CONCAT(PREFIX,test)(){
   InitStream(&s0, sbuf, sizeof(sbuf), BIT_FULL_INIT) ;
   s0.endian = PACK_ENDIAN ;
   for(nbits = 1 ; nbits < 33 ; nbits++){
-    STREAM_REWRITE(s0, 1) ; StreamRewrite(&s0, 1) ;
+    // write stream
+    STREAM_REWRITE(s0, 1) ; StreamRewrite(&s0, 1) ;    // redundant, testing macro and function syntax
     mask = 0xFFFFFFFFu ;
     mask >>= (32-nbits) ;
     if(nbits == 1){
@@ -119,23 +120,24 @@ int CONCAT(PREFIX,test)(){
       if(token_or  != mask) return 100 ;  // check that there is a 1 in all useful bit positions in one of the tokens
       if(token_and !=    0) return 101 ;  // check that there is a 0 in all bit positions in one of the tokens
     }
-    STREAM_FLUSH(s0) ; STREAM_INSERT_FINALIZE(s0) ; StreamFlush(&s0) ;
-    STREAM_REWIND(s0, 1) ; StreamRewind(&s0, 1) ;
+    STREAM_FLUSH(s0) ; STREAM_INSERT_FINALIZE(s0) ; StreamFlush(&s0) ;    // redundant, testing macro and function syntax
+    // read back what was written and perform error check
+    STREAM_REWIND(s0, 1) ; StreamRewind(&s0, 1) ;    // redundant, testing macro and function syntax
     errors = 0 ;
     if(nbits == 1){
       for(i=0 ; i<npts ; i++){
         STREAM_XTRACT_CHECK(s0) ;
         STREAM_PEEK_1(s0, w32) ;
         STREAM_SKIP_1(s0) ;
-        if(w32 != (uint32_t)(i&mask)) errors++ ;
+        if(w32 != (uint32_t)(i&mask)){
+          errors++ ;
+        }
       }
     }else{
       for(i=0 ; i<npts ; i++){
         STREAM_GET_NBITS(s0, w32, nbits) ;
         token = ((i-npts/2) & mask) ;
         if(w32 != token){
-          fprintf(stderr, "i = %d, expected %8.8x, got %8.8x\n", i, token, w32) ;
-          return 7 ;
           errors++ ;
         }
       }
@@ -152,6 +154,8 @@ int CONCAT(PREFIX,test)(){
   bitstream s1, s2, *ps0, *ps1, *ps2 ;
   npts = NPTS + 1 ;
 
+  SET_NULL_BITSTREAM(s1) ;
+  STREAM_INIT(&s1, NULL, sizeof(sbuf), BIT_FULL_INIT) ;  // mode = BIT_FULL_INIT redundant, s1 is already set to NULL_BITSTREAM
   STREAM_INIT(&s1, NULL, sizeof(sbuf), 0) ;
   ps1 = FreeStream(&s1, &status) ;
   if(ps1 != &s1 || status != 0) return 8 ;
@@ -179,7 +183,8 @@ int CONCAT(PREFIX,test)(){
 
   nbits = 11 ;
 
-  STREAM_INIT(&s1, NULL, sizeof(sbuf), BIT_FULL_INIT) ;
+  s1 = NULL_BITSTREAM ;
+  STREAM_INIT(&s1, NULL, sizeof(sbuf), 0) ; // mode = BIT_FULL_INIT not needed, s1 is already set to NULL_BITSTREAM
   if(s1.endian != PACK_ENDIAN) return 15 ;
   // fill stream with data
   for(i=0 ; i<npts ; i++){ STREAM_PUT_NBITS(s1, (i & 0xFF), nbits) ; } ;
