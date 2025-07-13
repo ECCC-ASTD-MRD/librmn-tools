@@ -152,6 +152,7 @@ int main(int argc, char **argv){
   freq = cycles_counter_freq() ;
   nano = 1000000000.0f ;
   nano = nano / freq ;
+//   npts = NPTS ;
   npts = NPTS ;
   fprintf(stderr, "timing freq = %f GHz, timing tick = %8.2G ns, %d values\n", freq/1000000000.0f, nano, npts) ;
 

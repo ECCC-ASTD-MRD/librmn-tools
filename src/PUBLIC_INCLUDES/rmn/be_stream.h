@@ -51,7 +51,7 @@
 // this macro is unsafe, it assumes that nbits bits can be inserted into acumulator
 #undef FAST_PUT_NBITS
 #define FAST_PUT_NBITS(accum, insert, w32, nbits) \
-        { uint64_t t=(w32) ; t <<= (64-(nbits)) ; t >>= insert ; insert += (nbits) ; accum |= t ; }
+        { uint64_t t=(uint32_t)(w32) ; t <<= (64-(nbits)) ; t >>= insert                   ; accum |= t ; insert += (nbits) ; }
 
 // insert 1 into accumulator
 // this macro is unsafe, it assumes that nbits bits can be inserted into acumulator
@@ -73,7 +73,7 @@
 // if not possible, store upper 32 bits of accum into stream, update accum, insert, stream pointer
 #undef INSERT_CHECK
 #define INSERT_CHECK(accum, insert, streamptr) \
-        { *(streamptr) = (uint64_t) accum >> 32 ; if(insert > 32) { insert -= 32 ; (streamptr)++ ; accum <<= 32 ; } ; }
+        { if(insert > 32) { *(streamptr) = (uint64_t) accum >> 32 ; insert -= 32 ; (streamptr)++ ; accum <<= 32 ; } ; }
 
 // push data to stream without fully updating control info (stream, insert)
 #undef INSERT_PUSH
