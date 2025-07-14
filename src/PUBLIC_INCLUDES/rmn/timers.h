@@ -129,6 +129,7 @@ STATIC double cycles_to_ns(uint64_t t){
 STATIC int core_number(){
   uint64_t a, d, c ;
   __asm__ volatile("rdtscp" : "=a" (a), "=d" (d), "=c" (c));
+  if(a == 0 && d == 0) c &= 0xFFFFUL ;  // neutral code to get rid of unused variable warning
   return (c & 0xFFFUL) ;
 }
 
@@ -136,6 +137,7 @@ STATIC int core_number(){
 STATIC int socket_number(){
   uint64_t a, d, c ;
   __asm__ volatile("rdtscp" : "=a" (a), "=d" (d), "=c" (c));
+  if(a == 0 && d == 0) c &= 0xFFFFUL ;  // neutral code to get rid of unused variable warning
   return ( (c & 0xF000UL)>>12 ) ;
 }
 
