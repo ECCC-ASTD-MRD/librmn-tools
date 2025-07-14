@@ -34,6 +34,7 @@ int main(int argc, char **argv){
     fprintf(stderr, ", %12G ", vd[i]) ;
   }
   fprintf(stderr, "\n");
+  if(vd[2] != 0.0f) goto fail ;   // vd[2] should be subnormal
 
   csr = fp32_allow_denorm() ;
   fprintf(stderr, "   allow_denorm, old csr = %8.8x, new csr = %8.8x\n", csr, get_cpu_csr()) ;
@@ -43,6 +44,8 @@ int main(int argc, char **argv){
     fprintf(stderr, ", %12G ", vd[i]) ;
   }
   fprintf(stderr, "\n");
+  if(vd[ 6] == 0.0f) goto fail ;
+  if(vd[31] != 0.0f) goto fail ;
 
   fprintf(stderr, "============================== IEEE manipulation functions ==============================\n") ;
 
