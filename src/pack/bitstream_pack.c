@@ -18,8 +18,6 @@
 
 #include <rmn/bitstream.h>
 
-#define static
-
 static uint32_t be_pack_u32(bitstream *s, uint32_t *in, int nbits, int n, uint32_t options);
 static uint32_t be_unpack_u32(bitstream *s, uint32_t *out, int nbits, int n, uint32_t options);
 static uint32_t be_unpack_i32(bitstream *s, int32_t *out, int nbits, int n, uint32_t options);
@@ -32,6 +30,10 @@ static uint32_t le_unpack_i32(bitstream *s, int32_t *out, int nbits, int n, uint
 uint32_t stream_pack_u32(bitstream *s, void *in, int nbits, int n, uint32_t options){
   if(s == NULL || in == NULL) return 0 ;
   if(nbits < 1 || nbits > 32) return 0 ;
+  if(StreamAvailableSpace(s) < n * nbits){
+    fprintf(stderr, "not enough space left for packed data, need %d, have %ld\n", n * nbits, StreamAvailableSpace(s)) ;
+    return 0 ;
+  }
   if(STREAM_IS_BIG_ENDIAN(*s)){
     return be_pack_u32(s, in, nbits, n, options) ;
   }
@@ -45,6 +47,10 @@ uint32_t stream_pack_u32(bitstream *s, void *in, int nbits, int n, uint32_t opti
 uint32_t stream_unpack_u32(bitstream *s, void *out, int nbits, int n, uint32_t options){
   if(s == NULL || out == NULL) return 0 ;
   if(nbits < 1 || nbits > 32)  return 0 ;
+  if(StreamAvailableBits(s) < n * nbits){
+    fprintf(stderr, "not enough data in stream, need %d, have %ld\n", n * nbits, StreamAvailableBits(s)) ;
+    return 0 ;
+  }
   if(STREAM_IS_BIG_ENDIAN(*s)){
     return be_unpack_u32(s, out, nbits, n, options) ;
   }
@@ -63,6 +69,10 @@ uint32_t stream_pack_i32(bitstream *s, void *in, int nbits, int n, uint32_t opti
 uint32_t stream_unpack_i32(bitstream *s, void *out, int nbits, int n, uint32_t options){
   if(s == NULL || out == NULL) return 0 ;
   if(nbits < 1 || nbits > 32)  return 0 ;
+  if(StreamAvailableBits(s) < n * nbits){
+    fprintf(stderr, "not enough data in stream, need %d, have %ld (%d x %d)\n", n * nbits, StreamAvailableBits(s), n, nbits) ;
+//     return 0 ;
+  }
   if(STREAM_IS_BIG_ENDIAN(*s)){
     return be_unpack_i32(s, out, nbits, n, options) ;
   }

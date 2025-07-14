@@ -123,7 +123,7 @@ typedef struct{
 } bitstream_state ;
 CT_ASSERT_(sizeof(bitstream_state) == 40)
 
-void StreamDebugSet(int value);
+int StreamDebugSet(int value);
 int StreamDebugGet(void);
 
 int StreamIsValid(bitstream *s);

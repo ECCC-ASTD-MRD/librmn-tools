@@ -20,15 +20,20 @@
 #include <string.h>
 #include <stdio.h>
 
-// NULL_BITSTREAM will initialize to an invalid endian mode
+// stream = NULL_BITSTREAM will initialize it to an invalid endian mode
+// if be_stream.h or le_stream.h was not included before bitstream.h
 #include <rmn/bitstream.h>
 
 static int stream_debug_mode = 0 ;
 
-void StreamDebugSet(int value){
+// set stream debug mode
+int StreamDebugSet(int value){
+  int old_mode = stream_debug_mode ;
   stream_debug_mode = value ;
+  return old_mode ;
 }
 
+// get stream debug mode
 int StreamDebugGet(void){
   return stream_debug_mode ;
 }
