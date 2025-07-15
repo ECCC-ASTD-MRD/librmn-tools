@@ -6,16 +6,18 @@
 #include <rmn/ieee_extras.h>
 #include <rmn/test_helpers.h>
 
-void scale_floats(float *f, int n , float fact);
+// recursively scale floating point values for some exponent range tests
+void scale_floats_recurrent(float *f, int n , float fact);    // must be in another file to fool optimizer for subnormal test
 
 int main(int argc, char **argv){
   (void) (argc) ;
   int mant, exp, sign, i, i0, incr = 1 ;
   int64_t i64 = 0 ;
-  float fact = 0.5f ;
+  float fact = 0.5000f ;
 
   start_of_test(argv[0]);
   if(argc > 1) incr = atoi(argv[1]) ;
+  if(argc > 2) fact = atof(argv[2]) ;
 
   fprintf(stderr, "============================== IEEE subnormal test ==============================\n") ;
 
@@ -28,7 +30,7 @@ int main(int argc, char **argv){
   fi.i = 1 << 23 ;
   fi.i |= (1 << 22) ;
   vd[0] = fi.f ;
-  scale_floats(vd, 32, fact) ;
+  scale_floats_recurrent(vd, 32, fact) ;
   fprintf(stderr, "fact = %f, f = %12G", fact, vd[0]) ;
   for(i=1 ; i<32 ; i+=5){
     fprintf(stderr, ", %12G ", vd[i]) ;
@@ -38,7 +40,7 @@ int main(int argc, char **argv){
 
   csr = fp32_allow_denorm() ;
   fprintf(stderr, "   allow_denorm, old csr = %8.8x, new csr = %8.8x\n", csr, get_cpu_csr()) ;
-  scale_floats(vd, 32, fact) ;
+  scale_floats_recurrent(vd, 32, fact) ;
   fprintf(stderr, "fact = %f, f = %12G", fact, vd[0]) ;
   for(i=1 ; i<32 ; i+=5){
     fprintf(stderr, ", %12G ", vd[i]) ;
