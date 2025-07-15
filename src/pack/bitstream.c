@@ -61,17 +61,21 @@ void  InitStream(bitstream *s, void *mem, size_t size, int mode){
   }else{                    // not an existing stream, perform a full initialization
     if(buf == NULL){
       s->user   = 0 ;                          // not user supplied space
-      s->alloc  = 1 ;                          // auto allocated space (can be freed if resizing)
+      s->alloc  = 1 ;                          // auto allocated space (can be freed if resizing or destroying)
       buf    = (uint32_t *) malloc(size) ;     // allocate space to accomodate up to size bytes
     }else{
       s->user   = 1 ;                          // user supplied space
       s->alloc  = 0 ;                          // not auto allocated space
     }
-    s->full   = 0 ;                            // malloc not for both bitstream struct and buffer
+    s->full   = 0 ;                            // not single malloc for both bitstream struct and buffer
     s->spare  = 0 ;
     s->valid   = VALID_STREAM ;                // mark bit stream as valid
     s->first  = buf ;                          // stream storage buffer
     s->limit  = buf + size/sizeof(uint32_t) ;  // potential truncation to 32 bit alignment
+  }
+  if(buf == NULL){                             // something is very wrong
+    *s = NULL_BITSTREAM ;                      // fail miserably, set to NULL bitstream
+    return ;
   }
 
   s->in     = buf ;                            // stream is empty and insertion starts at beginning of buffer
@@ -82,14 +86,16 @@ void  InitStream(bitstream *s, void *mem, size_t size, int mode){
   s->xtract = 0 ;                              // extraction point at first available bit
   if((mode & BIT_XTRACT) == 0) s->xtract = -1 ;         // deactivate extract mode (insert only mode)
   if((mode & BIT_INSERT) == 0) s->insert = -1 ;         // deactivate insert mode  (extract only mode)
-  if(mode & SET_BIG_ENDIAN   ) s->endian = STREAM_BE ;  // make stream Big Endian
-  if(mode & SET_LITTLE_ENDIAN) s->endian = STREAM_LE ;  // make stream Little Endian
+  if(mode & SET_BIG_ENDIAN   ) s->endian = STREAM_BE ;  // flag stream as Big Endian
+  if(mode & SET_LITTLE_ENDIAN) s->endian = STREAM_LE ;  // flag stream as Little Endian
 //   if(s->endian == 0) s->endian = STREAM_BE ;   //  default to Big Endian mode if not already defined ?
 
 }
 
-// allocate a bitstream struct, and initialize it
-// mem   [IN] : pointer to user supplied memory (if NULL, use malloc to allocate memory for bit stream data)
+// create (allocate) a bitstream struct, and initialize it
+// mem   [IN] : pointer to user supplied memory
+//              if NULL, use a single malloc to allocate memory for bit stream data and struct
+//              ithe bit stream data will be located in memory after the bitstream struct itself
 // size  [IN] : size of the memory area (user supplied or auto allocated) (BYTES)
 // mode  [IN] : combination of BIT_INSERT, BIT_XTRACT, BIT_FULL_INIT, SET_BIG_ENDIAN, SET_LITTLE_ENDIAN
 // if mode == 0, both insertion and extraction operations are allowed
@@ -100,48 +106,51 @@ bitstream *CreateStream(void *mem, size_t size, int mode){
   size_t size_alloc = sizeof(bitstream) ;
   bitstream *s ;
 
+  // if data buffer not supplied by caller, add size to size_alloc for bit stream data
   if(data == NULL) size_alloc += size ;
   s = (bitstream *) malloc(size_alloc) ;
-  if(s == NULL) return NULL ;
+  if(s == NULL) return NULL ;          // malloc failed
 
   if(data == NULL){                    // data buffer not supplied by caller
-    data = (char *)s ;
-    data = data + sizeof(bitstream) ;  // data will be stored at that address
+    data = (char *)s ;                 // bit stream data will be stored at address
+    data = data + sizeof(bitstream) ;  // just after bitstream struct
   }
-  s->valid = 0 ;   // make sure no mishap happens, make stream invalid
-  InitStream(s, data, size, mode) ;
-  s->full = 1 ;    // malloc for both bitstream struct and buffer
+  s->valid = 0 ;                       // make sure no mishap happens, set stream as invalid
+  InitStream(s, data, size, mode) ;    // perform initialization, supplying data as "user memory"
+  s->full = 1 ;                        // single malloc for both bitstream struct and buffer
   return s ;
 }
 
 // generic bit stream destructor
-// s    [IN] : pointer to an existing bitstream structure
-// return 0 if operation successful, non zero if there was an error
+// s      [IN] : pointer to an existing bitstream structure
+// error [OUT] : error flag, 0 if successful, 1 otherwise
+// in case of error, return NULL
+// if successful, return address of stream if only the data buffer was freed
+// return NULL if the whole struct was freed
 bitstream *FreeStream(bitstream *s, int *error){
 
   if(StreamIsInvalid(s)){     // not a valid stream
     *error = 1 ;
     s = NULL ;
-//     fprintf(stderr, "FreeStream : invalid stream\n");
+    if(stream_debug_mode) fprintf(stderr, "FreeStream : invalid stream\n");
     goto end ;
   }
 
   if(s->full){                // the whole bitstream struct was allocated with malloc()
-    free(s) ;
+    free(s) ;                 // free the whole rigamarole
     s = NULL ;
-    *error = 0 ;
-//     fprintf(stderr, "FreeStream : freed fully allocated stream\n");
+    *error = 0 ;              // O.K.
+    if(stream_debug_mode) fprintf(stderr, "FreeStream : freed single malloc stream\n");
     goto end ;
   }
 
   if(s->alloc){
-    free(s->first) ;  // the stream buffer was supplied by the user
-    s->first = s->in = s->out = s->limit = NULL ;
+    free(s->first) ;          // the stream buffer was supplied by the user
     *error = 0 ;
-//     fprintf(stderr, "FreeStream : freed stream buffer\n");
+    *s = NULL_BITSTREAM ;     // NULL stream
+    if(stream_debug_mode) fprintf(stderr, "FreeStream : freed user supplied stream buffer\n");
+    goto end ;
   }
-
-  *s = NULL_BITSTREAM ;          // blank stream
 
 end:
   return s ;
@@ -309,7 +318,7 @@ ssize_t StreamDataCopy(bitstream *s, void *mem, size_t size){
   if(nbtot == 0) return 0 ;                                // there was no data in stream
   if(nbtot > size) return -1 ;                             // insufficient space
   if(mem != memmove(mem, temp.first, nbtot)) return -1 ;   // error copying
-// fprintf(stderr, "StreamDataCopy : nborig = %ld bits, nbtot = %ld bits\n", nborig, nbtot*8) ;
+  if(stream_debug_mode) fprintf(stderr, "StreamDataCopy : nborig = %ld bits, nbtot = %ld bits\n", nborig, nbtot*8) ;
   return nborig ;                                          // return unrounded result
 }
 
@@ -465,16 +474,16 @@ bitstream *StreamResize(bitstream *s, void *mem, size_t size){
   old_size = sizeof(int32_t) * (s->limit - s->first) ;                    // size of current buffer
   if(size <= old_size) return s ;                                         // new buffer size is <= size of current buffer, resize is not needed
   old_size = sizeof(int32_t) * (s->in - s->first) ;                       // used size in buffer for later copy
-fprintf(stderr, "StreamResize : resizing");
+  if(stream_debug_mode) fprintf(stderr, "StreamResize : resizing");
   if(s->full == 1){                                                       // the whole struct was malloc(ed)
-fprintf(stderr, ", whole struct was malloc(ed)");
+  if(stream_debug_mode) fprintf(stderr, ", whole struct was malloc(ed)");
     bitstream *snew = CreateStream(mem, size, 0) ;
-fprintf(stderr, ", new stream created");
+  if(stream_debug_mode) fprintf(stderr, ", new stream created");
     if(snew == NULL) return NULL ;                                        // allocation failed
     if(auto_alloc){                                                       // copy old buffer into new
-memset(snew->first, 0xFF, sizeof(int32_t) * (s->limit - s->first)) ;
+// memset(snew->first, 0xFF, sizeof(int32_t) * (s->limit - s->first)) ;
       if(old_size > 0) memmove(snew->first, s->first, old_size) ;
-fprintf(stderr, ", copying %ld bytes", old_size) ;
+      if(stream_debug_mode) fprintf(stderr, ", copying %ld bytes", old_size) ;
     }
     // first and limit are already set
     snew->in     = snew->first + (s->in - s->first) ;                     // preserve relative positions of in and out
@@ -486,23 +495,23 @@ fprintf(stderr, ", copying %ld bytes", old_size) ;
     // other flags already set
     snew->endian = s->endian ;
     free(s) ;                                                             // free old bitstream struct
-fprintf(stderr, ", freed old struct");
+    if(stream_debug_mode) fprintf(stderr, ", freed old struct");
     s = snew ;
 
   }else{
 
     if(mem == NULL){                                                      // allocate with malloc if mem is NULL
-fprintf(stderr, ", allocating new buffer (%ld)", size);
+      if(stream_debug_mode) fprintf(stderr, ", allocating new buffer (%ld)", size);
       mem = malloc(size) ;
     }
     if(mem == NULL) return NULL ;                                         // failed to allocate memory
-memset(mem, 0xFF, size) ;
+// memset(mem, 0xFF, size) ;
     memmove(mem, s->first, old_size)  ;                                   // copy old (s->first) buffer into new (mem)
-fprintf(stderr, ", copying %ld bytes", old_size) ;
+    if(stream_debug_mode) fprintf(stderr, ", copying %ld bytes", old_size) ;
     in  = s->in - s->first ;                                              // relative position of in pointer
     out = s->out - s->first ;                                             // relative position of out pointer
     if(s->alloc){                                                         // previous buffer was "malloced", free it
-fprintf(stderr, ", freeing old malloc(ed) buffer");
+      if(stream_debug_mode) fprintf(stderr, ", freeing old malloc(ed) buffer");
       free(s->first) ;
     }
     s->alloc = (auto_alloc) ? 1 : 0 ;                                     // flag buffer as "malloced" if mem was NULL at entry
@@ -511,7 +520,7 @@ fprintf(stderr, ", freeing old malloc(ed) buffer");
     s->out   = s->first + out ;                                           // updated out pointer
     s->limit = s->first + size / sizeof(int32_t) ;                        // updated limit pointer
   }
-fprintf(stderr, "\n");
+  if(stream_debug_mode) fprintf(stderr, "\n");
   return s ;
 }
 // this function will be useful to make an already filled stream ready for extraction

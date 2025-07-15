@@ -89,7 +89,7 @@ int CONCAT(PREFIX,test)(){
 
   fprintf(stderr, "SUCCESS\n") ;
 
-  fprintf(stderr, "============================== nbits = 1->32 test ==============================\n\n") ;
+  fprintf(stderr, "================= nbits = 1->32 insert/extract/verify test =================\n\n") ;
   npts = NPTS ;
   uint32_t mask, token_or, token_and ;
   InitStream(&s0, sbuf, sizeof(sbuf), BIT_FULL_INIT) ;
@@ -149,14 +149,24 @@ int CONCAT(PREFIX,test)(){
   }
   fprintf(stderr, "SUCCESS\n") ;
 
-  fprintf(stderr, "============================== free/resize test ==============================\n\n") ;
+  fprintf(stderr, "============================== destruct test ===============================\n\n") ;
 
   bitstream s1, s2, *ps0, *ps1, *ps2 ;
   npts = NPTS + 1 ;
 
+  int debug_mode = StreamDebugSet(1) ;
+  fprintf(stderr, "debug mode was %d, is now 1\n", debug_mode) ;
+  if(debug_mode != 0) return 30 ;
+
+  SET_NULL_BITSTREAM(s1) ;
+  fprintf(stderr, "attempt to free an invalid stream\n") ;
+  ps1 = FreeStream(&s1, &status) ;
+  if(ps1 != NULL || status == 0) return 31 ;
+
   SET_NULL_BITSTREAM(s1) ;
   STREAM_INIT(&s1, NULL, sizeof(sbuf), BIT_FULL_INIT) ;  // mode = BIT_FULL_INIT redundant, s1 is already set to NULL_BITSTREAM
   STREAM_INIT(&s1, NULL, sizeof(sbuf), 0) ;
+  fprintf(stderr, "attempt to free a stream with caller supplied buffer\n") ;
   ps1 = FreeStream(&s1, &status) ;
   if(ps1 != &s1 || status != 0) return 8 ;
 
@@ -165,6 +175,7 @@ int CONCAT(PREFIX,test)(){
     fprintf(stderr, "ps1->endian = %cE, expected %cE\n", ps0->endian, PACK_ENDIAN) ;
     return 9 ;
   }
+  fprintf(stderr, "attempt to free a single malloc stream\n") ;
   ps0 = FreeStream(ps0, &status) ;
   if(ps0 != NULL || status != 0) return 10 ;
 
@@ -173,6 +184,9 @@ int CONCAT(PREFIX,test)(){
     fprintf(stderr, "ps1->endian = %cE, expected %cE\n", ps1->endian, PACK_ENDIAN) ;
     return 11 ;
   }
+  fprintf(stderr, "SUCCESS\n") ;
+
+  fprintf(stderr, "============================== resize test ================================\n\n") ;
 
   ps2 = StreamResize(ps1, NULL, sizeof(sbuf));
   if(ps2 != ps1) return 12 ;
@@ -209,6 +223,11 @@ int CONCAT(PREFIX,test)(){
   errors = 0 ;
   for(i=0 ; i<npts ; i++){ STREAM_GET_NBITS(s2, w32, nbits) ; if(w32 != (i & 0xFF)) errors++ ; }
   if(errors > 0) return 21 ;
+
+
+  int debug_mode2 = StreamDebugSet(debug_mode) ;
+  fprintf(stderr, "debug mode was %d, is now %d\n", debug_mode2, debug_mode) ;
+  if(debug_mode2 != 1) return 22 ;
 
   fprintf(stderr, "END OF TEST\n") ;
 

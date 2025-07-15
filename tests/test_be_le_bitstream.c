@@ -5,7 +5,7 @@
 #include <rmn/timers.h>
 
 #undef NPTS
-#define NPTS 1024
+#define NPTS 1025
 
 int main(int argc, char **argv){
   int32_t in[NPTS], outs[NPTS], i, nbits ;
@@ -82,7 +82,7 @@ int main(int argc, char **argv){
     for(i=0 ; i<NPTS ; i++){
       in[i] = (i-NPTS/2) & mask ;
       if(in[i] != (int32_t)outu[i]){
-        fprintf(stderr, "UNPACK : i = %2d, expecting %8.8x, got %8.8x\n", i, in[i], outu[i]) ;
+        fprintf(stderr, "UNPACK-BE : i = %2d, expecting %8.8x, got %8.8x\n", i, in[i], outu[i]) ;
         goto fail ;
       }
     }
@@ -104,7 +104,7 @@ int main(int argc, char **argv){
     for(i=0 ; i<NPTS ; i++){
       in[i] = (i-NPTS/2) & mask ;
       if(in[i] != (int32_t)outu[i]){
-        fprintf(stderr, "UNPACK : i = %2d, expecting %8.8x, got %8.8x\n", i, in[i], outu[i]) ;
+        fprintf(stderr, "UNPACK-LE : i = %2d, expecting %8.8x, got %8.8x\n", i, in[i], outu[i]) ;
         goto fail ;
       }
     }
@@ -162,55 +162,103 @@ int main(int argc, char **argv){
   freq = cycles_counter_freq() ;
   nano = 1000000000.0f ;
   nano = nano / freq ;
-//   npts = NPTS ;
   npts = NPTS ;
   fprintf(stderr, "timing freq = %f GHz, timing tick = %8.2G ns, %d values\n", freq/1000000000.0f, nano, npts) ;
 
+  for(i=0 ; i<npts ; i++){ in[i] = (i-npts/2) ; }  // data to be packed
+
   sbe = sbe0 ;                         // reset to freshly initialized stream
-  for(i=0 ; i<npts ; i++){
-    in[i] = (i-npts/2) ;
-  }
+  // Big Endian pack
   for(nbits=1 ; nbits<33 ; nbits+=1){
     t0 = elapsed_cycles() ;
     pbits = stream_pack_u32(&sbe, in, nbits, NPTS, PACK_FINALIZE | PACK_ALIGN32) ;
     tpack_be[nbits] = elapsed_cycles() - t0 ;
     if(pbits == 0) goto fail ;
   }
-  sbe1 = sbe ;                         // save state after insertion
-  for(nbits=1 ; nbits<33 ; nbits+=1){
-    t0 = elapsed_cycles() ;
-    pbits = stream_unpack_u32(&sbe, outu, nbits, NPTS, UNPACK_ALIGN32 ) ;
-    tupku_be[nbits] = elapsed_cycles() - t0 ;
-    if(pbits == 0) goto fail ;
-  }
+
   sle = sle0 ;                         // reset to freshly initialized stream
+  // Little Endian pack
   for(nbits=1 ; nbits<33 ; nbits+=1){
     t0 = elapsed_cycles() ;
     pbits = stream_pack_u32(&sle, in, nbits, NPTS, PACK_FINALIZE | PACK_ALIGN32) ;
     tpack_le[nbits] = elapsed_cycles() - t0 ;
     if(pbits == 0) goto fail ;
   }
+
+  sbe1 = sbe ;                         // save state after insertion
+  // Big Endian unsigned unpack
+  for(nbits=1 ; nbits<33 ; nbits+=1){
+    t0 = elapsed_cycles() ;
+    pbits = stream_unpack_u32(&sbe, outu, nbits, NPTS, UNPACK_ALIGN32 ) ;
+    tupku_be[nbits] = elapsed_cycles() - t0 ;
+    if(pbits == 0) goto fail ;
+    // verify unpack results
+    mask = 0xFFFFFFFFu >> (32-nbits) ;
+    for(i=0 ; i<NPTS ; i++){
+      in[i] = (i-NPTS/2) & mask ;
+      if(in[i] != (int32_t)outu[i]){
+        fprintf(stderr, "UNPACK-BE : i = %2d, expecting %8.8x, got %8.8x\n", i, in[i], outu[i]) ;
+        goto fail ;
+      }
+    }
+  }
+
   sle1 = sle ;                         // save state after insertion
+  // Little Endian unsigned unpack
   for(nbits=1 ; nbits<33 ; nbits+=1){
     t0 = elapsed_cycles() ;
     pbits = stream_unpack_u32(&sle, outu, nbits, NPTS, UNPACK_ALIGN32 ) ;
     tupku_le[nbits] = elapsed_cycles() - t0 ;
     if(pbits == 0) goto fail ;
+    // verify unpack results
+    mask = 0xFFFFFFFFu >> (32-nbits) ;
+    for(i=0 ; i<NPTS ; i++){
+      in[i] = (i-NPTS/2) & mask ;
+      if(in[i] != (int32_t)outu[i]){
+        fprintf(stderr, "UNPACK-LE : i = %2d, expecting %8.8x, got %8.8x\n", i, in[i], outu[i]) ;
+        goto fail ;
+      }
+    }
   }
+
   sbe = sbe1 ;                         // reset to state after insertion
+  // Big Endian signed unpack
   for(nbits=1 ; nbits<33 ; nbits+=1){
     t0 = elapsed_cycles() ;
     pbits = stream_unpack_i32(&sbe, outs, nbits, NPTS, UNPACK_ALIGN32 ) ;
     tupks_be[nbits] = elapsed_cycles() - t0 ;
     if(pbits == 0) goto fail ;
+    // verify unpack results
+    for(i=0 ; i<NPTS ; i++){
+      in[i] = (i-NPTS/2) ;
+      in[i] <<= (32-nbits) ;
+      in[i] >>= (32-nbits) ;
+      if(in[i] != outs[i]){
+        fprintf(stderr, "UNPACK-BE : nbits = %2d, i = %2d, expecting %8.8x, got %8.8x\n", nbits, i, in[i], outu[i]) ;
+        goto fail ;
+      }
+    }
   }
+
   sle = sle1 ;                         // reset to state after insertion
+  // Little Endian signed unpack
   for(nbits=1 ; nbits<33 ; nbits+=1){
     t0 = elapsed_cycles() ;
     pbits = stream_unpack_i32(&sle, outs, nbits, NPTS, UNPACK_ALIGN32 ) ;
     tupks_le[nbits] = elapsed_cycles() - t0 ;
     if(pbits == 0) goto fail ;
+    // verify unpack results
+    for(i=0 ; i<NPTS ; i++){
+      in[i] = (i-NPTS/2) ;
+      in[i] <<= (32-nbits) ;
+      in[i] >>= (32-nbits) ;
+      if(in[i] != outs[i]){
+        fprintf(stderr, "UNPACK-LE : nbits = %2d, i = %2d, expecting %8.8x, got %8.8x\n", nbits, i, in[i], outu[i]) ;
+        goto fail ;
+      }
+    }
   }
+  // print timings
   fprintf(stderr, "ns/pt          Pack              Unpack unsigned   Unpack signed\n") ;
   fprintf(stderr, "                BE        LE      BE       LE       BE       LE\n") ;
   for(nbits=1 ; nbits<33 ; nbits+=1){
