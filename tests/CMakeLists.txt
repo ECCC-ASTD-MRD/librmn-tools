@@ -158,7 +158,7 @@ endif()
 # add_project_test(test_lorenzo_f_static test_lorenzo.F90 STATIC LINK_LIBS rmn::rmn-static)                          # build with static libraries
 # SET_SOURCE_FILES_PROPERTIES( test_lorenzo.F90 PROPERTIES COMPILE_OPTIONS -DNO_FORTRAN_CODE )
 
-add_project_test(test_fstd_compress  test_fstd_compress.F90 LINK_LIBS "rmn::rmn;libaec::aec" DL BSD NOCTEST)   # not included in ctest for now
+add_project_test(test_fstd_compress  test_fstd_compress.F90 LINK_LIBS "rmn::rmn;libaec::aec" DL NOCTEST)   # not included in ctest for now
 # add_project_test(fstd_to_raw  fstd_to_raw.F90 LINK_LIBS "rmn::rmn" DL NOCTEST)   # not included in ctest for now
 add_project_test(fstd_to_raw  fstd_to_raw.F90 LINK_LIBS "rmn::rmn-shared;libaec::aec" DL NOCTEST)   # not included in ctest for now
 add_project_test(fstd_analyze  fstd_analyze.F90 LINK_LIBS "rmn::rmn-shared" DL NOCTEST)   # not included in ctest for now
@@ -182,47 +182,45 @@ add_project_test(test_serialized_functions test_serialized_functions.c LINK_LIBS
 
 # add_project_test(test_ieeequantize test_ieeequantize.c LINK_LIBS "rmn::rmn-shared" NODIAG)
 
-add_project_test(test_logquantize test_logquantize.c LINK_LIBS "rmn::rmn-shared" NODIAG)
+add_project_test(test_logquantize          test_logquantize.c          LINK_LIBS "rmn::rmn-shared" NODIAG)
 # add_project_test(test_encoders test_encoders.c LINK_LIBS "rmn::rmn-shared" NODIAG)
-add_project_test(test_tile_encoders test_tile_encoders.c LINK_LIBS "rmn::rmn-shared" NODIAG)
-add_project_test(test_split_dimension test_split_dimension.c LINK_LIBS "rmn::rmn-shared" NODIAG)
+add_project_test(test_tile_encoders        test_tile_encoders.c        LINK_LIBS "rmn::rmn-shared" NODIAG)
+add_project_test(test_split_dimension      test_split_dimension.c      LINK_LIBS "rmn::rmn-shared" NODIAG)
 # add_project_test(test_bitstream test_bitstream.c LINK_LIBS "rmn::rmn-shared" NODIAG)
-add_project_test(test_entropy test_entropy.c LINK_LIBS "m;rmn::rmn;libaec::aec" DL NODIAG)
-add_project_test(test_data_info_c test_data_info.c LINK_LIBS "rmn::rmn-shared" NODIAG)
-add_project_test(test_data_info_f test_data_info.F90 LINK_LIBS "rmn::rmn;libaec::aec" DL)
+add_project_test(test_entropy              test_entropy.c              LINK_LIBS "m;rmn::rmn;libaec::aec" DL NODIAG)
+add_project_test(test_data_info_c          test_data_info.c            LINK_LIBS "rmn::rmn-shared" NODIAG)
+add_project_test(test_data_info_f          test_data_info.F90          LINK_LIBS "rmn::rmn;libaec::aec" DL)
 
-add_project_test(test_bits test_bits.F90 DL LINK_LIBS "rmn::rmn;libaec::aec")
-add_project_test(test_pipe_filters test_pipe_filters.c LINK_LIBS "rmn::rmn-shared")
-add_project_test(test_dmap_filters test_dmap_filters.c LINK_LIBS "rmn::rmn-shared")
-add_project_test(test_atomic_functions test_atomic_functions.c LINK_LIBS "rmn::rmn-shared" NODIAG)
-add_project_test(test_pixmaps test_pixmaps.c LINK_LIBS "rmn::rmn-shared" NODIAG)
-add_project_test(test_wordstream test_wordstream.c LINK_LIBS "rmn::rmn-shared" NODIAG)
-add_project_test(test_endian_bitstream test_endian_bitstream.c LINK_LIBS "rmn::rmn-shared" NODIAG)
+add_project_test(test_bits                 test_bits.F90 DL            LINK_LIBS "rmn::rmn;libaec::aec")
+add_project_test(test_pipe_filters         test_pipe_filters.c         LINK_LIBS "rmn::rmn-shared")
+add_project_test(test_dmap_filters         test_dmap_filters.c         LINK_LIBS "rmn::rmn-shared")
+add_project_test(test_atomic_functions     test_atomic_functions.c     LINK_LIBS "rmn::rmn-shared" NODIAG)
+add_project_test(test_pixmaps              test_pixmaps.c              LINK_LIBS "rmn::rmn-shared" NODIAG)
+add_project_test(test_wordstream           test_wordstream.c           LINK_LIBS "rmn::rmn-shared" NODIAG)
+add_project_test(test_endian_bitstream     test_endian_bitstream.c     LINK_LIBS "rmn::rmn-shared" NODIAG)
 # add_project_test(test_compress_expand test_compress_expand.c LINK_LIBS "rmn::rmn;libaec::aec" NODIAG)
-add_project_test(test_copy_swap test_copy_swap.c LINK_LIBS "rmn::rmn" NODIAG)
+add_project_test(test_copy_swap            test_copy_swap.c            LINK_LIBS "rmn::rmn"        NODIAG)
 
-add_project_test(test_data_map test_data_map.c LINK_LIBS "rmn::rmn-shared" NODIAG)
-add_project_test(test_array_nd test_array_nd.c LINK_LIBS "rmn::rmn-shared" NODIAG)
-add_project_test(test_readlx test_readlx.F90 LINK_LIBS "rmn::rmn-shared" NODIAG)
+add_project_test(test_data_map             test_data_map.c             LINK_LIBS "rmn::rmn-shared" NODIAG)
+add_project_test(test_array_nd             test_array_nd.c             LINK_LIBS "rmn::rmn-shared" NODIAG)
+add_project_test(test_readlx               test_readlx.F90             LINK_LIBS "rmn::rmn-shared" NODIAG)
 
-add_project_test(test_sparse_concat test_sparse_concat.c LINK_LIBS "rmn::rmn" NODIAG)
+add_project_test(test_sparse_concat        test_sparse_concat.c        LINK_LIBS "rmn::rmn"        NODIAG)
 
-add_project_test(test_stream_pack test_stream_pack.c LINK_LIBS "rmn::rmn" NODIAG)
-add_project_test(test_tracked_malloc test_tracked_malloc.c LINK_LIBS "rmn::rmn" NODIAG)
-add_project_test(test_simd_compare test_simd_compare.c LINK_LIBS "rmn::rmn" NODIAG)
-add_project_test(test_move_blocks test_move_blocks.c LINK_LIBS "rmn::rmn" NODIAG)
-add_project_test(test_float_block_encoders test_float_block_encoders.c LINK_LIBS "rmn::rmn" NODIAG)
-add_project_test(test_lgt53 test_lgt53.c LINK_LIBS "rmn::rmn" NODIAG)
-add_project_test(test_compare_count test_compare_count.c LINK_LIBS "rmn::rmn" NODIAG)
+add_project_test(test_stream_pack          test_stream_pack.c          LINK_LIBS "rmn::rmn"        NODIAG)
+add_project_test(test_tracked_malloc       test_tracked_malloc.c       LINK_LIBS "rmn::rmn"        NODIAG)
+add_project_test(test_simd_compare         test_simd_compare.c         LINK_LIBS "rmn::rmn"        NODIAG)
+add_project_test(test_move_blocks          test_move_blocks.c          LINK_LIBS "rmn::rmn"        NODIAG)
+add_project_test(test_float_block_encoders test_float_block_encoders.c LINK_LIBS "rmn::rmn"        NODIAG)
+add_project_test(test_lgt53                test_lgt53.c                LINK_LIBS "rmn::rmn"        NODIAG)
+add_project_test(test_compare_count        test_compare_count.c        LINK_LIBS "rmn::rmn"        NODIAG)
 
-add_project_test(test_eval_compress test_eval_compress.c LINK_LIBS "rmn::rmn" NODIAG)
+add_project_test(test_eval_compress        test_eval_compress.c        LINK_LIBS "rmn::rmn"        NODIAG)
 
-add_project_test(test_simd_functions_ref test_simd_functions_ref.c LINK_LIBS "rmn::rmn" NODIAG)
-add_project_test(test_simd_functions test_simd_functions.c LINK_LIBS "rmn::rmn" NODIAG)
+add_project_test(test_be_le_bitstream      test_be_le_bitstream.c      LINK_LIBS "rmn::rmn" )
 
-add_project_test(test_ieee_extras test_ieee_extras.c LINK_LIBS "rmn::rmn-shared" )
-
-add_project_test(test_be_le_bitstream test_be_le_bitstream.c LINK_LIBS "rmn::rmn-shared" )
-
-add_project_test(test_syntax  test_syntax.c  LINK_LIBS "rmn::rmn" NO_TOOLS DL )
-add_project_test(test_va_args test_va_args.c LINK_LIBS "rmn::rmn" NO_TOOLS )
+add_project_test(test_simd_functions_ref   test_simd_functions_ref.c   LINK_LIBS "rmn::rmn"        NO_TOOLS NODIAG)
+add_project_test(test_simd_functions       test_simd_functions.c       LINK_LIBS "rmn::rmn"        NO_TOOLS NODIAG)
+add_project_test(test_ieee_extras          test_ieee_extras.c          LINK_LIBS "rmn::rmn"        NO_TOOLS )
+add_project_test(test_syntax               test_syntax.c               LINK_LIBS "rmn::rmn"        NO_TOOLS DL )
+add_project_test(test_va_args              test_va_args.c              LINK_LIBS "rmn::rmn"        NO_TOOLS )
