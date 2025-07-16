@@ -4,8 +4,8 @@ set(PROJECT_C_FILES
   src/pack/array_nd.c
 #   src/pack/bi_endian_pack.c
   src/pack/bits.c
-  src/pack/bitstream.c
-  src/pack/bitstream_pack.c
+#   src/pack/bitstream.c
+#   src/pack/bitstream_pack.c
 #   src/diag/c_record_io.c
   src/diag/compare_count.c
   src/pack/compress_data.c

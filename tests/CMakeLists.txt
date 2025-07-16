@@ -217,7 +217,7 @@ add_project_test(test_compare_count        test_compare_count.c        LINK_LIBS
 
 add_project_test(test_eval_compress        test_eval_compress.c        LINK_LIBS "rmn::rmn"        NODIAG)
 
-add_project_test(test_be_le_bitstream      test_be_le_bitstream.c      LINK_LIBS "rmn::rmn" )
+add_project_test(test_be_le_bitstream      test_be_le_bitstream.c      LINK_LIBS "rmn::rmn"        NO_TOOLS )
 
 add_project_test(test_simd_functions_ref   test_simd_functions_ref.c   LINK_LIBS "rmn::rmn"        NO_TOOLS NODIAG)
 add_project_test(test_simd_functions       test_simd_functions.c       LINK_LIBS "rmn::rmn"        NO_TOOLS NODIAG)
