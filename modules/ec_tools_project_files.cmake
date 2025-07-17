@@ -14,7 +14,6 @@ set(PROJECT_C_FILES
   src/pack/data_map.c
   src/pack/dmap_filters.c
   src/pack/dmap_filters_000_007.c
-  src/pred/dwt_i_lgt53.c
   src/diag/entropy.c
   src/diag/eval_compress.c
   src/diag/eval_diff.c
@@ -28,6 +27,7 @@ set(PROJECT_C_FILES
   src/id/identify_compiler.c
   src/id/identify_mpi_child.c
 #   src/pack/ieee_quantize.c
+#   src/pred/dwt_i_lgt53.c
   src/pred/lorenzo_c.c
   src/diag/misc_analyze.c
   src/pack/misc_operators.c
@@ -94,7 +94,7 @@ set(PROJECT_H_FILES
   src/PUBLIC_INCLUDES/rmn/dmap_filters_010_017.h
   src/PUBLIC_INCLUDES/rmn/dmap_filters_020_027.h
   src/PUBLIC_INCLUDES/rmn/dmap_filters_030_037.h
-  src/PUBLIC_INCLUDES/rmn/dwt_i_lgt53.h
+#   src/PUBLIC_INCLUDES/rmn/dwt_i_lgt53.h
   src/PUBLIC_INCLUDES/rmn/entropy.h
   src/PUBLIC_INCLUDES/rmn/eval_compress.h
   src/PUBLIC_INCLUDES/rmn/eval_diff.h

@@ -212,13 +212,13 @@ add_project_test(test_tracked_malloc       test_tracked_malloc.c       LINK_LIBS
 add_project_test(test_simd_compare         test_simd_compare.c         LINK_LIBS "rmn::rmn"        NODIAG)
 add_project_test(test_move_blocks          test_move_blocks.c          LINK_LIBS "rmn::rmn"        NODIAG)
 add_project_test(test_float_block_encoders test_float_block_encoders.c LINK_LIBS "rmn::rmn"        NODIAG)
-add_project_test(test_lgt53                test_lgt53.c                LINK_LIBS "rmn::rmn"        NODIAG)
 add_project_test(test_compare_count        test_compare_count.c        LINK_LIBS "rmn::rmn"        NODIAG)
 
 add_project_test(test_eval_compress        test_eval_compress.c        LINK_LIBS "rmn::rmn"        NODIAG)
 
+# added to librmn tests
+add_project_test(test_lgt53                test_lgt53.c                LINK_LIBS "rmn::rmn"        NO_TOOLS NODIAG)
 add_project_test(test_be_le_bitstream      test_be_le_bitstream.c      LINK_LIBS "rmn::rmn"        NO_TOOLS )
-
 add_project_test(test_simd_functions_ref   test_simd_functions_ref.c   LINK_LIBS "rmn::rmn"        NO_TOOLS NODIAG)
 add_project_test(test_simd_functions       test_simd_functions.c       LINK_LIBS "rmn::rmn"        NO_TOOLS NODIAG)
 add_project_test(test_ieee_extras          test_ieee_extras.c          LINK_LIBS "rmn::rmn"        NO_TOOLS )
