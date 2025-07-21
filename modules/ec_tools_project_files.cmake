@@ -28,7 +28,7 @@ set(PROJECT_C_FILES
   src/id/identify_mpi_child.c
 #   src/pack/ieee_quantize.c
 #   src/pred/dwt_i_lgt53.c
-  src/pred/lorenzo_c.c
+#   src/pred/lorenzo_c.c
   src/diag/misc_analyze.c
   src/pack/misc_operators.c
   src/pack/misc_pack.c
@@ -52,7 +52,7 @@ set(PROJECT_C_FILES
 
 set(PROJECT_PLUGIN_FILES 
 #   src/pack/bi_endian_pack.c
-  src/pred/lorenzo_c.c
+  src/pred/MOVED_TO_LIBRMN/lorenzo_c.c
 )
 
 set(PROJECT_F_FILES
@@ -116,7 +116,8 @@ set(PROJECT_H_FILES
   src/PUBLIC_INCLUDES/rmn/ieee_quantize.h
   src/PUBLIC_INCLUDES/rmn/is_fortran_compiler.h
   src/PUBLIC_INCLUDES/rmn/le_stream.h
-  src/PUBLIC_INCLUDES/rmn/lorenzo.h
+#   src/PUBLIC_INCLUDES/rmn/lorenzo.h
+#   src/PUBLIC_INCLUDES/rmn/lorenzo.hf
   src/PUBLIC_INCLUDES/rmn/misc_analyze.h
   src/PUBLIC_INCLUDES/rmn/misc_pack.h
   src/PUBLIC_INCLUDES/rmn/misc_pack.hf

@@ -147,17 +147,6 @@ SET_SOURCE_FILES_PROPERTIES( test_pack_macros PROPERTIES COMPILE_OPTIONS -O3 )
 # add_project_test(test_bi_endian_pack_macros test_bi_endian_pack_macros.c LINK_LIBS "rmn::rmn-shared")
 # SET_SOURCE_FILES_PROPERTIES( test_bi_endian_pack_macros PROPERTIES COMPILE_OPTIONS "-O3;-DWITH_TIMING" )
 
-add_project_test(test_lorenzo_c test_lorenzo_c.c LINK_LIBS "rmn::rmn-shared")
-add_project_test(test_lorenzo_f_shared test_lorenzo.F90 LINK_LIBS "rmn::rmn-shared;libaec::aec" DL)                        # build with shared libraries
-if(NOT ( ${COMPILER_SUITE} MATCHES  "nvhpc") )
-# problem building test_lorenzo_f_static with Nvidia compiler (dl library symbol missing)
-add_project_test(test_lorenzo_f_static test_lorenzo.F90 STATIC LINK_LIBS "rmn::rmn-static" DL)        # build with static libraries
-else()
-# add_project_test(test_lorenzo_f_static test_lorenzo.F90 STATIC LINK_LIBS "rmn::rmn-static" DL)        # build with static libraries
-endif()
-# add_project_test(test_lorenzo_f_static test_lorenzo.F90 STATIC LINK_LIBS rmn::rmn-static)                          # build with static libraries
-# SET_SOURCE_FILES_PROPERTIES( test_lorenzo.F90 PROPERTIES COMPILE_OPTIONS -DNO_FORTRAN_CODE )
-
 add_project_test(test_fstd_compress  test_fstd_compress.F90 LINK_LIBS "rmn::rmn;libaec::aec" DL NOCTEST)   # not included in ctest for now
 # add_project_test(fstd_to_raw  fstd_to_raw.F90 LINK_LIBS "rmn::rmn" DL NOCTEST)   # not included in ctest for now
 add_project_test(fstd_to_raw  fstd_to_raw.F90 LINK_LIBS "rmn::rmn-shared;libaec::aec" DL NOCTEST)   # not included in ctest for now
@@ -216,6 +205,18 @@ add_project_test(test_compare_count        test_compare_count.c        LINK_LIBS
 
 add_project_test(test_eval_compress        test_eval_compress.c        LINK_LIBS "rmn::rmn"        NODIAG)
 
+add_project_test(test_lorenzo_f_shared test_lorenzo.F90 LINK_LIBS "rmn::rmn-shared;libaec::aec" DL)                        # build with shared libraries
+if(NOT ( ${COMPILER_SUITE} MATCHES  "nvhpc") )
+# problem building test_lorenzo_f_static with Nvidia compiler (dl library symbol missing)
+add_project_test(test_lorenzo_f_static test_lorenzo.F90 STATIC LINK_LIBS "rmn::rmn-static" DL)        # build with static libraries
+else()
+# add_project_test(test_lorenzo_f_static test_lorenzo.F90 STATIC LINK_LIBS "rmn::rmn-static" DL)        # build with static libraries
+endif()
+# add_project_test(test_lorenzo_f_static test_lorenzo.F90 STATIC LINK_LIBS rmn::rmn-static)                          # build with static libraries
+# SET_SOURCE_FILES_PROPERTIES( test_lorenzo.F90 PROPERTIES COMPILE_OPTIONS -DNO_FORTRAN_CODE )
+
+# to be added to librmn tests
+add_project_test(test_lorenzo_c            test_lorenzo_c.c            LINK_LIBS "rmn::rmn"        NO_TOOLS )
 # added to librmn tests
 add_project_test(test_lgt53                test_lgt53.c                LINK_LIBS "rmn::rmn"        NO_TOOLS NODIAG)
 add_project_test(test_be_le_bitstream      test_be_le_bitstream.c      LINK_LIBS "rmn::rmn"        NO_TOOLS )

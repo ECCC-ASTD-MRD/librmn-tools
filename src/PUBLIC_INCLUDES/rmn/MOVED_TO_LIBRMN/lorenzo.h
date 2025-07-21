@@ -1,5 +1,8 @@
 /*
- * This software is free software; you can redistribute it and/or
+ * Hopefully useful routines for C and FORTRAN
+ * Copyright (C) 2020-2025  Recherche en Prevision Numerique
+ *
+ * This is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation,
  * version 2.1 of the License.
@@ -13,8 +16,10 @@
 /*
  * interfaces to the Fortran and C functions/subroutines for Lorenzo prediction
  * (safe to include multiple times in same file)
- * the macros apply to both C and Fortran
+ * the 1D and in place macros apply to both C and Fortran
  */
+
+/* use the 2D functions to handle the 1D case */
 
 #undef LorenzoPredict1D
 #define LorenzoPredict1D(orig, diff, ni)   LorenzoPredict(orig, diff, ni, ni, ni, 1)
@@ -26,15 +31,13 @@
 #undef LorenzoUnpredictInplace
 #define LorenzoUnpredictInplace(orig, ni, lnio, nj) LorenzoUnpredict(orig, orig, ni, lnio, lnio, nj)
 
-#if ! defined(IN_FORTRAN_CODE) && ! defined(__GFORTRAN__)
+/* check for known Fortran compilers that identify themselves explicitly */
+#if ! defined(IN_FORTRAN_CODE) && ! defined(__GFORTRAN__) && ! defined(__PGIF90__) && ! defined(__FLANG) && ! defined(__flang__)
 
-// the in place calls are now handled by the normal calls
+// the in place calls (diff == orig) are handled by the regular calls
 
-void LorenzoPredict(int32_t * restrict orig, int32_t * restrict diff, int ni, int lnio, int lnid, int nj);
-// void LorenzoPredictInplace(int32_t * restrict orig, int ni, int lnio, int nj);
-
+void   LorenzoPredict(int32_t * restrict orig, int32_t * restrict diff, int ni, int lnio, int lnid, int nj);
 void LorenzoUnpredict(int32_t * restrict orig, int32_t * restrict diff, int ni, int lnio, int lnid, int nj);
-// void LorenzoUnpredictInplace(int32_t * restrict orig, int ni, int lnio, int nj);
 
 #else
 
