@@ -216,8 +216,9 @@ endif()
 # SET_SOURCE_FILES_PROPERTIES( test_lorenzo.F90 PROPERTIES COMPILE_OPTIONS -DNO_FORTRAN_CODE )
 
 # to be added to librmn tests
-add_project_test(test_lorenzo_c            test_lorenzo_c.c            LINK_LIBS "rmn::rmn"        NO_TOOLS )
+
 # added to librmn tests
+add_project_test(test_lorenzo_c            test_lorenzo_c.c            LINK_LIBS "rmn::rmn"        NO_TOOLS )
 add_project_test(test_lgt53                test_lgt53.c                LINK_LIBS "rmn::rmn"        NO_TOOLS NODIAG)
 add_project_test(test_be_le_bitstream      test_be_le_bitstream.c      LINK_LIBS "rmn::rmn"        NO_TOOLS )
 add_project_test(test_simd_functions_ref   test_simd_functions_ref.c   LINK_LIBS "rmn::rmn"        NO_TOOLS NODIAG)
