@@ -17,56 +17,68 @@ Library General Public License for more details.
 
 */
 
+/* check for Fortran compilers, will define IN_FORTRAN_CODE if a known Fortran compiler is recognized */
 #if ! defined(IN_FORTRAN_CODE)
 #include <rmn/is_fortran_compiler.h>
 #endif
 
-#if ! defined(IN_FORTRAN_CODE) && ! defined(__GFORTRAN__)
+#if ! defined(IN_FORTRAN_CODE)
 
 #if defined(__x86_64__)
+
 #define USE_INTEL_SIMD_INTRINSICS
 #include <rmn/simd_functions.h>
 #define WITH_SIMD
-// #include <with_simd.h>
-#else
+
+#else   // defined(__x86_64__)
+
 #define EMULATE_SIMD
-#endif
+
+#endif  // defined(__x86_64__)
+
 // C interfaces and declarations
 
-#if ! defined(RMNTOOLS_BITS)
-#define RMNTOOLS_BITS
+#if ! defined(NEEDBITS)
 
 #include <stdint.h>
 
 // STATIC may be defined as extern, to generate real entry points
 #if ! defined(STATIC)
-#define STATIC static
+#define STATIC static inline
 #define STATIC_DEFINED_HERE
 #endif
 
-// number of bits needed to represent range (positive number)
+// ======================== masks ========================
+
+// number of bits needed to represent range (positive number, 32 or 64 bits)
 #define NEEDBITS(range,needed) { uint64_t rng = (range) ; needed = 1; while (rng >>= 1) needed++ ; }
 
-// 32 and 64 bit left aligned masks (nbits may be 0)
+// 32 bit left aligned mask (nbits may be 0)
 #define LMASK32(nbits)  ((nbits) ? ((~0u )  << (32-nbits)) : 0 )
+// 64 bit left aligned mask (nbits may be 0)
 #define LMASK64(nbits)  ((nbits) ? ((~0lu)  << (64-nbits)) : 0 )
 
-// 32 and 64 bit left aligned masks (nbits == 0) NOT supported
 // (same as above but faster, assuming 0 bit case not needed)
-#define LMASK32Z(nbits)  ((~0u )  << (32-nbits))
-#define LMASK64Z(nbits)  ((~0lu)  << (64-nbits))
+// 32 bit left aligned mask (nbits == 0) NOT supported
+#define LMASK32NZ(nbits)  ((~0u )  << (32-nbits))
+// 64 bit left aligned mask (nbits == 0) NOT supported
+#define LMASK64NZ(nbits)  ((~0lu)  << (64-nbits))
 
-// 32 and 64 bit right aligned masks (nbits may be 32)
+// 32 bit right aligned mask (nbits may be 32)
 #define RMASK32(nbits)  (((nbits) == 32) ? (~0u ) : (~((~0u)  << nbits)))
+// 64 bit right aligned mask (nbits may be 64)
 #define RMASK64(nbits)  (((nbits) == 64) ? (~0lu) : (~((~0lu) << nbits)))
 
-// 31 and 63 bit right aligned masks  (nbits MUST be < 32)
 // (same as above but faster, assuming 32/64 bit case not needed)
+// 31 bit right aligned mask (nbits MUST be < 32)
 #define RMASK31(nbits)  (~((~0u)  << nbits))
+// 63 bit right aligned mask (nbits MUST be < 64)
 #define RMASK63(nbits)  (~((~0lu) << nbits))
 
+// ======================== population count ========================
+
 // population count (32 bit words) (count number of bits that are set to 1)
-STATIC inline uint32_t popcnt_32(uint32_t what){
+STATIC uint32_t popcnt_32(uint32_t what){
   uint32_t cnt ;
 #if defined(__x86_64__)
 // X86 family of processors
@@ -85,7 +97,7 @@ STATIC inline uint32_t popcnt_32(uint32_t what){
 }
 
 // population count (64 bit words) (count number of bits that are set to 1)
-STATIC inline uint32_t popcnt_64(uint64_t what){
+STATIC uint32_t popcnt_64(uint64_t what){
   uint64_t cnt ;
 #if defined(__x86_64__)
   // X86 family of processors
@@ -102,8 +114,10 @@ STATIC inline uint32_t popcnt_64(uint64_t what){
   return cnt ;
 }
 
+// ======================== leading zeros and ones ========================
+
 // leading zeros count (32 bit word)
-STATIC inline uint32_t lzcnt_32(uint32_t what){
+STATIC uint32_t lzcnt_32(uint32_t what){
   uint32_t cnt ;
 #if defined(__x86_64__)
   // X86 family of processors
@@ -126,23 +140,13 @@ STATIC inline uint32_t lzcnt_32(uint32_t what){
   return cnt ;
 }
 
-// number of bits needed to encode an unsigned 32 bit integer (minimum 1)
-STATIC inline uint32_t encodebits_u32(uint32_t what){
-  uint32_t nbits = 32 - lzcnt_32(what) ;
-  return nbits ? nbits : 1 ;  // if nbits == 0, return 1
-}
-// position of most significant 1 bit in unsigned 32 bit integer (-1 if what ==0)
-STATIC inline int32_t msb1_32(uint32_t what){
-  return 31 - lzcnt_32(what) ;
-}
-
 // leading ones count (32 bit word)
-STATIC inline uint32_t lnzcnt_32(uint32_t what){
+STATIC uint32_t lnzcnt_32(uint32_t what){
   return lzcnt_32(~what) ;
 }
 
 // leading zeros count (64 bit word)
-STATIC inline uint32_t lzcnt_64(uint64_t what){
+STATIC uint32_t lzcnt_64(uint64_t what){
   uint64_t cnt ;
 #if defined(__x86_64__)
   // X86 family of processors
@@ -166,19 +170,33 @@ STATIC inline uint32_t lzcnt_64(uint64_t what){
   return cnt ;
 }
 
+// leading ones count (64 bit word)
+STATIC uint32_t lnzcnt_64(uint64_t what){
+  return lzcnt_64(~what) ;
+}
+
+// ======================== miscellaneous ========================
+
+// number of bits needed to encode an unsigned 32 bit integer (minimum 1)
+STATIC uint32_t encodebits_u32(uint32_t what){
+  uint32_t nbits = 32 - lzcnt_32(what) ;
+  return nbits ? nbits : 1 ;  // if nbits == 0, return 1
+}
+
 // number of bits needed to encode an unsigned 64 bit integer (minimum 1)
-STATIC inline uint32_t encodebits_64(uint32_t what){
+STATIC uint32_t encodebits_u64(uint32_t what){
   uint32_t nbits = 64 - lzcnt_64(what) ;
   return nbits ? nbits : 1 ;  // if nbits == 0, return 1
 }
-// position of most significant 1 bit in unsigned 64 bit integer (-1 if what ==0)
-STATIC inline int32_t msb1_64(uint32_t what){
-  return 63 - lzcnt_64(what) ;
+
+// position of most significant 1 bit in unsigned 32 bit integer (-1 if what == 0)
+STATIC int32_t msb1_32(uint32_t what){
+  return 31 - lzcnt_32(what) ;
 }
 
-// leading ones count (64 bit word)
-STATIC inline uint32_t lnzcnt_64(uint64_t what){
-  return lzcnt_64(~what) ;
+// position of most significant 1 bit in unsigned 64 bit integer (-1 if what == 0)
+STATIC int32_t msb1_64(uint32_t what){
+  return 63 - lzcnt_64(what) ;
 }
 
 #if defined(STATIC_DEFINED_HERE)

@@ -3,7 +3,7 @@ set(PROJECT_C_FILES
   src/pred/average_2x2.c
   src/pack/array_nd.c
 #   src/pack/bi_endian_pack.c
-  src/pack/bits.c
+#   src/pack/bits.c
 #   src/pack/bitstream.c
 #   src/pack/bitstream_pack.c
 #   src/diag/c_record_io.c
@@ -45,7 +45,7 @@ set(PROJECT_C_FILES
   src/diag/sparse_concat.c
   src/pack/stream_pack.c
   src/diag/tee_print.c
-  src/diag/test_helpers.c
+#   src/diag/test_helpers.c
   src/pack/tile_encoders.c
   src/pack/tracked_malloc.c
 )
@@ -73,7 +73,7 @@ set(PROJECT_H_FILES
 #   src/PUBLIC_INCLUDES/rmn/bi_endian_pack.h
 #   src/PUBLIC_INCLUDES/rmn/bit_pack_macros.h
 #   src/PUBLIC_INCLUDES/rmn/bit_stream.h
-  src/PUBLIC_INCLUDES/rmn/bits.h
+#   src/PUBLIC_INCLUDES/rmn/bits.h
   src/PUBLIC_INCLUDES/rmn/bitstream.h
   src/PUBLIC_INCLUDES/rmn/c_binding_extras.hf
 #   src/PUBLIC_INCLUDES/rmn/c_record_io.h

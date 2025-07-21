@@ -87,11 +87,11 @@ set(TEST_INCLUDES -I${CMAKE_SOURCE_DIR}/src/PUBLIC_INCLUDES)
 
 SET_SOURCE_FILES_PROPERTIES( test_shared.c PROPERTIES COMPILE_OPTIONS ${TEST_INCLUDES} )
 SET_SOURCE_FILES_PROPERTIES( ../src/diag/test_helpers.c PROPERTIES COMPILE_OPTIONS ${TEST_INCLUDES} )
-add_library(shared0 SHARED plugin_0.c ../src/diag/test_helpers.c plugin_0.F90)
+add_library(shared0 SHARED plugin_0.c ../src/diag/MOVED_TO_LIBRMN/test_helpers.c plugin_0.F90)
 add_project_test(test_shared_0 test_shared.c LINK_LIBS shared0 NO_TOOLS)
-add_library(shared1 SHARED plugin_1.c ../src/diag/test_helpers.c)
+add_library(shared1 SHARED plugin_1.c ../src/diag/MOVED_TO_LIBRMN/test_helpers.c)
 add_project_test(test_shared_1 test_shared.c LINK_LIBS shared1 NO_TOOLS)
-add_library(shared2 SHARED plugin_2.c ../src/diag/test_helpers.c)
+add_library(shared2 SHARED plugin_2.c ../src/diag/MOVED_TO_LIBRMN/test_helpers.c)
 add_project_test(test_shared_2 test_shared.c LINK_LIBS shared2 NO_TOOLS)
 
 SET_SOURCE_FILES_PROPERTIES( test_shared_012.c PROPERTIES COMPILE_OPTIONS ${TEST_INCLUDES} )
@@ -180,7 +180,6 @@ add_project_test(test_entropy              test_entropy.c              LINK_LIBS
 add_project_test(test_data_info_c          test_data_info.c            LINK_LIBS "rmn::rmn-shared" NODIAG)
 add_project_test(test_data_info_f          test_data_info.F90          LINK_LIBS "rmn::rmn;libaec::aec" DL)
 
-add_project_test(test_bits                 test_bits.F90 DL            LINK_LIBS "rmn::rmn;libaec::aec")
 add_project_test(test_pipe_filters         test_pipe_filters.c         LINK_LIBS "rmn::rmn-shared")
 add_project_test(test_dmap_filters         test_dmap_filters.c         LINK_LIBS "rmn::rmn-shared")
 add_project_test(test_atomic_functions     test_atomic_functions.c     LINK_LIBS "rmn::rmn-shared" NODIAG)
@@ -218,6 +217,7 @@ endif()
 # to be added to librmn tests
 
 # added to librmn tests
+add_project_test(test_bits                 test_bits.F90 DL            LINK_LIBS "rmn::rmn"        NO_TOOLS )
 add_project_test(test_lorenzo_c            test_lorenzo_c.c            LINK_LIBS "rmn::rmn"        NO_TOOLS )
 add_project_test(test_lgt53                test_lgt53.c                LINK_LIBS "rmn::rmn"        NO_TOOLS NODIAG)
 add_project_test(test_be_le_bitstream      test_be_le_bitstream.c      LINK_LIBS "rmn::rmn"        NO_TOOLS )
