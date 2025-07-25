@@ -246,6 +246,16 @@ static inline int zmap_index_invalid(zmap *map, int index){
 
 #include <rmn/data_properties.h>
 
+// generic argument list
+typedef struct{
+  uint32_t maxargs ;    // max number of arguments
+  uint32_t nargs ;      // number of arguments
+  iuf64_t  args[] ;     // arguments ( [0] .. [nargs-1] )
+} function_args ;       // function argument list
+
+// allocate a generic argument list with room for at most nmax arguments
+#define malloc_fn_args(arglist, nmax) { arglist = (function_args *) malloc(sizeof(function_args) + nmax * sizeof(iuf64_t)) ; arglist->maxargs = nmax ; }
+
 // sfn argument list
 typedef function_args sfn_args ;
 

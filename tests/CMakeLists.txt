@@ -173,7 +173,6 @@ add_project_test(test_serialized_functions test_serialized_functions.c LINK_LIBS
 
 add_project_test(test_logquantize          test_logquantize.c          LINK_LIBS "rmn::rmn-shared" NODIAG)
 # add_project_test(test_encoders test_encoders.c LINK_LIBS "rmn::rmn-shared" NODIAG)
-add_project_test(test_tile_encoders        test_tile_encoders.c        LINK_LIBS "rmn::rmn-shared" NODIAG)
 add_project_test(test_split_dimension      test_split_dimension.c      LINK_LIBS "rmn::rmn-shared" NODIAG)
 # add_project_test(test_bitstream test_bitstream.c LINK_LIBS "rmn::rmn-shared" NODIAG)
 add_project_test(test_entropy              test_entropy.c              LINK_LIBS "m;rmn::rmn;libaec::aec" DL NODIAG)
@@ -198,7 +197,6 @@ add_project_test(test_sparse_concat        test_sparse_concat.c        LINK_LIBS
 add_project_test(test_stream_pack          test_stream_pack.c          LINK_LIBS "rmn::rmn"        NODIAG)
 add_project_test(test_tracked_malloc       test_tracked_malloc.c       LINK_LIBS "rmn::rmn"        NODIAG)
 add_project_test(test_simd_compare         test_simd_compare.c         LINK_LIBS "rmn::rmn"        NODIAG)
-add_project_test(test_move_blocks          test_move_blocks.c          LINK_LIBS "rmn::rmn"        NODIAG)
 add_project_test(test_float_block_encoders test_float_block_encoders.c LINK_LIBS "rmn::rmn"        NODIAG)
 add_project_test(test_compare_count        test_compare_count.c        LINK_LIBS "rmn::rmn"        NODIAG)
 
@@ -215,6 +213,8 @@ endif()
 # SET_SOURCE_FILES_PROPERTIES( test_lorenzo.F90 PROPERTIES COMPILE_OPTIONS -DNO_FORTRAN_CODE )
 
 # to be added to librmn tests
+add_project_test(test_tile_encoders        test_tile_encoders.c        LINK_LIBS "rmn::rmn" NODIAG)
+add_project_test(test_move_blocks          test_move_blocks.c          LINK_LIBS "rmn::rmn-shared"        NO_TOOLS NODIAG)
 
 # added to librmn tests
 add_project_test(test_bits                 test_bits.F90 DL            LINK_LIBS "rmn::rmn"        NO_TOOLS )
