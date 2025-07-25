@@ -20,23 +20,22 @@
 
 // basic block block properties
 typedef struct{
-  iuf32_t  maxs ;      // max signed value in block
-  iuf32_t  mins ;      // min signed value in block
+  iuf32_t  maxs ;      // max signed value in block (meaningless for unsigned data)
+  iuf32_t  mins ;      // min signed value in block (meaningless for unsigned data)
   iuf32_t  minu ;      // min unsigned value in block
-  iuf32_t  maxu ;      // max unsigned value in block (needed for uint_data)
+  iuf32_t  maxu ;      // max unsigned value in block
   int32_t  zeros ;     // number of ZERO values in block (-1 if unknown)
   data_kind kind ;     // data type (signed / unsigned / float / unknown / ... )
 } block_properties ;
 
 #define NULL_BLOCK_PROPERTIES (block_properties) {.maxs = {0}, .mins = {0}, .minu = {0}, .maxu = {0}, .zeros = -1 , .kind = bad_data }
-// #define NULL_BLOCK_PROPERTIES (block_properties) { .kind = bad_data }
 
 static inline int int_max_abs(block_properties bp){
   uint32_t max1, max2 ;
   if(bp.maxs.i <= 0) return -bp.mins.i ;  // all negative or 0
   if(bp.mins.i >= 0) return bp.maxs.i ;   // all positive or 0
-  max1 = bp.maxs.i ;      // largest positive value
-  max2 = -bp.mins.i ;     // largest negative value
+  max1 = bp.maxs.i ;                      // largest positive value
+  max2 = -bp.mins.i ;                     // negative value with largest absolute value
   return (max1 > max2) ? max1 : max2 ;
 }
 
@@ -44,8 +43,8 @@ static inline int int_min_abs(block_properties bp){
   uint32_t min1, min2 ;
   if(bp.maxs.i <= 0) return -bp.maxs.i ;  // all negative or 0
   if(bp.mins.i >= 0) return bp.mins.i ;   // all positive or 0
-  min1 = bp.maxu.i ;      // smallest positive value
-  min2 = -bp.maxu.i ;     // smallest negative value
+  min1 = bp.maxu.i ;                      // smallest positive value
+  min2 = -bp.maxu.i ;                     // negative value closest to zero
   return (min1 < min2) ? min1 : min2 ;
 }
 

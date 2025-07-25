@@ -25,28 +25,27 @@
 #include <rmn/data_properties.h>
 #include <rmn/ieee_extras.h>
 
-// move_w32_block(void *restrict src, int lnis, void *restrict dst, int lnid, int ni, int nj[, block_properties *bp]);
-// generic interface to block movers. bp is absent if src is not a pointer to int/uint/float/void
+// move_w32_block(void *restrict src, int lnis, void *restrict dst, int lnid, int ni, int nj [, block_properties *bp] );
+// generic interface to block movers. bp MUST BE ABSENT if src is not a pointer to int/unsigned int/float
 #define move_w32_block(src,...) _Generic((src), \
                                                    int32_t  *: move_int32_block,  \
                                                    uint32_t *: move_uint32_block, \
                                                    float    *: move_float_block,  \
-                                                   void     *: move_data32_block, \
+                                                   void     *: move_mem32_block,  \
                                                    default   : move_mem32_block   \
                                                    ) (src,__VA_ARGS__)
 
-int move_uint32_block(uint32_t *restrict src, int lnis, void *restrict dst, int lnid, int ni, int nj, block_properties *bp);
-int move_int32_block(int32_t   *restrict src, int lnis, void *restrict dst, int lnid, int ni, int nj, block_properties *bp);
-int move_float_block(float     *restrict src, int lnis, void *restrict dst, int lnid, int ni, int nj, block_properties *bp);
-int move_data32_block(void     *restrict src, int lnis, void *restrict dst, int lnid, int ni, int nj, block_properties *bp);
-int move_mem32_block(void      *restrict src, int lnis, void *restrict dst, int lnid, int ni, int nj);
+int move_uint32_block(uint32_t *src, int lnis, void *dst, int lnid, int ni, int nj, block_properties *bp);
+int move_int32_block(int32_t   *src, int lnis, void *dst, int lnid, int ni, int nj, block_properties *bp);
+int move_float_block(float     *src, int lnis, void *dst, int lnid, int ni, int nj, block_properties *bp);
+int move_data32_block(void     *src, int lnis, void *dst, int lnid, int ni, int nj, block_properties *bp);
+int move_mem32_block(void      *src, int lnis, void *dst, int lnid, int ni, int nj);
 
 void print_float_props(block_properties bp);
 void print_int_props(block_properties bp);
 
-int analyze_data32_block(void *restrict src, int lnis, int ni, int nj, block_properties *bp);
+int analyze_data32_block(void *src, int lnis, int ni, int nj, block_properties *bp);
 void adjust_block_properties(block_properties *bp, data_kind datatype);
 void add_block_properties(block_properties *bp, block_properties *bp_extra);
 
-// int split_and_process(void *array, uint32_t lgni, uint32_t gni, uint32_t gnj, data_kind datatype, int ni, int nj, sfn_ptr fn, sfn_args *fnargs);
 #endif

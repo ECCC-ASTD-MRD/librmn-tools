@@ -86,9 +86,9 @@ set(PROJECT_H_FILES
 #   src/PUBLIC_INCLUDES/rmn/cpp_loop.h
 #   src/PUBLIC_INCLUDES/rmn/ct_assert.h
   src/PUBLIC_INCLUDES/rmn/data_info.h
-  src/PUBLIC_INCLUDES/rmn/data_kind.h
+#   src/PUBLIC_INCLUDES/rmn/data_kind.h
   src/PUBLIC_INCLUDES/rmn/data_map.h
-  src/PUBLIC_INCLUDES/rmn/data_properties.h
+#   src/PUBLIC_INCLUDES/rmn/data_properties.h
   src/PUBLIC_INCLUDES/rmn/dmap_filters.h
   src/PUBLIC_INCLUDES/rmn/dmap_filters_000_007.h
   src/PUBLIC_INCLUDES/rmn/dmap_filters_010_017.h
@@ -122,7 +122,7 @@ set(PROJECT_H_FILES
   src/PUBLIC_INCLUDES/rmn/misc_pack.h
   src/PUBLIC_INCLUDES/rmn/misc_pack.hf
   src/PUBLIC_INCLUDES/rmn/misc_operators.h
-  src/PUBLIC_INCLUDES/rmn/move_blocks.h
+#   src/PUBLIC_INCLUDES/rmn/move_blocks.h
   src/PUBLIC_INCLUDES/rmn/pack_macros.h
   src/PUBLIC_INCLUDES/rmn/pipe_filters.h
   src/PUBLIC_INCLUDES/rmn/pixmaps.h

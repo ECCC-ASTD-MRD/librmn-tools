@@ -16,7 +16,8 @@
 //
 // used by block movers and array_nd
 //
-#if ! defined(malloc_fn_args)
+#if ! defined(DATA_KIND_INCLUDES)
+#define DATA_KIND_INCLUDES
 
 #include <stdint.h>
 
@@ -56,22 +57,15 @@ typedef union{
   float    f ;    // float
 } iuf32_t ;
 
-// generic argument list
-typedef struct{
-  uint32_t maxargs ;    // max number of arguments
-  uint32_t nargs ;      // number of arguments
-  iuf64_t  args[] ;     // arguments ( [0] .. [nargs-1] )
-} function_args ;       // function argument list
-
-// allocate a generic argument list with room for at most nmax arguments
-#define malloc_fn_args(arglist, nmax) { arglist = (function_args *) malloc(sizeof(function_args) + nmax * sizeof(iuf64_t)) ; arglist->maxargs = nmax ; }
-
+// get rid of some gcc diagnostic messages
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-variable"
+// printable string associated to data kind
 static const char *printable_type[10] = { "INVALID", "INT_32" , "UINT_32", "FLOAT"  , "RAW_32",
                                           "LARGE"  , "UNKNOWN", "INT_64" , "UINT_64", "DOUBLE" } ;
+// size associated to data kind (-1 for invalid, 0 for unknown, huge value for large items)
 static const int32_t size_of_type[10] = { -1       , 32       , 32       , 32       , 32      ,
-                                          -1       , 0        , 64       , 64       , 64       } ;
+                                         INT32_MAX , 0        , 64       , 64       , 64       } ;
 #pragma GCC diagnostic pop
 
 #endif
