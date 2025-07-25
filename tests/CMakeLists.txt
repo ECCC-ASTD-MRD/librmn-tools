@@ -214,9 +214,9 @@ endif()
 
 # to be added to librmn tests
 add_project_test(test_tile_encoders        test_tile_encoders.c        LINK_LIBS "rmn::rmn" NODIAG)
-add_project_test(test_move_blocks          test_move_blocks.c          LINK_LIBS "rmn::rmn-shared"        NO_TOOLS NODIAG)
 
 # added to librmn tests
+add_project_test(test_move_blocks          test_move_blocks.c          LINK_LIBS "rmn::rmn"        NO_TOOLS NODIAG)
 add_project_test(test_bits                 test_bits.F90 DL            LINK_LIBS "rmn::rmn"        NO_TOOLS )
 add_project_test(test_lorenzo_c            test_lorenzo_c.c            LINK_LIBS "rmn::rmn"        NO_TOOLS )
 add_project_test(test_lgt53                test_lgt53.c                LINK_LIBS "rmn::rmn"        NO_TOOLS NODIAG)
