@@ -210,19 +210,19 @@ int test(int j0)
   }
 
   scalar = 3.0;
-  /* 5 test iterations as a preamble ot prime the pump */
+  /* NTIMES/4 test iterations as a preamble ot prime the pump */
   print_time(">pre = ") ;
   if(j0 == 0) {
-    for (j=0; j<5; j++) tuned_STREAM_Copy() ;
+    for (j=0; j<NTIMES/4; j++) tuned_STREAM_Copy() ;
   }
   if(j0 == 1) {
-    for (j=0; j<5; j++) tuned_STREAM_Scale(scalar) ;
+    for (j=0; j<NTIMES/4; j++) tuned_STREAM_Scale(scalar) ;
   }
   if(j0 == 2) {
-    for (j=0; j<5; j++) tuned_STREAM_Add() ;
+    for (j=0; j<NTIMES/4; j++) tuned_STREAM_Add() ;
   }
   if(j0 == 3){
-    for (j=0; j<5; j++) tuned_STREAM_Triad(scalar) ;
+    for (j=0; j<NTIMES/4; j++) tuned_STREAM_Triad(scalar) ;
   }
 
   /*	--- MAIN LOOP --- repeat test case NTIMES times --- */
