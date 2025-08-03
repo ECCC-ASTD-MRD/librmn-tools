@@ -45,9 +45,9 @@
 /* The original code has been extensively modified to allow for          */
 /* multiple copies running in parallel in the same NUMA space            */
 /* the preamble gives time to start the multiple copies in background    */
-/* the main body (NTIMES iterations) is expected to run concurrently     */
+/* the main body (ntimes iterations) is expected to run concurrently     */
 /* the postamble part makes sure that any potentially faster copy will   */
-/* still be running when the last copy terminates its NTIMES iterations  */
+/* still be running when the last copy terminates its ntimes iterations  */
 /* M.Valin 2025 Recherche en Prevision Numerique                         */
 /*-----------------------------------------------------------------------*/
 
@@ -68,18 +68,6 @@
  * that should be good to about 5% precision.
  */
 
-// default array size ~800 MBytes
-#ifndef N
-#   define N 100000000
-#endif
-// default number of iterations : 20
-#ifndef NTIMES
-#   define NTIMES 20
-#endif
-#ifndef OFFSET
-#   define OFFSET 0
-#endif
-
 /*
  * Compile the code with full optimization.  Many compilers
  * generate unreasonably bad code before the optimizer tightens
@@ -92,15 +80,20 @@
  * make sure arrays are large enough to flood all cache levels
  *
  * calling sequence
- * OMP_NUM_THREADS=xxx stream.exe test_number
+ * OMP_NUM_THREADS=xxx stream.exe test_number array_size niter
  * test_number :
  *    0   memory copy test  array1 = array2
  *    1   scaling test      array1 = array2 * scalar
  *    2   add test          array1 = array2 + array3
  *    3 triad test          array1 = array2 + array3 * scalar
- * if test number is a ultui digit decimal number, multiple tests will be executed
+ * if test number is a multi digit decimal number, multiple tests will be executed
  * e.g. 3210 will execute tests 0, then 1, then 2, then 3
- * if test_number is omitted, test 0 (copy) will be executed
+ * no argument : test 0 (copy) will be executed, array size will be N MBytes, repeated NTIMES times
+ * 1 argument  : requested tests  will be executed, array size will be N MBytes, repeated NTIMES times
+ * 2 arguments : requested tests  will be executed, array size will be array_size MBytes, repeated NTIMES times
+ * 3 arguments : requested tests  will be executed, array size will be array_size MBytes, repeated niter times
+ *
+ * e.g. stream_triad.exe 3210 150 30 : tests 0,1,2,3 will be executed, with arrays of 120 MBytes, repeated 30 times
  *
 */
 
@@ -113,6 +106,10 @@
 # define MAX(x,y) ((x)>(y)?(x):(y))
 # endif
 
+#ifndef OFFSET
+#   define OFFSET 0
+#endif
+
 static double	*a, *b, *c;
 
 static double avgtime[4] = {0, 0, 0, 0},
@@ -122,37 +119,32 @@ static char	*label[4] = {"Copy:      ",
                          "Scale:     ",
                          "Add:       ",
                          "Triad:     "};
-static double	bytes[4] = {
-    2 * sizeof(double) * N,
-    2 * sizeof(double) * N,
-    3 * sizeof(double) * N,
-    3 * sizeof(double) * N
-    };
+static double	bytes[4] ;
 
 extern double mysecond();
 extern void print_time(char *str);
-extern void tuned_STREAM_Copy();
-extern void tuned_STREAM_Scale(double scalar);
-extern void tuned_STREAM_Add();
-extern void tuned_STREAM_Triad(double scalar);
+extern void tuned_STREAM_Copy(int n);
+extern void tuned_STREAM_Scale(double scalar, int n);
+extern void tuned_STREAM_Add(int n);
+extern void tuned_STREAM_Triad(double scalar, int n);
 
 #ifdef _OPENMP
 extern int omp_get_num_threads();
 #endif
 
-int test(int j0)
+int test(int j0, int ntimes, int n)
     {
     int quantum, checktick();
     int BytesPerWord = sizeof(double);
     int j, k;
-    double scalar, t, times[4][NTIMES];
+    double scalar, t, times[4][ntimes];
 
     j0 &= 0x3;
-    a = malloc((N+OFFSET)*sizeof(double)) ;
+    a = malloc((n+OFFSET)*sizeof(double)) ;
     if(a == NULL) fprintf(stderr, "allocation of a failed\n") ;
-    b = malloc((N+OFFSET)*sizeof(double)) ;
+    b = malloc((n+OFFSET)*sizeof(double)) ;
     if(b == NULL) fprintf(stderr, "allocation of b failed\n") ;
-    c = malloc((N+OFFSET)*sizeof(double)) ;
+    c = malloc((n+OFFSET)*sizeof(double)) ;
     if(c == NULL) fprintf(stderr, "allocation of c failed\n") ;
 
     /* --- SETUP --- determine precision and check timing --- */
@@ -161,11 +153,11 @@ int test(int j0)
     BytesPerWord = sizeof(double);
     printf("This system uses %d bytes per DOUBLE PRECISION word.\n", BytesPerWord);
     printf(HLINE);
-    printf("Each test is run %d times, but only\n", NTIMES);
+    printf("Each test is run %d times, but only\n", ntimes);
     printf("the *best* time for each is used.\n");
 #endif
-    printf("\n-Total memory required = %.1f MB. (NTIMES = %d) (test %d)",
-           (3.0 * BytesPerWord) * ( (double) N / 1048576.0), NTIMES, j0);
+    printf("\n-Total memory required = %.1f MB. (ntimes = %d) (test %d)",
+           (3.0 * BytesPerWord) * ( (double) n / 1048576.0), ntimes, j0);
 #ifdef _OPENMP
 //     printf(HLINE);
 #pragma omp parallel 
@@ -180,7 +172,7 @@ int test(int j0)
 
 /* Get initial value for system clock. */
 #pragma omp parallel for
-  for (j=0; j<N; j++) {
+  for (j=0; j<n; j++) {
     a[j] = 1.0;
     b[j] = 2.0;
     c[j] = 4.0;
@@ -193,9 +185,9 @@ int test(int j0)
 
   t = mysecond();
 #pragma omp parallel for
-  for (j = 0; j < N/4; j++){ a[j] = 2.0E0 * a[j]; }
+  for (j = 0; j < n/4; j++){ a[j] = 2.0E0 * a[j]; }
   t = 4.0E6 * (mysecond() - t);
-  printf(">The test will need on the order of %d microseconds.\n", (int) t*NTIMES);
+  printf(">The test will need on the order of %d microseconds.\n", (int) t*ntimes);
 
   if(t/quantum < 20){
     printf(HLINE);
@@ -210,29 +202,29 @@ int test(int j0)
   }
 
   scalar = 3.0;
-  /* NTIMES/4 test iterations as a preamble ot prime the pump */
+  /* ntimes/4 test iterations as a preamble ot prime the pump */
   print_time(">pre = ") ;
   if(j0 == 0) {
-    for (j=0; j<NTIMES/4; j++) tuned_STREAM_Copy() ;
+    for (j=0; j<ntimes/4; j++) tuned_STREAM_Copy(n) ;
   }
   if(j0 == 1) {
-    for (j=0; j<NTIMES/4; j++) tuned_STREAM_Scale(scalar) ;
+    for (j=0; j<ntimes/4; j++) tuned_STREAM_Scale(scalar, n) ;
   }
   if(j0 == 2) {
-    for (j=0; j<NTIMES/4; j++) tuned_STREAM_Add() ;
+    for (j=0; j<ntimes/4; j++) tuned_STREAM_Add(n) ;
   }
   if(j0 == 3){
-    for (j=0; j<NTIMES/4; j++) tuned_STREAM_Triad(scalar) ;
+    for (j=0; j<ntimes/4; j++) tuned_STREAM_Triad(scalar, n) ;
   }
 
-  /*	--- MAIN LOOP --- repeat test case NTIMES times --- */
+  /*	--- MAIN LOOP --- repeat test case ntimes times --- */
   print_time(", start = ") ;
-  for (k=0; k<NTIMES; k++)
+  for (k=0; k<ntimes; k++)
   {
     if(j0 == 0){
       times[j0][k] = mysecond();
 #pragma omp parallel for
-      for (j=0; j<N; j++){
+      for (j=0; j<n; j++){
         c[j] = a[j];
       }
       times[j0][k] = mysecond() - times[j0][k];
@@ -240,7 +232,7 @@ int test(int j0)
     if(j0 == 1){
       times[j0][k] = mysecond();
 #pragma omp parallel for
-      for (j=0; j<N; j++){
+      for (j=0; j<n; j++){
         b[j] = scalar*c[j];
       }
       times[j0][k] = mysecond() - times[j0][k];
@@ -248,7 +240,7 @@ int test(int j0)
     if(j0 == 2){
       times[j0][k] = mysecond();
 #pragma omp parallel for
-      for (j=0; j<N; j++){
+      for (j=0; j<n; j++){
         c[j] = a[j]+b[j];
       }
       times[j0][k] = mysecond() - times[j0][k];
@@ -256,38 +248,38 @@ int test(int j0)
     if(j0 == 3){
       times[j0][k] = mysecond();
 #pragma omp parallel for
-      for (j=0; j<N; j++){
+      for (j=0; j<n; j++){
         a[j] = b[j]+scalar*c[j];
       }
       times[j0][k] = mysecond() - times[j0][k];
     }
   }
-  /* NTIMES/2 test iterations as a postamble */
+  /* ntimes/2 test iterations as a postamble */
   print_time(", post = ") ;
   if(j0 == 0) {
-    for (j=0; j<NTIMES/2; j++) tuned_STREAM_Copy() ;
+    for (j=0; j<ntimes/2; j++) tuned_STREAM_Copy(n) ;
   }
   if(j0 == 1) {
-    for (j=0; j<NTIMES/2; j++) tuned_STREAM_Scale(scalar) ;
+    for (j=0; j<ntimes/2; j++) tuned_STREAM_Scale(scalar, n) ;
   }
   if(j0 == 2) {
-    for (j=0; j<NTIMES/2; j++) tuned_STREAM_Add() ;
+    for (j=0; j<ntimes/2; j++) tuned_STREAM_Add(n) ;
   }
   if(j0 == 3){
-    for (j=0; j<NTIMES/2; j++) tuned_STREAM_Triad(scalar) ;
+    for (j=0; j<ntimes/2; j++) tuned_STREAM_Triad(scalar, n) ;
   }
   print_time(", end = ") ;
   printf("\n");
 
   /*	--- SUMMARY --- */
-  for (k=1; k<NTIMES; k++) /* note -- skip first iteration */
+  for (k=1; k<ntimes; k++) /* note -- skip first iteration */
   {
     avgtime[j0] =     avgtime[j0] + times[j0][k];
     mintime[j0] = MIN(mintime[j0],  times[j0][k]);
     maxtime[j0] = MAX(maxtime[j0],  times[j0][k]);
   }
   printf("Function      Rate (MB/s)   Avg time     Min time     Max time\n");
-  avgtime[j0] = avgtime[j0]/(double)(NTIMES-1);
+  avgtime[j0] = avgtime[j0]/(double)(ntimes-1);
 
   printf("%s%11.4f  %11.4f  %11.4f  %11.4f\n", label[j0],
         1.0E-06 * bytes[j0]/mintime[j0],
@@ -347,40 +339,40 @@ double mysecond()
   return ( (double) tp.tv_sec + (double) tp.tv_usec * 1.e-6 );
 }
 
-void tuned_STREAM_Copy()
+void tuned_STREAM_Copy(int n)
 {
 #if defined(TUNED)
-  memcpy(c,a,N*4);
+  memcpy(c,a,n*4);
   return;
 #else
   int j;
 #pragma omp parallel for
-  for (j=0; j<N; j++)
+  for (j=0; j<n; j++)
     c[j] = a[j];
 #endif
 }
 
-void tuned_STREAM_Scale(double scalar)
+void tuned_STREAM_Scale(double scalar, int n)
 {
   int j;
 #pragma omp parallel for
-  for (j=0; j<N; j++)
+  for (j=0; j<n; j++)
     b[j] = scalar*c[j];
 }
 
-void tuned_STREAM_Add()
+void tuned_STREAM_Add(int n)
 {
   int j;
 #pragma omp parallel for
-  for (j=0; j<N; j++)
+  for (j=0; j<n; j++)
     c[j] = a[j]+b[j];
 }
 
-void tuned_STREAM_Triad(double scalar)
+void tuned_STREAM_Triad(double scalar, int n)
 {
   int j;
 #pragma omp parallel for
-  for (j=0; j<N; j++)
+  for (j=0; j<n; j++)
     a[j] = b[j]+scalar*c[j];
 }
 
@@ -393,12 +385,31 @@ void print_time(char *str){
   printf("%s %s", str, time_str);
 }
 
-int main(int argc, char **argv){
-  int j0 = 0 ;
+// default array size ~800 MBytes
+#ifndef N
+#   define N (100 * 1024 * 1024)
+#endif
+// default number of iterations : 20
+#ifndef NTIMES
+#   define NTIMES 20
+#endif
 
-  if(argc > 1) j0 = atoi(argv[1]) ;
+int main(int argc, char **argv){
+  int j0     = 0 ;
+  int n      = N ;           // array size will be 8 * N
+  int ntimes = NTIMES ;
+
+  if(argc > 1)     j0 = atoi(argv[1]) ;                    // default is test 0 (Copy)
+  if(argc > 2)      n = atoi(argv[2])/8 * 1024 * 1024 ;    // 8 bytes per element
+  if(argc > 3) ntimes = atoi(argv[3]) ;                    // default 20 iterations
+
+  bytes[0] = 2 * sizeof(double) * n ;
+  bytes[1] = 2 * sizeof(double) * n ;
+  bytes[2] = 3 * sizeof(double) * n ;
+  bytes[3] = 3 * sizeof(double) * n ;
+
 again:
-  test(j0 % 10) ;
+  test(j0 % 10, ntimes, n) ;
   j0 = j0/10 ;
   if(j0 > 0) goto again ;
 }
