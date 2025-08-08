@@ -18,6 +18,8 @@
 #include <rmn/compare_count.h>
 
 int main(int argc, char **argv){
+  (void) (argc) ;
+  (void) (argv) ;
   int data[64], counta[4], countb[4] ;
   int ref4[] = { 8, 16, 32, 64 } ;
   int i, j, k, ix, nval ;
@@ -25,8 +27,6 @@ int main(int argc, char **argv){
   int ref1[] = { 1, 2, 3, 4 } ;
   int ref2[4] ;
   int sdata = sizeof(data)/sizeof(int) ;
-
-  if(argc > 1 && argv == NULL) exit(1) ;   // get rid of warning
 
   ix = 13 ;
   for(i=0 ; i<sdata ; i++){
@@ -66,45 +66,53 @@ int main(int argc, char **argv){
   }
   fprintf(stderr, "SUCCESS\n");
 
-  fprintf(stderr, "================= compare_count lt ge  gt+le eq+ne lt ================\n") ;
+  fprintf(stderr, "================= compare_count lt ge  gt+le eq+ne ================\n") ;
+  fprintf(stderr, "data used :\n") ;
   for(j=0 ; j<4 ; j++){
     for(i=0 ; i<16 ; i++){ fprintf(stderr, "%2d ", data[i+16*j]) ; } ; fprintf(stderr, "\n") ;
   }
+  fprintf(stderr, "\n") ;
   nval = 64 ;
   count_lt(counta, data, ref4, nval) ;
   fprintf(stderr, "%2d values :", nval) ;
-  for(i=0 ; i<4 ; i++){ fprintf(stderr, " %2d values < %2d ", counta[i], ref4[i]) ; } ; fprintf(stderr, "\n\n") ;
+  for(i=0 ; i<4 ; i++){ fprintf(stderr, " %2d values <  %2d ", counta[i], ref4[i]) ; } ; fprintf(stderr, "\n\n") ;
 
   for(i=0 ; i<sdata ; i++) data[i] = i ;
+  fprintf(stderr, "data used : 0 .. 63\n\n") ;
+
   for(nval=8 ; nval <= sdata ; nval += 8){
+
     count_lt(counta, data, ref4, nval) ;
     fprintf(stderr, "%2d values :", nval) ;
     for(i=0 ; i<4 ; i++){ fprintf(stderr, " %2d values <  %2d ", counta[i], ref4[i]) ; } ; fprintf(stderr, "\n") ;
+
     count_ge(countb, data, ref4, nval) ;
     fprintf(stderr, "%2d values :", nval) ;
     for(i=0 ; i<4 ; i++){ fprintf(stderr, " %2d values >= %2d ", countb[i], ref4[i]) ; } ; fprintf(stderr, "\n\n") ;
     for(k=0 ; k<4 ; k++){
-      if(counta[k]+countb[k] != nval) exit(1) ;
+      if(counta[k]+countb[k] != nval) goto fail ;
     }
 
+    // gt + le
     count_gt(counta, data, ref4, nval) ;
     count_le(countb, data, ref4, nval) ;
     for(k=0 ; k<4 ; k++){
-      if(counta[k]+countb[k] != nval) exit(1) ;
+      if(counta[k]+countb[k] != nval) goto fail ;
     }
 
+    // eq, eq + ne
     count_eq(counta, data, ref4, nval) ;
-    if(counta[0]>1 || counta[1]>1 || counta[2]>1 || counta[3]>1) exit(1) ;
+    if(counta[0]>1 || counta[1]>1 || counta[2]>1 || counta[3]>1) goto fail ;
     count_ne(countb, data, ref4, nval) ;
     for(k=0 ; k<4 ; k++){
-      if(counta[k]+countb[k] != nval) exit(1) ;
+      if(counta[k]+countb[k] != nval) goto fail ;
     }
   }
   for(i=0 ; i<4 ; i++) ref4[i] = 64 ;
   for(j=0 ; j<sdata ; j++){
     count_lt(counta, data, ref4, j+1) ;
     for(k=0 ; k<4 ; k++){
-      if(counta[k] != j+1) exit(1) ;
+      if(counta[k] != j+1) goto fail ;
     }
   }
   fprintf(stderr, "SUCCESS\n");
