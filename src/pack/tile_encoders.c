@@ -242,7 +242,7 @@ constant_tile:
 // bp      [IN] : tile properties (see move_blocks.h)
 // s_in [INOUT] : pointer to bitstream descriptor (see bitstream.h)
 // return nuber of bits inserted into bitstream buffer
-int encode_tile(bitstream *s_in, int32_t *tile_in, int32_t nval, block_properties *bp){
+int encode_tile(bitstream *s_in, int32_t *tile_in, int32_t nval, block_properties *bp, int options){
   int i, nbits, nbits0, offset, nboffset, totbits, SS, M, E, ee, SSME, ntoken, range, maxabs, minabs, status ;
   uint32_t token ;
   bitstream s ;
@@ -254,7 +254,8 @@ int encode_tile(bitstream *s_in, int32_t *tile_in, int32_t nval, block_propertie
   // check for bad arguments
   if(s_in == NULL || tile_in == NULL || nval <= 0) return -1 ;
 
-  if(s_in != NULL) s = *s_in ;
+//   if(s_in != NULL) 
+  s = *s_in ;
   if(s.endian != PACK_ENDIAN) return -1 ;     // stream has the wrong endianness
 
   ssize_t available_space = StreamAvailableSpace(s_in) ;
@@ -305,14 +306,14 @@ int encode_tile(bitstream *s_in, int32_t *tile_in, int32_t nval, block_propertie
     M  = 0 ;                                 // offset will not be used (might get used in later implementation)
     for(i=0 ; i<nval ; i++)                  // convert to sign/magnitude (zigzag)
       u_tile[i] = to_zigzag_32(tile_in[i]) ;   // use local storage for tile values
-if(verbose){
-  fprintf(stderr,"to_zigzag_32\n");
-  for(i=0 ; i<nval ; i++){
-    fprintf(stderr,"%8.8x ", u_tile[i]);
-    if((i&7) == 7) fprintf(stderr,"\n");
-  }
-  fprintf(stderr,"\n");
-}
+    if(verbose){
+      fprintf(stderr,"to_zigzag_32\n");
+      for(i=0 ; i<nval ; i++){
+        fprintf(stderr,"%8.8x ", u_tile[i]);
+        if((i&7) == 7) fprintf(stderr,"\n");
+      }
+      fprintf(stderr,"\n");
+    }
     minz = to_zigzag_32(bp->mins.i) ;        // negative number with largest absolute value
     maxz = to_zigzag_32(bp->maxs.i) ;        // positive number with largest absolute value
     maxz = (minz > maxz) ? minz : maxz ;
@@ -357,8 +358,8 @@ if(verbose){
 // fprintf(stderr, "\n");
 // fprintf(stderr, "M = %d, offset = %d, nboffset = %d\n", M, offset, nboffset) ;
   }
-if(verbose) fprintf(stderr, "nbits = %d\n", nbits) ;
-if(nbits > 30) nb32++ ;
+  if(verbose) fprintf(stderr, "nbits = %d\n", nbits) ;
+  if(nbits > 30) nb32++ ;
   // =============================== determine encoding format ===============================
   // determine if it is worth using short/long encoding
   int ref[4], nref[4], count[4] ;
@@ -439,7 +440,8 @@ if(nbits > 30) nb32++ ;
 //     int checkbits = 0 ;                         // temporary diagnostic variable
     shortref = (1 << nshort) ;                  // anything < shortref can be coded as a "short" token
 // fprintf(stderr, "E == 1, nbits = %d, nval = %d, ee = %d, shortref = %d :", nbits, nval, ee, shortref) ;
-if(verbose) fprintf(stderr, "E == 1, nbits = %d, nval = %d, ee = %d, shortref = %d, nshort = %d :\n", nbits, nval, ee, shortref, nshort) ;
+    if(verbose) fprintf(stderr, "E == 1, nbits = %d, nval = %d, ee = %d, shortref = %d, nshort = %d :\n",
+                        nbits, nval, ee, shortref, nshort) ;
     for(i=0 ; i<nval ; i++){                    // encode nval values
       token = u_tile[i] ;                         // value to encode
 // fprintf(stderr, " %d", token) ;
@@ -451,17 +453,17 @@ if(verbose) fprintf(stderr, "E == 1, nbits = %d, nval = %d, ee = %d, shortref = 
         }
 //         checkbits += (nshort + 1) ;
 // if(verbose) fprintf(stderr, "S(%8.8x)",from_zigzag_32(token));
-if(verbose) fprintf(stderr, "S(%8.8x)",(token));
+        if(verbose) fprintf(stderr, "S(%8.8x)",(token));
       }else{                                    // use "long" token
         STREAM_FAST_PUT_1(s) ;               // "long" token marker
         STREAM_PUT_NBITS(s, token, nbits) ;     // follow with nbits bits
 //         checkbits += (nbits + 1) ;
 // if(verbose) fprintf(stderr, "L(%8.8x)",from_zigzag_32(token));
-if(verbose) fprintf(stderr, "L(%8.8x)",(token));
+        if(verbose) fprintf(stderr, "L(%8.8x)",(token));
       }
-if(verbose) if((i&7) == 7) fprintf(stderr, "\n");
+      if(verbose) if((i&7) == 7) fprintf(stderr, "\n");
     }
-if(verbose) fprintf(stderr, "\n");
+    if(verbose) fprintf(stderr, "\n");
 // fprintf(stderr, "\n");
     saved_bits += (nval * nbits - nbitsmax - 2) ;
 //     if(checkbits != nbitsmax) fprintf(stderr,"checkbits = %d, expecting %d\n", checkbits, nbitsmax) ;
@@ -541,7 +543,7 @@ static inline array_axis split_axis(int n, int bsize){
 // tsize/2 <= dimension < tsize+tsize/2  (for both i and j tile dimensions)
 // the dimension of the last slice along i or j may be shorter or longer than tsize
 // in case of error, s_in is left as it was upon entry
-int encode_block_1d(bitstream *s_in, int32_t *block, int ni, int tsize){
+int encode_block_1d(bitstream *s_in, int32_t *block, int ni, int tsize, int options){
   int i0, lni, status, totbits ;
   int32_t *tile ;
   block_properties bp ;
@@ -557,7 +559,7 @@ int encode_block_1d(bitstream *s_in, int32_t *block, int ni, int tsize){
     if( i0+tsize >= ni) lni = ni - i0 ;
     tile = block + i0 ;
     analyze_data32_block(tile, lni, lni, 1, &bp) ;
-    status = encode_tile(&s, tile, lni, &bp) ;
+    status = encode_tile(&s, tile, lni, &bp, options) ;
     if(status <= 0) goto error ;
     totbits += status ;
   }
@@ -568,9 +570,9 @@ int encode_block_1d(bitstream *s_in, int32_t *block, int ni, int tsize){
 error:
   return status ;
 }
-int encode_block(bitstream *s_in, int32_t *block, int lnis, int ni, int nj, int tsize){
+int encode_block(bitstream *s_in, int32_t *block, int lnis, int ni, int nj, int tsize, int options){
 
-  if(ni == 1 || nj == 1) return encode_block_1d(s_in, block, ni*nj, tsize) ;
+  if(ni == 1 || nj == 1) return encode_block_1d(s_in, block, ni*nj, tsize, options) ;
 
   array_axis ri, rj ;
   ri = split_axis(ni, tsize) ;
@@ -635,7 +637,7 @@ int encode_block(bitstream *s_in, int32_t *block, int lnis, int ni, int nj, int 
 // STREAM_FREE(ps0, errors) ;
 // exit(1) ;
 // }
-      status = encode_tile(&s, tile, lni*lnj, &bp) ;         // encode tile
+      status = encode_tile(&s, tile, lni*lnj, &bp, options) ;         // encode tile
       if(status <= 0) goto error ;
       totbits += status ;
       src += lni ;

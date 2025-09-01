@@ -16,9 +16,13 @@ function(add_project_test name source)
   set(PROJECT_STATIC_TEST_LIBRARIES rmntoolsf rmntools)
   set(PROJECT_SHARED_TEST_LIBRARIES rmntoolsf-shared rmntools-shared)
   # suppress some diagnostics for Nvidia C compiler
-  if( TN_NODIAG AND ${COMPILER_SUITE} MATCHES  "nvhpc" AND ${source} MATCHES ".c")
-    SET_SOURCE_FILES_PROPERTIES( ${source} PROPERTIES 
-      COMPILE_OPTIONS "--diag_suppress;declared_but_not_referenced;--diag_suppress;set_but_not_used;--diag_suppress;code_is_unreachable" )
+  if( TN_NODIAG AND ${COMPILER_SUITE} MATCHES  "nvhpc")
+    list(GET source 0 FIRST_SOURCE)
+    message(STATUS "FIRST_SOURCE = ${FIRST_SOURCE}")
+    if(${FIRST_SOURCE} MATCHES ".c")
+      SET_SOURCE_FILES_PROPERTIES( ${FIRST_SOURCE} PROPERTIES 
+        COMPILE_OPTIONS "--diag_suppress;declared_but_not_referenced;--diag_suppress;set_but_not_used;--diag_suppress;code_is_unreachable" )
+    endif()
   endif()
   # needs libbsd
   if(TN_BSD)
@@ -212,8 +216,12 @@ endif()
 # add_project_test(test_lorenzo_f_static test_lorenzo.F90 STATIC LINK_LIBS rmn::rmn-static)                          # build with static libraries
 # SET_SOURCE_FILES_PROPERTIES( test_lorenzo.F90 PROPERTIES COMPILE_OPTIONS -DNO_FORTRAN_CODE )
 
+#multiple sources test
+set(test_vfunctions_src test_vfunctions.c vfunctions.c vfunctions2.c)
+add_project_test(test_vfunctions           "${test_vfunctions_src}"                                NO_TOOLS)
+
 # to be added to librmn tests
-add_project_test(test_tile_encoders        test_tile_encoders.c        LINK_LIBS "rmn::rmn" NODIAG)
+add_project_test(test_tile_encoders        test_tile_encoders.c        LINK_LIBS "rmn::rmn"                 NODIAG)
 
 # added to librmn tests
 add_project_test(test_move_blocks          test_move_blocks.c          LINK_LIBS "rmn::rmn"        NO_TOOLS NODIAG)

@@ -93,7 +93,7 @@
 // N.B.  some SSME combinations are not valid (e.g. 0010 and 0011)
 //       M and E make no sense if SS == 0 (constant blocks)
 
-int encode_tile(bitstream *s, int32_t *tile, int32_t nval, block_properties *bp);
+int encode_tile(bitstream *s, int32_t *tile, int32_t nval, block_properties *bp, int options);
 int decode_tile(bitstream *s, int32_t *tile, int32_t nval);
 
 // ======================================= encoded block layout =======================================
@@ -128,7 +128,7 @@ int decode_tile(bitstream *s, int32_t *tile, int32_t nval);
 //  basic_size MUST BE EVEN
 // the last tile size along i and j may be different
 
-int encode_block(bitstream *s_in, int32_t *block, int lnis, int ni, int nj, int basic_size);
+int encode_block(bitstream *s_in, int32_t *block, int lnis, int ni, int nj, int basic_size, int options);
 int decode_block(bitstream *s_in, int32_t *block, int lnid, int ni, int nj, int basic_size);
 
 void print_encode_stats(int reset);

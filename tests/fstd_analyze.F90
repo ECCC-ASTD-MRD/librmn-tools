@@ -94,7 +94,7 @@ program fstd_to_raw
 
   key = fstinf(iun,ni,nj,nk,-1,'            ',-1,-1,-1,'  ','    ') ! select any record
   do while(key >= 0)
-    if(ni ==1 .or. nj == 1)then
+    if(ni == 1 .or. nj == 1)then
       if(ni*nj*nk > sizep) then
         if(associated(p)) deallocate(p)
         sizep = ni*nj*nk
@@ -107,8 +107,8 @@ program fstd_to_raw
       e32 = e32 .and. (datyp .eq. 5 .or. datyp .eq. 133)
       if(e32) then  ! select desired variable name
         call fstluk(p,key,ni,nj,nk)
-!         write(0,*)'processing '//nomvar(1:4), ni, 'x', nj
-!         call Analyze_N(p, ni, nj, nomvar//char(0), mant_bits)
+        write(0,*)'processing '//nomvar(1:4), ni, 'x', nj
+        call Analyze_N(p, ni, nj, nomvar//char(0), mant_bits)
         irec = irec + 1
       else
 !         write(0,*)'ignoring '//nomvar(1:4), ni, 'x', nj

@@ -478,7 +478,7 @@ fprintf(stderr, " |%d,%d,%d,%d,%d,%d, %d ,%d,%d,%d,%d,%d,%d|\n",info[58],info[59
       STREAM_INSERT_BEGIN(*ps) ;
       STREAM_CREATE(ps0, stream_buffer0, sizeof(stream_buffer0)*8, BIT_FULL_INIT) ;
       STREAM_INSERT_BEGIN(*ps0) ;
-      int tilebits0 = encode_block(ps0, pred, in, in, jn, 8);
+      int tilebits0 = encode_block(ps0, pred, in, in, jn, 8, 0);
 fprintf(stderr, "jn = %d, in = %d, tilebits0 = %d\n", jn, in, tilebits0) ;
       STREAM_INSERT_FINALIZE(*ps0) ;
       STREAM_XTRACT_BEGIN(*ps0) ;
@@ -499,7 +499,7 @@ fprintf(stderr, "jn = %d, in = %d, tilebits1 = %d, ndiff = %d\n", jn, in, tilebi
           ndwt8 += nbi ;
           tilebits1 -= nbi ;
           STREAM_REWRITE(*ps, 1) ;
-          encoded_bits = encode_tile(ps, block8, i8n*j8n, NULL) ;
+          encoded_bits = encode_tile(ps, block8, i8n*j8n, NULL, 0) ;
           tilebits1 -= encoded_bits ;
           STREAM_INSERT_FINALIZE(*ps) ;
 //           if(nbi != encoded_bits){

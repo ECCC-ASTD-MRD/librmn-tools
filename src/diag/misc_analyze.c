@@ -205,6 +205,16 @@ int64_t block_sum(int32_t ni, int32_t nj, int32_t nbits[nj][ni], int32_t bsz){
 }
 
 // #define TSZ 8
+int64_t sum64_of_abs(int32_t *z, int n){
+  int64_t sum64 = 0 ;
+  int i ;
+  for(i=0 ; i<n ; i++){
+    int64_t t64 = z[i] ;
+    t64 = (t64 < 0) ? (-t64) : t64 ;
+    sum64 += t64 ;
+  }
+  return (sum64 / n) ;
+}
 
 // analyze 1D array f[1][ni] or 2D array f[nj][ni]
 void Analyze_N(float *zf, int32_t ni, int32_t nj, char *name, int32_t mant_bits){
@@ -267,6 +277,9 @@ void Analyze_N(float *zf, int32_t ni, int32_t nj, char *name, int32_t mant_bits)
     Predict((int32_t *)zi, ni, nj) ;
     // keep a copy of zi as a reference
     copy_32((void *)zo, (void *)zi, ni*nj) ;
+    // get sum_of_abs(ri), sum_of_abs(zi)
+    uint64_t ziabs = sum64_of_abs((void *)zi, ni*nj) ;
+    uint64_t riabs = sum64_of_abs((void *)ri, ni*nj) ;
     block_properties bp0 ;
     int32_t nbpts = analyze_data32_block((void *)zo, ni, ni, nj, &bp0) ;
     if(nbpts != ni*nj) goto fail ;
@@ -279,13 +292,14 @@ void Analyze_N(float *zf, int32_t ni, int32_t nj, char *name, int32_t mant_bits)
     for(i=0  ; i<16 ; i++){ fprintf(stderr, "%6d ",bits[i]) ; }
     fprintf(stderr, "\n") ;
     for(i=16 ; i<33 ; i++){ fprintf(stderr, "%6d ",bits[i]) ; }
-    fprintf(stderr, " [%ld|%ld] %4.2f bits/pt, bit shift = %d (1 part in %d)\n\n", tbits, tbits0, tbits0*1.0f/(ni*nj), mant_bits, 1 << (24-mant_bits)) ;
+    fprintf(stderr, " [%ld|%ld] %4.2f bits/pt, bit shift = %d (1 part in %d)\n", tbits, tbits0, tbits0*1.0f/(ni*nj), mant_bits, 1 << (24-mant_bits)) ;
+    fprintf(stderr, "riabs = %lx, ziabs = %lx, diff = %lx \n\n", riabs, ziabs, riabs - ziabs) ;
 tbits0 = tbits1 = 0 ;
 // if(mant_bits > 22) goto bypass_encoding ;
     // encode into bit stream from zi
     STREAM_CREATE(ps, NULL, sizeof(uint32_t)*ni*nj*9, BIT_FULL_INIT) ;
     STREAM_INSERT_BEGIN(*ps) ;
-    tbits0 = encode_block(ps, (void *)zi, ni, ni, nj, 8) ;
+    tbits0 = encode_block(ps, (void *)zi, ni, ni, nj, 8, 0) ;
     STREAM_INSERT_FINALIZE(*ps) ;
 print_encode_stats(1) ;
 
