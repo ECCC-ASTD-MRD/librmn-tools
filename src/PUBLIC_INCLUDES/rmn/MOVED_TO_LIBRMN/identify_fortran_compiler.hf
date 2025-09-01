@@ -35,30 +35,30 @@
 
 #if defined(__GFORTRAN__)
 #define FORTRAN_COMPILER_NAME 'GNU'
-  character(len=*), parameter :: Fortran_Compiler_Name= 'GNU'            ! gfortran
+character(len=*), parameter :: Fortran_Compiler_Name= 'GNU'                ! gfortran
 
-#elif defined(__INTEL_LLVM_COMPILER)
+#elif defined(__INTEL_LLVM_COMPILER) && ! defined(__STDC_VERSION__)
 #define FORTRAN_COMPILER_NAME 'INTEL-IFX'
-    character(len=*), parameter :: Fortran_Compiler_Name= 'INTEL-IFX'    ! ifx
+character(len=*), parameter :: Fortran_Compiler_Name= 'INTEL-IFX'          ! ifx
 
-#elif defined(__INTEL_COMPILER)
+#elif defined(__INTEL_COMPILER) && ! defined(__STDC_VERSION__)
 #define FORTRAN_COMPILER_NAME 'INTEL-IFORT'
-    character(len=*), parameter :: Fortran_Compiler_Name= 'INTEL-IFORT'  ! ifort
+character(len=*), parameter :: Fortran_Compiler_Name= 'INTEL-IFORT'        ! ifort
 
 #elif defined(__PGIF90__)
 #define FORTRAN_COMPILER_NAME 'PGI-Nvidia'
-  character(len=*), parameter :: Fortran_Compiler_Name= 'PGI-Nvidia'     ! pgfortran/nvfortran
+character(len=*), parameter :: Fortran_Compiler_Name= 'PGI-Nvidia'         ! pgfortran/nvfortran
 
 #elif defined(__FLANG)
 #define FORTRAN_COMPILER_NAME 'FLANG-TRADITIONAL'
-  character(len=*), parameter :: Fortran_Compiler_Name= 'FLANG-TRADITIONAL'           ! aocc flang
+character(len=*), parameter :: Fortran_Compiler_Name= 'FLANG-TRADITIONAL'  ! aocc flang
 
 #elif defined(__flang__)
 #define FORTRAN_COMPILER_NAME 'FLANG-LLVM'
-  character(len=*), parameter :: Fortran_Compiler_Name= 'FLANG-LLVM'           ! llvm flang
+character(len=*), parameter :: Fortran_Compiler_Name= 'FLANG-LLVM'         ! llvm flang
 
 #else
 #define FORTRAN_COMPILER_NAME 'UNKNOWN'
-  character(len=*), parameter :: Fortran_Compiler_Name= 'UNKNOWN'        ! unknown
+character(len=*), parameter :: Fortran_Compiler_Name= 'UNKNOWN'            ! unknown
 
 #endif

@@ -37,13 +37,13 @@ static int ADDRESS_MODE = 32 ;
 
 #endif
 
-#if defined(__INTEL_LLVM_COMPILER)
+#if defined(__INTEL_LLVM_COMPILER) && defined(__STDC_VERSION__)
 // #warning "ICX detected"
 #define COMPILER_IS_ICX
 #define C_COMPILER_NAME "INTEL_ICX"
 //   static char C_COMPILER_NAME[] = "INTEL_ICX" ;  // icx
 
-#elif defined(__INTEL_COMPILER)
+#elif defined(__INTEL_COMPILER) && defined(__STDC_VERSION__)
 // #warning "ICC detected"
 #define COMPILER_IS_ICC
 #define C_COMPILER_NAME "INTEL_ICC"
