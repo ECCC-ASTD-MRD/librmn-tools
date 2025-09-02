@@ -12,8 +12,7 @@
 // Library General Public License for more details.
 //
 
-#if ! defined (TILE_ENCODERS_INCLUDED)
-#define TILE_ENCODERS_INCLUDED
+#if ! defined (ENCODE_DRY_RUN)
 
 // #include <rmn/ct_assert.h>
 // #include <rmn/misc_operators.h>
@@ -23,6 +22,9 @@
 // #include <rmn/bit_stream.h>
 #include <rmn/move_blocks.h>
 #include <rmn/bitstream.h>
+
+#define ENCODE_DRY_RUN       1
+#define ENCODE_NO_SHORT_LONG 2
 
 // ======================================= encoding layout =======================================
 // (last revised 2025/03/22)

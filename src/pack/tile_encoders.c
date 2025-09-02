@@ -255,12 +255,15 @@ int encode_tile(bitstream *s_in, int32_t *tile_in, int32_t nval, block_propertie
   if(s_in == NULL || tile_in == NULL || nval <= 0) return -1 ;
 
 //   if(s_in != NULL) 
-  s = *s_in ;
-  if(s.endian != PACK_ENDIAN) return -1 ;     // stream has the wrong endianness
 
-  ssize_t available_space = StreamAvailableSpace(s_in) ;
-  if(available_space < 64)         // not enough room for header + basic encoding information
-    return -1 ;
+  int dry_run = ( (options & ENCODE_DRY_RUN) != 0 ) ;
+  if(! dry_run){
+    s = *s_in ;
+    if(s.endian != PACK_ENDIAN)
+      return -1 ;                         // stream has the wrong endianness
+    if(StreamAvailableSpace(s_in) < 64)
+      return -1 ;                         // not enough room for header + basic encoding information
+  }
 
 // bp = NULL ;
   if(bp == NULL){            // bp not available, get tile extrema
@@ -274,7 +277,7 @@ int encode_tile(bitstream *s_in, int32_t *tile_in, int32_t nval, block_propertie
     }
   }
 
-  nblocks++ ;
+  if(! dry_run) nblocks++ ;
   SS = M = E = ee = 0 ;
   totbits = 0 ;
   offset = 0 ;
@@ -287,11 +290,12 @@ int encode_tile(bitstream *s_in, int32_t *tile_in, int32_t nval, block_propertie
     zigzag = to_zigzag_32(tile_in[0]) ;      // encode constant value as sign/magnitude
     // number of bits needed to represent encoded value (at least 1)
     nbits = (zigzag == 0) ? 1 : BitsNeeded_u32(zigzag) ;
+    totbits = 8 + nbits ;
+    if(dry_run) return totbits ;
     token = (0b000 << 5) ;                   // header will be ( 000bbbbb )
     token = token | (nbits-1) ;              // put nbits into header
     STREAM_PUT_NBITS(s, token, 8) ;          // 8 bit header
     STREAM_PUT_NBITS(s, zigzag, nbits) ;     // constant value encoded as zigzag (nbits bits)
-    totbits = 8 + nbits ;
     constant_block++ ;
 // fprintf(stderr, "nbits = %d, constant value = %d (%d)\n", nbits, tile_in[0], zigzag) ;
     goto end ;                               // done
@@ -301,7 +305,7 @@ int encode_tile(bitstream *s_in, int32_t *tile_in, int32_t nval, block_propertie
   // determine number of bits needed to encode the largest value
   if(bp->maxs.i > 0 && bp->mins.i < 0){      // both positive and negative values are present
     uint32_t minz, maxz ;
-    plus_minus++ ;
+    if(! dry_run) plus_minus++ ;
     SS = 3 ;                                 // both signs are present
     M  = 0 ;                                 // offset will not be used (might get used in later implementation)
     for(i=0 ; i<nval ; i++)                  // convert to sign/magnitude (zigzag)
@@ -321,7 +325,7 @@ int encode_tile(bitstream *s_in, int32_t *tile_in, int32_t nval, block_propertie
 
   }else{                                     // all >= 0 or all <= 0
     if(bp->maxs.i <= 0){                     // all values <= 0
-      all_minus++ ;
+      if(! dry_run) all_minus++ ;
       SS = 2 ;                               // all values negative flag
       maxabs = -bp->mins.i ;                 // most negative number
       minabs = -bp->maxs.i ;                 // least negative number
@@ -330,7 +334,7 @@ int encode_tile(bitstream *s_in, int32_t *tile_in, int32_t nval, block_propertie
 
 // fprintf(stderr, "all minus\n") ;
     }else if(bp->mins.i >= 0){               // all values >= 0
-      all_plus++ ;
+      if(! dry_run) all_plus++ ;
       SS = 1 ;                               // all values positive flag
       maxabs = bp->maxs.i ;                  // largest number
       minabs = bp->mins.i ;                  // smallest number
@@ -374,10 +378,12 @@ int encode_tile(bitstream *s_in, int32_t *tile_in, int32_t nval, block_propertie
   count_lt(count, (int *)tile, ref, nval) ;   // compare tile values to reference values for this value of nbits
   int nshort, nbitsmax  ;
   uint32_t shortref ;
+  int ee_ok = ( (options & ENCODE_NO_SHORT_LONG) == 0) ;
   E = 0 ;
   ee = 0 ;
   nbitsmax = nbits * nval ;         // worst case, nbits used for each value
-  if(nbits > 1){   // pointless if nbits < 2
+  ee_ok |= (nbits > 1) ;
+  if(ee_ok){                        // ee encoding is pointless if nbits < 2 or ENCODE_NO_SHORT_LONG
     for(i=0 ; i<4 ; i++){
       int nbitsi ;
       nbitsi  = count[i] * (nref[i]+1) ;       // count[i] "short" values, needing nref[i]+1 bits
@@ -387,7 +393,7 @@ int encode_tile(bitstream *s_in, int32_t *tile_in, int32_t nval, block_propertie
         nshort   = nref[i] ;        // length of "short" values
         E = 1 ;                     // short/long encoding will be used
         ee = i ;                    // identify option used
-        short_long[ee]++ ;
+        if(! dry_run) short_long[ee]++ ;
       }
     }
   }
@@ -399,10 +405,8 @@ int encode_tile(bitstream *s_in, int32_t *tile_in, int32_t nval, block_propertie
   SSME = (SS << 2) | (M << 1) | E ;
 // fprintf(stderr, "encode tile : SS= %d, M = %d, E = %d, nbits = %d\n", SS, M, E, nbits) ;
   if(nbits > 16){                              // more than 16 bits, use 0011 prefix (long header)
-//     token = (0b1111 << 4) | SSME ;             // 1111SSME
     token = (0b0011 << 4) | SSME ;             // 0011SSME
     ntoken = 8 ;
-//     CONCAT_TOKENS(token,ntoken,(nbits-1),5) ;  // 1111SSMEbbbbb (8 bits + 5 bits))
     CONCAT_TOKENS(token,ntoken,(nbits-17),4) ;  // 0011SSMEbbbb (8 bits + 4 bits))
   }else{                                       // 16 bits or less, use short header
     token = (SSME << 4) | (nbits-1)  ;         // SSMEbbbb (8 bits)
@@ -414,13 +418,15 @@ int encode_tile(bitstream *s_in, int32_t *tile_in, int32_t nval, block_propertie
   if(M != 0){                                  // add number of bits needed for offset (5 bits)
     CONCAT_TOKENS(token,ntoken,(nboffset-1), 5) ;
   }
-  STREAM_PUT_NBITS(s, token, ntoken) ;         // SSM1bbbb[ee][nnnnn] or 1111SSM1bbbbb[ee][nnnnn]
+  if(! dry_run) STREAM_PUT_NBITS(s, token, ntoken) ;  // SSM1bbbb[ee][nnnnn] or 1111SSM1bbbbb[ee][nnnnn]
   totbits += ntoken ;                          // 8 bits up to 20 bits
   if(M != 0){
-    STREAM_PUT_NBITS(s, offset, nboffset) ;    // offset
+    if(! dry_run) STREAM_PUT_NBITS(s, offset, nboffset) ;  // offset
     totbits += nboffset ;                      // nboffset bits for offset
   }
   // =============================== store encoded values ===============================
+  totbits += nbitsmax ;
+  if(dry_run) return totbits ;                 // dry run, return number of bits needed
 
   if(StreamAvailableSpace(&s) < nbitsmax)    // not enough room for encoded data
     return -1 ;
@@ -468,7 +474,6 @@ int encode_tile(bitstream *s_in, int32_t *tile_in, int32_t nval, block_propertie
     saved_bits += (nval * nbits - nbitsmax - 2) ;
 //     if(checkbits != nbitsmax) fprintf(stderr,"checkbits = %d, expecting %d\n", checkbits, nbitsmax) ;
   }
-  totbits += nbitsmax ;
 
 end:
 // fprintf(stderr, "available space = %ld, used %d\n", available_space, totbits) ;
@@ -477,61 +482,7 @@ end:
 // fprintf(stderr, "encode_tile : SS = %d, M = %d, E = %d, nbits = %d, offset = %d\n", SS, M, E, nbits, offset) ;
   return totbits ;
 }
-#if 0
-// description of a split array dimension (axis)
-typedef struct{
-  int32_t nbk ;   // number of blocks along a dimension
-  int16_t ln0 ;   // size of first block along a dimension
-  int16_t ln1 ;   // size of next blocks along a dimension
-} array_axis ;
 
-// elements of an array block along a dimension
-typedef struct{
-  int32_t ix0 ;   // index of first element in block along a dimension
-  int32_t ixn ;   // index of last element in block along a dimension
-} index_range ;
-
-// get block ordinal that contains element number index along a dimension
-// axis  [IN] : axis description
-// index [IN] : index of array element along a dimension
-// return block ordinal containing requested element (-1 if error)
-static inline int32_t block_ordinal(array_axis axis,int32_t index){
-  if(index < 0) return -1 ;                           // invalid index
-//   int ordinal = 1 + (index - axis.ln0) / axis.ln1 ;   // ordinal with respect to block 1 + 1
-//   ordinal = (ordinal < 1) ? 0 : ordinal ;             // <1 means before block 1 (block 0)
-  int ordinal = (index + axis.ln1 - axis.ln0) / axis.ln1 ;
-  return (ordinal >= axis.nbk) ? -1 : ordinal ;       // chek for ordinal out of range (beyond last block)
-}
-// get index limits for block number index along a dimension
-// axis    [IN] : axis description
-// ordinal [IN] : block ordinal along axis
-// return first index and last index for requested block ordinal
-// { 0, -1 } is returned in case of errror
-static inline index_range block_limits(array_axis axis,int32_t ordinal){
-  if((ordinal >= axis.nbk) || (ordinal < 0)) return (index_range) { .ix0 = 0, .ixn = -1 } ;
-  if(ordinal == 0){
-    return (index_range) { .ix0 = 0,
-                          .ixn = axis.ln0 } ;
-  }else{
-    return (index_range) { .ix0 = axis.ln0 + (ordinal - 1) * axis.ln1 ,
-                           .ixn = axis.ln0 + (ordinal * axis.ln1) -1 } ;
-  }
-}
-// split n into pieces preferably of size bsize
-// n     [IN] : total number of pieces
-// bsize [IN] : requested size of pieces
-// the first piece may be smaller or larger than the requested size
-// if size is even, pieces will be >= bsize/2 or <  bsize + bsize/2
-// if size is odd,  pieces will be >  bsize/2 or <= bsize + bsize/2
-// pieces will smaller than the minimum only if n is also smaller
-static inline array_axis split_axis(int n, int bsize){
-  array_axis r ;
-  r.nbk = (n + bsize/2) / bsize ;      // number of pieces
-  r.ln0 = n - (r.nbk - 1) * bsize ;    // size of first piece
-  r.ln1 = bsize ;
-  return r ;
-}
-#endif
 // encode a block as multiple tiles into a bit stream
 // block   [IN] : values to be encoded
 // lnis    [IN] : storage length of block rows
