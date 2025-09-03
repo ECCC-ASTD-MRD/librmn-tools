@@ -1,4 +1,5 @@
 cmake.sh
+*.sh
 !*/cmake.sh
 clean.sh
 !*/clean.sh
