@@ -241,63 +241,57 @@ constant_tile:
 // nval    [IN] : number of values
 // bp      [IN] : tile properties (see move_blocks.h)
 // s_in [INOUT] : pointer to bitstream descriptor (see bitstream.h)
-// return nuber of bits inserted into bitstream buffer
+// options [IN] : encoding options , ENCODE_DRY_RUN | ENCODE_NO_SHORT_LONG
+// return nuber of bits inserted into bitstream buffer, -1 in case of error
+// a dry run seems to need about 1 third of the time of a full encoding run
 int encode_tile(bitstream *s_in, int32_t *tile_in, int32_t nval, block_properties *bp, int options){
   int i, nbits, nbits0, offset, nboffset, totbits, SS, M, E, ee, SSME, ntoken, range, maxabs, minabs, status ;
   uint32_t token ;
   bitstream s ;
-//   uint32_t shift ;
   int32_t tile[nval] ;
-  uint32_t *u_tile = (uint32_t *) tile ;
+  uint32_t *u_tile = (uint32_t *) tile ;     // address contents of tile as unsigned integers
   block_properties bp_ ;
-// print_tile(tile_in, nval, "encode_tile :") ;
-  // check for bad arguments
-  if(s_in == NULL || tile_in == NULL || nval <= 0) return -1 ;
+  int dry_run = ( (options & ENCODE_DRY_RUN) != 0 ) ;  // a dry run only evaluates the number of bits needed for encoding
 
-//   if(s_in != NULL) 
+  if(s_in == NULL || tile_in == NULL || nval <= 0) goto error ;  // invalid arguments
 
-  int dry_run = ( (options & ENCODE_DRY_RUN) != 0 ) ;
   if(! dry_run){
-    s = *s_in ;
-    if(s.endian != PACK_ENDIAN)
-      return -1 ;                         // stream has the wrong endianness
-    if(StreamAvailableSpace(s_in) < 64)
-      return -1 ;                         // not enough room for header + basic encoding information
+    s = *s_in ;                                        // local copy of stream state (in case of error)
+    if(s.endian != PACK_ENDIAN) goto error ;           // stream has the wrong endianness
+    if(StreamAvailableSpace(s_in) < 64) goto error ;   // not enough room for header + basic encoding information
   }
 
-// bp = NULL ;
-  if(bp == NULL){            // bp not available, get tile extrema
-    bp = &bp_;
+  if(bp == NULL){                            // block properties not available, compute them
+    bp = &bp_;                               // use local block properties struct
     status = analyze_data32_block(tile_in, nval, nval, 1, bp);
-    bp_.kind = int_data ;    // no need to call adjust_block_properties for integer data
-// print_int_props(bp_) ;
-    if(status != nval){
-      fprintf(stderr, "analyze_data32_block status = %d, expected %d\n", status, nval) ;
-      return -1 ;
+    if(status != nval){                      // error detected in analyze_data32_block
+      fprintf(stderr, "ERROR: analyze_data32_block status = %d, expected %d\n", status, nval) ;
+      goto error ;
     }
+    bp_.kind = int_data ;                    // no need to call adjust_block_properties for signed integer data
   }
 
-  if(! dry_run) nblocks++ ;
-  SS = M = E = ee = 0 ;
-  totbits = 0 ;
-  offset = 0 ;
-  nboffset = 0 ;
-  // bp->maxs, bp->mins : signed max and min values in tile
-  // bp->maxu, bp->minu : least positive and least negative values (if mixed signs)
+  if(! dry_run) nblocks++ ;                  // do not update statistics if dry run
+  SS = M = E = ee = 0 ;                      // nullify all components of header
+  totbits  = 0 ;                             // total number of bits needed/used
+  offset   = 0 ;                             // encoding offset
+  nboffset = 0 ;                             // number of bits needed to encode offset
+  // bp->maxs.i, bp->mins.i : signed max and min values in tile
   // =============================== constant tile ===============================
-  if(bp->maxs.i == bp->mins.i){              // constant tile
+  if(bp->maxs.i == bp->mins.i){              // constant value in tile
     uint32_t zigzag ;
     zigzag = to_zigzag_32(tile_in[0]) ;      // encode constant value as sign/magnitude
     // number of bits needed to represent encoded value (at least 1)
     nbits = (zigzag == 0) ? 1 : BitsNeeded_u32(zigzag) ;
     totbits = 8 + nbits ;
-    if(dry_run) return totbits ;
+    if(dry_run) goto dry_end ;               // quick exit
+
     token = (0b000 << 5) ;                   // header will be ( 000bbbbb )
-    token = token | (nbits-1) ;              // put nbits into header
+    token = token | (nbits - 1) ;            // insert nbits - 1 into header (bbbbb)
     STREAM_PUT_NBITS(s, token, 8) ;          // 8 bit header
     STREAM_PUT_NBITS(s, zigzag, nbits) ;     // constant value encoded as zigzag (nbits bits)
     constant_block++ ;
-// fprintf(stderr, "nbits = %d, constant value = %d (%d)\n", nbits, tile_in[0], zigzag) ;
+
     goto end ;                               // done
   }
   // =============================== convert to positive values ===============================
@@ -305,19 +299,11 @@ int encode_tile(bitstream *s_in, int32_t *tile_in, int32_t nval, block_propertie
   // determine number of bits needed to encode the largest value
   if(bp->maxs.i > 0 && bp->mins.i < 0){      // both positive and negative values are present
     uint32_t minz, maxz ;
-    if(! dry_run) plus_minus++ ;
+    if(! dry_run) plus_minus++ ;             // do not update statistics if dry run
     SS = 3 ;                                 // both signs are present
     M  = 0 ;                                 // offset will not be used (might get used in later implementation)
     for(i=0 ; i<nval ; i++)                  // convert to sign/magnitude (zigzag)
-      u_tile[i] = to_zigzag_32(tile_in[i]) ;   // use local storage for tile values
-    if(verbose){
-      fprintf(stderr,"to_zigzag_32\n");
-      for(i=0 ; i<nval ; i++){
-        fprintf(stderr,"%8.8x ", u_tile[i]);
-        if((i&7) == 7) fprintf(stderr,"\n");
-      }
-      fprintf(stderr,"\n");
-    }
+      u_tile[i] = to_zigzag_32(tile_in[i]) ; // use local storage for converted tile values
     minz = to_zigzag_32(bp->mins.i) ;        // negative number with largest absolute value
     maxz = to_zigzag_32(bp->maxs.i) ;        // positive number with largest absolute value
     maxz = (minz > maxz) ? minz : maxz ;
@@ -325,85 +311,69 @@ int encode_tile(bitstream *s_in, int32_t *tile_in, int32_t nval, block_propertie
 
   }else{                                     // all >= 0 or all <= 0
     if(bp->maxs.i <= 0){                     // all values <= 0
-      if(! dry_run) all_minus++ ;
+      if(! dry_run) all_minus++ ;            // do not update statistics if dry run
       SS = 2 ;                               // all values negative flag
       maxabs = -bp->mins.i ;                 // most negative number
       minabs = -bp->maxs.i ;                 // least negative number
       for(i=0 ; i<nval ; i++)                // use absolute value if all <= 0
         tile[i] = -tile_in[i] ;              // use local array for tile values
 
-// fprintf(stderr, "all minus\n") ;
     }else if(bp->mins.i >= 0){               // all values >= 0
-      if(! dry_run) all_plus++ ;
+      if(! dry_run) all_plus++ ;             // do not update statistics if dry run
       SS = 1 ;                               // all values positive flag
       maxabs = bp->maxs.i ;                  // largest number
       minabs = bp->mins.i ;                  // smallest number
       for(i=0 ; i<nval ; i++)                // straight copy if all >= 0
         tile[i] = tile_in[i] ;               // copy tile values to local array
-// fprintf(stderr, "all plus : maxabs = %d, minabs = %d\n", maxabs, minabs) ;
     }
     M = 0 ;                                  // a priori, NO OFFSET
     nbits  = BitsNeeded_u32(maxabs) ;        // bits needed for largest absolute value
     range  = maxabs - minabs ;
     nbits0 = BitsNeeded_u32(range) ;         // bits needed for range
-// fprintf(stderr, "maxabs = %d, minabs = %d, range = %d, nbits0 = %d\n", maxabs, minabs, range, nbits0) ;
     if(nbits0 < nbits){                      // less bits needed if subtracting offset
-      with_offset++ ;
+      if(! dry_run) with_offset++ ;          // do not update statistics if dry run
       offset = minabs ;                      // smallest absolute value
-      nboffset = BitsNeeded_u32(offset) ;    // number of bits needed to store offset
+      nboffset = BitsNeeded_u32(offset) ;    // number of bits needed to store offset (minimum 1)
+      nboffset = (nboffset > 0) ? nboffset : 1 ;
       nbits = nbits0 ;                       // reduced number of bits
-      M = 1 ;                                // OFFSET ON
-// fprintf(stderr, ">>offset :");
+      M = 1 ;                                // OFFSET IS USED
       for(i=0 ; i<nval ; i++){
-        tile[i] = tile[i] - offset ;         // subtract offset from tile values
-// fprintf(stderr, " %d", tile[i]) ;
+        tile[i] = tile[i] - offset ;         // subtract offset from tile values (result guaranteed >= 0)
       }
     }
-// fprintf(stderr, "\n");
-// fprintf(stderr, "M = %d, offset = %d, nboffset = %d\n", M, offset, nboffset) ;
   }
   if(verbose) fprintf(stderr, "nbits = %d\n", nbits) ;
-  if(nbits > 30) nb32++ ;
+  if((nbits > 30) && (! dry_run)) nb32++ ;   // do not update statistics if dry run
   // =============================== determine encoding format ===============================
-  // determine if it is worth using short/long encoding
+  // is it worth using short/long encoding ?
   int ref[4], nref[4], count[4] ;
-//   shift = stab[nbits] ;
   nref[0] = nbits/8 ; nref[1] = nbits/2-1 ; nref[2] = nref[1]+1 ; nref[3] = nref[1]+2 ;
   for(i=0 ; i<4 ; i++) ref[i] = 1 << nref[i] ;
-//   for(i=0 ; i<4 ; i++){         // 4 canditate number of bits, nref[0] = 0, ref[0] = 1
-//     nref[i] = shift & 0xFF ;    // candidate number of bits for short values
-//     ref[i] = 1 << nref[i] ;     // value < ref[i] will be a good vcandidate
-//     shift >>= 8 ;
-//   }
-  count_lt(count, (int *)tile, ref, nval) ;   // compare tile values to reference values for this value of nbits
+  count_lt(count, (int *)tile, ref, nval) ;  // compare tile values to reference values for this value of nbits
   int nshort, nbitsmax  ;
   uint32_t shortref ;
   int ee_ok = ( (options & ENCODE_NO_SHORT_LONG) == 0) ;
   E = 0 ;
   ee = 0 ;
-  nbitsmax = nbits * nval ;         // worst case, nbits used for each value
+  nbitsmax = nbits * nval ;                  // worst case, nbits used for each value
   ee_ok |= (nbits > 1) ;
-  if(ee_ok){                        // ee encoding is pointless if nbits < 2 or ENCODE_NO_SHORT_LONG
+  if(ee_ok){                                 // ee encoding is pointless if nbits < 2 or ENCODE_NO_SHORT_LONG
     for(i=0 ; i<4 ; i++){
       int nbitsi ;
-      nbitsi  = count[i] * (nref[i]+1) ;       // count[i] "short" values, needing nref[i]+1 bits
-      nbitsi += (nval-count[i]) * (nbits+1) ;  // nval - count[i] "long" values, needing nbits+1 bits
-      if(nbitsmax > nbitsi){        // we have a better candidate
-        nbitsmax = nbitsi ;         // new worts case
-        nshort   = nref[i] ;        // length of "short" values
-        E = 1 ;                     // short/long encoding will be used
-        ee = i ;                    // identify option used
-        if(! dry_run) short_long[ee]++ ;
+      nbitsi  = count[i] * (nref[i]+1) ;     // count[i] "short" values, needing nref[i]+1 bits
+      nbitsi += (nval-count[i]) * (nbits+1) ;// nval - count[i] "long" values, needing nbits+1 bits
+      if(nbitsmax > nbitsi){                 // we have a better candidate
+        nbitsmax = nbitsi ;                  // new worts case
+        nshort   = nref[i] ;                 // length of "short" values
+        E = 1 ;                              // short/long encoding will be used
+        ee = i ;                             // identify option used
+        if(! dry_run) short_long[ee]++ ;     // do not update statistics if dry run
       }
     }
   }
-
-// fprintf(stderr, "nbits = %d, ee = %d, ref = %8.8x, %8.8x, %8.8x, %8.8x, count = %d, %d, %d, %d\n",
-//                  nbits, ee, ref[0], ref[1], ref[2], ref[3], count[0], count[1], count[2], count[3]) ;
-  // at this point nbitsmax is equal to the number or bits needed for encoding thevalues
+  // at this point nbitsmax is equal to the number or bits needed for encoding the values
   // =============================== store header ===============================
   SSME = (SS << 2) | (M << 1) | E ;
-// fprintf(stderr, "encode tile : SS= %d, M = %d, E = %d, nbits = %d\n", SS, M, E, nbits) ;
   if(nbits > 16){                              // more than 16 bits, use 0011 prefix (long header)
     token = (0b0011 << 4) | SSME ;             // 0011SSME
     ntoken = 8 ;
@@ -413,74 +383,57 @@ int encode_tile(bitstream *s_in, int32_t *tile_in, int32_t nval, block_propertie
     ntoken = 8 ;
   }
   if(E != 0){                                  // add ee (2 bits)
-    CONCAT_TOKENS(token,ntoken,ee,2) ;         // SSM1bbbbee or 1111SSM1bbbbbee
+    CONCAT_TOKENS(token,ntoken,ee,2) ;         // SSMEbbbbee or 0011SSMEbbbbee
   }
   if(M != 0){                                  // add number of bits needed for offset (5 bits)
     CONCAT_TOKENS(token,ntoken,(nboffset-1), 5) ;
   }
-  if(! dry_run) STREAM_PUT_NBITS(s, token, ntoken) ;  // SSM1bbbb[ee][nnnnn] or 1111SSM1bbbbb[ee][nnnnn]
-  totbits += ntoken ;                          // 8 bits up to 20 bits
-  if(M != 0){
-    if(! dry_run) STREAM_PUT_NBITS(s, offset, nboffset) ;  // offset
+  totbits += ntoken ;                          // header, 8 bits to 20 bits
+  if(! dry_run)
+    STREAM_PUT_NBITS(s, token, ntoken) ;       // SSMEbbbb[ee][nnnnn] or 0011SSMEbbbb[ee][nnnnn]
+  if(M != 0){                                  // OFFSET is used
     totbits += nboffset ;                      // nboffset bits for offset
+    if(! dry_run)
+      STREAM_PUT_NBITS(s, offset, nboffset) ;  // offset
   }
-  // =============================== store encoded values ===============================
+  // =============================== encode and store values ===============================
   totbits += nbitsmax ;
-  if(dry_run) return totbits ;                 // dry run, return number of bits needed
+  if(dry_run) goto dry_end ;                   // dry run, job is done
 
-  if(StreamAvailableSpace(&s) < nbitsmax)    // not enough room for encoded data
-    return -1 ;
+  if(StreamAvailableSpace(&s) < nbitsmax)      // not enough room for encoded data
+    goto error ;
 
-  if(E == 0){                        // no short/long encoding, all tokens will be nbits long
-// uint32_t *in = s.in ;
-// fprintf(stderr, "E == 0, nbits = %d, nval = %d :", nbits, nval) ;
+  if(E == 0){                                  // no short/long encoding, all tokens will be nbits long
     for(i=0 ; i<nval ; i++){
       STREAM_PUT_NBITS(s, u_tile[i], nbits) ;
-//       fprintf(stderr, " %d", tile[i]) ;
     }
-// fprintf(stderr, "\n") ;
-// fprintf(stderr, "stream :");
-// fprintf(stderr, " %8.8x %8.8x %8.8x %8.8x %8.8x %8.8x", in[0], in[1], in[2], in[3], in[4], in[5]) ;
-// fprintf(stderr, "\n") ;
-  }else{                             // use short/long encoding, tokens will be nshort+1 or nbits+1 bits long
-//     int checkbits = 0 ;                         // temporary diagnostic variable
-    shortref = (1 << nshort) ;                  // anything < shortref can be coded as a "short" token
-// fprintf(stderr, "E == 1, nbits = %d, nval = %d, ee = %d, shortref = %d :", nbits, nval, ee, shortref) ;
-    if(verbose) fprintf(stderr, "E == 1, nbits = %d, nval = %d, ee = %d, shortref = %d, nshort = %d :\n",
-                        nbits, nval, ee, shortref, nshort) ;
-    for(i=0 ; i<nval ; i++){                    // encode nval values
-      token = u_tile[i] ;                         // value to encode
-// fprintf(stderr, " %d", token) ;
-      STREAM_INSERT_CHECK(s) ;                  // make sure there is room for up to 32 bits
-      if(token < shortref){                     // use "short" token
-        STREAM_FAST_PUT_0(s) ;  ;            // "short" token marker
-        if(nshort > 0){
-          STREAM_PUT_NBITS(s, token, nshort) ;  // follow with nshort bits
+  }else{                                       // use short/long encoding, tokens will be nshort+1 or nbits+1 bits long
+    shortref = (1 << nshort) ;                 // anything < shortref can be coded as a "short" token
+    for(i=0 ; i<nval ; i++){                   // encode nval values
+      token = u_tile[i] ;                      // value to encode
+      STREAM_INSERT_CHECK(s) ;                 // make sure there is room for up to 32 bits
+      if(token < shortref){                    // use "short" token
+        STREAM_FAST_PUT_0(s) ;  ;              // "short" token marker
+        if(nshort > 0){                        // follow with nshort bits
+          STREAM_PUT_NBITS(s, token, nshort) ;
         }
-//         checkbits += (nshort + 1) ;
-// if(verbose) fprintf(stderr, "S(%8.8x)",from_zigzag_32(token));
-        if(verbose) fprintf(stderr, "S(%8.8x)",(token));
       }else{                                    // use "long" token
-        STREAM_FAST_PUT_1(s) ;               // "long" token marker
+        STREAM_FAST_PUT_1(s) ;                  // "long" token marker
         STREAM_PUT_NBITS(s, token, nbits) ;     // follow with nbits bits
-//         checkbits += (nbits + 1) ;
-// if(verbose) fprintf(stderr, "L(%8.8x)",from_zigzag_32(token));
-        if(verbose) fprintf(stderr, "L(%8.8x)",(token));
       }
-      if(verbose) if((i&7) == 7) fprintf(stderr, "\n");
     }
-    if(verbose) fprintf(stderr, "\n");
-// fprintf(stderr, "\n");
     saved_bits += (nval * nbits - nbitsmax - 2) ;
-//     if(checkbits != nbitsmax) fprintf(stderr,"checkbits = %d, expecting %d\n", checkbits, nbitsmax) ;
   }
 
 end:
-// fprintf(stderr, "available space = %ld, used %d\n", available_space, totbits) ;
   STREAM_INSERT_PUSH(s) ;
-  *s_in = s ;
-// fprintf(stderr, "encode_tile : SS = %d, M = %d, E = %d, nbits = %d, offset = %d\n", SS, M, E, nbits, offset) ;
+  *s_in = s ;        // propagate stream state
+
+dry_end:             // only return number of bits needed if dry run
   return totbits ;
+
+error:
+  return -1 ;
 }
 
 // encode a block as multiple tiles into a bit stream

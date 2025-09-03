@@ -69,7 +69,7 @@ int main(int argc, char **argv){
   uint64_t freq ;
   double nano ;
 //   TIME_LOOP_DATA ;
-  int i, j, status = 1, tilebits, tilebits2, totalbits, errors ;
+  int i, j, status = 1, tilebits, tilebits2, totalbits, totalbits2, errors ;
   int32_t tile00[NPT], tile01[NPT], tile10[NPT], tile11[NPT] ;
   int32_t rest00[NPT], rest01[NPT], rest10[NPT], rest11[NPT] ;
   block_properties bp00, bp01, bp10, bp11 ;
@@ -100,22 +100,18 @@ int main(int argc, char **argv){
     tile11[i] = (i - 3) * 64  ;   // mixed signs
   }
   status = move_w32_block(tile00, NPTI, rest00, NPTI, NPTI, NPTJ, &bp00) ; // dummy move to force data analysis
-//   status = analyze_data32_block(tile00, NPTI, NPTI, NPTJ, &bp00);
   if(status != NPT){ status = 1 ; goto fail ; }
   /*adjust_block_properties(&bp00, int_data) ;*/ print_int_props(bp00);
 
   status = move_w32_block(tile01, NPTI, rest00, NPTI, NPTI, NPTJ, &bp01) ; // dummy move to force data analysis
-//   status = analyze_data32_block(tile01, NPTI, NPTI, NPTJ, &bp01);
   if(status != NPT){ status = 2 ; goto fail ; }
   /*adjust_block_properties(&bp01, int_data) ;*/ print_int_props(bp01);
 
   status = move_w32_block(tile10, NPTI, rest00, NPTI, NPTI, NPTJ, &bp10) ; // dummy move to force data analysis
-//   status = analyze_data32_block(tile10, NPTI, NPTI, NPTJ, &bp10);
   if(status != NPT){ status = 3 ; goto fail ; }
   /*adjust_block_properties(&bp10, int_data) ;*/ print_int_props(bp10);
 
   status = move_w32_block(tile11, NPTI, rest00, NPTI, NPTI, NPTJ, &bp11) ; // dummy move to force data analysis
-//   status = analyze_data32_block(tile11, NPTI, NPTI, NPTJ, &bp11);
   if(status != NPT){ status = 4 ; goto fail ; }
   /*adjust_block_properties(&bp11, int_data) ;*/ print_int_props(bp11);
 
@@ -333,20 +329,22 @@ bypass1:
 bypass2:
   fprintf(stderr, "\n============================== block/tiles encoding/decoding test ==============================\n\n") ;
 
-#define BNI 67
-#define BNJ 68
+#define BNI   1023
+#define BNJ   1025
+#define SHIFT 12
 #define BNPT (BNI*BNJ)
 #define BSZ 8
 
   bitstream *ps2 ;
   int32_t block_in[BNJ][BNI], block_out[BNJ][BNI] ;
 
+  // build block_in to have blocks >0, <0, mixed signs, and some suitable for short/long encoding
   for(j=BNJ-1 ; j>=0 ; j--){
     for(i=0 ; i<BNI ; i++){
-      block_in[j][i] = (i << 8) + j ;
-//       fprintf(stderr, "%5d ", block_in[j][i]) ;
+      block_in[j][i] = (i << SHIFT) + j ;
+      if((i+j) > (BNI+BNJ)/2) block_in[j][i] = -block_in[j][i] ;
+      if((j&1) && (i&1)) block_in[j][i] = block_in[j][i] >> (2+SHIFT/2) ;
     }
-//     fprintf(stderr, "\n");
   }
   move_block((void *)block_in, (void *)block_out, BNI, BNI, BNJ, 8);
   errors = 0 ;
@@ -363,9 +361,14 @@ bypass2:
   if(StreamAvailableBits(ps2) != 0){ status = 106 ; goto fail ; }
   if(StreamAvailableSpace(ps2) != 8*sizeof(uint32_t)*BNPT*8){ status = 107 ; goto fail ; }
   STREAM_INSERT_BEGIN(*ps2) ;
-
-  totalbits = encode_block(ps2, (void *)block_in, BNI, BNI, BNJ, BSZ, 0) ;
-  fprintf(stderr, "encode_block : totalbits = %d\n", totalbits) ;
+  uint64_t t0, t1, t2, t3, t4 ;
+  t0 = elapsed_cycles() ;
+  totalbits2 = encode_block(ps2, (void *)block_in, BNI, BNI, BNJ, BSZ, ENCODE_DRY_RUN) ;
+  t1 = elapsed_cycles() ;
+  totalbits  = encode_block(ps2, (void *)block_in, BNI, BNI, BNJ, BSZ, 0) ;
+  t2 = elapsed_cycles() ;
+  fprintf(stderr, "encode_block : totalbits = %d (%d)\n", totalbits, totalbits2) ;
+  fprintf(stderr, "encoding time per value (ns)  : dry run = %5.1f, full run = %5.1f\n", (t1-t0)*nano/(BNI*BNJ), (t2-t1)*nano/(BNI*BNJ)) ;
   print_encode_stats(0) ; fprintf(stderr, "\n");
   STREAM_INSERT_FINALIZE(*ps2) ;
   STREAM_XTRACT_BEGIN(*ps2) ;
@@ -373,8 +376,11 @@ bypass2:
   for(j=BNJ-1 ; j>=0 ; j--){
     for(i=0 ; i<BNI ; i++) block_out[j][i] = -1 ;
   }
+  t3 = elapsed_cycles() ;
   totalbits = decode_block(ps2, (void *)block_out, BNI, BNI, BNJ, BSZ) ;
+  t4 = elapsed_cycles() ;
   fprintf(stderr, "decode_block : totalbits = %d\n", totalbits) ;
+  fprintf(stderr, "decoding time per value (ns) = %5.1f\n", (t4-t3)*nano/(BNI*BNJ)) ;
   errors = 0 ;
   for(j=BNJ-1 ; j>=0 ; j--){
     for(i=0 ; i<BNI ; i++){
