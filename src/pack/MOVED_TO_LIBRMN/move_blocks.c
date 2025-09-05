@@ -14,7 +14,7 @@
 
 #include <stdint.h>
 
-#include <rmn/identify_c_compiler.h>
+#include <rmn/identify_fc_compiler.h>
 
 // SIMD does not seem to be useful any more for these funtions with most compilers
 #undef WITH_SIMD
