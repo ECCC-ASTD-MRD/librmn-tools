@@ -23,6 +23,7 @@
 #include <rmn/move_blocks.h>
 #include <rmn/bitstream.h>
 
+// encoding options
 #define ENCODE_DRY_RUN       1
 #define ENCODE_NO_SHORT_LONG 2
 
@@ -38,41 +39,45 @@
 // options : 5 bit bbbbb field, 2 bit ee field, 1-32 bit offset field
 // the number of values in the encoded block must come from an EXTERNAL source
 //
-// 8 bits header part 1 (nbits <= 16, except for constant blocks, SS == 00)
+// 8 bits header part 1 (nbits <= 16, except for constant blocks, SS == 00, where nbits <= 32)
 // SSMEnnnn [ee][bbbbb][o.....o]  (o.....o uses bbbbb+1 bits)
 // 000bbbbb c.....c               (c.....c uses bbbbb+1 bits)
+// SSME 0010 is RESERVED for future uses
+// SSME 0011 announces a 12 bit header
 //
 // A 000bbbbb      constant block, ZIGZAG(value), 1 -> 32 bits/value, bbbbb == number of bits - 1
 // X 0010xxxx      reserved for future use
-// L 0011SSME      preamble of 12 bit long header      (> 16 bits / value) 0011SSME nnnn
-//   001100xx      NOT USED, constant blocks shall use the A type header (can be reserved for future use)
+// L 0011SSME      preamble of 12 bit header (> 16 bits/value) 0011SSMEnnnn (nnnn = number of bits - 17)
+//   001100xx      NOT USED, constant blocks shall use the A type header (reserved for future use)
 //   00110000      USED IN TESTS
-// B 01MEnnnn      all values >= 0  ( 1->16 bits / value, nnnn == number of bits - 1)
-// C 10MEnnnn      all values <= 0  ( 1->16 bits / value, ABS(value), nnnn == number of bits - 1)
-// D 11MEnnnn      mixed signs      (1->16 bits / value, nnnn == number of bits - 1)
+//   00110001      NOT USED
+//   00110010      NOT USED
+//   00110011      NOT USED
+// B 01MEnnnn      all values >= 0  ( 1->16 bits/value, nnnn == number of bits - 1)
+// C 10MEnnnn      all values <= 0  ( 1->16 bits/value, ABS(value), nnnn == number of bits - 1)
+// D 11MEnnnn      mixed signs      (1->16 bits/value, nnnn == number of bits - 1)
 //
 // the first 2/3/4 bits indicate the header type
 // 000x  A type header (8 bits)   000bbbbb c.....c
-// 0010  X type header (8+ bits)  0010xxxx  (reserved)
+// 0010  X type header (8+? bits) 0010xxxx  (INVALID, reserved)
 // 0011  L type header (8+4 bits) 0011SSME nnnn [ee] [bbbbb] [o.....o]  (SS == 00 is reserved)
 // 01xx  B type header (8 bits)   01MEnnnn [ee] [bbbbb] [o.....o]
 // 10xx  C type header (8 bits)   10MEnnnn [ee] [bbbbb] [o.....o]
 // 11xx  D type header (8 bits)   11MEnnnn [ee] [bbbbb] [o.....o]
 //
-// A-D full header length : 8 + [E == 1 ? 2 : 0] + [M == 1 ? 5 + (bbbbb+1) : 0] bits
-// only B, C, D headers may have E == 1 or M == 1
-// only C, D, E headers may have E == 1 or M == 1
+// A-D full header length :  8 + [E == 1 ? 2 : 0] + [M == 1 ? 5 + (bbbbb+1) : 0] bits
+// L full header length   : 12 + [E == 1 ? 2 : 0] + [M == 1 ? 5 + (bbbbb+1) : 0] bits
 // X 0010xxxx       reserved for future use
 //
 // 8+4 bits header (nbits > 16)
 //
 // L full header length : 12 + [E == 1 ? 2 : 0] + [M == 1 ? 5 + (bbbbb+1) : 0] bits
-//   0011SSME nnnn  17->32 bits/value, nnnn == number of bits - 17  (2 mandatory pieces)
-//                  0011SSME nnnn [ee] [bbbbb] [o.....o] (2 - 5 pieces)
+//   0011SSME nnnn  17->32 bits/value, nnnn == number of bits - 17  (2 mandatory parts)
+//                  0011SSME nnnn [ee] [bbbbb] [o.....o] (2 - 5 parts)
 //
-// SS : 00 constant block
+// SS : 00 constant block (M MUST be 0, E becomes part of the bbbbb field, no nnnn field)
 //      01 all values >= 0
-//      10 all values <= 0 (ABS(value) is stored)
+//      10 all values <= 0 ( ABS(value ) is stored)
 //      11 mixed signs, zigzag (sign in LSB) type encoding
 // M  : 0 no offset
 //      1 a ZIGZAG encoded value will be present, a 5 bits bbbbb nb of bits for offset field width follows

@@ -342,7 +342,7 @@ bypass2:
   for(j=BNJ-1 ; j>=0 ; j--){
     for(i=0 ; i<BNI ; i++){
       block_in[j][i] = (i << SHIFT) + j ;
-      if((i+j) > (BNI+BNJ)/2) block_in[j][i] = -block_in[j][i] ;
+//       if((i+j) > (BNI+BNJ)/2) block_in[j][i] = -block_in[j][i] ;
       if((j&1) && (i&1)) block_in[j][i] = block_in[j][i] >> (2+SHIFT/2) ;
     }
   }
@@ -363,9 +363,9 @@ bypass2:
   STREAM_INSERT_BEGIN(*ps2) ;
   uint64_t t0, t1, t2, t3, t4 ;
   t0 = elapsed_cycles() ;
-  totalbits2 = encode_block(ps2, (void *)block_in, BNI, BNI, BNJ, BSZ, ENCODE_DRY_RUN) ;
+  totalbits2 = encode_block(NULL, (void *)block_in, BNI, BNI, BNJ, BSZ|1, ENCODE_DRY_RUN) ;
   t1 = elapsed_cycles() ;
-  totalbits  = encode_block(ps2, (void *)block_in, BNI, BNI, BNJ, BSZ, 0) ;
+  totalbits  = encode_block(ps2, (void *)block_in, BNI, BNI, BNJ, BSZ|1, 0) ;
   t2 = elapsed_cycles() ;
   fprintf(stderr, "encode_block : totalbits = %d (%d)\n", totalbits, totalbits2) ;
   fprintf(stderr, "encoding time per value (ns)  : dry run = %5.1f, full run = %5.1f\n", (t1-t0)*nano/(BNI*BNJ), (t2-t1)*nano/(BNI*BNJ)) ;
@@ -377,7 +377,7 @@ bypass2:
     for(i=0 ; i<BNI ; i++) block_out[j][i] = -1 ;
   }
   t3 = elapsed_cycles() ;
-  totalbits = decode_block(ps2, (void *)block_out, BNI, BNI, BNJ, BSZ) ;
+  totalbits = decode_block(ps2, (void *)block_out, BNI, BNI, BNJ, BSZ|1) ;
   t4 = elapsed_cycles() ;
   fprintf(stderr, "decode_block : totalbits = %d\n", totalbits) ;
   fprintf(stderr, "decoding time per value (ns) = %5.1f\n", (t4-t3)*nano/(BNI*BNJ)) ;
@@ -389,7 +389,34 @@ bypass2:
     }
 //     fprintf(stderr, "\n");
   }
-  fprintf(stderr, "decode_block : %d errors\n", errors); 
+  fprintf(stderr, "decode_block : %d errors\n", errors);
+
+#if defined(USE_AEC_COMPRESSION)
+  int32_t aes_out[BNI*BNJ] ;
+  int32_t AecEncodeUnsigned(void *source, int32_t source_length, void *dest, int32_t dest_length, int bits_per_sample) ;
+  for(i=0 ; i<BNI*BNJ ; i++) aes_out[i] = 0xCAFEFADE ;
+  t0 = elapsed_cycles() ;
+  totalbits = 8 * AecEncodeUnsigned(block_in, BNI*BNJ, aes_out, BNI*BNJ*4, 32) ;
+  t1 = elapsed_cycles() ;
+  fprintf(stderr, "AecEncodeUnsigned : totalbits = %d, time/value = %5.1f ns\n", totalbits, (t1-t0)*nano/(BNI*BNJ)) ;
+//   for(i=BNI*BNJ-1 ; i>0 ; i--) if(aes_out[i] != 0xCAFEFADE) break ;
+//   fprintf(stderr, "AecEncodeUnsigned : i*32 = %d\n", i*32) ;
+
+  int32_t AecDecodeUnsigned(void *source, int32_t source_length, void *dest, int32_t dest_length, int bits_per_sample);
+  for(j=BNJ-1 ; j>=0 ; j--){
+    for(i=0 ; i<BNI ; i++) block_out[j][i] = -1 ;
+  }
+  t3 = elapsed_cycles() ;
+  totalbits = 8 * AecDecodeUnsigned(aes_out, totalbits, block_out, BNI*BNJ, 32) ;
+  t4 = elapsed_cycles() ;
+  errors = 0 ;
+  for(j=BNJ-1 ; j>=0 ; j--){
+    for(i=0 ; i<BNI ; i++){
+      if(block_out[j][i] != block_in[j][i]) errors++ ;
+    }
+  }
+  fprintf(stderr, "AecDecodeUnsigned : totalbits = %d, time/value = %5.1f ns, errors = %d\n", totalbits, (t4-t3)*nano/(BNI*BNJ), errors) ;
+#endif
 
 end:
   return 0 ;

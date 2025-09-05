@@ -253,7 +253,8 @@ int encode_tile(bitstream *s_in, int32_t *tile_in, int32_t nval, block_propertie
   block_properties bp_ ;
   int dry_run = ( (options & ENCODE_DRY_RUN) != 0 ) ;  // a dry run only evaluates the number of bits needed for encoding
 
-  if(s_in == NULL || tile_in == NULL || nval <= 0) goto error ;  // invalid arguments
+  if(tile_in == NULL || nval <= 0) goto error ;        // invalid arguments
+  if(s_in == NULL && (! dry_run)) goto error ;         // s_in can only be NULL for a dry run
 
   if(! dry_run){
     s = *s_in ;                                        // local copy of stream state (in case of error)
@@ -448,6 +449,7 @@ error:
 // the dimension of the last slice along i or j may be shorter or longer than tsize
 // in case of error, s_in is left as it was upon entry
 int encode_block_1d(bitstream *s_in, int32_t *block, int ni, int tsize, int options){
+  tsize = tsize & 0x7FFFFFFE ;   //force tsize to EVEN value
   int i0, lni, status, totbits ;
   int32_t *tile ;
   block_properties bp ;
@@ -475,82 +477,33 @@ error:
   return status ;
 }
 int encode_block(bitstream *s_in, int32_t *block, int lnis, int ni, int nj, int tsize, int options){
+  tsize = tsize & 0x7FFFFFFE ;   //force tsize to EVEN value
 
   if(ni == 1 || nj == 1) return encode_block_1d(s_in, block, ni*nj, tsize, options) ;
 
   array_axis ri, rj ;
   ri = split_axis(ni, tsize) ;
   rj = split_axis(nj, tsize) ;
-// fprintf(stderr, "ni = %d, nj = %d, blocks[%d(%d,%d),%d(%d,%d)]\n", ni, nj, ri.nbk, ri.ln0, tsize,  rj.nbk, rj.ln0, tsize) ;
 
-  tsize = tsize & 0x7FFFFFFF ;   // make sure tsize is EVEN
   int i0, lni, j0, lnj, status, totbits, tmax = tsize+(tsize>>1) ;
   int32_t tile[tsize*tsize*4] ;
   block_properties bp ;
-  bitstream s ;
 
   status = -1 ;
-  if(s_in == NULL) goto error ;
-  s = *s_in ;        // take local copy of s_in
 
   totbits = 0 ;
   for(j0=0, lnj = rj.ln0 ; j0<nj ; j0+=lnj, lnj = tsize){
     int32_t *src = block ;
     for(i0=0, lni = ri.ln0 ; i0<ni ; i0+=lni, lni = tsize){
       move_w32_block(src, lnis, tile, lni, lni, lnj, &bp) ;  // get tile from block
-// encode , decode , verify , print and abort upon error
-// bitstream s0, *ps0 ;
-// int32_t til2[tsize*tsize*4], badtiles = 0 ;
-// ps0 = &s0 ;
-// STREAM_CREATE(ps0, NULL, sizeof(tile)*16, BIT_FULL_INIT) ;
-// STREAM_INSERT_BEGIN(*ps0) ;
-// encode_tile(ps0, tile, lni*lnj, &bp) ;
-// STREAM_INSERT_FINALIZE(*ps0) ;
-// STREAM_XTRACT_BEGIN(*ps0) ;
-// decode_tile(ps0, til2, lni*lnj) ;
-// int errors, i ;
-// STREAM_FREE(ps0, errors) ;
-// errors = 0 ;
-// for(i=0 ; i<lni*lnj ; i++){
-//   if(tile[i] != til2[i]){
-//     errors++ ;
-//     fprintf(stderr, "error at [%d,%d], expected %8.8x, got %8.8x, tile[%d][%d]\n", i - ((i/lni)*lni), i/lni, tile[i], til2[i], lni, lnj) ;
-//   }
-// }
-// if(errors > 0){
-//   badtiles++ ;
-//   fprintf(stderr, "BAD tile encode/decode, %d errors \n", errors);
-//   for(i=0 ; i<lni*lnj ; i++){
-//     fprintf(stderr, "%8.8x ", tile[i]) ;
-//     int ii = i - ((i/lni)*lni) ;
-//     if(ii == lni-1 ) fprintf(stderr, "\n") ;
-//   }
-//   fprintf(stderr, "\n") ;
-//   for(i=0 ; i<lni*lnj ; i++){
-//     fprintf(stderr, "%8.8x ", til2[i]) ;
-//     int ii = i - ((i/lni)*lni) ;
-//     if(ii == lni-1 ) fprintf(stderr, "\n") ;
-//   }
-// verbose = 0 ;
-// STREAM_CREATE(ps0, NULL, sizeof(tile)*16, BIT_FULL_INIT) ;
-// STREAM_INSERT_BEGIN(*ps0) ;
-// encode_tile(ps0, tile, lni*lnj, &bp) ;
-// STREAM_INSERT_FINALIZE(*ps0) ;
-// STREAM_XTRACT_BEGIN(*ps0) ;
-// decode_tile(ps0, til2, lni*lnj) ;
-// STREAM_FREE(ps0, errors) ;
-// exit(1) ;
-// }
-      status = encode_tile(&s, tile, lni*lnj, &bp, options) ;         // encode tile
+      status = encode_tile(s_in, tile, lni*lnj, &bp, options) ;         // encode tile
       if(status <= 0) goto error ;
       totbits += status ;
       src += lni ;
     }
     block += lnj * lnis ;
   }
-// fprintf(stderr, "%d BAD tiles\n", badtiles) ;
 
-  *s_in = s ;        // update s_in
   return totbits ;
 
 error:
@@ -569,6 +522,7 @@ error:
 // the dimension of the last slice along i or j may be shorter or longer than tsize
 // in case of error, s_in is left as it was upon entry
 int decode_block_1d(bitstream *s_in, int32_t *block, int ni, int tsize){
+  tsize = tsize & 0x7FFFFFFE ;   //force tsize to EVEN value
   int i0, lni, status, totbits ;
   int32_t *tile ;
   bitstream s ;
@@ -594,15 +548,14 @@ error:
   return status ;
 }
 int decode_block(bitstream *s_in, int32_t *block, int lnid, int ni, int nj, int tsize){
+  tsize = tsize & 0x7FFFFFFE ;   //force tsize to EVEN value
 
   if(ni == 1 || nj == 1) return decode_block_1d(s_in, block, ni*nj, tsize) ;
 
   array_axis ri, rj ;
   ri = split_axis(ni, tsize) ;
   rj = split_axis(nj, tsize) ;
-// fprintf(stderr, "ni = %d, nj = %d, blocks[%d(%d,%d),%d(%d,%d)]\n", ni, nj, ri.nbk, ri.ln0, tsize,  rj.nbk, rj.ln0, tsize) ;
 
-  tsize = tsize & 0x7FFFFFFF ;   // make sure tsize is EVEN
   int i0, lni, j0, lnj, status, totbits, tmax = tsize+(tsize>>1) ;
   int32_t tile[tsize*tsize*4] ;
   bitstream s ;
@@ -632,6 +585,8 @@ fprintf(stderr, "decode_block : error %d\n", status) ;
   return status ;
 }
 
+// #define USE_AEC_COMPRESSION
+// #undef USE_AEC_COMPRESSION
 #if defined(USE_AEC_COMPRESSION)
 #include <libaec.h>
 
