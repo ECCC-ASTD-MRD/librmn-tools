@@ -485,7 +485,7 @@ int encode_block(bitstream *s_in, int32_t *block, int lnis, int ni, int nj, int 
   ri = split_axis(ni, tsize) ;
   rj = split_axis(nj, tsize) ;
 
-  int i0, lni, j0, lnj, status, totbits, tmax = tsize+(tsize>>1) ;
+  int i0, lni, j0, lnj, status, totbits ;
   int32_t tile[tsize*tsize*4] ;
   block_properties bp ;
 
@@ -556,7 +556,7 @@ int decode_block(bitstream *s_in, int32_t *block, int lnid, int ni, int nj, int 
   ri = split_axis(ni, tsize) ;
   rj = split_axis(nj, tsize) ;
 
-  int i0, lni, j0, lnj, status, totbits, tmax = tsize+(tsize>>1) ;
+  int i0, lni, j0, lnj, status, totbits ;
   int32_t tile[tsize*tsize*4] ;
   bitstream s ;
 

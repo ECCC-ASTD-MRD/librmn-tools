@@ -362,13 +362,18 @@ bypass2:
   if(StreamAvailableSpace(ps2) != 8*sizeof(uint32_t)*BNPT*8){ status = 107 ; goto fail ; }
   STREAM_INSERT_BEGIN(*ps2) ;
   uint64_t t0, t1, t2, t3, t4 ;
+  // prime the cache
+  totalbits2 = encode_block(NULL, (void *)block_in, BNI, BNI, BNJ, BSZ|1, ENCODE_DRY_RUN) ;
+  totalbits2 = encode_block(NULL, (void *)block_in, BNI, BNI, BNJ, BSZ|1, ENCODE_DRY_RUN) ;
+  totalbits2 = encode_block(NULL, (void *)block_in, BNI, BNI, BNJ, BSZ|1, ENCODE_DRY_RUN) ;
+  // timing test
   t0 = elapsed_cycles() ;
   totalbits2 = encode_block(NULL, (void *)block_in, BNI, BNI, BNJ, BSZ|1, ENCODE_DRY_RUN) ;
   t1 = elapsed_cycles() ;
   totalbits  = encode_block(ps2, (void *)block_in, BNI, BNI, BNJ, BSZ|1, 0) ;
   t2 = elapsed_cycles() ;
-  fprintf(stderr, "encode_block : totalbits = %d (%d)\n", totalbits, totalbits2) ;
-  fprintf(stderr, "encoding time per value (ns)  : dry run = %5.1f, full run = %5.1f\n", (t1-t0)*nano/(BNI*BNJ), (t2-t1)*nano/(BNI*BNJ)) ;
+  fprintf(stderr, "encode_block : totalbits = %d (%d)", totalbits, totalbits2) ;
+  fprintf(stderr, ", encoding time per value (ns)  : dry run = %5.1f, full run = %5.1f\n", (t1-t0)*nano/(BNI*BNJ), (t2-t1)*nano/(BNI*BNJ)) ;
   print_encode_stats(0) ; fprintf(stderr, "\n");
   STREAM_INSERT_FINALIZE(*ps2) ;
   STREAM_XTRACT_BEGIN(*ps2) ;
@@ -379,8 +384,8 @@ bypass2:
   t3 = elapsed_cycles() ;
   totalbits = decode_block(ps2, (void *)block_out, BNI, BNI, BNJ, BSZ|1) ;
   t4 = elapsed_cycles() ;
-  fprintf(stderr, "decode_block : totalbits = %d\n", totalbits) ;
-  fprintf(stderr, "decoding time per value (ns) = %5.1f\n", (t4-t3)*nano/(BNI*BNJ)) ;
+  fprintf(stderr, "decode_block : totalbits = %d", totalbits) ;
+  fprintf(stderr, ", decoding time per value (ns) = %5.1f\n", (t4-t3)*nano/(BNI*BNJ)) ;
   errors = 0 ;
   for(j=BNJ-1 ; j>=0 ; j--){
     for(i=0 ; i<BNI ; i++){
