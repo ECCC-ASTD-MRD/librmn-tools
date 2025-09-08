@@ -385,7 +385,7 @@ bypass2:
   totalbits = decode_block(ps2, (void *)block_out, BNI, BNI, BNJ, BSZ|1) ;
   t4 = elapsed_cycles() ;
   fprintf(stderr, "decode_block : totalbits = %d", totalbits) ;
-  fprintf(stderr, ", decoding time per value (ns) = %5.1f\n", (t4-t3)*nano/(BNI*BNJ)) ;
+  fprintf(stderr, ", decoding time per value (ns) = %5.1f", (t4-t3)*nano/(BNI*BNJ)) ;
   errors = 0 ;
   for(j=BNJ-1 ; j>=0 ; j--){
     for(i=0 ; i<BNI ; i++){
@@ -394,7 +394,42 @@ bypass2:
     }
 //     fprintf(stderr, "\n");
   }
-  fprintf(stderr, "decode_block : %d errors\n", errors);
+  fprintf(stderr, ", %d errors\n", errors);
+
+// encode/decode as a 1D block
+  fprintf(stderr, "\n") ;
+  bitstream *ps3 ;
+  STREAM_CREATE(ps3, NULL, sizeof(uint32_t)*BNPT*8, BIT_FULL_INIT) ;
+  if(ps3->endian != PACK_ENDIAN){ status = 105 ; goto fail ; }
+  if(StreamAvailableBits(ps3) != 0){ status = 106 ; goto fail ; }
+  if(StreamAvailableSpace(ps3) != 8*sizeof(uint32_t)*BNPT*8){ status = 107 ; goto fail ; }
+  STREAM_INSERT_BEGIN(*ps3) ;
+
+  t0 = elapsed_cycles() ;
+  totalbits2 = encode_block(NULL, (void *)block_in, BNI*BNJ, BNI*BNJ, 1, BSZ, ENCODE_DRY_RUN) ;
+  t1 = elapsed_cycles() ;
+  totalbits  = encode_block(ps3 , (void *)block_in, BNI*BNJ, BNI*BNJ, 1, BSZ, 0) ;
+  t2 = elapsed_cycles() ;
+  fprintf(stderr, "encode_block 1D : totalbits = %d (%d)", totalbits, totalbits2) ;
+  fprintf(stderr, ", encoding time per value (ns)  : dry run = %5.1f, full run = %5.1f\n", (t1-t0)*nano/(BNI*BNJ), (t2-t1)*nano/(BNI*BNJ)) ;
+  print_encode_stats(0) ; fprintf(stderr, "\n");
+  STREAM_INSERT_FINALIZE(*ps3) ;
+  for(j=BNJ-1 ; j>=0 ; j--){
+    for(i=0 ; i<BNI ; i++) block_out[j][i] = -1 ;
+  }
+  STREAM_XTRACT_BEGIN(*ps3) ;
+  t3 = elapsed_cycles() ;
+  totalbits = decode_block(ps3, (void *)block_out, BNI*BNJ, BNI*BNJ, 1, BSZ) ;
+  t4 = elapsed_cycles() ;
+  fprintf(stderr, "decode_block 1D : totalbits = %d", totalbits) ;
+  fprintf(stderr, ", decoding time per value (ns) = %5.1f", (t4-t3)*nano/(BNI*BNJ)) ;
+  errors = 0 ;
+  for(j=BNJ-1 ; j>=0 ; j--){
+    for(i=0 ; i<BNI ; i++){
+      if(block_out[j][i] != block_in[j][i]) errors++ ;
+    }
+  }
+  fprintf(stderr, ", %d errors\n", errors);
 
 #if defined(USE_AEC_COMPRESSION)
   int32_t aes_out[BNI*BNJ] ;

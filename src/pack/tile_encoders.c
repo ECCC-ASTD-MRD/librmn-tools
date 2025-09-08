@@ -82,13 +82,12 @@ void print_encode_stats(int reset){
   }
 }
 
-// decode nval values from tile[nval] into a bit stream
-// tile    OUT] : values to be encoded
+// decode nval values into tile[nval] from a bit stream
+// tile   [OUT] : decoded values
 // nval    [IN] : number of values
-// bp      [IN] : tile properties (see move_blocks.h)
 // s_in [INOUT] : pointer to bitstream descriptor (see bitstream.h)
-// return nuber of bits extracted from bitstream buffer
-// TODO add safety check to make sure we had enough data in stream
+// return nuber of bits extracted from bitstream
+// a safety check is performed to make sure we had enough data available in stream
 int decode_tile(bitstream *s_in, int32_t *tile, int32_t nval){
   int i, nbits, totbits, offset, SS, M, E, allminus, iszigzag, lhead, status = 0 ;
   uint32_t token, ee, nboffset, uvalue, *u_tile = (uint32_t *)tile;
@@ -440,47 +439,54 @@ error:
 // encode a block as multiple tiles into a bit stream
 // block   [IN] : values to be encoded
 // lnis    [IN] : storage length of block rows
-// ni      [IN] : number of values to encode in a block row
+// ni      [IN] : number of values in a block row
+//                number of values (encode_block_1d)
 // nj      [IN] : number of rows to encode
-// tsize   [IN] : desired size of encoded tiles
+// tsize   [IN] : base dimension of encoded tiles (8 suggested)
 // s_in [INOUT] : pointer to bitstream descriptor (see bitstream.h)
 // return nuber of bits inserted into bitstream buffer
-// tsize/2 <= dimension < tsize+tsize/2  (for both i and j tile dimensions)
+// tsize/2 <= actual tile dimension < tsize+tsize/2  (for both i and j tile dimensions)
 // the dimension of the last slice along i or j may be shorter or longer than tsize
 // in case of error, s_in is left as it was upon entry
+// TODO: store tsize into bitstream for decoder
+// 1 bit : tile size is 7/15 bits, followed by 7/15 bits for tile size
+// 1D encoder
 int encode_block_1d(bitstream *s_in, int32_t *block, int ni, int tsize, int options){
   tsize = tsize & 0x7FFFFFFE ;   //force tsize to EVEN value
   int i0, lni, status, totbits ;
   int32_t *tile ;
   block_properties bp ;
+  array_axis ri ;
   bitstream s ;
 
   status = -1 ;
-  if(s_in == NULL) goto error ;
-  s = *s_in ;        // take local copy of s_in
+  if(s_in) s = *s_in ;
+
+  ri = split_axis(ni, tsize) ;
 
   totbits = 0 ;
-  lni = tsize ;
-  for(i0=0 ; i0<ni ; i0+=tsize){
-    if( i0+tsize >= ni) lni = ni - i0 ;
+  for(i0=0, lni = ri.ln0 ; i0<ni ; i0+=lni, lni = tsize){
     tile = block + i0 ;
     analyze_data32_block(tile, lni, lni, 1, &bp) ;
-    status = encode_tile(&s, tile, lni, &bp, options) ;
+    status = encode_tile(s_in, tile, lni, &bp, options) ;
     if(status <= 0) goto error ;
     totbits += status ;
   }
 
-  *s_in = s ;        // update s_in if successful
   return totbits ;
 
 error:
+  if(s_in) *s_in = s ;    // restore bitstream descriptor if one was supplied
   return status ;
 }
+// 2D encoder
 int encode_block(bitstream *s_in, int32_t *block, int lnis, int ni, int nj, int tsize, int options){
   tsize = tsize & 0x7FFFFFFE ;   //force tsize to EVEN value
+  bitstream s ;
 
-  if(ni == 1 || nj == 1) return encode_block_1d(s_in, block, ni*nj, tsize, options) ;
+  if(ni == 1 || nj == 1) return encode_block_1d(s_in, block, ni*nj, tsize*tsize, options) ;
 
+  if(s_in) s = *s_in ;
   array_axis ri, rj ;
   ri = split_axis(ni, tsize) ;
   rj = split_axis(nj, tsize) ;
@@ -507,68 +513,74 @@ int encode_block(bitstream *s_in, int32_t *block, int lnis, int ni, int nj, int 
   return totbits ;
 
 error:
+  if(s_in) *s_in = s ;    // restore bitstream descriptor if one was supplied
   return status ;
 }
 
-// encode a block as multiple tiles into a bit stream
+// decode a block as multiple tiles from a bit stream
 // block  [OUT] : storage for values to be decoded
 // lnid    [IN] : storage length of block rows
-// ni      [IN] : number of values to decode in a block row
+// ni      [IN] : number of values in a block row
+//                number of values (decode_block_1d)
 // nj      [IN] : number of rows to decode
-// tsize   [IN] : desired size of encoded tiles
+// tsize   [IN] : base dimension of encoding tiles (MUST be the same size used by encoder)
 // s_in [INOUT] : pointer to bitstream descriptor (see bitstream.h)
-// return nuber of bits extracted into bitstream buffer
-// tsize/2 <= dimension < tsize+tsize/2  (for both i and j tile dimensions)
+// return nuber of bits extracted from bitstream buffer
+// tsize/2 <= actual tile dimension < tsize+tsize/2  (for both i and j tile dimensions)
 // the dimension of the last slice along i or j may be shorter or longer than tsize
 // in case of error, s_in is left as it was upon entry
+// TODO: get tsize from bitstream (from encoder)
+// 1 bit : tile size is 7/15 bits, followed by 7/15 bits for base tile size
+//
+// 1D decoder
 int decode_block_1d(bitstream *s_in, int32_t *block, int ni, int tsize){
   tsize = tsize & 0x7FFFFFFE ;   //force tsize to EVEN value
   int i0, lni, status, totbits ;
   int32_t *tile ;
+  array_axis ri ;
   bitstream s ;
 
   status = -1 ;
-  if(s_in == NULL) goto error ;
-  s = *s_in ;        // take local copy of s_in
+
+  if(s_in) s = *s_in ;
+  ri = split_axis(ni, tsize) ;
 
   totbits = 0 ;
-  lni = tsize ;
-  for(i0=0 ; i0<ni ; i0+=tsize){
-    if( i0+tsize >= ni) lni = ni - i0 ;
+  for(i0=0, lni = ri.ln0 ; i0<ni ; i0+=lni, lni = tsize){
     tile = block + i0 ;
-    status = decode_tile(&s, tile, lni) ;
+    status = decode_tile(s_in, tile, lni) ;
     if(status <= 0) goto error ;
     totbits += status ;
   }
 
-  *s_in = s ;        // update s_in if successful
   return totbits ;
 
 error:
+  if(s_in) *s_in = s ;    // restore bitstream descriptor if one was supplied
   return status ;
 }
+// 2D decoder
 int decode_block(bitstream *s_in, int32_t *block, int lnid, int ni, int nj, int tsize){
   tsize = tsize & 0x7FFFFFFE ;   //force tsize to EVEN value
+  bitstream s ;
 
-  if(ni == 1 || nj == 1) return decode_block_1d(s_in, block, ni*nj, tsize) ;
+  if(ni == 1 || nj == 1) return decode_block_1d(s_in, block, ni*nj, tsize*tsize) ;
 
+  if(s_in) s = *s_in ;
   array_axis ri, rj ;
   ri = split_axis(ni, tsize) ;
   rj = split_axis(nj, tsize) ;
 
   int i0, lni, j0, lnj, status, totbits ;
-  int32_t tile[tsize*tsize*4] ;
-  bitstream s ;
+  int32_t tile[tsize*tsize*4] ;  // worst case size
 
   status = -1 ;
-  if(s_in == NULL) goto error ;
-  s = *s_in ;        // take local copy of s_in
 
   totbits = 0 ;
   for(j0=0, lnj = rj.ln0 ; j0<nj ; j0+=lnj, lnj = tsize){
     int32_t *dst = block ;
     for(i0=0, lni = ri.ln0 ; i0<ni ; i0+=lni, lni = tsize){
-      status = decode_tile(&s, tile, lni*lnj) ;                // decode tile
+      status = decode_tile(s_in, tile, lni*lnj) ;                // decode tile
       move_w32_block(tile, lni, dst, lnid, lni, lnj, NULL) ;   // put tile into block
       if(status <= 0) goto error ;
       totbits += status ;
@@ -577,12 +589,51 @@ int decode_block(bitstream *s_in, int32_t *block, int lnid, int ni, int nj, int 
     block += lnj * lnid ;
   }
 
-  *s_in = s ;        // update s_in
   return totbits ;
 
 error:
-fprintf(stderr, "decode_block : error %d\n", status) ;
+  if(s_in) *s_in = s ;    // restore bitstream descriptor if one was supplied
   return status ;
+}
+
+// encode an array as multiple blocks/tiles into a bit stream
+// array   [IN] : values to be encoded
+// lnis    [IN] : storage length of block rows
+// ni      [IN] : number of values in a block row
+//                number of values (encode_block_1d)
+// nj      [IN] : number of rows to encode
+// bsize   [IN] : desired size of encoding blocks (64 suggested)
+// tsize   [IN] : desired size of encoding tiles (8 suggested)
+// s_in [INOUT] : pointer to bitstream descriptor (see bitstream.h)
+// return nuber of bits inserted into bitstream buffer
+// tsize/2 <= dimension < tsize+tsize/2  (for both i and j tile dimensions)
+// the dimension of the last blocks along i or j may be shorter or longer than bsize/tsize
+// in case of error, s_in is left as it was upon entry
+// 1 bit : block size is 7/15 bits, followed by 7/15 bits for bsize value
+int encode_array(bitstream *s_in, int32_t *array, int lnis, int ni, int nj, int bsize, int tsize, int options){
+  tsize = tsize & 0x7FFFFFFE ;   //force tsize to EVEN value
+  bsize = bsize & 0x7FFFFFFE ;   //force bsize to EVEN value
+  return -1 ;
+}
+
+// decode a block as multiple blocks/tiles from a bit stream
+// array  [OUT] : storage for values to be decoded
+// lnid    [IN] : storage length of block rows
+// ni      [IN] : number of values in a block row
+//                number of values (decode_block_1d)
+// nj      [IN] : number of rows to decode
+// bsize   [IN] : base size of encoding blocks (MUST be the same size used by encoder)
+// tsize   [IN] : base size of encoding tiles (MUST be the same size used by encoder)
+// s_in [INOUT] : pointer to bitstream descriptor (see bitstream.h)
+// return nuber of bits extracted from bitstream buffer
+// tsize/2 <= dimension < tsize+tsize/2  (for both i and j tile dimensions)
+// the dimension of the last blocks along i or j may be shorter or longer than bsize/tsize
+// in case of error, s_in is left as it was upon entry
+// 1 bit : block size is 7/15 bits, followed by 7/15 bits for bsize value
+int decode_array(bitstream *s_in, int32_t *array, int lnis, int ni, int nj, int bsize, int tsize){
+  tsize = tsize & 0x7FFFFFFE ;   //force tsize to EVEN value
+  bsize = bsize & 0x7FFFFFFE ;   //force bsize to EVEN value
+  return -1 ;
 }
 
 // #define USE_AEC_COMPRESSION
