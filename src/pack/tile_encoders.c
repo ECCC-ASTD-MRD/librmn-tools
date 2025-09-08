@@ -637,7 +637,6 @@ int decode_array(bitstream *s_in, int32_t *array, int lnis, int ni, int nj, int 
 }
 
 // #define USE_AEC_COMPRESSION
-// #undef USE_AEC_COMPRESSION
 #if defined(USE_AEC_COMPRESSION)
 #include <libaec.h>
 

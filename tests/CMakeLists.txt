@@ -221,6 +221,7 @@ set(test_vfunctions_src test_vfunctions.c vfunctions.c vfunctions2.c)
 add_project_test(test_vfunctions           "${test_vfunctions_src}"                                NO_TOOLS)
 
 # to be added to librmn tests
+# add_project_test(test_tile_encoders        test_tile_encoders.c        LINK_LIBS "rmn::rmn;libaec::aec"                 NODIAG)
 add_project_test(test_tile_encoders        test_tile_encoders.c        LINK_LIBS "rmn::rmn"                 NODIAG)
 
 # added to librmn tests

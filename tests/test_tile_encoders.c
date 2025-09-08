@@ -327,7 +327,8 @@ bypass1:
   fprintf(stderr, "SUCCESS\n") ;
 
 bypass2:
-  fprintf(stderr, "\n============================== block/tiles encoding/decoding test ==============================\n\n") ;
+  fprintf(stderr, "\n============================== block/tile encoding/decoding test  ==============================") ;
+  fprintf(stderr, "\n==============================              2 D test              ==============================\n") ;
 
 #define BNI   1023
 #define BNJ   1025
@@ -396,6 +397,7 @@ bypass2:
   }
   fprintf(stderr, ", %d errors\n", errors);
 
+  fprintf(stderr, "\n==============================              1 D test              ==============================\n") ;
 // encode/decode as a 1D block
   fprintf(stderr, "\n") ;
   bitstream *ps3 ;
@@ -431,7 +433,9 @@ bypass2:
   }
   fprintf(stderr, ", %d errors\n", errors);
 
+// #define USE_AEC_COMPRESSION
 #if defined(USE_AEC_COMPRESSION)
+  fprintf(stderr, "\n==============================              AEC test              ==============================\n") ;
   int32_t aes_out[BNI*BNJ] ;
   int32_t AecEncodeUnsigned(void *source, int32_t source_length, void *dest, int32_t dest_length, int bits_per_sample) ;
   for(i=0 ; i<BNI*BNJ ; i++) aes_out[i] = 0xCAFEFADE ;
