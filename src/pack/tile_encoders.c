@@ -442,66 +442,89 @@ error:
 // ni      [IN] : number of values in a block row
 //                number of values (encode_block_1d)
 // nj      [IN] : number of rows to encode
-// tsize   [IN] : base dimension of encoded tiles (8 suggested)
+// tsize   [IN] : base dimension of encoded tiles (8 suggested, >= 4 mandatory)
 // s_in [INOUT] : pointer to bitstream descriptor (see bitstream.h)
 // return nuber of bits inserted into bitstream buffer
 // tsize/2 <= actual tile dimension < tsize+tsize/2  (for both i and j tile dimensions)
 // the dimension of the last slice along i or j may be shorter or longer than tsize
 // in case of error, s_in is left as it was upon entry
 // TODO: store tsize into bitstream for decoder
-// 1 bit : tile size is 7/15 bits, followed by 7/15 bits for tile size
-// 1D encoder
-int encode_block_1d(bitstream *s_in, int32_t *block, int ni, int tsize, int options){
-  tsize = tsize & 0x7FFFFFFE ;   //force tsize to EVEN value
-  int i0, lni, status, totbits ;
+//       1 bit : tile size is 8/16 bits, followed by 8/16 bits for tile size
+//       store dimensions into bitstream for decoder verification
+//       - XXb nb de dimensions -1 , 00b/8 bits, 01b/16 bits, 10b/24 bits 11b/32 bits
+//
+// 1D encoder, called by the 2D encoder
+static int encode_block_1d(bitstream *s_in, int32_t *block, int n, int tsize, int options){
+  int i0, ln, status = -1, totbits ;
   int32_t *tile ;
   block_properties bp ;
-  array_axis ri ;
-  bitstream s ;
 
-  status = -1 ;
-  if(s_in) s = *s_in ;
-
-  ri = split_axis(ni, tsize) ;
+  array_axis ri = split_axis(n, tsize) ;
 
   totbits = 0 ;
-  for(i0=0, lni = ri.ln0 ; i0<ni ; i0+=lni, lni = tsize){
+  for(i0=0, ln = ri.ln0 ; i0<n ; i0+=ln, ln = tsize){
     tile = block + i0 ;
-    analyze_data32_block(tile, lni, lni, 1, &bp) ;
-    status = encode_tile(s_in, tile, lni, &bp, options) ;
+    analyze_data32_block(tile, ln, ln, 1, &bp) ;
+    status = encode_tile(s_in, tile, ln, &bp, options) ;
     if(status <= 0) goto error ;
     totbits += status ;
   }
-
-  return totbits ;
+  return totbits ;   // return number of bits inserted
 
 error:
-  if(s_in) *s_in = s ;    // restore bitstream descriptor if one was supplied
-  return status ;
+  return status ;    // *s_in will be restored by encode_block
 }
+#define STORE_DIMENSION(s, n) { \
+                              nbits = 8 ; code = 0b00 ; \
+                              if(n > 0xFF  ){ nbits = 16 ; code = 0b01 ; } ; \
+                              if(n > 0xFFFF){ nbits = 32 ; code = 0b11 ; } ; \
+                              STREAM_PUT_NBITS(s, code, 2) ; \
+                              STREAM_PUT_NBITS(s, n, nbits) ; \
+                              totbits = totbits + 2 + nbits ; \
+                              }
+
 // 2D encoder
 int encode_block(bitstream *s_in, int32_t *block, int lnis, int ni, int nj, int tsize, int options){
-  tsize = tsize & 0x7FFFFFFE ;   //force tsize to EVEN value
+  int i0, lni, j0, lnj, status = -1, totbits = 0 ;
   bitstream s ;
 
-  if(ni == 1 || nj == 1) return encode_block_1d(s_in, block, ni*nj, tsize*tsize, options) ;
+  if(block == NULL || lnis <=0 || ni <= 0 || nj <= 0 || tsize < 4) return status ;
 
-  if(s_in) s = *s_in ;
-  array_axis ri, rj ;
-  ri = split_axis(ni, tsize) ;
-  rj = split_axis(nj, tsize) ;
-
-  int i0, lni, j0, lnj, status, totbits ;
+  tsize = tsize & 0xFFFE ;     //force tsize to reasonable EVEN value
   int32_t tile[tsize*tsize*4] ;
   block_properties bp ;
 
-  status = -1 ;
+  if(s_in){
+    int nbits, code ;
+    s = *s_in ;                // save bitstream descriptor in case of error
+    // put block dimensions and tsize into bit stream
+    STREAM_PUT_NBITS(*s_in, 1, 2) ;                 // 2 dimensions
+    totbits = 2 ;
+// fprintf(stderr, "totbits = %d\n", totbits) ;
+    STORE_DIMENSION(*s_in,ni) ;
+// fprintf(stderr, "code = %d, nbits = %d, ni = %d, totbits = %d\n", code, nbits, ni, totbits) ;
+    STORE_DIMENSION(*s_in,nj) ;
+// fprintf(stderr, "code = %d, nbits = %d, nj = %d, totbits = %d\n", code, nbits, nj, totbits) ;
+    STORE_DIMENSION(*s_in,tsize) ;
+// fprintf(stderr, "code = %d, nbits = %d, tsize = %d, totbits = %d\n", code, nbits, tsize, totbits) ;
+  }
+
+  if(ni == 1 || nj == 1){
+    status = encode_block_1d(s_in, block, ni*nj, tsize*tsize, options) ;
+    if(status <= 0) goto error ;
+    totbits += status ;
+    goto end ;
+  }
+
+  array_axis ri, rj ;
+  ri = split_axis(ni, tsize) ;
+  rj = split_axis(nj, tsize) ;
 
   totbits = 0 ;
   for(j0=0, lnj = rj.ln0 ; j0<nj ; j0+=lnj, lnj = tsize){
     int32_t *src = block ;
     for(i0=0, lni = ri.ln0 ; i0<ni ; i0+=lni, lni = tsize){
-      move_w32_block(src, lnis, tile, lni, lni, lnj, &bp) ;  // get tile from block
+      move_w32_block(src, lnis, tile, lni, lni, lnj, &bp) ;             // get tile from block
       status = encode_tile(s_in, tile, lni*lnj, &bp, options) ;         // encode tile
       if(status <= 0) goto error ;
       totbits += status ;
@@ -510,11 +533,12 @@ int encode_block(bitstream *s_in, int32_t *block, int lnis, int ni, int nj, int 
     block += lnj * lnis ;
   }
 
+end:
   return totbits ;
 
 error:
   if(s_in) *s_in = s ;    // restore bitstream descriptor if one was supplied
-  return status ;
+  return status ;         // return error status
 }
 
 // decode a block as multiple tiles from a bit stream
@@ -530,19 +554,15 @@ error:
 // the dimension of the last slice along i or j may be shorter or longer than tsize
 // in case of error, s_in is left as it was upon entry
 // TODO: get tsize from bitstream (from encoder)
-// 1 bit : tile size is 7/15 bits, followed by 7/15 bits for base tile size
-//
+//       1 bit : tile size is 8/16 bits, followed by 8/16 bits for base tile size
+//       get dimensions from bit stream and check consistency with request
 // 1D decoder
-int decode_block_1d(bitstream *s_in, int32_t *block, int ni, int tsize){
-  tsize = tsize & 0x7FFFFFFE ;   //force tsize to EVEN value
-  int i0, lni, status, totbits ;
+static int decode_block_1d(bitstream *s_in, int32_t *block, int ni, int tsize){
+  tsize = tsize & 0xFFFE ;   //force tsize to reasonable EVEN value
+  int i0, lni, status = -1, totbits ;
   int32_t *tile ;
   array_axis ri ;
-  bitstream s ;
 
-  status = -1 ;
-
-  if(s_in) s = *s_in ;
   ri = split_axis(ni, tsize) ;
 
   totbits = 0 ;
@@ -556,27 +576,53 @@ int decode_block_1d(bitstream *s_in, int32_t *block, int ni, int tsize){
   return totbits ;
 
 error:
-  if(s_in) *s_in = s ;    // restore bitstream descriptor if one was supplied
   return status ;
 }
+
+#define FETCH_DIMENSION(s, n, ref, totbits) \
+                        { int token, nbits ; \
+                          STREAM_GET_NBITS(s, code, 2) ; \
+                          nbits = 8 * (code+1) ; \
+                          STREAM_GET_NBITS(s, n, nbits) ; \
+                          totbits = totbits + 2 + nbits ; \
+                          if(ref != token) goto error ; \
+                        }
 // 2D decoder
 int decode_block(bitstream *s_in, int32_t *block, int lnid, int ni, int nj, int tsize){
-  tsize = tsize & 0x7FFFFFFE ;   //force tsize to EVEN value
-  bitstream s ;
+  int i0, lni, j0, lnj, status = -1, totbits ;
 
-  if(ni == 1 || nj == 1) return decode_block_1d(s_in, block, ni*nj, tsize*tsize) ;
+  if(s_in == NULL || block == NULL || lnid <= 0 || ni <= 0 || nj <= 0 || tsize < 4) return status ;
 
-  if(s_in) s = *s_in ;
+  tsize = tsize & 0xFFFE ;   //force tsize to reasonable EVEN value
+  int32_t tile[tsize*tsize*4] ;  // worst case size
+  bitstream s = *s_in ;
+  uint32_t code ;
+
+  // get block dimensions and tsize from bit stream
+  STREAM_GET_NBITS(*s_in, code, 2) ;
+  totbits = 2 ;
+  if(code != 1){
+    fprintf(stderr, "ERROR: expected 2 dimensions, got %d\n", code + 1) ;
+    goto error ;
+  }
+  FETCH_DIMENSION(*s_in, token, ni, totbits) ;
+// fprintf(stderr, "code = %d, nbits = %d, token = %d, ni = %d, totbits = %d\n", code, nbits, token, ni, totbits) ;
+  FETCH_DIMENSION(*s_in, token, nj, totbits) ;
+// fprintf(stderr, "code = %d, nbits = %d, token = %d, nj = %d, totbits = %d\n", code, nbits, token, nj, totbits) ;
+  FETCH_DIMENSION(*s_in, token, tsize, totbits) ;
+// fprintf(stderr, "code = %d, nbits = %d, token = %d, tsize = %d, totbits = %d\n", code, nbits, token, tsize, totbits) ;
+
+  if(ni == 1 || nj == 1){
+    status = decode_block_1d(s_in, block, ni*nj, tsize*tsize) ;
+    if(status <= 0) goto error ;
+    totbits += status ;
+    return totbits ;
+  }
+
   array_axis ri, rj ;
   ri = split_axis(ni, tsize) ;
   rj = split_axis(nj, tsize) ;
 
-  int i0, lni, j0, lnj, status, totbits ;
-  int32_t tile[tsize*tsize*4] ;  // worst case size
-
-  status = -1 ;
-
-  totbits = 0 ;
   for(j0=0, lnj = rj.ln0 ; j0<nj ; j0+=lnj, lnj = tsize){
     int32_t *dst = block ;
     for(i0=0, lni = ri.ln0 ; i0<ni ; i0+=lni, lni = tsize){
@@ -609,9 +655,9 @@ error:
 // tsize/2 <= dimension < tsize+tsize/2  (for both i and j tile dimensions)
 // the dimension of the last blocks along i or j may be shorter or longer than bsize/tsize
 // in case of error, s_in is left as it was upon entry
-// 1 bit : block size is 7/15 bits, followed by 7/15 bits for bsize value
+// 1 bit : block size is 8/16 bits, followed by 8/16 bits for bsize value
 int encode_array(bitstream *s_in, int32_t *array, int lnis, int ni, int nj, int bsize, int tsize, int options){
-  tsize = tsize & 0x7FFFFFFE ;   //force tsize to EVEN value
+  tsize = tsize & 0x7FFFFFF8 ;   //force tsize to multiple of 8
   bsize = bsize & 0x7FFFFFFE ;   //force bsize to EVEN value
   return -1 ;
 }
@@ -629,9 +675,9 @@ int encode_array(bitstream *s_in, int32_t *array, int lnis, int ni, int nj, int 
 // tsize/2 <= dimension < tsize+tsize/2  (for both i and j tile dimensions)
 // the dimension of the last blocks along i or j may be shorter or longer than bsize/tsize
 // in case of error, s_in is left as it was upon entry
-// 1 bit : block size is 7/15 bits, followed by 7/15 bits for bsize value
+// 1 bit : block size is 8/16 bits, followed by 8/16 bits for bsize value
 int decode_array(bitstream *s_in, int32_t *array, int lnis, int ni, int nj, int bsize, int tsize){
-  tsize = tsize & 0x7FFFFFFE ;   //force tsize to EVEN value
+  tsize = tsize & 0x7FFFFFF8 ;   //force tsize to multiple of 8
   bsize = bsize & 0x7FFFFFFE ;   //force bsize to EVEN value
   return -1 ;
 }
