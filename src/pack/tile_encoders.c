@@ -448,10 +448,10 @@ error:
 // tsize/2 <= actual tile dimension < tsize+tsize/2  (for both i and j tile dimensions)
 // the dimension of the last slice along i or j may be shorter or longer than tsize
 // in case of error, s_in is left as it was upon entry
-// TODO: store tsize into bitstream for decoder
-//       1 bit : tile size is 8/16 bits, followed by 8/16 bits for tile size
-//       store dimensions into bitstream for decoder verification
-//       - XXb nb de dimensions -1 , 00b/8 bits, 01b/16 bits, 10b/24 bits 11b/32 bits
+// store tsize and imensions into bitstream for verification by decoder
+//       - XXb nb de dimensions -1 
+//       - 00b/8 bits, 01b/16 bits, 11b/32 bits (dimensions)
+//       - 00b/8 bits, 01b/16 bits, 11b/32 bits (tsize)
 //
 // 1D encoder, called by the 2D encoder
 static int encode_block_1d(bitstream *s_in, int32_t *block, int n, int tsize, int options){
@@ -553,9 +553,10 @@ error:
 // tsize/2 <= actual tile dimension < tsize+tsize/2  (for both i and j tile dimensions)
 // the dimension of the last slice along i or j may be shorter or longer than tsize
 // in case of error, s_in is left as it was upon entry
-// TODO: get tsize from bitstream (from encoder)
-//       1 bit : tile size is 8/16 bits, followed by 8/16 bits for base tile size
-//       get dimensions from bit stream and check consistency with request
+// get tsize and dimensions from bit stream (from encoder) for consistency checking
+//       - XXb nb de dimensions -1 (2 bits)
+//       - 00b/8 bits, 01b/16 bits, 11b/32 bits (dimensions)
+//       - 00b/8 bits, 01b/16 bits, 11b/32 bits (tsize)
 // 1D decoder
 static int decode_block_1d(bitstream *s_in, int32_t *block, int ni, int tsize){
   tsize = tsize & 0xFFFE ;   //force tsize to reasonable EVEN value
@@ -598,21 +599,21 @@ int decode_block(bitstream *s_in, int32_t *block, int lnid, int ni, int nj, int 
   bitstream s = *s_in ;
   uint32_t code ;
 
-  // get block dimensions and tsize from bit stream
-  STREAM_GET_NBITS(*s_in, code, 2) ;
+  STREAM_GET_NBITS(*s_in, code, 2) ;    // get and check number of dimensions from bit stream
   totbits = 2 ;
   if(code != 1){
     fprintf(stderr, "ERROR: expected 2 dimensions, got %d\n", code + 1) ;
     goto error ;
   }
-  FETCH_DIMENSION(*s_in, token, ni, totbits) ;
+  FETCH_DIMENSION(*s_in, token, ni, totbits) ;      // get and check ni from stream
 // fprintf(stderr, "code = %d, nbits = %d, token = %d, ni = %d, totbits = %d\n", code, nbits, token, ni, totbits) ;
-  FETCH_DIMENSION(*s_in, token, nj, totbits) ;
+  FETCH_DIMENSION(*s_in, token, nj, totbits) ;      // get and check nj from stream
 // fprintf(stderr, "code = %d, nbits = %d, token = %d, nj = %d, totbits = %d\n", code, nbits, token, nj, totbits) ;
-  FETCH_DIMENSION(*s_in, token, tsize, totbits) ;
+  FETCH_DIMENSION(*s_in, token, tsize, totbits) ;   // get and check tsize from stream
 // fprintf(stderr, "code = %d, nbits = %d, token = %d, tsize = %d, totbits = %d\n", code, nbits, token, tsize, totbits) ;
 
   if(ni == 1 || nj == 1){
+    // in 1 D case, square tile size value
     status = decode_block_1d(s_in, block, ni*nj, tsize*tsize) ;
     if(status <= 0) goto error ;
     totbits += status ;
