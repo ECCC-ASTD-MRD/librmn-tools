@@ -15,7 +15,7 @@
 !
 ! include file used to build Fortran based plugin libraries
 !module LIBRARY_PLUGIN_MOD
-module LIBRARY_PLUGIN_MOD
+module SHAREDF1_MOD
   use ISO_C_BINDING
   implicit none
   save

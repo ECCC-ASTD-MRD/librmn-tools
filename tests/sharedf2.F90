@@ -59,7 +59,7 @@ end
 #define SHAREDF1_MOD sharedf2_mod
 #include <rmn/library_plugin.hf>
 subroutine fortran_constructor() bind(C,name='fortran_constructor')
-  use LIBRARY_PLUGIN_MOD
+  use SHAREDF1_MOD
   implicit none
 print *,'fortran_constructor loading symbols in table for  sharedf2'
 !   call insert_in_name_table('name1f')
