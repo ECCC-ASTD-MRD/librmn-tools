@@ -1,4 +1,4 @@
-! Example og plugin written in Fortran
+! Example of plugin written in Fortran
 ! this plugin supplies (and advertises) the following callable entry points 
 ! name1f, name2f, name3f, name4f
 ! BIND(C,name=...) mandatory to make sure names match entry point names
@@ -56,11 +56,10 @@ end
 ! fortran_constructor will be called by the plugin library constructor
 #define MAX_NAMES 4
 #define MAX_NAME_LENGTH 10
-!#define LIBRARY_PLUGIN_MOD sharedf1_mod
-#define SHAREDF1_MOD sharedf1_mod
+#define LIBRARY_PLUGIN_MOD sharedf1_mod
 #include <rmn/library_plugin.hf>
 subroutine fortran_constructor() bind(C,name='fortran_constructor')
-  use SHAREDF1_MOD
+  use LIBRARY_PLUGIN_MOD
   implicit none
 print *,'fortran_constructor loading symbols in table for sharedf1'
   call insert_in_name_table('name1f')

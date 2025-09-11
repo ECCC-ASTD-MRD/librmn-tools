@@ -14,8 +14,9 @@
 !     M. Valin,   Environnement et Changement climatique Canada, 2020-2022
 !
 ! include file used to build Fortran based plugin libraries
-!module LIBRARY_PLUGIN_MOD
-module SHAREDF1_MOD
+#if defined(LIBRARY_PLUGIN_MOD)
+module LIBRARY_PLUGIN_MOD
+!module SHAREDF1_MOD
   use ISO_C_BINDING
   implicit none
   save
@@ -64,3 +65,10 @@ contains
   end subroutine
 end module
 
+#else
+
+module library_plugin_mod
+   integer :: dummy
+end module
+
+#endif

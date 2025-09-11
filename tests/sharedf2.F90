@@ -55,11 +55,10 @@ end
 !                          calls to insert_in_name_table in subroutine user_symbols
 #define MAX_NAMES 4
 #define MAX_NAME_LENGTH 10
-!#define LIBRARY_PLUGIN_MOD sharedf2_mod
-#define SHAREDF1_MOD sharedf2_mod
+#define LIBRARY_PLUGIN_MOD sharedf2_mod
 #include <rmn/library_plugin.hf>
 subroutine fortran_constructor() bind(C,name='fortran_constructor')
-  use SHAREDF1_MOD
+  use LIBRARY_PLUGIN_MOD
   implicit none
 print *,'fortran_constructor loading symbols in table for  sharedf2'
 !   call insert_in_name_table('name1f')

@@ -101,6 +101,9 @@ add_project_test(test_shared_2 test_shared.c LINK_LIBS shared2 NO_TOOLS)
 SET_SOURCE_FILES_PROPERTIES( test_shared_012.c PROPERTIES COMPILE_OPTIONS ${TEST_INCLUDES} )
 add_project_test(test_shared_012 test_shared_012.c LINK_LIBS "shared2;shared1;shared0" NO_TOOLS)
 
+SET_SOURCE_FILES_PROPERTIES( sharedf0.F90 PROPERTIES COMPILE_OPTIONS ${TEST_INCLUDES} )
+add_library(sharedf0 SHARED sharedf0.F90 ../src/plugins/plugin_constructor.c)
+
 SET_SOURCE_FILES_PROPERTIES( sharedf1.F90 PROPERTIES COMPILE_OPTIONS ${TEST_INCLUDES} )
 add_library(sharedf1 SHARED sharedf1.F90 ../src/plugins/plugin_constructor.c)
 
