@@ -474,14 +474,43 @@ static int encode_block_1d(bitstream *s_in, int32_t *block, int n, int tsize, in
 error:
   return status ;    // *s_in will be restored by encode_block
 }
-#define STORE_DIMENSION(s, n) { \
-                              nbits = 8 ; code = 0b00 ; \
-                              if(n > 0xFF  ){ nbits = 16 ; code = 0b01 ; } ; \
-                              if(n > 0xFFFF){ nbits = 32 ; code = 0b11 ; } ; \
-                              STREAM_PUT_NBITS(s, code, 2) ; \
-                              STREAM_PUT_NBITS(s, n, nbits) ; \
-                              totbits = totbits + 2 + nbits ; \
-                              }
+// #define STORE_DIMENSION(s, n) { \
+//                               nbits = 8 ; code = 0b00 ; \
+//                               if(n > 0xFF  ){ nbits = 16 ; code = 0b01 ; } ; \
+//                               if(n > 0xFFFF){ nbits = 32 ; code = 0b11 ; } ; \
+//                               STREAM_PUT_NBITS(s, code, 2) ; \
+//                               STREAM_PUT_NBITS(s, n, nbits) ; \
+//                               totbits = totbits + 2 + nbits ; \
+//                               }
+
+uint32_t stream_get_hbw(bitstream *s, int *totbits){
+  uint32_t nbits, value ;
+  STREAM_GET_NBITS(*s, nbits, 2) ;
+  nbits++ ; nbits <<= 3 ;   // (nbits+1) * 8 = number of bits
+  STREAM_GET_NBITS(*s, value, nbits) ;
+  *totbits = *totbits + 2 + nbits ;
+  return value ;
+}
+
+// put value and code into bitstream
+// 2 bit code = (nbytes needed for value - 1)
+// 8/16/32 bits only
+// return number of bits inserted
+uint32_t stream_put_hbw(bitstream *s, int32_t value){
+  if(value & 0xFFFF){
+    STREAM_PUT_NBITS(*s, 3, 2) ;
+    STREAM_PUT_NBITS(*s, value, 32) ;        // there is NOT guaranteed room for 32 bits
+    return 34 ;
+  }else if(value & 0xFF){
+    STREAM_PUT_NBITS(*s, 1, 2) ;
+    STREAM_FAST_PUT_NBITS(*s, value, 16) ;   // there is guaranteed room for 16 bits
+    return 18 ;
+  }else{
+    STREAM_PUT_NBITS(*s, 0, 2) ;
+    STREAM_FAST_PUT_NBITS(*s, value, 8) ;    // there is guaranteed room for 8 bits
+    return 10 ;
+  }
+};
 
 // 2D encoder
 int encode_block(bitstream *s_in, int32_t *block, int lnis, int ni, int nj, int tsize, int options){
@@ -500,13 +529,9 @@ int encode_block(bitstream *s_in, int32_t *block, int lnis, int ni, int nj, int 
     // put block dimensions and tsize into bit stream
     STREAM_PUT_NBITS(*s_in, 1, 2) ;                 // 2 dimensions
     totbits = 2 ;
-// fprintf(stderr, "totbits = %d\n", totbits) ;
-    STORE_DIMENSION(*s_in,ni) ;
-// fprintf(stderr, "code = %d, nbits = %d, ni = %d, totbits = %d\n", code, nbits, ni, totbits) ;
-    STORE_DIMENSION(*s_in,nj) ;
-// fprintf(stderr, "code = %d, nbits = %d, nj = %d, totbits = %d\n", code, nbits, nj, totbits) ;
-    STORE_DIMENSION(*s_in,tsize) ;
-// fprintf(stderr, "code = %d, nbits = %d, tsize = %d, totbits = %d\n", code, nbits, tsize, totbits) ;
+    totbits += stream_put_hbw(s_in, ni) ;
+    totbits += stream_put_hbw(s_in, nj) ;
+    totbits += stream_put_hbw(s_in, tsize) ;
   }
 
   if(ni == 1 || nj == 1){
@@ -591,29 +616,31 @@ error:
 // 2D decoder
 int decode_block(bitstream *s_in, int32_t *block, int lnid, int ni, int nj, int tsize){
   int i0, lni, j0, lnj, status = -1, totbits ;
+  bitstream s = *s_in ;
+  goto code ;
 
+error:                    // error block at beginning because of dynamic allocation of tile
+  if(s_in) *s_in = s ;    // restore bitstream descriptor if one was supplied
+  return status ;
+
+code:
   if(s_in == NULL || block == NULL || lnid <= 0 || ni <= 0 || nj <= 0 || tsize < 4) return status ;
 
   tsize = tsize & 0xFFFE ;   //force tsize to reasonable EVEN value
-  int32_t tile[tsize*tsize*4] ;  // worst case size
-  bitstream s = *s_in ;
   uint32_t code ;
 
   STREAM_GET_NBITS(*s_in, code, 2) ;    // get and check number of dimensions from bit stream
+  if(code != 1) goto error ;            // OOPS, expected 2 dimensions (code == 1)
   totbits = 2 ;
-  if(code != 1){
-    fprintf(stderr, "ERROR: expected 2 dimensions, got %d\n", code + 1) ;
-    goto error ;
-  }
-  FETCH_DIMENSION(*s_in, token, ni, totbits) ;      // get and check ni from stream
-// fprintf(stderr, "code = %d, nbits = %d, token = %d, ni = %d, totbits = %d\n", code, nbits, token, ni, totbits) ;
-  FETCH_DIMENSION(*s_in, token, nj, totbits) ;      // get and check nj from stream
-// fprintf(stderr, "code = %d, nbits = %d, token = %d, nj = %d, totbits = %d\n", code, nbits, token, nj, totbits) ;
-  FETCH_DIMENSION(*s_in, token, tsize, totbits) ;   // get and check tsize from stream
-// fprintf(stderr, "code = %d, nbits = %d, token = %d, tsize = %d, totbits = %d\n", code, nbits, token, tsize, totbits) ;
+  uint32_t ni_    = stream_get_hbw(s_in, &totbits) ;
+  uint32_t nj_    = stream_get_hbw(s_in, &totbits) ;
+  uint32_t tsize_ = stream_get_hbw(s_in, &totbits) ;
+
+  if((uint32_t)ni != ni_ || (uint32_t)nj != nj_ || (uint32_t)tsize != tsize_) goto error ;
+  int32_t tile[tsize*tsize*4] ;         // worst case size
 
   if(ni == 1 || nj == 1){
-    // in 1 D case, square tile size value
+    // in 1 D case, use square of tile size value as tile size
     status = decode_block_1d(s_in, block, ni*nj, tsize*tsize) ;
     if(status <= 0) goto error ;
     totbits += status ;
@@ -637,10 +664,6 @@ int decode_block(bitstream *s_in, int32_t *block, int lnid, int ni, int nj, int 
   }
 
   return totbits ;
-
-error:
-  if(s_in) *s_in = s ;    // restore bitstream descriptor if one was supplied
-  return status ;
 }
 
 // encode an array as multiple blocks/tiles into a bit stream
