@@ -52,8 +52,10 @@ int main(int argc, char **argv){
 
   freopen(outfile, "w", stderr) ;
 
-  if(argc >= 0){
+  if(argc >= 2){
     start_of_test_notime(argv[0]);
+  }else{
+    start_of_test_notime("test_simd") ;
   }
 
   fprintf(stderr, "- test of 128/256 bit types\n");
@@ -315,4 +317,5 @@ int main(int argc, char **argv){
   v8ra = setr_2v128(v4ra, v4ra) ; _mm256_print_epu32("v8ra", v8ra) ;
 
   return 0 ;
+
 }
