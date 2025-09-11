@@ -116,7 +116,6 @@ message(STATUS "rmn_INCLUDE_DIR = ${rmn_INCLUDE_DIR}")
 if (NOT libaec_FOUND)
    find_package(libaec REQUIRED)
 endif()
-message(STATUS "(AEC includes) : ${libaec_INCLUDE_DIR}")
 message(STATUS "(AEC includes) : ${LIBAEC_INCLUDE_DIR}")
 
 if (NOT zfp_FOUND)
