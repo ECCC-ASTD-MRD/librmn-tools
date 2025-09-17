@@ -233,6 +233,8 @@ add_custom_target(CBindingExtras DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/src/PUBLIC_
 # include source files lists
 include(ec_tools_project_files)
 
+# SET_SOURCE_FILES_PROPERTIES( src/pack/dmap_filters_000_007.c PROPERTIES COMPILE_OPTIONS "-O0")
+
 SET_SOURCE_FILES_PROPERTIES( src/pack/ieee_quantize.c PROPERTIES COMPILE_OPTIONS "-O3;-DQUIET_SIMD")
 
 SET_SOURCE_FILES_PROPERTIES( src/pred/lorenzo_c.c PROPERTIES COMPILE_OPTIONS "-O3;-DQUIET_SIMD")

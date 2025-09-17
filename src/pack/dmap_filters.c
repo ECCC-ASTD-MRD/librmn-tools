@@ -127,7 +127,9 @@ reverse:
 #include <stdlib.h>
 #include <rmn/dmap_filters.h>
 
+// workaround for a potential optimizer problem
 void do_nothing_with(void *what){
+  (void) (what) ;
   return ;
 }
 
