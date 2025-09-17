@@ -18,6 +18,7 @@
 
 #define FP_QUANTIZE_LIN 0
 #define FP_QUANTIZE_LOG 1
+#define FP_FAKE_INT     2
 
 #include <stdint.h>
 #include <rmn/data_properties.h>
@@ -25,10 +26,11 @@
 float fp2q_quantum(float maxabs, float maxerr, int32_t nbits);
 
 // linear quantizer for float values
-// z   [IN] : 32 bit float
-//ovdq [IN] : inverse of discretization quantum (32 bit float, ideally a power of 2)
+// z    [IN] : 32 bit float
+// ovdq [IN] : inverse of discretization quantum (32 bit float, ideally a power of 2)
 // return quantized value (32 bit integer) (including proper rounding)
 static inline int32_t fp2q_lin_(float z, float ovdq){
+  // integerize with appropriate rounding (add .5 to positive values, -.5 to negative values)
   int32_t t = (z * ovdq) + ((z < 0) ? -.5f : .5f) ;
   return t ;
 }
@@ -37,8 +39,9 @@ int32_t fp2q_lin(float *z, int *q, int n, float dq, int32_t offset);
 
 // linear de_quantizer (inverse of fp2q_lin_)
 // q  [IN] : quantized value (32 bit integer)
-// dq [IN] : float discretization quantum
+// dq [IN] : float discretization quantum (ideally a power of 2)
 // return restored float value
+// dq MUST BE the inverse of ovdq (fp2q_lin_)
 static inline float q2fp_lin_(int32_t q, float dq){
   float t = q * dq ;
   return t ;

@@ -49,10 +49,10 @@
 // X 0010xxxx      reserved for future use
 // L 0011SSME      preamble of 12 bit header (> 16 bits/value) 0011SSMEnnnn (nnnn = number of bits - 17)
 //   001100xx      NOT USED, constant blocks shall use the A type header (reserved for future use)
-//   00110000      USED IN TESTS
+//   00110000      bbbbbbzz  RAW encoding (bbbbbb = nbits -1) zz (00 : raw, 01 : zigzag, 10 : BHW encoding)
 //   00110001      NOT USED
 //   00110010      NOT USED
-//   00110011      NOT USED
+//   00110011      NULL tile (used as last tile in block or tile encoding flag)
 // B 01MEnnnn      all values >= 0  ( 1->16 bits/value, nnnn == number of bits - 1)
 // C 10MEnnnn      all values <= 0  ( 1->16 bits/value, ABS(value), nnnn == number of bits - 1)
 // D 11MEnnnn      mixed signs      (1->16 bits/value, nnnn == number of bits - 1)
@@ -96,6 +96,12 @@
 //      10   short value : nbits/2 + 1 bits, encoded as 0 followed by nbits/2+1 bits
 //      11   short value : nbits/2 + 2 bits, encoded as 0 followed by nbits/2+2 bits
 //           long values, encoded as 1 followed by nbits bits
+//
+// BHW encoding : length/data
+//      00/bb....bb         8 bit item (Byte)
+//      01/bb....bb        16 bit item (Half word)
+//      10/bb....bb        24 bit item
+//      11/bb....bb        32 bit item (Word)
 //
 // N.B.  some SSME combinations are not valid (e.g. 0010 and 0011)
 //       M and E make no sense if SS == 0 (constant blocks)

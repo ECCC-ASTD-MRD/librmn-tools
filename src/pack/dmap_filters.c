@@ -127,6 +127,10 @@ reverse:
 #include <stdlib.h>
 #include <rmn/dmap_filters.h>
 
+void do_nothing_with(void *what){
+  return ;
+}
+
 static int strict_mode = 0 ;
 static int debug_mode = 1 ;
 
@@ -294,18 +298,19 @@ ssize_t dmap_filter_inv(array_nd *a, bitstream *stream){
   uint32_t id ;
   ssize_t status ;
   STREAM_PEEK_NBITS(*stream, id, 8) ;
-fprintf(stderr, "inv_next : next reverse filter id = %d\n", id) ;
+fprintf(stderr, "inv_next (1) : next reverse filter id = %3.3o\n", id) ;
   if(id == FILTER_CHAIN_END){
     STREAM_GET_NBITS(*stream, id, 8) ;
     status = 8 ;
-fprintf(stderr, "inv_next : reverse filter id = %d, status = %ld\n", id, status) ;
+fprintf(stderr, "inv_next (2) : calling reverse filter id = %3.3o, status = %ld\n", id, status) ;
     return status ;                                          // last filter, 8 bits processed
   }
   if(id >= MAX_DP_FILTERS) return -1 ;                  // ERROR, invalid filter id
-  dmap_filter_ptr filter = filters[id].ptr ;      // get filter address
+  dmap_filter_ptr filter = filters[id].ptr ;            // get filter address
   if(filter == NULL) return -1 ;                        // ERROR, filter is not defined
+fprintf(stderr, "inv_next (3) : calling reverse filter id = %3.3o\n", id) ;
   status = (*filter)(a, NULL, NULL, stream) ;           // call selected inverse filter
-fprintf(stderr, "inv_next : reverse filter id = %d, status = %ld\n", id, status) ;
+fprintf(stderr, "inv_next (3) : id= %3.3o,  status = %ld\n", id, status) ;
   return status ;
 }
 
@@ -316,28 +321,36 @@ fprintf(stderr, "inv_next : reverse filter id = %d, status = %ld\n", id, status)
 // return number of bits extracted from bit stream (-1 if error)
 int32_t dmap_filter_get_array_info(array_nd *a, bitstream *stream, int allocate){
   int i, nbits, ndim, type, dsize, iw32, gnn ;
+  char *msg = "" ;
   size_t sz = 1 ;
   uint32_t w32 ;
   STREAM_GET_NBITS(*stream, ndim,  3) ;            // number of dimensions
   if(a->ndim == 0) a->ndim = ndim ;
-  if(a->ndim != ndim) goto fail ;                  // number of dimensions mismatch
+  msg = "number of dimensions mismatch" ;
+  if(a->ndim != ndim){
+    fprintf(stderr, "dmap_filter_get_array_info : expecting %d dimensions, found %d\n", a->ndim, ndim) ;
+    goto fail ;                  // number of dimensions mismatch
+  }
   STREAM_GET_NBITS(*stream, dsize, 5) ; dsize++ ;  // number of bits needed for dimensions - 1
   STREAM_GET_NBITS(*stream, type,  8) ;            // data type
   if(a->type == 0){
     a->type = type ;
     a->esize = size_of_type[type] ;
   }
+  msg = "type size mismatch" ;
   if(size_of_type[type] != size_of_type[a->type]) goto fail ;  // type size mismatch
   nbits = 16 ;
   for(i=0 ; i<ndim ; i++){
     STREAM_GET_NBITS(*stream, w32, dsize) ; gnn = w32 ;
     if(a->dim[i].gnn == 0) a->dim[i].gnn = gnn ;
+    msg = "a->dim[i].gnn != gnn" ;
     if(a->dim[i].gnn != gnn) goto fail ;
     nbits += dsize ;
     sz *= gnn ;
   }
   if(allocate && a->data == NULL){  // allocate storage, fix dimensions
 fprintf(stderr, "dmap_filter_get_array_info : calling fix_array\n");
+    msg = "fix_array(a) == 0" ;
     if(fix_array(a) == 0) goto fail ;
 //     a->data = malloc(sz * a->esize) ;
 //     if(a->data == NULL) goto fail ;
@@ -347,7 +360,7 @@ fprintf(stderr, "dmap_filter_get_array_info : array size = %ld, esize = %d\n", s
   return nbits ;
 
 fail:
-fprintf(stderr, "dmap_filter_get_array_info : ERROR\n");
+fprintf(stderr, "dmap_filter_get_array_info : ERROR %s\n", msg);
   return -1 ;
 }
 
@@ -374,6 +387,6 @@ int32_t dmap_filter_put_array_info(array_nd *a, bitstream *stream){
     nbits += dsize ;
     fprintf(stderr, " %d", a->dim[i].gnn) ;
   }
-  fprintf(stderr, "], dsize = %d, nbits = %d\n", dsize, nbits) ;
+  fprintf(stderr, "], dimmax = %d, dsize = %d, nbits = %d\n", dimmax, dsize, nbits) ;
   return nbits ;
 }

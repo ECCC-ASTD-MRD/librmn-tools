@@ -27,10 +27,11 @@ dmap_filter  dmap_filter_fwd ;
 dmap_filter  dmap_filter_001 ;
 typedef struct{
   uint32_t filter ;  // filter number
-  int32_t offset ;
-  int32_t scale ;
+  float offset ;
+  float scale ;
 } dmap_filter_arg_001 ;
 #define DMAP_FILTER_001(...) (dmap_filter_arg_001) { 001 , __VA_ARGS__ }
+#define DMAP_SAXPY_001(...) (dmap_filter_arg_001) { 001 , __VA_ARGS__ }
 
 #pragma weak dmap_filter_002
 dmap_filter  dmap_filter_002 ;
@@ -91,10 +92,17 @@ typedef dmap_filter_arg_006 dmap_encode_arg ;
 #pragma weak dmap_filter_007
 dmap_filter  dmap_filter_007 ;
 typedef struct{
-  uint32_t filter ;  // filter number
-  float offset ;
-  float scale ;
+  uint32_t filter ;    // filter number
+  float    maxerr ;    // maximum absolute or relative error
+  float    zero ;      // maximum significant value (only for log quantizing)
+  int32_t  nbits ;     // number of significant bits
+  int32_t  qmode ;     // quantization mode (linear, pseudo log, fake integer, ...)
+  int32_t  decimate ;  // decimation factor (0 or 1 : NONE, even, no more than 2 for new)
+  int32_t  predict ;   // predictor (None, Lorenzo, Wavelet, ...)
+  int32_t  tsize ;     // encoding tile size
+  int32_t  options ;   // encoding options
 } dmap_filter_arg_007 ;
 #define DMAP_FILTER_007(...) (dmap_filter_arg_007) { 007 , __VA_ARGS__ }
+#define DMAP_FP_BLOCK(...) (dmap_filter_arg_007) { 007 , __VA_ARGS__ }
 
 #endif
