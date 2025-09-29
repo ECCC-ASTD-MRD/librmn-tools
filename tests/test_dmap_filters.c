@@ -15,6 +15,7 @@
 //     M. Valin,   Recherche en Prevision Numerique, 2025
 //
 #include <stdio.h>
+#include <string.h>
 
 #include <rmn/timers.h>
 #include <rmn/test_helpers.h>
@@ -29,11 +30,12 @@
 #define NJ 65
 
 int main(int argc, char **argv){
+  bitstream *estream = NULL ;
   bitstream *stream = NULL ;
   bitstream *str000 = NULL ;
-  bitstream *str001 = NULL ;
-  bitstream *str002 = NULL ;
-  bitstream *str003 = NULL ;
+//   bitstream *str001 = NULL ;
+//   bitstream *str002 = NULL ;
+//   bitstream *str003 = NULL ;
 
 // on intuitive order to get rid of warnings about skipping initialization code
   goto code ;
@@ -43,7 +45,8 @@ end:
   return 0 ;
 
 fail:
-  fprintf(stderr, "filter test : available data in stream %ld bits\n", StreamAvailableBits(stream)) ;
+  fprintf(stderr, "filter test : available data in stream %ld bits\n", StreamAvailableBits(estream)) ;
+  fprintf(stderr, "filter test : available space in stream %ld bits\n", StreamAvailableSpace(estream)) ;
   fprintf(stderr, "FAIL\n") ;
   return 1 ;
 
@@ -55,10 +58,10 @@ code:
   dmap_filter_arg_001 arg_001a = { 0001, 1.0f, 2.0f } ;
   dmap_filter_arg_001 arg_001b = { 0001, 10.0f, 20.0f } ;
 //   dmap_filter_arg_001 arg_001a = { 0001, 5, 6 } ;
-  dmap_encode_arg arg_006a = { 0006,  32 } ;    // raw encoding, 32 bits per item
-  dmap_encode_arg arg_006b = { 0006,  99 } ;    // BHW encoding, 8/16/24/32 bits per item
-  dmap_encode_arg arg_006c = { 0006, 132 } ;    // raw encoding, 32 bits per item, zigzag
-  dmap_encode_arg arg_006d = { 0006, 208 } ;    // tile encoding, 8 x 8 tiles
+  dmap_encode_arg arg_006a ;
+//   dmap_encode_arg arg_006b = { 0006,  99 } ;    // BHW encoding, 8/16/24/32 bits per item
+//   dmap_encode_arg arg_006c = { 0006, 132 } ;    // raw encoding, 32 bits per item, zigzag
+//   dmap_encode_arg arg_006d = { 0006, 208 } ;    // tile encoding, 8 x 8 tiles
   dmap_filter_arg_002 arg_002a = { 0002, 0 } ;
   dmap_fp_quantize arg_003a ; // = { 0003, .25f, 12, 0, FP_QUANTIZE_LIN } ;
   dmap_filter_arg_036 arg_036z = { 0036 } ;
@@ -70,7 +73,7 @@ code:
   double nano ;
   int i, j, debug_mode, strict_mode, errors ;
   float z[NJ][NI] ;
-  int zi[NJ][NI] ;
+  int zi[NJ][NI], ri[NJ][NI] ;
   int zo[NJ*2][NI] ;
   float r[NJ][NI] ;
   float Z[NJ][NI] ;
@@ -83,14 +86,15 @@ code:
   if(argc > 100) goto end ;
 
   freq = cycles_counter_freq() ;
-  nano = 1000000000 ;
+  nano = 1.0E+9 ;
   nano /= freq ;
+  if(nano == 0.0) fprintf(stderr, "nano == 0 !!\n") ;
 
   start_of_test("C dmap_filter test");
 
   fprintf(stderr, "============================== base test ==============================\n") ;
 //   fprintf(stderr, "nano = %0.3f\n", nano) ;
-//   for(i=0 ; i<MAX_DP_FILTERS+10 ; i++){
+//   for(i=0 ; i<MAX_DP_FILTERS+10 ; i++){              // list registered filters
 //     if(dmap_filter_exists(i)) fprintf(stderr, "filter %2d address : %16p, name = %s\n",
 //       i, (void *)dmap_filter_get(i), dmap_filter_name(i) ) ;
 //   }
@@ -103,7 +107,7 @@ code:
       z[j][i]  = (i - (NI-1)*.5f) + (j - (NJ-1)*.5f) ;
       Z[j][i]  = z[j][i] ;
       r[j][i]  = 999999.0f ;
-      zi[j][i] = (i << 8) | (j) ;
+      ri[j][i] = zi[j][i] = (i << 8) | (j) ;
       zo[j][i] = 0x0F0F0F0F ;
     }
   }
@@ -113,33 +117,48 @@ code:
 
   new_array(&c2d, (void *)&zi, sizeof(int), int_data, NI, NJ) ;
   new_array(&d2d, (void *)&zo, sizeof(int), int_data, NI, NJ) ;
+
   STREAM_CREATE(str000, buffer, sizeof(buffer), 0) ;
 
-  dpfl[0] = (dmap_filter_args_ptr)&arg_006a ;     // filter 006, raw 32 bit encoding
-  dpfl[1] = NULL ;                                // end of filter list
-  STREAM_INSERT_BEGIN(*str000) ;
-  fprintf(stderr, "filter test : available space in str000 %ld bits\n", StreamAvailableSpace(str000)) ;
-  status = dmap_filter_fwd((array_nd *)&c2d, NULL, dpfl, str000) ;
-  if(status < 0) goto fail ;
-  fprintf(stderr, "filter test : bits inserted = %ld\n\n", status) ;
+  int test_no ;
+  for(test_no = 0 ; test_no < 4 ; test_no++){
+    fprintf(stderr, "============================== encode test %d start ==============================\n", test_no) ;
+    switch(test_no){
+      case 0  : arg_006a = DMAP_ENCODE(  32 ) ; break ;       // filter 006, raw, 32 bits per item
+      case 1  : arg_006a = DMAP_ENCODE(  98 ) ; break ;       // filter 006, zigzag, up to 32 bits per item
+      case 2  : arg_006a = DMAP_ENCODE(  99 ) ; break ;       // filter 006, BHW, auto bits per item
+      default : arg_006a = DMAP_ENCODE( 100 ) ; break ;       // filter 006, BHW, auto bits per item
+    }
+    dpfl[0] = (dmap_filter_args_ptr)&arg_006a ;
+    dpfl[1] = NULL ;                                // end of filter list
 
-  STREAM_REWIND(*str000, 1) ;
-  fprintf(stderr, "filter test : available bits in str000 = %ld bits\n", StreamAvailableBits(str000)) ;
-for(i=0 ; i<8 ; i++) fprintf(stderr, "%8.8x ", buffer[i]) ;
-fprintf(stderr, " BIT-STREAM\n");
-  c2d.data = NULL ;
-  tot_status = dmap_filter_inv((array_nd *)&d2d, str000) ;
-  errors = 0 ;
-  for(j=0 ; j<NJ ; j++){
-    for(i=0 ; i<NI ; i++){
-      if(zi[j][i] != zo[j][i]){
-        if(errors < 5) fprintf(stderr, "i=%d , j=%d, expecting %8.8x, got %8.8x\n", i, j, zi[j][i], zo[j][i]) ;
-        errors ++ ;
+    STREAM_REWRITE(*str000, 1) ;
+    fprintf(stderr, "filter test : available space in str000 %ld bits\n", StreamAvailableSpace(str000)) ;
+    STREAM_INSERT_BEGIN(*str000) ;
+    status = dmap_filter_fwd((array_nd *)&c2d, NULL, dpfl, str000) ;      // forward filter
+    estream = str000 ;
+    if(status < 0) goto fail ;
+    fprintf(stderr, "filter test : bits inserted = %ld\n\n", status) ;
+    memcpy(zi, ri, NI*NJ*sizeof(int)) ;                                   // restore input data
+
+    STREAM_REWIND(*str000, 1) ;
+    fprintf(stderr, "filter test : available bits in str000 = %ld bits\n", StreamAvailableBits(str000)) ;
+
+    tot_status = dmap_filter_inv((array_nd *)&d2d, str000) ;              // inverse filter
+    errors = 0 ;
+    for(j=0 ; j<NJ ; j++){       // compare to original value
+      for(i=0 ; i<NI ; i++){
+        if(ri[j][i] != zo[j][i]){
+          if(errors < 5) fprintf(stderr, "i=%d , j=%d, expecting %8.8x, got %8.8x\n", i, j, ri[j][i], zo[j][i]) ;
+          errors ++ ;
+        }
       }
     }
-  }
-  fprintf(stderr, "filter test : errors = %d\n", errors) ;
+    fprintf(stderr, "filter test : errors = %d\n", errors) ;
+    if(errors > 0) goto fail ;
+    fprintf(stderr, "============================== encode test %d end ==============================\n", test_no) ;
 
+  }
   goto end ;
 
   dpfl[0] = (dmap_filter_args_ptr)&arg_001a ;     // filter 001
