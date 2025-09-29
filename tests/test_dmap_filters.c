@@ -127,7 +127,7 @@ code:
       case 0  : arg_006a = DMAP_ENCODE(  32 ) ; break ;       // filter 006, raw, 32 bits per item
       case 1  : arg_006a = DMAP_ENCODE(  98 ) ; break ;       // filter 006, zigzag, up to 32 bits per item
       case 2  : arg_006a = DMAP_ENCODE(  99 ) ; break ;       // filter 006, BHW, auto bits per item
-      default : arg_006a = DMAP_ENCODE( 100 ) ; break ;       // filter 006, BHW, auto bits per item
+      default : arg_006a = DMAP_ENCODE( 100 ) ; break ;       // filter 006, tile encoding
     }
     dpfl[0] = (dmap_filter_args_ptr)&arg_006a ;
     dpfl[1] = NULL ;                                // end of filter list

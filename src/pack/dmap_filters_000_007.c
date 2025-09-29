@@ -564,16 +564,16 @@ reverse:
 //   return (code << nbits) | value ;
 // }
 #define STREAM_PUT_BHW(s, v, nbits) { uint32_t c = ((v >> 8) ? 1 : 0) + ((v >> 16) ? 1 : 0) + ((v >> 24) ? 1 : 0) ; \
-                                      uint32_t tbits = (1 + c) << 3 ; \
+                                      uint32_t TbItS = (1 + c) << 3 ; \
                                       STREAM_PUT_NBITS(s, c , 2) ; \
-                                      STREAM_PUT_NBITS(s, v , tbits) ; \
-                                      nbits = tbits + 2 ; \
+                                      STREAM_PUT_NBITS(s, v , TbItS) ; \
+                                      nbits = TbItS + 2 ; \
                                     }
 #define STREAM_GET_BHW(s, v, nbits) { uint32_t c ; \
                                       STREAM_GET_NBITS(s, c , 2) ; \
-                                      uint32_t tbits = (1 + c) << 3 ; \
-                                      STREAM_GET_NBITS(s, v , tbits) ; \
-                                      nbits = tbits + 2 ; \
+                                      uint32_t TbItS = (1 + c) << 3 ; \
+                                      STREAM_GET_NBITS(s, v , TbItS) ; \
+                                      nbits = TbItS + 2 ; \
                                     }
 
 // void do_nothing_with(void *what);
@@ -663,13 +663,14 @@ ssize_t FILTER_NAME(array_nd *a, block_properties *bp, dmap_filter_list dpfl, bi
   }else if(mode == 99){          // "BHW" encoding
     errmsg="BHW mode, not enough space to encode data" ;
     if(available < 24 + nelem*34) goto fail ;   // not enough space for worst case
-    uint32_t tbits ;
+    uint32_t tnbits ;
     header = 0b00110000 ;                      // constant nbits/zigzag/bhw
     STREAM_PUT_NBITS(s, header   , 8) ;        // 8 bit header
     STREAM_PUT_NBITS(s, 31       , 6) ;        // nbits is set to 32 for BHW encoding
     STREAM_PUT_NBITS(s, 2        , 2) ;        // BHW flag
     status += 24 ;
-    for(i=0 ; i<nelem ; i++) { STREAM_PUT_BHW(s, z[i], tbits) ; status += tbits ; } ;
+    for(i=0 ; i<nelem ; i++) { STREAM_PUT_BHW(s, z[i], tnbits) ; status += tnbits ; } ;
+fprintf(stderr, "BHW encoded %ld bits\n", status) ;
 
   }else{                         // constant nbits, 1 block, no tiling, maybe zigzag
     if(nbits == 0){              // find number of bits to use and maybe force value of zigzag flag
@@ -742,9 +743,10 @@ fprintf(stderr, "REVERSE filter %3.3o, id = %3.3o\n", FILTER_ID, filter) ;
 // fprintf(stderr, "\n");
     int32_t max = 0 ;                                    // make sure that max is always initialized
     if(zigzag == 2){                                     // BHW mode, nbits MUST be 32
-      uint32_t tbits ;
+      uint32_t tnbits ;
       if(nbits != 32) goto fail ;
-      for(i=0 ; i<nelem ; i++) { STREAM_GET_BHW(s, z[i], tbits) ; status += tbits ; } ;
+      for(i=0 ; i<nelem ; i++) { STREAM_GET_BHW(s, z[i], tnbits) ; status += tnbits ; } ;
+fprintf(stderr, "BHW decoded %ld bits\n", status) ;
     }else{                                                 // constant nbits, maybe zigzag
       for(i=0 ; i<nelem ; i++) { STREAM_GET_NBITS(s, z[i], nbits) ; status += nbits ; } ;
       if(zigzag != 0) max = v_from_zigzag_32_inplace((int32_t *)array, nelem) ;
