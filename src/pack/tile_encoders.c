@@ -545,7 +545,6 @@ int encode_block(bitstream *s_in, int32_t *block, int lnis, int ni, int nj, int 
   ri = split_axis(ni, tsize) ;
   rj = split_axis(nj, tsize) ;
 
-  totbits = 0 ;
   for(j0=0, lnj = rj.ln0 ; j0<nj ; j0+=lnj, lnj = tsize){
     int32_t *src = block ;
     for(i0=0, lni = ri.ln0 ; i0<ni ; i0+=lni, lni = tsize){
@@ -644,7 +643,7 @@ code:
     status = decode_block_1d(s_in, block, ni*nj, tsize*tsize) ;
     if(status <= 0) goto error ;
     totbits += status ;
-    return totbits ;
+    goto end ;
   }
 
   array_axis ri, rj ;
@@ -662,7 +661,7 @@ code:
     }
     block += lnj * lnid ;
   }
-
+end:
   return totbits ;
 }
 
