@@ -20,6 +20,7 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include <rmn/data_kind.h>
 // extra cpp macros (VA_ARGS related)
@@ -321,7 +322,7 @@ void  *array_address_nd(array_nd *a);
     )
 
 // users should call the generic function subarray_size rather than subarray_size_nd
-int subarray_size_nd(array_nd *a);
+size_t subarray_size_nd(array_nd *a);
 #define subarray_size(ARRAY) \
   _Generic((ARRAY), \
     array_nd *: subarray_size_nd((array_nd *)ARRAY), \
@@ -333,7 +334,7 @@ int subarray_size_nd(array_nd *a);
     )
 
 // users should call the generic function array_size rather than array_size_nd
-int array_size_nd(array_nd *a);
+size_t array_size_nd(array_nd *a);
 #define array_size(ARRAY) \
   _Generic((ARRAY), \
     array_nd *: array_size_nd((array_nd *)ARRAY), \
@@ -393,6 +394,17 @@ size_t fix_array_nd(array_nd *a);
     array_3d *: fix_array_nd((array_nd *)ARRAY), \
     array_2d *: fix_array_nd((array_nd *)ARRAY), \
     array_1d *: fix_array_nd((array_nd *)ARRAY)  \
+  )
+
+size_t set_array_value_nd(array_nd *a, int v, uint32_t vlen);
+#define set_array_value(ARRAY, V, VLEN) \
+  _Generic((ARRAY), \
+    array_nd *: set_array_value_nd((array_nd *)ARRAY, V, VLEN), \
+    array_5d *: set_array_value_nd((array_nd *)ARRAY, V, VLEN), \
+    array_4d *: set_array_value_nd((array_nd *)ARRAY, V, VLEN), \
+    array_3d *: set_array_value_nd((array_nd *)ARRAY, V, VLEN), \
+    array_2d *: set_array_value_nd((array_nd *)ARRAY, V, VLEN), \
+    array_1d *: set_array_value_nd((array_nd *)ARRAY, V, VLEN)  \
   )
 
 #endif

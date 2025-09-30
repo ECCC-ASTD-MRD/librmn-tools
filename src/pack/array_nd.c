@@ -168,6 +168,26 @@ void new_array_nd(array_nd *a, void *mem, int32_t esize, int8_t type, int32_t nd
 // fprintf(stderr,"]\n");
 }
 
+// fill array with value
+// a    [INOUT] : pointer to nD array descriptor
+// v       [IN] : value used as filler
+// vlen    [IN] : length in bytes of value (1/2/4)
+size_t set_array_value_nd(array_nd *a, int v, uint32_t vlen){
+  if(invalid_array(a)) return 0 ;
+  size_t size = array_size_nd(a) ;
+  void *address = array_address_nd(a) ;
+  int16_t *w16 = (int16_t *) address ;
+  int32_t *w32 = (int32_t *) address ;
+  uint32_t i ;
+  switch(vlen){
+    case 1  : memset(address, v, size) ; break ;
+    case 2  : for(i = 0 ; i < vlen/2 ; i++) w16[i] = v ; break ;
+    case 4  : for(i = 0 ; i < vlen/4 ; i++) w32[i] = v ; break ;
+    default : return 0 ;      // invalid value, no fill
+  }
+  return size ;
+}
+
 // fix array storage according to dimensions and esize
 // a    [INOUT] : pointer to nD array descriptor
 // return array size, 0 in case of error
@@ -248,9 +268,9 @@ int set_array_lbounds_nd(array_nd *a, int32_t narg, __i32__5x2__ lb5){
 // get size of sub array from array a
 // a   [IN] : pointer to nD array descriptor (if NULL a new descriptor will be created)
 // return size in bytes of sub array
-int subarray_size_nd(array_nd *a){
+size_t subarray_size_nd(array_nd *a){
   int i ;
-  int size = 0 ;
+  size_t size = 0 ;
 
   if(a == NULL) goto fail ;
   size = a->esize ;
@@ -264,9 +284,9 @@ fail:
 // get size of array a
 // a   [IN] : pointer to nD array descriptor
 // return size in bytes of array
-int array_size_nd(array_nd *a){
+size_t array_size_nd(array_nd *a){
   int i ;
-  int size = 0 ;
+  size_t size = 0 ;
 
   if(a == NULL) goto fail ;
   size = a->esize ;

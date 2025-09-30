@@ -52,27 +52,27 @@ void array_lbounds_check(int low, int high){
 
   create_array(ap1, sizeof(int32_t), int_data, 8) ;
   if( (uint8_t *)(ap1->w32) != array_address(ap1) ) goto fail ;
-  fprintf(stderr, "%12s array size is %6d, dimension = %6d ", array_kind(ap1), array_size(ap1), subarray_dimension(ap1)) ; print_dims(ap1, "\n") ;
+  fprintf(stderr, "%12s array size is %6ld, dimension = %6d ", array_kind(ap1), array_size(ap1), subarray_dimension(ap1)) ; print_dims(ap1, "\n") ;
 
   create_array(ap2, sizeof(int32_t), int_data, 8, 7) ;
   if( (uint8_t *)(ap1->w32) != ap1->data ) goto fail ;
-  fprintf(stderr, "%12s array size is %6d, dimension = %6d ", array_kind(ap2), array_size(ap2), subarray_dimension(ap2)) ; print_dims(ap2, "\n") ;
+  fprintf(stderr, "%12s array size is %6ld, dimension = %6d ", array_kind(ap2), array_size(ap2), subarray_dimension(ap2)) ; print_dims(ap2, "\n") ;
 
   create_array(ap3, sizeof(int32_t), int_data, 8, 7, 6) ;
   if( (uint8_t *)(ap1->w32) != ap1->data ) goto fail ;
-  fprintf(stderr, "%12s array size is %6d, dimension = %6d ", array_kind(ap3), array_size(ap3), subarray_dimension(ap3)) ; print_dims(ap3, "\n") ;
+  fprintf(stderr, "%12s array size is %6ld, dimension = %6d ", array_kind(ap3), array_size(ap3), subarray_dimension(ap3)) ; print_dims(ap3, "\n") ;
 
   create_array(ap4, sizeof(int32_t), int_data, 8, 7, 6, 5) ;
   if( (uint8_t *)(ap1->w32) != ap1->data ) goto fail ;
-  fprintf(stderr, "%12s array size is %6d, dimension = %6d ", array_kind(ap4), array_size(ap4), subarray_dimension(ap4)) ; print_dims(ap4, "\n") ;
+  fprintf(stderr, "%12s array size is %6ld, dimension = %6d ", array_kind(ap4), array_size(ap4), subarray_dimension(ap4)) ; print_dims(ap4, "\n") ;
 
   create_array(ap5, sizeof(int32_t), int_data, 8, 7, 6, 5, 4) ;
   if( (uint8_t *)(ap1->w32) != ap1->data ) goto fail ;
-  fprintf(stderr, "%12s array size is %6d, dimension = %6d ", array_kind(ap5), array_size(ap5), subarray_dimension(ap5)) ; print_dims(ap5, "\n") ;
+  fprintf(stderr, "%12s array size is %6ld, dimension = %6d ", array_kind(ap5), array_size(ap5), subarray_dimension(ap5)) ; print_dims(ap5, "\n") ;
 
   create_array(apn, sizeof(int32_t), int_data, 9, 8, 7, 6, 5, 4) ;
   set_array_lbounds(apn , low, high, low, high, low, high, low, high, low, high, low, high) ;
-  fprintf(stderr, "%12s array size is %6d, dimension = %6d ", array_kind(apn), array_size(apn), subarray_dimension(apn)) ; print_dims(apn, "\n") ;
+  fprintf(stderr, "%12s array size is %6ld, dimension = %6d ", array_kind(apn), array_size(apn), subarray_dimension(apn)) ; print_dims(apn, "\n") ;
 
   return ;
 
