@@ -23,6 +23,7 @@
 #include <rmn/move_blocks.h>
 #include <rmn/split_dimension.h>
 #include <rmn/quantizers.h>
+#include <rmn/eval_diff.h>
 
 // end of section to be moved to dmap_filters.c
 
@@ -72,11 +73,8 @@ code:
   uint64_t freq ;
   double nano ;
   int i, j, debug_mode, strict_mode, errors ;
-  float z[NJ][NI] ;
-  int zi[NJ][NI], ri[NJ][NI] ;
-  int zo[NJ*2][NI] ;
-  float r[NJ][NI] ;
-  float Z[NJ][NI] ;
+  float z[NJ][NI], ro[NJ][NI], rf[NJ][NI] ;
+  int zi[NJ][NI], zo[NJ][NI], ri[NJ][NI] ;
   uint32_t buffer[NI*NJ*2] ;
   ssize_t tot_status ;
 //   TIME_LOOP_DATA ;
@@ -101,28 +99,29 @@ code:
 //   fprintf(stderr, "\n");
 
   new_array(&a2d, (void *)&z, sizeof(float), float_data, NI, NJ) ;
-  new_array(&b2d, (void *)&r, sizeof(float), raw_data,   NI, NJ) ;
+  new_array(&b2d, (void *)&ro, sizeof(float), raw_data,   NI, NJ) ;
   for(j=0 ; j<NJ ; j++){
     for(i=0 ; i<NI ; i++){
-      z[j][i]  = (i - (NI-1)*.5f) + (j - (NJ-1)*.5f) ;
-      Z[j][i]  = z[j][i] ;
-      r[j][i]  = 999999.0f ;
-      ri[j][i] = zi[j][i] = (i << 8) | (j) ;
-      zo[j][i] = 0x0F0F0F0F ;
+      rf[j][i]  = (i - (NI-1)*.5f) + (j - (NJ-1)*.5f) ;   // float reference
+      ri[j][i] = ((i + 1) << 8) | (j + 1) ;               // integer reference
+//       z[j][i]  = (i - (NI-1)*.5f) + (j - (NJ-1)*.5f) ;
+//       rf[j][i]  = z[j][i] ;
+//       ro[j][i]  = 999999.0f ;
     }
   }
 
 //   debug_mode  = dmap_debug_mode(1)  ; dmap_debug_mode(debug_mode) ;
 //   strict_mode = dmap_strict_mode(0) ; dmap_strict_mode(strict_mode) ;
 
-  new_array(&c2d, (void *)&zi, sizeof(int), int_data, NI, NJ) ;
-  new_array(&d2d, (void *)&zo, sizeof(int), int_data, NI, NJ) ;
+  new_array(&c2d, (void *)&zi, sizeof(int), int_data, NI, NJ) ;  // used as input data
+  new_array(&d2d, (void *)&zo, sizeof(int), int_data, NI, NJ) ;  // used as output data
 
   STREAM_CREATE(str000, buffer, sizeof(buffer), 0) ;
 
   int test_no ;
   for(test_no = 0 ; test_no < 4 ; test_no++){
-    fprintf(stderr, "============================== encode test %d start ==============================\n", test_no) ;
+    fprintf(stderr, "============================== integer encode test %d start ==============================\n", test_no) ;
+    STREAM_INIT(str000, NULL, 0, 0) ;               // full RW stream reset (keep buffer space and size)
     switch(test_no){
       case 0  : arg_006a = DMAP_ENCODE(  32 ) ; break ;       // filter 006, raw, 32 bits per item
       case 1  : arg_006a = DMAP_ENCODE(  98 ) ; break ;       // filter 006, zigzag, up to 32 bits per item
@@ -132,31 +131,23 @@ code:
     dpfl[0] = (dmap_filter_args_ptr)&arg_006a ;
     dpfl[1] = NULL ;                                // end of filter list
 
-    STREAM_REWRITE(*str000, 1) ;
-    fprintf(stderr, "filter test : available space in str000 %ld bits\n", StreamAvailableSpace(str000)) ;
-    STREAM_INSERT_BEGIN(*str000) ;
+    fprintf(stderr, "filter test : available space in str000 %ld bits, available bits = %ld bits\n", StreamAvailableSpace(str000), StreamAvailableBits(str000)) ;
+    memcpy(zi, ri, NI*NJ*sizeof(int)) ;                                   // set input data
     status = dmap_filter_fwd((array_nd *)&c2d, NULL, dpfl, str000) ;      // forward filter
     estream = str000 ;
     if(status < 0) goto fail ;
     fprintf(stderr, "filter test : bits inserted = %ld\n\n", status) ;
-    memcpy(zi, ri, NI*NJ*sizeof(int)) ;                                   // restore input data
 
     STREAM_REWIND(*str000, 1) ;
-    fprintf(stderr, "filter test : available bits in str000 = %ld bits\n", StreamAvailableBits(str000)) ;
+    fprintf(stderr, "filter test : available space in str000 %ld bits, available bits = %ld bits\n", StreamAvailableSpace(str000), StreamAvailableBits(str000)) ;
 
+    set_array_value(&d2d, 0x0F, 1) ;                                      // set output to nonsense
     tot_status = dmap_filter_inv((array_nd *)&d2d, str000) ;              // inverse filter
-    errors = 0 ;
-    for(j=0 ; j<NJ ; j++){       // compare to original value
-      for(i=0 ; i<NI ; i++){
-        if(ri[j][i] != zo[j][i]){
-          if(errors < 5) fprintf(stderr, "i=%d , j=%d, expecting %8.8x, got %8.8x\n", i, j, ri[j][i], zo[j][i]) ;
-          errors ++ ;
-        }
-      }
-    }
-    fprintf(stderr, "filter test : errors = %d\n", errors) ;
+    if(tot_status < 0) goto fail ;
+    errors = array_compare_2D(NI, NJ, (void *)ri, (void *)zo) ;
+    fprintf(stderr, "filter test :  bits extracted = %ld, errors = %d\n",tot_status, errors) ;
     if(errors > 0) goto fail ;
-    fprintf(stderr, "============================== encode test %d end ==============================\n", test_no) ;
+    fprintf(stderr, "============================== integer encode test %d end ==============================\n", test_no) ;
 
   }
   goto end ;
@@ -216,7 +207,7 @@ code:
 
   errors = NI*NJ ;
 //   float *pz = (float *) a2d.data ;
-  float *pz = (float *) Z ;
+  float *pz = (float *) rf ;
   float *pr = (float *) b2d.data ;
   block_properties bp_out, bp_in ;
   analyze_data32_block((void *) pz, NI, NI, NJ, &bp_in)  ; adjust_block_properties(&bp_in,  float_data) ;
@@ -230,8 +221,8 @@ code:
     maxdiff = (err > maxdiff) ? err : maxdiff ;
     if(pz[i] == pr[i]) errors-- ;
   }
-  if(errors > 0) fprintf(stderr, "%f %f %f %f\n", z[0][0], z[NJ-1][NI-1], r[0][0], r[NJ-1][NI-1]) ;
-  fprintf(stderr, "filter test : %d differences between r and z (%d values), max = %f\n", errors, NI*NJ, maxdiff) ;
+  if(errors > 0) fprintf(stderr, "%f %f %f %f\n", z[0][0], z[NJ-1][NI-1], ro[0][0], ro[NJ-1][NI-1]) ;
+  fprintf(stderr, "filter test : %d differences between ro and z (%d values), max = %f\n", errors, NI*NJ, maxdiff) ;
   if(errors > 0) goto fail ;
   fprintf(stderr, "SUCCESS\n") ;
 goto end ;
