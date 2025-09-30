@@ -97,6 +97,36 @@ int32_t array_compare_masked(void *f1, void *f2, int n, uint32_t mask){
   return errors ;
 }
 
+// compare 2 word (32 bit) arrays
+// return number of non matching items
+// ref  [IN]   "reference" array
+// f    [IN] : array compared to "reference" array
+// n    [IN] : number of items to compare
+int32_t array_compare(void *ref, void *f, int n){
+  return array_compare_masked(ref, f, n, 0xFFFFFFFF) ;
+}
+
+// compare 2 word (32 bit) arrays
+// return number of non matching items
+// ref  [IN]   "reference" array
+// f    [IN] : array compared to "reference" array
+// lni  [IN] : length of an array row
+// ni   [IN] : number of items to compare in row
+// nj   [IN] : number of rows to compare
+int32_t array_compare_2D(int ni, int nj, uint32_t ref[nj][ni], uint32_t f[nj][ni]){
+  int i, j, errors = 0 ;
+  errors = 0 ;
+  for(j=0 ; j<nj ; j++){
+    for(i=0 ; i<ni ; i++){
+      if(ref[j][i] != f[j][i]){
+        if(errors < 5) fprintf(stderr, "i=%d , j=%d, expected %8.8x, got %8.8x\n", i, j, ref[j][i], f[j][i]) ;
+        errors ++ ;
+      }
+    }
+  }
+  return errors ;
+}
+
 // recursively scale floating point values for some exponent range tests
 void scale_floats(float *f, int n , float fact){
   int i ;
