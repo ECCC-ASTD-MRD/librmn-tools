@@ -119,14 +119,17 @@ code:
   STREAM_CREATE(str000, buffer, sizeof(buffer), 0) ;
 
   int test_no ;
-  for(test_no = 0 ; test_no < 4 ; test_no++){
+  for(test_no = 0 ; test_no < 6 ; test_no++){
     fprintf(stderr, "============================== integer encode test %d start ==============================\n", test_no) ;
     STREAM_INIT(str000, NULL, 0, 0) ;               // full RW stream reset (keep buffer space and size)
     switch(test_no){
       case 0  : arg_006a = DMAP_ENCODE(  32 ) ; break ;       // filter 006, raw, 32 bits per item
-      case 1  : arg_006a = DMAP_ENCODE(  98 ) ; break ;       // filter 006, zigzag, up to 32 bits per item
-      case 2  : arg_006a = DMAP_ENCODE(  99 ) ; break ;       // filter 006, BHW, auto bits per item
-      default : arg_006a = DMAP_ENCODE( 100 ) ; break ;       // filter 006, tile encoding
+      case 1  : arg_006a = DMAP_ENCODE(  24 ) ; break ;       // filter 006, raw, 24 bits per item
+      case 2  : arg_006a = DMAP_ENCODE(  15 ) ; break ;       // filter 006, raw, 15 bits per item
+      case 3  : arg_006a = DMAP_ENCODE(  98 ) ; break ;       // filter 006, zigzag, up to 32 bits per item
+      case 4  : arg_006a = DMAP_ENCODE(  99 ) ; break ;       // filter 006, BHW, auto bits per item
+      case 5  : arg_006a = DMAP_ENCODE( 100 ) ; break ;       // filter 006, tile encoding
+      default : goto fail ;                                   // invalid test number
     }
     dpfl[0] = (dmap_filter_args_ptr)&arg_006a ;
     dpfl[1] = NULL ;                                // end of filter list
