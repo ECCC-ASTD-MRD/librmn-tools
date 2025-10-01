@@ -43,7 +43,7 @@ ssize_t dmap_filter_fwd(array_nd *a, block_properties *bp, dmap_filter_list dpfl
   if(dpfl == NULL) goto reverse ;                // call to reverse filter
 
   // put array information at the start of the bit stream
-  int32_t i, nbits, dsize ;
+  int32_t i, nbits ;
   nbits = 8 ;
   STREAM_PUT_NBITS(s, me,      8) ;              // dummy filter id
   nbits += dmap_filter_put_array_info(a, &s) ;
@@ -55,7 +55,7 @@ ssize_t dmap_filter_fwd(array_nd *a, block_properties *bp, dmap_filter_list dpfl
   if(status < 0) goto fail ;
 //   fprintf(stderr, "dmap_filter_fwd(MID) : nbits in stream = %ld\n", nbits+status) ;
 
-end:
+// end:
   // put end of filter chain data marker at the end of the bit stream
   STREAM_PUT_NBITS(s, FILTER_CHAIN_END, 8) ;
   nbits += 8 ;
@@ -142,7 +142,7 @@ ssize_t FILTER_NAME(array_nd *a, block_properties *bp, dmap_filter_list dpfl, bi
   fprintf(stderr, "filter 001(W) %3.3o, %8.8x , %8.8x\n", FILTER_ID, *tmp1, *tmp2) ;
   status += 72 ;
 
-end:
+// end:
   *stream = s ;   // SAVE stream changes
   fprintf(stderr, "filter 001(X) : available space in stream %ld bits\n", StreamAvailableSpace(stream)) ;
   return status ;
@@ -181,7 +181,7 @@ ssize_t FILTER_NAME(array_nd *a, block_properties *bp, dmap_filter_list dpfl, bi
   uint32_t me = FILTER_ID ;
   if(a == NULL || stream == NULL) goto fail ;    // no array or no stream
   void *array = array_address(a) ;               // get array address, dimension(s), and type
-  int ndim = a->ndim, type = a->type ;
+//   int ndim = a->ndim, type = a->type ;
   ssize_t status = 0 ;
   bitstream s = *stream ;                        // local copy of stream control structure
 //   block_properties lbp ;
@@ -206,7 +206,7 @@ ssize_t FILTER_NAME(array_nd *a, block_properties *bp, dmap_filter_list dpfl, bi
   STREAM_INSERT_PUSH(s) ;
   status += 16 ;
 
-end:
+// end:
   *stream = s ;   // SAVE stream changes
   fprintf(stderr, "filter 002(X) : available space in stream %ld bits\n", StreamAvailableSpace(stream)) ;
   return status ;
@@ -254,7 +254,7 @@ ssize_t FILTER_NAME(array_nd *a, block_properties *bp, dmap_filter_list dpfl, bi
   int ndim = a->ndim, type = a->type ;
   ssize_t status = 0 ;
   bitstream s = *stream ;                        // local copy of stream control structure
-  block_properties lbp ;
+//   block_properties lbp ;
 
   if(dpfl == NULL ) goto reverse ;               // this is a call to the reverse filter
   if(! dmap_filter_valid(dpfl,me)) goto fail ;   // not the right filter or NULL pointer
@@ -349,7 +349,7 @@ ssize_t FILTER_NAME(array_nd *a, block_properties *bp, dmap_filter_list dpfl, bi
   fprintf(stderr, "filter %3.3o : inserted %d bits, quantum = %f, exp = %d, offset = %d, mode = %d\n",
           FILTER_ID, inserted, fp32_pow2(e_base), q_exp, offset, mode) ;
 
-end:
+// end:
   *stream = s ;   // success, SAVE stream changes
   return status ;
 
@@ -431,7 +431,7 @@ ssize_t FILTER_NAME(array_nd *a, block_properties *bp, dmap_filter_list dpfl, bi
 //   if(bp == NULL) { bp = &lbp ; lbp.kind = bad_data ; }
   if(dpfl == NULL) goto reverse ;                // call to reverse filter
   if(! dmap_filter_valid(dpfl,me)) goto fail ;   // not the right filter or NULL pointer
-  FILTER_ARGS *arg = (FILTER_ARGS *)(*dpfl) ;    // get parameters for this filter
+//   FILTER_ARGS *arg = (FILTER_ARGS *)(*dpfl) ;    // get parameters for this filter
 //
 // check a->type and a->ndim
   if(type != int_data && type != uint_data) goto fail ;
@@ -453,7 +453,7 @@ ssize_t FILTER_NAME(array_nd *a, block_properties *bp, dmap_filter_list dpfl, bi
   STREAM_PUT_NBITS(s, FILTER_ID, 8) ;
   STREAM_INSERT_PUSH(s) ;
   status += 8 ;                                 // 8 bits inserted
-end:
+// end:
   *stream = s ;   // SAVE stream changes
   return status ;
 
@@ -501,7 +501,7 @@ ssize_t FILTER_NAME(array_nd *a, block_properties *bp, dmap_filter_list dpfl, bi
   uint32_t me = FILTER_ID ;
   if(a == NULL || stream == NULL) goto fail ;    // no array or no stream
   void *array = array_address(a) ;               // get array address, dimension(s), and type
-  int ndim = a->ndim, type = a->type ;
+//   int ndim = a->ndim, type = a->type ;
   ssize_t status = 0 ;
   bitstream s = *stream ;                        // local copy of stream control structure
 //   block_properties lbp ;
@@ -509,7 +509,7 @@ ssize_t FILTER_NAME(array_nd *a, block_properties *bp, dmap_filter_list dpfl, bi
 //   if(bp == NULL) { bp = &lbp ; lbp.kind = bad_data ; }
   if(dpfl == NULL) goto reverse ;                // call to reverse filter
   if(! dmap_filter_valid(dpfl,me)) goto fail ;   // not the right filter or NULL pointer
-  FILTER_ARGS *arg = (FILTER_ARGS *)(*dpfl) ;    // get parameters for this filter
+//   FILTER_ARGS *arg = (FILTER_ARGS *)(*dpfl) ;    // get parameters for this filter
 
 //
 // check a->type and a->ndim
@@ -526,7 +526,7 @@ ssize_t FILTER_NAME(array_nd *a, block_properties *bp, dmap_filter_list dpfl, bi
   STREAM_PUT_NBITS(s, FILTER_ID, 8) ;
   STREAM_INSERT_PUSH(s) ;
   status += 8 ;                                 // 8 bits inserted
-end:
+// end:
   *stream = s ;   // SAVE stream changes
   return status ;
 
@@ -624,12 +624,12 @@ ssize_t FILTER_NAME(array_nd *a, block_properties *bp, dmap_filter_list dpfl, bi
   // mode >=  100      : tile encoding with tile size mode - 100 (nbits/zigzag computed independently for each tile)
   // nbits == 0        : auto adjust number of bits and zigzag flag to data values
   // nbits > 0         : force value of nbits (at own risk)
-  // mode 0 and 100 both set nbits to 0 (automatically compute necessary nbits)
+  // modes 0 and 100 both set nbits to 0 (automatically compute necessary nbits)
   int32_t mode = arg->mode ;
   uint32_t zigzag = 0, nbits = 32, tile = 0, bhw = 0 ;
   if     (mode ==  -1) nbits = a->esize * 8 ;                              // nbits from data element size
-  else if(mode >= 100) { tile  = mode - 100 ; if(tile == 0) tile = 8 ; }   // not fully supported yet, nbits/zigzag/bhw are irrelevant
-  else if(mode ==  99) { bhw = 1 ; }                                       // BHW mode
+  else if(mode >= 100) { tile  = mode - 100 ; if(tile < 8) tile = 8 ; }    // tile mode, nbits/zigzag/bhw are irrelevant
+  else if(mode ==  99) { bhw = 1 ; }                                       // BHW mode, nbits/zigzag are irrelevant
   else if(mode ==  98) { zigzag = 1 ; }                                    // zigzag mode forces to compute nbits
   else if(mode >=   0) { nbits = mode       ; }
 
@@ -663,10 +663,14 @@ ssize_t FILTER_NAME(array_nd *a, block_properties *bp, dmap_filter_list dpfl, bi
     header = 0b00110011 ;
     STREAM_PUT_NBITS(s, header   , 8) ;        // (flag for tile encoding mode)
     status += 8 ;
+    uint32_t tnbits ;
+    STREAM_PUT_BHW(s, tile, tnbits) ;          // tile size
+    status += tnbits ;
+fprintf(stderr, "filter 006(X), tile size = %d, tnbits = %d\n", tile, tnbits) ;
     int ni = a->dim[0].gnn, nj = a->dim[1].gnn ;
 // fprintf(stderr, "filter 006(X) : encoding ni = %d, nj = %d", ni, nj);
 // int encode_block(bitstream *s_in, int32_t *block, int lnis, int ni, int nj, int basic_size, int options);
-    ssize_t encoded = encode_block(&s, block, ni, ni, nj, 8, 0) ;
+    ssize_t encoded = encode_block(&s, block, ni, ni, nj, tile, arg->options) ;
 // fprintf(stderr, ", TILE encoded %ld bits\n", encoded) ;
     status += encoded ;
     errmsg="tile mode, not enough space to encode data" ;
@@ -727,7 +731,7 @@ fail:
 
 // ================================ reverse filter ================================
 // decode bit stream encoded by forward filter
-  int32_t *sz = (int32_t *) array ;
+//   int32_t *sz = (int32_t *) array ;
   uint32_t filter ;
 reverse:
   STREAM_GET_NBITS(s, filter, 8) ;
@@ -742,9 +746,13 @@ reverse:
     errmsg="tile mode needs 2D array" ;
     if(ndim != 2) goto fail ;
     int ni = a->dim[0].gnn, nj = a->dim[1].gnn ;
+    uint32_t tnbits ;
+    STREAM_GET_BHW(s, tile, tnbits) ;
+    status += tnbits ;
+fprintf(stderr, "REVERSE  filter 006 : tilesize = %d, tnbits = %d\n", tile, tnbits) ;
 // fprintf(stderr, "REVERSE  filter 006 : decoding ni = %d, nj = %d", ni, nj);
 // int decode_block(bitstream *s_in, int32_t *block, int lnid, int ni, int nj, int basic_size);
-    ssize_t decoded = decode_block(&s, block, ni, ni, nj, 8) ;
+    ssize_t decoded = decode_block(&s, block, ni, ni, nj, tile) ;
     status += decoded ;
 // fprintf(stderr, ", TILE decoded %ld bits\n", decoded) ;
     STREAM_GET_NBITS(s, header , 8) ;
@@ -808,7 +816,7 @@ ssize_t FILTER_NAME(array_nd *a, block_properties *bp, dmap_filter_list dpfl, bi
 //   if(bp == NULL) { bp = &lbp ; lbp.kind = bad_data ; }
   if(dpfl == NULL) goto reverse ;                // call to reverse filter
   if(! dmap_filter_valid(dpfl,me)) goto fail ;   // not the right filter or NULL pointer
-  FILTER_ARGS *arg = (FILTER_ARGS *)(*dpfl) ;    // get parameters for this filter
+//   FILTER_ARGS *arg = (FILTER_ARGS *)(*dpfl) ;    // get parameters for this filter
 
 // check a->type and a->ndim
   if(type != float_data || ndim != 2) goto fail ;
@@ -841,7 +849,7 @@ ssize_t FILTER_NAME(array_nd *a, block_properties *bp, dmap_filter_list dpfl, bi
 //   status += 72 ;
   status += 8 ;
 
-end:
+// end:
   *stream = s ;   // SAVE stream changes
   fprintf(stderr, "filter 007(X) : available space in stream %ld bits\n", StreamAvailableSpace(stream)) ;
   return status ;
