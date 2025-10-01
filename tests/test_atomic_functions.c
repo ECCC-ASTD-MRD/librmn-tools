@@ -141,8 +141,8 @@ void *adding(void *in)
   pthread_t self1 = pthread_self();    // for consistency check
   int startvalue = bcnt;
   int next_thread = thread_get_free_slot() ;
-  size_t mystacksize;
-  pthread_attr_t gattr;
+//   size_t mystacksize;
+//   pthread_attr_t gattr;
 
   if(self != self1) exit(1) ;
 
