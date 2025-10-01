@@ -524,7 +524,6 @@ int encode_block(bitstream *s_in, int32_t *block, int lnis, int ni, int nj, int 
   block_properties bp ;
 
   if(s_in){
-    int nbits, code ;
     s = *s_in ;                // save bitstream descriptor in case of error
     // put block dimensions and tsize into bit stream
     STREAM_PUT_NBITS(*s_in, 1, 2) ;                 // 2 dimensions
