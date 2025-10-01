@@ -79,11 +79,14 @@ typedef dmap_filter_arg_005 dmap_wavelet_arg ;
 dmap_filter  dmap_filter_006 ;
 typedef struct{
   uint32_t filter ;  // filter number
-  // mode >  200 : tile encoding with tile size mode - 200
-  // mode >  100 : zigzag encoding using mode - 100 bits ( 101 -> 164 )
-  // mode >    0 : raw encoding using mode bits ( 1 -> 64 )
-  // mode ==   0 : raw encoding using size from array descriptor
+  // mode >=  100   : tile encoding with tile size mode - 100 (nbits/zigzag computed independently for each tile)
+  // mode ==   99   : BHW encoding (2 bit length code, followed by 8/16/24/32 bits of data), nbits irrelevant
+  // mode ==   98   : zigzag encoding, nbits auto adjusted
+  // 0 <= mode < 65 : raw encoding using mode bits ( 0 - 64 )
+  // mode ==  -1    : raw encoding using size from array descriptor
+  // modes 0 and 100 both set nbits to 0 (automatically compute necessary nbits)
   int32_t mode ;
+  int  options ;   // options for tile encoding
 } dmap_filter_arg_006 ;
 typedef dmap_filter_arg_006 dmap_encode_arg ;
 #define DMAP_FILTER_006(...) (dmap_filter_arg_006) { 006 , __VA_ARGS__ }
