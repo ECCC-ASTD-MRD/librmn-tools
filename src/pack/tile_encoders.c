@@ -474,16 +474,9 @@ static int encode_block_1d(bitstream *s_in, int32_t *block, int n, int tsize, in
 error:
   return status ;    // *s_in will be restored by encode_block
 }
-// #define STORE_DIMENSION(s, n) { \
-//                               nbits = 8 ; code = 0b00 ; \
-//                               if(n > 0xFF  ){ nbits = 16 ; code = 0b01 ; } ; \
-//                               if(n > 0xFFFF){ nbits = 32 ; code = 0b11 ; } ; \
-//                               STREAM_PUT_NBITS(s, code, 2) ; \
-//                               STREAM_PUT_NBITS(s, n, nbits) ; \
-//                               totbits = totbits + 2 + nbits ; \
-//                               }
 
-uint32_t stream_get_hbw(bitstream *s, int *totbits){
+// get value and code from bitstream
+uint32_t stream_get_hbw(bitstream *s, int *totbits){   // replace with STREAM_GET_BHW macro ?
   uint32_t nbits, value ;
   STREAM_GET_NBITS(*s, nbits, 2) ;
   nbits++ ; nbits <<= 3 ;   // (nbits+1) * 8 = number of bits
@@ -496,7 +489,7 @@ uint32_t stream_get_hbw(bitstream *s, int *totbits){
 // 2 bit code = (nbytes needed for value - 1)
 // 8/16/32 bits only
 // return number of bits inserted
-uint32_t stream_put_hbw(bitstream *s, int32_t value){
+uint32_t stream_put_hbw(bitstream *s, int32_t value){   // replace with STREAM_PUT_BHW macro ?
   if(value & 0xFFFF){
     STREAM_PUT_NBITS(*s, 3, 2) ;
     STREAM_PUT_NBITS(*s, value, 32) ;        // there is NOT guaranteed room for 32 bits
@@ -528,7 +521,7 @@ int encode_block(bitstream *s_in, int32_t *block, int lnis, int ni, int nj, int 
     // put block dimensions and tsize into bit stream
     STREAM_PUT_NBITS(*s_in, 1, 2) ;                 // 2 dimensions
     totbits = 2 ;
-    totbits += stream_put_hbw(s_in, ni) ;
+    totbits += stream_put_hbw(s_in, ni) ;    // STREAM_PUT_BHW(s, v, nbits)
     totbits += stream_put_hbw(s_in, nj) ;
     totbits += stream_put_hbw(s_in, tsize) ;
   }
@@ -603,14 +596,6 @@ error:
   return status ;
 }
 
-#define FETCH_DIMENSION(s, n, ref, totbits) \
-                        { int token, nbits ; \
-                          STREAM_GET_NBITS(s, code, 2) ; \
-                          nbits = 8 * (code+1) ; \
-                          STREAM_GET_NBITS(s, n, nbits) ; \
-                          totbits = totbits + 2 + nbits ; \
-                          if(ref != token) goto error ; \
-                        }
 // 2D decoder
 int decode_block(bitstream *s_in, int32_t *block, int lnid, int ni, int nj, int tsize){
   int i0, lni, j0, lnj, status = -1, totbits ;
@@ -630,7 +615,7 @@ code:
   STREAM_GET_NBITS(*s_in, code, 2) ;    // get and check number of dimensions from bit stream
   if(code != 1) goto error ;            // OOPS, expected 2 dimensions (code == 1)
   totbits = 2 ;
-  uint32_t ni_    = stream_get_hbw(s_in, &totbits) ;
+  uint32_t ni_    = stream_get_hbw(s_in, &totbits) ;    // STREAM_GET_BHW(s, v, nbits)
   uint32_t nj_    = stream_get_hbw(s_in, &totbits) ;
   uint32_t tsize_ = stream_get_hbw(s_in, &totbits) ;
 
@@ -664,6 +649,8 @@ end:
   return totbits ;
 }
 
+// not implemented yet
+#if 0
 // encode an array as multiple blocks/tiles into a bit stream
 // array   [IN] : values to be encoded
 // lnis    [IN] : storage length of block rows
@@ -703,6 +690,7 @@ int decode_array(bitstream *s_in, int32_t *array, int lnis, int ni, int nj, int 
   bsize = bsize & 0x7FFFFFFE ;   //force bsize to EVEN value
   return -1 ;
 }
+#endif
 
 // #define USE_AEC_COMPRESSION
 #if defined(USE_AEC_COMPRESSION)
