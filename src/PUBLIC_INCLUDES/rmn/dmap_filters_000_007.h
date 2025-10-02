@@ -23,16 +23,17 @@
 // there is no argument struct associated with it
 dmap_filter  dmap_filter_fwd ;
 
-// filter 001, float demo/scaling filter
+// filter 001, integer/float demo/saxpy filter
+// upper 9 bits used to differentiate floats from ints (all 1s or all 0s for ints)
 #pragma weak dmap_filter_001
 dmap_filter  dmap_filter_001 ;
 typedef struct{
   uint32_t filter ;  // filter number
-  float offset ;
-  float scale ;
+  union{ float offset ; int32_t ioffset ; } ;
+  union{ float  scale ; int32_t  iscale ; } ;
 } dmap_filter_arg_001 ;
-#define DMAP_FILTER_001(...) (dmap_filter_arg_001) { 001 , __VA_ARGS__ }
-#define DMAP_SAXPY_001(...) (dmap_filter_arg_001) { 001 , __VA_ARGS__ }
+#define DMAP_FILTER_001(...) (dmap_filter_arg_001) { .filter = 001 , __VA_ARGS__ }
+#define DMAP_SAXPY(...) (dmap_filter_arg_001) { 001 , __VA_ARGS__ }
 
 // filter 002, deprecated, will be replaced by filter 003
 #pragma weak dmap_filter_002
@@ -59,11 +60,12 @@ typedef dmap_filter_arg_003 dmap_fp_quantize ;
 #define DMAP_FILTER_003(...) (dmap_filter_arg_003) { 003 , __VA_ARGS__ }
 #define DMAP_FP_QUANTIZE(...) (dmap_filter_arg_003) { 003 , __VA_ARGS__ }
 
-// filter 004, Lorenzo predictor for signed integers
+// filter 004, Lorenzo predictor for signed integers (no specific arguments)
 #pragma weak dmap_filter_004
 dmap_filter  dmap_filter_004 ;
 typedef struct{
   uint32_t filter ;  // filter number, 004
+//   uint32_t dummy ;   // because of __VA_ARGS__
 } dmap_filter_arg_004 ;
 typedef dmap_filter_arg_004 dmap_lorenzo_arg ;
 #define DMAP_FILTER_004(...) (dmap_filter_arg_004) { 004 , __VA_ARGS__ }

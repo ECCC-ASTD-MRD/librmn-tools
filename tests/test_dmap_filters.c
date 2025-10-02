@@ -34,12 +34,9 @@ int main(int argc, char **argv){
   bitstream *estream = NULL ;
   bitstream *stream = NULL ;
   bitstream *str000 = NULL ;
-//   bitstream *str001 = NULL ;
-//   bitstream *str002 = NULL ;
-//   bitstream *str003 = NULL ;
 
-// on intuitive order to get rid of warnings about skipping initialization code
-  goto code ;
+// non intuitive order of labels to get rid of warnings about skipping initialization code when jumping to end or fail
+  goto process ;
 
 end:
   fprintf(stderr, "SUCCESS\n") ;
@@ -51,37 +48,31 @@ fail:
   fprintf(stderr, "FAIL\n") ;
   return 1 ;
 
-code:
-  if(argc > 500) goto fail ;
+process:
+  if(argc > 1 && argv[1] == NULL) goto fail ;       // dummy code to avoid warnings
 
   dmap_filter_args_ptr dpfa[10] ;
   dmap_filter_list dpfl = &dpfa[0] ;
-  dmap_filter_arg_001 arg_001a = { 0001, 1.0f, 2.0f } ;
-  dmap_filter_arg_001 arg_001b = { 0001, 10.0f, 20.0f } ;
-//   dmap_filter_arg_001 arg_001a = { 0001, 5, 6 } ;
+  dmap_filter_arg_001 arg_001a = DMAP_SAXPY( .iscale = 1,    .ioffset = 0   ) ;
+  arg_001a = DMAP_SAXPY( {1.0f},  {2.0f}) ;
+  dmap_filter_arg_001 arg_001b = DMAP_SAXPY( .scale  = 1.0f, .offset  = 0.0f) ;
+  arg_001b = DMAP_SAXPY({10.0f}, {20.0f}) ;
   dmap_encode_arg arg_006a ;
-//   dmap_encode_arg arg_006b = { 0006,  99 } ;    // BHW encoding, 8/16/24/32 bits per item
-//   dmap_encode_arg arg_006c = { 0006, 132 } ;    // raw encoding, 32 bits per item, zigzag
-//   dmap_encode_arg arg_006d = { 0006, 208 } ;    // tile encoding, 8 x 8 tiles
   dmap_filter_arg_002 arg_002a = { 0002, 0 } ;
   dmap_fp_quantize arg_003a ; // = { 0003, .25f, 12, 0, FP_QUANTIZE_LIN } ;
   dmap_filter_arg_036 arg_036z = { 0036 } ;
   dmap_filter_arg_036 arg_177n = { 0177 } ;
-  array_2d a2d, b2d, c2d, d2d ;
+  array_2d a2d, b2d, i2d, o2d, r2d ;
 //   block_properties bp2d ;
   ssize_t status ;
   uint64_t freq ;
   double nano ;
   int i, j, debug_mode, strict_mode, errors ;
-  float z[NJ][NI], ro[NJ][NI], rf[NJ][NI] ;
-  int zi[NJ][NI], zo[NJ][NI], ri[NJ][NI] ;
+  float    fi[NJ][NI], fo[NJ][NI], fr[NJ][NI] ;    // input, output, reference (float)
+  uint32_t ui[NJ][NI], uo[NJ][NI], ur[NJ][NI] ;    // input, output, reference (unsigned int)
   uint32_t buffer[NI*NJ*2] ;
   ssize_t tot_status ;
 //   TIME_LOOP_DATA ;
-
-// dummy code to avoid warnings
-  if(argc > 1 && argv[1] == NULL) goto fail ;
-  if(argc > 100) goto end ;
 
   freq = cycles_counter_freq() ;
   nano = 1.0E+9 ;
@@ -98,45 +89,53 @@ code:
 //   }
 //   fprintf(stderr, "\n");
 
-  new_array(&a2d, (void *)&z, sizeof(float), float_data, NI, NJ) ;
-  new_array(&b2d, (void *)&ro, sizeof(float), raw_data,   NI, NJ) ;
+  new_array(&a2d, (void *)&fi, sizeof(float), float_data, NI, NJ) ;
+  new_array(&b2d, (void *)&fo, sizeof(float), raw_data,   NI, NJ) ;
   for(j=0 ; j<NJ ; j++){
     for(i=0 ; i<NI ; i++){
-      rf[j][i]  = (i - (NI-1)*.5f) + (j - (NJ-1)*.5f) ;   // float reference
-      ri[j][i] = ((i + 1) << 8) | (j + 1) ;               // integer reference
-//       z[j][i]  = (i - (NI-1)*.5f) + (j - (NJ-1)*.5f) ;
-//       rf[j][i]  = z[j][i] ;
-//       ro[j][i]  = 999999.0f ;
+      fr[j][i]  = (i - (NI-1)*.5f) + (j - (NJ-1)*.5f) ;   // float reference
+      ur[j][i] = ((i + 1) << 8) | (j + 1) ;               // unsigned integer reference
+//       fi[j][i]  = (i - (NI-1)*.5f) + (j - (NJ-1)*.5f) ;
+//       fr[j][i]  = fi[j][i] ;
+//       fo[j][i]  = 999999.0f ;
     }
   }
 
-//   debug_mode  = dmap_debug_mode(1)  ; dmap_debug_mode(debug_mode) ;
-//   strict_mode = dmap_strict_mode(0) ; dmap_strict_mode(strict_mode) ;
+  debug_mode  = dmap_debug_mode(1)  ; dmap_debug_mode(debug_mode) ;
+  strict_mode = dmap_strict_mode(0) ; dmap_strict_mode(strict_mode) ;
 
-  new_array(&c2d, (void *)&zi, sizeof(int), int_data, NI, NJ) ;  // used as input data
-  new_array(&d2d, (void *)&zo, sizeof(int), int_data, NI, NJ) ;  // used as output data
+  new_array(&r2d, (void *)&ur, sizeof(int), int_data, NI, NJ) ;  // integer source data
+  new_array(&i2d, (void *)&ui, sizeof(int), int_data, NI, NJ) ;  // used as input data
+  new_array(&o2d, (void *)&uo, sizeof(int), int_data, NI, NJ) ;  // used as output data
 
-  STREAM_CREATE(str000, buffer, sizeof(buffer), 0) ;
+  STREAM_CREATE(str000, buffer, sizeof(buffer), 0) ;   // create stream for reading and writing
 
   int test_no ;
   for(test_no = 0 ; test_no < 6 ; test_no++){
     fprintf(stderr, "============================== integer encode test %d start ==============================\n", test_no) ;
-    STREAM_INIT(str000, NULL, 0, 0) ;               // full RW stream reset (keep buffer space and size)
+    STREAM_INIT(str000, NULL, 0, 0) ;               // full RW stream reset (keep buffer, size, and mode)
+    dmap_lorenzo_arg arg_004 = DMAP_LORENZO() ;
+    dmap_encode_arg  arg_006 ;
+    dmap_wavelet_arg arg_005 = DMAP_WAVELET(.levels = 3) ;
     switch(test_no){
-      case 0  : arg_006a = DMAP_ENCODE(.mode= 32, .options=0) ; break ;    // filter 006, raw, 32 bits per item
-      case 1  : arg_006a = DMAP_ENCODE(.mode= 24, .options=0) ; break ;    // filter 006, raw, 24 bits per item
-      case 2  : arg_006a = DMAP_ENCODE(.mode= 15, .options=0) ; break ;    // filter 006, raw, 15 bits per item
-      case 3  : arg_006a = DMAP_ENCODE(.mode= 98, .options=0) ; break ;    // filter 006, zigzag, up to 32 bits per item
-      case 4  : arg_006a = DMAP_ENCODE(.mode= 99, .options=0) ; break ;    // filter 006, BHW, auto bits per item
-      case 5  : arg_006a = DMAP_ENCODE(.mode=104, .options=0) ; break ;    // filter 006, tile encoding
+      case 0  : arg_006 = DMAP_ENCODE(.mode= 32, .options=0) ; break ;    // filter 006, raw, 32 bits per item
+      case 1  : arg_006 = DMAP_ENCODE(.mode= 24, .options=0) ; break ;    // filter 006, raw, 24 bits per item
+      case 2  : arg_006 = DMAP_ENCODE(.mode= 15, .options=0) ; break ;    // filter 006, raw, 15 bits per item
+      case 3  : arg_006 = DMAP_ENCODE(.mode= 98, .options=0) ; break ;    // filter 006, zigzag, up to 32 bits per item
+      case 4  : arg_006 = DMAP_ENCODE(.mode= 99, .options=0) ; break ;    // filter 006, BHW, auto bits per item
+      case 5  : arg_006 = DMAP_ENCODE(.mode=104, .options=0) ; break ;    // filter 006, tile encoding
       default : goto fail ;                                   // invalid test number
     }
-    dpfl[0] = (dmap_filter_args_ptr)&arg_006a ;
-    dpfl[1] = NULL ;                                // end of filter list
+    if(test_no == 1 || test_no == 2) continue ;
+    dpfl[0] = (dmap_filter_args_ptr)&arg_005 ;
+    dpfl[1] = (dmap_filter_args_ptr)&arg_004 ;
+    dpfl[2] = (dmap_filter_args_ptr)&arg_006 ;
+    dpfl[3] = NULL ;                                // end of filter list
 
     fprintf(stderr, "filter test : available space in str000 %ld bits, available bits = %ld bits\n", StreamAvailableSpace(str000), StreamAvailableBits(str000)) ;
-    memcpy(zi, ri, NI*NJ*sizeof(int)) ;                                   // set input data
-    status = dmap_filter_fwd((array_nd *)&c2d, NULL, dpfl, str000) ;      // forward filter
+
+    if((NI * NJ) != copy_array_data(&r2d, &i2d)) goto fail ;              // set input data (copy ur into ui), check sizes
+    status = dmap_filter_fwd((array_nd *)&i2d, NULL, dpfl, str000) ;      // forward filter
     estream = str000 ;
     if(status < 0) goto fail ;
     fprintf(stderr, "filter test : bits inserted = %ld\n\n", status) ;
@@ -144,16 +143,16 @@ code:
     STREAM_REWIND(*str000, 1) ;
     fprintf(stderr, "filter test : available space in str000 %ld bits, available bits = %ld bits\n", StreamAvailableSpace(str000), StreamAvailableBits(str000)) ;
 
-    set_array_value(&d2d, 0x0F, 1) ;                                      // set output to nonsense
-    tot_status = dmap_filter_inv((array_nd *)&d2d, str000) ;              // inverse filter
+    set_array_value(&o2d, 0x0F, ARRAY_BYTES) ;                            // set output to nonsense
+    tot_status = dmap_filter_inv((array_nd *)&o2d, str000) ;              // inverse filter
     if(tot_status < 0) goto fail ;
-    errors = array_compare_2D(NI, NJ, (void *)ri, (void *)zo) ;
+    errors = array_compare_2D(NI, NJ, (void *)ur, (void *)uo) ;
     fprintf(stderr, "filter test :  bits extracted = %ld, errors = %d\n",tot_status, errors) ;
     if(errors > 0) goto fail ;
     fprintf(stderr, "============================== integer encode test %d end ==============================\n", test_no) ;
 
   }
-  goto end ;
+  if(argc < 1000) goto end ;     // suppress unreachable code warning
 
   dpfl[0] = (dmap_filter_args_ptr)&arg_001a ;     // filter 001
   dpfl[1] = (dmap_filter_args_ptr)&arg_001b ;     // filter 001
@@ -210,7 +209,7 @@ code:
 
   errors = NI*NJ ;
 //   float *pz = (float *) a2d.data ;
-  float *pz = (float *) rf ;
+  float *pz = (float *) fr ;
   float *pr = (float *) b2d.data ;
   block_properties bp_out, bp_in ;
   analyze_data32_block((void *) pz, NI, NI, NJ, &bp_in)  ; adjust_block_properties(&bp_in,  float_data) ;
@@ -224,11 +223,11 @@ code:
     maxdiff = (err > maxdiff) ? err : maxdiff ;
     if(pz[i] == pr[i]) errors-- ;
   }
-  if(errors > 0) fprintf(stderr, "%f %f %f %f\n", z[0][0], z[NJ-1][NI-1], ro[0][0], ro[NJ-1][NI-1]) ;
-  fprintf(stderr, "filter test : %d differences between ro and z (%d values), max = %f\n", errors, NI*NJ, maxdiff) ;
+  if(errors > 0) fprintf(stderr, "%f %f %f %f\n", fi[0][0], fi[NJ-1][NI-1], fo[0][0], fo[NJ-1][NI-1]) ;
+  fprintf(stderr, "filter test : %d differences between fo and fi (%d values), max = %f\n", errors, NI*NJ, maxdiff) ;
   if(errors > 0) goto fail ;
   fprintf(stderr, "SUCCESS\n") ;
-goto end ;
+if(argc < 1000) goto end ;     // suppress unreachable code warning
 // array_test:
   fprintf(stderr, "============================== array test ==============================\n") ;
 #undef NI

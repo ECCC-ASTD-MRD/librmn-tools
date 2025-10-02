@@ -20,6 +20,7 @@
 #include <rmn/move_blocks.h>
 #include <rmn/misc_operators.h>
 #include <rmn/tile_encoders.h>
+#include <rmn/dwt_i_lgt53.h>
 
 #define FILTER_ID 000
 // ======================================= filter 000 =======================================
@@ -94,7 +95,7 @@ fprintf(stderr, "FIRST filter will be %3.3o\n", filter) ;
 #undef FILTER_ID
 
 // ======================================= filter 001 =======================================
-// offset and scale for now.
+// integer/float offset and scale.
 #define FILTER_ID 001
 #define FILTER_NAME CAT(dmap_filter_,FILTER_ID)
 #define FILTER_ARGS CAT(dmap_filter_arg_,FILTER_ID)
@@ -241,8 +242,8 @@ reverse:
 #define FILTER_ID 003
 #define FILTER_NAME CAT(dmap_filter_,FILTER_ID)
 #define FILTER_ARGS CAT(dmap_filter_arg_,FILTER_ID)
-// dpfl == NULL means a reverse filter call
-// for the reverse filter, the data from the bit stream provides the necessary information
+// dpfl == NULL : reverse filter call (no list needed)
+// for the reverse filter, the bit stream provides the necessary information
 // the filter may modify the contents of the array described by a and of the data properties bp
 // in filter mode, bp == NULL if no properties information is available
 // the filter list MUST BE NULL TERMINATED
@@ -413,47 +414,48 @@ reverse:
 #define FILTER_ID 004
 #define FILTER_NAME CAT(dmap_filter_,FILTER_ID)
 #define FILTER_ARGS CAT(dmap_filter_arg_,FILTER_ID)
-// dpfl == NULL means a reverse filter call
-// for the reverse filter, the metadata from the bit stream provides the necessary information
+// dpfl == NULL : reverse filter call (no list needed)
+// for the reverse filter, the bit stream provides the necessary information
 // the filter may modify the contents of the array described by a
 // in filter mode, bp == NULL if no properties information is available
 // the filter list MUST BE NULL TERMINATED
 ssize_t FILTER_NAME(array_nd *a, block_properties *bp, dmap_filter_list dpfl, bitstream *stream){
   char *errmsg = "" ;
   uint32_t me = FILTER_ID ;
-  if(a == NULL || stream == NULL) goto fail ;    // no array or no stream
+  errmsg = "no array" ;
+  if(a == NULL) goto fail ;                      // no array
+  errmsg = "no stream" ;
+  if(stream == NULL) goto fail ;                 // no stream
   void *array = array_address(a) ;               // get array address, dimension(s), and type
   int ndim = a->ndim, type = a->type ;
   ssize_t status = 0 ;
   bitstream s = *stream ;                        // local copy of stream control structure
-//   block_properties lbp ;
-// 
-//   if(bp == NULL) { bp = &lbp ; lbp.kind = bad_data ; }
-  if(dpfl == NULL) goto reverse ;                // call to reverse filter
+
+  if(dpfl == NULL) goto reverse ;                // reverse filter
+
+  errmsg = "invalid/inconsistent filter ID" ;
   if(! dmap_filter_valid(dpfl,me)) goto fail ;   // not the right filter or NULL pointer
-//   FILTER_ARGS *arg = (FILTER_ARGS *)(*dpfl) ;    // get parameters for this filter
-//
-// check a->type and a->ndim
-  if(type != int_data && type != uint_data) goto fail ;
-  if(ndim != 2) goto fail ;
-//
-// filter processing code goes here
-//
+  // there are no specific parameters for this filter
+  errmsg = "expecting int_data or uint_data" ;
+  if(type != int_data && type != uint_data) goto fail ;    // integers only
+  errmsg = "expecting 2D array" ;
+  if(ndim != 2) goto fail ;                                // 2 D only
   // call Lorenzo predictor in place
   LorenzoPredictInplace((int32_t *)array, a->dim[0].gnn, a->dim[0].gnn, a->dim[1].gnn) ;
+  fprintf(stderr, "filter %3.3o(X) Lorenzo prediction performed \n", FILTER_ID) ;
   a->type = int_data ;
-  bp = NULL ;                                  // not used
-  dpfl++ ;                                     // call next filter if there is one
+  bp = NULL ;                                    // not used
+  dpfl++ ;                                       // call next filter if there is one
   dmap_filter_ptr next_filter = dmap_filter_next(dpfl) ;
   status = (*next_filter)(a, bp, dpfl, &s) ;
   if(status < 0) goto fail ;
 //
-// insert into bitstream the appropriate data for the reverse filter
+// insert the appropriate data into bitstream for the reverse filter
 //
-  STREAM_PUT_NBITS(s, FILTER_ID, 8) ;
+  STREAM_PUT_NBITS(s, FILTER_ID, 8) ;            // Lorenzo marker
   STREAM_INSERT_PUSH(s) ;
-  status += 8 ;                                 // 8 bits inserted
-// end:
+  status += 8 ;                                  // 8 bits inserted
+
   *stream = s ;   // SAVE stream changes
   return status ;
 
@@ -461,22 +463,22 @@ fail:
   fprintf(stderr, "%s filter %3.3o ERROR : %s\n", (dpfl == NULL) ? "reverse" : "forward", FILTER_ID, errmsg) ;
   return -1 ;     // DO NOT SAVE stream changes
 
-  uint32_t filter ;
 reverse:
+  errmsg = "inconsistent filter ID" ;
+  uint32_t filter ;
   STREAM_GET_NBITS(s, filter, 8) ;
   status = 8 ;                                         // 8 bits extracted so far
   fprintf(stderr, "reverse filter %3.3o, id = %d\n", FILTER_ID, filter) ;
   if(filter != FILTER_ID) goto fail ;                     // wrong id, MUST be FILTER_ID
-//
-// inverse filter processing code goes here
-//
-  errmsg = "expecting type == int_data" ;
+  errmsg = "expecting int_data" ;
   if(type != int_data) goto fail ;
-  errmsg = "expecting 2 D array" ;
+  errmsg = "expecting 2D array" ;
   if(ndim != 2)        goto fail ;
   // call Lorenzo inverse predictor in place
   LorenzoUnpredictInplace((int32_t *)array, a->dim[0].gnn, a->dim[0].gnn, a->dim[1].gnn) ;
+  fprintf(stderr, "filter %3.3o(E) Lorenzo restore performed \n", FILTER_ID) ;
   a->type = int_data ;
+
   ssize_t status2 = dmap_filter_inv(a, &s) ;     // call next reverse filter
   if(status2 < 0) goto fail ; else status += status2 ;
   *stream = s ;   // SAVE stream changes
@@ -491,30 +493,44 @@ reverse:
 #define FILTER_ID 005
 #define FILTER_NAME CAT(dmap_filter_,FILTER_ID)
 #define FILTER_ARGS CAT(dmap_filter_arg_,FILTER_ID)
-// dpfl == NULL means a reverse filter call
-// for the reverse filter, the metadata from the bit stream provides the necessary information
+// dpfl == NULL : reverse filter call (no list needed)
+// for the reverse filter, the bit stream provides the necessary information
 // the filter may modify the contents of the array described by a
 // in filter mode, bp == NULL if no properties information is available
 // the filter list MUST BE NULL TERMINATED
 ssize_t FILTER_NAME(array_nd *a, block_properties *bp, dmap_filter_list dpfl, bitstream *stream){
   char *errmsg = "" ;
   uint32_t me = FILTER_ID ;
-  if(a == NULL || stream == NULL) goto fail ;    // no array or no stream
+  errmsg = "no array" ;
+  if(a == NULL) goto fail ;                      // no array
+  errmsg = "no stream" ;
+  if(stream == NULL) goto fail ;                 // no stream
   void *array = array_address(a) ;               // get array address, dimension(s), and type
-//   int ndim = a->ndim, type = a->type ;
+  int ndim = a->ndim, type = a->type, ni, nj, levels ;
   ssize_t status = 0 ;
   bitstream s = *stream ;                        // local copy of stream control structure
-//   block_properties lbp ;
-// 
-//   if(bp == NULL) { bp = &lbp ; lbp.kind = bad_data ; }
-  if(dpfl == NULL) goto reverse ;                // call to reverse filter
-  if(! dmap_filter_valid(dpfl,me)) goto fail ;   // not the right filter or NULL pointer
-//   FILTER_ARGS *arg = (FILTER_ARGS *)(*dpfl) ;    // get parameters for this filter
 
-//
-// check a->type and a->ndim
-//
-// filter processing code goes here
+  if(dpfl == NULL) goto reverse ;                // call to reverse filter
+
+  errmsg = "invalid/inconsistent filter ID" ;
+  if(! dmap_filter_valid(dpfl,me)) goto fail ;   // not the right filter or NULL pointer
+
+  errmsg = "expecting int_data or uint_data" ;
+  if(type != int_data && type != uint_data) goto fail ;    // integers only
+  errmsg = "expecting 2D array" ;
+  if(ndim != 2) goto fail ;                                // 2 D only
+
+  FILTER_ARGS *arg = (FILTER_ARGS *)(*dpfl) ;    // get parameters for this filter
+  levels = arg->levels ;
+  errmsg = "0 < levels <= 4 NOT TRUE" ;
+  if(levels < 0 || levels > 4) goto fail ;
+  ni = a->dim[0].gnn ;
+  nj = a->dim[1].gnn ;
+  // call forward integer wavelet transform
+  fprintf(stderr, "filter %3.3o %d levels %d x %d forward wavelet transform\n", FILTER_ID, levels, ni, nj) ;
+  fwd_2d_lgt53_n(array, ni, ni, nj, levels);
+  a->type = int_data ;
+  bp = NULL ;                                    // not used
 //
   dpfl++ ;                                     // call next filter if there is one
   dmap_filter_ptr next_filter = dmap_filter_next(dpfl) ;
@@ -526,7 +542,10 @@ ssize_t FILTER_NAME(array_nd *a, block_properties *bp, dmap_filter_list dpfl, bi
   STREAM_PUT_NBITS(s, FILTER_ID, 8) ;
   STREAM_INSERT_PUSH(s) ;
   status += 8 ;                                 // 8 bits inserted
-// end:
+  STREAM_PUT_NBITS(s, levels, 8) ;
+  status += 8 ;
+
+end:
   *stream = s ;   // SAVE stream changes
   return status ;
 
@@ -537,34 +556,36 @@ fail:
   uint32_t filter ;
 reverse:
   STREAM_GET_NBITS(s, filter, 8) ;
+  status = 8 ;
 //   fprintf(stderr, "reverse filter %3.3o, id = %d\n", FILTER_ID, filter) ;
   if(filter != FILTER_ID) goto fail ;                     // wrong id, MUST be FILTER_ID
-//
-// inverse filter processing code goes here
-//
+
+  STREAM_GET_NBITS(s, levels, 8) ;
+  status += 8 ;
+  errmsg = "expecting int_data" ;
+  if(type != int_data) goto fail ;
+  errmsg = "expecting 2D array" ;
+  if(ndim != 2)        goto fail ;
+  ni = a->dim[0].gnn ;
+  nj = a->dim[1].gnn ;
+
+  fprintf(stderr, "filter %3.3o %d levels %d x %d inverse wavelet transform\n", FILTER_ID, levels, ni, nj) ;
+  inv_2d_lgt53_n(array, ni, ni, nj, levels);
+  a->type = int_data ;
 
   ssize_t status2 = dmap_filter_inv(a, &s) ;     // call next inverse filter
   if(status2 < 0) goto fail ; else status += status2 ;
-  *stream = s ;   // SAVE stream changes
-  return status ;
+  goto end ;
+//   *stream = s ;   // SAVE stream changes
+//   return status ;
 }
 #undef FILTER_NAME
 #undef FILTER_ARGS
 #undef FILTER_ID
 
 // ======================================= filter 006 =======================================
-// static int code_bhw1(int value){
-//   return ((value >> 8) ? 1 : 0) + ((value >> 16) ? 1 : 0) + ((value >> 24) ? 1 : 0) ;
-// }
-// static int nbits_bhw1(int code){
-//   return (1 + code) << 3 ;
-// }
-// 
-// static int combine(int code, int value){
-//   int nbits = (1 + code) << 3 ;
-//   return (code << nbits) | value ;
-// }
-// encode and insert value v into stream s, set nbits to 10/18/26/34 according to number of bits inserted
+// dpfl == NULL : reverse filter call (no list needed)
+// for the reverse filter, the bit stream provides the necessary information
 #define STREAM_PUT_BHW(s, v, nbits) { uint32_t c = ((v >> 8) ? 1 : 0) + ((v >> 16) ? 1 : 0) + ((v >> 24) ? 1 : 0) ; \
                                       uint32_t TbItS = (1 + c) << 3 ; \
                                       STREAM_PUT_NBITS(s, c , 2) ; \
@@ -579,13 +600,12 @@ reverse:
                                       nbits = TbItS + 2 ; \
                                     }
 
-// void do_nothing_with(void *what);
 // bit stream encoder
 #define FILTER_ID 006
 #define FILTER_NAME CAT(dmap_filter_,FILTER_ID)
 #define FILTER_ARGS CAT(dmap_filter_arg_,FILTER_ID)
-// dpfl == NULL means a reverse filter call
-// for the reverse filter, the metadata from the bit stream provides the necessary information
+// dpfl == NULL : reverse filter call (no list needed, required data will be in bit stream)
+// for the reverse filter, the bit stream provides the necessary information
 // the filter may modify the contents of the array described by a
 // in filter mode, bp == NULL if no properties information is available
 // the filter list MUST BE NULL TERMINATED
@@ -668,12 +688,12 @@ ssize_t FILTER_NAME(array_nd *a, block_properties *bp, dmap_filter_list dpfl, bi
     status += tnbits ;
 fprintf(stderr, "filter 006(X), tile size = %d, tnbits = %d\n", tile, tnbits) ;
     int ni = a->dim[0].gnn, nj = a->dim[1].gnn ;
-// fprintf(stderr, "filter 006(X) : encoding ni = %d, nj = %d", ni, nj);
-// int encode_block(bitstream *s_in, int32_t *block, int lnis, int ni, int nj, int basic_size, int options);
-    ssize_t encoded = encode_block(&s, block, ni, ni, nj, tile, arg->options) ;
-// fprintf(stderr, ", TILE encoded %ld bits\n", encoded) ;
-    status += encoded ;
     errmsg="tile mode, not enough space to encode data" ;
+    // add dry-run of encoder to check that there is enough space to encode data
+    // or use worst case estimate ni*nj*32 ?
+    if(available < ni*nj*32) goto fail ;       // not enough space for worst case
+    ssize_t encoded = encode_block(&s, block, ni, ni, nj, tile, arg->options) ;
+    status += encoded ;
     STREAM_PUT_NBITS(s, header   , 8) ;        // NULL tile (flag for last tile )
     status += 8 ;
 

@@ -322,7 +322,7 @@ fprintf(stderr, "inv_next (3) : id= %3.3o,  status = %ld\n", id, status) ;
 // allocate  [IN] : if nonzero, allocate spacefor data
 // return number of bits extracted from bit stream (-1 if error)
 int32_t dmap_filter_get_array_info(array_nd *a, bitstream *stream, int allocate){
-  int i, nbits, ndim, type, dsize, iw32, gnn ;
+  int i, nbits, ndim, type, dsize, gnn ;
   char *msg = "" ;
   size_t sz = 1 ;
   uint32_t w32 ;
