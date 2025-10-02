@@ -172,7 +172,7 @@ void new_array_nd(array_nd *a, void *mem, int32_t esize, int8_t type, int32_t nd
 // a    [INOUT] : pointer to nD array descriptor
 // v       [IN] : value used as filler
 // vlen    [IN] : length in bytes of value (1/2/4)
-size_t set_array_value_nd(array_nd *a, int v, uint32_t vlen){
+size_t set_array_value_nd(array_nd *a, int32_t v, uint32_t vlen){
   if(invalid_array(a)) return 0 ;
   size_t size = array_size_nd(a) ;
   void *address = array_address_nd(a) ;
@@ -605,6 +605,26 @@ size_t subarray_set_nd(array_nd *a, void *src_address, size_t src_size){
   default:
     goto fail ;
   }
+
+fail:
+  return 0 ;
+}
+
+// copy data from array src into array dst
+// src  [IN] : pointer to existing array_nd struct
+// dst  [IN] : pointer to existing array_nd struct
+size_t array_copy_data_nd(array_nd *src, array_nd *dst){
+
+  if(invalid_array(src)) goto fail ;              // both arrays must be valid
+  if(invalid_array(dst)) goto fail ;
+
+  size_t src_size = array_size(src) ;
+  size_t dst_size = array_size(dst) ;
+  if(src_size   != dst_size)   goto fail ;        // and have the same data size
+  if(src->esize != dst->esize) goto fail ;
+
+  memcpy(dst->data, src->data, src_size) ;        // copy contents of src into dst
+  return src_size / src->esize ;                  // number of elements copied
 
 fail:
   return 0 ;

@@ -396,7 +396,11 @@ size_t fix_array_nd(array_nd *a);
     array_1d *: fix_array_nd((array_nd *)ARRAY)  \
   )
 
-size_t set_array_value_nd(array_nd *a, int v, uint32_t vlen);
+#define ARRAY_BYTES  sizeof(int8_t)
+#define ARRAY_HWORDS sizeof(int16_t)
+#define ARRAY_WORDS  sizeof(int32_t)
+// users should call the generic function set_array_value rather than set_array_value_nd
+size_t set_array_value_nd(array_nd *a, int32_t v, uint32_t vlen);
 #define set_array_value(ARRAY, V, VLEN) \
   _Generic((ARRAY), \
     array_nd *: set_array_value_nd((array_nd *)ARRAY, V, VLEN), \
@@ -406,5 +410,9 @@ size_t set_array_value_nd(array_nd *a, int v, uint32_t vlen);
     array_2d *: set_array_value_nd((array_nd *)ARRAY, V, VLEN), \
     array_1d *: set_array_value_nd((array_nd *)ARRAY, V, VLEN)  \
   )
+
+size_t array_copy_data_nd(array_nd *src, array_nd *dst);
+// users should use copy_array_data rather than array_copy_data_nd
+#define copy_array_data(SRC, DST) array_copy_data_nd((array_nd *)SRC, (array_nd *)DST)
 
 #endif
