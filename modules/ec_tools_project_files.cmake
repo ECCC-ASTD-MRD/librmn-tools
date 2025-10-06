@@ -24,6 +24,7 @@ set(PROJECT_C_FILES
   src/pack/filter_254.c
   src/pack/filter_255.c
   src/pack/float_block_encoders.c
+  src/pack/fp_qflog.c
   src/id/identify_compiler.c
   src/id/identify_mpi_child.c
 #   src/pack/ieee_quantize.c
@@ -108,6 +109,7 @@ set(PROJECT_H_FILES
   src/PUBLIC_INCLUDES/rmn/filter_254.h
   src/PUBLIC_INCLUDES/rmn/filter_255.h
   src/PUBLIC_INCLUDES/rmn/float_block_encoders.h
+  src/PUBLIC_INCLUDES/rmn/fp_qflog.h
   src/PUBLIC_INCLUDES/rmn/function_pointers.h
   src/PUBLIC_INCLUDES/rmn/identify_c_compiler.h
   src/PUBLIC_INCLUDES/rmn/identify_fortran_compiler.hf
