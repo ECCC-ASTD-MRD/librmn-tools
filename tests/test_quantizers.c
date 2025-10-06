@@ -51,8 +51,8 @@ void verify_log(float r[NJ][NI], int32_t q[NJ][NI], int nij, int32_t e_base, flo
 //   int32_t e_base0 = (e_base >> 8) - 127 ;
   int32_t e_base0 = (e_base & 0xFF) - 127 ;
 //   int32_t mbits = e_base >> 8 ;
-  int i, j, n = 0, erri, errj, zero = 0, qi ;
-  float errmax = 0.0f, vmax = 999999.0f, verr = 999999.0f, errpt = 0.0f, vrest = 999999.0f ;
+  int i, j, n = 0, erri = -1, errj = -1, zero = 0/*, qi*/ ;
+  float errmax = 0.0f, vmax = 999999.0f, verr = 999999.0f, errpt = 0.0f/*, vrest = 999999.0f*/ ;
   float vref = fp32_pow2(e_base0 + 0) ;
 // fprintf(stderr,"verify_log : vref = %f, e_base0 = %d, nij = %d\n", vref, e_base0, nij) ;
   q2fp_log((float *)r, (int32_t *)q, nij, e_base) ;
@@ -72,11 +72,11 @@ void verify_log(float r[NJ][NI], int32_t q[NJ][NI], int nij, int32_t e_base, flo
         errmax = err ;
         vmax = Z[j][i] ;
         verr = r[j][i] - Z[j][i] ;
-        vrest = r[j][i] ;
+//         vrest = r[j][i] ;
         erri = i ;
         errj = j ;
         errpt = r[j][i] ;
-        qi = q[j][i] ;
+//         qi = q[j][i] ;
       }
     }
   }
@@ -183,7 +183,7 @@ test:
 
   fprintf(stderr, "============================== pseudo log quantizers ==============================\n") ;
 
-  int32_t mbits = 11, mbits0, e_range ;
+  int32_t mbits = 11, e_range ;
   uint32_t round = (1 << (22 - mbits)) ;
   float vref = 32.0f ;
 
