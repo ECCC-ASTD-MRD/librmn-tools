@@ -116,17 +116,17 @@ process:
     STREAM_INIT(str000, NULL, 0, 0) ;               // full RW stream reset (keep buffer, size, and mode)
     dmap_lorenzo_arg arg_004 = DMAP_LORENZO() ;
     dmap_encode_arg  arg_006 ;
-    dmap_wavelet_arg arg_005 = DMAP_WAVELET(.levels = 3) ;
+    // 15 and 24 bit raw encoding will not work with wavelet transform
+    dmap_wavelet_arg arg_005 = DMAP_WAVELET(.levels = ((test_no < 2) ? 0 : 3)) ;
     switch(test_no){
-      case 0  : arg_006 = DMAP_ENCODE(.mode= 32, .options=0) ; break ;    // filter 006, raw, 32 bits per item
+      case 0  : arg_006 = DMAP_ENCODE(.mode= 15, .options=0) ; break ;    // filter 006, raw, 15 bits per item
       case 1  : arg_006 = DMAP_ENCODE(.mode= 24, .options=0) ; break ;    // filter 006, raw, 24 bits per item
-      case 2  : arg_006 = DMAP_ENCODE(.mode= 15, .options=0) ; break ;    // filter 006, raw, 15 bits per item
+      case 2  : arg_006 = DMAP_ENCODE(.mode= 32, .options=0) ; break ;    // filter 006, raw, 32 bits per item
       case 3  : arg_006 = DMAP_ENCODE(.mode= 98, .options=0) ; break ;    // filter 006, zigzag, up to 32 bits per item
       case 4  : arg_006 = DMAP_ENCODE(.mode= 99, .options=0) ; break ;    // filter 006, BHW, auto bits per item
       case 5  : arg_006 = DMAP_ENCODE(.mode=104, .options=0) ; break ;    // filter 006, tile encoding
       default : goto fail ;                                   // invalid test number
     }
-    if(test_no == 1 || test_no == 2) continue ;
     dpfl[0] = (dmap_filter_args_ptr)&arg_005 ;
     dpfl[1] = (dmap_filter_args_ptr)&arg_004 ;
     dpfl[2] = (dmap_filter_args_ptr)&arg_006 ;
@@ -161,7 +161,7 @@ process:
   dpfl[4] = (dmap_filter_args_ptr)&arg_036z ;     // undefined filter 036
   dpfl[5] = (dmap_filter_args_ptr)&arg_177n ;     // invalid filter 127
   dpfl[6] = NULL ;                                // end of filter list
-  arg_003a = DMAP_FP_QUANTIZE( .maxerr = .25f, .maxsig = 0.0f, .nbits = 12, .offset = 0x7FFFFFFF, .mode = FP_QUANTIZE_LIN ) ;
+  arg_003a = DMAP_FP_QUANTIZE( .maxerr = .25f, .minabs = 0.0f, .nbits = 12, .offset = 0x7FFFFFFF, .mode = FP_QUANTIZE_LIN ) ;
 //   arg_003a = DMAP_FP_QUANTIZE( .maxerr = .25f, .nbits = 12, .offset = 0, .mode = FP_QUANTIZE_LIN ) ;
 //   arg_003a = DMAP_FP_QUANTIZE( .maxerr = .00000025f, .nbits = 8, .offset = 0x7FFFFFFF, .mode = FP_QUANTIZE_LIN ) ;
 //   arg_003a = DMAP_FP_QUANTIZE( .maxerr = .00000025f, .nbits = 8, .offset = 0, .mode = FP_QUANTIZE_LIN ) ;
@@ -238,7 +238,7 @@ if(argc < 1000) goto end ;     // suppress unreachable code warning
   float z2[NJ][NI] ; // , r2[NJ][NI] ;   // 3 tiles horizontally, 1 tile vertically
   uint32_t buf2[NI*NJ*2] ;         // enough space for stream packing
 //   bitstream *stream2 = NULL ;
-  dmap_filter_arg_003 quantize = DMAP_FILTER_003( .maxerr = .25f, .nbits = 12) ;
+  dmap_filter_arg_003 quantize = DMAP_FILTER_003( .mode = 0, .abserr = .25f, .nbits = 12) ;
   dmap_filter_arg_006 encode   = DMAP_FILTER_006( .mode = 24 ) ;
 
   dpfl[0] = (dmap_filter_args_ptr)&quantize ;     // filter 003, linear float quantizer

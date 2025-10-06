@@ -237,6 +237,7 @@ reverse:
 
 // ======================================= filter 003 =======================================
 #include <rmn/quantizers.h>
+#include <rmn/fp_qflog.h>
 
 // 32 bit float quantizer
 #define FILTER_ID 003
@@ -270,8 +271,8 @@ ssize_t FILTER_NAME(array_nd *a, block_properties *bp, dmap_filter_list dpfl, bi
   if(nbits    < 0) goto fail ;                   // nbits MUST BE >= 0
   float maxerr = arg->maxerr ;                   // largest absolute/relative error desired
   if(maxerr < 0) goto fail ;                     // maxerr MUST BE >= 0
-  float maxsig = arg->maxsig ;
-  if(maxsig < 0) goto fail ;
+  float minabs = arg->minabs ;
+  if(minabs < 0) goto fail ;
   int32_t offset = arg->offset ;                 // discretization offset (ox7FFFFFFF means minimum quantized value)
   if(nbits == 0 && maxerr == 0) goto fail ;      // cannot be BOTH 0
   int32_t mode = arg->mode ;
@@ -310,7 +311,7 @@ ssize_t FILTER_NAME(array_nd *a, block_properties *bp, dmap_filter_list dpfl, bi
 // ==================== call fp32 quantizer ====================
 //   e_base = fp2q_lin((float *)array, (int32_t *)array, nvalues, quantum, offset) ;
   a->type = (offset == 0x7FFFFFFF) ? uint_data : int_data ;
-  e_base = fp2q_n((float *)array, (int32_t *)array, nvalues, bp, maxerr, maxsig, nbits, &offset, mode) ;
+  e_base = fp2q_n((float *)array, (int32_t *)array, nvalues, bp, maxerr, minabs, nbits, &offset, mode) ;
 
   dpfl++ ;                                       // call next filter if there is one
   dmap_filter_ptr next_filter = dmap_filter_next(dpfl) ;
@@ -522,13 +523,13 @@ ssize_t FILTER_NAME(array_nd *a, block_properties *bp, dmap_filter_list dpfl, bi
 
   FILTER_ARGS *arg = (FILTER_ARGS *)(*dpfl) ;    // get parameters for this filter
   levels = arg->levels ;
-  errmsg = "0 < levels <= 4 NOT TRUE" ;
+  errmsg = "0 <= levels <= 4 NOT TRUE" ;
   if(levels < 0 || levels > 4) goto fail ;
   ni = a->dim[0].gnn ;
   nj = a->dim[1].gnn ;
   // call forward integer wavelet transform
   fprintf(stderr, "filter %3.3o %d levels %d x %d forward wavelet transform\n", FILTER_ID, levels, ni, nj) ;
-  fwd_2d_lgt53_n(array, ni, ni, nj, levels);
+  if(levels > 0) fwd_2d_lgt53_n(array, ni, ni, nj, levels);
   a->type = int_data ;
   bp = NULL ;                                    // not used
 //
@@ -570,7 +571,7 @@ reverse:
   nj = a->dim[1].gnn ;
 
   fprintf(stderr, "filter %3.3o %d levels %d x %d inverse wavelet transform\n", FILTER_ID, levels, ni, nj) ;
-  inv_2d_lgt53_n(array, ni, ni, nj, levels);
+  if(levels > 0) inv_2d_lgt53_n(array, ni, ni, nj, levels);
   a->type = int_data ;
 
   ssize_t status2 = dmap_filter_inv(a, &s) ;     // call next inverse filter

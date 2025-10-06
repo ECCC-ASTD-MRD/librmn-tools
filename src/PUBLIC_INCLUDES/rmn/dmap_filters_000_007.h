@@ -50,11 +50,12 @@ typedef struct{
 dmap_filter  dmap_filter_003 ;
 typedef struct{
   uint32_t filter ;  // filter number
-  float    maxerr ;  // maximum absolute or relative error
-  float    maxsig ;  // values below maxsig are considered NOT SIGNIFICANT
-  int32_t  nbits ;   // maximum number of bits for quantized values (1 -> 24)
-  int32_t  offset ;  // use this offset if non zero (use minimum quantized value if 0x7FFFFFFF)
-  int32_t  mode ;    // quantization mode 0 : linear, 1 : pseudo log
+  int32_t  mode ;    // quantization mode 0 : linear, 1 : fake integers, 2 : float block
+  uint32_t  nbits ;   // maximum number of significant bits kept in quantized values (1 -> 24)
+  union{ float abserr ; float relerr ; float maxerr ; } ; // maximum absolute or relative error
+  int32_t  offset ;  // use this offset if non zero (use minimum quantized value if 0x7FFFFFFF) (linear quantizer)
+  float    minabs ;  // values below minabs are considered NOT SIGNIFICANT (not for linear quantizer)
+  float    zval ;  // |value| < minabs gets replaced with zval (not for linear quantizer)
 } dmap_filter_arg_003 ;
 typedef dmap_filter_arg_003 dmap_fp_quantize ;
 #define DMAP_FILTER_003(...) (dmap_filter_arg_003) { 003 , __VA_ARGS__ }
