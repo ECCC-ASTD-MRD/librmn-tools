@@ -28,10 +28,10 @@
 
 // compute the discretization quantum exponent from largest value, nbits , max error
 // maxabs [IN] : largest absolute value in array (set to 0.0f to ignore it)
-// maxerr [IN] : largest absolute error desired
+// abserr [IN] : largest absolute error desired
 // nbits  [IN] : max number of bits to use (MUST BE >= 0)
 // return the discretization quantum
-float fp2q_quantum(float maxabs, float maxerr, int32_t nbits){
+float fp2q_quantum(float maxabs, float abserr, int32_t nbits){
   int32_t err_exp, min_exp ;
   if(nbits < 0) goto fail ;
   // the discretization quantum exponent is determined by the larger of 2 values
@@ -39,7 +39,7 @@ float fp2q_quantum(float maxabs, float maxerr, int32_t nbits){
   // - the first power of 2 <= largest absolute value / 2.0 ** nbits
   nbits = (nbits == 0) ? 24 : nbits ;     // if nbits is 0, set to 24
   nbits = (nbits < 25) ? nbits : 24 ;     // nbits should be <= 24
-  err_exp = fp32_exp(maxerr) ;            // exponent from max desired absolute error
+  err_exp = fp32_exp(abserr) ;            // exponent from max desired absolute error
   min_exp = fp32_exp(maxabs) - nbits ;    // smallest acceptable value for err_exp
   err_exp = (min_exp > err_exp) ? min_exp : err_exp ;
 
@@ -61,8 +61,8 @@ int32_t fp2q_lin(float *z, int *q, int n, float dq, int32_t offset){
   int32_t e_base = fp32_exp(dq) ;  // get exponent from quantum (power of 2)
   dq = fp32_pow2(-e_base) ;        // 1.0 / dq
   int i ;
-  // quantization loop, uses fp2q_lin_ from rmn/quantizers.h
-  for(i=0 ; i<n ; i++) q[i] = fp2q_lin_( z[i], dq ) - offset ;
+  // quantization loop, uses FP2QLIN from rmn/quantizers.h
+  for(i=0 ; i<n ; i++) q[i] = FP2QLIN( z[i], dq ) - offset ;
   return (e_base + 127) ;          // add exponent bias
 }
 
@@ -76,8 +76,8 @@ void q2fp_lin(float *z, int *q, int n, int32_t e_base, int32_t offset){
   int i ;
   e_base -= 127 ;                  // remove exponent bias
   float d = fp32_pow2(e_base) ;
-  // restore loop, uses q2fp_lin_ from rmn/quantizers.h
-  for(i=0 ; i<n ; i++) z[i] = q2fp_lin_( q[i] + offset, d) ;
+  // restore loop, uses Q2FPLIN from rmn/quantizers.h
+  for(i=0 ; i<n ; i++) z[i] = Q2FPLIN( q[i] + offset, d) ;
 }
 
 // ======================= pseudo log quantization =======================
@@ -242,7 +242,7 @@ void q2fp_log(float *z, int32_t *q, int n, int32_t e_base_){
   }
 }
 
-// ======================= quantization with fake integers  =======================
+// ======================= quantization using fake integers  =======================
 
 // fake integers "log" type quantization
 // the IEEE exponent is used as the most significant bits
@@ -260,10 +260,10 @@ void q2fp_log(float *z, int32_t *q, int n, int32_t e_base_){
 void fp2fsi_n(float *z, int32_t *q, int n, int32_t nbits){
   int32_t i ;
   nbits = (nbits < 0) ? 0 : nbits ;
-  nbits = 23 - nbits ;
+  nbits = 23 - nbits ;                      // number of bits to eliminate
   nbits = (nbits < 0) ? 0 : nbits ;
   for(i=0 ; i<n ; i++){
-    q[i] = fp32_to_fsi32(z[i], nbits) ;
+    q[i] = fp32_to_fsi32(z[i], nbits) ;     // from rmn/ieee_extras.h
   }
 }
 
@@ -276,9 +276,9 @@ void fsi2fp_n(float *z, int32_t *q, int n, int32_t nbits){
   int32_t i ;
   nbits = (nbits < 0) ? 0 : nbits ;
   nbits = 23 - nbits ;
-  nbits = (nbits < 0) ? 0 : nbits ;
+  nbits = (nbits < 0) ? 0 : nbits ;         // number of bits to eliminate during quantization
   for(i=0 ; i<n ; i++){
-    z[i] = fsi32_to_fp32(q[i], nbits) ;
+    z[i] = fsi32_to_fp32(q[i], nbits) ;     // from rmn/ieee_extras.h
   }
 }
 // =======================  generic functions =======================
@@ -306,7 +306,7 @@ void fsi2fp_n(float *z, int32_t *q, int n, int32_t nbits){
 // return combined reference exponent and number of bits
 int32_t fp2q_n(float *z, int32_t *q, int n, block_properties *bp, float max_err, int32_t nbits, float max_sig, int32_t *offset, int32_t mode){
   float max_abs, min_abs, min_val, quantum ;
-  int32_t result, e_min, e_max, e_sig, e_err, min_sig ;
+  int32_t result, e_min, e_max, e_sig, e_err /*, min_sig*/ ;
   block_properties bp0 ;
 
   if(nbits == 0 && max_err == 0.0f) goto fail ;
@@ -331,7 +331,7 @@ int32_t fp2q_n(float *z, int32_t *q, int n, block_properties *bp, float max_err,
         int32_t e_base = fp32_exp(quantum) ;
         float ovq = fp32_pow2(-e_base) ;           // 1.0 / quantum
         min_val = FLOAT_MIN_VALUE(*bp) ;           // signed minimum float value from array z
-        *offset = fp2q_lin_(min_val, ovq) ;        // quantized value of minimum value in array
+        *offset = FP2QLIN(min_val, ovq) ;        // quantized value of minimum value in array
       }
       result = fp2q_lin((void *)z, (void *)q, n, quantum, *offset) ;
 // fprintf(stderr, "fp2q_n : result = %d, offset = %d, quantum = %f\n", result, *offset, quantum) ;
@@ -373,7 +373,7 @@ int32_t fp2q_n(float *z, int32_t *q, int n, block_properties *bp, float max_err,
     case FP_FAKE_INT:        // pseudo log quantizer, uses fake integers
       e_sig = fp32_exp_raw(max_sig) ;              // raw (biased) exponent
       nbits = (nbits > 23) ? 23 : 0 ;
-      min_sig = (e_sig << 23) >> (23 - nbits) ;    // minimum significant value
+//       min_sig = (e_sig << 23) >> (23 - nbits) ;    // minimum significant value
       break ;
 
     default:       // ERROR
