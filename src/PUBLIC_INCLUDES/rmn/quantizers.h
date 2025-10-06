@@ -29,24 +29,15 @@ float fp2q_quantum(float maxabs, float maxerr, int32_t nbits);
 // z    [IN] : 32 bit float
 // ovdq [IN] : inverse of discretization quantum (32 bit float, ideally a power of 2)
 // return quantized value (32 bit integer) (including proper rounding)
-static inline int32_t fp2q_lin_(float z, float ovdq){
-  // integerize with appropriate rounding (add .5 to positive values, -.5 to negative values)
-  int32_t t = (z * ovdq) + ((z < 0) ? -.5f : .5f) ;
-  return t ;
-}
-// uses fp2q_lin_ internally
+#define FP2QLIN(Z, OVDQ) ( ((Z) * (OVDQ)) + (((Z) < 0) ? -.5f : .5f) )
 int32_t fp2q_lin(float *z, int *q, int n, float dq, int32_t offset);
 
-// linear de_quantizer (inverse of fp2q_lin_)
+// restore float from linear quantized value (inverse of FP2QLIN)
 // q  [IN] : quantized value (32 bit integer)
 // dq [IN] : float discretization quantum (ideally a power of 2)
 // return restored float value
-// dq MUST BE the inverse of ovdq (fp2q_lin_)
-static inline float q2fp_lin_(int32_t q, float dq){
-  float t = q * dq ;
-  return t ;
-}
-// uses q2fp_lin_ internally
+// dq MUST BE the inverse of ovdq (FP2QLIN)
+#define Q2FPLIN(D, DQ) ((D) * (DQ))
 void q2fp_lin(float *z, int *q, int n, int32_t e_base, int32_t offset);
 
 int32_t fp2q_log1_(float z, int32_t e_base, int32_t mbits, uint32_t round);
