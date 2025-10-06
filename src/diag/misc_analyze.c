@@ -218,9 +218,8 @@ int64_t sum64_of_abs(int32_t *z, int n){
 
 // analyze 1D array f[1][ni] or 2D array f[nj][ni]
 void Analyze_N(float *zf, int32_t ni, int32_t nj, char *name, int32_t mant_bits){
-  union{ int32_t i ; uint32_t u ; float f ; } iuf1 ;
   if(ni == 1) { ni = nj ; nj = 1 ; }
-  int32_t i, j, t, zi[nj][ni], zo[nj][ni], zp[nj][ni], ri[nj][ni], nbits[nj][ni], errors ;
+  int32_t i, t, zi[nj][ni], zo[nj][ni], ri[nj][ni], nbits[nj][ni], errors ;
   int32_t mind, maxd, status ;
   float fmin, fmax, amin, amax ;
   float (*z)[ni] = (void *)zf ;
