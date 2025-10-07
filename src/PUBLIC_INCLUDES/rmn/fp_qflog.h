@@ -18,8 +18,12 @@
 
 #include <stdint.h>
 
-int32_t fp_to_qflog(float f, int nbits, float minabs, float zval);
-void fp_to_qflog_n(float *z, int32_t *q, int n, int32_t nbits, float minabs, float zval);
+int32_t fp_to_qflog_1(float f, int nbits, float minabs, float zval);
+void    fp_to_qflog_n(float *z, int32_t *q, int n, int32_t nbits, float minabs, float zval);
+void    fp_to_qflog(float *z, int32_t *q, int n, int32_t nbits, float minabs, float zval);
 
-float qflog_to_fp(int32_t i, int nbits, float minabs);
-void qflog_to_fp_n(float *z, int32_t *q, int n, int32_t nbits, float minabs);
+float qflog_to_fp_1(int32_t i, int nbits, float minabs);
+void  qflog_to_fp_n(float *z, int32_t *q, int n, int32_t nbits, float minabs);
+void  qflog_to_fp(float *z, int32_t *q, int n, int32_t nbits, float minabs);
+
+float fp_to_from_qflog(float *f, int n, int nbits, float minabs, float zval);
