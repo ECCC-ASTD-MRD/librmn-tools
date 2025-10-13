@@ -21,6 +21,8 @@
 #include <rmn/misc_operators.h>
 #include <rmn/tile_encoders.h>
 #include <rmn/dwt_i_lgt53.h>
+#include <rmn/fp_qlin.h>
+#include <rmn/fp_qflog.h>
 
 #define FILTER_ID 000
 // ======================================= filter 000 =======================================
@@ -251,35 +253,55 @@ reverse:
 ssize_t FILTER_NAME(array_nd *a, block_properties *bp, dmap_filter_list dpfl, bitstream *stream){
   char *errmsg = "" ;
   uint32_t me = FILTER_ID ;
+  errmsg = "a == NULL || stream == NULL" ;
   if(a == NULL || stream == NULL) goto fail ;    // no array or no stream
   void *array = array_address(a) ;               // get array address, dimension(s), and type
-  int ndim = a->ndim, type = a->type ;
+  int32_t nvalues, ndim = a->ndim, type = a->type, offset = 0,  e_base = 0 ;
   ssize_t status = 0 ;
   bitstream s = *stream ;                        // local copy of stream control structure
-//   block_properties lbp ;
+
+  errmsg = "ndim != 2" ;
+  if(ndim != 2) goto fail ;                      // only 2D is supported at this time
+  nvalues = a->dim[0].gnn * a->dim[1].gnn ;      // number of values in array
 
   if(dpfl == NULL ) goto reverse ;               // this is a call to the reverse filter
+  errmsg = "invalid filter" ;
   if(! dmap_filter_valid(dpfl,me)) goto fail ;   // not the right filter or NULL pointer
-  FILTER_ARGS *arg = (FILTER_ARGS *)(*dpfl) ;    // get parameters for this filter
-//
+
+  errmsg = "type != float_data" ;
   if(type != float_data) goto fail ;             // data type MUST BE FLOAT
-  if(ndim != 2) goto fail ;                      // only 2D is supported at this time
+
+  FILTER_ARGS *arg = (FILTER_ARGS *)(*dpfl) ;    // get parameters for this filter
 //
 // filter processing code
 //
+  int32_t mode = arg->mode ;                     // get mode
   int32_t nbits = arg->nbits ;                   // max number of bits to be used for quantization
+  errmsg = "nbits < 0" ;
   if(nbits    < 0) goto fail ;                   // nbits MUST BE >= 0
   float maxerr = arg->maxerr ;                   // largest absolute/relative error desired
+  errmsg = "maxerr < 0" ;
   if(maxerr < 0) goto fail ;                     // maxerr MUST BE >= 0
-  float minabs = arg->minabs ;
-  if(minabs < 0) goto fail ;
-  int32_t offset = arg->offset ;                 // discretization offset (ox7FFFFFFF means minimum quantized value)
+  errmsg = "maxerr and nbits both 0" ;
   if(nbits == 0 && maxerr == 0) goto fail ;      // cannot be BOTH 0
-  int32_t mode = arg->mode ;
 
-  int32_t q_exp, nvalues, e_base ;
-  nvalues = a->dim[0].gnn * a->dim[1].gnn ;      // number of values in array
+  float minabs = arg->minabs ;
 
+  if(mode == FP_2_INT){       // linear quantizer
+    offset = arg->offset ;                       // discretization offset
+fprintf(stderr,"nvalues = %d, maxerr = %f, nbits = %d, offset = %8.8x, bp = %p\n", nvalues, maxerr, nbits, offset, bp) ;
+    e_base = fp_to_qlin((float *)array, (int32_t *)array, nvalues, maxerr, nbits, &offset, bp) ;
+    if(e_base <= 0) goto fail ;
+    a->type = (offset == 0x7FFFFFFF) ? uint_data : int_data ;
+  }else if(mode == FP_2_FAKELOG){
+    errmsg = "minabs < 0" ;
+    if(minabs < 0) goto fail ;
+    errmsg = "mode == FP_2_FAKELOG, unsupported" ;
+    goto fail ;        // fake log quantizer not supported yet
+  }else{
+    errmsg = "invalid mode" ;
+    goto fail ;        // invalid mode
+  }
 #if 0
   if(bp == NULL) { bp = &lbp ; lbp.kind = bad_data ; }
   if(! data_kind_valid(bp->kind)){               // if the data properties are not valid
@@ -310,12 +332,12 @@ ssize_t FILTER_NAME(array_nd *a, block_properties *bp, dmap_filter_list dpfl, bi
 #endif
 // ==================== call fp32 quantizer ====================
 //   e_base = fp2q_lin((float *)array, (int32_t *)array, nvalues, quantum, offset) ;
-  a->type = (offset == 0x7FFFFFFF) ? uint_data : int_data ;
-  e_base = fp2q_n((float *)array, (int32_t *)array, nvalues, bp, maxerr, minabs, nbits, &offset, mode) ;
+//   a->type = (offset == 0x7FFFFFFF) ? uint_data : int_data ;
+//   e_base = fp2q_n((float *)array, (int32_t *)array, nvalues, bp, maxerr, minabs, nbits, &offset, mode) ;
 
   dpfl++ ;                                       // call next filter if there is one
   dmap_filter_ptr next_filter = dmap_filter_next(dpfl) ;
-  status = (*next_filter)(a, NULL, dpfl, &s) ;   // bloc properties are non longer valid
+  status = (*next_filter)(a, NULL, dpfl, &s) ;   // block properties are no longer valid
   if(status < 0) goto fail ;
 //
 // insert into bitstream the appropriate data for the reverse filter (PUT)
@@ -325,31 +347,30 @@ ssize_t FILTER_NAME(array_nd *a, block_properties *bp, dmap_filter_list dpfl, bi
   inserted += 8 ;                                 // 8 bits inserted so far
   STREAM_PUT_NBITS(s, (mode & 0x3), 2) ;
   inserted += 2 ;
-  if(mode == FP_QUANTIZE_LOG){
-    STREAM_PUT_NBITS(s, (nbits & 0x3F), 6) ;      // 0 -> 23 (only useful for pseudo log quantizer)
+  if(mode == FP_2_INT){
+    STREAM_PUT_NBITS(s, e_base, 8) ;
+    inserted += 8 ;
+    if(offset != 0){
+      uint32_t zigzag = to_zigzag_32(offset) ;
+      nbits = BitsNeeded_u32(zigzag) ;
+      nbits = (nbits < 2) ? 2 : nbits ;             // nbits for offset SHALL NOT BE < 2
+      STREAM_PUT_NBITS(s, (nbits-1), 5) ;
+      inserted += 5 ;
+      STREAM_PUT_NBITS(s, zigzag, nbits) ;
+      inserted += nbits ;
+    }else{
+      nbits = 0 ;
+      STREAM_PUT_NBITS(s, nbits, 5) ;               // nbits == 0 (decoded as 1) means offset is not used
+      inserted += 5 ;
+    }
+  }else if(mode == FP_2_FAKELOG){
+    STREAM_PUT_NBITS(s, (nbits & 0x3F), 6) ;        // 0 -> 23 (only useful for fake log quantizer)
     inserted += 6 ;
   }
-  q_exp = e_base & 0xFF ;                         // biased exponent from restoring
-  STREAM_PUT_NBITS(s, q_exp, 8) ;
-  inserted += 8 ;
-  if(offset != 0){
-    uint32_t zigzag = to_zigzag_32(offset) ;
-    nbits = BitsNeeded_u32(zigzag) ;
-    nbits = (nbits < 2) ? 2 : nbits ;             // nbits for offset SHALL NOT BE < 2
-    STREAM_PUT_NBITS(s, (nbits-1), 5) ;
-    inserted += 5 ;
-    STREAM_PUT_NBITS(s, zigzag, nbits) ;
-    inserted += nbits ;
-  }else{
-    nbits = 0 ;
-    STREAM_PUT_NBITS(s, nbits, 5) ;               // nbits == 0 (decoded as 1) means offset is not used
-    inserted += 5 ;
-  }
-//
   STREAM_INSERT_PUSH(s) ;
   status += inserted ;
   fprintf(stderr, "filter %3.3o : inserted %d bits, quantum = %f, exp = %d, offset = %d, mode = %d\n",
-          FILTER_ID, inserted, fp32_pow2(e_base), q_exp, offset, mode) ;
+          FILTER_ID, inserted, fp32_pow2(e_base-127), e_base, offset, mode) ;
 
 // end:
   *stream = s ;   // success, SAVE stream changes
@@ -359,45 +380,63 @@ fail:
   fprintf(stderr, "%s filter %3.3o ERROR : %s\n", (dpfl == NULL) ? "reverse" : "forward", FILTER_ID, errmsg) ;
   return -1 ;     // failure, DO NOT SAVE stream changes
 
-  uint32_t filter, nbitsd ;
+  uint32_t filter = 0xFFFFu ;
 reverse:
-// get from bitstream the appropriate information for the reverse filter (GET)
+  errmsg = "reverse filter : data type MUST BE integer" ;
+  if(type != int_data && type != uint_data) goto fail ;             // data type MUST BE INTEGER
+// get the appropriate information for the reverse filter from bitstream (GET)
   STREAM_GET_NBITS(s, filter, 8) ;
   status = 8 ;                                         // 8 bits extracted so far
+  errmsg = "bad filter ID" ;
   if(filter != FILTER_ID) goto fail ;                  // wrong id, MUST be FILTER_ID
   STREAM_GET_NBITS(s, mode, 2) ;
   status += 2 ;
-  if(mode == FP_QUANTIZE_LOG){                         // 0 -> 23 (only useful for pseudo log quantizer)
+  if(mode == FP_2_INT){
+    uint32_t ue_base ;
+    STREAM_GET_NBITS(s, ue_base, 8) ; e_base = ue_base ;
+    status += 8 ;
+    STREAM_GET_NBITS(s, nbits, 5) ; nbits++ ;
+    status += 5 ;
+    offset = 0 ;
+    if(nbits > 1){
+      uint32_t zigzag ;
+      STREAM_GET_NBITS(s, zigzag, nbits) ;             // zigzag encoding of offfset
+      status += nbits ;
+      offset = from_zigzag_32(zigzag) ;                // restore offset to signed integer
+    }
+    qflin_to_fp((float *)array, (int32_t *)array, nvalues, e_base, offset) ;
+  }else if(mode == FP_2_FAKELOG){                      // 0 -> 23 (only useful for pseudo log quantizer)
     STREAM_GET_NBITS(s, nbits, 6) ;
     status += 6 ;
   }
-  STREAM_GET_NBITS(s, q_exp,  8) ;                     // quantum exponent (biased)
-  STREAM_GET_NBITS(s, nbitsd, 5) ;                     // number of bits for offset
-  status += 13 ;                                       // bits extracted so far
-  if(nbitsd > 0){                                      // nbitsd == 0 means no offset
-    uint32_t zigzag ;
-    nbitsd++ ;
-    STREAM_GET_NBITS(s, zigzag, nbitsd) ;              // zigzag encoding of offfset
-    offset = from_zigzag_32(zigzag) ;                  // restore to signed integer
-    status += nbitsd ;
-  }else{
-    offset = 0 ;
-  }
-  e_base = q_exp | (nbits << 8) ;
+//   STREAM_GET_NBITS(s, q_exp,  8) ;                     // quantum exponent (biased)
+//   STREAM_GET_NBITS(s, nbitsd, 5) ;                     // number of bits for offset
+//   status += 13 ;                                       // bits extracted so far
+//   if(nbitsd > 0){                                      // nbitsd == 0 means no offset
+//     uint32_t zigzag ;
+//     nbitsd++ ;
+//     STREAM_GET_NBITS(s, zigzag, nbitsd) ;              // zigzag encoding of offfset
+//     offset = from_zigzag_32(zigzag) ;                  // restore to signed integer
+//     status += nbitsd ;
+//   }else{
+//     offset = 0 ;
+//   }
+//   e_base = q_exp | (nbits << 8) ;
 //   quantum = fp32_pow2(e_base) ;                        // float quantum
 //   maxerr.u = (q_exp << 23) ; quantum = maxerr.f ;
-  fprintf(stderr, "reverse filter %3.3o, id = %d, quantum = %f, nbits = %d, offset = %d, mode = %d\n",
-          FILTER_ID, filter, fp32_pow2(e_base), nbits, offset, mode) ;
+//   fprintf(stderr, "reverse filter %3.3o, id = %d, quantum = %f, nbits = %d, offset = %d, mode = %d\n",
+//           FILTER_ID, filter, fp32_pow2(e_base), nbits, offset, mode) ;
 //
 // inverse filter processing code goes here  (INV)
 //
-  nvalues = a->dim[0].gnn * a->dim[1].gnn ;
-  fprintf(stderr, "reverse filter %3.3o, array[%d,%d](%d)\n", FILTER_ID, a->dim[0].gnn, a->dim[1].gnn, nvalues) ;
+//   nvalues = a->dim[0].gnn * a->dim[1].gnn ;
+  fprintf(stderr, "reverse filter %3.3o, array[%d,%d](%d), offset = %d\n",
+                  FILTER_ID, a->dim[0].gnn, a->dim[1].gnn, nvalues, offset) ;
 // ==================== call fp32 de-quantizer ====================
 //   q2fp_lin((float *)array, (int32_t *)array, nvalues, e_base, offset) ;
 //   status = q2fp_n((float *)array, (int32_t *)array, nvalues, e_base, nbits, offset, mode) ;
-  status = q2fp_n((float *)array, (int32_t *)array, nvalues, e_base, offset, mode) ;
-  if(status != 0) goto fail ;
+//   status = q2fp_n((float *)array, (int32_t *)array, nvalues, e_base, offset, mode) ;
+//   if(status != 0) goto fail ;
   a->type = float_data ;                               // mark data as float data
 
   ssize_t status2 = dmap_filter_inv(a, &s) ;           // call next inverse filter

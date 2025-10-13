@@ -45,17 +45,17 @@ typedef struct{
 #define DMAP_FILTER_002(...) (dmap_filter_arg_002) { 002 , __VA_ARGS__ }
 #define DMAP_FP_LOG_QUANTIZE(...) (dmap_filter_arg_002) { 002 , __VA_ARGS__ }
 
-// filter 003, float -> integer quantizer
+// filter 003, float -> integer quantizers
 #pragma weak dmap_filter_003
 dmap_filter  dmap_filter_003 ;
 typedef struct{
-  uint32_t filter ;  // filter number
-  int32_t  mode ;    // quantization mode 0 : linear, 1 : fake integers, 2 : float block
+  uint32_t  filter ;  // filter number
+  int32_t   mode ;    // quantization mode 0 : linear, 1 : fake integers, 2 : float block
   uint32_t  nbits ;   // maximum number of significant bits kept in quantized values (1 -> 24)
   union{ float abserr ; float relerr ; float maxerr ; } ; // maximum absolute or relative error
-  int32_t  offset ;  // use this offset if non zero (use minimum quantized value if 0x7FFFFFFF) (linear quantizer)
-  float    minabs ;  // values below minabs are considered NOT SIGNIFICANT (not for linear quantizer)
-  float    zval ;  // |value| < minabs gets replaced with zval (not for linear quantizer)
+  int32_t  offset ;   // use this offset if non zero (use minimum quantized value if 0x7FFFFFFF) (linear quantizer)
+  float    minabs ;   // values below minabs are considered NOT SIGNIFICANT (not for linear quantizer)
+  float    zval ;     // |value| < minabs gets replaced with zval (not for linear quantizer)
 } dmap_filter_arg_003 ;
 typedef dmap_filter_arg_003 dmap_fp_quantize ;
 #define DMAP_FILTER_003(...) (dmap_filter_arg_003) { 003 , __VA_ARGS__ }

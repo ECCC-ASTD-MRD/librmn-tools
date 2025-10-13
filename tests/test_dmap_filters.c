@@ -23,6 +23,7 @@
 #include <rmn/move_blocks.h>
 #include <rmn/split_dimension.h>
 #include <rmn/quantizers.h>
+#include <rmn/fp_qlin.h>
 #include <rmn/eval_diff.h>
 
 // end of section to be moved to dmap_filters.c
@@ -43,8 +44,8 @@ end:
   return 0 ;
 
 fail:
-  fprintf(stderr, "filter test : available data in stream %ld bits\n", StreamAvailableBits(estream)) ;
-  fprintf(stderr, "filter test : available space in stream %ld bits\n", StreamAvailableSpace(estream)) ;
+  if(estream) fprintf(stderr, "filter test : available data in stream %ld bits\n", StreamAvailableBits(estream)) ;
+  if(estream) fprintf(stderr, "filter test : available space in stream %ld bits\n", StreamAvailableSpace(estream)) ;
   fprintf(stderr, "FAIL\n") ;
   return 1 ;
 
@@ -62,16 +63,18 @@ process:
   dmap_fp_quantize arg_003a ; // = { 0003, .25f, 12, 0, FP_QUANTIZE_LIN } ;
   dmap_filter_arg_036 arg_036z = { 0036 } ;
   dmap_filter_arg_036 arg_177n = { 0177 } ;
-  array_2d a2d, b2d, i2d, o2d, r2d ;
+  array_2d a2d, b2d, g2d, f2d, i2d, o2d, r2d ;
 //   block_properties bp2d ;
   ssize_t status ;
   uint64_t freq ;
   double nano ;
   int i, j, debug_mode, strict_mode, errors ;
+  float    zi[NJ][NI], zo[NJ][NI], zr[NJ][NI] ;    // input, output, reference (float)
   float    fi[NJ][NI], fo[NJ][NI], fr[NJ][NI] ;    // input, output, reference (float)
   uint32_t ui[NJ][NI], uo[NJ][NI], ur[NJ][NI] ;    // input, output, reference (unsigned int)
   uint32_t buffer[NI*NJ*2] ;
   ssize_t tot_status ;
+  int test_no ;
 //   TIME_LOOP_DATA ;
 
   freq = cycles_counter_freq() ;
@@ -89,12 +92,11 @@ process:
 //   }
 //   fprintf(stderr, "\n");
 
-  new_array(&a2d, (void *)&fi, sizeof(float), float_data, NI, NJ) ;
-  new_array(&b2d, (void *)&fo, sizeof(float), raw_data,   NI, NJ) ;
   for(j=0 ; j<NJ ; j++){
     for(i=0 ; i<NI ; i++){
       fr[j][i]  = (i - (NI-1)*.5f) + (j - (NJ-1)*.5f) ;   // float reference
       ur[j][i] = ((i + 1) << 8) | (j + 1) ;               // unsigned integer reference
+      zr[j][i] = ur[j][i] ;
 //       fi[j][i]  = (i - (NI-1)*.5f) + (j - (NJ-1)*.5f) ;
 //       fr[j][i]  = fi[j][i] ;
 //       fo[j][i]  = 999999.0f ;
@@ -104,13 +106,64 @@ process:
   debug_mode  = dmap_debug_mode(1)  ; dmap_debug_mode(debug_mode) ;
   strict_mode = dmap_strict_mode(0) ; dmap_strict_mode(strict_mode) ;
 
-  new_array(&r2d, (void *)&ur, sizeof(int), int_data, NI, NJ) ;  // integer source data
-  new_array(&i2d, (void *)&ui, sizeof(int), int_data, NI, NJ) ;  // used as input data
-  new_array(&o2d, (void *)&uo, sizeof(int), int_data, NI, NJ) ;  // used as output data
-
   STREAM_CREATE(str000, buffer, sizeof(buffer), 0) ;   // create stream for reading and writing
 
-  int test_no ;
+  new_array(&r2d, (void *)&ur, sizeof(int), int_data,   NI, NJ) ;  // integer source data
+  new_array(&i2d, (void *)&ui, sizeof(int), int_data,   NI, NJ) ;  // used as input data
+  new_array(&o2d, (void *)&uo, sizeof(int), int_data,   NI, NJ) ;  // used as output data
+  new_array(&f2d, (void *)&zr, sizeof(int), float_data, NI, NJ) ;  // float source data
+  new_array(&a2d, (void *)&zi, sizeof(float), float_data, NI, NJ) ;
+  new_array(&g2d, (void *)&zo, sizeof(float), float_data, NI, NJ) ;
+  new_array(&b2d, (void *)&zo, sizeof(float), raw_data,   NI, NJ) ;
+
+  for(test_no = 0 ; test_no < 3 ; test_no++){
+    fprintf(stderr, "============================== float quantize test %d start ==============================\n", test_no) ;
+    STREAM_INIT(str000, NULL, 0, 0) ;               // full RW stream reset (keep buffer, size, and mode)
+//     dmap_encode_arg  arg_006 = DMAP_ENCODE(.mode= 32, .options=0) ; // filter 006, raw, 32 bits per item
+    dmap_encode_arg  arg_006 = DMAP_ENCODE(.mode= 104, .options=0) ; // filter 006, tile encoding
+    dmap_fp_quantize arg_003 = DMAP_FP_QUANTIZE(.mode = -1) ;
+
+    arg_003 = DMAP_FP_QUANTIZE(.mode = FP_2_INT, .offset = 0,           .nbits = 15, .abserr = 0.25f) ;
+    switch(test_no){
+      case 0  : arg_003 = DMAP_FP_QUANTIZE(.mode = FP_2_INT, .offset = 0,           .nbits = 0, .abserr = 0.5f) ;
+                break ;
+      case 1  : arg_003 = DMAP_FP_QUANTIZE(.mode = FP_2_INT, .offset = 0x7FFFFFFF,  .nbits = 16, .abserr = 0.25f) ;
+                break ;
+      case 2  : arg_003 = DMAP_FP_QUANTIZE(.mode = FP_2_INT, .offset = 0x7FFFFFFF,  .nbits = 0, .abserr = 0.5f) ;
+                break ;
+      default : goto fail ;
+    }
+    dpfl[0] = (dmap_filter_args_ptr)&arg_003 ;
+    dpfl[1] = (dmap_filter_args_ptr)&arg_006 ;
+    dpfl[2] = NULL ;
+
+    fprintf(stderr, "filter test : available space in str000 %ld bits, available bits = %ld bits\n", StreamAvailableSpace(str000), StreamAvailableBits(str000)) ;
+    if((NI * NJ) != copy_array_data(&f2d, &a2d)) goto fail ;
+    a2d.type = float_data ;
+
+    status = dmap_filter_fwd((array_nd *)&a2d, NULL, dpfl, str000) ;      // forward filter
+    estream = str000 ;
+    if(status < 0) goto fail ;
+    fprintf(stderr, "filter test : bits inserted = %ld\n\n", status) ;
+
+    STREAM_REWIND(*str000, 1) ;
+    fprintf(stderr, "filter test : available space in str000 %ld bits, available bits = %ld bits\n", StreamAvailableSpace(str000), StreamAvailableBits(str000)) ;
+
+    set_array_value(&g2d, 0x0F, ARRAY_BYTES) ;                            // set output to nonsense
+    tot_status = dmap_filter_inv((array_nd *)&g2d, str000) ;              // inverse filter
+    if(tot_status < 0) goto fail ;
+    errors = array_compare_2D(NI, NJ, (void *)zr, (void *)zo) ;
+    fprintf(stderr, "filter test :  bits extracted = %ld, nvalues = %d, errors = %d\n", tot_status, NI*NJ, errors) ;
+    if(errors > 0) goto fail ;
+    fprintf(stderr, "filter test : available space in str000 %ld bits, available bits = %ld bits\n", StreamAvailableSpace(str000), StreamAvailableBits(str000)) ;
+    STREAM_XTRACT_ALIGN32(*str000) ;
+    fprintf(stderr, "filter test : available space in str000 %ld bits, available bits = %ld bits\n", StreamAvailableSpace(str000), StreamAvailableBits(str000)) ;
+
+    fprintf(stderr, "============================== float quantize test %d end ==============================\n", test_no) ;
+  }
+
+  if(argc < 1000) goto end ;     // suppress unreachable code warning
+
   for(test_no = 0 ; test_no < 6 ; test_no++){
     fprintf(stderr, "============================== integer encode test %d start ==============================\n", test_no) ;
     STREAM_INIT(str000, NULL, 0, 0) ;               // full RW stream reset (keep buffer, size, and mode)
@@ -135,6 +188,8 @@ process:
     fprintf(stderr, "filter test : available space in str000 %ld bits, available bits = %ld bits\n", StreamAvailableSpace(str000), StreamAvailableBits(str000)) ;
 
     if((NI * NJ) != copy_array_data(&r2d, &i2d)) goto fail ;              // set input data (copy ur into ui), check sizes
+    i2d.type = int_data ;
+
     status = dmap_filter_fwd((array_nd *)&i2d, NULL, dpfl, str000) ;      // forward filter
     estream = str000 ;
     if(status < 0) goto fail ;
@@ -149,6 +204,9 @@ process:
     errors = array_compare_2D(NI, NJ, (void *)ur, (void *)uo) ;
     fprintf(stderr, "filter test :  bits extracted = %ld, errors = %d\n",tot_status, errors) ;
     if(errors > 0) goto fail ;
+    fprintf(stderr, "filter test : available space in str000 %ld bits, available bits = %ld bits\n", StreamAvailableSpace(str000), StreamAvailableBits(str000)) ;
+    STREAM_XTRACT_ALIGN32(*str000) ;
+    fprintf(stderr, "filter test : available space in str000 %ld bits, available bits = %ld bits\n", StreamAvailableSpace(str000), StreamAvailableBits(str000)) ;
     fprintf(stderr, "============================== integer encode test %d end ==============================\n", test_no) ;
 
   }
