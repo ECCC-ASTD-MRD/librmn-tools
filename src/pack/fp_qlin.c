@@ -16,9 +16,12 @@
 
 // 32 bit float <--> 32 bit integer
 
+#include <stdio.h>
+
 #include <rmn/ieee_extras.h>
 #include <rmn/fp_qlin.h>
 #include <rmn/move_blocks.h>
+#include <rmn/data_properties.h>
 
 // constant absolute max error quantizer/de-quantizer
 
@@ -64,7 +67,8 @@ int32_t fp_to_qlin_1(float f, float dq){
 // dq     [IN] : discretization quantum (float, will be truncated down to a power of 2)
 // offset [IN] : discretization offset (subtracted from quantized values, often 0)
 // return biased exponent of quantum
-int32_t fp_to_qlin_n(float *f, int *q, int n, float dq, int32_t offset){
+int32_t fp_to_qlin_n(float *f, int32_t *q, int n, float dq, int32_t offset){
+  if(dq == 0.0f) return -1 ;                   // infinity
   float ovdq = fp32_pow2(-fp32_exp(dq)) ;        // 1.0 / dq
   int i ;
   // quantization loop, uses FP2QLIN from rmn/fp_qlin.h
@@ -81,30 +85,36 @@ int32_t fp_to_qlin_n(float *f, int *q, int n, float dq, int32_t offset){
 // offset [INOUT] : discretization offset (subtracted from quantized values, often 0)
 //                  offset == 0x7FFFFFFF means use quantized minimum as offset
 // return biased exponent of quantum, -1 in case of error
-int32_t fp_to_qlin(float *f, int *q, int n, float max_err, int32_t nbits, int32_t *offset){
+int32_t fp_to_qlin(float *f, int32_t *q, int n, float max_err, int32_t nbits, int32_t *offset, block_properties *bp){
   float dq ;
   if(max_err < 0.0f || nbits < 0) return -1 ;         // negative values not allowed
-  block_properties bp ;
+  block_properties lbp ;
   float max_abs, min_val ;
-  bp.kind = bad_data ;
-  if(*offset == 0x7FFFFFFF){                          // automatic offset, need to analyze f
-    analyze_data32_block((void *)f, n, n, 1, &bp) ;   // get data properties
-    adjust_block_properties(&bp, float_data) ;        // adjust properties for float data
+
+  lbp.kind = bad_data ;
+  if(*offset == 0x7FFFFFFF){                          // automatic offset, need properties of f
+    if(bp == NULL) { bp = &lbp ; }                    // use local copy
+    if(! data_kind_valid(bp->kind)){                  // if the data properties are not valid
+      analyze_data32_block((void *)f, n, n, 1, bp) ;  // get data properties
+      adjust_block_properties(bp, float_data) ;       // adjust properties for float data
+    }
   }
+
   if(max_err != 0.0f && nbits == 0){                  // max_err explicitely specified, nbits == 0
     dq = max_err * 2.0f ;
   }else{                                              // max_err == 0, nbits > 0
     if(max_err == 0.0f && nbits == 0) return -1 ;     // cannot both be 0
-    if(bp.kind != float_data){                        // no valid properties available
-      analyze_data32_block((void *)f, n, n, 1, &bp) ; // get data properties
-      adjust_block_properties(&bp, float_data) ;      // adjust properties for float data
-      max_abs = FLOAT_MAX_ABS(bp) ;                   // float with largest absolute value
+    if(bp == NULL) { bp = &lbp ; }                    // use local copy
+    if(bp->kind != float_data){                       // no valid properties available
+      analyze_data32_block((void *)f, n, n, 1, bp) ;  // get data properties
+      adjust_block_properties(bp, float_data) ;       // adjust properties for float data
+      max_abs = FLOAT_MAX_ABS(*bp) ;                  // float with largest absolute value
     }
     dq = fp_to_q_quantum(max_abs, max_err, nbits) ;   // compute quantum
     if(dq == 0.0f) return -1 ;
   }
   if(*offset == 0x7FFFFFFF){
-    min_val = FLOAT_MIN_VALUE(bp) ;                   // signed minimum float value from array f
+    min_val = FLOAT_MIN_VALUE(*bp) ;                   // signed minimum float value from array f
     *offset = fp_to_qlin_1(min_val, dq) ;             // offset = quantized value of signed minimum
   }
   return fp_to_qlin_n(f, q, n, dq, *offset) ;         // perform linear quantization
@@ -138,7 +148,6 @@ void qflin_to_fp_n(float *f, int32_t *q, int n, float dq, int32_t offset){
 // e_base [IN] : IEEE exponent for discretization quantum (from fp_to_qlin)
 // offset [IN] : discretization offset (from fp_to_qlin)
 void qflin_to_fp(float *f, int32_t *q, int n, int32_t e_base, int32_t offset){
-  int i ;
   float dq = fp32_pow2(e_base - 127) ;        // remove exponent bias
   qflin_to_fp_n(f, q, n, dq, offset) ;
 }
@@ -149,7 +158,7 @@ float fp_to_from_qlin(float *f, int n, float max_err, int32_t nbits, int32_t *of
   int32_t i, q[n] ;
   float t, maxdiff = 0.0f, r[n] ;
 
-  int32_t e_base = fp_to_qlin(f, q, n, max_err, nbits, offset) ;
+  int32_t e_base = fp_to_qlin(f, q, n, max_err, nbits, offset, NULL) ;
   qflin_to_fp(r, q, n, e_base, *offset) ;
   for(i=0 ; i<n ; i++){
     t = r[i] - f[i] ;

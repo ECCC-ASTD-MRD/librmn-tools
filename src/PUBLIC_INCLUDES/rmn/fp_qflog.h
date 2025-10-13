@@ -18,6 +18,10 @@
 
 #include <stdint.h>
 
+#if ! defined(FP_2_FAKELOG)
+
+#define FP_2_FAKELOG 1
+
 int32_t fp_to_qflog_1(float f, int nbits, float minabs, float zval);
 void    fp_to_qflog_n(float *z, int32_t *q, int n, int32_t nbits, float minabs, float zval);
 void    fp_to_qflog(float *z, int32_t *q, int n, int32_t nbits, float minabs, float zval);
@@ -27,3 +31,5 @@ void  qflog_to_fp_n(float *z, int32_t *q, int n, int32_t nbits, float minabs);
 void  qflog_to_fp(float *z, int32_t *q, int n, int32_t nbits, float minabs);
 
 float fp_to_from_qflog(float *f, int n, int nbits, float minabs, float zval);
+
+#endif

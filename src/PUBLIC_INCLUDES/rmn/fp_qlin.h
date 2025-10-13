@@ -16,9 +16,12 @@
 
 // 32 bit float <--> 32 bit integer  (linear quantization)
 
-#if ! defined(FP2QLIN) && ! defined(Q2FPLIN)
+#if ! defined(FP_2_INT)
+
+#define FP_2_INT 0
 
 #include <stdint.h>
+#include <rmn/move_blocks.h>
 
 // linear quantization for float values
 // Z    [IN] : 32 bit float
@@ -30,7 +33,7 @@
 int32_t fp_to_qlin_1(float f, float ovdq);
 int32_t fp_to_qlin_n(float *z, int32_t *q, int n, float dq, int32_t offset);
 // users should call this function
-int32_t fp_to_qlin(float *f, int *q, int n, float max_err, int32_t nbits, int32_t *offset);
+int32_t fp_to_qlin(float *f, int32_t *q, int n, float max_err, int32_t nbits, int32_t *offset, block_properties *bp);
 
 // restore float value from linear quantized value (inverse of FP2QLIN)
 // D  [IN] : quantized value (32 bit integer)
