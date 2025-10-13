@@ -118,24 +118,29 @@ process:
 
   for(test_no = 0 ; test_no < 3 ; test_no++){
     fprintf(stderr, "============================== float quantize test %d start ==============================\n", test_no) ;
+    float abs_err = 07.5f ;
     STREAM_INIT(str000, NULL, 0, 0) ;               // full RW stream reset (keep buffer, size, and mode)
+    dmap_fp_quantize arg_003 = DMAP_FP_QUANTIZE(.mode = -1) ;
+    dmap_lorenzo_arg arg_004 = DMAP_LORENZO() ;
 //     dmap_encode_arg  arg_006 = DMAP_ENCODE(.mode= 32, .options=0) ; // filter 006, raw, 32 bits per item
     dmap_encode_arg  arg_006 = DMAP_ENCODE(.mode= 104, .options=0) ; // filter 006, tile encoding
-    dmap_fp_quantize arg_003 = DMAP_FP_QUANTIZE(.mode = -1) ;
 
-    arg_003 = DMAP_FP_QUANTIZE(.mode = FP_2_INT, .offset = 0,           .nbits = 15, .abserr = 0.25f) ;
     switch(test_no){
-      case 0  : arg_003 = DMAP_FP_QUANTIZE(.mode = FP_2_INT, .offset = 0,           .nbits = 0, .abserr = 0.5f) ;
-                break ;
-      case 1  : arg_003 = DMAP_FP_QUANTIZE(.mode = FP_2_INT, .offset = 0x7FFFFFFF,  .nbits = 16, .abserr = 0.25f) ;
-                break ;
-      case 2  : arg_003 = DMAP_FP_QUANTIZE(.mode = FP_2_INT, .offset = 0x7FFFFFFF,  .nbits = 0, .abserr = 0.5f) ;
-                break ;
+      case 0 :
+        arg_003 = DMAP_FP_QUANTIZE(.mode = FP_2_INT, .offset = 0,           .nbits = 0, .abserr = abs_err) ;
+        break ;
+      case 1 :
+        arg_003 = DMAP_FP_QUANTIZE(.mode = FP_2_INT, .offset = 0x7FFFFFFF,  .nbits = 16, .abserr = abs_err) ;
+        break ;
+      case 2 :
+        arg_003 = DMAP_FP_QUANTIZE(.mode = FP_2_INT, .offset = 0x7FFFFFFF,  .nbits = 0, .abserr = abs_err) ;
+        break ;
       default : goto fail ;
     }
-    dpfl[0] = (dmap_filter_args_ptr)&arg_003 ;
-    dpfl[1] = (dmap_filter_args_ptr)&arg_006 ;
-    dpfl[2] = NULL ;
+    dpfl[0] = (dmap_filter_args_ptr)&arg_003 ;    // linear quantizer
+    dpfl[1] = (dmap_filter_args_ptr)&arg_004 ;    // Lorenzo predictor
+    dpfl[2] = (dmap_filter_args_ptr)&arg_006 ;    // tile encoder
+    dpfl[3] = NULL ;
 
     fprintf(stderr, "filter test : available space in str000 %ld bits, available bits = %ld bits\n", StreamAvailableSpace(str000), StreamAvailableBits(str000)) ;
     if((NI * NJ) != copy_array_data(&f2d, &a2d)) goto fail ;
@@ -152,8 +157,11 @@ process:
     set_array_value(&g2d, 0x0F, ARRAY_BYTES) ;                            // set output to nonsense
     tot_status = dmap_filter_inv((array_nd *)&g2d, str000) ;              // inverse filter
     if(tot_status < 0) goto fail ;
-    errors = array_compare_2D(NI, NJ, (void *)zr, (void *)zo) ;
-    fprintf(stderr, "filter test :  bits extracted = %ld, nvalues = %d, errors = %d\n", tot_status, NI*NJ, errors) ;
+
+    int32_t notsame = array_compare_2D(NI, NJ, (void *)zr, (void *)zo, 0) ;
+    errors = array_compare_float_2D(NI, NJ, (void *)zr, (void *)zo, abs_err) ;
+    fprintf(stderr, "filter test :  bits extracted = %ld, nvalues = %d, errors = %d, not same = %d\n",
+                    tot_status, NI*NJ, errors, notsame) ;
     if(errors > 0) goto fail ;
     fprintf(stderr, "filter test : available space in str000 %ld bits, available bits = %ld bits\n", StreamAvailableSpace(str000), StreamAvailableBits(str000)) ;
     STREAM_XTRACT_ALIGN32(*str000) ;
@@ -201,7 +209,7 @@ process:
     set_array_value(&o2d, 0x0F, ARRAY_BYTES) ;                            // set output to nonsense
     tot_status = dmap_filter_inv((array_nd *)&o2d, str000) ;              // inverse filter
     if(tot_status < 0) goto fail ;
-    errors = array_compare_2D(NI, NJ, (void *)ur, (void *)uo) ;
+    errors = array_compare_2D(NI, NJ, (void *)ur, (void *)uo, 1) ;
     fprintf(stderr, "filter test :  bits extracted = %ld, errors = %d\n",tot_status, errors) ;
     if(errors > 0) goto fail ;
     fprintf(stderr, "filter test : available space in str000 %ld bits, available bits = %ld bits\n", StreamAvailableSpace(str000), StreamAvailableBits(str000)) ;

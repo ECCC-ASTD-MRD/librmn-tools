@@ -302,38 +302,6 @@ fprintf(stderr,"nvalues = %d, maxerr = %f, nbits = %d, offset = %8.8x, bp = %p\n
     errmsg = "invalid mode" ;
     goto fail ;        // invalid mode
   }
-#if 0
-  if(bp == NULL) { bp = &lbp ; lbp.kind = bad_data ; }
-  if(! data_kind_valid(bp->kind)){               // if the data properties are not valid
-    analyze_data32_block((void *)array, a->dim[0].gnn, a->dim[0].gnn, a->dim[1].gnn, bp) ;
-    adjust_block_properties(bp, float_data) ;    // adjust properties for float data
-    fprintf(stderr, "filter %3.3o, computing data properties\n", FILTER_ID) ;
-  }
-  float maxabs, quantum, ovq ;
-  maxabs = FLOAT_MAX_ABS(*bp) ;                  // largest absolute value in array
-
-  // compute power of 2 to use for quantum given max error and nbits
-  // discretization quantum, first power of 2 >= 2.0 * maxerr
-  quantum = fp2q_quantum(maxabs, maxerr, nbits) ;
-  q_exp = fp32_exp(quantum) ;
-  ovq = fp32_pow2( -q_exp ) ;                    // discretization mutiplier, 1.0 / quantum
-
-  fprintf(stderr, "filter %3.3o, maxerr = %f(%d), quantum = %f, ovq = %f, nbits = %d, offset = %d\n",
-                  FILTER_ID, arg->maxerr,q_exp-1, quantum, ovq, arg->nbits, arg->offset) ;
-  fprintf(stderr, "filter %3.3o, array[%d,%d](%d)\n", FILTER_ID, a->dim[0].gnn, a->dim[1].gnn, nvalues) ;
-  if(offset == 0x7FFFFFFF){                      // use quantized value of minimum value as offset
-    float minval = FLOAT_MIN_VALUE(*bp) ;        // minimum value
-    offset = fp2q_lin_(minval, ovq) ;            // quantized value of minimum value in array
-    fprintf(stderr, "filter %3.3o, setting offset to %d (%f)\n", FILTER_ID, offset, minval) ;
-    a->type = uint_data ;                        // mark data as unsigned integer data
-  }else{
-    a->type = int_data ;                         // mark data as signed integer data
-  }
-#endif
-// ==================== call fp32 quantizer ====================
-//   e_base = fp2q_lin((float *)array, (int32_t *)array, nvalues, quantum, offset) ;
-//   a->type = (offset == 0x7FFFFFFF) ? uint_data : int_data ;
-//   e_base = fp2q_n((float *)array, (int32_t *)array, nvalues, bp, maxerr, minabs, nbits, &offset, mode) ;
 
   dpfl++ ;                                       // call next filter if there is one
   dmap_filter_ptr next_filter = dmap_filter_next(dpfl) ;
@@ -409,34 +377,8 @@ reverse:
     STREAM_GET_NBITS(s, nbits, 6) ;
     status += 6 ;
   }
-//   STREAM_GET_NBITS(s, q_exp,  8) ;                     // quantum exponent (biased)
-//   STREAM_GET_NBITS(s, nbitsd, 5) ;                     // number of bits for offset
-//   status += 13 ;                                       // bits extracted so far
-//   if(nbitsd > 0){                                      // nbitsd == 0 means no offset
-//     uint32_t zigzag ;
-//     nbitsd++ ;
-//     STREAM_GET_NBITS(s, zigzag, nbitsd) ;              // zigzag encoding of offfset
-//     offset = from_zigzag_32(zigzag) ;                  // restore to signed integer
-//     status += nbitsd ;
-//   }else{
-//     offset = 0 ;
-//   }
-//   e_base = q_exp | (nbits << 8) ;
-//   quantum = fp32_pow2(e_base) ;                        // float quantum
-//   maxerr.u = (q_exp << 23) ; quantum = maxerr.f ;
-//   fprintf(stderr, "reverse filter %3.3o, id = %d, quantum = %f, nbits = %d, offset = %d, mode = %d\n",
-//           FILTER_ID, filter, fp32_pow2(e_base), nbits, offset, mode) ;
-//
-// inverse filter processing code goes here  (INV)
-//
-//   nvalues = a->dim[0].gnn * a->dim[1].gnn ;
   fprintf(stderr, "reverse filter %3.3o, array[%d,%d](%d), offset = %d\n",
                   FILTER_ID, a->dim[0].gnn, a->dim[1].gnn, nvalues, offset) ;
-// ==================== call fp32 de-quantizer ====================
-//   q2fp_lin((float *)array, (int32_t *)array, nvalues, e_base, offset) ;
-//   status = q2fp_n((float *)array, (int32_t *)array, nvalues, e_base, nbits, offset, mode) ;
-//   status = q2fp_n((float *)array, (int32_t *)array, nvalues, e_base, offset, mode) ;
-//   if(status != 0) goto fail ;
   a->type = float_data ;                               // mark data as float data
 
   ssize_t status2 = dmap_filter_inv(a, &s) ;           // call next inverse filter
