@@ -113,13 +113,30 @@ int32_t array_compare(void *ref, void *f, int n){
 // lni  [IN] : length of an array row
 // ni   [IN] : number of items to compare in row
 // nj   [IN] : number of rows to compare
-int32_t array_compare_2D(int ni, int nj, uint32_t ref[nj][ni], uint32_t f[nj][ni]){
+int32_t array_compare_2D(int ni, int nj, uint32_t ref[nj][ni], uint32_t f[nj][ni], int verbose){
   int i, j, errors = 0 ;
   errors = 0 ;
   for(j=0 ; j<nj ; j++){
     for(i=0 ; i<ni ; i++){
       if(ref[j][i] != f[j][i]){
-        if(errors < 5) fprintf(stderr, "i=%d , j=%d, expected %8.8x, got %8.8x\n", i, j, ref[j][i], f[j][i]) ;
+        if(errors < 5 && verbose)
+          fprintf(stderr, "i=%d , j=%d, expected %8.8x, got %8.8x\n", i, j, ref[j][i], f[j][i]) ;
+        errors ++ ;
+      }
+    }
+  }
+  return errors ;
+}
+int32_t array_compare_float_2D(int ni, int nj, float ref[nj][ni], float f[nj][ni], float errmax){
+  int i, j, errors = 0 ;
+  errors = 0 ;
+  for(j=0 ; j<nj ; j++){
+    for(i=0 ; i<ni ; i++){
+      float t = ref[j][i] - f[j][i] ;
+      t = (t < 0) ? (-t) : t ;
+      if(t > errmax){
+        if(errors < 5) fprintf(stderr, "i=%d , j=%d, expected %f, got %f, delta = %f, errmax = %f\n",
+                                        i, j, ref[j][i], f[j][i], t, errmax) ;
         errors ++ ;
       }
     }

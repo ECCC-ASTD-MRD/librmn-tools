@@ -28,6 +28,7 @@ int update_error_stats(float *fref, float *fnew, int nd, error_stats *e);
 int float_array_differences(float *fref, float *fnew, int nr, int lref, int lnew, int nj, error_stats *e);
 int32_t array_compare_masked(void *ref, void *f, int n, uint32_t mask);
 int32_t array_compare(void *ref, void *f, int n);
-int32_t array_compare_2D(int ni, int nj, uint32_t ref[nj][ni], uint32_t f[nj][ni]);
+int32_t array_compare_2D(int ni, int nj, uint32_t ref[nj][ni], uint32_t f[nj][ni], int verbose);
+int32_t array_compare_float_2D(int ni, int nj, float ref[nj][ni], float f[nj][ni], float errmax);
 
 #endif
