@@ -252,7 +252,7 @@ reverse:
 // the filter list MUST BE NULL TERMINATED
 ssize_t FILTER_NAME(array_nd *a, block_properties *bp, dmap_filter_list dpfl, bitstream *stream){
   char *errmsg = "" ;
-  uint32_t me = FILTER_ID ;
+  uint32_t me = FILTER_ID, filter ;
   errmsg = "a == NULL || stream == NULL" ;
   if(a == NULL || stream == NULL) goto fail ;    // no array or no stream
   void *array = array_address(a) ;               // get array address, dimension(s), and type
@@ -348,11 +348,11 @@ fail:
   fprintf(stderr, "%s filter %3.3o ERROR : %s\n", (dpfl == NULL) ? "reverse" : "forward", FILTER_ID, errmsg) ;
   return -1 ;     // failure, DO NOT SAVE stream changes
 
-  uint32_t filter = 0xFFFFu ;
 reverse:
   errmsg = "reverse filter : data type MUST BE integer" ;
   if(type != int_data && type != uint_data) goto fail ;             // data type MUST BE INTEGER
 // get the appropriate information for the reverse filter from bitstream (GET)
+  filter = 0xFFFFu ;
   STREAM_GET_NBITS(s, filter, 8) ;
   status = 8 ;                                         // 8 bits extracted so far
   errmsg = "bad filter ID" ;

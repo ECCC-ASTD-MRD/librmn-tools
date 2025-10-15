@@ -97,9 +97,9 @@ process:
       fr[j][i]  = (i - (NI-1)*.5f) + (j - (NJ-1)*.5f) ;   // float reference
       ur[j][i] = ((i + 1) << 8) | (j + 1) ;               // unsigned integer reference
       zr[j][i] = ur[j][i] ;
-//       fi[j][i]  = (i - (NI-1)*.5f) + (j - (NJ-1)*.5f) ;
+      fi[j][i]  = (i - (NI-1)*.5f) + (j - (NJ-1)*.5f) ;
 //       fr[j][i]  = fi[j][i] ;
-//       fo[j][i]  = 999999.0f ;
+      fo[j][i]  = 999999.0f ;
     }
   }
 
