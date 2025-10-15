@@ -31,24 +31,30 @@
 // subarray dimension index range : ln0 -> ln0 + lnn - 1  ( lnn elements)
 // ln0 >= gn0 , ln0 + lnn - 1 <= gn0 + gnn - 1
 typedef struct{
+  int32_t  snn ;          // initial allocated dimension (at creation time)
   int32_t  gnn ;          // number of elements stored along dimension
   int32_t  gn0 ;          // global index of first point along dimension (usually 0 or 1)
   int32_t  lnn ;          // number of elements used along dimension (sub array)
   int32_t  ln0 ;          // index of first point along dimension (usually 0 or 1)
 } dim_desc ;              // ln0 == gn0 , lnn == gnn : all elements along this dimension are used
 
-// recent LLVM based compilers seem not to care, older compilers seem to need the define way
+// recent compilers seem not to care, some older compilers seem to need the define way
+#if defined(__PGI)
 // PGI compilers seem to need the define way
-// gcc seems to prefer the const way (emits a warning with the define way)
-#if defined(__PGI) || defined(__INTEL_COMPILER) || defined(__clang__) || defined(__INTEL_LLVM_COMPILERx)
-// initializer element is not constant according to gcc in the following line
 #define dim_null (dim_desc) {.gnn=0, .gn0 = 0, .ln0=0, .lnn=0 }
 #else
-// what follows is not a constant value according to some compilers
-static const dim_desc  dim_null = {.gnn=0, .gn0 = 0, .ln0=0, .lnn=0 } ;
+// this is not a constant value according to some compilers
+static const dim_desc  dim_null = (dim_desc) {.gnn=0, .gn0 = 0, .ln0=0, .lnn=0 } ;
 #endif
+#define DIM_NULL (dim_desc) {.gnn=0, .gn0 = 0, .ln0=0, .lnn=0 }
 
 #define IS_ARRAY 0xBEBEFADA
+// DATA_IS_INTERNAL set means that the array_nd struct contains both data and control information
+#define DATA_IS_INTERNAL  1
+// DATA_MAY_REALLOC set means that the data pointer may be freed/reallocated
+#define DATA_MAY_REALLOC  2
+// the struct was malloced by create_array and can be freed
+#define STRUCT_CAN_FREE   4
 
 typedef struct{          // generic struct for array with n dimensions
   uint8_t *data ;        // starting address of array (byte pointer)
@@ -56,7 +62,7 @@ typedef struct{          // generic struct for array with n dimensions
   uint32_t signature ;   // MUST be 0xBEBEFADA
   uint16_t esize ;       // size of array elements in bytes (1, 2, 4, 8, ..., )
   uint8_t  type ;        // element type, see rmn/data_kind.h
-  uint8_t  flags:4, ndim:4 ;        // number of dimensions
+  uint8_t  flags:4, ndim:4 ;        // flags, number of dimensions
   dim_desc dim[] ;       // dimension descriptor (flexible array member)
 } array_nd ;
 
@@ -68,7 +74,7 @@ typedef struct{          // specific struct for 1D array
   uint8_t  type ;
   uint8_t  flags:4, ndim:4 ;        // ndim MUST be 1
   dim_desc dim[1] ;
-  uint32_t w32[] ;       // valid only if created with create_array
+  uint32_t w32[] ;       // usable only if created with create_array
 } array_1d ;
 
 typedef struct{          // specific struct for 2D array
@@ -79,7 +85,7 @@ typedef struct{          // specific struct for 2D array
   uint8_t  type ;
   uint8_t  flags:4, ndim:4 ;        // ndim MUST be 2
   dim_desc dim[2] ;
-  uint32_t w32[] ;       // valid only if created with create_array
+  uint32_t w32[] ;       // usable only if created with create_array
 } array_2d ;
 
 typedef struct{          // specific struct for 3D array
@@ -90,7 +96,7 @@ typedef struct{          // specific struct for 3D array
   uint8_t  type ;
   uint8_t  flags:4, ndim:4 ;        // ndim MUST be 3
   dim_desc dim[3] ;
-  uint32_t w32[] ;       // valid only if created with create_array
+  uint32_t w32[] ;       // usable only if created with create_array
 } array_3d ;
 
 typedef struct{          // specific struct for 4D array
@@ -101,7 +107,7 @@ typedef struct{          // specific struct for 4D array
   uint8_t  type ;
   uint8_t  flags:4, ndim:4 ;        // ndim MUST be 4
   dim_desc dim[4] ;
-  uint32_t w32[] ;       // valid only if created with create_array
+  uint32_t w32[] ;       // usable only if created with create_array
 } array_4d ;
 
 typedef struct{          // specific struct for 5D array
@@ -112,35 +118,38 @@ typedef struct{          // specific struct for 5D array
   uint8_t  type ;
   uint8_t  flags:4, ndim:4 ;        // ndim MUST be 5
   dim_desc dim[5] ;
-  uint32_t w32[] ;       // valid only if created with create_array
+  uint32_t w32[] ;       // usable only if created with create_array
 } array_5d ;
 
-// blank array descriptors for 1/2/3/4/5 Dimensions (no type, element size = 0)
+// blank array descriptors (invalid type, element size = 0, no data)
+static const array_nd array_nd_invalid = {.data=NULL, .limit=NULL, .esize=0, .signature=0, .type=0, .ndim=1, .flags=0 } ;
+
 static const array_1d array_1d_null = {.data=NULL, .limit=NULL, .esize=0, .signature=IS_ARRAY, .type=0, .ndim=1, .flags=0,
-                                       .dim = {dim_null} } ;
+                                       .dim = {DIM_NULL} } ;
 static const array_2d array_2d_null = {.data=NULL, .limit=NULL, .esize=0, .signature=IS_ARRAY, .type=0, .ndim=2, .flags=0,
-                                       .dim = {dim_null, dim_null} } ;
+                                       .dim = {DIM_NULL, DIM_NULL} } ;
 static const array_3d array_3d_null = {.data=NULL, .limit=NULL, .esize=0, .signature=IS_ARRAY, .type=0, .ndim=3, .flags=0,
-                                       .dim = {dim_null, dim_null, dim_null} } ;
+                                       .dim = {DIM_NULL, DIM_NULL, DIM_NULL} } ;
 static const array_4d array_4d_null = {.data=NULL, .limit=NULL, .esize=0, .signature=IS_ARRAY, .type=0, .ndim=4, .flags=0,
-                                       .dim = {dim_null, dim_null, dim_null, dim_null} } ;
+                                       .dim = {DIM_NULL, DIM_NULL, DIM_NULL, DIM_NULL} } ;
 static const array_5d array_5d_null = {.data=NULL, .limit=NULL, .esize=0, .signature=IS_ARRAY, .type=0, .ndim=5, .flags=0,
-                                       .dim = {dim_null, dim_null, dim_null, dim_null, dim_null} } ;
+                                       .dim = {DIM_NULL, DIM_NULL, DIM_NULL, DIM_NULL, DIM_NULL} } ;
+
 #if 0
 // macro to help initialize a struct of type array_nd
-#define ARRAY_ND(DATA,ESIZE,TYPE,NDIM,SIZE) {.data = DATA, .limit = DATA, .esize = ESIZE, .type = TYPE, .ndim = NDIM }
+#define ARRAY_ND(DATA,ESIZE,TYPE,NDIM) {.data = DATA, .limit = DATA, .esize = ESIZE, .type = TYPE, .ndim = NDIM }
 
 // static const seems to avoid inducing the warning
 // #pragma GCC diagnostic push
 // #pragma GCC diagnostic ignored "-Wunused-variable"
 
-// blank array descriptors for 1/2/3 Dimensions
-// defaults to 32 bit unsigned type
-static const array_1d array_1d_0 = ARRAY_ND(NULL, sizeof(int32_t), 0, 1, 0) ;
-static const array_2d array_2d_0 = ARRAY_ND(NULL, sizeof(int32_t), 0, 2, 0) ;
-static const array_3d array_3d_0 = ARRAY_ND(NULL, sizeof(int32_t), 0, 3, 0) ;
-static const array_4d array_4d_0 = ARRAY_ND(NULL, sizeof(int32_t), 0, 4, 0) ;
-static const array_5d array_5d_0 = ARRAY_ND(NULL, sizeof(int32_t), 0, 5, 0) ;
+// blank array descriptors for 1/2/3/4/5 Dimensions
+// defaults invalid data type of zero size
+static const array_1d array_1d_null = ARRAY_ND(NULL, 0, 0, 1) ;
+static const array_2d array_2d_null = ARRAY_ND(NULL, 0, 0, 2) ;
+static const array_3d array_3d_null = ARRAY_ND(NULL, 0, 0, 3) ;
+static const array_4d array_4d_null = ARRAY_ND(NULL, 0, 0, 4) ;
+static const array_5d array_5d_null = ARRAY_ND(NULL, 0, 0, 5) ;
 // #pragma GCC diagnostic pop
 #endif
 
@@ -160,20 +169,17 @@ static inline void array_5d_init(array_5d *a, void *data, ssize_t esize, int typ
   *a = array_5d_null ; a->esize = esize ; a->type = type ; a->data = data ;
 }
 
-typedef struct{   // struct containing an array of 2 integers
+typedef struct{   // struct containing 2 integers (array)
   int32_t i32[2] ;
 }__i32__2__ ;
 
-typedef struct{   // struct containing an array of up to 10 integers
-  int32_t i32[10] ;
+typedef struct{   // struct containing up to 5 integers (array)
+  int32_t i32[5] ;
 }__i32__5__ ;
 
-typedef struct{   // struct containing up to 10 pairs of integers
-  int32_t i32[20] ;
+typedef struct{   // struct containing up to 5 pairs of integers (array)
+  int32_t i32[10] ;
 }__i32__5x2__ ;
-
-// static __i32__5x2__ __i32__5x2__null = { 0, 1, 0, 1, 0, 1, 0, 1, 0, 1 } ;
-// static __i32__5x2__ __i32__5x2__null = {{ {{0, 1}} , {{0, 1}}, {{0, 1}}, {{0, 1}}, {{0, 1}} }} ;
 
 // users should call the generic function new_array rather than new_array_nd
 void new_array_nd(array_nd *a, void *mem, int32_t esize, int8_t type, int32_t ndims, int32_t nlb5, __i32__5__ lb5);
@@ -192,19 +198,19 @@ void new_array_nd(array_nd *a, void *mem, int32_t esize, int8_t type, int32_t nd
   )
 
 // users should call the generic function new_array rather than create_array_nd
-array_nd *create_array_nd(int32_t esize, int8_t type, int32_t ndim, int32_t ndm5, __i32__5__ dm5) ;
+array_nd *create_array_nd(uint32_t flags, int32_t esize, int8_t type, int32_t ndim, int32_t ndm5, __i32__5__ dm5) ;
 
 // generic version for 1/2/3/4/5 D arrays ... is 1/2/3/4/5 values, one per dimension
 // array_1d *ap1 ; create_array(ap1, esize, type, ni) ;
 // array_5d *ap5 ; create_array(ap1, esize, type, ni, nj, nk, nl, nm) ;
-#define create_array(ARRAY, ESIZE, TYP, ...) \
+#define create_array(ARRAY, FLAGS, ESIZE, TYP, ...) \
   ARRAY = _Generic((ARRAY), \
-    array_nd *: (array_nd *) create_array_nd(ESIZE,TYP,VA_ARGS_NUM(__VA_ARGS__),VA_ARGS_NUM(__VA_ARGS__),(__i32__5__){{ __VA_ARGS__ }}), \
-    array_5d *: (array_5d *) create_array_nd(ESIZE,TYP,5,VA_ARGS_NUM(__VA_ARGS__),(__i32__5__){{ __VA_ARGS__ }}), \
-    array_4d *: (array_4d *) create_array_nd(ESIZE,TYP,4,VA_ARGS_NUM(__VA_ARGS__),(__i32__5__){{ __VA_ARGS__ }}), \
-    array_3d *: (array_3d *) create_array_nd(ESIZE,TYP,3,VA_ARGS_NUM(__VA_ARGS__),(__i32__5__){{ __VA_ARGS__ }}), \
-    array_2d *: (array_2d *) create_array_nd(ESIZE,TYP,2,VA_ARGS_NUM(__VA_ARGS__),(__i32__5__){{ __VA_ARGS__ }}), \
-    array_1d *: (array_1d *) create_array_nd(ESIZE,TYP,1,VA_ARGS_NUM(__VA_ARGS__),(__i32__5__){{ __VA_ARGS__ }})  \
+    array_nd *: (array_nd *) create_array_nd(FLAGS,ESIZE,TYP,VA_ARGS_NUM(__VA_ARGS__),VA_ARGS_NUM(__VA_ARGS__),(__i32__5__){{ __VA_ARGS__ }}), \
+    array_5d *: (array_5d *) create_array_nd(FLAGS,ESIZE,TYP,5,VA_ARGS_NUM(__VA_ARGS__),(__i32__5__){{ __VA_ARGS__ }}), \
+    array_4d *: (array_4d *) create_array_nd(FLAGS,ESIZE,TYP,4,VA_ARGS_NUM(__VA_ARGS__),(__i32__5__){{ __VA_ARGS__ }}), \
+    array_3d *: (array_3d *) create_array_nd(FLAGS,ESIZE,TYP,3,VA_ARGS_NUM(__VA_ARGS__),(__i32__5__){{ __VA_ARGS__ }}), \
+    array_2d *: (array_2d *) create_array_nd(FLAGS,ESIZE,TYP,2,VA_ARGS_NUM(__VA_ARGS__),(__i32__5__){{ __VA_ARGS__ }}), \
+    array_1d *: (array_1d *) create_array_nd(FLAGS,ESIZE,TYP,1,VA_ARGS_NUM(__VA_ARGS__),(__i32__5__){{ __VA_ARGS__ }})  \
   )
 
 // users should call the generic function array_gbounds rather than array_gbounds_nd

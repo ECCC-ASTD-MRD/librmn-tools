@@ -29,6 +29,15 @@ void print_dims(void *a_, char *msg){
   fprintf(stderr, "]%s", msg) ;
 }
 
+void print_flags(char *msg, void *a){
+  array_nd *ap = (array_nd *) a ;
+  uint8_t flags = ap->flags ;
+  fprintf(stderr, "%s %2.2x %s%s%s\n",msg, flags,
+                  (flags & DATA_IS_INTERNAL) ?  " MONOLITHIC" : "SPLIT_STRUCT" ,
+                  (flags & DATA_MAY_REALLOC) ?  " MAY_REALLOC_DATA" : " MAY_NOT_REALLOC_DATA" ,
+                  (flags & STRUCT_CAN_FREE)    ?  " STRUCT_CAN_BE_FREED" : "") ;
+}
+
 void array_lbounds_check(int low, int high){
   array_1d a1 = array_1d_null, *ap1 ;
   array_2d a2 = array_2d_null, *ap2 ;
@@ -36,48 +45,69 @@ void array_lbounds_check(int low, int high){
   array_4d a4 = array_4d_null, *ap4 ;
   array_5d a5 = array_5d_null, *ap5 ;
   array_nd *apn ;
+  char *errmsg = "" ;
   int32_t scrap[1024*1024] ;
 
   // make new arrays using caller supplied storage, set bounds
-  new_array(&a1, scrap, sizeof(int32_t), int_data, 8) ;
+  new_array(&a1, NULL, sizeof(int32_t), int_data, 8) ;
+  print_flags("a1 flags : ", &a1) ;
   set_array_lbounds(&a1 , low, high) ;
   new_array(&a2, scrap, sizeof(int32_t), int_data, 8, 7) ;
   set_array_lbounds(&a2 , low, high, low, high) ;
-  new_array(&a3, scrap, sizeof(int32_t), int_data, 8, 7, 6) ;
+  print_flags("a2 flags : ", &a2) ;
+  new_array(&a3, NULL, sizeof(int32_t), int_data, 8, 7, 6) ;
   set_array_lbounds(&a3 , low, high, low, high, low, high) ;
+  print_flags("a3 flags : ", &a3) ;
   new_array(&a4, scrap, sizeof(int32_t), int_data, 8, 7, 6, 5) ;
   set_array_lbounds(&a4 , low, high, low, high, low, high, low, high) ;
-  new_array(&a5, scrap, sizeof(int32_t), int_data, 8, 7, 6, 5, 4) ;
+  print_flags("a4 flags : ", &a4) ;
+  new_array(&a5, NULL, sizeof(int32_t), int_data, 8, 7, 6, 5, 4) ;
   set_array_lbounds(&a5 , low, high, low, high, low, high, low, high, low, high) ;
+  print_flags("a5 flags : ", &a5) ;
 
-  create_array(ap1, sizeof(int32_t), int_data, 8) ;
+  errmsg = "w32 does not point to data" ;
+  create_array(ap1, DATA_IS_INTERNAL, sizeof(int32_t), int_data, 8) ;                 // specific 1D interface
   if( (uint8_t *)(ap1->w32) != array_address(ap1) ) goto fail ;
+  print_flags("ap1 flags : ", ap1) ;
   fprintf(stderr, "%12s array size is %6ld, dimension = %6d ", array_kind(ap1), array_size(ap1), subarray_dimension(ap1)) ; print_dims(ap1, "\n") ;
 
-  create_array(ap2, sizeof(int32_t), int_data, 8, 7) ;
+  create_array(ap2, DATA_IS_INTERNAL, sizeof(int32_t), int_data, 8, 7) ;              // specific 2D interface
   if( (uint8_t *)(ap1->w32) != ap1->data ) goto fail ;
+  print_flags("ap2 flags : ", ap2) ;
   fprintf(stderr, "%12s array size is %6ld, dimension = %6d ", array_kind(ap2), array_size(ap2), subarray_dimension(ap2)) ; print_dims(ap2, "\n") ;
 
-  create_array(ap3, sizeof(int32_t), int_data, 8, 7, 6) ;
+  create_array(ap3, DATA_IS_INTERNAL, sizeof(int32_t), int_data, 8, 7, 6) ;           // specific 3D interface
   if( (uint8_t *)(ap1->w32) != ap1->data ) goto fail ;
+  print_flags("ap3 flags : ", ap3) ;
   fprintf(stderr, "%12s array size is %6ld, dimension = %6d ", array_kind(ap3), array_size(ap3), subarray_dimension(ap3)) ; print_dims(ap3, "\n") ;
 
-  create_array(ap4, sizeof(int32_t), int_data, 8, 7, 6, 5) ;
+  create_array(ap4, DATA_IS_INTERNAL, sizeof(int32_t), int_data, 8, 7, 6, 5) ;        // specific 4D interface
   if( (uint8_t *)(ap1->w32) != ap1->data ) goto fail ;
+  print_flags("ap4 flags : ", ap4) ;
   fprintf(stderr, "%12s array size is %6ld, dimension = %6d ", array_kind(ap4), array_size(ap4), subarray_dimension(ap4)) ; print_dims(ap4, "\n") ;
 
-  create_array(ap5, sizeof(int32_t), int_data, 8, 7, 6, 5, 4) ;
+  create_array(ap5, DATA_IS_INTERNAL, sizeof(int32_t), int_data, 8, 7, 6, 5, 4) ;     // specific 5D interface
   if( (uint8_t *)(ap1->w32) != ap1->data ) goto fail ;
+  print_flags("ap5 flags : ", ap5) ;
   fprintf(stderr, "%12s array size is %6ld, dimension = %6d ", array_kind(ap5), array_size(ap5), subarray_dimension(ap5)) ; print_dims(ap5, "\n") ;
 
-  create_array(apn, sizeof(int32_t), int_data, 9, 8, 7, 6, 5, 4) ;
-  set_array_lbounds(apn , low, high, low, high, low, high, low, high, low, high, low, high) ;
+  create_array(apn, 0, sizeof(int32_t), int_data, 8, 7, 6, 5, 4) ;     // generic nD interface
+  errmsg = "DATA_IS_INTERNAL is true" ;
+  if( apn->flags & DATA_IS_INTERNAL ) goto fail ;
+  errmsg = "DATA_MAY_REALLOC not present" ;
+  if( (apn->flags & DATA_MAY_REALLOC) == 0) goto fail ;
+  set_array_lbounds(apn , low, high, low, high, low, high, low, high, low, high) ;
+  print_flags("apn flags : ", apn) ;
   fprintf(stderr, "%12s array size is %6ld, dimension = %6d ", array_kind(apn), array_size(apn), subarray_dimension(apn)) ; print_dims(apn, "\n") ;
+
+//   create_array(apn, sizeof(int32_t), int_data, 9, 8, 7, 6, 5, 4) ;
+//   set_array_lbounds(apn , low, high, low, high, low, high, low, high, low, high, low, high) ;
+//   fprintf(stderr, "%12s array size is %6ld, dimension = %6d ", array_kind(apn), array_size(apn), subarray_dimension(apn)) ; print_dims(apn, "\n") ;
 
   return ;
 
 fail:
-  fprintf(stderr, "TEST FAILED\n") ;
+  fprintf(stderr, "ERROR : %s, TEST FAILED\n", errmsg) ;
   exit(1) ;
 
 }

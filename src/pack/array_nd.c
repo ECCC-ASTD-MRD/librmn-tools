@@ -83,6 +83,7 @@ array_nd *create_subarray(array_nd *a, array_nd *b){
   int i ;
   ssize_t size = 1 ;
   for(i = 0 ; i < a->ndim ; i++){
+    b->dim[i].snn     = a->dim[i].lnn ;      // initial storage dimension
     b->dim[i].gnn     = a->dim[i].lnn ;
     b->dim[i].lnn     = b->dim[i].gnn ;
     b->dim[i].ln0     = 0 ;
@@ -98,31 +99,46 @@ array_nd *create_subarray(array_nd *a, array_nd *b){
 // esize   [IN] : size of array elements in bytes
 // type    [IN] : data type, see type in rmn/data_kind.h
 // ndim    [IN] : number of dimensions
-// dm5[nd] [IN] : dimensions
+// ndm5    [IN] : dimension of dm5 (must match ndim)
+// dm5[]   [IN] : dimensions
 // return pointer to filled descriptor (NULL in case of error)
-array_nd *create_array_nd(int32_t esize, int8_t type, int32_t ndim, int32_t ndm5, __i32__5__ dm5){
+array_nd *create_array_nd(uint32_t flags, int32_t esize, int8_t type, int32_t ndim, int32_t ndm5, __i32__5__ dm5){
   size_t sizea = sizeof(array_nd) + ndim * sizeof(dim_desc) ;  // size of descriptor structure
-  size_t sizem ;
-  int nelem = 1, n, i ;
+  size_t sizem, nelem = 1 ;
+  int32_t i ;
   array_nd *r ;
+  uint8_t *data, local_flags = 0 ;
 
   if(ndim != ndm5){
     fprintf(stderr, "make_array_nd ERROR: %d dimensions, %d sizes\n", ndim, ndm5) ;
     return NULL ;
   }
 
-  for(i = 0 ; i < ndim ; i++){  // find number of elements in array
-    n = (dm5.i32[i] <= 0) ? 1 : dm5.i32[i] ;
-    nelem = nelem * n ;
+  for(i = 0 ; i < ndim ; i++){  // compute number of elements in array
+    nelem = nelem * ( (dm5.i32[i] <= 0) ? 1 : dm5.i32[i] ) ;
   }
   sizem = nelem * esize ;
-  r = (array_nd *) malloc(sizea + sizem) ;  // size of descriptor structure + data size
-  if(r == NULL) return NULL ;  // malloc failed
+  if(flags & DATA_IS_INTERNAL){                     // monolithic struct+data
+    r    = (array_nd *) malloc(sizea + sizem) ;     // size of descriptor structure + data size
+    if(r == NULL) return NULL ;                     // malloc failed
+    data = (uint8_t *)r ;                           // start of array_nd struct
+    data += sizea ;                                 // address following dimensional descriptors
+    local_flags |= DATA_IS_INTERNAL ;               // flag struct as being malloc(ed)
+  }else{                                            // 2 calls to malloc, 1 for struct, 1 for data
+    r    = (array_nd *) malloc(sizea) ;             // allocate descriptor struct
+    if(r == NULL) return NULL ;                     // malloc failed
+    data = (uint8_t *)malloc(sizem) ;               // allocate data
+    if(data == NULL){                               // malloc failed
+      free(r) ;                                     // free previously allocated struct
+      return NULL ;
+    }
+    local_flags |= DATA_MAY_REALLOC ;                  // data may be reallocated if need be
+  }
+  local_flags |= STRUCT_CAN_FREE ;
 
-  uint8_t *data = (uint8_t *)r ;                           // start of array descriptor
-  data += sizea ;                                          // address following dimensional descriptors
 // fprintf(stderr, "make_array_nd DEBUG, r = %p, data = %p, overhead = %ld, nelem = %d, esize = %ld\n", r, data, (uint8_t *)data-(uint8_t *)r, nelem, sizem/nelem) ;
   new_array_nd(r, data, esize, type, ndim, ndm5, dm5) ;    // fill array descriptor information
+  r->flags |= local_flags ;
   return r ;
 }
 
@@ -133,32 +149,42 @@ array_nd *create_array_nd(int32_t esize, int8_t type, int32_t ndim, int32_t ndm5
 // esize   [IN] : size of array elements in bytes
 // type    [IN] : data type, see type in rmn/data_kind.h
 // ndim    [IN] : number of dimensions
-// dm5[nd] [IN] : dimensions
+// ndm5    [IN] : dimension of dm5 (must match ndim)
+// dm5[]   [IN] : dimensions
 void new_array_nd(array_nd *a, void *mem, int32_t esize, int8_t type, int32_t ndim, int32_t ndm5, __i32__5__ dm5){
-  int32_t i, nelem, n ;
+  int32_t i, nelem = 1 ;
 
+  *a = (array_nd) array_nd_invalid ;        // precondition to fail
   if(ndim != ndm5){
     fprintf(stderr, "new_array_nd ERROR: %d dimensions, %d sizes\n", ndim, ndm5) ;
-    a->ndim = 0 ;
     return ;
   }
+
+  for(i = 0 ; i < ndim ; i++){  // compute number of elements in array
+    nelem = nelem * ( (dm5.i32[i] <= 0) ? 1 : dm5.i32[i] ) ;
+  }
+  size_t size = esize ;
+  size *= nelem ;                    // data array size in bytes
+
+  a->flags     = 0 ;
+  if(mem == NULL){
+    mem = malloc(size) ;             // allocate data
+    if(mem == NULL) return ;         // error allocating memory for data array
+    a->flags |= DATA_MAY_REALLOC ;   // data may be reallocated if need be
+  }
+
   a->signature = IS_ARRAY ;
   a->type      = type ;
   a->esize     = esize ;
   a->ndim      = ndim ;
-  a->flags     = 0 ;
-  nelem = 1 ;
   for(i = 0 ; i < ndim ; i++){
-    n = (dm5.i32[i] <= 0) ? 1 : dm5.i32[i] ;
-    nelem = nelem * n ;
+    int32_t n = (dm5.i32[i] <= 0) ? 1 : dm5.i32[i] ;
+    a->dim[i].snn = n ;      // initial storage dimension
     a->dim[i].gnn = n ;      // number of elements stored along this dimension
     a->dim[i].gn0 = 0 ;      // default lower bound for indexing
     a->dim[i].lnn = n ;      // number of elements used along this dimension
     a->dim[i].ln0 = 0 ;      // default lower bound for indexing ( >= a->dim[i].gn0)
   }
-  size_t size = esize ;
-  size *= nelem ;
-  if(mem == NULL) mem = malloc(size) ;
   a->data = mem ;
   a->limit = a->data ;
   if(mem != NULL) a->limit = a->data + size ;
