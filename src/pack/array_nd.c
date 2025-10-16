@@ -20,7 +20,7 @@
 // is this array_nd invalid ?
 // a  [IN] : pointer to array_nd struct
 // return 1 if invalid, 0 otherwise
-int invalid_array(array_nd *a){
+int invalid_array_nd(array_nd *a){
   int i ;
   if(a == NULL)                return 1 ;   // NULL array pointer
   if(a->signature != IS_ARRAY) return 1 ;   // wrong signature
@@ -35,6 +35,13 @@ int invalid_array(array_nd *a){
   }
   if(a->limit - a->data < size) return 1 ;  // not enough memory to accomodate array
   return 0 ;  // likely valid array_nd struct
+}
+
+// is this array_nd invalid ?
+// a  [IN] : pointer to array_nd struct
+// return 1 if valid, 0 otherwise
+int valid_array_nd(array_nd *a){
+  return invalid_array_nd(a) ? 0 : 1 ;
 }
 
 // get address of the first element of a sub array of array a
@@ -148,13 +155,18 @@ array_nd *create_array_nd(uint32_t flags, int32_t esize, int8_t type, int32_t nd
 // mem     [IN] : memory address for array. allocate automatically if NULL
 // esize   [IN] : size of array elements in bytes
 // type    [IN] : data type, see type in rmn/data_kind.h
-// ndim    [IN] : number of dimensions
+// ndim    [IN] : number of dimensions (0 < ndim <= 5)
 // ndm5    [IN] : dimension of dm5 (must match ndim)
 // dm5[]   [IN] : dimensions
+// TODO : if mem == a->data, implement a dimension reshape operation
 void new_array_nd(array_nd *a, void *mem, int32_t esize, int8_t type, int32_t ndim, int32_t ndm5, __i32__5__ dm5){
-  int32_t i, nelem = 1 ;
+  int32_t i, nelem = 1, reshape = 0 ;
 
-  *a = (array_nd) array_nd_invalid ;        // precondition to fail
+  if(valid_array(a) ){                                    // a is a valid array
+    reshape = (a->data == mem) ;                          // reshape conditions are met
+//     if(reshape) exit(1) ;                                 // reshape is not implemented yet
+  }
+  if(! reshape) *a = (array_nd) array_nd_invalid ;        // precondition to fail
   if(ndim != ndm5){
     fprintf(stderr, "new_array_nd ERROR: %d dimensions, %d sizes\n", ndim, ndm5) ;
     return ;
@@ -163,8 +175,15 @@ void new_array_nd(array_nd *a, void *mem, int32_t esize, int8_t type, int32_t nd
   for(i = 0 ; i < ndim ; i++){  // compute number of elements in array
     nelem = nelem * ( (dm5.i32[i] <= 0) ? 1 : dm5.i32[i] ) ;
   }
-  size_t size = esize ;
+  ssize_t size = esize ;
   size *= nelem ;                    // data array size in bytes
+
+  if(reshape){
+    if(size > (a->limit - a->data)){ // OOPS, not enough space
+      a->signature = 0 ;             // remove signature, leave the rest intact
+      return ;
+    }
+  }
 
   a->flags     = 0 ;
   if(mem == NULL){
@@ -186,8 +205,10 @@ void new_array_nd(array_nd *a, void *mem, int32_t esize, int8_t type, int32_t nd
     a->dim[i].ln0 = 0 ;      // default lower bound for indexing ( >= a->dim[i].gn0)
   }
   a->data = mem ;
-  a->limit = a->data ;
-  if(mem != NULL) a->limit = a->data + size ;
+  // if it was a reshape operation, leave limit as it was
+  if( ! reshape ) a->limit = (mem != NULL) ? a->data + size : a->data ;
+//   a->limit = a->data ;
+//   if(mem != NULL) a->limit = a->data + size ;
 // fprintf(stderr, "%d dimensional array, size = %ld [", a->ndim, size/esize) ;
 // fprintf(stderr,"%d", a->dim[0].gnn) ;
 // for(i=1 ; i<a->ndim ; i++) fprintf(stderr,",%d", a->dim[i].gnn) ;
@@ -253,17 +274,22 @@ fail:
 int set_array_gbounds_nd(array_nd *a, int32_t ndim, __i32__5__ lb5){
   int32_t i ;
 
-  if(ndim != a->ndim) return 0 ;    // wrong number of dimensions
+  if(invalid_array(a)) goto fail ;
+  if(ndim != a->ndim) goto fail ;    // wrong number of dimensions
 
   for(i = 0 ; i < ndim ; i++){
-    if(lb5.i32[i] <= 0) return 0 ;    // invalid bound
+    if(lb5.i32[i] <= 0) goto fail ;    // invalid bound
     a->dim[i].gn0 = lb5.i32[i] ;
+    a->dim[i].ln0 = a->dim[i].gn0 ;   // reset subarray bounds to cover full range
+    a->dim[i].lnn = a->dim[i].gnn ;
   }
   return ndim ;
+fail:
+  return 0 ;
 }
 
 // set subarray indexing bounds for all dimensions of array
-// a      [INOUT] : pointer to nD array descriptor (if NULL a new descriptor will be created)
+// a      [INOUT] : pointer to nD array descriptor
 // narg      [IN] : number of values in lb5 (MUST match 2 x number of dimensions)
 // lb5[narg] [IN] : bound pairs for all dimensions (lower_bound_0 upper_bound_0 ... lower_bound_n upper_bound_n)
 // return number of dimensions if O.K., 0 if ERROR
@@ -271,34 +297,37 @@ int set_array_gbounds_nd(array_nd *a, int32_t ndim, __i32__5__ lb5){
 int set_array_lbounds_nd(array_nd *a, int32_t narg, __i32__5x2__ lb5){
   int32_t i, j, ndim = narg/2 ;
 
-  if(narg & 1) return 0 ;  // narg MUST be EVEN
+  if(invalid_array(a)) goto fail ;
+  if(narg & 1) goto fail ;  // narg MUST be EVEN
   if(ndim != a->ndim){
     fprintf(stderr, "array_lbounds_nd, ndim = %d, a->ndim = %d\n", ndim, a->ndim) ;
-    return 0 ;    // wrong number of dimensions
+    goto fail ;    // wrong number of dimensions
   }
 
   for(i=j=0 ; i < narg ; i+=2, j++){
-    if(lb5.i32[i+1] < lb5.i32[i])                        return 0 ;  // upper bound < lower bound
-    if(lb5.i32[i+1] > a->dim[j].gn0 + a->dim[j].gnn - 1) return 0 ;  // upper bound beyond limits
+    if(lb5.i32[i+1] < lb5.i32[i])                        goto fail ;  // upper bound < lower bound
+    if(lb5.i32[i+1] > a->dim[j].gn0 + a->dim[j].gnn - 1) goto fail ;  // upper bound beyond limits
 // fprintf(stderr, "[%d] gbounds = %d %d, lbounds= %d %d\n", j, a->dim[j].gn0, a->dim[j].gnn - 1, lb5.i32[i], lb5.i32[i+1]) ;
   }
 
   for(i=j=0 ; i < narg ; i+=2, j++){
     a->dim[j].ln0 = lb5.i32[i] ;                       // lower bound
-    a->dim[j].lnn = lb5.i32[i+1] - lb5.i32[i] + 1 ;    // number of values from upper bound
+    a->dim[j].lnn = lb5.i32[i+1] - lb5.i32[i] + 1 ;    // number of values used in sub array
   }
 // fprintf(stderr, "array_lbounds_nd, narg = %d, ndim = %d\n", narg, ndim) ;
   return ndim ;
+fail:
+  return 0 ;
 }
 
 // get size of sub array from array a
-// a   [IN] : pointer to nD array descriptor (if NULL a new descriptor will be created)
+// a   [IN] : pointer to nD array descriptor
 // return size in bytes of sub array
 size_t subarray_size_nd(array_nd *a){
   int i ;
   size_t size = 0 ;
 
-  if(a == NULL) goto fail ;
+  if(invalid_array(a)) goto fail ;
   size = a->esize ;
   for(i = 0 ; i < a->ndim ; i++){
     size *= a->dim[i].lnn ;
@@ -314,7 +343,7 @@ size_t array_size_nd(array_nd *a){
   int i ;
   size_t size = 0 ;
 
-  if(a == NULL) goto fail ;
+  if(invalid_array(a)) goto fail ;
   size = a->esize ;
   for(i = 0 ; i < a->ndim ; i++){
     size *= a->dim[i].gnn ;
@@ -331,7 +360,7 @@ int subarray_dimension_nd(array_nd *a){
   int i ;
   int nelem = 0 ;
 
-  if(a == NULL) goto fail ;
+  if(invalid_array(a)) goto fail ;
   nelem = 1 ;
   for(i = 0 ; i < a->ndim ; i++){
     nelem *= a->dim[i].lnn ;
@@ -347,7 +376,7 @@ int array_dimension_nd(array_nd *a){
   int i ;
   int nelem = 0 ;
 
-  if(a == NULL) goto fail ;
+  if(invalid_array(a)) goto fail ;
   nelem = 1 ;
   for(i = 0 ; i < a->ndim ; i++){
     nelem *= a->dim[i].gnn ;

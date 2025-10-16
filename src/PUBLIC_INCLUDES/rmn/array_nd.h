@@ -122,7 +122,7 @@ typedef struct{          // specific struct for 5D array
 } array_5d ;
 
 // blank array descriptors (invalid type, element size = 0, no data)
-static const array_nd array_nd_invalid = {.data=NULL, .limit=NULL, .esize=0, .signature=0, .type=0, .ndim=1, .flags=0 } ;
+static const array_nd array_nd_invalid = {.data=NULL, .limit=NULL, .signature=0, .esize=0, .type=0, .flags=0, .ndim=0 } ;
 
 static const array_1d array_1d_null = {.data=NULL, .limit=NULL, .esize=0, .signature=IS_ARRAY, .type=0, .ndim=1, .flags=0,
                                        .dim = {DIM_NULL} } ;
@@ -300,7 +300,29 @@ size_t subarray_set_nd(array_nd *a, void *address, size_t copy_size);
     array_1d *: subarray_set_nd((array_nd *)ARRAY,dest_address, dest_size)  \
   )
 
-int       invalid_array(array_nd *a);
+// users should use the macros rather than the xxx_nd function
+int invalid_array_nd(array_nd *a);
+#define invalid_array(ARRAY) \
+  _Generic((ARRAY), \
+    array_nd *: invalid_array_nd((array_nd *)ARRAY), \
+    array_5d *: invalid_array_nd((array_nd *)ARRAY), \
+    array_4d *: invalid_array_nd((array_nd *)ARRAY), \
+    array_3d *: invalid_array_nd((array_nd *)ARRAY), \
+    array_2d *: invalid_array_nd((array_nd *)ARRAY), \
+    array_1d *: invalid_array_nd((array_nd *)ARRAY)  \
+    )
+
+int valid_array_nd(array_nd *a);
+#define valid_array(ARRAY) \
+  _Generic((ARRAY), \
+    array_nd *: valid_array_nd((array_nd *)ARRAY), \
+    array_5d *: valid_array_nd((array_nd *)ARRAY), \
+    array_4d *: valid_array_nd((array_nd *)ARRAY), \
+    array_3d *: valid_array_nd((array_nd *)ARRAY), \
+    array_2d *: valid_array_nd((array_nd *)ARRAY), \
+    array_1d *: valid_array_nd((array_nd *)ARRAY)  \
+    )
+
 array_nd *create_subarray(array_nd *a, array_nd *b);
 
 // users should call the generic function subarray_address rather than subarray_address_nd
