@@ -68,25 +68,29 @@ void array_lbounds_check(int low, int high){
   fprintf(stderr, "before reshape , signature = %8.8x, ", a5.signature) ;
   print_dims(&a5, "\n") ;
   errmsg = "reshaped array is not valid" ;
-  new_array(&a5, array_address(&a5), sizeof(int32_t), int_data, 8, 7, 6, 5, 4) ;
+  reshape_array(&a5, sizeof(int32_t), int_data, 8, 7, 6, 5, 4) ;
+//   new_array(&a5, array_address(&a5), sizeof(int32_t), int_data, 8, 7, 6, 5, 4) ;
   fprintf(stderr, "after reshape 1, signature = %8.8x, ", a5.signature) ;
   print_dims(&a5, "\n") ;
   if(invalid_array(&a5)) goto fail ;
 
   errmsg = "reshaped array is valid and should not be" ;
-  new_array(&a5, array_address(&a5), sizeof(int32_t), int_data, 9, 7, 6, 5, 4) ;
+  reshape_array(&a5, sizeof(int32_t), int_data, 9, 7, 6, 5, 4) ;
+//   new_array(&a5, array_address(&a5), sizeof(int32_t), int_data, 9, 7, 6, 5, 4) ;
   fprintf(stderr, "after reshape 2, signature = %8.8x, ", a5.signature) ;
   print_dims(&a5, "\n") ;
   if(valid_array(&a5)) goto fail ;
 
   errmsg = "reshaped array is not valid" ;
   a5.signature = IS_ARRAY ;
-  new_array(&a5, array_address(&a5), sizeof(int32_t), int_data, 7, 6, 5, 4, 3) ;
+  reshape_array(&a5, sizeof(int32_t), int_data, 7, 6, 5, 4, 3) ;
+//   new_array(&a5, array_address(&a5), sizeof(int32_t), int_data, 7, 6, 5, 4, 3) ;
   fprintf(stderr, "after reshape 3, signature = %8.8x, ", a5.signature) ;
   print_dims(&a5, "\n") ;
   if(invalid_array(&a5)) goto fail ;
 
-  new_array(&a5, array_address(&a5), sizeof(int32_t), int_data, 8, 7, 6, 5, 4) ;
+  reshape_array(&a5, sizeof(int32_t), int_data, 8, 7, 6, 5, 4) ;
+//   new_array(&a5, array_address(&a5), sizeof(int32_t), int_data, 8, 7, 6, 5, 4) ;
   fprintf(stderr, "after reshape 4, signature = %8.8x, ", a5.signature) ;
   print_dims(&a5, "\n") ;
   if(invalid_array(&a5)) goto fail ;

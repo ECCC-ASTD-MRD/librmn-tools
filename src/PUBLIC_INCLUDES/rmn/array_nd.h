@@ -181,6 +181,8 @@ typedef struct{   // struct containing up to 5 pairs of integers (array)
   int32_t i32[10] ;
 }__i32__5x2__ ;
 
+#define reshape_array(ARRAY, ...) new_array((ARRAY), (ARRAY)->data, __VA_ARGS__)
+
 // users should call the generic function new_array rather than new_array_nd
 void new_array_nd(array_nd *a, void *mem, int32_t esize, int8_t type, int32_t ndims, int32_t nlb5, __i32__5__ lb5);
 
