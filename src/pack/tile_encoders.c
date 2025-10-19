@@ -473,44 +473,33 @@ error:
   return status ;    // *s_in will be restored by encode_block
 }
 
-// get value and code from bitstream
-uint32_t stream_get_hbw(bitstream *s, int *totbits){   // replace with STREAM_GET_BHW macro ?
-  uint32_t nbits, value ;
-  STREAM_GET_NBITS(*s, nbits, 2) ;
-  nbits++ ; nbits <<= 3 ;   // (nbits+1) * 8 = number of bits
-  STREAM_GET_NBITS(*s, value, nbits) ;
-  *totbits = *totbits + 2 + nbits ;
-  return value ;
-}
-
-// store value and code into bitstream
-// 2 bit code = (nbytes needed for value - 1)
-// 8/16/32 bits only
-// return number of bits inserted
-uint32_t stream_put_hbw(bitstream *s, int32_t value){   // replace with STREAM_PUT_BHW macro ?
-  if(value >> 16){
-    STREAM_PUT_NBITS(*s, 3, 2) ;
-    STREAM_PUT_NBITS(*s, value, 32) ;        // there is NOT guaranteed room for 32 bits
-    return 34 ;
-  }else if(value >> 8){
-    STREAM_PUT_NBITS(*s, 1, 2) ;
-    STREAM_FAST_PUT_NBITS(*s, value, 16) ;   // there is guaranteed room for 16 bits
-    return 18 ;
-  }else{
-    STREAM_PUT_NBITS(*s, 0, 2) ;
-    STREAM_FAST_PUT_NBITS(*s, value, 8) ;    // there is guaranteed room for 8 bits
-    return 10 ;
-  }
-}
-uint32_t stream_bhw_bits(int32_t v){
-  uint32_t c = 2 + 8 + ((v >> 8) ? 8 : 0) + ((v >> 16) ? 24 : 0) ;
-  return c ;
-}
+// the following 3 macros will eventually come from rmn/common_stream.h
+#if ! defined(STREAM_BITS_BHW)
+#define STREAM_BITS_BHW(v, nbits) { uint32_t c = 2 + 8 + ((v >> 8) ? 8 : 0) + ((v >> 16) ? 8 : 0) + ((v >> 24) ? 8 : 0) ; nbits = c ; }
+#endif
+#if ! defined(STREAM_GET_BHW)
+#define STREAM_GET_BHW(s, v, nbits) { uint32_t c ; \
+                                      STREAM_GET_NBITS(s, c , 2) ; \
+                                      uint32_t TbItS = (1 + c) << 3 ; \
+                                      STREAM_GET_NBITS(s, v , TbItS) ; \
+                                      nbits = TbItS + 2 ; \
+                                    }
+#endif
+#if ! defined(STREAM_PUT_BHW)
+// store v into stream, set nbits to 10/18/26/34 according to number of bits needed
+#define STREAM_PUT_BHW(s, v, nbits) { uint32_t c = ((v >> 8) ? 1 : 0) + ((v >> 16) ? 1 : 0) + ((v >> 24) ? 1 : 0) ; \
+                                      uint32_t TbItS = (1 + c) << 3 ; \
+                                      STREAM_PUT_NBITS(s, c , 2) ; \
+                                      STREAM_PUT_NBITS(s, v , TbItS) ; \
+                                      nbits = TbItS + 2 ; \
+                                    }
+#endif
 
 // 2D encoder
 int encode_block(bitstream *s_in, int32_t *block, int lnis, int ni, int nj, int tsize, int options){
   int i0, lni, j0, lnj, status = -1, totbits = 0 ;
   bitstream s ;
+  int32_t tbits ;
 
   if(block == NULL || lnis <=0 || ni <= 0 || nj <= 0 || tsize < 4) return status ;
 
@@ -523,14 +512,14 @@ int encode_block(bitstream *s_in, int32_t *block, int lnis, int ni, int nj, int 
     // store block dimensions and tsize into bit stream
     totbits = 2 ;
     if(options & ENCODE_DRY_RUN){                    // just count bits needed for dry run
-      totbits += stream_bhw_bits(ni) ;
-      totbits += stream_bhw_bits(nj) ;
-      totbits += stream_bhw_bits(tsize) ;
+      STREAM_BITS_BHW(ni,    tbits) ; totbits += tbits ;
+      STREAM_BITS_BHW(nj,    tbits) ; totbits += tbits ;
+      STREAM_BITS_BHW(tsize, tbits) ; totbits += tbits ;
     }else{
       STREAM_PUT_NBITS(*s_in, 1, 2) ;                 // 2 dimensions
-      totbits += stream_put_hbw(s_in, ni) ;           // STREAM_PUT_BHW(s, v, nbits)
-      totbits += stream_put_hbw(s_in, nj) ;
-      totbits += stream_put_hbw(s_in, tsize) ;
+      STREAM_PUT_BHW(*s_in, ni,    tbits) ; totbits += tbits ;
+      STREAM_PUT_BHW(*s_in, nj,    tbits) ; totbits += tbits ;
+      STREAM_PUT_BHW(*s_in, tsize, tbits) ; totbits += tbits ;
     }
   }
 
@@ -606,7 +595,7 @@ error:
 
 // 2D decoder
 int decode_block(bitstream *s_in, int32_t *block, int lnid, int ni, int nj, int tsize){
-  int i0, lni, j0, lnj, status = -1, totbits ;
+  int i0, lni, j0, lnj, status = -1, totbits = 0 ;
   bitstream s = *s_in ;
   goto code ;
 
@@ -618,14 +607,14 @@ code:
   if(s_in == NULL || block == NULL || lnid <= 0 || ni <= 0 || nj <= 0 || tsize < 4) return status ;
 
   tsize = tsize & 0xFFFE ;   //force tsize to reasonable EVEN value
-  uint32_t code ;
+  uint32_t code, tbits, ni_, nj_, tsize_ ;
 
   STREAM_GET_NBITS(*s_in, code, 2) ;    // get and check number of dimensions from bit stream
   if(code != 1) goto error ;            // OOPS, expected 2 dimensions (code == 1)
   totbits = 2 ;
-  uint32_t ni_    = stream_get_hbw(s_in, &totbits) ;    // STREAM_GET_BHW(s, v, nbits)
-  uint32_t nj_    = stream_get_hbw(s_in, &totbits) ;
-  uint32_t tsize_ = stream_get_hbw(s_in, &totbits) ;
+  STREAM_GET_BHW(*s_in, ni_,    tbits) ; totbits += tbits ;
+  STREAM_GET_BHW(*s_in, nj_,    tbits) ; totbits += tbits ;
+  STREAM_GET_BHW(*s_in, tsize_, tbits) ; totbits += tbits ;
 
   if((uint32_t)ni != ni_ || (uint32_t)nj != nj_ || (uint32_t)tsize != tsize_) goto error ;
   int32_t tile[tsize*tsize*4] ;         // worst case size
