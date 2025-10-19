@@ -483,7 +483,7 @@ uint32_t stream_get_hbw(bitstream *s, int *totbits){   // replace with STREAM_GE
   return value ;
 }
 
-// put value and code into bitstream
+// store value and code into bitstream
 // 2 bit code = (nbytes needed for value - 1)
 // 8/16/32 bits only
 // return number of bits inserted
