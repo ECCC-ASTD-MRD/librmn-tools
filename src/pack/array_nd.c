@@ -168,7 +168,7 @@ void new_array_nd(array_nd *a, void *mem, int32_t esize, int8_t type, int32_t nd
   }
   if(! reshape) *a = (array_nd) array_nd_invalid ;        // precondition to fail
   if(ndim != ndm5){
-    fprintf(stderr, "new_array_nd ERROR: %d dimensions, %d sizes\n", ndim, ndm5) ;
+    fprintf(stderr, "new_array_nd ERROR: %d dimensions, %d size arguments\n", ndim, ndm5) ;
     return ;
   }
 
@@ -179,6 +179,7 @@ void new_array_nd(array_nd *a, void *mem, int32_t esize, int8_t type, int32_t nd
   size *= nelem ;                    // data array size in bytes
 
   if(reshape){
+// fprintf(stderr, "DEBUG new_array_nd : reshaping from size %ld to size %ld, %d dimensions\n", a->limit - a->data, size, a->ndim) ;
     if(size > (a->limit - a->data)){ // OOPS, not enough space
       a->signature = 0 ;             // remove signature, leave the rest intact
       return ;
