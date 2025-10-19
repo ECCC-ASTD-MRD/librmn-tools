@@ -106,7 +106,6 @@ int decode_tile(bitstream *s_in, int32_t *tile, int32_t nval){
   M  = (token >> 5) & 1 ;
   E  = (token >> 4) & 1 ;
   nbits = 1 + (token & 0xF) ;
-
   switch(SS){
     case 0b00 :
       if(M == 0){                      // constant tile  000bbbbb, SS == 0, M == 0
@@ -291,7 +290,6 @@ int encode_tile(bitstream *s_in, int32_t *tile_in, int32_t nval, block_propertie
     STREAM_PUT_NBITS(s, token, 8) ;          // 8 bit header
     STREAM_PUT_NBITS(s, zigzag, nbits) ;     // constant value encoded as zigzag (nbits bits)
     constant_block++ ;
-
     goto end ;                               // done
   }
   // =============================== convert to positive values ===============================
@@ -490,11 +488,11 @@ uint32_t stream_get_hbw(bitstream *s, int *totbits){   // replace with STREAM_GE
 // 8/16/32 bits only
 // return number of bits inserted
 uint32_t stream_put_hbw(bitstream *s, int32_t value){   // replace with STREAM_PUT_BHW macro ?
-  if(value & 0xFFFF){
+  if(value >> 16){
     STREAM_PUT_NBITS(*s, 3, 2) ;
     STREAM_PUT_NBITS(*s, value, 32) ;        // there is NOT guaranteed room for 32 bits
     return 34 ;
-  }else if(value & 0xFF){
+  }else if(value >> 8){
     STREAM_PUT_NBITS(*s, 1, 2) ;
     STREAM_FAST_PUT_NBITS(*s, value, 16) ;   // there is guaranteed room for 16 bits
     return 18 ;
@@ -503,7 +501,11 @@ uint32_t stream_put_hbw(bitstream *s, int32_t value){   // replace with STREAM_P
     STREAM_FAST_PUT_NBITS(*s, value, 8) ;    // there is guaranteed room for 8 bits
     return 10 ;
   }
-};
+}
+uint32_t stream_bhw_bits(int32_t v){
+  uint32_t c = 2 + 8 + ((v >> 8) ? 8 : 0) + ((v >> 16) ? 24 : 0) ;
+  return c ;
+}
 
 // 2D encoder
 int encode_block(bitstream *s_in, int32_t *block, int lnis, int ni, int nj, int tsize, int options){
@@ -518,12 +520,18 @@ int encode_block(bitstream *s_in, int32_t *block, int lnis, int ni, int nj, int 
 
   if(s_in){
     s = *s_in ;                // save bitstream descriptor in case of error
-    // put block dimensions and tsize into bit stream
-    STREAM_PUT_NBITS(*s_in, 1, 2) ;                 // 2 dimensions
+    // store block dimensions and tsize into bit stream
     totbits = 2 ;
-    totbits += stream_put_hbw(s_in, ni) ;    // STREAM_PUT_BHW(s, v, nbits)
-    totbits += stream_put_hbw(s_in, nj) ;
-    totbits += stream_put_hbw(s_in, tsize) ;
+    if(options & ENCODE_DRY_RUN){                    // just count bits needed for dry run
+      totbits += stream_bhw_bits(ni) ;
+      totbits += stream_bhw_bits(nj) ;
+      totbits += stream_bhw_bits(tsize) ;
+    }else{
+      STREAM_PUT_NBITS(*s_in, 1, 2) ;                 // 2 dimensions
+      totbits += stream_put_hbw(s_in, ni) ;           // STREAM_PUT_BHW(s, v, nbits)
+      totbits += stream_put_hbw(s_in, nj) ;
+      totbits += stream_put_hbw(s_in, tsize) ;
+    }
   }
 
   if(ni == 1 || nj == 1){
