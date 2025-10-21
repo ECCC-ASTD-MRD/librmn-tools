@@ -134,7 +134,7 @@ void do_nothing_with(void *what){
 }
 
 static int strict_mode = 0 ;
-static int debug_mode = 1 ;
+static int debug_mode = 0 ;
 
 int dmap_strict_mode(int mode){
   int old_mode = strict_mode ;
@@ -300,19 +300,19 @@ ssize_t dmap_filter_inv(array_nd *a, bitstream *stream){
   uint32_t id ;
   ssize_t status ;
   STREAM_PEEK_NBITS(*stream, id, 8) ;
-fprintf(stderr, "inv_next (1) : next reverse filter id = %3.3o\n", id) ;
+// fprintf(stderr, "inv_next (1) : next reverse filter id = %3.3o\n", id) ;
   if(id == FILTER_CHAIN_END){
     STREAM_GET_NBITS(*stream, id, 8) ;
     status = 8 ;
-fprintf(stderr, "inv_next (2) : calling reverse filter id = %3.3o, status = %ld\n", id, status) ;
+// fprintf(stderr, "inv_next (2) : calling reverse filter id = %3.3o, status = %ld\n", id, status) ;
     return status ;                                          // last filter, 8 bits processed
   }
   if(id >= MAX_DP_FILTERS) return -1 ;                  // ERROR, invalid filter id
   dmap_filter_ptr filter = filters[id].ptr ;            // get filter address
   if(filter == NULL) return -1 ;                        // ERROR, filter is not defined
-fprintf(stderr, "inv_next (3) : calling reverse filter id = %3.3o\n", id) ;
+// fprintf(stderr, "inv_next (3) : calling reverse filter id = %3.3o\n", id) ;
   status = (*filter)(a, NULL, NULL, stream) ;           // call selected inverse filter
-fprintf(stderr, "inv_next (3) : id= %3.3o,  status = %ld\n", id, status) ;
+// fprintf(stderr, "inv_next (3) : id= %3.3o,  status = %ld\n", id, status) ;
   return status ;
 }
 
@@ -358,7 +358,7 @@ fprintf(stderr, "dmap_filter_get_array_info : calling fix_array\n");
 //     if(a->data == NULL) goto fail ;
 //     a->limit = a->data + (sz * a->esize) ;
   }
-fprintf(stderr, "dmap_filter_get_array_info : array size = %ld, esize = %d\n", sz, a->esize) ;
+// fprintf(stderr, "dmap_filter_get_array_info : array size = %ld, esize = %d\n", sz, a->esize) ;
   return nbits ;
 
 fail:
@@ -383,12 +383,12 @@ int32_t dmap_filter_put_array_info(array_nd *a, bitstream *stream){
   STREAM_PUT_NBITS(*stream, dsize-1, 5) ;          // number of bits needed for dimensions - 1
   STREAM_PUT_NBITS(*stream, type,    8) ;          // data type
   nbits += 16 ;
-  fprintf(stderr, "filter_head(IN), type = %s, ndim = %d, [", printable_type[type], ndim) ;
+//   fprintf(stderr, "filter_head(IN), type = %s, ndim = %d, [", printable_type[type], ndim) ;
   for(i=0 ; i<ndim ; i++){
     STREAM_PUT_NBITS(*stream, a->dim[i].gnn, dsize) ;
     nbits += dsize ;
-    fprintf(stderr, " %d", a->dim[i].gnn) ;
+//     fprintf(stderr, " %d", a->dim[i].gnn) ;
   }
-  fprintf(stderr, "], dimmax = %d, dsize = %d, nbits = %d\n", dimmax, dsize, nbits) ;
+//   fprintf(stderr, "], dimmax = %d, dsize = %d, nbits = %d\n", dimmax, dsize, nbits) ;
   return nbits ;
 }
