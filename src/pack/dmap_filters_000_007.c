@@ -37,7 +37,7 @@ ssize_t dmap_filter_fwd(array_nd *a, block_properties *bp, dmap_filter_list dpfl
   uint32_t self = FILTER_ID ;
   if(a == NULL || stream == NULL) goto fail ;    // no array or no stream
   void *array = array_address(a) ;               // get array address, dimension(s), and type
-  int ndim = a->ndim, type = a->type ;
+//   int ndim = a->ndim, type = a->type ;
   ssize_t status = 0 ;
   bitstream s = *stream ;                        // local copy of stream control structure
 //   block_properties lbp ;
@@ -46,7 +46,7 @@ ssize_t dmap_filter_fwd(array_nd *a, block_properties *bp, dmap_filter_list dpfl
   if(dpfl == NULL) goto reverse ;                // call to reverse filter
 
   // put array information at the start of the bit stream
-  int32_t i, nbits ;
+  int32_t nbits ;
   nbits = 8 ;
   STREAM_PUT_NBITS(s, self,      8) ;              // dummy filter id
   nbits += dmap_filter_put_array_info(a, &s) ;
@@ -265,6 +265,7 @@ ssize_t FILTER_NAME(array_nd *a, block_properties *bp, dmap_filter_list dpfl, bi
   nvalues = a->dim[0].gnn * a->dim[1].gnn ;      // number of values in array
 
   if(dpfl == NULL ) goto reverse ;               // this is a call to the reverse filter
+
   errmsg = "invalid filter" ;
   if(! dmap_filter_valid(dpfl,self)) goto fail ;   // not the right filter or NULL pointer
 
@@ -289,7 +290,7 @@ ssize_t FILTER_NAME(array_nd *a, block_properties *bp, dmap_filter_list dpfl, bi
 
   if(mode == FP_2_INT){       // linear quantizer
     offset = arg->offset ;                       // discretization offset
-fprintf(stderr,"nvalues = %d, maxerr = %f, nbits = %d, offset = %8.8x, bp = %p\n", nvalues, maxerr, nbits, offset, bp) ;
+// fprintf(stderr,"nvalues = %d, maxerr = %f, nbits = %d, offset = %8.8x, bp = %p\n", nvalues, maxerr, nbits, offset, bp) ;
     e_base = fp_to_qlin((float *)array, (int32_t *)array, nvalues, maxerr, nbits, &offset, bp) ;
     if(e_base <= 0) goto fail ;
     a->type = (offset == 0x7FFFFFFF) ? uint_data : int_data ;
@@ -337,8 +338,8 @@ fprintf(stderr,"nvalues = %d, maxerr = %f, nbits = %d, offset = %8.8x, bp = %p\n
   }
   STREAM_INSERT_PUSH(s) ;
   status += inserted ;
-  fprintf(stderr, "filter %3.3o : inserted %d bits, quantum = %f, exp = %d, offset = %d, mode = %d\n",
-          FILTER_ID, inserted, fp32_pow2(e_base-127), e_base, offset, mode) ;
+//   fprintf(stderr, "filter %3.3o : inserted %d bits, quantum = %f, exp = %d, offset = %d, mode = %d\n",
+//           FILTER_ID, inserted, fp32_pow2(e_base-127), e_base, offset, mode) ;
 
 // end:
   *stream = s ;   // success, SAVE stream changes
@@ -377,8 +378,8 @@ reverse:
     STREAM_GET_NBITS(s, nbits, 6) ;
     status += 6 ;
   }
-  fprintf(stderr, "reverse filter %3.3o, array[%d,%d](%d), offset = %d\n",
-                  FILTER_ID, a->dim[0].gnn, a->dim[1].gnn, nvalues, offset) ;
+//   fprintf(stderr, "reverse filter %3.3o, array[%d,%d](%d), offset = %d\n",
+//                   FILTER_ID, a->dim[0].gnn, a->dim[1].gnn, nvalues, offset) ;
   a->type = float_data ;                               // mark data as float data
 
   ssize_t status2 = dmap_filter_inv(a, &s) ;           // call next inverse filter
@@ -424,7 +425,7 @@ ssize_t FILTER_NAME(array_nd *a, block_properties *bp, dmap_filter_list dpfl, bi
   if(ndim != 2) goto fail ;                                // 2 D only
   // call Lorenzo predictor in place
   LorenzoPredictInplace((int32_t *)array, a->dim[0].gnn, a->dim[0].gnn, a->dim[1].gnn) ;
-  fprintf(stderr, "filter %3.3o(X) Lorenzo prediction performed \n", FILTER_ID) ;
+//   fprintf(stderr, "filter %3.3o(X) Lorenzo prediction performed \n", FILTER_ID) ;
   a->type = int_data ;
   bp = NULL ;                                    // not used
   dpfl++ ;                                       // call next filter if there is one
@@ -450,7 +451,7 @@ reverse:
   uint32_t filter ;
   STREAM_GET_NBITS(s, filter, 8) ;
   status = 8 ;                                         // 8 bits extracted so far
-  fprintf(stderr, "reverse filter %3.3o, id = %d\n", FILTER_ID, filter) ;
+//   fprintf(stderr, "reverse filter %3.3o, id = %d\n", FILTER_ID, filter) ;
   if(filter != FILTER_ID) goto fail ;                     // wrong id, MUST be FILTER_ID
   errmsg = "expecting int_data" ;
   if(type != int_data) goto fail ;
@@ -458,11 +459,12 @@ reverse:
   if(ndim != 2)        goto fail ;
   // call Lorenzo inverse predictor in place
   LorenzoUnpredictInplace((int32_t *)array, a->dim[0].gnn, a->dim[0].gnn, a->dim[1].gnn) ;
-  fprintf(stderr, "filter %3.3o(E) Lorenzo restore performed \n", FILTER_ID) ;
+// fprintf(stderr, "filter %3.3o(E) Lorenzo restore performed [%d x %d]\n", FILTER_ID, a->dim[0].gnn, a->dim[1].gnn) ;
   a->type = int_data ;
 
   ssize_t status2 = dmap_filter_inv(a, &s) ;     // call next reverse filter
   if(status2 < 0) goto fail ; else status += status2 ;
+// fprintf(stderr, "filter %3.3o(END) Lorenzo post  [%d x %d]\n", FILTER_ID, a->dim[0].gnn, a->dim[1].gnn) ;
   *stream = s ;   // SAVE stream changes
   return status ;
 }
@@ -509,7 +511,7 @@ ssize_t FILTER_NAME(array_nd *a, block_properties *bp, dmap_filter_list dpfl, bi
   ni = a->dim[0].gnn ;
   nj = a->dim[1].gnn ;
   // call forward integer wavelet transform
-  fprintf(stderr, "filter %3.3o %d levels %d x %d forward wavelet transform\n", FILTER_ID, levels, ni, nj) ;
+//   fprintf(stderr, "filter %3.3o %d levels %d x %d forward wavelet transform\n", FILTER_ID, levels, ni, nj) ;
   if(levels > 0) fwd_2d_lgt53_n(array, ni, ni, nj, levels);
   a->type = int_data ;
   bp = NULL ;                                    // not used
@@ -551,7 +553,7 @@ reverse:
   ni = a->dim[0].gnn ;
   nj = a->dim[1].gnn ;
 
-  fprintf(stderr, "filter %3.3o %d levels %d x %d inverse wavelet transform\n", FILTER_ID, levels, ni, nj) ;
+//   fprintf(stderr, "filter %3.3o %d levels %d x %d inverse wavelet transform\n", FILTER_ID, levels, ni, nj) ;
   if(levels > 0) inv_2d_lgt53_n(array, ni, ni, nj, levels);
   a->type = int_data ;
 
@@ -698,14 +700,14 @@ ssize_t FILTER_NAME(array_nd *a, block_properties *bp, dmap_filter_list dpfl, bi
     STREAM_PUT_NBITS(s, header   , 8) ;        // NULL tile (flag for last tile )
     status += 8 ;
 
-  }else if(mode == 99){                        // "BHW" encoding
+  }else if(bhw == 1){                        // "BHW" encoding
     errmsg="BHW mode, not enough space to encode data" ;
     if(available < 24 + nelem*34) goto fail ;  // not enough space for worst case
     header = 0b00110000 ;                      // constant nbits/zigzag/bhw
     STREAM_PUT_NBITS(s, header   , 8) ;        // 8 bit header
     STREAM_PUT_NBITS(s, 31       , 6) ;        // nbits is set to 32 for BHW encoding
     STREAM_PUT_NBITS(s, 2        , 2) ;        // BHW flag
-    status += 24 ;
+    status += 16 ;
     for(i=0 ; i<nelem ; i++) { STREAM_PUT_BHW(s, z[i], tnbits) ; status += tnbits ; } ;
 // fprintf(stderr, "filter 006(X), after BHW encoding %ld bits\n", status) ;
 
@@ -733,7 +735,7 @@ ssize_t FILTER_NAME(array_nd *a, block_properties *bp, dmap_filter_list dpfl, bi
     STREAM_PUT_NBITS(s, header   , 8) ;   // 8 bit header
     STREAM_PUT_NBITS(s, nbits-1  , 6) ;   // nbits
     STREAM_PUT_NBITS(s, zigzag   , 2) ;   // zigzag flag ( 0 or 1 )
-    status += 24 ;
+    status += 16 ;
 //     fprintf(stderr, "filter 006(X) : mode = %d, zigzag = %d, umax = %d, nbits = %d, items = %d\n", mode, zigzag, umax, nbits, nelem) ;
 
     for(i=0 ; i<nelem ; i++) { STREAM_PUT_NBITS(s, z[i], nbits) ; status += nbits ; } ;   // inject data into stream
@@ -761,23 +763,27 @@ reverse:
   if(ndim != a->ndim) goto fail ;
   errmsg="decoder only supports 1D or 2D" ;
   if(ndim > 2) goto fail ;
+  errmsg = "REVERSE  filter 006 : input array should be empty" ;
+  if( ! array_is_empty(a) ) goto fail ;                  // array should not contain valid data
 
-  // get dimensions from stream, reshape array descriptor a-> (STREAM_GET_BHW)
+  // get dimensions from stream, reshape array descriptor a-> (STREAM_GET_BHW), remember input array dimensions
+  int32_t ni_in, nj_in ;                                 // input array dimensions
   STREAM_GET_BHW(s, ni, tnbits) ;  status += tnbits ;
+  ni_in = a->dim[0].gnn ;                                // remember first dimension
   if(ndim == 1){
-    nj = 1 ;
+    nj = nj_in = 1 ;
     reshape_array((array_1d *)a, a->esize, a->type, ni) ;
   }else{
     STREAM_GET_BHW(s, nj, tnbits) ; status += tnbits ;
     reshape_array((array_2d *)a, a->esize, a->type, ni, nj) ;
+    nj_in = a->dim[1].gnn ;                              // remember second dimension
   }
 //   fprintf(stderr, "rank = %d, ni = %d, expected %d, nj = %d, expected = %d, status = %ld\n", ndim, ni, a->dim[0].gnn, nj, (ndim>1) ? a->dim[1].gnn : 1, status) ;
 
-  STREAM_GET_NBITS(s, header, 8) ;                       // 8 bit header
+  STREAM_GET_NBITS(s, header, 8) ; status += 8 ;         // 8 bit header
   if(header == 0b00110011){                              // tile encoding
     errmsg="tile decoder needs 2D array" ;
     if(ndim != 2) goto fail ;
-    status += 8 ;
     int32_t *block = (int32_t *) array ;
     STREAM_GET_BHW(s, tile, tnbits) ;                    // get tile size
     status += tnbits ;
@@ -793,7 +799,7 @@ reverse:
   }else if(header == 0b00110000){                        // nbits per value, RAW/zigzag/BHW
     STREAM_GET_NBITS(s, nbits , 6) ; nbits++ ;           // nbits - 1 was encoded into stream
     STREAM_GET_NBITS(s, zigzag, 2) ;                     // RAW/zigzag/BHW mode
-    status += 24 ;
+    status += 8 ;
 //     fprintf(stderr, "reverse filter %3.3o, id = %d, header = 0x%2.2x, nbits = %d, zigzag = %d\n", FILTER_ID, self, header, nbits, zigzag) ;
     if(nbits > 32)           goto fail ;                 // not supported yet
     nelem = ni * nj ;
@@ -807,17 +813,23 @@ reverse:
       int32_t max = 0 ;                                  // make sure that max is always initialized
       for(i=0 ; i<nelem ; i++) { STREAM_GET_NBITS(s, z[i], nbits) ; status += nbits ; } ;
       if(zigzag != 0) max = v_from_zigzag_32_inplace((int32_t *)array, nelem) ;
-//       fprintf(stderr, "reverse filter %3.3o, max = %d, zigzag = %d\n", FILTER_ID, max, zigzag) ;
+      if(max == 0) fprintf(stderr, "reverse filter %3.3o, max = %d, zigzag = %d\n", FILTER_ID, max, zigzag) ;
     }
 
   }else{                                                 // invalid header value
     goto fail ;
   }
   a->type = int_data ;                                   // output data type is signed integers
+  array_set_used(a) ;
 // fprintf(stderr, "REVERSE  filter 006(X) : extracted %ld bits\n", status) ;
   ssize_t status2 = dmap_filter_inv(a, &s) ;             // call next inverse filter
   if(status2 < 0) goto fail ; else status += status2 ;
 
+  if( ! array_has_data(a) ) goto fail ;                  // array should be filled
+  ni = a->dim[0].gnn ; nj = 1 ;                          // and final shape should be as expected
+  if(a->ndim == 2) nj = a->dim[1].gnn ;
+  errmsg = "final array dimensions not as expected" ;
+  if(ni != ni_in || nj != nj_in || ndim != a->ndim) goto fail ;
   *stream = s ;      // SAVE stream changes
   return status ;    // return number of bits consumed
 }

@@ -111,17 +111,18 @@ process:
   STREAM_CREATE(str000, buffer, sizeof(buffer), 0) ;   // create stream for reading and writing
 
   new_array(&r2d, (void *)&ur, sizeof(int), int_data,   NI, NJ) ;  // integer source data
-  new_array(&r1d, (void *)&ur, sizeof(int), int_data,   NI*NJ) ;
+  new_array(&r1d, (void *)&ur, sizeof(int), int_data,   NI*NJ) ;   // 1D version of above
   new_array(&i2d, (void *)&ui, sizeof(int), int_data,   NI, NJ) ;  // used as input data
-  new_array(&i1d, (void *)&ui, sizeof(int), int_data,   NI*NJ) ;
+  new_array(&i1d, (void *)&ui, sizeof(int), int_data,   NI*NJ) ;   // 1D version of above
   new_array(&o2d, (void *)&uo, sizeof(int), int_data,   NI, NJ) ;  // used as output data
-  new_array(&o1d, (void *)&uo, sizeof(int), int_data,   NI*NJ) ;
+  new_array(&o1d, (void *)&uo, sizeof(int), int_data,   NI*NJ) ;   // 1D version of above
   new_array(&f2d, (void *)&zr, sizeof(int), float_data, NI, NJ) ;  // float source data
   new_array(&a2d, (void *)&zi, sizeof(float), float_data, NI, NJ) ;
   new_array(&g2d, (void *)&zo, sizeof(float), float_data, NI, NJ) ;
   new_array(&b2d, (void *)&zo, sizeof(float), raw_data,   NI, NJ) ;
 
-  for(test_no = 0 ; test_no < 0 ; test_no++){
+  char *test_nam0[3] = { "LIN 00", "LINo16", "LINo00" } ;
+  for(test_no = 0 ; test_no < 3 ; test_no++){
     fprintf(stderr, "============================== float quantize test %d start ==============================\n", test_no) ;
     float abs_err = 07.5f ;
     STREAM_INIT(str000, NULL, 0, 0) ;               // full RW stream reset (keep buffer, size, and mode)
@@ -155,12 +156,13 @@ process:
     estream = str000 ;
     errmsg = "forward filter failed" ;
     if(status < 0) goto fail ;
-    fprintf(stderr, "filter test : bits inserted = %ld\n\n", status) ;
+    fprintf(stderr, "filter test : '%s' , bits inserted = %ld\n\n", test_nam0[test_no], status) ;
 
     STREAM_REWIND(*str000, 1) ;
     fprintf(stderr, "filter test : available space in str000 %ld bits, available bits = %ld bits\n", StreamAvailableSpace(str000), StreamAvailableBits(str000)) ;
 
     set_array_value(&g2d, 0x0F, ARRAY_BYTES) ;                            // set output to nonsense
+    array_set_empty(&g2d) ;
     tot_status = dmap_filter_inv((array_nd *)&g2d, str000) ;              // inverse filter
     errmsg = "inverse filter failed" ;
     if(tot_status < 0) goto fail ;
@@ -169,8 +171,8 @@ process:
 
     int32_t notsame = array_compare_2D(NI, NJ, (void *)zr, (void *)zo, 0) ;
     errors = array_compare_float_2D(NI, NJ, (void *)zr, (void *)zo, abs_err) ;
-    fprintf(stderr, "filter test :  bits extracted = %ld, nvalues = %d, errors = %d, not same = %d\n",
-                    tot_status, NI*NJ, errors, notsame) ;
+    fprintf(stderr, "filter test : '%s' ,  bits extracted = %ld, nvalues = %d, errors = %d, not same = %d\n",
+                    test_nam0[test_no], tot_status, NI*NJ, errors, notsame) ;
     errmsg = "data restore failed" ;
     if(errors > 0) goto fail ;
     fprintf(stderr, "filter test : available space in str000 %ld bits, available bits = %ld bits\n", StreamAvailableSpace(str000), StreamAvailableBits(str000)) ;
@@ -181,14 +183,14 @@ process:
   }
 
 //   if(argc < 1000) goto end ;     // suppress unreachable code warning
-
+  char *test_nam1[6] = { "RAW-15", "RAW-24", "RAW-32", "ZIGZAG", "BHW   ", "TILE  " } ;
   for(test_no = 0 ; test_no < 6 ; test_no++){
     fprintf(stderr, "============================== 2D integer encode test %d start ==============================\n", test_no) ;
     STREAM_INIT(str000, NULL, 0, 0) ;               // full RW stream reset (keep buffer, size, and mode)
     dmap_lorenzo_arg arg_004 = DMAP_LORENZO() ;
     dmap_encode_arg  arg_006 ;
-    // 15 and 24 bit raw encoding will not work with wavelet transform
-    dmap_wavelet_arg arg_005 = DMAP_WAVELET(.levels = ((test_no < 2) ? 0 : 3)) ;
+    // 15 and 24 bit raw encoding will not work with wavelet transform (transform is deactivated for tests 0 and 1)
+    dmap_wavelet_arg arg_005 = DMAP_WAVELET(.levels = ((test_no < 2) ? 0 : 3)) ;    // 3 level (or 0 level) transform
     switch(test_no){
       case 0  : arg_006 = DMAP_ENCODE(.mode= 15, .options=0) ; break ;    // filter 006, raw, 15 bits per item
       case 1  : arg_006 = DMAP_ENCODE(.mode= 24, .options=0) ; break ;    // filter 006, raw, 24 bits per item
@@ -198,9 +200,9 @@ process:
       case 5  : arg_006 = DMAP_ENCODE(.mode=104, .options=0) ; break ;    // filter 006, tile encoding
       default : goto fail ;                                   // invalid test number
     }
-    dpfl[0] = (dmap_filter_args_ptr)&arg_005 ;
-    dpfl[1] = (dmap_filter_args_ptr)&arg_004 ;
-    dpfl[2] = (dmap_filter_args_ptr)&arg_006 ;
+    dpfl[0] = (dmap_filter_args_ptr)&arg_005 ;      // wavelet transform
+    dpfl[1] = (dmap_filter_args_ptr)&arg_004 ;      // Lorenzo predictor
+    dpfl[2] = (dmap_filter_args_ptr)&arg_006 ;      // integer encoder
     dpfl[3] = NULL ;                                // end of filter list
 
     fprintf(stderr, "filter test : available space in str000 %ld bits, available bits = %ld bits\n", StreamAvailableSpace(str000), StreamAvailableBits(str000)) ;
@@ -208,24 +210,28 @@ process:
     if((NI * NJ) != copy_array_data(&r2d, &i2d)) goto fail ;              // set input data (copy ur into ui), check sizes
     i2d.type = int_data ;
 
+    array_set_used(&i2d) ;
     status = dmap_filter_fwd((array_nd *)&i2d, NULL, dpfl, str000) ;      // forward filter
     estream = str000 ;
     errmsg = "forward filter failed" ;
     if(status < 0) goto fail ;
-    fprintf(stderr, "filter test : bits inserted = %ld\n\n", status) ;
+    fprintf(stderr, "filter test : '%s' , bits inserted = %ld\n\n", test_nam1[test_no], status) ;
 
     STREAM_REWIND(*str000, 1) ;
     fprintf(stderr, "filter test : available space in str000 %ld bits, available bits = %ld bits\n", StreamAvailableSpace(str000), StreamAvailableBits(str000)) ;
 
     set_array_value(&o2d, 0x0F, ARRAY_BYTES) ;                            // set output to nonsense
+    array_set_empty(&o2d) ;
     tot_status = dmap_filter_inv((array_nd *)&o2d, str000) ;              // inverse filter
     errmsg = "inverse filter failed" ;
     if(tot_status < 0) goto fail ;
+//     fprintf(stderr, "filter test : '%s' ,  bits extracted = %ld\n", test_nam1[test_no], tot_status) ;
     errmsg = "encode/decode bit count mismatch" ;
     if(status != tot_status) goto fail ;
 
     errors = array_compare_2D(NI, NJ, (void *)ur, (void *)uo, 1) ;
-    fprintf(stderr, "filter test :  bits extracted = %ld, errors = %d\n",tot_status, errors) ;
+    fprintf(stderr, "filter test : '%s' ,  bits extracted = %ld", test_nam1[test_no], tot_status) ;
+    fprintf(stderr, ", errors = %d\n", errors) ;
     errmsg = "data restore failed" ;
     if(errors > 0) goto fail ;
     fprintf(stderr, "filter test : available space in str000 %ld bits, available bits = %ld bits\n", StreamAvailableSpace(str000), StreamAvailableBits(str000)) ;
@@ -236,7 +242,7 @@ process:
 
   }
 //   if(argc < 1000) goto end ;     // suppress unreachable code warning
-
+  char *test_nam2[3] = { "RAW-32", "ZIGZAG", "BHW   " } ;
   for(test_no = 0 ; test_no < 3 ; test_no++){
     fprintf(stderr, "============================== 1D integer encode test %d start ==============================\n", test_no) ;
     STREAM_INIT(str000, NULL, 0, 0) ;               // full RW stream reset (keep buffer, size, and mode)
@@ -259,13 +265,14 @@ process:
     estream = str000 ;
     errmsg = "forward filter failed" ;
     if(status < 0) goto fail ;
-    fprintf(stderr, "filter test : bits inserted = %ld\n\n", status) ;
+    fprintf(stderr, "filter test : '%s' , bits inserted = %ld\n\n", test_nam2[test_no], status) ;
 
     STREAM_REWIND(*str000, 1) ;
     fprintf(stderr, "filter test : available space in str000 %ld bits, available bits = %ld bits\n", StreamAvailableSpace(str000), StreamAvailableBits(str000)) ;
 
     set_array_value(&o1d, 0x0F, ARRAY_BYTES) ;                            // set output to nonsense
     o1d.type = int_data ;
+    array_set_empty(&o1d) ;
     tot_status = dmap_filter_inv((array_nd *)&o1d, str000) ;              // inverse filter
     errmsg = "inverse filter failed" ;
     if(tot_status < 0) goto fail ;
@@ -273,7 +280,7 @@ process:
     if(status != tot_status) goto fail ;
 
     errors = array_compare_2D(NI*NJ, 1, (void *)ur, (void *)uo, 1) ;
-    fprintf(stderr, "filter test :  bits extracted = %ld, errors = %d\n",tot_status, errors) ;
+    fprintf(stderr, "filter test : '%s' ,  bits extracted = %ld, errors = %d\n", test_nam2[test_no], tot_status, errors) ;
     errmsg = "data restore failed" ;
     if(errors > 0) goto fail ;
     fprintf(stderr, "filter test : available space in str000 %ld bits, available bits = %ld bits\n", StreamAvailableSpace(str000), StreamAvailableBits(str000)) ;
