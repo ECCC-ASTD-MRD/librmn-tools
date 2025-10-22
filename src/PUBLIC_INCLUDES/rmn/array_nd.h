@@ -48,12 +48,22 @@ static const dim_desc  dim_null = (dim_desc) {.gnn=0, .gn0 = 0, .ln0=0, .lnn=0 }
 #endif
 #define DIM_NULL (dim_desc) {.gnn=0, .gn0 = 0, .ln0=0, .lnn=0 }
 
-#define IS_ARRAY 0xBEBEFADA
+#define HAS_DATA 0xBEBEFADA
+#define array_has_data(ARRAY) ( (ARRAY)->signature == HAS_DATA )
+#define array_set_used(ARRAY) { (ARRAY)->signature = HAS_DATA ; }
+
+#define IS_EMPTY 0xFADABEBE
+#define array_is_empty(ARRAY) ( (ARRAY)->signature == IS_EMPTY )
+#define array_set_empty(ARRAY) { (ARRAY)->signature = IS_EMPTY ; }
+
+#define array_is_signed(ARRAY) ( ((ARRAY)->signature == IS_EMPTY) || ((ARRAY)->signature == HAS_DATA) )
+#define array_signature(ARRAY) ((ARRAY)->signature)
+
 // DATA_IS_INTERNAL set means that the array_nd struct contains both data and control information
 #define DATA_IS_INTERNAL  1
 // DATA_MAY_REALLOC set means that the data pointer may be freed/reallocated
 #define DATA_MAY_REALLOC  2
-// the struct was malloced by create_array and can be freed
+// STRUCT_CAN_FREE means that the struct was malloced by create_array and can be freed
 #define STRUCT_CAN_FREE   4
 
 typedef struct{          // generic struct for array with n dimensions
@@ -62,7 +72,8 @@ typedef struct{          // generic struct for array with n dimensions
   uint32_t signature ;   // MUST be 0xBEBEFADA
   uint16_t esize ;       // size of array elements in bytes (1, 2, 4, 8, ..., )
   uint8_t  type ;        // element type, see rmn/data_kind.h
-  uint8_t  flags:4, ndim:4 ;        // flags, number of dimensions
+  uint8_t  flags:4,      // flags
+           ndim:4 ;      // rank (number of dimensions)
   dim_desc dim[] ;       // dimension descriptor (flexible array member)
 } array_nd ;
 
@@ -72,7 +83,8 @@ typedef struct{          // specific struct for 1D array
   uint32_t signature ;
   uint16_t esize ;
   uint8_t  type ;
-  uint8_t  flags:4, ndim:4 ;        // ndim MUST be 1
+  uint8_t  flags:4,
+           ndim:4 ;      // ndim MUST be 1
   dim_desc dim[1] ;
   uint32_t w32[] ;       // usable only if created with create_array
 } array_1d ;
@@ -83,7 +95,8 @@ typedef struct{          // specific struct for 2D array
   uint32_t signature ;
   uint16_t esize ;
   uint8_t  type ;
-  uint8_t  flags:4, ndim:4 ;        // ndim MUST be 2
+  uint8_t  flags:4,
+           ndim:4 ;      // ndim MUST be 2
   dim_desc dim[2] ;
   uint32_t w32[] ;       // usable only if created with create_array
 } array_2d ;
@@ -94,7 +107,8 @@ typedef struct{          // specific struct for 3D array
   uint32_t signature ;
   uint16_t esize ;
   uint8_t  type ;
-  uint8_t  flags:4, ndim:4 ;        // ndim MUST be 3
+  uint8_t  flags:4,
+           ndim:4 ;      // ndim MUST be 3
   dim_desc dim[3] ;
   uint32_t w32[] ;       // usable only if created with create_array
 } array_3d ;
@@ -105,7 +119,8 @@ typedef struct{          // specific struct for 4D array
   uint32_t signature ;
   uint16_t esize ;
   uint8_t  type ;
-  uint8_t  flags:4, ndim:4 ;        // ndim MUST be 4
+  uint8_t  flags:4,
+           ndim:4 ;      // ndim MUST be 4
   dim_desc dim[4] ;
   uint32_t w32[] ;       // usable only if created with create_array
 } array_4d ;
@@ -116,7 +131,8 @@ typedef struct{          // specific struct for 5D array
   uint32_t signature ;
   uint16_t esize ;
   uint8_t  type ;
-  uint8_t  flags:4, ndim:4 ;        // ndim MUST be 5
+  uint8_t  flags:4,
+           ndim:4 ;      // ndim MUST be 5
   dim_desc dim[5] ;
   uint32_t w32[] ;       // usable only if created with create_array
 } array_5d ;
@@ -124,15 +140,15 @@ typedef struct{          // specific struct for 5D array
 // blank array descriptors (invalid type, element size = 0, no data)
 static const array_nd array_nd_invalid = {.data=NULL, .limit=NULL, .signature=0, .esize=0, .type=0, .flags=0, .ndim=0 } ;
 
-static const array_1d array_1d_null = {.data=NULL, .limit=NULL, .esize=0, .signature=IS_ARRAY, .type=0, .ndim=1, .flags=0,
+static const array_1d array_1d_null = {.data=NULL, .limit=NULL, .esize=0, .signature=IS_EMPTY, .type=0, .ndim=1, .flags=0,
                                        .dim = {DIM_NULL} } ;
-static const array_2d array_2d_null = {.data=NULL, .limit=NULL, .esize=0, .signature=IS_ARRAY, .type=0, .ndim=2, .flags=0,
+static const array_2d array_2d_null = {.data=NULL, .limit=NULL, .esize=0, .signature=IS_EMPTY, .type=0, .ndim=2, .flags=0,
                                        .dim = {DIM_NULL, DIM_NULL} } ;
-static const array_3d array_3d_null = {.data=NULL, .limit=NULL, .esize=0, .signature=IS_ARRAY, .type=0, .ndim=3, .flags=0,
+static const array_3d array_3d_null = {.data=NULL, .limit=NULL, .esize=0, .signature=IS_EMPTY, .type=0, .ndim=3, .flags=0,
                                        .dim = {DIM_NULL, DIM_NULL, DIM_NULL} } ;
-static const array_4d array_4d_null = {.data=NULL, .limit=NULL, .esize=0, .signature=IS_ARRAY, .type=0, .ndim=4, .flags=0,
+static const array_4d array_4d_null = {.data=NULL, .limit=NULL, .esize=0, .signature=IS_EMPTY, .type=0, .ndim=4, .flags=0,
                                        .dim = {DIM_NULL, DIM_NULL, DIM_NULL, DIM_NULL} } ;
-static const array_5d array_5d_null = {.data=NULL, .limit=NULL, .esize=0, .signature=IS_ARRAY, .type=0, .ndim=5, .flags=0,
+static const array_5d array_5d_null = {.data=NULL, .limit=NULL, .esize=0, .signature=IS_EMPTY, .type=0, .ndim=5, .flags=0,
                                        .dim = {DIM_NULL, DIM_NULL, DIM_NULL, DIM_NULL, DIM_NULL} } ;
 
 #if 0

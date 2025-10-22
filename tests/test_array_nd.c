@@ -32,10 +32,14 @@ void print_dims(void *a_, char *msg){
 void print_flags(char *msg, void *a){
   array_nd *ap = (array_nd *) a ;
   uint8_t flags = ap->flags ;
-  fprintf(stderr, "%s %2.2x %s%s%s\n",msg, flags,
+  fprintf(stderr, "%s %2.2x %s%s%s%s%s%s\n",msg, flags,
                   (flags & DATA_IS_INTERNAL) ?  " MONOLITHIC" : "SPLIT_STRUCT" ,
-                  (flags & DATA_MAY_REALLOC) ?  " MAY_REALLOC_DATA" : " MAY_NOT_REALLOC_DATA" ,
-                  (flags & STRUCT_CAN_FREE)    ?  " STRUCT_CAN_BE_FREED" : "") ;
+                  (flags & DATA_MAY_REALLOC) ?  " MAY_REALLOC_DATA    " : " MAY_NOT_REALLOC_DATA" ,
+                  (flags & STRUCT_CAN_FREE)  ?  " STRUCT_CAN_BE_FREED" : "",
+                  array_is_signed(ap)        ?  " SIGNED" : "",
+                  array_is_empty(ap)         ?  " EMPTY" : "" ,
+                  array_has_data(ap)         ?  " VALID_DATA" : ""
+         ) ;
 }
 
 void array_lbounds_check(int low, int high){
@@ -54,44 +58,50 @@ void array_lbounds_check(int low, int high){
   set_array_lbounds(&a1 , low, high) ;
   new_array(&a2, scrap, sizeof(int32_t), int_data, 8, 7) ;
   set_array_lbounds(&a2 , low, high, low, high) ;
+  array_set_used(&a2) ;
   print_flags("a2 flags : ", &a2) ;
   new_array(&a3, NULL, sizeof(int32_t), int_data, 8, 7, 6) ;
   set_array_lbounds(&a3 , low, high, low, high, low, high) ;
   print_flags("a3 flags : ", &a3) ;
   new_array(&a4, scrap, sizeof(int32_t), int_data, 8, 7, 6, 5) ;
   set_array_lbounds(&a4 , low, high, low, high, low, high, low, high) ;
+  array_set_used(&a4) ;
   print_flags("a4 flags : ", &a4) ;
   new_array(&a5, NULL, sizeof(int32_t), int_data, 8, 7, 6, 5, 4) ;
   set_array_lbounds(&a5 , low, high, low, high, low, high, low, high, low, high) ;
   print_flags("a5 flags : ", &a5) ;
 
-  fprintf(stderr, "before reshape , signature = %8.8x, ", a5.signature) ;
+  array_signature(&a5) = IS_EMPTY ;
+  fprintf(stderr, "before reshape , signature = %8.8x(%s), ", array_signature(&a5), array_is_empty(&a5) ? "is empty" : "has data" ) ;
   print_dims(&a5, "\n") ;
+
   errmsg = "reshaped array is not valid" ;
   reshape_array(&a5, sizeof(int32_t), int_data, 8, 7, 6, 5, 4) ;
+  array_set_used(&a5) ;
 //   new_array(&a5, array_address(&a5), sizeof(int32_t), int_data, 8, 7, 6, 5, 4) ;
-  fprintf(stderr, "after reshape 1, signature = %8.8x, ", a5.signature) ;
+  fprintf(stderr, "after reshape 1, signature = %8.8x(%s), ", array_signature(&a5), array_is_empty(&a5) ? "is empty" : "has data" ) ;
   print_dims(&a5, "\n") ;
   if(invalid_array(&a5)) goto fail ;
 
   errmsg = "reshaped array is valid and should not be" ;
-  reshape_array(&a5, sizeof(int32_t), int_data, 9, 7, 6, 5, 4) ;
+  reshape_array(&a5, sizeof(int32_t), int_data, 9, 7, 6, 5, 4) ;    // reshape is deliberately oversized
 //   new_array(&a5, array_address(&a5), sizeof(int32_t), int_data, 9, 7, 6, 5, 4) ;
-  fprintf(stderr, "after reshape 2, signature = %8.8x, ", a5.signature) ;
+  fprintf(stderr, "after reshape 2, signature = %8.8x(%s), ", array_signature(&a5), valid_array(&a5) ? "valid   " : "invalid " ) ;
   print_dims(&a5, "\n") ;
   if(valid_array(&a5)) goto fail ;
 
   errmsg = "reshaped array is not valid" ;
-  a5.signature = IS_ARRAY ;
   reshape_array(&a5, sizeof(int32_t), int_data, 7, 6, 5, 4, 3) ;
+  array_set_empty(&a5) ;
 //   new_array(&a5, array_address(&a5), sizeof(int32_t), int_data, 7, 6, 5, 4, 3) ;
-  fprintf(stderr, "after reshape 3, signature = %8.8x, ", a5.signature) ;
+  fprintf(stderr, "after reshape 3, signature = %8.8x(%s), ", array_signature(&a5), array_is_empty(&a5) ? "is empty" : "has data" ) ;
   print_dims(&a5, "\n") ;
   if(invalid_array(&a5)) goto fail ;
 
   reshape_array(&a5, sizeof(int32_t), int_data, 8, 7, 6, 5, 4) ;
+  array_signature(&a5) = HAS_DATA ;
 //   new_array(&a5, array_address(&a5), sizeof(int32_t), int_data, 8, 7, 6, 5, 4) ;
-  fprintf(stderr, "after reshape 4, signature = %8.8x, ", a5.signature) ;
+  fprintf(stderr, "after reshape 4, signature = %8.8x(%s), ", array_signature(&a5), array_is_empty(&a5) ? "is empty" : "has data" ) ;
   print_dims(&a5, "\n") ;
   if(invalid_array(&a5)) goto fail ;
 
