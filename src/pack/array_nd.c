@@ -102,6 +102,20 @@ array_nd *create_subarray(array_nd *a, array_nd *b){
   return b ;
 }
 
+// free array
+// ap    [IN] : pointer to nD array descriptor
+// if monolithic, return 2, if data was malloc(ed), return 1
+// if both struct and data were malloc(ed), return 3
+// if nothing can be freed, return 0.
+// if ap is invalid, return -1
+int32_t free_array_nd(array_nd *ap){
+  int32_t status = 0 ;
+  if(invalid_array_nd(ap)) return -1 ;
+  if(ap->flags & DATA_MAY_REALLOC){ free(ap->data) ; status |= 1 ; }
+  if(ap->flags & STRUCT_CAN_FREE){ free(ap) ; status |= 2 ; }
+  return status ;
+}
+
 // allocate both array descriptor and space to accomodate array data
 // esize   [IN] : size of array elements in bytes
 // type    [IN] : data type, see type in rmn/data_kind.h

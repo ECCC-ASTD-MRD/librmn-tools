@@ -26,7 +26,7 @@ void print_dims(void *a_, char *msg){
   for(i=0 ; i<a->ndim ; i++){
     fprintf(stderr, "%3d(%d:%d)", a->dim[i].gnn, a->dim[i].ln0, a->dim[i].ln0+a->dim[i].lnn-1) ;
   }
-  fprintf(stderr, "%s%s", valid_array(a) ? "[" : ">", msg) ;
+  fprintf(stderr, "%s%s", valid_array(a) ? "]" : ">", msg) ;
 }
 
 void print_flags(char *msg, void *a){
@@ -50,7 +50,7 @@ void array_lbounds_check(int low, int high){
   array_5d a5 = array_5d_null, *ap5 ;
   array_nd *apn ;
   char *errmsg = "" ;
-  int32_t scrap[1024*1024] ;
+  int32_t status, scrap[1024*1024] ;
 
   // make new arrays using caller supplied storage, set bounds
   new_array(&a1, NULL, sizeof(int32_t), int_data, 8) ;
@@ -60,6 +60,8 @@ void array_lbounds_check(int low, int high){
   set_array_lbounds(&a2 , low, high, low, high) ;
   array_set_used(&a2) ;
   print_flags("a2 flags : ", &a2) ;
+  errmsg = "should not be able to free" ;
+  if(free_array(&a2) != 0) goto fail ;
   new_array(&a3, NULL, sizeof(int32_t), int_data, 8, 7, 6) ;
   set_array_lbounds(&a3 , low, high, low, high, low, high) ;
   print_flags("a3 flags : ", &a3) ;
@@ -105,38 +107,53 @@ void array_lbounds_check(int low, int high){
   print_dims(&a5, "\n") ;
   if(invalid_array(&a5)) goto fail ;
 
-  errmsg = "w32 does not point to data or array is invalid" ;
+  errmsg = "w32 does not point to data" ;
   create_array(ap1, DATA_IS_INTERNAL, sizeof(int32_t), int_data, 8) ;                 // specific 1D interface
   if( (uint8_t *)(ap1->w32) != array_address(ap1) ) goto fail ;
+  errmsg = "array is invalid" ;
   if( ! valid_array(ap1) ) goto fail ;
   print_flags("ap1 flags : ", ap1) ;
-  fprintf(stderr, "%12s array size is %6ld, subarray elements = %6d ", array_kind(ap1), array_size(ap1), subarray_dimension(ap1)) ; print_dims(ap1, "\n") ;
+  fprintf(stderr, "%12s array size is %6ld, subarray elements = %6d ", array_kind(ap1), array_size(ap1), subarray_dimension(ap1)) ; print_dims(ap1, "") ;
+  fprintf(stderr, ", free_array(ap1) = %d\n", free_array(ap1)) ;
 
   create_array(ap2, DATA_IS_INTERNAL, sizeof(int32_t), int_data, 8, 7) ;              // specific 2D interface
-  if( (uint8_t *)(ap1->w32) != ap1->data ) goto fail ;
+  errmsg = "w32 does not point to data" ;
+  if( (uint8_t *)(ap2->w32) != ap2->data ) goto fail ;
+  errmsg = "array is invalid" ;
   if( invalid_array(ap2) ) goto fail ;
   print_flags("ap2 flags : ", ap2) ;
-  fprintf(stderr, "%12s array size is %6ld, subarray elements = %6d ", array_kind(ap2), array_size(ap2), subarray_dimension(ap2)) ; print_dims(ap2, "\n") ;
+  fprintf(stderr, "%12s array size is %6ld, subarray elements = %6d ", array_kind(ap2), array_size(ap2), subarray_dimension(ap2)) ; print_dims(ap2, "") ;
+  fprintf(stderr, ", free_array(ap2) = %d\n", free_array(ap2)) ;
 
   create_array(ap3, DATA_IS_INTERNAL, sizeof(int32_t), int_data, 8, 7, 6) ;           // specific 3D interface
-  if( (uint8_t *)(ap1->w32) != ap1->data ) goto fail ;
+  errmsg = "w32 does not point to data" ;
+  if( (uint8_t *)(ap3->w32) != ap3->data ) goto fail ;
+  errmsg = "array is invalid" ;
   if( ! valid_array(ap3) ) goto fail ;
   print_flags("ap3 flags : ", ap3) ;
-  fprintf(stderr, "%12s array size is %6ld, subarray elements = %6d ", array_kind(ap3), array_size(ap3), subarray_dimension(ap3)) ; print_dims(ap3, "\n") ;
+  fprintf(stderr, "%12s array size is %6ld, subarray elements = %6d ", array_kind(ap3), array_size(ap3), subarray_dimension(ap3)) ; print_dims(ap3, "") ;
+  fprintf(stderr, ", free_array(ap3) = %d\n", free_array(ap3)) ;
 
   create_array(ap4, DATA_IS_INTERNAL, sizeof(int32_t), int_data, 8, 7, 6, 5) ;        // specific 4D interface
-  if( (uint8_t *)(ap1->w32) != ap1->data ) goto fail ;
+  errmsg = "w32 does not point to data" ;
+  if( (uint8_t *)(ap4->w32) != ap4->data ) goto fail ;
+  errmsg = "array is invalid" ;
   if( invalid_array(ap4) ) goto fail ;
   print_flags("ap4 flags : ", ap4) ;
-  fprintf(stderr, "%12s array size is %6ld, subarray elements = %6d ", array_kind(ap4), array_size(ap4), subarray_dimension(ap4)) ; print_dims(ap4, "\n") ;
+  fprintf(stderr, "%12s array size is %6ld, subarray elements = %6d ", array_kind(ap4), array_size(ap4), subarray_dimension(ap4)) ; print_dims(ap4, "") ;
+  fprintf(stderr, ", free_array(ap4) = %d\n", free_array(ap4)) ;
 
   create_array(ap5, DATA_IS_INTERNAL, sizeof(int32_t), int_data, 8, 7, 6, 5, 4) ;     // specific 5D interface
-  if( (uint8_t *)(ap1->w32) != ap1->data ) goto fail ;
+  errmsg = "w32 does not point to data" ;
+  if( (uint8_t *)(ap5->w32) != ap5->data ) goto fail ;
+  errmsg = "array is invalid" ;
   if( ! valid_array(ap5) ) goto fail ;
   print_flags("ap5 flags : ", ap5) ;
-  fprintf(stderr, "%12s array size is %6ld, subarray elements = %6d ", array_kind(ap5), array_size(ap5), subarray_dimension(ap5)) ; print_dims(ap5, "\n") ;
+  fprintf(stderr, "%12s array size is %6ld, subarray elements = %6d ", array_kind(ap5), array_size(ap5), subarray_dimension(ap5)) ; print_dims(ap5, "") ;
+  fprintf(stderr, ", free_array(ap5) = %d\n", free_array(ap5)) ;
 
   create_array(apn, 0, sizeof(int32_t), int_data, 8, 7, 6, 5, 4) ;     // generic nD interface
+  errmsg = "array is invalid" ;
   if( ! valid_array(apn) ) goto fail ;
   errmsg = "DATA_IS_INTERNAL is true" ;
   if( apn->flags & DATA_IS_INTERNAL ) goto fail ;
@@ -144,7 +161,8 @@ void array_lbounds_check(int low, int high){
   if( (apn->flags & DATA_MAY_REALLOC) == 0) goto fail ;
   set_array_lbounds(apn , low, high, low, high, low, high, low, high, low, high) ;
   print_flags("apn flags : ", apn) ;
-  fprintf(stderr, "%12s array size is %6ld, subarray elements = %6d ", array_kind(apn), array_size(apn), subarray_dimension(apn)) ; print_dims(apn, "\n") ;
+  fprintf(stderr, "%12s array size is %6ld, subarray elements = %6d ", array_kind(apn), array_size(apn), subarray_dimension(apn)) ; print_dims(apn, "") ;
+  fprintf(stderr, ", free_array(apn) = %d\n", free_array(apn)) ;
 
   return ;
 

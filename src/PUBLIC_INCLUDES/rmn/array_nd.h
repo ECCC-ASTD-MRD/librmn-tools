@@ -48,6 +48,7 @@ static const dim_desc  dim_null = (dim_desc) {.gnn=0, .gn0 = 0, .ln0=0, .lnn=0 }
 #endif
 #define DIM_NULL (dim_desc) {.gnn=0, .gn0 = 0, .ln0=0, .lnn=0 }
 
+// macro argument ARRAY must be a POINTER to an array_nd type structure (array_nd *)
 #define HAS_DATA 0xBEBEFADA
 #define array_has_data(ARRAY) ( (ARRAY)->signature == HAS_DATA )
 #define array_set_used(ARRAY) { (ARRAY)->signature = HAS_DATA ; }
@@ -63,7 +64,8 @@ static const dim_desc  dim_null = (dim_desc) {.gnn=0, .gn0 = 0, .ln0=0, .lnn=0 }
 #define DATA_IS_INTERNAL  1
 // DATA_MAY_REALLOC set means that the data pointer may be freed/reallocated
 #define DATA_MAY_REALLOC  2
-// STRUCT_CAN_FREE means that the struct was malloced by create_array and can be freed
+// STRUCT_CAN_FREE means that the struct was malloc(ed) by create_array and can be freed
+// if both DATA_MAY_REALLOC and STRUCT_CAN_FREE are set, the data member must be freed first
 #define STRUCT_CAN_FREE   4
 
 typedef struct{          // generic struct for array with n dimensions
@@ -440,6 +442,18 @@ size_t fix_array_nd(array_nd *a);
     array_3d *: fix_array_nd((array_nd *)ARRAY), \
     array_2d *: fix_array_nd((array_nd *)ARRAY), \
     array_1d *: fix_array_nd((array_nd *)ARRAY)  \
+  )
+
+// users should call the generic function free_array rather than free_array_nd
+int32_t free_array_nd(array_nd *a);
+#define free_array(ARRAY) \
+  _Generic((ARRAY), \
+    array_nd *: free_array_nd((array_nd *)ARRAY), \
+    array_5d *: free_array_nd((array_nd *)ARRAY), \
+    array_4d *: free_array_nd((array_nd *)ARRAY), \
+    array_3d *: free_array_nd((array_nd *)ARRAY), \
+    array_2d *: free_array_nd((array_nd *)ARRAY), \
+    array_1d *: free_array_nd((array_nd *)ARRAY)  \
   )
 
 #define ARRAY_BYTES  sizeof(int8_t)
