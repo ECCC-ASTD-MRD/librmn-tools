@@ -52,11 +52,11 @@ static const dim_desc  dim_null = (dim_desc) {.gnn=0, .gn0 = 0, .ln0=0, .lnn=0 }
 #define array_has_data(ARRAY) ( (ARRAY)->signature == HAS_DATA )
 #define array_set_used(ARRAY) { (ARRAY)->signature = HAS_DATA ; }
 
-#define IS_EMPTY 0xFADABEBE
-#define array_is_empty(ARRAY) ( (ARRAY)->signature == IS_EMPTY )
-#define array_set_empty(ARRAY) { (ARRAY)->signature = IS_EMPTY ; }
+#define NO_DATA 0xFADABEBE
+#define array_no_data(ARRAY) ( (ARRAY)->signature == NO_DATA )
+#define array_set_empty(ARRAY) { (ARRAY)->signature = NO_DATA ; }
 
-#define array_is_signed(ARRAY) ( ((ARRAY)->signature == IS_EMPTY) || ((ARRAY)->signature == HAS_DATA) )
+#define array_is_signed(ARRAY) ( ((ARRAY)->signature == NO_DATA) || ((ARRAY)->signature == HAS_DATA) )
 #define array_signature(ARRAY) ((ARRAY)->signature)
 
 // DATA_IS_INTERNAL set means that the array_nd struct contains both data and control information
@@ -140,15 +140,15 @@ typedef struct{          // specific struct for 5D array
 // blank array descriptors (invalid type, element size = 0, no data)
 static const array_nd array_nd_invalid = {.data=NULL, .limit=NULL, .signature=0, .esize=0, .type=0, .flags=0, .ndim=0 } ;
 
-static const array_1d array_1d_null = {.data=NULL, .limit=NULL, .esize=0, .signature=IS_EMPTY, .type=0, .ndim=1, .flags=0,
+static const array_1d array_1d_null = {.data=NULL, .limit=NULL, .esize=0, .signature=NO_DATA, .type=0, .ndim=1, .flags=0,
                                        .dim = {DIM_NULL} } ;
-static const array_2d array_2d_null = {.data=NULL, .limit=NULL, .esize=0, .signature=IS_EMPTY, .type=0, .ndim=2, .flags=0,
+static const array_2d array_2d_null = {.data=NULL, .limit=NULL, .esize=0, .signature=NO_DATA, .type=0, .ndim=2, .flags=0,
                                        .dim = {DIM_NULL, DIM_NULL} } ;
-static const array_3d array_3d_null = {.data=NULL, .limit=NULL, .esize=0, .signature=IS_EMPTY, .type=0, .ndim=3, .flags=0,
+static const array_3d array_3d_null = {.data=NULL, .limit=NULL, .esize=0, .signature=NO_DATA, .type=0, .ndim=3, .flags=0,
                                        .dim = {DIM_NULL, DIM_NULL, DIM_NULL} } ;
-static const array_4d array_4d_null = {.data=NULL, .limit=NULL, .esize=0, .signature=IS_EMPTY, .type=0, .ndim=4, .flags=0,
+static const array_4d array_4d_null = {.data=NULL, .limit=NULL, .esize=0, .signature=NO_DATA, .type=0, .ndim=4, .flags=0,
                                        .dim = {DIM_NULL, DIM_NULL, DIM_NULL, DIM_NULL} } ;
-static const array_5d array_5d_null = {.data=NULL, .limit=NULL, .esize=0, .signature=IS_EMPTY, .type=0, .ndim=5, .flags=0,
+static const array_5d array_5d_null = {.data=NULL, .limit=NULL, .esize=0, .signature=NO_DATA, .type=0, .ndim=5, .flags=0,
                                        .dim = {DIM_NULL, DIM_NULL, DIM_NULL, DIM_NULL, DIM_NULL} } ;
 
 #if 0

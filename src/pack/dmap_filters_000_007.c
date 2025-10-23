@@ -764,7 +764,7 @@ reverse:
   errmsg="decoder only supports 1D or 2D" ;
   if(ndim > 2) goto fail ;
   errmsg = "REVERSE  filter 006 : input array should be empty" ;
-  if( ! array_is_empty(a) ) goto fail ;                  // array should not contain valid data
+  if( ! array_no_data(a) ) goto fail ;                  // array should not contain valid data
 
   // get dimensions from stream, reshape array descriptor a-> (STREAM_GET_BHW), remember input array dimensions
   int32_t ni_in, nj_in ;                                 // input array dimensions

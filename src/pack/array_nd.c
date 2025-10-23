@@ -23,7 +23,7 @@
 int invalid_array_nd(array_nd *a){
   int i ;
   if(a == NULL)                return 1 ;   // NULL array pointer
-  if(a->signature != HAS_DATA && a->signature != IS_EMPTY) return 1 ;   // wrong signature
+  if(a->signature != HAS_DATA && a->signature != NO_DATA) return 1 ;   // wrong signature
   if(a->data == NULL)          return 1 ;   // NO data
   if(a->limit <= a->data)      return 1 ;   // data limit MUST be > start of data
   ssize_t size = a->esize ;                 // size of a single array element
@@ -193,7 +193,7 @@ void new_array_nd(array_nd *a, void *mem, int32_t esize, int8_t type, int32_t nd
     a->flags |= DATA_MAY_REALLOC ;   // data may be reallocated if need be
   }
 
-  a->signature = IS_EMPTY ;
+  a->signature = NO_DATA ;
   a->type      = type ;
   a->esize     = esize ;
   a->ndim      = ndim ;
@@ -244,7 +244,7 @@ size_t fix_array_nd(array_nd *a){
   int32_t i, ndim = a->ndim ;
   ssize_t sz = 1 ;
 
-  a->signature = IS_EMPTY ;
+  a->signature = NO_DATA ;
   a->flags     = 0 ;
   for(i = 0 ; i < ndim ; i++){            // number of elements in array
     if(a->dim[i].gnn <= 0) goto fail ;
