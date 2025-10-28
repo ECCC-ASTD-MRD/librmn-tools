@@ -15,6 +15,14 @@
 // protect the whole file againt double inclusion
 #if ! defined(SIMD_LOOP)
 
+// AVX instruction set is a strict minimum
+#if defined(__x86_64__) && ! defined(__AVX__)
+#undef USE_SIMD_INTRINSICS
+#undef USE_INTEL_SIMD_INTRINSICS
+#define EMULATE_SIMD
+#define NO_SIMD
+#endif
+
 // use SIMD intrinsics by default
 #if ! defined(NO_SIMD) && ! defined(EMULATE_SIMD)
 #define USE_SIMD_INTRINSICS

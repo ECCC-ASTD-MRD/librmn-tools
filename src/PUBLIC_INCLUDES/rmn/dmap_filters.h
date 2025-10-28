@@ -26,6 +26,28 @@
 #include <rmn/be_stream.h>
 #include <rmn/bitstream.h>
 
+// the following 3 macros will eventually come from rmn/common_stream.h
+#if ! defined(STREAM_BITS_BHW)
+#define STREAM_BITS_BHW(v, nbits) { uint32_t c = 2 + 8 + ((v >> 8) ? 8 : 0) + ((v >> 16) ? 8 : 0) + ((v >> 24) ? 8 : 0) ; nbits = c ; }
+#endif
+#if ! defined(STREAM_GET_BHW)
+#define STREAM_GET_BHW(s, v, nbits) { uint32_t c ; \
+                                      STREAM_GET_NBITS(s, c , 2) ; \
+                                      uint32_t TbItS = (1 + c) << 3 ; \
+                                      STREAM_GET_NBITS(s, v , TbItS) ; \
+                                      nbits = TbItS + 2 ; \
+                                    }
+#endif
+#if ! defined(STREAM_PUT_BHW)
+// store v into stream, set nbits to 10/18/26/34 according to number of bits needed
+#define STREAM_PUT_BHW(s, v, nbits) { uint32_t c = ((v >> 8) ? 1 : 0) + ((v >> 16) ? 1 : 0) + ((v >> 24) ? 1 : 0) ; \
+                                      uint32_t TbItS = (1 + c) << 3 ; \
+                                      STREAM_PUT_NBITS(s, c , 2) ; \
+                                      STREAM_PUT_NBITS(s, v , TbItS) ; \
+                                      nbits = TbItS + 2 ; \
+                                    }
+#endif
+
 // allocate an argument list with room for at most nmax arguments
 typedef struct{
   uint32_t filter ;  // filter number

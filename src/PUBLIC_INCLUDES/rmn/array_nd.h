@@ -61,17 +61,22 @@ static const dim_desc  dim_null = (dim_desc) {.gnn=0, .gn0 = 0, .ln0=0, .lnn=0 }
 #define array_signature(ARRAY) ((ARRAY)->signature)
 
 // DATA_IS_INTERNAL set means that the array_nd struct contains both data and control information
-#define DATA_IS_INTERNAL  1
+#define DATA_IS_INTERNAL   1
 // DATA_MAY_REALLOC set means that the data pointer may be freed/reallocated
-#define DATA_MAY_REALLOC  2
+#define DATA_MAY_REALLOC   2
 // STRUCT_CAN_FREE means that the struct was malloc(ed) by create_array and can be freed
 // if both DATA_MAY_REALLOC and STRUCT_CAN_FREE are set, the data member must be freed first
-#define STRUCT_CAN_FREE   4
+#define STRUCT_CAN_FREE    4
+// prevent freeing even if DATA_MAY_REALLOC or STRUCT_CAN_FREE or DATA_IS_INTERNAL is set
+// this flag is intended to be set or cleared by application code
+#define DATA_IS_REFERENCED 8
 
 typedef struct{          // generic struct for array with n dimensions
   uint8_t *data ;        // starting address of array (byte pointer)
   uint8_t *limit ;       // pointer to 1 byte beyond array (byte pointer)
   uint32_t signature ;   // MUST be 0xBEBEFADA
+  // 16 | 8 | 4 | 4       esize, type, flag, rank
+  // 24 | 8 | 8 | 8 | 16  esize, type, flag, rank, ref_count
   uint16_t esize ;       // size of array elements in bytes (1, 2, 4, 8, ..., )
   uint8_t  type ;        // element type, see rmn/data_kind.h
   uint8_t  flags:4,      // flags

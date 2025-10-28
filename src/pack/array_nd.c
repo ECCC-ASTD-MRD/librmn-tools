@@ -17,6 +17,8 @@
 
 #include <rmn/array_nd.h>
 
+// TODO : add a function to get the "effective rank" (ignore upper dimensions == 1)
+
 // is this array_nd invalid ?
 // a  [IN] : pointer to array_nd struct
 // return 1 if invalid, 0 otherwise

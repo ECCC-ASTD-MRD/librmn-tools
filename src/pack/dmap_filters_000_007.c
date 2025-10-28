@@ -33,6 +33,7 @@
 // in reverse mode, it makes sure that the target array has the correct configuration
 // for data type and dimensions
 // TODO: allocate memory for the target array if necessary
+// this filter will be the first to be called in reverse mode (get/check rank and dimensions)
 ssize_t dmap_filter_fwd(array_nd *a, block_properties *bp, dmap_filter_list dpfl, bitstream *stream){
   uint32_t self = FILTER_ID ;
   if(a == NULL || stream == NULL) goto fail ;    // no array or no stream
@@ -83,6 +84,7 @@ reverse:
   int32_t temp = dmap_filter_get_array_info(a, &s, 1) ;
   if(temp < 0) goto fail ;
   status += temp ;
+  array_set_empty(a) ;                                    // mark array as having no valid data
 //   fprintf(stderr, "filter_head(OUT), type = %s, ndim = %d, [", printable_type[type], ndim) ;
 //   for(i=0 ; i<ndim ; i++){ fprintf(stderr, " %d", a->dim[i].gnn) ; }
 //   fprintf(stderr, "]\n");
@@ -570,27 +572,6 @@ reverse:
 // ======================================= filter 006 =======================================
 // dpfl == NULL : reverse filter call (no list needed)
 // for the reverse filter, the bit stream provides the necessary information
-// the following 3 macros will eventually come from rmn/common_stream.h
-#if ! defined(STREAM_BITS_BHW)
-#define STREAM_BITS_BHW(v, nbits) { uint32_t c = 2 + 8 + ((v >> 8) ? 8 : 0) + ((v >> 16) ? 8 : 0) + ((v >> 24) ? 8 : 0) ; nbits = c ; }
-#endif
-#if ! defined(STREAM_GET_BHW)
-#define STREAM_GET_BHW(s, v, nbits) { uint32_t c ; \
-                                      STREAM_GET_NBITS(s, c , 2) ; \
-                                      uint32_t TbItS = (1 + c) << 3 ; \
-                                      STREAM_GET_NBITS(s, v , TbItS) ; \
-                                      nbits = TbItS + 2 ; \
-                                    }
-#endif
-#if ! defined(STREAM_PUT_BHW)
-// store v into stream, set nbits to 10/18/26/34 according to number of bits needed
-#define STREAM_PUT_BHW(s, v, nbits) { uint32_t c = ((v >> 8) ? 1 : 0) + ((v >> 16) ? 1 : 0) + ((v >> 24) ? 1 : 0) ; \
-                                      uint32_t TbItS = (1 + c) << 3 ; \
-                                      STREAM_PUT_NBITS(s, c , 2) ; \
-                                      STREAM_PUT_NBITS(s, v , TbItS) ; \
-                                      nbits = TbItS + 2 ; \
-                                    }
-#endif
 // bit stream encoder
 #define FILTER_ID 006
 #define FILTER_NAME CAT(dmap_filter_,FILTER_ID)
