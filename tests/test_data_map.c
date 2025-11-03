@@ -60,7 +60,7 @@ int32_t check_2d_block(int32_t ni, int32_t nj, int32_t block[nj][ni], int32_t i0
 int process_2d_block(array_2d *a_in, sfn_ptr fn, sfn_args *fnargs){
   (void) (fn) ; (void) (fnargs) ;      // unused for now
   if(a_in == NULL) return -1 ;
-  if(a_in->ndim != 2) return -1 ;
+  if(a_in->rank != 2) return -1 ;
   int32_t ni = a_in->dim[0].lnn, nj = a_in->dim[1].lnn ;
 
   block_properties bp ;

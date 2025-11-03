@@ -23,7 +23,7 @@ void print_dims(void *a_, char *msg){
   array_nd *a = (array_nd *) a_ ;
   int i ;
   fprintf(stderr, valid_array(a) ? "[" : "<") ;
-  for(i=0 ; i<a->ndim ; i++){
+  for(i=0 ; i<a->rank ; i++){
     fprintf(stderr, "%3d(%d:%d)", a->dim[i].gnn, a->dim[i].ln0, a->dim[i].ln0+a->dim[i].lnn-1) ;
   }
   fprintf(stderr, "%s%s", valid_array(a) ? "]" : ">", msg) ;
@@ -50,7 +50,7 @@ void array_lbounds_check(int low, int high){
   array_5d a5 = array_5d_null, *ap5 ;
   array_nd *apn ;
   char *errmsg = "" ;
-  int32_t status, scrap[1024*1024] ;
+  int32_t scrap[1024*1024] ;
 
   // make new arrays using caller supplied storage, set bounds
   new_array(&a1, NULL, sizeof(int32_t), int_data, 8) ;

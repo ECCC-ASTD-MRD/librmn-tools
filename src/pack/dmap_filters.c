@@ -70,7 +70,7 @@ ssize_t FILTER_NAME(array_nd *a, block_properties *bp, dmap_filter_list dpfl, bi
   uint32_t me = FILTER_ID ;
   if(a == NULL || stream == NULL) goto fail ;    // no array or no stream
   void *array = array_address(a) ;               // get array address, dimension(s), and type
-  int ndim = a->ndim, type = a->type ;
+  int rank = a->rank, type = a->type ;
   ssize_t status = 0 ;
   bitstream s = *stream ;                        // local copy of stream control structure
 //   block_properties lbp ;
@@ -81,7 +81,7 @@ ssize_t FILTER_NAME(array_nd *a, block_properties *bp, dmap_filter_list dpfl, bi
   FILTER_ARGS *arg = (FILTER_ARGS *)(*dpfl) ;    // get parameters for this filter
 
 //
-// check a->type and a->ndim as needed
+// check a->type and a->rank as needed
 //
 // filter processing code goes here  (FWD)
 //
@@ -333,11 +333,11 @@ int32_t dmap_filter_get_array_info(array_nd *a, bitstream *stream, int allocate)
   size_t sz = 1 ;
   uint32_t w32/*, tdim[5]*/ ;
   STREAM_GET_NBITS(*stream, rank,  3) ;            // rank = number of dimensions (from stream)
-//   if(a->ndim == 0) a->ndim = rank ;
+//   if(a->rank == 0) a->rank = rank ;
   msg = "number of dimensions mismatch" ;
-  // technically, if a->ndim > rank it is not a problem, excess dimensions can be set to 1
-  if(a->ndim != rank){                             // check that target array has the right rank
-    fprintf(stderr, "dmap_filter_get_array_info : expecting %d dimensions, found %d\n", a->ndim, rank) ;
+  // technically, if a->rank > rank it is not a problem, excess dimensions can be set to 1
+  if(a->rank != rank){                             // check that target array has the right rank
+    fprintf(stderr, "dmap_filter_get_array_info : expecting %d dimensions, found %d\n", a->rank, rank) ;
     goto fail ;                                    // rank mismatch
   }
   STREAM_GET_NBITS(*stream, dsize, 5) ; dsize++ ;  // number of bits needed for dimensions - 1
@@ -383,7 +383,7 @@ fprintf(stderr, "dmap_filter_get_array_info : ERROR %s\n", msg);
 // TODO : use BHW coding for dimensions et al ?
 // TODO : add esize to the fray ?
 int32_t dmap_filter_put_array_info(array_nd *a, bitstream *stream){
-  int32_t rank = a->ndim, i, dimmax = a->dim[0].gnn, dsize = 8, type = a->type, nbits = 0 ;
+  int32_t rank = a->rank, i, dimmax = a->dim[0].gnn, dsize = 8, type = a->type, nbits = 0 ;
   STREAM_PUT_NBITS(*stream, rank,    3) ;          // number of dimensions
   for(i=1 ; i<rank ; i++){ dimmax = (a->dim[i].gnn > dimmax) ? a->dim[i].gnn : dimmax ; }
   for(i=0 ; i<rank ; i++){

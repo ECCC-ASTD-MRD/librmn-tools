@@ -38,7 +38,7 @@ ssize_t dmap_filter_fwd(array_nd *a, block_properties *bp, dmap_filter_list dpfl
   uint32_t self = FILTER_ID ;
   if(a == NULL || stream == NULL) goto fail ;    // no array or no stream
   void *array = array_address(a) ;               // get array address, dimension(s), and type
-//   int ndim = a->ndim, type = a->type ;
+//   int rank = a->rank, type = a->type ;
   ssize_t status = 0 ;
   bitstream s = *stream ;                        // local copy of stream control structure
 //   block_properties lbp ;
@@ -85,8 +85,8 @@ reverse:
   if(temp < 0) goto fail ;
   status += temp ;
   array_set_empty(a) ;                                    // mark array as having no valid data
-//   fprintf(stderr, "filter_head(OUT), type = %s, ndim = %d, [", printable_type[type], ndim) ;
-//   for(i=0 ; i<ndim ; i++){ fprintf(stderr, " %d", a->dim[i].gnn) ; }
+//   fprintf(stderr, "filter_head(OUT), type = %s, rank = %d, [", printable_type[type], rank) ;
+//   for(i=0 ; i<rank ; i++){ fprintf(stderr, " %d", a->dim[i].gnn) ; }
 //   fprintf(stderr, "]\n");
 // STREAM_XTRACT_CHECK(s) ;
 // STREAM_PEEK_NBITS(s, filter, 8) ;
@@ -107,7 +107,7 @@ ssize_t FILTER_NAME(array_nd *a, block_properties *bp, dmap_filter_list dpfl, bi
   uint32_t self = FILTER_ID ;
   if(a == NULL || stream == NULL) goto fail ;    // no array or no stream
   void *array = array_address(a) ;               // get array address, dimension(s), and type
-  int ndim = a->ndim, type = a->type ;
+  int rank = a->rank, type = a->type ;
   ssize_t status = 0 ;
   bitstream s = *stream ;                        // local copy of stream control structure
 //   block_properties lbp ;
@@ -116,8 +116,8 @@ ssize_t FILTER_NAME(array_nd *a, block_properties *bp, dmap_filter_list dpfl, bi
   if(dpfl == NULL) goto reverse ;                // call to reverse filter
   if(! dmap_filter_valid(dpfl,self)) goto fail ;   // not the right filter or NULL pointer
   FILTER_ARGS *arg = (FILTER_ARGS *)(*dpfl) ;    // get parameters for this filter
-// check a->type and a->ndim
-  if(type != float_data || ndim != 2) goto fail ;
+// check a->type and a->rank
+  if(type != float_data || rank != 2) goto fail ;
 // filter processing code goes here
   int i, j, lni = a->dim[0].gnn, lnj = a->dim[1].gnn ;
   float *f = (float *)array ;
@@ -186,7 +186,7 @@ ssize_t FILTER_NAME(array_nd *a, block_properties *bp, dmap_filter_list dpfl, bi
   uint32_t self = FILTER_ID ;
   if(a == NULL || stream == NULL) goto fail ;    // no array or no stream
   void *array = array_address(a) ;               // get array address, dimension(s), and type
-//   int ndim = a->ndim, type = a->type ;
+//   int rank = a->rank, type = a->type ;
   ssize_t status = 0 ;
   bitstream s = *stream ;                        // local copy of stream control structure
 //   block_properties lbp ;
@@ -258,12 +258,12 @@ ssize_t FILTER_NAME(array_nd *a, block_properties *bp, dmap_filter_list dpfl, bi
   errmsg = "a == NULL || stream == NULL" ;
   if(a == NULL || stream == NULL) goto fail ;    // no array or no stream
   void *array = array_address(a) ;               // get array address, dimension(s), and type
-  int32_t nvalues, ndim = a->ndim, type = a->type, offset = 0,  e_base = 0 ;
+  int32_t nvalues, rank = a->rank, type = a->type, offset = 0,  e_base = 0 ;
   ssize_t status = 0 ;
   bitstream s = *stream ;                        // local copy of stream control structure
 
-  errmsg = "ndim != 2" ;
-  if(ndim != 2) goto fail ;                      // only 2D is supported at this time
+  errmsg = "rank != 2" ;
+  if(rank != 2) goto fail ;                      // only 2D is supported at this time
   nvalues = a->dim[0].gnn * a->dim[1].gnn ;      // number of values in array
 
   if(dpfl == NULL ) goto reverse ;               // this is a call to the reverse filter
@@ -412,7 +412,7 @@ ssize_t FILTER_NAME(array_nd *a, block_properties *bp, dmap_filter_list dpfl, bi
   errmsg = "no stream" ;
   if(stream == NULL) goto fail ;                 // no stream
   void *array = array_address(a) ;               // get array address, dimension(s), and type
-  int ndim = a->ndim, type = a->type ;
+  int rank = a->rank, type = a->type ;
   ssize_t status = 0 ;
   bitstream s = *stream ;                        // local copy of stream control structure
 
@@ -424,7 +424,7 @@ ssize_t FILTER_NAME(array_nd *a, block_properties *bp, dmap_filter_list dpfl, bi
   errmsg = "expecting int_data or uint_data" ;
   if(type != int_data && type != uint_data) goto fail ;    // integers only
   errmsg = "expecting 2D array" ;
-  if(ndim != 2) goto fail ;                                // 2 D only
+  if(rank != 2) goto fail ;                                // 2 D only
   // call Lorenzo predictor in place
   LorenzoPredictInplace((int32_t *)array, a->dim[0].gnn, a->dim[0].gnn, a->dim[1].gnn) ;
 //   fprintf(stderr, "filter %3.3o(X) Lorenzo prediction performed \n", FILTER_ID) ;
@@ -458,7 +458,7 @@ reverse:
   errmsg = "expecting int_data" ;
   if(type != int_data) goto fail ;
   errmsg = "expecting 2D array" ;
-  if(ndim != 2)        goto fail ;
+  if(rank != 2)        goto fail ;
   // call Lorenzo inverse predictor in place
   LorenzoUnpredictInplace((int32_t *)array, a->dim[0].gnn, a->dim[0].gnn, a->dim[1].gnn) ;
 // fprintf(stderr, "filter %3.3o(E) Lorenzo restore performed [%d x %d]\n", FILTER_ID, a->dim[0].gnn, a->dim[1].gnn) ;
@@ -492,7 +492,7 @@ ssize_t FILTER_NAME(array_nd *a, block_properties *bp, dmap_filter_list dpfl, bi
   errmsg = "no stream" ;
   if(stream == NULL) goto fail ;                 // no stream
   void *array = array_address(a) ;               // get array address, dimension(s), and type
-  int ndim = a->ndim, type = a->type, ni, nj, levels ;
+  int rank = a->rank, type = a->type, ni, nj, levels ;
   ssize_t status = 0 ;
   bitstream s = *stream ;                        // local copy of stream control structure
 
@@ -504,7 +504,7 @@ ssize_t FILTER_NAME(array_nd *a, block_properties *bp, dmap_filter_list dpfl, bi
   errmsg = "expecting int_data or uint_data" ;
   if(type != int_data && type != uint_data) goto fail ;    // integers only
   errmsg = "expecting 2D array" ;
-  if(ndim != 2) goto fail ;                                // 2 D only
+  if(rank != 2) goto fail ;                                // 2 D only
 
   FILTER_ARGS *arg = (FILTER_ARGS *)(*dpfl) ;    // get parameters for this filter
   levels = arg->levels ;
@@ -551,7 +551,7 @@ reverse:
   errmsg = "expecting int_data" ;
   if(type != int_data) goto fail ;
   errmsg = "expecting 2D array" ;
-  if(ndim != 2)        goto fail ;
+  if(rank != 2)        goto fail ;
   ni = a->dim[0].gnn ;
   nj = a->dim[1].gnn ;
 
@@ -592,7 +592,7 @@ ssize_t FILTER_NAME(array_nd *a, block_properties *bp, dmap_filter_list dpfl, bi
   errmsg = "no array" ;
   if(a == NULL) goto fail ;                      // no array
   void *array = array_address(a) ;               // get array address, dimension(s), and type
-  uint32_t ndim = a->ndim, type = a->type ;
+  uint32_t rank = a->rank, type = a->type ;
 
   errmsg = "no stream" ;
   if(stream == NULL) goto fail ;                 // no stream
@@ -648,13 +648,13 @@ ssize_t FILTER_NAME(array_nd *a, block_properties *bp, dmap_filter_list dpfl, bi
   status = 8 ;
 
   errmsg="encoder only supports 1D or 2D arrays" ;
-  if(ndim > 2) goto fail ;
-  STREAM_PUT_NBITS(s, ndim, 3) ; status += 3 ;
+  if(rank > 2) goto fail ;
+  STREAM_PUT_NBITS(s, rank, 3) ; status += 3 ;
 
   ni = a->dim[0].gnn, nj = 1 ;                 // 1D setup
   // store dimensions into stream
   STREAM_PUT_BHW(s, ni, tnbits) ; status += tnbits ;
-  if(ndim == 2){ 
+  if(rank == 2){ 
     nj = a->dim[1].gnn ;
     STREAM_PUT_BHW(s, nj, tnbits) ; status += tnbits ;
   }
@@ -664,7 +664,7 @@ ssize_t FILTER_NAME(array_nd *a, block_properties *bp, dmap_filter_list dpfl, bi
     int32_t *block = (int32_t *) array ;
     ssize_t encoded, needed ;
     errmsg="tile mode needs 2D array" ;
-    if(ndim != 2) goto fail ;
+    if(rank != 2) goto fail ;
     header = 0b00110011 ;
     errmsg="tile mode, not enough space to encode data" ;
     // dry-run of encoder to check that there is enough space to encode data
@@ -739,11 +739,11 @@ reverse:
   STREAM_GET_NBITS(s, self, 8) ; status = 8 ;            // filter ID from stream
   if(self != FILTER_ID) goto fail ;                      // wrong id, MUST be FILTER_ID
 
-  STREAM_GET_NBITS(s, ndim, 3) ; status += 3 ;           // get rank from stream
+  STREAM_GET_NBITS(s, rank, 3) ; status += 3 ;           // get rank from stream
   errmsg="decoding rank mismatch" ;
-  if(ndim != a->ndim) goto fail ;
+  if(rank != a->rank) goto fail ;
   errmsg="decoder only supports 1D or 2D" ;
-  if(ndim > 2) goto fail ;
+  if(rank > 2) goto fail ;
   errmsg = "REVERSE  filter 006 : input array should be empty" ;
   if( ! array_no_data(a) ) goto fail ;                  // array should not contain valid data
 
@@ -751,7 +751,7 @@ reverse:
   int32_t ni_in, nj_in ;                                 // input array dimensions
   STREAM_GET_BHW(s, ni, tnbits) ;  status += tnbits ;
   ni_in = a->dim[0].gnn ;                                // remember first dimension
-  if(ndim == 1){
+  if(rank == 1){
     nj = nj_in = 1 ;
     reshape_array((array_1d *)a, a->esize, a->type, ni) ;
   }else{
@@ -759,12 +759,12 @@ reverse:
     reshape_array((array_2d *)a, a->esize, a->type, ni, nj) ;
     nj_in = a->dim[1].gnn ;                              // remember second dimension
   }
-//   fprintf(stderr, "rank = %d, ni = %d, expected %d, nj = %d, expected = %d, status = %ld\n", ndim, ni, a->dim[0].gnn, nj, (ndim>1) ? a->dim[1].gnn : 1, status) ;
+//   fprintf(stderr, "rank = %d, ni = %d, expected %d, nj = %d, expected = %d, status = %ld\n", rank, ni, a->dim[0].gnn, nj, (rank>1) ? a->dim[1].gnn : 1, status) ;
 
   STREAM_GET_NBITS(s, header, 8) ; status += 8 ;         // 8 bit header
   if(header == 0b00110011){                              // tile encoding
     errmsg="tile decoder needs 2D array" ;
-    if(ndim != 2) goto fail ;
+    if(rank != 2) goto fail ;
     int32_t *block = (int32_t *) array ;
     STREAM_GET_BHW(s, tile, tnbits) ;                    // get tile size
     status += tnbits ;
@@ -808,9 +808,9 @@ reverse:
 
   if( ! array_has_data(a) ) goto fail ;                  // array should be filled
   ni = a->dim[0].gnn ; nj = 1 ;                          // and final shape should be as expected
-  if(a->ndim == 2) nj = a->dim[1].gnn ;
+  if(a->rank == 2) nj = a->dim[1].gnn ;
   errmsg = "final array dimensions not as expected" ;
-  if(ni != ni_in || nj != nj_in || ndim != a->ndim) goto fail ;
+  if(ni != ni_in || nj != nj_in || rank != a->rank) goto fail ;
   *stream = s ;      // SAVE stream changes
   return status ;    // return number of bits consumed
 }
@@ -828,7 +828,7 @@ ssize_t FILTER_NAME(array_nd *a, block_properties *bp, dmap_filter_list dpfl, bi
   uint32_t self = FILTER_ID ;
   if(a == NULL || stream == NULL) goto fail ;    // no array or no stream
   void *array = array_address(a) ;               // get array address, dimension(s), and type
-  int ndim = a->ndim, type = a->type ;
+  int rank = a->rank, type = a->type ;
   ssize_t status = 0 ;
   bitstream s = *stream ;                        // local copy of stream control structure
 //   block_properties lbp ;
@@ -838,8 +838,8 @@ ssize_t FILTER_NAME(array_nd *a, block_properties *bp, dmap_filter_list dpfl, bi
   if(! dmap_filter_valid(dpfl,self)) goto fail ;   // not the right filter or NULL pointer
 //   FILTER_ARGS *arg = (FILTER_ARGS *)(*dpfl) ;    // get parameters for this filter
 
-// check a->type and a->ndim
-  if(type != float_data || ndim != 2) goto fail ;
+// check a->type and a->rank
+  if(type != float_data || rank != 2) goto fail ;
 // filter processing code goes here
 //   int i, j, lni = a->dim[0].gnn, lnj = a->dim[1].gnn ;
 //   float *f = (float *)array ;
