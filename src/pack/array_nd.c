@@ -255,6 +255,8 @@ size_t set_array_value_nd(array_nd *a, int32_t v, uint32_t vlen){
 // fix array storage according to dimensions and esize
 // a    [INOUT] : pointer to nD array descriptor
 // return array size, 0 in case of error
+// if data member of a is NULL, memory will be allocated
+// if available memory is too small and data member not NULL, fail
 size_t fix_array_nd(array_nd *a){
   if(a == NULL) goto fail ;
   int32_t i, rank = a->rank ;
@@ -271,7 +273,9 @@ size_t fix_array_nd(array_nd *a){
     a->data = malloc(a->esize * sz) ;
     if(a->data == NULL) goto fail ;
     a->limit = a->data + sz ;
+fprintf(stderr, "fix_array_nd : allocated %ld bytes, %ld elements, type = %d\n", sz, sz / a->esize, a->type) ;
   }
+  if(sz > a->limit - a->data) goto fail ; // OOPS, not enough available space to accomodate dimensions
   for(i = 0 ; i < rank ; i++){            // set local indexes to global values
     a->dim[i].ln0 = a->dim[i].gn0 = 0 ;
     a->dim[i].lnn = a->dim[i].gnn ;

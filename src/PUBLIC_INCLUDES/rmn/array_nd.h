@@ -147,15 +147,15 @@ typedef struct{          // specific struct for 5D array
 // blank array descriptors (invalid type, element size = 0, no data)
 static const array_nd array_nd_invalid = {.data=NULL, .limit=NULL, .signature=0, .esize=0, .type=0, .flags=0, .rank=0 } ;
 
-static const array_1d array_1d_null = {.data=NULL, .limit=NULL, .esize=0, .signature=NO_DATA, .type=0, .rank=1, .flags=0,
+static const array_1d array_1d_null = {.data=NULL, .limit=NULL, .esize=0, .signature=NO_DATA, .type=any_data, .rank=1, .flags=0,
                                        .dim = {DIM_NULL} } ;
-static const array_2d array_2d_null = {.data=NULL, .limit=NULL, .esize=0, .signature=NO_DATA, .type=0, .rank=2, .flags=0,
+static const array_2d array_2d_null = {.data=NULL, .limit=NULL, .esize=0, .signature=NO_DATA, .type=any_data, .rank=2, .flags=0,
                                        .dim = {DIM_NULL, DIM_NULL} } ;
-static const array_3d array_3d_null = {.data=NULL, .limit=NULL, .esize=0, .signature=NO_DATA, .type=0, .rank=3, .flags=0,
+static const array_3d array_3d_null = {.data=NULL, .limit=NULL, .esize=0, .signature=NO_DATA, .type=any_data, .rank=3, .flags=0,
                                        .dim = {DIM_NULL, DIM_NULL, DIM_NULL} } ;
-static const array_4d array_4d_null = {.data=NULL, .limit=NULL, .esize=0, .signature=NO_DATA, .type=0, .rank=4, .flags=0,
+static const array_4d array_4d_null = {.data=NULL, .limit=NULL, .esize=0, .signature=NO_DATA, .type=any_data, .rank=4, .flags=0,
                                        .dim = {DIM_NULL, DIM_NULL, DIM_NULL, DIM_NULL} } ;
-static const array_5d array_5d_null = {.data=NULL, .limit=NULL, .esize=0, .signature=NO_DATA, .type=0, .rank=5, .flags=0,
+static const array_5d array_5d_null = {.data=NULL, .limit=NULL, .esize=0, .signature=NO_DATA, .type=any_data, .rank=5, .flags=0,
                                        .dim = {DIM_NULL, DIM_NULL, DIM_NULL, DIM_NULL, DIM_NULL} } ;
 
 #if 0
@@ -176,21 +176,21 @@ static const array_5d array_5d_null = ARRAY_ND(NULL, 0, 0, 5) ;
 // #pragma GCC diagnostic pop
 #endif
 
-static inline void array_1d_init(array_1d *a, void *data, ssize_t esize, int type){
-  *a = array_1d_null ; a->esize = esize ; a->type = type ; a->data = data ;
-}
-static inline void array_2d_init(array_2d *a, void *data, ssize_t esize, int type){
-  *a = array_2d_null ; a->esize = esize ; a->type = type ; a->data = data ;
-}
-static inline void array_3d_init(array_3d *a, void *data, ssize_t esize, int type){
-  *a = array_3d_null ; a->esize = esize ; a->type = type ; a->data = data ;
-}
-static inline void array_4d_init(array_4d *a, void *data, ssize_t esize, int type){
-  *a = array_4d_null ; a->esize = esize ; a->type = type ; a->data = data ;
-}
-static inline void array_5d_init(array_5d *a, void *data, ssize_t esize, int type){
-  *a = array_5d_null ; a->esize = esize ; a->type = type ; a->data = data ;
-}
+// static inline void array_1d_init(array_1d *a, void *data, ssize_t esize, int type){
+//   *a = array_1d_null ; a->esize = esize ; a->type = type ; a->data = data ;
+// }
+// static inline void array_2d_init(array_2d *a, void *data, ssize_t esize, int type){
+//   *a = array_2d_null ; a->esize = esize ; a->type = type ; a->data = data ;
+// }
+// static inline void array_3d_init(array_3d *a, void *data, ssize_t esize, int type){
+//   *a = array_3d_null ; a->esize = esize ; a->type = type ; a->data = data ;
+// }
+// static inline void array_4d_init(array_4d *a, void *data, ssize_t esize, int type){
+//   *a = array_4d_null ; a->esize = esize ; a->type = type ; a->data = data ;
+// }
+// static inline void array_5d_init(array_5d *a, void *data, ssize_t esize, int type){
+//   *a = array_5d_null ; a->esize = esize ; a->type = type ; a->data = data ;
+// }
 
 typedef struct{   // struct containing 2 integers (array)
   int32_t i32[2] ;
@@ -203,6 +203,42 @@ typedef struct{   // struct containing up to 5 integers (array)
 typedef struct{   // struct containing up to 5 pairs of integers (array)
   int32_t i32[10] ;
 }__i32__5x2__ ;
+
+#define ARRAY_SYNTAX_RANK(ARRAY) \
+  _Generic((ARRAY), \
+    array_nd  : 0, \
+    array_5d  : 5, \
+    array_4d  : 4, \
+    array_3d  : 3, \
+    array_2d  : 2, \
+    array_1d  : 1, \
+    array_nd *: 0, \
+    array_5d *: 5, \
+    array_4d *: 4, \
+    array_3d *: 3, \
+    array_2d *: 2, \
+    array_1d *: 1  \
+  )
+
+#define ARRAY_RANK(ARRAY) \
+  _Generic((ARRAY), \
+    array_nd  : (ARRAY).rank,  \
+    array_5d  : (ARRAY).rank,  \
+    array_4d  : (ARRAY).rank,  \
+    array_3d  : (ARRAY).rank,  \
+    array_2d  : (ARRAY).rank,  \
+    array_1d  : (ARRAY).rank   \
+  )
+
+#define ARRAY_DATA(ARRAY) \
+  _Generic((ARRAY), \
+    array_nd  : (ARRAY).data,  \
+    array_5d  : (ARRAY).data,  \
+    array_4d  : (ARRAY).data,  \
+    array_3d  : (ARRAY).data,  \
+    array_2d  : (ARRAY).data,  \
+    array_1d  : (ARRAY).data   \
+  )
 
 #define reshape_array(ARRAY, ...) new_array((ARRAY), (ARRAY)->data, __VA_ARGS__)
 

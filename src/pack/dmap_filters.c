@@ -327,50 +327,106 @@ ssize_t dmap_filter_inv(array_nd *a, bitstream *stream){
 // TODO : add esize to the fray ?
 // TODO : if allocate, allocate the data container, set dimensions (new_array_nd)
 // TODO : otherwise check and potentially reallocate things
+// get rank, type, element size, dimensions[rank] from bitstream
 int32_t dmap_filter_get_array_info(array_nd *a, bitstream *stream, int allocate){
-  int32_t i, nbits, rank, type, dsize, gnn ;
   char *msg = "" ;
-  size_t sz = 1 ;
-  uint32_t w32/*, tdim[5]*/ ;
-  STREAM_GET_NBITS(*stream, rank,  3) ;            // rank = number of dimensions (from stream)
-//   if(a->rank == 0) a->rank = rank ;
-  msg = "number of dimensions mismatch" ;
-  // technically, if a->rank > rank it is not a problem, excess dimensions can be set to 1
-  if(a->rank != rank){                             // check that target array has the right rank
-    fprintf(stderr, "dmap_filter_get_array_info : expecting %d dimensions, found %d\n", a->rank, rank) ;
-    goto fail ;                                    // rank mismatch
-  }
-  STREAM_GET_NBITS(*stream, dsize, 5) ; dsize++ ;  // number of bits needed for dimensions - 1
-  STREAM_GET_NBITS(*stream, type,  8) ;            // data type
-//   STREAM_GET_BHW(*stream, etype, tbits) ; nbits += tbits ;
-//   for(i=0 ; i<rank ; i++){ STREAM_GET_BHW(*stream, tdim[i], tbits) ; nbits += tbits ; sz *= tdim[i] ; } ;
-//   sz must be <= limit - data
-  if(a->type == 0){
-    a->type = type ;
-    a->esize = size_of_type[type] ;
-  }
-  msg = "type size mismatch" ;
-  if(size_of_type[type] != size_of_type[a->type]) goto fail ;  // type size mismatch
-  nbits = 16 ;
-  for(i=0 ; i<rank ; i++){
-    STREAM_GET_NBITS(*stream, w32, dsize) ; gnn = w32 ;
-    if(a->dim[i].gnn == 0) a->dim[i].gnn = gnn ;
-    msg = "a->dim[i].gnn != gnn" ;
-    if(a->dim[i].gnn != gnn) goto fail ;
-    nbits += dsize ;
-    sz *= gnn ;
-  }
-  if(allocate && a->data == NULL){  // allocate storage, fix dimensions
-fprintf(stderr, "dmap_filter_get_array_info : calling fix_array\n");
-    msg = "fix_array(a) == 0" ;
-    if(fix_array(a) == 0) goto fail ;
-//     a->data = malloc(sz * a->esize) ;
-//     if(a->data == NULL) goto fail ;
-//     a->limit = a->data + (sz * a->esize) ;
-  }
-// fprintf(stderr, "dmap_filter_get_array_info : array size = %ld, esize = %d\n", sz, a->esize) ;
-  return nbits ;
+// #if defined(NEW_CODE)
+  uint32_t rank, type, esize, nbits, i ;
+  int32_t tbits, tdim[5] ;
+  size_t mem_needed ;
 
+  STREAM_GET_NBITS(*stream, rank, 3) ; nbits = 3 ;         // rank = number of dimensions (from stream)
+  msg = "target rank too small" ;
+  if(rank > a->rank) goto fail ;
+
+  STREAM_GET_NBITS(*stream, type, 8) ; nbits += 8 ;        // data type
+  STREAM_GET_BHW(*stream, esize, tbits) ; nbits += tbits ; // element size
+// fprintf(stderr, "get_array_info : rank = %d, type = %d, esize = %d, dimensions =", rank, type, esize) ;
+
+  mem_needed = esize ;
+  for(i = 0 ; i < 5 ; i++) tdim[i] = 1 ;                   // initialize all dimensions to 1
+  for(i = 0 ; i < rank ; i++){                             // get dimensions from stream
+    int32_t w32 ;
+    STREAM_GET_BHW(*stream, w32, tbits) ;
+    tdim[i] = w32 ;
+    nbits += tbits ;
+    mem_needed *= w32 ;
+// fprintf(stderr, " %d", tdim[i]) ;
+  }
+// fprintf(stderr, "\n");
+  if(a->type == any_data){                                 // set array description from stream data
+// fprintf(stderr, "type set from %d to %d, esize set from %d to %d, rank set from %d to %d\n", a->type, type, a->esize, esize, a->rank, rank) ;
+    a->type = type ;
+    a->esize = esize ;
+    a->rank = rank ;                                       // reduce array rank
+    for(i = 0 ; i < rank ; i++){                           // copy a->rank dimensions into array descriptor
+      a->dim[i].gnn = tdim[i] ;
+    } ;
+  }
+  if(allocate && a->data == NULL){
+// fprintf(stderr, "calling fix_array\n");
+    msg = "fix_array() failed" ;
+    if(fix_array(a) == 0) goto fail ;
+  }
+
+  msg = "invalid rank" ;
+  if(rank != a->rank) goto fail ;
+  msg = "type mismatch" ;
+  if(type != a->type) goto fail ;
+  msg = "element size mismatch" ;
+  if(esize != a->esize) goto fail ;
+  msg = "dimension mismatch" ;
+  for(i = 0 ; i < a->rank ; i++){
+    if(a->dim[i].gnn != tdim[i]) goto fail ;
+  }
+  msg = "available memory too small" ;
+  size_t mem_avail = a->limit - a->data ;                   // memory available in array
+  if(mem_needed > mem_avail) goto fail ;
+// #else
+
+//   int32_t i, nbits, rank, type, dsize, gnn ;
+//   size_t sz = 1 ;
+//   uint32_t w32/*, tdim[5]*/ ;
+//   STREAM_GET_NBITS(*stream, rank,  3) ;            // rank = number of dimensions (from stream)
+// //   if(a->rank == 0) a->rank = rank ;
+//   msg = "number of dimensions mismatch" ;
+//   // technically, if a->rank > rank it is not a problem, excess dimensions can be set to 1
+//   if(a->rank != rank){                             // check that target array has the right rank
+//     fprintf(stderr, "dmap_filter_get_array_info : expecting %d dimensions, found %d\n", a->rank, rank) ;
+//     goto fail ;                                    // rank mismatch
+//   }
+//   STREAM_GET_NBITS(*stream, dsize, 5) ; dsize++ ;  // number of bits needed for dimensions - 1
+//   STREAM_GET_NBITS(*stream, type,  8) ;            // data type
+// //   STREAM_GET_BHW(*stream, etype, tbits) ; nbits += tbits ;
+// //   for(i=0 ; i<rank ; i++){ STREAM_GET_BHW(*stream, tdim[i], tbits) ; nbits += tbits ; sz *= tdim[i] ; } ;
+// //   sz must be <= limit - data
+//   if(a->type == 0){
+//     a->type = type ;
+//     a->esize = size_of_type[type] ;
+//   }
+//   msg = "type size mismatch" ;
+//   if(size_of_type[type] != size_of_type[a->type]) goto fail ;  // type size mismatch
+//   nbits = 16 ;
+//   for(i=0 ; i<rank ; i++){
+//     STREAM_GET_NBITS(*stream, w32, dsize) ; gnn = w32 ;
+//     if(a->dim[i].gnn == 0) a->dim[i].gnn = gnn ;
+//     msg = "a->dim[i].gnn != gnn" ;
+//     if(a->dim[i].gnn != gnn) goto fail ;
+//     nbits += dsize ;
+//     sz *= gnn ;
+//   }
+//   if(allocate && a->data == NULL){  // allocate storage, fix dimensions
+// fprintf(stderr, "dmap_filter_get_array_info : calling fix_array\n");
+//     msg = "fix_array(a) == 0" ;
+//     if(fix_array(a) == 0) goto fail ;
+// //     a->data = malloc(sz * a->esize) ;
+// //     if(a->data == NULL) goto fail ;
+// //     a->limit = a->data + (sz * a->esize) ;
+//   }
+// // fprintf(stderr, "dmap_filter_get_array_info : array size = %ld, esize = %d\n", sz, a->esize) ;
+// #endif
+
+  return nbits ;
 fail:
 fprintf(stderr, "dmap_filter_get_array_info : ERROR %s\n", msg);
   return -1 ;
@@ -382,26 +438,42 @@ fprintf(stderr, "dmap_filter_get_array_info : ERROR %s\n", msg);
 // return number of bits inserted into bi stream
 // TODO : use BHW coding for dimensions et al ?
 // TODO : add esize to the fray ?
+// put rank, type, element size, dimensions[rank] into bitstream
 int32_t dmap_filter_put_array_info(array_nd *a, bitstream *stream){
-  int32_t rank = a->rank, i, dimmax = a->dim[0].gnn, dsize = 8, type = a->type, nbits = 0 ;
-  STREAM_PUT_NBITS(*stream, rank,    3) ;          // number of dimensions
-  for(i=1 ; i<rank ; i++){ dimmax = (a->dim[i].gnn > dimmax) ? a->dim[i].gnn : dimmax ; }
+// #if defined(NEW_CODE)
+  uint32_t rank = a->rank, type = a->type, esize = a->esize, nbits, i ;
+  int32_t tbits ;
+  STREAM_PUT_NBITS(*stream, rank, 3) ;    nbits = 3 ;      // number of dimensions
+  STREAM_PUT_NBITS(*stream, type, 8) ;    nbits += 8 ;     // data type
+  STREAM_PUT_BHW(*stream, esize, tbits) ; nbits += tbits ; // element size
+// fprintf(stderr, "put_array_info : rank = %d, type = %d, esize = %d, dimensions =", rank, type, esize) ;
   for(i=0 ; i<rank ; i++){
-    if(dimmax >     0xFF) dsize = 12 ;          // will need 12 bits for dimensions
-    if(dimmax >    0xFFF) dsize = 16 ;          // will need 16 bits for dimensions
-    if(dimmax >   0xFFFF) dsize = 24 ;          // will need 24 bits for dimensions
-    if(dimmax > 0xFFFFFF) dsize = 32 ;          // will need 32 bits for dimensions
+    int32_t w32 = a->dim[i].gnn ;                          // dimension i
+    STREAM_PUT_BHW(*stream, w32, tbits) ; nbits += tbits ;
+// fprintf(stderr, " %d", w32) ;
   }
-  STREAM_PUT_NBITS(*stream, dsize-1, 5) ;          // number of bits needed for dimensions - 1
-  STREAM_PUT_NBITS(*stream, type,    8) ;          // data type
-//   STREAM_PUT_BHW(*stream, etype, tbits) ; nbits += tbits ;
-  nbits += 16 ;
-//   fprintf(stderr, "filter_head(IN), type = %s, rank = %d, [", printable_type[type], rank) ;
-  for(i=0 ; i<rank ; i++){
-    STREAM_PUT_NBITS(*stream, a->dim[i].gnn, dsize) ; nbits += dsize ;
-//     STREAM_PUT_BHW(*stream, w32, tbits) ; nbits += tbits ; a->dim[i].gnn = w32 ;
-//     fprintf(stderr, " %d", a->dim[i].gnn) ;
-  }
-//   fprintf(stderr, "], dimmax = %d, dsize = %d, nbits = %d\n", dimmax, dsize, nbits) ;
+// fprintf(stderr, "\n");
+// #else
+//   int32_t rank = a->rank, i, dimmax = a->dim[0].gnn, dsize = 8, type = a->type, nbits = 0 ;
+//   STREAM_PUT_NBITS(*stream, rank,    3) ;       // number of dimensions
+//   for(i=1 ; i<rank ; i++){ dimmax = (a->dim[i].gnn > dimmax) ? a->dim[i].gnn : dimmax ; }
+//   for(i=0 ; i<rank ; i++){
+//     if(dimmax >     0xFF) dsize = 12 ;          // will need 12 bits for dimensions
+//     if(dimmax >    0xFFF) dsize = 16 ;          // will need 16 bits for dimensions
+//     if(dimmax >   0xFFFF) dsize = 24 ;          // will need 24 bits for dimensions
+//     if(dimmax > 0xFFFFFF) dsize = 32 ;          // will need 32 bits for dimensions
+//   }
+//   STREAM_PUT_NBITS(*stream, dsize-1, 5) ;          // number of bits needed for dimensions - 1
+//   STREAM_PUT_NBITS(*stream, type,    8) ;          // data type
+// //   STREAM_PUT_BHW(*stream, etype, tbits) ; nbits += tbits ;
+//   nbits += 16 ;
+// //   fprintf(stderr, "filter_head(IN), type = %s, rank = %d, [", printable_type[type], rank) ;
+//   for(i=0 ; i<rank ; i++){
+//     STREAM_PUT_NBITS(*stream, a->dim[i].gnn, dsize) ; nbits += dsize ;
+// //     STREAM_PUT_BHW(*stream, w32, tbits) ; nbits += tbits ; a->dim[i].gnn = w32 ;
+// //     fprintf(stderr, " %d", a->dim[i].gnn) ;
+//   }
+// //   fprintf(stderr, "], dimmax = %d, dsize = %d, nbits = %d\n", dimmax, dsize, nbits) ;
+// #endif
   return nbits ;
 }

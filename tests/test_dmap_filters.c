@@ -115,7 +115,7 @@ process:
   new_array(&i2d, (void *)&ui, sizeof(int), int_data,   NI, NJ) ;  // used as input data
   new_array(&i1d, (void *)&ui, sizeof(int), int_data,   NI*NJ) ;   // 1D version of above
   new_array(&o2d, (void *)&uo, sizeof(int), int_data,   NI, NJ) ;  // used as output data
-  new_array(&o1d, (void *)&uo, sizeof(int), int_data,   NI*NJ) ;   // 1D version of above
+  new_array(&o1d, (void *)&uo, sizeof(int), int_data,   1) ;   // 1D version of above
   new_array(&f2d, (void *)&zr, sizeof(int), float_data, NI, NJ) ;  // float source data
   new_array(&a2d, (void *)&zi, sizeof(float), float_data, NI, NJ) ;
   new_array(&g2d, (void *)&zo, sizeof(float), float_data, NI, NJ) ;
@@ -245,6 +245,8 @@ process:
   char *test_nam2[3] = { "RAW-32", "ZIGZAG", "BHW   " } ;
   for(test_no = 0 ; test_no < 3 ; test_no++){
     fprintf(stderr, "============================== 1D integer encode test %d start ==============================\n", test_no) ;
+    array_2d o1d ;
+    array_2d *o1d_p = &o1d ;
     STREAM_INIT(str000, NULL, 0, 0) ;               // full RW stream reset (keep buffer, size, and mode)
     dmap_encode_arg  arg_006 ;
     switch(test_no){
@@ -271,15 +273,20 @@ process:
     fprintf(stderr, "filter test : available space in str000 %ld bits, available bits = %ld bits\n", StreamAvailableSpace(str000), StreamAvailableBits(str000)) ;
 
     set_array_value(&o1d, 0x0F, ARRAY_BYTES) ;                            // set output to nonsense
-    o1d.type = int_data ;
-    array_set_empty(&o1d) ;
+//     o1d.type = int_data ;
+//     array_set_empty(&o1d) ;
+//     o1d.data = NULL ; o1d.type = any_data ; o1d.esize = 0 ;
+    o1d = array_2d_null ;
+    fprintf(stderr, "rank of o1d : syntactic = %d/%d, effective = %d, data at %p\n", ARRAY_SYNTAX_RANK(o1d), ARRAY_SYNTAX_RANK(o1d_p), ARRAY_RANK(o1d), ARRAY_DATA(*o1d_p)) ;
     tot_status = dmap_filter_inv((array_nd *)&o1d, str000) ;              // inverse filter
+    fprintf(stderr, "rank of o1d : syntactic = %d/%d, effective = %d, data at %p\n", ARRAY_SYNTAX_RANK(o1d), ARRAY_SYNTAX_RANK(o1d_p), ARRAY_RANK(o1d), ARRAY_DATA(*o1d_p)) ;
     errmsg = "inverse filter failed" ;
     if(tot_status < 0) goto fail ;
     errmsg = "encode/decode bit count mismatch" ;
     if(status != tot_status) goto fail ;
 
-    errors = array_compare_2D(NI*NJ, 1, (void *)ur, (void *)uo, 1) ;
+//     errors = array_compare_2D(NI*NJ, 1, (void *)ur, (void *)uo, 1) ;
+    errors = array_compare_2D(NI*NJ, 1, (void *)ur, (void *)o1d.data, 1) ;
     fprintf(stderr, "filter test : '%s' ,  bits extracted = %ld, errors = %d\n", test_nam2[test_no], tot_status, errors) ;
     errmsg = "data restore failed" ;
     if(errors > 0) goto fail ;
