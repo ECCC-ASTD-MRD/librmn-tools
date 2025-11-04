@@ -335,9 +335,13 @@ int32_t dmap_filter_get_array_info(array_nd *a, bitstream *stream, int allocate)
   int32_t tbits, tdim[5] ;
   size_t mem_needed ;
 
+  msg = "NULL array descriptor" ;
+  if(a == NULL) goto fail ;
+  msg = "NULL stream" ;
+  if(stream == NULL) goto fail ;
   STREAM_GET_NBITS(*stream, rank, 3) ; nbits = 3 ;         // rank = number of dimensions (from stream)
-  msg = "target rank too small" ;
-  if(rank > a->rank) goto fail ;
+  msg = "target max rank is too small" ;
+  if(rank > a->ndim) goto fail ;
 
   STREAM_GET_NBITS(*stream, type, 8) ; nbits += 8 ;        // data type
   STREAM_GET_BHW(*stream, esize, tbits) ; nbits += tbits ; // element size
@@ -358,7 +362,7 @@ int32_t dmap_filter_get_array_info(array_nd *a, bitstream *stream, int allocate)
 // fprintf(stderr, "type set from %d to %d, esize set from %d to %d, rank set from %d to %d\n", a->type, type, a->esize, esize, a->rank, rank) ;
     a->type = type ;
     a->esize = esize ;
-    a->rank = rank ;                                       // reduce array rank
+    a->rank = rank ;                                       // reset array rank
     for(i = 0 ; i < rank ; i++){                           // copy a->rank dimensions into array descriptor
       a->dim[i].gnn = tdim[i] ;
     } ;
@@ -366,6 +370,7 @@ int32_t dmap_filter_get_array_info(array_nd *a, bitstream *stream, int allocate)
   if(allocate && a->data == NULL){
 // fprintf(stderr, "calling fix_array\n");
     msg = "fix_array() failed" ;
+    a->rank = rank ;                                       // reset array rank
     if(fix_array(a) == 0) goto fail ;
   }
 
@@ -382,6 +387,7 @@ int32_t dmap_filter_get_array_info(array_nd *a, bitstream *stream, int allocate)
   msg = "available memory too small" ;
   size_t mem_avail = a->limit - a->data ;                   // memory available in array
   if(mem_needed > mem_avail) goto fail ;
+fprintf(stderr, "dmap_filter_get_array_info : flags = %d\n", a->flags);
 // #else
 
 //   int32_t i, nbits, rank, type, dsize, gnn ;

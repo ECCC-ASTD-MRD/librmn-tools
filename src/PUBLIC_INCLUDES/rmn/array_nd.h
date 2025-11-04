@@ -74,13 +74,15 @@ static const dim_desc  dim_null = (dim_desc) {.gnn=0, .gn0 = 0, .ln0=0, .lnn=0 }
 typedef struct{          // generic struct for array with n dimensions
   uint8_t *data ;        // starting address of array (byte pointer)
   uint8_t *limit ;       // pointer to 1 byte beyond array (byte pointer)
-  uint32_t signature ;   // MUST be 0xBEBEFADA
+  uint32_t signature ;   // MUST be 0xBEBEFADA or 0xFADABEBE
   // 16 | 8 | 4 | 4       esize, type, flag, rank
-  // 24 | 8 | 8 | 8 | 16  esize, type, flag, rank, ref_count
+  // add a "at creation" rank ndim ?
+  // 24 | 8 | 8 | 4 | 4 | 16  esize, type, flag, rank, ndim, ref_count
   uint16_t esize ;       // size of array elements in bytes (1, 2, 4, 8, ..., )
-  uint8_t  type ;        // element type, see rmn/data_kind.h
+  uint8_t  type:4 ,      // element type, see rmn/data_kind.h
+           ndim:4 ;      // number of dimensions at creation time
   uint8_t  flags:4,      // flags
-           rank:4 ;      // rank (number of dimensions)
+           rank:4 ;      // rank (number of used dimensions) (MUST BE <= ndim)
   dim_desc dim[] ;       // dimension descriptor (flexible array member)
 } array_nd ;
 
@@ -89,9 +91,10 @@ typedef struct{          // specific struct for 1D array
   uint8_t *limit ;
   uint32_t signature ;
   uint16_t esize ;
-  uint8_t  type ;
+  uint8_t  type:4 ,
+           ndim:4 ;      // ndim MUST be 1
   uint8_t  flags:4,
-           rank:4 ;      // rank MUST be 1
+           rank:4 ;      // rank MUST be <= 1
   dim_desc dim[1] ;
   uint32_t w32[] ;       // usable only if created with create_array
 } array_1d ;
@@ -101,9 +104,10 @@ typedef struct{          // specific struct for 2D array
   uint8_t *limit ;
   uint32_t signature ;
   uint16_t esize ;
-  uint8_t  type ;
+  uint8_t  type:4 ,
+           ndim:4 ;      // ndim MUST be 2
   uint8_t  flags:4,
-           rank:4 ;      // rank MUST be 2
+           rank:4 ;      // rank MUST be <= 2
   dim_desc dim[2] ;
   uint32_t w32[] ;       // usable only if created with create_array
 } array_2d ;
@@ -113,9 +117,10 @@ typedef struct{          // specific struct for 3D array
   uint8_t *limit ;
   uint32_t signature ;
   uint16_t esize ;
-  uint8_t  type ;
+  uint8_t  type:4 ,
+           ndim:4 ;      // ndim MUST be 3
   uint8_t  flags:4,
-           rank:4 ;      // rank MUST be 3
+           rank:4 ;      // rank MUST be <= 3
   dim_desc dim[3] ;
   uint32_t w32[] ;       // usable only if created with create_array
 } array_3d ;
@@ -125,9 +130,10 @@ typedef struct{          // specific struct for 4D array
   uint8_t *limit ;
   uint32_t signature ;
   uint16_t esize ;
-  uint8_t  type ;
+  uint8_t  type:4 ,
+           ndim:4 ;      // ndim MUST be 4
   uint8_t  flags:4,
-           rank:4 ;      // rank MUST be 4
+           rank:4 ;      // rank MUST be <= 4
   dim_desc dim[4] ;
   uint32_t w32[] ;       // usable only if created with create_array
 } array_4d ;
@@ -137,25 +143,27 @@ typedef struct{          // specific struct for 5D array
   uint8_t *limit ;
   uint32_t signature ;
   uint16_t esize ;
-  uint8_t  type ;
+  uint8_t  type:4 ,
+           ndim:4 ;      // ndim MUST be 5
   uint8_t  flags:4,
-           rank:4 ;      // rank MUST be 5
+           rank:4 ;      // rank MUST be <= 5
   dim_desc dim[5] ;
   uint32_t w32[] ;       // usable only if created with create_array
 } array_5d ;
 
 // blank array descriptors (invalid type, element size = 0, no data)
-static const array_nd array_nd_invalid = {.data=NULL, .limit=NULL, .signature=0, .esize=0, .type=0, .flags=0, .rank=0 } ;
+static const array_nd array_nd_invalid = {.data=NULL, .limit=NULL, .signature=0, .esize=0, .type=0, .flags=0, .rank=0, .ndim=0 } ;
 
-static const array_1d array_1d_null = {.data=NULL, .limit=NULL, .esize=0, .signature=NO_DATA, .type=any_data, .rank=1, .flags=0,
+static const array_nd array_nd_null = {.data=NULL, .limit=NULL, .esize=0, .signature=NO_DATA, .type=any_data, .rank=0, .ndim=0, .flags=0 } ;
+static const array_1d array_1d_null = {.data=NULL, .limit=NULL, .esize=0, .signature=NO_DATA, .type=any_data, .rank=1, .ndim=1, .flags=0,
                                        .dim = {DIM_NULL} } ;
-static const array_2d array_2d_null = {.data=NULL, .limit=NULL, .esize=0, .signature=NO_DATA, .type=any_data, .rank=2, .flags=0,
+static const array_2d array_2d_null = {.data=NULL, .limit=NULL, .esize=0, .signature=NO_DATA, .type=any_data, .rank=2, .ndim=2, .flags=0,
                                        .dim = {DIM_NULL, DIM_NULL} } ;
-static const array_3d array_3d_null = {.data=NULL, .limit=NULL, .esize=0, .signature=NO_DATA, .type=any_data, .rank=3, .flags=0,
+static const array_3d array_3d_null = {.data=NULL, .limit=NULL, .esize=0, .signature=NO_DATA, .type=any_data, .rank=3, .ndim=3, .flags=0,
                                        .dim = {DIM_NULL, DIM_NULL, DIM_NULL} } ;
-static const array_4d array_4d_null = {.data=NULL, .limit=NULL, .esize=0, .signature=NO_DATA, .type=any_data, .rank=4, .flags=0,
+static const array_4d array_4d_null = {.data=NULL, .limit=NULL, .esize=0, .signature=NO_DATA, .type=any_data, .rank=4, .ndim=4, .flags=0,
                                        .dim = {DIM_NULL, DIM_NULL, DIM_NULL, DIM_NULL} } ;
-static const array_5d array_5d_null = {.data=NULL, .limit=NULL, .esize=0, .signature=NO_DATA, .type=any_data, .rank=5, .flags=0,
+static const array_5d array_5d_null = {.data=NULL, .limit=NULL, .esize=0, .signature=NO_DATA, .type=any_data, .rank=5, .ndim=5, .flags=0,
                                        .dim = {DIM_NULL, DIM_NULL, DIM_NULL, DIM_NULL, DIM_NULL} } ;
 
 #if 0
@@ -243,7 +251,7 @@ typedef struct{   // struct containing up to 5 pairs of integers (array)
 #define reshape_array(ARRAY, ...) new_array((ARRAY), (ARRAY)->data, __VA_ARGS__)
 
 // users should call the generic function new_array rather than new_array_nd
-void new_array_nd(array_nd *a, void *mem, int32_t esize, int8_t type, int32_t ndims, int32_t nlb5, __i32__5__ lb5);
+array_nd *new_array_nd(array_nd *a, void *mem, int32_t esize, int8_t type, int32_t ndims, int32_t nlb5, __i32__5__ lb5);
 
 // generic version for 1/2/3/4/5 D arrays ... is 1/2/3/4/5 values, one per dimension
 // array_1d a1 ; new_array(a1, mem, esize, type, ni) ;
@@ -257,6 +265,9 @@ void new_array_nd(array_nd *a, void *mem, int32_t esize, int8_t type, int32_t nd
     array_2d *: new_array_nd((array_nd *)ARRAY,MEM,ESIZE,TYP,2,VA_ARGS_NUM(__VA_ARGS__),(__i32__5__){{ __VA_ARGS__ }}), \
     array_1d *: new_array_nd((array_nd *)ARRAY,MEM,ESIZE,TYP,1,VA_ARGS_NUM(__VA_ARGS__),(__i32__5__){{ __VA_ARGS__ }})  \
   )
+
+// create a pointer to a n dimensional null array
+array_nd *alloc_array_nd(int32_t ndim) ;
 
 // users should call the generic function new_array rather than create_array_nd
 array_nd *create_array_nd(uint32_t flags, int32_t esize, int8_t type, int32_t rank, int32_t ndm5, __i32__5__ dm5) ;

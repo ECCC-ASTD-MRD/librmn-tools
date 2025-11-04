@@ -277,9 +277,11 @@ process:
 //     array_set_empty(&o1d) ;
 //     o1d.data = NULL ; o1d.type = any_data ; o1d.esize = 0 ;
     o1d = array_2d_null ;
-    fprintf(stderr, "rank of o1d : syntactic = %d/%d, effective = %d, data at %p\n", ARRAY_SYNTAX_RANK(o1d), ARRAY_SYNTAX_RANK(o1d_p), ARRAY_RANK(o1d), ARRAY_DATA(*o1d_p)) ;
+    fprintf(stderr, "rank of o1d : syntactic = %d/%d/%d, effective = %d, data at %p\n",
+                    ARRAY_SYNTAX_RANK(o1d), ARRAY_SYNTAX_RANK(o1d_p), o1d.ndim, ARRAY_RANK(o1d), ARRAY_DATA(o1d)) ;
     tot_status = dmap_filter_inv((array_nd *)&o1d, str000) ;              // inverse filter
-    fprintf(stderr, "rank of o1d : syntactic = %d/%d, effective = %d, data at %p\n", ARRAY_SYNTAX_RANK(o1d), ARRAY_SYNTAX_RANK(o1d_p), ARRAY_RANK(o1d), ARRAY_DATA(*o1d_p)) ;
+    fprintf(stderr, "rank of o1d : syntactic = %d/%d/%d, effective = %d, data at %p, flags = %d\n",
+                    ARRAY_SYNTAX_RANK(o1d), ARRAY_SYNTAX_RANK(o1d_p), o1d.ndim, ARRAY_RANK(*o1d_p), ARRAY_DATA(*o1d_p), o1d.flags) ;
     errmsg = "inverse filter failed" ;
     if(tot_status < 0) goto fail ;
     errmsg = "encode/decode bit count mismatch" ;
@@ -287,6 +289,15 @@ process:
 
 //     errors = array_compare_2D(NI*NJ, 1, (void *)ur, (void *)uo, 1) ;
     errors = array_compare_2D(NI*NJ, 1, (void *)ur, (void *)o1d.data, 1) ;
+    int32_t fstatus = free_array(&o1d) ;
+    fprintf(stderr, "fstatus = %d", fstatus) ;
+    if(fstatus < 0){
+      errmsg = "free failed" ;
+      goto fail ;
+    }
+    fstatus = free_array(&o1d) ;
+    fprintf(stderr, ", fstatus = %d\n", fstatus) ;
+
     fprintf(stderr, "filter test : '%s' ,  bits extracted = %ld, errors = %d\n", test_nam2[test_no], tot_status, errors) ;
     errmsg = "data restore failed" ;
     if(errors > 0) goto fail ;

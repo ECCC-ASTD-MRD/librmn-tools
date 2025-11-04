@@ -21,22 +21,23 @@
 
 // is this array_nd invalid ?
 // a  [IN] : pointer to array_nd struct
-// return 1 if invalid, 0 otherwise
+// return > 0 if invalid, 0 otherwise
 int invalid_array_nd(array_nd *a){
   int i ;
   if(a == NULL)                return 1 ;   // NULL array pointer
-  if(a->signature != HAS_DATA && a->signature != NO_DATA) return 1 ;   // wrong signature
-  if(a->data == NULL)          return 1 ;   // NO data
-  if(a->limit <= a->data)      return 1 ;   // data limit MUST be > start of data
+  if(a->signature != HAS_DATA && a->signature != NO_DATA) return 2 ;   // invalid signature
+  if(a->data == NULL)          return 3 ;   // NO data
+  if(a->limit <= a->data)      return 4 ;   // data limit MUST be > start of data
+  if(a->rank > a->ndim)        return 5 ;   // rank larger than max dimensions
   ssize_t size = a->esize ;                 // size of a single array element
   for(i = 0 ; i < a->rank ; i++){
-    if(a->dim[i].lnn <= 0 || a->dim[i].gnn <= 0)                      return 1 ; // bad size
-    if(a->dim[i].ln0 < a->dim[i].gn0)                                 return 1 ; // lower local bound < lower global bound
-    if(a->dim[i].ln0 + a->dim[i].lnn > a->dim[i].gn0 + a->dim[i].gnn) return 1 ; // upper local bound > upper global bound
-    size *= a->dim[i].gnn ;    // * storage size of this dimension
+    if(a->dim[i].lnn <= 0 || a->dim[i].gnn <= 0)                      return 6 ; // bad size
+    if(a->dim[i].ln0 < a->dim[i].gn0)                                 return 7 ; // lower local bound < lower global bound
+    if(a->dim[i].ln0 + a->dim[i].lnn > a->dim[i].gn0 + a->dim[i].gnn) return 8 ; // upper local bound > upper global bound
+    size *= a->dim[i].gnn ;                                                      // size * storage size of this dimension
   }
-  if(a->limit - a->data < size) return 1 ;  // not enough memory to accomodate array
-  return 0 ;  // likely valid array_nd struct
+  if(a->limit - a->data < size) return 9 ;  // not enough memory to accomodate array
+  return 0 ;                                // probably valid array_nd struct
 }
 
 // is this array_nd invalid ?
@@ -83,6 +84,7 @@ array_nd *create_subarray(array_nd *a, array_nd *b){
   if(b == NULL){
     b = (array_nd *) malloc(sizeof(array_nd) + a->rank * sizeof(dim_desc)) ;
     b->rank  = a->rank ;
+    b->ndim  = a->rank ;
     b->flags = 0 ;
   }
   if(a->rank != b->rank) return NULL ;
@@ -99,7 +101,8 @@ array_nd *create_subarray(array_nd *a, array_nd *b){
     b->dim[i].gn0     = 0 ;
     size   *= b->dim[i].gnn ;
   }
-  b->data = malloc(b->esize * size) ;   // allocate data array
+  b->data = malloc(b->esize * size) ;        // allocate data array
+  b->limit = b->data + (b->esize * size) ;   // set array limit
   // copy relevant data from a into b
   return b ;
 }
@@ -113,9 +116,24 @@ array_nd *create_subarray(array_nd *a, array_nd *b){
 int32_t free_array_nd(array_nd *ap){
   int32_t status = 0 ;
   if(invalid_array_nd(ap)) return -1 ;
-  if(ap->flags & DATA_MAY_REALLOC){ free(ap->data) ; status |= 1 ; }
+  if(ap->flags & DATA_MAY_REALLOC){
+    if(ap->data) free(ap->data) ;
+    ap->data = NULL ;
+    status |= 1 ;
+  }
   if(ap->flags & STRUCT_CAN_FREE){ free(ap) ; status |= 2 ; }
   return status ;
+}
+// create a pointer to a n dimensional null array
+// return pointer to a null array descriptor with ndim dimensions
+array_nd *alloc_array_nd(int32_t ndim){
+  array_nd *a = (array_nd *)malloc(sizeof(array_nd) + ndim * sizeof(dim_desc)) ;
+  if(a != NULL){
+    *a = array_nd_null ;
+    a->rank = ndim ;
+    a->ndim = ndim ;
+  }
+  return a ;
 }
 
 // allocate both array descriptor and space to accomodate array data
@@ -137,7 +155,7 @@ array_nd *create_array_nd(uint32_t flags, int32_t esize, int8_t type, int32_t ra
     return NULL ;
   }
 
-  for(i = 0 ; i < rank ; i++){  // compute number of elements in array
+  for(i = 0 ; i < rank ; i++){                      // compute number of elements in array
     nelem = nelem * ( (dm5.i32[i] <= 0) ? 1 : dm5.i32[i] ) ;
   }
   sizem = nelem * esize ;
@@ -146,18 +164,19 @@ array_nd *create_array_nd(uint32_t flags, int32_t esize, int8_t type, int32_t ra
     if(r == NULL) return NULL ;                     // malloc failed
     data = (uint8_t *)r ;                           // start of array_nd struct
     data += sizea ;                                 // address following dimensional descriptors
-    local_flags |= DATA_IS_INTERNAL ;               // flag struct as being malloc(ed)
+    local_flags |= DATA_IS_INTERNAL ;               // flag whole struct + data as being malloc(ed) in one piece
   }else{                                            // 2 calls to malloc, 1 for struct, 1 for data
-    r    = (array_nd *) malloc(sizea) ;             // allocate descriptor struct
+    r = alloc_array_nd(rank) ;                      // allocate descriptor struct
     if(r == NULL) return NULL ;                     // malloc failed
     data = (uint8_t *)malloc(sizem) ;               // allocate data
     if(data == NULL){                               // malloc failed
       free(r) ;                                     // free previously allocated struct
       return NULL ;
     }
-    local_flags |= DATA_MAY_REALLOC ;                  // data may be reallocated if need be
+    local_flags |= DATA_MAY_REALLOC ;               // data may be reallocated if need be
   }
-  local_flags |= STRUCT_CAN_FREE ;
+  local_flags |= STRUCT_CAN_FREE ;                  // the array descriptor pointer can be freed
+  r->ndim = rank ;
 
 // fprintf(stderr, "make_array_nd DEBUG, r = %p, data = %p, overhead = %ld, nelem = %d, esize = %ld\n", r, data, (uint8_t *)data-(uint8_t *)r, nelem, sizem/nelem) ;
   new_array_nd(r, data, esize, type, rank, ndm5, dm5) ;    // fill array descriptor information
@@ -172,47 +191,55 @@ array_nd *create_array_nd(uint32_t flags, int32_t esize, int8_t type, int32_t ra
 // esize   [IN] : size of array elements in bytes
 // type    [IN] : data type, see type in rmn/data_kind.h
 // rank    [IN] : number of dimensions (0 < rank <= 5)
-// ndm5    [IN] : dimension of dm5 (must match rank)
+// ndm5    [IN] : dimension of dm5 (must match rank if not resizing)
 // dm5[]   [IN] : dimensions
-// TODO : if mem == a->data, implement a dimension reshape operation
-void new_array_nd(array_nd *a, void *mem, int32_t esize, int8_t type, int32_t rank, int32_t ndm5, __i32__5__ dm5){
-  int32_t i, nelem = 1, reshape = 0 ;
+// if mem == a->data, a dimension reshape operation will be performed
+// return pointer to array descriptor if O.K., NULL in case of error
+array_nd *new_array_nd(array_nd *a, void *mem, int32_t esize, int8_t type, int32_t rank, int32_t ndm5, __i32__5__ dm5){
+  int32_t i, nelem = 1, reshape ;
 
-  if(valid_array(a) ){                                    // a is a valid array
-    reshape = (a->data == mem) ;                          // reshape conditions are met
-//     if(reshape) exit(1) ;                                 // reshape is not implemented yet
-  }
-  if(! reshape) *a = (array_nd) array_nd_invalid ;        // precondition to fail
   if(rank != ndm5){
     fprintf(stderr, "new_array_nd ERROR: %d dimensions, %d size arguments\n", rank, ndm5) ;
-    return ;
+    return  NULL ;
+  }
+  if(a == NULL){
+    a  = alloc_array_nd(rank) ;                           // allocate array descriptor
+    if(a == NULL) return NULL ;                           // failed to allocate
+    *a = (array_nd) array_nd_invalid ;                    // initialize to invalid values (n0 reshape possible)
   }
 
-  for(i = 0 ; i < rank ; i++){  // compute number of elements in array
+  reshape = 0 ;
+  if(valid_array(a) ){                                    // a MUST be a valid array for reshaping
+    reshape = (a->data == mem) ;                          // reshape conditions are met
+  }
+  for(i = 0 ; i < rank ; i++){                            // compute number of elements in array
     nelem = nelem * ( (dm5.i32[i] <= 0) ? 1 : dm5.i32[i] ) ;
   }
   ssize_t size = esize ;
-  size *= nelem ;                    // data array size in bytes
+  size *= nelem ;                                         // data array size in bytes
 
-  if(reshape){
-// fprintf(stderr, "DEBUG new_array_nd : reshaping from size %ld to size %ld, %d dimensions\n", a->limit - a->data, size, a->rank) ;
-    if(size > (a->limit - a->data)){ // OOPS, not enough space
-      a->signature = 0 ;             // remove signature, leave the rest intact
-      return ;
+  if( ! reshape ){
+    *a = (array_nd) array_nd_invalid ;                    // precondition to fail, invalidate metadata
+    a->ndim = rank ;                                      // set max number of dimensions
+  }else{
+    if(rank > a->ndim) return NULL ;                      // cannot reshape, rank > available dimensions
+// fprintf(stderr, "DEBUG new_array_nd : trying to reshape from size %ld to size %ld, %d dimensions\n", a->limit - a->data, size, a->rank) ;
+    if(size > (a->limit - a->data)){                      // OOPS, not enough space
+      a->signature = 0 ;                                  // remove signature, leave the rest intact
+      return  NULL ;
     }
   }
 
-  a->flags     = 0 ;
   if(mem == NULL){
     mem = malloc(size) ;             // allocate data
-    if(mem == NULL) return ;         // error allocating memory for data array
+    if(mem == NULL) return  NULL ;   // error allocating memory for data array
     a->flags |= DATA_MAY_REALLOC ;   // data may be reallocated if need be
   }
 
-  a->signature = NO_DATA ;
-  a->type      = type ;
-  a->esize     = esize ;
-  a->rank      = rank ;
+  a->signature = NO_DATA ;           // there is no valid data in valid array
+  a->type      = type ;              // (re)set type
+  a->esize     = esize ;             // (re)set esize
+  a->rank      = rank ;              // (re)set rank
   for(i = 0 ; i < rank ; i++){
     int32_t n = (dm5.i32[i] <= 0) ? 1 : dm5.i32[i] ;
     a->dim[i].snn = n ;      // initial storage dimension
@@ -223,13 +250,9 @@ void new_array_nd(array_nd *a, void *mem, int32_t esize, int8_t type, int32_t ra
   }
   a->data = mem ;
   // if it was a reshape operation, leave limit as it was
-  if( ! reshape ) a->limit = (mem != NULL) ? a->data + size : a->data ;
-//   a->limit = a->data ;
-//   if(mem != NULL) a->limit = a->data + size ;
-// fprintf(stderr, "%d dimensional array, size = %ld [", a->rank, size/esize) ;
-// fprintf(stderr,"%d", a->dim[0].gnn) ;
-// for(i=1 ; i<a->rank ; i++) fprintf(stderr,",%d", a->dim[i].gnn) ;
-// fprintf(stderr,"]\n");
+  if( ! reshape ) a->limit = a->data + size ;
+
+  return a ;
 }
 
 // fill array with value
@@ -263,7 +286,7 @@ size_t fix_array_nd(array_nd *a){
   ssize_t sz = 1 ;
 
   a->signature = NO_DATA ;
-  a->flags     = 0 ;
+  a->flags     = 0 ;                      // reset flags
   for(i = 0 ; i < rank ; i++){            // number of elements in array
     if(a->dim[i].gnn <= 0) goto fail ;
     sz *= a->dim[i].gnn ;
@@ -273,7 +296,8 @@ size_t fix_array_nd(array_nd *a){
     a->data = malloc(a->esize * sz) ;
     if(a->data == NULL) goto fail ;
     a->limit = a->data + sz ;
-fprintf(stderr, "fix_array_nd : allocated %ld bytes, %ld elements, type = %d\n", sz, sz / a->esize, a->type) ;
+    a->flags |= DATA_MAY_REALLOC ;
+// fprintf(stderr, "fix_array_nd : allocated %ld bytes, %ld elements, type = %d, flags = %d\n", sz, sz / a->esize, a->type, a->flags) ;
   }
   if(sz > a->limit - a->data) goto fail ; // OOPS, not enough available space to accomodate dimensions
   for(i = 0 ; i < rank ; i++){            // set local indexes to global values

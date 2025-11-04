@@ -29,6 +29,12 @@ void print_dims(void *a_, char *msg){
   fprintf(stderr, "%s%s", valid_array(a) ? "]" : ">", msg) ;
 }
 
+void print_meta(void *a_, char *msg){
+  array_nd *a = (array_nd *) a_ ;
+  fprintf(stderr, "ndim = %d, rank = %d, flags = %d, type = %d, esize = %d, s = %8.8x",a->ndim, a->rank, a->flags, a->type, a->esize, a->signature) ;
+  fprintf(stderr, "%s", msg) ;
+}
+
 void print_flags(char *msg, void *a){
   array_nd *ap = (array_nd *) a ;
   uint8_t flags = ap->flags ;
@@ -50,7 +56,7 @@ void array_lbounds_check(int low, int high){
   array_5d a5 = array_5d_null, *ap5 ;
   array_nd *apn ;
   char *errmsg = "" ;
-  int32_t scrap[1024*1024] ;
+  int32_t scrap[1024*1024], status ;
 
   // make new arrays using caller supplied storage, set bounds
   new_array(&a1, NULL, sizeof(int32_t), int_data, 8) ;
@@ -87,10 +93,12 @@ void array_lbounds_check(int low, int high){
 
   errmsg = "reshaped array is valid and should not be" ;
   reshape_array(&a5, sizeof(int32_t), int_data, 9, 7, 6, 5, 4) ;    // reshape is deliberately oversized
+  status = valid_array(&a5) ; 
 //   new_array(&a5, array_address(&a5), sizeof(int32_t), int_data, 9, 7, 6, 5, 4) ;
-  fprintf(stderr, "after reshape 2, signature = %8.8x(%s), ", array_signature(&a5), valid_array(&a5) ? "valid   " : "invalid " ) ;
+  fprintf(stderr, "after reshape 2, signature = %8.8x(%s), ", array_signature(&a5), status ? "valid   " : "invalid " ) ;
   print_dims(&a5, "\n") ;
-  if(valid_array(&a5)) goto fail ;
+print_meta(&a5, " |metadata|\n") ;
+  if(status) goto fail ;
 
   errmsg = "reshaped array is not valid" ;
   reshape_array(&a5, sizeof(int32_t), int_data, 7, 6, 5, 4, 3) ;
