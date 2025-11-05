@@ -94,7 +94,7 @@ array_nd *create_subarray(array_nd *a, array_nd *b){
   int i ;
   ssize_t size = 1 ;
   for(i = 0 ; i < a->rank ; i++){
-    b->dim[i].snn     = a->dim[i].lnn ;      // initial storage dimension
+//     b->dim[i].snn     = a->dim[i].lnn ;      // initial storage dimension
     b->dim[i].gnn     = a->dim[i].lnn ;
     b->dim[i].lnn     = b->dim[i].gnn ;
     b->dim[i].ln0     = 0 ;
@@ -242,7 +242,7 @@ array_nd *new_array_nd(array_nd *a, void *mem, int32_t esize, int8_t type, int32
   a->rank      = rank ;              // (re)set rank
   for(i = 0 ; i < rank ; i++){
     int32_t n = (dm5.i32[i] <= 0) ? 1 : dm5.i32[i] ;
-    a->dim[i].snn = n ;      // initial storage dimension
+//     a->dim[i].snn = n ;      // initial storage dimension
     a->dim[i].gnn = n ;      // number of elements stored along this dimension
     a->dim[i].gn0 = 0 ;      // default lower bound for indexing
     a->dim[i].lnn = n ;      // number of elements used along this dimension

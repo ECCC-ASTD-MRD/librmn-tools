@@ -31,17 +31,18 @@
 // subarray dimension index range : ln0 -> ln0 + lnn - 1  ( lnn elements)
 // ln0 >= gn0 , ln0 + lnn - 1 <= gn0 + gnn - 1
 typedef struct{
-  int32_t  snn ;          // initial allocated dimension (at creation time)
+//   int32_t  snn ;          // initial allocated dimension (at creation time)
   int32_t  gnn ;          // number of elements stored along dimension
   int32_t  gn0 ;          // global index of first point along dimension (usually 0 or 1)
   int32_t  lnn ;          // number of elements used along dimension (sub array)
   int32_t  ln0 ;          // index of first point along dimension (usually 0 or 1)
 } dim_desc ;              // ln0 == gn0 , lnn == gnn : all elements along this dimension are used
 
-#define DIM_ZERO (dim_desc) {.gnn=0, .gn0 = 0, .ln0=0, .lnn=0 }
+// zero dimension
+#define DIM_ZERO (dim_desc) {.gnn=0, .gn0 = 0, .lnn=0, .ln0=0 }
 // recent compilers seem not to care, some older compilers seem to need the define way
-#if defined(__PGI)
-// PGI compilers seem to need the define way
+#if defined(__PGI__OLD_COMPILER)
+// older PGI compilers seemed to want it the define way
 #define dim_zero DIM_ZERO
 #else
 // this is not a constant value according to some compilers
