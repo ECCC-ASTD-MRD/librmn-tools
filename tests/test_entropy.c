@@ -60,7 +60,7 @@ int main(int argc, char **argv){
   for(i=0 ; i < NPTS ; i++) {
     np = UpdateEntropyTable(etab, data, NPTS - i) ;
 //     np = UpdateEntropyTable(etab, data, NPTS) ;
-//     fprintf(stderr, "np = %d, expecting %d\n", np, NPTS - i) ;
+    if(np == 123456789) fprintf(stderr, "np = %d, expecting %d\n", np, NPTS - i) ;
   }
 
   entropy = ComputeEntropy(etab) ;

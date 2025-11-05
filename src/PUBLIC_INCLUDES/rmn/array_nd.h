@@ -151,9 +151,15 @@ typedef struct{          // specific struct for 5D array
   uint32_t w32[] ;       // usable only if created with create_array
 } array_5d ;
 
-// blank array descriptors (invalid type, element size = 0, no data)
+// invalid array descriptors (no dimmension initialization)
 static const array_nd array_nd_invalid = {.data=NULL, .limit=NULL, .signature=0, .esize=0, .type=0, .flags=0, .rank=0, .ndim=0 } ;
+static const array_1d array_1d_invalid = {.data=NULL, .limit=NULL, .signature=0, .esize=0, .type=0, .flags=0, .rank=0, .ndim=1 } ;
+static const array_2d array_2d_invalid = {.data=NULL, .limit=NULL, .signature=0, .esize=0, .type=0, .flags=0, .rank=0, .ndim=2 } ;
+static const array_3d array_3d_invalid = {.data=NULL, .limit=NULL, .signature=0, .esize=0, .type=0, .flags=0, .rank=0, .ndim=3 } ;
+static const array_4d array_4d_invalid = {.data=NULL, .limit=NULL, .signature=0, .esize=0, .type=0, .flags=0, .rank=0, .ndim=4 } ;
+static const array_5d array_5d_invalid = {.data=NULL, .limit=NULL, .signature=0, .esize=0, .type=0, .flags=0, .rank=0, .ndim=5 } ;
 
+// blank array descriptors (almost valid, but with NULL data start and limit pointers and 0 element size)
 static const array_nd array_nd_null = {.data=NULL, .limit=NULL, .esize=0, .signature=NO_DATA, .type=any_data, .rank=0, .ndim=0, .flags=0 } ;
 static const array_1d array_1d_null = {.data=NULL, .limit=NULL, .esize=0, .signature=NO_DATA, .type=any_data, .rank=1, .ndim=1, .flags=0,
                                        .dim = {DIM_NULL} } ;
@@ -212,22 +218,18 @@ typedef struct{   // struct containing up to 5 pairs of integers (array)
   int32_t i32[10] ;
 }__i32__5x2__ ;
 
-#define ARRAY_SYNTAX_RANK(ARRAY) \
+// true allocation rank of array
+#define ARRAY_ALLOC_RANK(ARRAY) \
   _Generic((ARRAY), \
-    array_nd  : 0, \
+    array_nd  : (ARRAY).ndim, \
     array_5d  : 5, \
     array_4d  : 4, \
     array_3d  : 3, \
     array_2d  : 2, \
-    array_1d  : 1, \
-    array_nd *: 0, \
-    array_5d *: 5, \
-    array_4d *: 4, \
-    array_3d *: 3, \
-    array_2d *: 2, \
-    array_1d *: 1  \
+    array_1d  : 1  \
   )
 
+// effective rank of array ( <= ARRAY_ALLOC_RANK(ARRAY) )
 #define ARRAY_RANK(ARRAY) \
   _Generic((ARRAY), \
     array_nd  : (ARRAY).rank,  \
@@ -238,6 +240,7 @@ typedef struct{   // struct containing up to 5 pairs of integers (array)
     array_1d  : (ARRAY).rank   \
   )
 
+// bottom of array in memory
 #define ARRAY_DATA(ARRAY) \
   _Generic((ARRAY), \
     array_nd  : (ARRAY).data,  \
@@ -246,6 +249,17 @@ typedef struct{   // struct containing up to 5 pairs of integers (array)
     array_3d  : (ARRAY).data,  \
     array_2d  : (ARRAY).data,  \
     array_1d  : (ARRAY).data   \
+  )
+
+// top of array in memory + 1
+#define ARRAY_LIMIT(ARRAY) \
+  _Generic((ARRAY), \
+    array_nd  : (ARRAY).limit,  \
+    array_5d  : (ARRAY).limit,  \
+    array_4d  : (ARRAY).limit,  \
+    array_3d  : (ARRAY).limit,  \
+    array_2d  : (ARRAY).limit,  \
+    array_1d  : (ARRAY).limit   \
   )
 
 #define reshape_array(ARRAY, ...) new_array((ARRAY), (ARRAY)->data, __VA_ARGS__)

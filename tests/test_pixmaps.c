@@ -115,7 +115,7 @@ void pixmap_restore_be_02(uint32_t *dst, int n, rmn_pixmap *s){
 
 // 3 or 4 bits per element, packing done 8 values at a time to vectorize
 void pixmap_be_34(uint32_t *src, int nbits, int n, rmn_pixmap *s){
-  uint32_t t, r1, r2, r3, r4, n7 = n & 0x7 ;
+  uint32_t r1, r2, r3, r4, n7 = n & 0x7 ;
   int32_t i, i0 ;
   int32_t sh[8] ;
   uint32_t mask = RMASK31(nbits) ;
@@ -199,7 +199,7 @@ void pixmap_restore_be_34(uint32_t *dst, int nbits, int n, rmn_pixmap *s){
 
 // 5 to 8 bits per element, packing done 4 values at a time to vectorize
 void pixmap_be_58(uint32_t *src, int nbits, int n, rmn_pixmap *s){
-  uint32_t t, r1, r2, r3, r4, n3 = n & 0x3 ;
+  uint32_t r1, r2, r3, r4, n3 = n & 0x3 ;
   int32_t i, i0 ;
   int32_t sh[4] ;
   uint32_t mask  = RMASK31(nbits) ;
@@ -518,4 +518,6 @@ int main(int argc, char **argv){
 
   TIME_LOOP_EZ(1000, NPTS, pixmap_be_34((uint32_t *)umulti, 4, NPTS, pixmap8)) ;
   fprintf(stderr, "pixmap_be_34(4)  : %s\n",timer_msg);
+
+  if(timer_max == 123456789) fprintf(stderr, "\n") ;
 }

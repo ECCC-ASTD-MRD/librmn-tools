@@ -276,12 +276,14 @@ process:
 //     o1d.type = int_data ;
 //     array_set_empty(&o1d) ;
 //     o1d.data = NULL ; o1d.type = any_data ; o1d.esize = 0 ;
+    o1d = array_2d_invalid ;
     o1d = array_2d_null ;
     fprintf(stderr, "rank of o1d : syntactic = %d/%d/%d, effective = %d, data at %p\n",
-                    ARRAY_SYNTAX_RANK(o1d), ARRAY_SYNTAX_RANK(o1d_p), o1d.ndim, ARRAY_RANK(o1d), ARRAY_DATA(o1d)) ;
+                    ARRAY_ALLOC_RANK(o1d), ARRAY_ALLOC_RANK(*o1d_p), o1d.ndim, ARRAY_RANK(o1d), ARRAY_DATA(o1d)) ;
     tot_status = dmap_filter_inv((array_nd *)&o1d, str000) ;              // inverse filter
-    fprintf(stderr, "rank of o1d : syntactic = %d/%d/%d, effective = %d, data at %p, flags = %d\n",
-                    ARRAY_SYNTAX_RANK(o1d), ARRAY_SYNTAX_RANK(o1d_p), o1d.ndim, ARRAY_RANK(*o1d_p), ARRAY_DATA(*o1d_p), o1d.flags) ;
+    fprintf(stderr, "rank of o1d : syntactic = %d/%d/%d, effective = %d, data at %p->%p, flags = %d\n",
+                    ARRAY_ALLOC_RANK( o1d ), ARRAY_ALLOC_RANK( *(array_nd *)o1d_p ), o1d.ndim,
+                    ARRAY_RANK( *o1d_p ), ARRAY_DATA( *o1d_p ), ARRAY_LIMIT( *o1d_p ), o1d.flags) ;
     errmsg = "inverse filter failed" ;
     if(tot_status < 0) goto fail ;
     errmsg = "encode/decode bit count mismatch" ;
