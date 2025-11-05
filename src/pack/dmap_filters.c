@@ -124,6 +124,7 @@ reverse:
 #undef FILTER_ID
 
 #endif      // COMPILE_FILTER_TEMPLATE_NEVER_TRUE
+// ================================= end of filter template =================================
 
 #include <stdlib.h>
 #include <rmn/dmap_filters.h>
@@ -151,6 +152,9 @@ int dmap_debug_mode(int mode){
 
 // used to process undefined filters, does not interrupt filter chain
 // behaves like a null filter, MUST NEVER be called as an inverse filter
+// if strict_mode is active, return ERROR
+// a, bp, stream : passthrough filter arguments
+// dpfl  [IN] : filter list
 static ssize_t dmap_filter_none(array_nd *a, block_properties *bp, dmap_filter_list dpfl, bitstream *stream){
   (void) (a) ;
   (void) (bp) ;
@@ -165,6 +169,9 @@ static ssize_t dmap_filter_none(array_nd *a, block_properties *bp, dmap_filter_l
 
 // used to process invalid filters, does not interrupt filter chain
 // behaves like a null filter, MUST NEVER be called as an inverse filter
+// if strict_mode is active,return  ERROR
+// a, bp, stream : passthrough filter arguments
+// dpfl  [IN] : filter list
 static ssize_t dmap_filter_bad(array_nd *a, block_properties *bp, dmap_filter_list dpfl, bitstream *stream){
   (void) (a) ;
   (void) (bp) ;
@@ -177,8 +184,9 @@ static ssize_t dmap_filter_bad(array_nd *a, block_properties *bp, dmap_filter_li
   return 0 ;
 }
 
-// this filter terminates the filter chain
-// insert FILTER_CHAIN_END marker into bit stream
+// this null filter terminates the filter chain (place holder)
+// the FILTER_CHAIN_END marker will be inserted into the bit stream by dmap_filter_fwd (head of chain)
+// a, bp, dpfl, stream : unused arguments, for compatibility with all other dmap filter arguments
 static ssize_t dmap_filter_last(array_nd *a, block_properties *bp, dmap_filter_list dpfl, bitstream *stream){
   (void) (a) ;
   (void) (bp) ;
@@ -189,21 +197,21 @@ static ssize_t dmap_filter_last(array_nd *a, block_properties *bp, dmap_filter_l
 }
 
 typedef struct{
-  dmap_filter_ptr ptr ;
-  char *name ;
+  dmap_filter_ptr ptr ;    // pointer to dmap filter function
+  char *name ;             // function description
 } filter_properties ;
 
 // table of filter addresses and names
 // 3 extra entries at end, for internal dummy filters
 static filter_properties filters[MAX_DP_FILTERS+3] = {
   { dmap_filter_fwd,  "array dimensions and type"  } ,   // filter 000 is a special filter, always present, hidden
-  { dmap_filter_001,  "integer scale + offset"     } ,   // test filter for now
-  { dmap_filter_002,  "filter_002"                 } ,
+  { dmap_filter_001,  "int/fp offset and scale"    } ,   // test filter for now
+  { dmap_filter_002,  "float pseudo log quantizer" } ,
   { dmap_filter_003,  "float quantizer"            } ,
   { dmap_filter_004,  "integer Lorenzo predictor"  } ,
   { dmap_filter_005,  "integer wavelet transform"  } ,
   { dmap_filter_006,  "bit stream encoder"         } ,
-  { dmap_filter_007,  "float scale + offset"       } ,
+  { dmap_filter_007,  "compound filter"            } ,
   { dmap_filter_010,  "filter_010"                 } ,
   { dmap_filter_011,  "filter_011"                 } ,
   { dmap_filter_012,  "filter_012"                 } ,
@@ -245,7 +253,8 @@ int dmap_filter_valid(dmap_filter_list dpfl, uint32_t id){
   return 1 ;
 }
 
-// is this filter the last one in list
+// is this filter the last one in list ?
+// dpfl [IN] : filter list
 int dmap_filter_is_last(dmap_filter_list dpfl){
   if(dpfl == NULL) return 0 ;
   return (dpfl[1] == NULL) ;    // true if next list entry is NULL (no next filter)
@@ -276,18 +285,25 @@ dmap_filter_ptr dmap_filter_get(int ordinal){
   return filters[ordinal].ptr ;
 }
 
+// insert a filter address into the filter table at position ordinal
+// filter  [IN] : address of dmap filter function
+// ordinal [IN] : desired position in table
+// force   [IN] : if force != 0, override table entry if it was non NULL
+//                if force == 0, return error if table entry was non NULL
+// return ordinal if O.K., negative error code in case of error
 int dmap_filter_set(dmap_filter_ptr filter, int ordinal, int force){
   if(ordinal < 0 || ordinal >= MAX_DP_FILTERS) return -1 ;  // invalid filter ordinal
   if(filters[ordinal].ptr == NULL){                  // filter not already defined
     filters[ordinal].ptr = filter ;                  // set to filter
   }else{
-    if(force == 0) return -2 ;                              // filter already defined
+    if(force == 0) return -2 ;                       // filter already defined
     filters[ordinal].ptr = filter ;                  // override previous filter
   }
   return ordinal ;
 }
 
 // return address of next filter in list
+// dpfl [IN] : filter list
 dmap_filter_ptr dmap_filter_next(dmap_filter_list dpfl){
   if(*dpfl == NULL){
     return dmap_filter_last ;   // end of filter chain
@@ -297,24 +313,27 @@ dmap_filter_ptr dmap_filter_next(dmap_filter_list dpfl){
 }
 
 // call next inverse dmap filter
+// a      [INOUT] : pointer to array descriptor
+// stream [INOUT] : pointer to bit stream
+// return number of bits extracted from stream
 ssize_t dmap_filter_inv(array_nd *a, bitstream *stream){
   uint32_t id ;
   ssize_t status ;
-  STREAM_PEEK_NBITS(*stream, id, 8) ;
-// fprintf(stderr, "inv_next (1) : next reverse filter id = %3.3o\n", id) ;
-  if(id == FILTER_CHAIN_END){
-    STREAM_GET_NBITS(*stream, id, 8) ;
-    status = 8 ;
-// fprintf(stderr, "inv_next (2) : calling reverse filter id = %3.3o, status = %ld\n", id, status) ;
-    return status ;                                          // last filter, 8 bits processed
+
+  STREAM_PEEK_NBITS(*stream, id, 8) ;                   // sniff next filter ID
+  if(id == FILTER_CHAIN_END){                           // end of filter chain
+    STREAM_GET_NBITS(*stream, id, 8) ;                  // get bits from stream
+    status = 8 ;                                        // last filter, 8 bits processed
+  }else{
+    if(id >= MAX_DP_FILTERS) goto fail ;                // ERROR, invalid filter ID
+    dmap_filter_ptr filter = filters[id].ptr ;          // get filter address for this ID
+    if(filter == NULL) goto fail ;                      // ERROR, filter is not defined
+    status = (*filter)(a, NULL, NULL, stream) ;         // call selected inverse filter
   }
-  if(id >= MAX_DP_FILTERS) return -1 ;                  // ERROR, invalid filter id
-  dmap_filter_ptr filter = filters[id].ptr ;            // get filter address
-  if(filter == NULL) return -1 ;                        // ERROR, filter is not defined
-// fprintf(stderr, "inv_next (3) : calling reverse filter id = %3.3o\n", id) ;
-  status = (*filter)(a, NULL, NULL, stream) ;           // call selected inverse filter
-// fprintf(stderr, "inv_next (3) : id= %3.3o,  status = %ld\n", id, status) ;
   return status ;
+
+fail:
+  return -1 ;
 }
 
 // get array dimension and type information from bit stream

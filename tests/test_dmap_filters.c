@@ -245,7 +245,7 @@ process:
   char *test_nam2[3] = { "RAW-32", "ZIGZAG", "BHW   " } ;
   for(test_no = 0 ; test_no < 3 ; test_no++){
     fprintf(stderr, "============================== 1D integer encode test %d start ==============================\n", test_no) ;
-    array_2d o1d ;
+    array_2d o1d = array_2d_invalid ;
     array_2d *o1d_p = &o1d ;
     STREAM_INIT(str000, NULL, 0, 0) ;               // full RW stream reset (keep buffer, size, and mode)
     dmap_encode_arg  arg_006 ;
@@ -272,12 +272,10 @@ process:
     STREAM_REWIND(*str000, 1) ;
     fprintf(stderr, "filter test : available space in str000 %ld bits, available bits = %ld bits\n", StreamAvailableSpace(str000), StreamAvailableBits(str000)) ;
 
-    set_array_value(&o1d, 0x0F, ARRAY_BYTES) ;                            // set output to nonsense
-//     o1d.type = int_data ;
-//     array_set_empty(&o1d) ;
-//     o1d.data = NULL ; o1d.type = any_data ; o1d.esize = 0 ;
-    o1d = array_2d_invalid ;
     o1d = array_2d_null ;
+    errmsg = "set_array_value returned a non 0 value" ;
+    if(set_array_value(&o1d, 0x0F, ARRAY_BYTES) != 0) goto fail ;
+    array_set_empty(&o1d) ;
     fprintf(stderr, "rank of o1d : syntactic = %d/%d/%d, effective = %d, data at %p\n",
                     ARRAY_ALLOC_RANK(o1d), ARRAY_ALLOC_RANK(*o1d_p), o1d.ndim, ARRAY_RANK(o1d), ARRAY_DATA(o1d)) ;
     tot_status = dmap_filter_inv((array_nd *)&o1d, str000) ;              // inverse filter

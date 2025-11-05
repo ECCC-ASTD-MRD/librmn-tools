@@ -35,36 +35,33 @@
 // TODO: allocate memory for the target array if necessary
 // this filter will be the first to be called in reverse mode (get/check rank and dimensions)
 ssize_t dmap_filter_fwd(array_nd *a, block_properties *bp, dmap_filter_list dpfl, bitstream *stream){
-  uint32_t self = FILTER_ID ;
+  uint32_t self = FILTER_ID, filter ;
   if(a == NULL || stream == NULL) goto fail ;    // no array or no stream
   void *array = array_address(a) ;               // get array address, dimension(s), and type
-//   int rank = a->rank, type = a->type ;
   ssize_t status = 0 ;
   bitstream s = *stream ;                        // local copy of stream control structure
-//   block_properties lbp ;
-// 
-//   if(bp == NULL) { bp = &lbp ; lbp.kind = bad_data ; }
+  int32_t nbits ;
+
   if(dpfl == NULL) goto reverse ;                // call to reverse filter
 
-  // put array information at the start of the bit stream
-  int32_t nbits ;
-  nbits = 8 ;
-  STREAM_PUT_NBITS(s, self,      8) ;              // dummy filter id
+  STREAM_PUT_NBITS(s, self, 8) ; nbits = 8 ;     // insert own filter id into stream
+  // insert array description information into the bit stream
   nbits += dmap_filter_put_array_info(a, &s) ;
 //   fprintf(stderr, "dmap_filter_fwd(HEAD) : inserted %d bits\n", nbits) ;
 
   // call next filter in list
+  // DO NOT USE dpfl++, dmap_filter_fwd is a filter implicitely in the list
   dmap_filter_ptr next_filter = dmap_filter_next(dpfl) ;
   status = (*next_filter)(a, bp, dpfl, &s) ;
   if(status < 0) goto fail ;
 //   fprintf(stderr, "dmap_filter_fwd(MID) : nbits in stream = %ld\n", nbits+status) ;
 
-// end:
-  // put end of filter chain data marker at the end of the bit stream
+  // insert the FILTER_CHAIN_END marker into the bit stream
   STREAM_PUT_NBITS(s, FILTER_CHAIN_END, 8) ;
   nbits += 8 ;
-  STREAM_INSERT_ALIGN32(s) ;        // align to a 32 bit boundary
+  STREAM_INSERT_ALIGN32(s) ;        // align stream to a 32 bit boundary
   STREAM_FLUSH(s) ;                 // flush stream data
+
   *stream = s ;   // SAVE stream changes
   status += nbits ;
 //   fprintf(stderr, "dmap_filter_fwd(TAIL) : inserted %d bits, bits in stream = %ld\n", nbits, status) ;
@@ -73,25 +70,19 @@ ssize_t dmap_filter_fwd(array_nd *a, block_properties *bp, dmap_filter_list dpfl
 fail:
   return -1 ;     // DO NOT SAVE stream changes
 
-  uint32_t filter ;
 reverse:
-  STREAM_GET_NBITS(s, filter, 8) ;
+  STREAM_GET_NBITS(s, self, 8) ;
   status = 8 ;
-//   fprintf(stderr, "in reverse filter %3.3o, id = %d\n", FILTER_ID, filter) ;
-  if(filter != FILTER_ID) goto fail ;                     // wrong id, MUST be FILTER_ID (0)
+//   fprintf(stderr, "in reverse filter %3.3o, id = %d\n", FILTER_ID, self) ;
+  if(self != FILTER_ID) goto fail ;                     // wrong id, MUST be FILTER_ID (0)
 
-  // get array dimensions and type from stream (check that it matches a)
+  // get array description from stream
   int32_t temp = dmap_filter_get_array_info(a, &s, 1) ;
   if(temp < 0) goto fail ;
   status += temp ;
-  array_set_empty(a) ;                                    // mark array as having no valid data
-//   fprintf(stderr, "filter_head(OUT), type = %s, rank = %d, [", printable_type[type], rank) ;
-//   for(i=0 ; i<rank ; i++){ fprintf(stderr, " %d", a->dim[i].gnn) ; }
-//   fprintf(stderr, "]\n");
-// STREAM_XTRACT_CHECK(s) ;
-// STREAM_PEEK_NBITS(s, filter, 8) ;
-// fprintf(stderr, "FIRST filter will be %3.3o\n", filter) ;
-  ssize_t status2 = dmap_filter_inv(a, &s) ;     // call next inverse filter
+  array_set_empty(a) ;                                  // mark array as having no valid data
+
+  ssize_t status2 = dmap_filter_inv(a, &s) ;            // call next inverse filter
   if(status2 < 0) goto fail ; else status += status2 ;
   *stream = s ;   // SAVE stream changes
   return status ;
@@ -99,7 +90,7 @@ reverse:
 #undef FILTER_ID
 
 // ======================================= filter 001 =======================================
-// integer/float offset and scale.
+// integer/float offset and scale
 #define FILTER_ID 001
 #define FILTER_NAME CAT(dmap_filter_,FILTER_ID)
 #define FILTER_ARGS CAT(dmap_filter_arg_,FILTER_ID)
