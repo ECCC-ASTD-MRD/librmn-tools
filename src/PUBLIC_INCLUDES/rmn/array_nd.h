@@ -38,15 +38,15 @@ typedef struct{
   int32_t  ln0 ;          // index of first point along dimension (usually 0 or 1)
 } dim_desc ;              // ln0 == gn0 , lnn == gnn : all elements along this dimension are used
 
+#define DIM_ZERO (dim_desc) {.gnn=0, .gn0 = 0, .ln0=0, .lnn=0 }
 // recent compilers seem not to care, some older compilers seem to need the define way
 #if defined(__PGI)
 // PGI compilers seem to need the define way
-#define dim_null (dim_desc) {.gnn=0, .gn0 = 0, .ln0=0, .lnn=0 }
+#define dim_zero DIM_ZERO
 #else
 // this is not a constant value according to some compilers
-static const dim_desc  dim_null = (dim_desc) {.gnn=0, .gn0 = 0, .ln0=0, .lnn=0 } ;
+static const dim_desc  dim_zero = DIM_ZERO ;
 #endif
-#define DIM_NULL (dim_desc) {.gnn=0, .gn0 = 0, .ln0=0, .lnn=0 }
 
 // macro argument ARRAY must be a POINTER to an array_nd type structure (array_nd *)
 #define HAS_DATA 0xBEBEFADA
@@ -159,18 +159,18 @@ static const array_3d array_3d_invalid = {.data=NULL, .limit=NULL, .signature=0,
 static const array_4d array_4d_invalid = {.data=NULL, .limit=NULL, .signature=0, .esize=0, .type=0, .flags=0, .rank=0, .ndim=4 } ;
 static const array_5d array_5d_invalid = {.data=NULL, .limit=NULL, .signature=0, .esize=0, .type=0, .flags=0, .rank=0, .ndim=5 } ;
 
-// blank array descriptors (almost valid, but with NULL data start and limit pointers and 0 element size)
+// blank array descriptors (almost valid, but with NULL data start and limit pointers, 0 element size, all dimensions 0)
 static const array_nd array_nd_null = {.data=NULL, .limit=NULL, .esize=0, .signature=NO_DATA, .type=any_data, .rank=0, .ndim=0, .flags=0 } ;
 static const array_1d array_1d_null = {.data=NULL, .limit=NULL, .esize=0, .signature=NO_DATA, .type=any_data, .rank=1, .ndim=1, .flags=0,
-                                       .dim = {DIM_NULL} } ;
+                                       .dim = {DIM_ZERO} } ;
 static const array_2d array_2d_null = {.data=NULL, .limit=NULL, .esize=0, .signature=NO_DATA, .type=any_data, .rank=2, .ndim=2, .flags=0,
-                                       .dim = {DIM_NULL, DIM_NULL} } ;
+                                       .dim = {DIM_ZERO, DIM_ZERO} } ;
 static const array_3d array_3d_null = {.data=NULL, .limit=NULL, .esize=0, .signature=NO_DATA, .type=any_data, .rank=3, .ndim=3, .flags=0,
-                                       .dim = {DIM_NULL, DIM_NULL, DIM_NULL} } ;
+                                       .dim = {DIM_ZERO, DIM_ZERO, DIM_ZERO} } ;
 static const array_4d array_4d_null = {.data=NULL, .limit=NULL, .esize=0, .signature=NO_DATA, .type=any_data, .rank=4, .ndim=4, .flags=0,
-                                       .dim = {DIM_NULL, DIM_NULL, DIM_NULL, DIM_NULL} } ;
+                                       .dim = {DIM_ZERO, DIM_ZERO, DIM_ZERO, DIM_ZERO} } ;
 static const array_5d array_5d_null = {.data=NULL, .limit=NULL, .esize=0, .signature=NO_DATA, .type=any_data, .rank=5, .ndim=5, .flags=0,
-                                       .dim = {DIM_NULL, DIM_NULL, DIM_NULL, DIM_NULL, DIM_NULL} } ;
+                                       .dim = {DIM_ZERO, DIM_ZERO, DIM_ZERO, DIM_ZERO, DIM_ZERO} } ;
 
 #if 0
 // macro to help initialize a struct of type array_nd
