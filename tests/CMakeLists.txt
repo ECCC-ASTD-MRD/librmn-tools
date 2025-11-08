@@ -10,7 +10,7 @@ function(add_project_test name source)
   # LINK_LIBS : extra libraries needed
   # DL        : libdl needed
   # BSD       : libbsd needed
-  cmake_parse_arguments(PARSE_ARGV 0 "TN" "NOCTEST;NODIAG;STATIC;NO_TOOLS;DL;BSD" "" "MPI;LINK_LIBS")
+  cmake_parse_arguments(PARSE_ARGV 0 "TN" "NOCTEST;NODIAG;STATIC;NOTOOLS;NO_TOOLS;DL;BSD" "" "MPI;LINK_LIBS")
   # Use same name for target and executable file
   add_executable(${name} ${source})
   set(PROJECT_STATIC_TEST_LIBRARIES rmntoolsf rmntools)

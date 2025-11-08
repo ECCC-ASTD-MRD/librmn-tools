@@ -12,16 +12,17 @@
 // Lesser General Public License for more details .
 //
 // Author:
-//     M. Valin,   Recherche en Prevision Numerique, 2024
+//     M. Valin,   Recherche en Prevision Numerique, 2024-2025
 //
 
-#if ! defined(ARRAY_ND)
+#if ! defined(DIM_ZERO)
 
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
+// data types
 #include <rmn/data_kind.h>
 // extra cpp macros (VA_ARGS related)
 #include <rmn/cpp_extras.h>
@@ -29,9 +30,8 @@
 // dimensionality description along a dimension
 // global   dimension index space : gn0 -> gn0 + gnn - 1  ( gnn elements)
 // subarray dimension index range : ln0 -> ln0 + lnn - 1  ( lnn elements)
-// ln0 >= gn0 , ln0 + lnn - 1 <= gn0 + gnn - 1
+// constraints : ln0 >= gn0 , ln0 + lnn <= gn0 + gnn
 typedef struct{
-//   int32_t  snn ;          // initial allocated dimension (at creation time)
   int32_t  gnn ;          // number of elements stored along dimension
   int32_t  gn0 ;          // global index of first point along dimension (usually 0 or 1)
   int32_t  lnn ;          // number of elements used along dimension (sub array)
