@@ -244,11 +244,11 @@ array_nd *new_array_nd(array_nd *a, void *mem, int32_t esize, int8_t type, int32
 #define new_array(ARRAY_PTR, MEM, ESIZE, TYP, ...) \
   _Generic((ARRAY_PTR), \
     array_nd *: new_array_nd((array_nd *)ARRAY_PTR,MEM,ESIZE,TYP,VA_ARGS_NUM(__VA_ARGS__),VA_ARGS_NUM(__VA_ARGS__),(__i32__5__){{ __VA_ARGS__ }}), \
-    array_5d *: new_array_nd((array_nd *)ARRAY_PTR,MEM,ESIZE,TYP,5,VA_ARGS_NUM(__VA_ARGS__),(__i32__5__){{ __VA_ARGS__ }}), \
-    array_4d *: new_array_nd((array_nd *)ARRAY_PTR,MEM,ESIZE,TYP,4,VA_ARGS_NUM(__VA_ARGS__),(__i32__5__){{ __VA_ARGS__ }}), \
-    array_3d *: new_array_nd((array_nd *)ARRAY_PTR,MEM,ESIZE,TYP,3,VA_ARGS_NUM(__VA_ARGS__),(__i32__5__){{ __VA_ARGS__ }}), \
-    array_2d *: new_array_nd((array_nd *)ARRAY_PTR,MEM,ESIZE,TYP,2,VA_ARGS_NUM(__VA_ARGS__),(__i32__5__){{ __VA_ARGS__ }}), \
-    array_1d *: new_array_nd((array_nd *)ARRAY_PTR,MEM,ESIZE,TYP,1,VA_ARGS_NUM(__VA_ARGS__),(__i32__5__){{ __VA_ARGS__ }})  \
+    array_5d *: new_array_nd((array_nd *)ARRAY_PTR,MEM,ESIZE,TYP,                       5,VA_ARGS_NUM(__VA_ARGS__),(__i32__5__){{ __VA_ARGS__ }}), \
+    array_4d *: new_array_nd((array_nd *)ARRAY_PTR,MEM,ESIZE,TYP,                       4,VA_ARGS_NUM(__VA_ARGS__),(__i32__5__){{ __VA_ARGS__ }}), \
+    array_3d *: new_array_nd((array_nd *)ARRAY_PTR,MEM,ESIZE,TYP,                       3,VA_ARGS_NUM(__VA_ARGS__),(__i32__5__){{ __VA_ARGS__ }}), \
+    array_2d *: new_array_nd((array_nd *)ARRAY_PTR,MEM,ESIZE,TYP,                       2,VA_ARGS_NUM(__VA_ARGS__),(__i32__5__){{ __VA_ARGS__ }}), \
+    array_1d *: new_array_nd((array_nd *)ARRAY_PTR,MEM,ESIZE,TYP,                       1,VA_ARGS_NUM(__VA_ARGS__),(__i32__5__){{ __VA_ARGS__ }})  \
   )
 
 // create a pointer to a n dimensional null array
@@ -263,11 +263,11 @@ array_nd *create_array_nd(uint32_t flags, int32_t esize, int8_t type, int32_t ra
 #define create_array(ARRAY_PTR, FLAGS, ESIZE, TYP, ...) \
   ARRAY_PTR = _Generic((ARRAY_PTR), \
     array_nd *: (array_nd *) create_array_nd(FLAGS,ESIZE,TYP,VA_ARGS_NUM(__VA_ARGS__),VA_ARGS_NUM(__VA_ARGS__),(__i32__5__){{ __VA_ARGS__ }}), \
-    array_5d *: (array_5d *) create_array_nd(FLAGS,ESIZE,TYP,5,VA_ARGS_NUM(__VA_ARGS__),(__i32__5__){{ __VA_ARGS__ }}), \
-    array_4d *: (array_4d *) create_array_nd(FLAGS,ESIZE,TYP,4,VA_ARGS_NUM(__VA_ARGS__),(__i32__5__){{ __VA_ARGS__ }}), \
-    array_3d *: (array_3d *) create_array_nd(FLAGS,ESIZE,TYP,3,VA_ARGS_NUM(__VA_ARGS__),(__i32__5__){{ __VA_ARGS__ }}), \
-    array_2d *: (array_2d *) create_array_nd(FLAGS,ESIZE,TYP,2,VA_ARGS_NUM(__VA_ARGS__),(__i32__5__){{ __VA_ARGS__ }}), \
-    array_1d *: (array_1d *) create_array_nd(FLAGS,ESIZE,TYP,1,VA_ARGS_NUM(__VA_ARGS__),(__i32__5__){{ __VA_ARGS__ }})  \
+    array_5d *: (array_5d *) create_array_nd(FLAGS,ESIZE,TYP,                       5,VA_ARGS_NUM(__VA_ARGS__),(__i32__5__){{ __VA_ARGS__ }}), \
+    array_4d *: (array_4d *) create_array_nd(FLAGS,ESIZE,TYP,                       4,VA_ARGS_NUM(__VA_ARGS__),(__i32__5__){{ __VA_ARGS__ }}), \
+    array_3d *: (array_3d *) create_array_nd(FLAGS,ESIZE,TYP,                       3,VA_ARGS_NUM(__VA_ARGS__),(__i32__5__){{ __VA_ARGS__ }}), \
+    array_2d *: (array_2d *) create_array_nd(FLAGS,ESIZE,TYP,                       2,VA_ARGS_NUM(__VA_ARGS__),(__i32__5__){{ __VA_ARGS__ }}), \
+    array_1d *: (array_1d *) create_array_nd(FLAGS,ESIZE,TYP,                       1,VA_ARGS_NUM(__VA_ARGS__),(__i32__5__){{ __VA_ARGS__ }})  \
   )
 
 // users should call the generic function array_gbounds rather than array_gbounds_nd
@@ -313,11 +313,11 @@ __i32__2__ subarray_lbounds_nd(array_nd *a, int32_t dim, int32_t ndims);
 #define subarray_lbounds(ARRAY_PTR, DIM) \
   _Generic((ARRAY_PTR), \
     array_nd *: subarray_lbounds_nd((array_nd *)ARRAY_PTR, DIM, (ARRAY_PTR)->rank), \
-    array_5d *: subarray_lbounds_nd((array_nd *)ARRAY_PTR, DIM, 5), \
-    array_4d *: subarray_lbounds_nd((array_nd *)ARRAY_PTR, DIM, 4), \
-    array_3d *: subarray_lbounds_nd((array_nd *)ARRAY_PTR, DIM, 3), \
-    array_2d *: subarray_lbounds_nd((array_nd *)ARRAY_PTR, DIM, 2), \
-    array_1d *: subarray_lbounds_nd((array_nd *)ARRAY_PTR, DIM, 1)  \
+    array_5d *: subarray_lbounds_nd((array_nd *)ARRAY_PTR, DIM,                 5), \
+    array_4d *: subarray_lbounds_nd((array_nd *)ARRAY_PTR, DIM,                 4), \
+    array_3d *: subarray_lbounds_nd((array_nd *)ARRAY_PTR, DIM,                 3), \
+    array_2d *: subarray_lbounds_nd((array_nd *)ARRAY_PTR, DIM,                 2), \
+    array_1d *: subarray_lbounds_nd((array_nd *)ARRAY_PTR, DIM,                 1)  \
   )
 
 // users should call the generic function subarray_bounds rather than subarray_bounds_nd
@@ -328,11 +328,11 @@ __i32__2__ subarray_gbounds_nd(array_nd *a, int32_t dim, int32_t ndims);
 #define subarray_gbounds(ARRAY_PTR, DIM) \
   _Generic((ARRAY_PTR), \
     array_nd *: subarray_gbounds_nd((array_nd *)ARRAY_PTR, DIM, (ARRAY_PTR)->rank)), \
-    array_5d *: subarray_gbounds_nd((array_nd *)ARRAY_PTR, DIM, 5), \
-    array_4d *: subarray_gbounds_nd((array_nd *)ARRAY_PTR, DIM, 4), \
-    array_3d *: subarray_gbounds_nd((array_nd *)ARRAY_PTR, DIM, 3), \
-    array_2d *: subarray_gbounds_nd((array_nd *)ARRAY_PTR, DIM, 2), \
-    array_1d *: subarray_gbounds_nd((array_nd *)ARRAY_PTR, DIM, 1)  \
+    array_5d *: subarray_gbounds_nd((array_nd *)ARRAY_PTR, DIM,                  5), \
+    array_4d *: subarray_gbounds_nd((array_nd *)ARRAY_PTR, DIM,                  4), \
+    array_3d *: subarray_gbounds_nd((array_nd *)ARRAY_PTR, DIM,                  3), \
+    array_2d *: subarray_gbounds_nd((array_nd *)ARRAY_PTR, DIM,                  2), \
+    array_1d *: subarray_gbounds_nd((array_nd *)ARRAY_PTR, DIM,                  1)  \
   )
 
 // users should call the generic function subarray_get rather than subarray_get_nd
