@@ -406,28 +406,28 @@ void  *array_address_nd(array_nd *a);
     array_1d *: array_address_nd((array_nd *)ARRAY_PTR)  \
     )
 
-// users should call the generic function subarray_size rather than subarray_size_nd
-size_t subarray_size_nd(array_nd *a);
-#define subarray_size(ARRAY_PTR) \
+// users should call the generic function subarray_bytes rather than subarray_bytes_nd
+size_t subarray_bytes_nd(array_nd *a);
+#define subarray_bytes(ARRAY_PTR) \
   _Generic((ARRAY_PTR), \
-    array_nd *: subarray_size_nd((array_nd *)ARRAY_PTR), \
-    array_5d *: subarray_size_nd((array_nd *)ARRAY_PTR), \
-    array_4d *: subarray_size_nd((array_nd *)ARRAY_PTR), \
-    array_3d *: subarray_size_nd((array_nd *)ARRAY_PTR), \
-    array_2d *: subarray_size_nd((array_nd *)ARRAY_PTR), \
-    array_1d *: subarray_size_nd((array_nd *)ARRAY_PTR)  \
+    array_nd *: subarray_bytes_nd((array_nd *)ARRAY_PTR), \
+    array_5d *: subarray_bytes_nd((array_nd *)ARRAY_PTR), \
+    array_4d *: subarray_bytes_nd((array_nd *)ARRAY_PTR), \
+    array_3d *: subarray_bytes_nd((array_nd *)ARRAY_PTR), \
+    array_2d *: subarray_bytes_nd((array_nd *)ARRAY_PTR), \
+    array_1d *: subarray_bytes_nd((array_nd *)ARRAY_PTR)  \
     )
 
-// users should call the generic function array_size rather than array_size_nd
-size_t array_size_nd(array_nd *a);
-#define array_size(ARRAY_PTR) \
+// users should call the generic function array_bytes rather than array_bytes_nd
+size_t array_bytes_nd(array_nd *a);
+#define array_bytes(ARRAY_PTR) \
   _Generic((ARRAY_PTR), \
-    array_nd *: array_size_nd((array_nd *)ARRAY_PTR), \
-    array_5d *: array_size_nd((array_nd *)ARRAY_PTR), \
-    array_4d *: array_size_nd((array_nd *)ARRAY_PTR), \
-    array_3d *: array_size_nd((array_nd *)ARRAY_PTR), \
-    array_2d *: array_size_nd((array_nd *)ARRAY_PTR), \
-    array_1d *: array_size_nd((array_nd *)ARRAY_PTR)  \
+    array_nd *: array_bytes_nd((array_nd *)ARRAY_PTR), \
+    array_5d *: array_bytes_nd((array_nd *)ARRAY_PTR), \
+    array_4d *: array_bytes_nd((array_nd *)ARRAY_PTR), \
+    array_3d *: array_bytes_nd((array_nd *)ARRAY_PTR), \
+    array_2d *: array_bytes_nd((array_nd *)ARRAY_PTR), \
+    array_1d *: array_bytes_nd((array_nd *)ARRAY_PTR)  \
     )
 
 // users should call the generic function subarray_dimension rather than subarray_dimension_nd

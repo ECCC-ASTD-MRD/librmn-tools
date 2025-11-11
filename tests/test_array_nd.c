@@ -16,6 +16,7 @@
 //
 #include <stdio.h>
 #include <stdlib.h>
+#include <strings.h>
 
 #include <rmn/array_nd.h>
 
@@ -121,7 +122,7 @@ print_meta(&a5, " |metadata|\n") ;
   errmsg = "array is invalid" ;
   if( ! valid_array(ap1) ) goto fail ;
   print_flags("ap1 flags : ", ap1) ;
-  fprintf(stderr, "%12s array size is %6ld, subarray elements = %6d ", array_kind(ap1), array_size(ap1), subarray_dimension(ap1)) ; print_dims(ap1, "") ;
+  fprintf(stderr, "%12s array size is %6ld, subarray elements = %6d ", array_kind(ap1), array_bytes(ap1), subarray_dimension(ap1)) ; print_dims(ap1, "") ;
   fprintf(stderr, ", free_array(ap1) = %d\n", free_array(ap1)) ;
 
   create_array(ap2, DATA_IS_INTERNAL, sizeof(int32_t), int_data, 8, 7) ;              // specific 2D interface
@@ -130,7 +131,7 @@ print_meta(&a5, " |metadata|\n") ;
   errmsg = "array is invalid" ;
   if( invalid_array(ap2) ) goto fail ;
   print_flags("ap2 flags : ", ap2) ;
-  fprintf(stderr, "%12s array size is %6ld, subarray elements = %6d ", array_kind(ap2), array_size(ap2), subarray_dimension(ap2)) ; print_dims(ap2, "") ;
+  fprintf(stderr, "%12s array size is %6ld, subarray elements = %6d ", array_kind(ap2), array_bytes(ap2), subarray_dimension(ap2)) ; print_dims(ap2, "") ;
   fprintf(stderr, ", free_array(ap2) = %d\n", free_array(ap2)) ;
 
   create_array(ap3, DATA_IS_INTERNAL, sizeof(int32_t), int_data, 8, 7, 6) ;           // specific 3D interface
@@ -139,7 +140,7 @@ print_meta(&a5, " |metadata|\n") ;
   errmsg = "array is invalid" ;
   if( ! valid_array(ap3) ) goto fail ;
   print_flags("ap3 flags : ", ap3) ;
-  fprintf(stderr, "%12s array size is %6ld, subarray elements = %6d ", array_kind(ap3), array_size(ap3), subarray_dimension(ap3)) ; print_dims(ap3, "") ;
+  fprintf(stderr, "%12s array size is %6ld, subarray elements = %6d ", array_kind(ap3), array_bytes(ap3), subarray_dimension(ap3)) ; print_dims(ap3, "") ;
   fprintf(stderr, ", free_array(ap3) = %d\n", free_array(ap3)) ;
 
   create_array(ap4, DATA_IS_INTERNAL, sizeof(int32_t), int_data, 8, 7, 6, 5) ;        // specific 4D interface
@@ -148,7 +149,7 @@ print_meta(&a5, " |metadata|\n") ;
   errmsg = "array is invalid" ;
   if( invalid_array(ap4) ) goto fail ;
   print_flags("ap4 flags : ", ap4) ;
-  fprintf(stderr, "%12s array size is %6ld, subarray elements = %6d ", array_kind(ap4), array_size(ap4), subarray_dimension(ap4)) ; print_dims(ap4, "") ;
+  fprintf(stderr, "%12s array size is %6ld, subarray elements = %6d ", array_kind(ap4), array_bytes(ap4), subarray_dimension(ap4)) ; print_dims(ap4, "") ;
   fprintf(stderr, ", free_array(ap4) = %d\n", free_array(ap4)) ;
 
   create_array(ap5, DATA_IS_INTERNAL, sizeof(int32_t), int_data, 8, 7, 6, 5, 4) ;     // specific 5D interface
@@ -157,7 +158,7 @@ print_meta(&a5, " |metadata|\n") ;
   errmsg = "array is invalid" ;
   if( ! valid_array(ap5) ) goto fail ;
   print_flags("ap5 flags : ", ap5) ;
-  fprintf(stderr, "%12s array size is %6ld, subarray elements = %6d ", array_kind(ap5), array_size(ap5), subarray_dimension(ap5)) ; print_dims(ap5, "") ;
+  fprintf(stderr, "%12s array size is %6ld, subarray elements = %6d ", array_kind(ap5), array_bytes(ap5), subarray_dimension(ap5)) ; print_dims(ap5, "") ;
   fprintf(stderr, ", free_array(ap5) = %d\n", free_array(ap5)) ;
 
   create_array(apn, 0, sizeof(int32_t), int_data, 8, 7, 6, 5, 4) ;     // generic nD interface
@@ -169,7 +170,7 @@ print_meta(&a5, " |metadata|\n") ;
   if( (apn->flags & DATA_MAY_REALLOC) == 0) goto fail ;
   set_array_lbounds(apn , low, high, low, high, low, high, low, high, low, high) ;
   print_flags("apn flags : ", apn) ;
-  fprintf(stderr, "%12s array size is %6ld, subarray elements = %6d ", array_kind(apn), array_size(apn), subarray_dimension(apn)) ; print_dims(apn, "") ;
+  fprintf(stderr, "%12s array size is %6ld, subarray elements = %6d ", array_kind(apn), array_bytes(apn), subarray_dimension(apn)) ; print_dims(apn, "") ;
   fprintf(stderr, ", free_array(apn) = %d\n", free_array(apn)) ;
 
   return ;
@@ -213,16 +214,56 @@ int subarray_check(int gni, int gnj, int gnk, int32_t f[gnk][gnj][gni], int i0, 
   return errors ;
 }
 
+void block_copy_check(int gni, int gnj, int gnk, int gnl, int gnm){
+  (void)(gnj) ;
+  (void)(gnk) ;
+  (void)(gnl) ;
+  (void)(gnm) ;
+  array_1d a1 = array_1d_null, b1 = array_1d_null ;
+  int32_t l1[gni], l2[gni], r1[gni], *da1, *db1 ;
+  int i ;
+  size_t sz1, sz2 ;
+
+  new_array(&a1, l1, sizeof(int32_t), int_data, gni) ; da1 = (int32_t *)a1.data ; bzero(da1, gni * sizeof(int32_t)) ;
+fprintf(stderr, "a1 :") ; for(i=0 ; i<gni ; i++){ fprintf(stderr, " %8.8x", da1[i]) ;  } ; fprintf(stderr, "\n") ;
+  new_array(&b1, l2, sizeof(int32_t), int_data, gni) ; db1 = (int32_t *)b1.data ; bzero(db1, gni * sizeof(int32_t)) ;
+
+  for(i=0 ; i<gni ; i++) l1[i] = i + 1 ;
+fprintf(stderr, "a1 :") ; for(i=0 ; i<gni ; i++){ fprintf(stderr, " %8.8x", da1[i]) ;  } ; fprintf(stderr, "\n") ;
+  bzero(r1, sizeof(r1)) ;
+
+  set_array_lbounds(&a1 , 2, 7) ;
+fprintf(stderr, "a1 bounds : g = %d:%d, l = %d:%d, lnn = %d\n", a1.dim[0].gn0, a1.dim[0].gnn-1, a1.dim[0].ln0, a1.dim[0].ln0+a1.dim[0].lnn-1, a1.dim[0].lnn) ;
+  sz1 = subarray_get(&a1, (void *)r1, gni * sizeof(int32_t)) ;
+  fprintf(stderr, "sz1 = %ld\n", sz1) ;
+for(i=0 ; i<gni ; i++){ fprintf(stderr, " %8.8x", r1[i]) ;  } ; fprintf(stderr, "\n") ;
+
+set_array_lbounds(&b1 , 1, 7) ;
+fprintf(stderr, "b1 bounds : g = %d:%d, l = %d:%d, lnn = %d\n", b1.dim[0].gn0, b1.dim[0].gnn-1, b1.dim[0].ln0, b1.dim[0].ln0+b1.dim[0].lnn-1, b1.dim[0].lnn) ;
+  sz2 = subarray_set(&b1, (void *)r1, sz1 * sizeof(int32_t)) ;
+  fprintf(stderr, "sz2 = %ld\n", sz2) ;
+fprintf(stderr, "b1 :") ; for(i=0 ; i<gni ; i++){ fprintf(stderr, " %8.8x", db1[i]) ;  } ; fprintf(stderr, "\n") ;
+
+  sz2 = subarray_set(&b1, (void *)r1, subarray_bytes(&b1)) ;
+  fprintf(stderr, "sz2 = %ld\n", sz2) ;
+fprintf(stderr, "b1 :") ; for(i=0 ; i<gni ; i++){ fprintf(stderr, " %8.8x", db1[i]) ;  } ; fprintf(stderr, "\n") ;
+
+// fprintf(stderr, "sz1 = %ld, sz2 = %ld\n", sz1, sz2);
+}
+
 int main(int argc, char **argv){
   int32_t ref[GNK][GNJ][GNI], cpy[GNK][GNJ][GNI] ;
   int i, j, k, l, errors, errsub ;
 
   if(argc > 1 && argv[0] == NULL) return 1 ;  // useless code to get rid of compiler warning
 
+  fprintf(stderr, "=============== block copy test ===============\n") ;
+  block_copy_check(9, 1, 1, 1, 1) ;
+goto end ;
   fprintf(stderr, "=============== array_lbounds test ===============\n") ;
   array_lbounds_check(1, 3);      // call bounds test, lower bound : 1, upper bound : 3
   fprintf(stderr, "SUCCESS\n") ;
-
+goto end ;
   fprintf(stderr, "=============== sub array test ===============\n") ;
   array_1d a1 = array_1d_null ;
   array_2d a2 = array_2d_null ;
@@ -309,6 +350,7 @@ int main(int argc, char **argv){
     }
   }
 
+end:
   fprintf(stderr, "SUCCESS\n") ;
   return 0 ;
 
