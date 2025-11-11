@@ -228,24 +228,32 @@ void block_copy_check(int gni, int gnj, int gnk, int gnl, int gnm){
   (void)(gnl) ;
   (void)(gnm) ;
   array_1d a1 = array_1d_null, b1 = array_1d_null ;
-  int32_t l1[gni], l2[gni], r1[gni], *da1, *db1 ;
+  int32_t l1[gni], l2[gni], r1[gni], r2[gni] ;
   int i ;
   ssize_t sz1, sz2 ;
 
-  new_array(&a1, l1, sizeof(int32_t), int_data, gni) ; da1 = (int32_t *)a1.data ; bzero(da1, gni * sizeof(int32_t)) ;
-  for(i=0 ; i<gni ; i++) l1[i] = i + 1 ;
-  fprintf(stderr, "a1 :") ; for(i=0 ; i<gni ; i++){ fprintf(stderr, " %8.8x", da1[i]) ;  } ; fprintf(stderr, "\n") ;
-  new_array(&b1, l2, sizeof(int32_t), int_data, gni) ; db1 = (int32_t *)b1.data ; bzero(db1, gni * sizeof(int32_t)) ;
+  new_array(&a1, l1, sizeof(int32_t), int_data, gni) ; bzero(l1, gni * sizeof(int32_t)) ;
+  fprintf(stderr, "a1 :") ; for(i=0 ; i<gni ; i++){ fprintf(stderr, " %8.8x", l1[i]) ;  } ; fprintf(stderr, "\n") ;
+  new_array(&b1, l2, sizeof(int32_t), int_data, gni) ; bzero(l2, gni * sizeof(int32_t)) ;
 
-  bzero(r1, sizeof(r1)) ;
+  for(i=0 ; i<gni ; i++) r2[i] = i + 1 ;
+  print_bounds((array_nd *)&a1, "a1") ;
+  sz1 = subarray_set(&a1, (void *)r2, sizeof(r2)) ;
+  fprintf(stderr, "sz1 = %ld\n", sz1) ;
+  fprintf(stderr, "a1 :") ; for(i=0 ; i<gni ; i++){ fprintf(stderr, " %8.8x", l1[i]) ;  } ; fprintf(stderr, "\n") ;
+  if(sz1 <= 0) goto fail ;
+  for(i=0 ; i<(int)sz1 ; i++){ if(r2[i] != l1[i]) goto fail ; }
 
   set_array_lbounds(&a1 , 2, 7) ;
   print_bounds((array_nd *)&a1, "a1") ;
+  bzero(r1, sizeof(r1)) ;
   sz1 = subarray_get(&a1, (void *)r1, gni * sizeof(int32_t)) ;
   fprintf(stderr, "sz1 = %ld\n", sz1) ;
   if(sz1 <= 0) goto fail ;
   fprintf(stderr, "r1 :");
   for(i=0 ; i<(int)sz1 ; i++){ fprintf(stderr, " %8.8x", r1[i]) ;  } ; fprintf(stderr, "\n") ;
+  for(i=0 ; i<(int)sz1 ; i++){ if(r1[i] != l1[i+2]) goto fail ; }
+  for(i=(int)sz1 ; i<gni ; i++) { if(r1[i] != 0) goto fail ; }
 
   set_array_lbounds(&b1 , 1, 7) ;
   print_bounds((array_nd *)&b1, "b1") ;
@@ -253,13 +261,16 @@ void block_copy_check(int gni, int gnj, int gnk, int gnl, int gnm){
   fprintf(stderr, "sz2 = %ld\n", sz2) ;
   if(sz2 > 0) goto fail ;
   fprintf(stderr, "b1 :");
-  fprintf(stderr, "b1 :") ; for(i=0 ; i<gni ; i++){ fprintf(stderr, " %8.8x", db1[i]) ;  } ; fprintf(stderr, "\n") ;
+  fprintf(stderr, "b1 :") ; for(i=0 ; i<gni ; i++){ fprintf(stderr, " %8.8x", l2[i]) ;  } ; fprintf(stderr, "\n") ;
+  for(i=0 ; i<(int)sz2 ; i++){ if(r1[i] != l2[i+1]) goto fail ; }
+  for(i=0 ; i<1 ; i++){ if(0 != l2[i]) goto fail ; }
+  for(i=7 ; i<gni ; i++) { if(0 != l2[i]) goto fail ; }
 
   sz2 = subarray_set(&b1, (void *)r1, subarray_bytes(&b1)) ;
   fprintf(stderr, "sz2 = %ld\n", sz2) ;
   if(sz2 <= 0) goto fail ;
   fprintf(stderr, "b1 :");
-  fprintf(stderr, "b1 :") ; for(i=0 ; i<gni ; i++){ fprintf(stderr, " %8.8x", db1[i]) ;  } ; fprintf(stderr, "\n") ;
+  fprintf(stderr, "b1 :") ; for(i=0 ; i<gni ; i++){ fprintf(stderr, " %8.8x", l2[i]) ;  } ; fprintf(stderr, "\n") ;
 
   return ;
 
@@ -275,7 +286,7 @@ int main(int argc, char **argv){
   if(argc > 1 && argv[0] == NULL) return 1 ;  // useless code to get rid of compiler warning
 
   fprintf(stderr, "=============== block copy test ===============\n") ;
-  block_copy_check(9, 1, 1, 1, 1) ;
+  block_copy_check(9, 8, 7, 6, 5) ;
 goto end ;
   fprintf(stderr, "=============== array_lbounds test ===============\n") ;
   array_lbounds_check(1, 3);      // call bounds test, lower bound : 1, upper bound : 3
