@@ -35,7 +35,7 @@
 // TODO: allocate memory for the target array if necessary
 // this filter will be the first to be called in reverse mode (get/check rank and dimensions)
 ssize_t dmap_filter_fwd(array_nd *a, block_properties *bp, dmap_filter_list dpfl, bitstream *stream){
-  uint32_t self = FILTER_ID, filter ;
+  uint32_t self = FILTER_ID ;
   if(a == NULL || stream == NULL) goto fail ;    // no array or no stream
   void *array = array_address(a) ;               // get array address, dimension(s), and type
   ssize_t status = 0 ;
