@@ -214,6 +214,14 @@ int subarray_check(int gni, int gnj, int gnk, int32_t f[gnk][gnj][gni], int i0, 
   return errors ;
 }
 
+void print_bounds(array_nd *a1, char *msg){
+  int i ;
+  for(i=0 ; i<a1->rank ; i++){
+    fprintf(stderr, "%s bounds : g = %d:%d, l = %d:%d, lnn = %d\n",
+                    msg, a1->dim[0].gn0, a1->dim[0].gnn-1, a1->dim[0].ln0, a1->dim[0].ln0+a1->dim[0].lnn-1, a1->dim[0].lnn) ;
+  }
+}
+
 void block_copy_check(int gni, int gnj, int gnk, int gnl, int gnm){
   (void)(gnj) ;
   (void)(gnk) ;
@@ -222,33 +230,42 @@ void block_copy_check(int gni, int gnj, int gnk, int gnl, int gnm){
   array_1d a1 = array_1d_null, b1 = array_1d_null ;
   int32_t l1[gni], l2[gni], r1[gni], *da1, *db1 ;
   int i ;
-  size_t sz1, sz2 ;
+  ssize_t sz1, sz2 ;
 
   new_array(&a1, l1, sizeof(int32_t), int_data, gni) ; da1 = (int32_t *)a1.data ; bzero(da1, gni * sizeof(int32_t)) ;
-fprintf(stderr, "a1 :") ; for(i=0 ; i<gni ; i++){ fprintf(stderr, " %8.8x", da1[i]) ;  } ; fprintf(stderr, "\n") ;
+  for(i=0 ; i<gni ; i++) l1[i] = i + 1 ;
+  fprintf(stderr, "a1 :") ; for(i=0 ; i<gni ; i++){ fprintf(stderr, " %8.8x", da1[i]) ;  } ; fprintf(stderr, "\n") ;
   new_array(&b1, l2, sizeof(int32_t), int_data, gni) ; db1 = (int32_t *)b1.data ; bzero(db1, gni * sizeof(int32_t)) ;
 
-  for(i=0 ; i<gni ; i++) l1[i] = i + 1 ;
-fprintf(stderr, "a1 :") ; for(i=0 ; i<gni ; i++){ fprintf(stderr, " %8.8x", da1[i]) ;  } ; fprintf(stderr, "\n") ;
   bzero(r1, sizeof(r1)) ;
 
   set_array_lbounds(&a1 , 2, 7) ;
-fprintf(stderr, "a1 bounds : g = %d:%d, l = %d:%d, lnn = %d\n", a1.dim[0].gn0, a1.dim[0].gnn-1, a1.dim[0].ln0, a1.dim[0].ln0+a1.dim[0].lnn-1, a1.dim[0].lnn) ;
+  print_bounds((array_nd *)&a1, "a1") ;
   sz1 = subarray_get(&a1, (void *)r1, gni * sizeof(int32_t)) ;
   fprintf(stderr, "sz1 = %ld\n", sz1) ;
-for(i=0 ; i<gni ; i++){ fprintf(stderr, " %8.8x", r1[i]) ;  } ; fprintf(stderr, "\n") ;
+  if(sz1 <= 0) goto fail ;
+  fprintf(stderr, "r1 :");
+  for(i=0 ; i<(int)sz1 ; i++){ fprintf(stderr, " %8.8x", r1[i]) ;  } ; fprintf(stderr, "\n") ;
 
-set_array_lbounds(&b1 , 1, 7) ;
-fprintf(stderr, "b1 bounds : g = %d:%d, l = %d:%d, lnn = %d\n", b1.dim[0].gn0, b1.dim[0].gnn-1, b1.dim[0].ln0, b1.dim[0].ln0+b1.dim[0].lnn-1, b1.dim[0].lnn) ;
+  set_array_lbounds(&b1 , 1, 7) ;
+  print_bounds((array_nd *)&b1, "b1") ;
   sz2 = subarray_set(&b1, (void *)r1, sz1 * sizeof(int32_t)) ;
   fprintf(stderr, "sz2 = %ld\n", sz2) ;
-fprintf(stderr, "b1 :") ; for(i=0 ; i<gni ; i++){ fprintf(stderr, " %8.8x", db1[i]) ;  } ; fprintf(stderr, "\n") ;
+  if(sz2 > 0) goto fail ;
+  fprintf(stderr, "b1 :");
+  fprintf(stderr, "b1 :") ; for(i=0 ; i<gni ; i++){ fprintf(stderr, " %8.8x", db1[i]) ;  } ; fprintf(stderr, "\n") ;
 
   sz2 = subarray_set(&b1, (void *)r1, subarray_bytes(&b1)) ;
   fprintf(stderr, "sz2 = %ld\n", sz2) ;
-fprintf(stderr, "b1 :") ; for(i=0 ; i<gni ; i++){ fprintf(stderr, " %8.8x", db1[i]) ;  } ; fprintf(stderr, "\n") ;
+  if(sz2 <= 0) goto fail ;
+  fprintf(stderr, "b1 :");
+  fprintf(stderr, "b1 :") ; for(i=0 ; i<gni ; i++){ fprintf(stderr, " %8.8x", db1[i]) ;  } ; fprintf(stderr, "\n") ;
 
-// fprintf(stderr, "sz1 = %ld, sz2 = %ld\n", sz1, sz2);
+  return ;
+
+fail:
+  fprintf(stderr, "FAILED\n") ;
+  exit(1) ;
 }
 
 int main(int argc, char **argv){

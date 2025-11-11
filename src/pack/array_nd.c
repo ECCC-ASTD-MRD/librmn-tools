@@ -654,7 +654,7 @@ fprintf(stderr, "subarray_set_5d : global %d,%d,%d,%d,%d  local = %d,%d,%d,%d,%d
 // dest_size     [IN] : size in bytes of block
 // returns number of elements transferred
 // dest_size MUST be large enough to receive data
-size_t subarray_get_nd(array_nd *a, void *dest_address, size_t dest_size){
+ssize_t subarray_get_nd(array_nd *a, void *dest_address, size_t dest_size){
   size_t    data_size    = subarray_bytes(a) ;
   int lni, lnj, lnk, lnl, lnm, gni, gnj, gnk, gnl ;
   uint32_t esize, *data_address ;
@@ -737,7 +737,7 @@ fail:
 // src_size      [IN] : size in bytes of block
 // returns number of elements transferred, <= 0 error code if error
 // src_size MUST be the same size as the subarray size
-size_t subarray_set_nd(array_nd *a, void *src_address, size_t src_size){
+ssize_t subarray_set_nd(array_nd *a, void *src_address, size_t src_size){
   size_t    data_size    = subarray_bytes(a) ;
   int lni, lnj, lnk, lnl, lnm, gni, gnj, gnk, gnl, error = 0 ;
   uint32_t esize, *data_address ;

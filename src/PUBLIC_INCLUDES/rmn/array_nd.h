@@ -336,10 +336,12 @@ __i32__2__ subarray_gbounds_nd(array_nd *a, int32_t dim, int32_t ndims);
   )
 
 // users should call the generic function subarray_get rather than subarray_get_nd
-size_t subarray_get_nd(array_nd *a, void *address, size_t copy_size);
+ssize_t subarray_get_nd(array_nd *a, void *address, size_t copy_size);
 
 #define subarray_get(ARRAY_PTR, dest_address, dest_size) \
   _Generic((ARRAY_PTR), \
+    array_nd *: subarray_get_nd((array_nd *)ARRAY_PTR,dest_address, dest_size), \
+    array_5d *: subarray_get_nd((array_nd *)ARRAY_PTR,dest_address, dest_size), \
     array_4d *: subarray_get_nd((array_nd *)ARRAY_PTR,dest_address, dest_size), \
     array_3d *: subarray_get_nd((array_nd *)ARRAY_PTR,dest_address, dest_size), \
     array_2d *: subarray_get_nd((array_nd *)ARRAY_PTR,dest_address, dest_size), \
@@ -347,10 +349,12 @@ size_t subarray_get_nd(array_nd *a, void *address, size_t copy_size);
   )
 
 // users should call the generic function subarray_set rather than subarray_set_nd
-size_t subarray_set_nd(array_nd *a, void *address, size_t copy_size);
+ssize_t subarray_set_nd(array_nd *a, void *address, size_t copy_size);
 
 #define subarray_set(ARRAY_PTR, dest_address, dest_size) \
   _Generic((ARRAY_PTR), \
+    array_nd *: subarray_set_nd((array_nd *)ARRAY_PTR,dest_address, dest_size), \
+    array_5d *: subarray_set_nd((array_nd *)ARRAY_PTR,dest_address, dest_size), \
     array_4d *: subarray_set_nd((array_nd *)ARRAY_PTR,dest_address, dest_size), \
     array_3d *: subarray_set_nd((array_nd *)ARRAY_PTR,dest_address, dest_size), \
     array_2d *: subarray_set_nd((array_nd *)ARRAY_PTR,dest_address, dest_size), \
