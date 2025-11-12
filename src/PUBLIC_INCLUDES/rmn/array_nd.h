@@ -422,6 +422,18 @@ size_t subarray_bytes_nd(array_nd *a);
     array_1d *: subarray_bytes_nd((array_nd *)ARRAY_PTR)  \
     )
 
+// users should call the generic function array_strides rather than subarray_bytes_nd
+void array_strides_nd(array_nd *a, __i32__5__ *strides) ;
+#define array_strides(ARRAY_PTR, STRIDES) \
+  _Generic((ARRAY_PTR), \
+    array_nd *: array_strides_nd((array_nd *)ARRAY_PTR, STRIDES), \
+    array_5d *: array_strides_nd((array_nd *)ARRAY_PTR, STRIDES), \
+    array_4d *: array_strides_nd((array_nd *)ARRAY_PTR, STRIDES), \
+    array_3d *: array_strides_nd((array_nd *)ARRAY_PTR, STRIDES), \
+    array_2d *: array_strides_nd((array_nd *)ARRAY_PTR, STRIDES), \
+    array_1d *: array_strides_nd((array_nd *)ARRAY_PTR, STRIDES)  \
+    )
+
 // users should call the generic function array_bytes rather than array_bytes_nd
 size_t array_bytes_nd(array_nd *a);
 #define array_bytes(ARRAY_PTR) \
