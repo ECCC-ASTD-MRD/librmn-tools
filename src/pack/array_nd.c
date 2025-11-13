@@ -16,6 +16,7 @@
 //
 
 #include <rmn/array_nd.h>
+#include <rmn/move_blocks.h>
 
 // TODO : add a function to get the "effective rank" (ignore upper dimensions == 1)
 
@@ -613,16 +614,20 @@ static size_t subarray_set_4d(int gni, int gnj, int gnk, int lni, int lnj, int l
 // returns number of elements transferred
 static size_t subarray_get_5d(int gni, int gnj, int gnk, int gnl, int lni, int lnj, int lnk, int lnl, int lnm,
                                uint32_t src[][gnl][gnk][gnj][gni], uint32_t dst[lnm][lnl][lnk][lnj][lni]){
-  int i, j, k, l, m ;
-fprintf(stderr, "subarray_get_5d : global %d,%d,%d,%d,%d  local = %d,%d,%d,%d,%d\n", gni,gnj,gnk,gnl,lnm, lni,lnj,lnk,lnl,lnm) ;
+  int k, l, m ;
+  uint32_t *dst_, *src_ ;
+// fprintf(stderr, "subarray_get_5d : global %d,%d,%d,%d,%d  local = %d,%d,%d,%d,%d\n", gni,gnj,gnk,gnl,lnm, lni,lnj,lnk,lnl,lnm) ;
   for(m = 0 ; m < lnm ; m++){
     for(l = 0 ; l < lnl ; l++){
       for(k = 0 ; k < lnk ; k++){
-        for(j = 0 ; j < lnj ; j++){
-          for(i = 0 ; i < lni ; i++){
-            dst[m][l][k][j][i] = src[m][l][k][j][i] ;
-          }
-        }
+        src_ = &src[m][l][k][0][0] ;
+        dst_ = &dst[m][l][k][0][0] ;
+        move_w32_block(src_, gni, dst_, lni, lni, lnj, NULL) ;
+//         for(j = 0 ; j < lnj ; j++){
+//           for(i = 0 ; i < lni ; i++){
+//             dst[m][l][k][j][i] = src[m][l][k][j][i] ;
+//           }
+//         }
       }
     }
   }
@@ -644,16 +649,20 @@ fprintf(stderr, "subarray_get_5d : global %d,%d,%d,%d,%d  local = %d,%d,%d,%d,%d
 // returns number of elements transferred
 static size_t subarray_set_5d(int gni, int gnj, int gnk, int gnl, int lni, int lnj, int lnk, int lnl, int lnm,
                               uint32_t dst[lnm][gnl][gnk][gnj][gni], uint32_t src[lnm][lnl][lnk][lnj][lni]){
-  int i, j, k, l, m ;
-fprintf(stderr, "subarray_set_5d : global %d,%d,%d,%d,%d  local = %d,%d,%d,%d,%d\n", gni,gnj,gnk,gnl,lnm, lni,lnj,lnk,lnl,lnm) ;
+  int k, l, m ;
+  uint32_t *src_, *dst_ ;
+// fprintf(stderr, "subarray_set_5d : global %d,%d,%d,%d,%d  local = %d,%d,%d,%d,%d\n", gni,gnj,gnk,gnl,lnm, lni,lnj,lnk,lnl,lnm) ;
   for(m = 0 ; m < lnm ; m++){
     for(l = 0 ; l < lnl ; l++){
       for(k = 0 ; k < lnk ; k++){
-        for(j = 0 ; j < lnj ; j++){
-          for(i = 0 ; i < lni ; i++){
-            dst[m][l][k][j][i] = src[m][l][k][j][i] ;
-          }
-        }
+        src_ = &src[m][l][k][0][0] ;
+        dst_ = &dst[m][l][k][0][0] ;
+        move_w32_block(src_, lni, dst_, gni, lni, lnj, NULL) ;
+//         for(j = 0 ; j < lnj ; j++){
+//           for(i = 0 ; i < lni ; i++){
+//             dst[m][l][k][j][i] = src[m][l][k][j][i] ;
+//           }
+//         }
       }
     }
   }
@@ -669,7 +678,8 @@ fprintf(stderr, "subarray_set_5d : global %d,%d,%d,%d,%d  local = %d,%d,%d,%d,%d
 ssize_t subarray_get_nd(array_nd *a, void *dest_address, size_t dest_size){
   size_t    data_size    = subarray_bytes(a) ;
   int lni, lnj, lnk, lnl, lnm, gni, gnj, gnk, gnl ;
-  uint32_t esize, *data_address ;
+  uint32_t esize ;
+  void *src_address ;
 // fprintf(stderr, "subarray_get_nd : dest_size = %ld, data_size = %ld\n", dest_size, data_size);
   if(data_size > dest_size) goto fail ;  // block size smaller than sub array
 
@@ -680,24 +690,26 @@ ssize_t subarray_get_nd(array_nd *a, void *dest_address, size_t dest_size){
   if(esize & 0x3) goto fail ;            // esize == multiple of 4 only for now
   esize /= 4 ;
 
-  data_address = (void *)subarray_address(a) ;
+  src_address = (void *)subarray_address(a) ;
 
   switch(a->rank){
   case 1:
     lni = esize*a->dim[0].lnn ;
+    return move_w32_block(src_address, lni, dest_address, lni, lni, 1) ;
 //     return subarray_get_1d(lni, 
-//                            (uint32_t *)data_address, (uint32_t *)dest_address) ;
-    return subarray_get_5d(lni, 1, 1, 1, lni, 1, 1, 1, 1,
-                           (uint32_t (*)[1][1][1][1])data_address, (uint32_t (*)[1][1][1][lni])dest_address) ;
+//                            (uint32_t *)src_address, (uint32_t *)dest_address) ;
+//     return subarray_get_5d(lni, 1, 1, 1, lni, 1, 1, 1, 1,
+//                            (uint32_t (*)[1][1][1][1])src_address, (uint32_t (*)[1][1][1][lni])dest_address) ;
 
   case 2:
     gni = esize*a->dim[0].gnn ;
     lni = esize*a->dim[0].lnn ;
     lnj = a->dim[1].lnn ;
+    return move_w32_block(src_address, gni, dest_address, lni, lni, lnj) ;
 //     return subarray_get_2d(gni, lni, lnj,
-//                            (uint32_t (*)[gni])data_address, (uint32_t (*)[lni])dest_address) ;
-    return subarray_get_5d(gni, lnj, 1, 1, lni, lnj, 1, 1, 1,
-                           (uint32_t (*)[1][1][1][gni])data_address, (uint32_t (*)[1][1][lnj][lni])dest_address) ;
+//                            (uint32_t (*)[gni])src_address, (uint32_t (*)[lni])dest_address) ;
+//     return subarray_get_5d(gni, lnj, 1, 1, lni, lnj, 1, 1, 1,
+//                            (uint32_t (*)[1][1][1][gni])src_address, (uint32_t (*)[1][1][lnj][lni])dest_address) ;
 
   case 3:
     gni = esize*a->dim[0].gnn ;
@@ -706,9 +718,9 @@ ssize_t subarray_get_nd(array_nd *a, void *dest_address, size_t dest_size){
     lnj = a->dim[1].lnn ;
     lnk = a->dim[2].lnn ;
 //     return subarray_get_3d(gni, gnj, lni, lnj, lnk,
-//                            (uint32_t (*)[gnj][gni])data_address, (uint32_t (*)[lnj][lni])dest_address) ;
+//                            (uint32_t (*)[gnj][gni])src_address, (uint32_t (*)[lnj][lni])dest_address) ;
     return subarray_get_5d(gni, gnj, lnk, 1, lni, lnj, lnk, 1, 1,
-                           (uint32_t (*)[1][1][gnj][gni])data_address, (uint32_t (*)[1][lnk][lnj][lni])dest_address) ;
+                           (uint32_t (*)[1][1][gnj][gni])src_address, (uint32_t (*)[1][lnk][lnj][lni])dest_address) ;
 
   case 4:
     gni = esize*a->dim[0].gnn ;
@@ -719,9 +731,9 @@ ssize_t subarray_get_nd(array_nd *a, void *dest_address, size_t dest_size){
     lnk = a->dim[2].lnn ;
     lnl = a->dim[3].lnn ;
 //     return subarray_get_4d(gni, gnj, gnk, lni, lnj, lnk, lnl,
-//                            (uint32_t (*)[gnk][gnj][gni])data_address, (uint32_t (*)[lnk][lnj][lni])dest_address) ;
+//                            (uint32_t (*)[gnk][gnj][gni])src_address, (uint32_t (*)[lnk][lnj][lni])dest_address) ;
     return subarray_get_5d(gni, gnj, gnk, lnl, lni, lnj, lnk, lnl, 1,
-                           (uint32_t (*)[1][gnk][gnj][gni])data_address, (uint32_t (*)[lnl][lnk][lnj][lni])dest_address) ;
+                           (uint32_t (*)[1][gnk][gnj][gni])src_address, (uint32_t (*)[lnl][lnk][lnj][lni])dest_address) ;
 
   case 5:
     gni = esize*a->dim[0].gnn ;
@@ -734,7 +746,7 @@ ssize_t subarray_get_nd(array_nd *a, void *dest_address, size_t dest_size){
     lnl = a->dim[3].lnn ;
     lnm = a->dim[4].lnn ;
     return subarray_get_5d(gni, gnj, gnk, gnl, lni, lnj, lnk, lnl, lnm,
-                           (uint32_t (*)[gnl][gnk][gnj][gni])data_address, (uint32_t (*)[lnl][lnk][lnj][lni])dest_address) ;
+                           (uint32_t (*)[gnl][gnk][gnj][gni])src_address, (uint32_t (*)[lnl][lnk][lnj][lni])dest_address) ;
 
   default:
     goto fail ;
@@ -753,7 +765,8 @@ fail:
 ssize_t subarray_set_nd(array_nd *a, void *src_address, size_t src_size){
   size_t    data_size    = subarray_bytes(a) ;
   int lni, lnj, lnk, lnl, lnm, gni, gnj, gnk, gnl, error = 0 ;
-  uint32_t esize, *data_address ;
+  uint32_t esize ;
+  void *dest_address ;
 // fprintf(stderr, "subarray_set_nd : src_size = %ld, data_size = %ld\n", src_size/4, data_size/4);
   error = -1 ;
   if(src_size != data_size) goto fail ;  // sub array and data not the same size
@@ -768,24 +781,26 @@ ssize_t subarray_set_nd(array_nd *a, void *src_address, size_t src_size){
   if(esize & 0x3) goto fail ;            // esize == multiple of 4 only for now
   esize /= 4 ;
 
-  data_address = (void *)subarray_address(a) ;
+  dest_address = (void *)subarray_address(a) ;
 
   switch(a->rank){
   case 1:
     lni = esize*a->dim[0].lnn ;
+    return move_w32_block(src_address, lni, dest_address, lni, lni, 1) ;
 //     return subarray_set_1d(lni, 
-//                            (uint32_t *)data_address, (uint32_t *)src_address) ;
-    return subarray_set_5d(lni, 1, 1, 1, lni, 1, 1, 1, 1,
-                           (uint32_t (*)[1][1][1][1])data_address, (uint32_t (*)[1][1][1][lni])src_address) ;
+//                            (uint32_t *)dest_address, (uint32_t *)src_address) ;
+//     return subarray_set_5d(lni, 1, 1, 1, lni, 1, 1, 1, 1,
+//                            (uint32_t (*)[1][1][1][1])dest_address, (uint32_t (*)[1][1][1][lni])src_address) ;
 
   case 2:
     gni = esize*a->dim[0].gnn ;
     lni = esize*a->dim[0].lnn ;
     lnj = a->dim[1].lnn ;
+    return move_w32_block(src_address, lni, dest_address, gni, lni, lnj) ;
 //     return subarray_set_2d(gni, lni, lnj,
-//                            (uint32_t (*)[gni])data_address, (uint32_t (*)[lni])src_address) ;
-    return subarray_set_5d(gni, lnj, 1, 1, lni, lnj, 1, 1, 1,
-                           (uint32_t (*)[1][1][1][gni])data_address, (uint32_t (*)[1][1][lnj][lni])src_address) ;
+//                            (uint32_t (*)[gni])dest_address, (uint32_t (*)[lni])src_address) ;
+//     return subarray_set_5d(gni, lnj, 1, 1, lni, lnj, 1, 1, 1,
+//                            (uint32_t (*)[1][1][1][gni])dest_address, (uint32_t (*)[1][1][lnj][lni])src_address) ;
 
   case 3:
     gni = esize*a->dim[0].gnn ;
@@ -794,9 +809,9 @@ ssize_t subarray_set_nd(array_nd *a, void *src_address, size_t src_size){
     lnj = a->dim[1].lnn ;
     lnk = a->dim[2].lnn ;
 //     return subarray_set_3d(gni, gnj, lni, lnj, lnk,
-//                            (uint32_t (*)[gnj][gni])data_address, (uint32_t (*)[lnj][lni])src_address) ;
+//                            (uint32_t (*)[gnj][gni])dest_address, (uint32_t (*)[lnj][lni])src_address) ;
     return subarray_set_5d(gni, gnj, lnk, 1, lni, lnj, lnk, 1, 1,
-                           (uint32_t (*)[1][1][gnj][gni])data_address, (uint32_t (*)[1][lnk][lnj][lni])src_address) ;
+                           (uint32_t (*)[1][1][gnj][gni])dest_address, (uint32_t (*)[1][lnk][lnj][lni])src_address) ;
 
   case 4:
     gni = esize*a->dim[0].gnn ;
@@ -807,9 +822,9 @@ ssize_t subarray_set_nd(array_nd *a, void *src_address, size_t src_size){
     lnk = a->dim[2].lnn ;
     lnl = a->dim[3].lnn ;
 //     return subarray_set_4d(gni, gnj, gnk, lni, lnj, lnk, lnl,
-//                            (uint32_t (*)[gnk][gnj][gni])data_address, (uint32_t (*)[lnk][lnj][lni])src_address) ;
+//                            (uint32_t (*)[gnk][gnj][gni])dest_address, (uint32_t (*)[lnk][lnj][lni])src_address) ;
     return subarray_set_5d(gni, gnj, gnk, lnl, lni, lnj, lnk, lnl, 1,
-                           (uint32_t (*)[1][gnk][gnj][gni])data_address, (uint32_t (*)[lnl][lnk][lnj][lni])src_address) ;
+                           (uint32_t (*)[1][gnk][gnj][gni])dest_address, (uint32_t (*)[lnl][lnk][lnj][lni])src_address) ;
 
   case 5:
     gni = esize*a->dim[0].gnn ;
@@ -822,7 +837,7 @@ ssize_t subarray_set_nd(array_nd *a, void *src_address, size_t src_size){
     lnl = a->dim[3].lnn ;
     lnm = a->dim[4].lnn ;
     return subarray_set_5d(gni, gnj, gnk, gnl, lni, lnj, lnk, lnl, lnm,
-                           (uint32_t (*)[gnl][gnk][gnj][gni])data_address, (uint32_t (*)[lnl][lnk][lnj][lni])src_address) ;
+                           (uint32_t (*)[gnl][gnk][gnj][gni])dest_address, (uint32_t (*)[lnl][lnk][lnj][lni])src_address) ;
 
   default:
     goto fail ;

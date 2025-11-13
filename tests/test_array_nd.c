@@ -271,13 +271,17 @@ void block_copy_check(int gni, int gnj, int gnk, int gnl, int gnm){
   (void)(gnl) ;
   (void)(gnm) ;
   array_1d a1 = array_1d_null, b1 = array_1d_null ;
+  array_2d a2 = array_2d_null, b2 = array_2d_null ;
   array_3d a3 = array_3d_null, b3 = array_3d_null;
+  array_4d a4 = array_4d_null, b4 = array_4d_null;
   array_5d a5 = array_5d_null, b5 = array_5d_null;
   int32_t l1[gni], r1[gni], t1[gni] ;                                                                // array1, array2, temp
+  int32_t l2[gnj][gni], r2[gnj][gni], t2[gnj][gni] ;                                                 // array1, array2, temp
   int32_t l3[gnk][gnj][gni], r3[gnk][gnj][gni], t3[gnk][gnj][gni] ;                                  // array1, array2, temp
+  int32_t l4[gnl][gnk][gnj][gni], r4[gnl][gnk][gnj][gni], t4[gnl][gnk][gnj][gni] ;                   // array1, array2, temp
   int32_t l5[gnm][gnl][gnk][gnj][gni], r5[gnm][gnl][gnk][gnj][gni], t5[gnm][gnl][gnk][gnj][gni] ;    // array1, array2, temp
-  int i, j, k, diff ;
-  ssize_t sz1, sz2, sz3, sz4, sz5, sz6 ;
+  int i, j, k, l, diff ;
+  ssize_t sz1, sz2 ;
   __i32__5__ strides ;
 
   fprintf(stderr, "\n ======================== 1D test =================================\n") ;
@@ -328,6 +332,31 @@ void block_copy_check(int gni, int gnj, int gnk, int gnl, int gnm){
   array_strides(&a1, &strides);
   print_strides("a1", strides);
 
+  fprintf(stderr, "\n ======================== 2D test =================================\n") ;
+
+  new_array(&a2, l2, sizeof(int32_t), int_data, gni, gnj) ; bzero(l2, sizeof(l2)) ;
+  fill_array(gni, gnj, 1, 1, 1, (void *)l2) ;
+  fprintf(stderr, "a2[0][] :") ;
+  for(i=0 ; i<gni ; i++){ fprintf(stderr, " %8.8x", l2[0][i] >> 12) ;  } ; fprintf(stderr, "\n") ;
+  print_bounds((array_nd *)&a2, "a2") ;
+  set_array_lbounds(&a2 , 0, gni-2, 1, gnj-1) ;                           // suppress right column and bottom row
+  print_bounds((array_nd *)&a2, "a2") ;
+  sz1 = subarray_get(&a2, (void *)t2, sizeof(t2)) ;
+  fprintf(stderr, "sz1 = %ld, expecting %d\n", sz1, (gni-1)*(gnj-1));
+
+  new_array(&b2, r2, sizeof(int32_t), int_data, gni, gnj) ; bzero(r2, sizeof(r2)) ;
+  set_array_lbounds(&b2 , 1, gni-1, 0, gnj-2) ;                           // suppress left column and top row
+  sz2 = subarray_set(&b2, (void *)t2, sz1 * sizeof(int32_t)) ;
+  fprintf(stderr, "sz2 = %ld\n", sz2) ;
+  diff = 0 ;
+  for(j=0 ; j<gnj-1 ; j++){
+    for(i=0 ; i<gni-1 ; i++){
+      if(l2[j+1][i] != r2[j][i+1]) diff ++ ;
+    }
+  }
+  fprintf(stderr, "diff = %d\n", diff) ;
+  if(diff != 0) goto fail ;
+
   fprintf(stderr, "\n ======================== 3D test =================================\n") ;
 
   new_array(&a3, l3, sizeof(int32_t), int_data, gni, gnj, gnk) ; bzero(l3, sizeof(l3)) ;
@@ -337,13 +366,13 @@ void block_copy_check(int gni, int gnj, int gnk, int gnl, int gnm){
   print_bounds((array_nd *)&a3, "a3") ;
   set_array_lbounds(&a3 , 0, gni-1, 0, gnj-1, 1, gnk-2) ;
   print_bounds((array_nd *)&a3, "a3") ;
-  sz3 = subarray_get(&a3, (void *)t3, sizeof(t3)) ;
-  fprintf(stderr, "sz3 = %ld, expecting %d\n", sz3, gni*gnj*(gnk-1));
+  sz1 = subarray_get(&a3, (void *)t3, sizeof(t3)) ;
+  fprintf(stderr, "sz1 = %ld, expecting %d\n", sz1, gni*gnj*(gnk-1));
 
   new_array(&b3, r3, sizeof(int32_t), int_data, gni, gnj, gnk) ; bzero(r3, sizeof(r3)) ;
   set_array_lbounds(&b3 , 0, gni-1, 0, gnj-1, 1, gnk-2) ;                 // suppress top and bottom plane
-  sz4 = subarray_set(&b3, (void *)t3, sz3 * sizeof(int32_t)) ;
-  fprintf(stderr, "sz4 = %ld\n", sz4) ;
+  sz2 = subarray_set(&b3, (void *)t3, sz1 * sizeof(int32_t)) ;
+  fprintf(stderr, "sz2 = %ld\n", sz2) ;
 
   diff = compare_array(gni, gnj, gnk-2, 1, 1, (void *)&l3[1][0][0], (void *)&r3[1][0][0]) ;
   fprintf(stderr, "diff = %d\n", diff) ;
@@ -351,13 +380,13 @@ void block_copy_check(int gni, int gnj, int gnk, int gnl, int gnm){
 
   set_array_lbounds(&a3 , 1, gni-3, 1, gnj-3, 3, gnk-1) ;                  // more complex subarray
   print_bounds((array_nd *)&a3, "a3") ;
-  sz3 = subarray_get(&a3, (void *)t3, sizeof(t3)) ;
+  sz1 = subarray_get(&a3, (void *)t3, sizeof(t3)) ;
   bzero(r3, sizeof(r3)) ;
   set_array_lbounds(&b3 , 0, gni-4, 2, gnj-2, 2, gnk-2) ;                  // same dimension, different position subarray
   print_bounds((array_nd *)&b3, "b3") ;
-  sz4 = subarray_set(&b3, (void *)t3, sz3 * sizeof(int32_t)) ;
-  fprintf(stderr, "sz3 = %ld, expecting %d", sz3, (gni-3)*(gnj-3)*(gnk-3));
-  fprintf(stderr, ", sz4 = %ld\n", sz4) ;
+  sz2 = subarray_set(&b3, (void *)t3, sz1 * sizeof(int32_t)) ;
+  fprintf(stderr, "sz1 = %ld, expecting %d", sz1, (gni-3)*(gnj-3)*(gnk-3));
+  fprintf(stderr, ", sz2 = %ld\n", sz2) ;
   diff = 0 ;
   for(k=0 ; k<gnk-3 ; k++){
     for(j=0 ; j<gnj-3 ; j++){
@@ -372,6 +401,46 @@ void block_copy_check(int gni, int gnj, int gnk, int gnl, int gnm){
   array_strides(&a3, &strides);
   print_strides("a3", strides);
 
+  fprintf(stderr, "\n ======================== 4D test =================================\n") ;
+
+  new_array(&a4, l4, sizeof(int32_t), int_data, gni, gnj, gnk, gnl) ; bzero(l4, sizeof(l4)) ;
+  fill_array(gni, gnj, gnk, gnl, 1, (void *)l4) ;
+  fprintf(stderr, "a4[0][0][0][] :") ;
+  for(i=0 ; i<gni ; i++){ fprintf(stderr, " %8.8x", l4[0][0][0][i] >> 4) ;  } ; fprintf(stderr, "\n") ;
+  print_bounds((array_nd *)&a4, "a4") ;
+
+  sz1 = subarray_get(&a4, (void *)t4, sizeof(t4)) ;
+  new_array(&b4, r4, sizeof(int32_t), int_data, gni, gnj, gnk, gnl) ; bzero(r4, sizeof(r4)) ;
+  sz2 = subarray_set(&b4, (void *)t4, sz1 * sizeof(int32_t)) ;
+  fprintf(stderr, "sz1 = %ld, expecting %d", sz1, gni*gnj*gnk*gnl);
+  fprintf(stderr, ", sz2 = %ld\n", sz2) ;
+  if(sz1 != sz2) goto fail ;
+  diff = compare_array(gni, gnj, gnk, gnl, 1, (void *)&l4[0][0][0][0], (void *)&r4[0][0][0][0]) ;
+  fprintf(stderr, "diff = %d\n", diff) ;
+  if(diff != 0) goto fail ;
+
+  set_array_lbounds(&a4 , 0, gni-1, 0, gnj-1, 0, gnk-2, 1, gnl-1) ;               // suppress bottom cube, top planes
+  print_bounds((array_nd *)&a4, "a4") ;
+  sz1 = subarray_get(&a4, (void *)t4, sizeof(t4)) ;
+
+  set_array_lbounds(&b4 , 0, gni-1, 0, gnj-1, 1, gnk-1, 0, gnl-2)  ;              // suppress top cube, bottom planes
+  print_bounds((array_nd *)&b4, "b4") ;
+  sz2 = subarray_set(&b4, (void *)t4, sz1 * sizeof(int32_t)) ;
+  fprintf(stderr, "sz1 = %ld, expecting %d", sz1, gni*gnj*gnk*(gnl-1));
+  fprintf(stderr, ", sz2 = %ld\n", sz2) ;
+  diff = 0 ;
+  for(l=0 ; l<gnl-1 ; l++){
+    for(k=0 ; k<gnk-1 ; k++){
+      for(j=0 ; j<gnj-1 ; j++){
+        for(i=0 ; i<gni-1 ; i++){
+          if(l4[l+1][k][j][i] != r4[l][k+1][j][i]) diff++ ;
+        }
+      }
+    }
+  }
+  fprintf(stderr, "diff = %d\n", diff) ;
+  if(diff != 0) goto fail ;
+
   fprintf(stderr, "\n ======================== 5D test =================================\n") ;
 
   new_array(&a5, l5, sizeof(int32_t), int_data, gni, gnj, gnk, gnl, gnm) ; bzero(l5, sizeof(l5)) ;
@@ -379,12 +448,12 @@ void block_copy_check(int gni, int gnj, int gnk, int gnl, int gnm){
   fprintf(stderr, "a5[0][0][0][0][] :") ;
   for(i=0 ; i<gni ; i++){ fprintf(stderr, " %8.8x", l5[0][0][0][0][i]) ;  } ; fprintf(stderr, "\n") ;
 
-  sz5 = subarray_get(&a5, (void *)t5, sizeof(t5)) ;
-  fprintf(stderr, "sz5 = %ld(%ld), sizeof(l5) = %ld, sizeof(t5) = %ld\n", sz5, sz5*sizeof(int32_t), sizeof(l5),sizeof(t5) ) ;
+  sz1 = subarray_get(&a5, (void *)t5, sizeof(t5)) ;
+  fprintf(stderr, "sz1 = %ld(%ld), sizeof(l5) = %ld, sizeof(t5) = %ld\n", sz1, sz1*sizeof(int32_t), sizeof(l5),sizeof(t5) ) ;
 
   new_array(&b5, r5, sizeof(int32_t), int_data, gni, gnj, gnk, gnl, gnm) ; bzero(r5, sizeof(l5)) ;
-  sz6 = subarray_set(&b5, (void *)t5, sz5 * sizeof(int32_t)) ;
-  fprintf(stderr, "sz6 = %ld\n", sz6) ;
+  sz2 = subarray_set(&b5, (void *)t5, sz1 * sizeof(int32_t)) ;
+  fprintf(stderr, "sz2 = %ld\n", sz2) ;
   diff = compare_array(gni, gnj, gnk, gnl, gnm, (void *)l5, (void *)r5) ;
   fprintf(stderr, "diff = %d\n", diff) ;
   if(diff != 0) goto fail ;
@@ -407,11 +476,11 @@ int main(int argc, char **argv){
 
   fprintf(stderr, "=============== block copy test ===============\n") ;
   block_copy_check(9, 8, 7, 6, 5) ;
-goto end ;
+// goto end ;
   fprintf(stderr, "=============== array_lbounds test ===============\n") ;
   array_lbounds_check(1, 3);      // call bounds test, lower bound : 1, upper bound : 3
   fprintf(stderr, "SUCCESS\n") ;
-goto end ;
+// goto end ;
   fprintf(stderr, "=============== sub array test ===============\n") ;
   array_1d a1 = array_1d_null ;
   array_2d a2 = array_2d_null ;
