@@ -567,7 +567,7 @@ int main(int argc, char **argv){
     }
   }
 
-end:
+// end:
   fprintf(stderr, "SUCCESS\n") ;
   return 0 ;
 
