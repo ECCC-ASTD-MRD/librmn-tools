@@ -16,7 +16,6 @@
 //
 
 #include <rmn/array_nd.h>
-#include <rmn/move_blocks.h>
 
 // TODO : add a function to get the "effective rank" (ignore upper dimensions == 1)
 
@@ -675,7 +674,7 @@ static size_t subarray_set_5d(int gni, int gnj, int gnk, int gnl, int lni, int l
 // dest_size     [IN] : size in bytes of block
 // returns number of elements transferred
 // dest_size MUST be large enough to receive data
-ssize_t subarray_get_nd(array_nd *a, void *dest_address, size_t dest_size){
+ssize_t subarray_get_nd(array_nd *a, void *dest_address, size_t dest_size, block_properties *bp){
   size_t    data_size    = subarray_bytes(a) ;
   int lni, lnj, lnk, lnl, lnm, gni, gnj, gnk, gnl ;
   uint32_t esize ;
@@ -695,7 +694,7 @@ ssize_t subarray_get_nd(array_nd *a, void *dest_address, size_t dest_size){
   switch(a->rank){
   case 1:
     lni = esize*a->dim[0].lnn ;
-    return move_w32_block(src_address, lni, dest_address, lni, lni, 1) ;
+    return move_data32_block(src_address, lni, dest_address, lni, lni, 1, bp) ;
 //     return subarray_get_1d(lni, 
 //                            (uint32_t *)src_address, (uint32_t *)dest_address) ;
 //     return subarray_get_5d(lni, 1, 1, 1, lni, 1, 1, 1, 1,
@@ -705,7 +704,7 @@ ssize_t subarray_get_nd(array_nd *a, void *dest_address, size_t dest_size){
     gni = esize*a->dim[0].gnn ;
     lni = esize*a->dim[0].lnn ;
     lnj = a->dim[1].lnn ;
-    return move_w32_block(src_address, gni, dest_address, lni, lni, lnj) ;
+    return move_data32_block(src_address, gni, dest_address, lni, lni, lnj, bp) ;
 //     return subarray_get_2d(gni, lni, lnj,
 //                            (uint32_t (*)[gni])src_address, (uint32_t (*)[lni])dest_address) ;
 //     return subarray_get_5d(gni, lnj, 1, 1, lni, lnj, 1, 1, 1,

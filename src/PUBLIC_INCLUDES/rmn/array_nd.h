@@ -26,6 +26,8 @@
 #include <rmn/data_kind.h>
 // extra cpp macros (VA_ARGS related)
 #include <rmn/cpp_extras.h>
+// block movers
+#include <rmn/move_blocks.h>
 
 // dimensionality description along a dimension
 // global   dimension index space : gn0 -> gn0 + gnn - 1  ( gnn elements)
@@ -336,16 +338,16 @@ __i32__2__ subarray_gbounds_nd(array_nd *a, int32_t dim, int32_t ndims);
   )
 
 // users should call the generic function subarray_get rather than subarray_get_nd
-ssize_t subarray_get_nd(array_nd *a, void *address, size_t copy_size);
+ssize_t subarray_get_nd(array_nd *a, void *address, size_t copy_size, block_properties *bp);
 
-#define subarray_get(ARRAY_PTR, dest_address, dest_size) \
+#define subarray_get(ARRAY_PTR, dest_address, dest_size, bp) \
   _Generic((ARRAY_PTR), \
-    array_nd *: subarray_get_nd((array_nd *)ARRAY_PTR,dest_address, dest_size), \
-    array_5d *: subarray_get_nd((array_nd *)ARRAY_PTR,dest_address, dest_size), \
-    array_4d *: subarray_get_nd((array_nd *)ARRAY_PTR,dest_address, dest_size), \
-    array_3d *: subarray_get_nd((array_nd *)ARRAY_PTR,dest_address, dest_size), \
-    array_2d *: subarray_get_nd((array_nd *)ARRAY_PTR,dest_address, dest_size), \
-    array_1d *: subarray_get_nd((array_nd *)ARRAY_PTR,dest_address, dest_size)  \
+    array_nd *: subarray_get_nd((array_nd *)ARRAY_PTR,dest_address, dest_size, bp), \
+    array_5d *: subarray_get_nd((array_nd *)ARRAY_PTR,dest_address, dest_size, bp), \
+    array_4d *: subarray_get_nd((array_nd *)ARRAY_PTR,dest_address, dest_size, bp), \
+    array_3d *: subarray_get_nd((array_nd *)ARRAY_PTR,dest_address, dest_size, bp), \
+    array_2d *: subarray_get_nd((array_nd *)ARRAY_PTR,dest_address, dest_size, bp), \
+    array_1d *: subarray_get_nd((array_nd *)ARRAY_PTR,dest_address, dest_size, bp)  \
   )
 
 // users should call the generic function subarray_set rather than subarray_set_nd

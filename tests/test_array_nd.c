@@ -283,6 +283,7 @@ void block_copy_check(int gni, int gnj, int gnk, int gnl, int gnm){
   int i, j, k, l, diff ;
   ssize_t sz1, sz2 ;
   __i32__5__ strides ;
+  block_properties bp ;
 
   fprintf(stderr, "\n ======================== 1D test =================================\n") ;
 
@@ -303,7 +304,7 @@ void block_copy_check(int gni, int gnj, int gnk, int gnl, int gnm){
   set_array_lbounds(&a1 , 2, gni-1) ;
   print_bounds((array_nd *)&a1, "a1") ;
   bzero(t1, sizeof(t1)) ;
-  sz1 = subarray_get(&a1, (void *)t1, sizeof(t1)) ;                              // get part of a1
+  sz1 = subarray_get(&a1, (void *)t1, sizeof(t1), &bp) ;                              // get part of a1
   fprintf(stderr, "sz1 = %ld\n", sz1) ;
   if(sz1 <= 0) goto fail ;
 
@@ -341,7 +342,7 @@ void block_copy_check(int gni, int gnj, int gnk, int gnl, int gnm){
   print_bounds((array_nd *)&a2, "a2") ;
   set_array_lbounds(&a2 , 0, gni-2, 1, gnj-1) ;                           // suppress right column and bottom row
   print_bounds((array_nd *)&a2, "a2") ;
-  sz1 = subarray_get(&a2, (void *)t2, sizeof(t2)) ;
+  sz1 = subarray_get(&a2, (void *)t2, sizeof(t2), &bp) ;
   fprintf(stderr, "sz1 = %ld, expecting %d\n", sz1, (gni-1)*(gnj-1));
 
   new_array(&b2, r2, sizeof(int32_t), int_data, gni, gnj) ; bzero(r2, sizeof(r2)) ;
@@ -366,7 +367,7 @@ void block_copy_check(int gni, int gnj, int gnk, int gnl, int gnm){
   print_bounds((array_nd *)&a3, "a3") ;
   set_array_lbounds(&a3 , 0, gni-1, 0, gnj-1, 1, gnk-2) ;
   print_bounds((array_nd *)&a3, "a3") ;
-  sz1 = subarray_get(&a3, (void *)t3, sizeof(t3)) ;
+  sz1 = subarray_get(&a3, (void *)t3, sizeof(t3), &bp) ;
   fprintf(stderr, "sz1 = %ld, expecting %d\n", sz1, gni*gnj*(gnk-1));
 
   new_array(&b3, r3, sizeof(int32_t), int_data, gni, gnj, gnk) ; bzero(r3, sizeof(r3)) ;
@@ -380,7 +381,7 @@ void block_copy_check(int gni, int gnj, int gnk, int gnl, int gnm){
 
   set_array_lbounds(&a3 , 1, gni-3, 1, gnj-3, 3, gnk-1) ;                  // more complex subarray
   print_bounds((array_nd *)&a3, "a3") ;
-  sz1 = subarray_get(&a3, (void *)t3, sizeof(t3)) ;
+  sz1 = subarray_get(&a3, (void *)t3, sizeof(t3), &bp) ;
   bzero(r3, sizeof(r3)) ;
   set_array_lbounds(&b3 , 0, gni-4, 2, gnj-2, 2, gnk-2) ;                  // same dimension, different position subarray
   print_bounds((array_nd *)&b3, "b3") ;
@@ -409,7 +410,7 @@ void block_copy_check(int gni, int gnj, int gnk, int gnl, int gnm){
   for(i=0 ; i<gni ; i++){ fprintf(stderr, " %8.8x", l4[0][0][0][i] >> 4) ;  } ; fprintf(stderr, "\n") ;
   print_bounds((array_nd *)&a4, "a4") ;
 
-  sz1 = subarray_get(&a4, (void *)t4, sizeof(t4)) ;
+  sz1 = subarray_get(&a4, (void *)t4, sizeof(t4), &bp) ;
   new_array(&b4, r4, sizeof(int32_t), int_data, gni, gnj, gnk, gnl) ; bzero(r4, sizeof(r4)) ;
   sz2 = subarray_set(&b4, (void *)t4, sz1 * sizeof(int32_t)) ;
   fprintf(stderr, "sz1 = %ld, expecting %d", sz1, gni*gnj*gnk*gnl);
@@ -421,7 +422,7 @@ void block_copy_check(int gni, int gnj, int gnk, int gnl, int gnm){
 
   set_array_lbounds(&a4 , 0, gni-1, 0, gnj-1, 0, gnk-2, 1, gnl-1) ;               // suppress bottom cube, top planes
   print_bounds((array_nd *)&a4, "a4") ;
-  sz1 = subarray_get(&a4, (void *)t4, sizeof(t4)) ;
+  sz1 = subarray_get(&a4, (void *)t4, sizeof(t4), &bp) ;
 
   set_array_lbounds(&b4 , 0, gni-1, 0, gnj-1, 1, gnk-1, 0, gnl-2)  ;              // suppress top cube, bottom planes
   print_bounds((array_nd *)&b4, "b4") ;
@@ -448,7 +449,7 @@ void block_copy_check(int gni, int gnj, int gnk, int gnl, int gnm){
   fprintf(stderr, "a5[0][0][0][0][] :") ;
   for(i=0 ; i<gni ; i++){ fprintf(stderr, " %8.8x", l5[0][0][0][0][i]) ;  } ; fprintf(stderr, "\n") ;
 
-  sz1 = subarray_get(&a5, (void *)t5, sizeof(t5)) ;
+  sz1 = subarray_get(&a5, (void *)t5, sizeof(t5), &bp) ;
   fprintf(stderr, "sz1 = %ld(%ld), sizeof(l5) = %ld, sizeof(t5) = %ld\n", sz1, sz1*sizeof(int32_t), sizeof(l5),sizeof(t5) ) ;
 
   new_array(&b5, r5, sizeof(int32_t), int_data, gni, gnj, gnk, gnl, gnm) ; bzero(r5, sizeof(l5)) ;
@@ -471,6 +472,7 @@ fail:
 int main(int argc, char **argv){
   int32_t ref[GNK][GNJ][GNI], cpy[GNK][GNJ][GNI] ;
   int i, j, k, l, errors, errsub ;
+  block_properties bp ;
 
   if(argc > 1 && argv[0] == NULL) return 1 ;  // useless code to get rid of compiler warning
 
@@ -515,7 +517,7 @@ int main(int argc, char **argv){
           goto fail ;
         }
         // get block from a3
-        subsize = subarray_get(&a3, copy, sizeof(copy)) ;
+        subsize = subarray_get(&a3, copy, sizeof(copy), &bp) ;
         if(subsize != 1000){
           fprintf(stderr, "subsize(get) = %ld, expected 1000\n", subsize) ;
           goto fail ;
@@ -567,7 +569,9 @@ int main(int argc, char **argv){
     }
   }
 
-// end:
+  goto end ;
+
+end:
   fprintf(stderr, "SUCCESS\n") ;
   return 0 ;
 
