@@ -118,6 +118,14 @@ reverse:
   if(status2 < 0) goto fail ; else status += status2 ;
   *stream = s ;                                        // SAVE stream changes
   return status ;
+
+encode:
+  fprintf(stderr, "encode parameters, filter = %d\n", self) ;
+  return 0 ;
+
+decode:
+  fprintf(stderr, "encode parameters, filter = %d\n", self) ;
+  return 0 ;
 }
 #undef FILTER_NAME
 #undef FILTER_ARGS
@@ -502,3 +510,46 @@ int32_t dmap_filter_put_array_info(array_nd *a, bitstream *stream){
 // #endif
   return nbits ;
 }
+
+// data pipe filter parameter encoder
+// encode original filter list parameters into bit stream
+ssize_t dmap_encode_parameters(dmap_filter_list dpfl, bitstream *stream){
+  dmap_filter_args_ptr ptr = *dpfl ;
+  ssize_t status = 0 ;
+//   fprintf(stderr, "dmap_encode_parameters : available %ld bits\n", StreamAvailableBits(stream)) ;
+  while(ptr != NULL){
+    if(ptr->filter != 0){
+      if(ptr->filter > 7) fprintf(stderr, "dmap_encode_parameters : filter = %d\n", ptr->filter) ;
+      dmap_filter_ptr filter = dmap_filter_get(ptr->filter) ;
+      status += (*filter)(NULL, NULL, dpfl, stream) ;
+//       fprintf(stderr, "dmap_encode_parameters : status = %ld, available %ld bits\n", status, StreamAvailableBits(stream)) ;
+    }
+    dpfl++ ;
+    ptr = *dpfl ;
+  }
+  STREAM_INSERT_ALIGN32(*stream) ;        // align to a 32 bit boundary
+  STREAM_FLUSH(*stream) ;
+  fprintf(stderr, "dmap_encode_parameters : status = %ld, available %ld bits\n\n", status, StreamAvailableBits(stream)) ;
+  return status ;
+}
+
+// data pipe filter parameter decoder
+// decode original filter list parameters from bit stream
+ssize_t dmap_decode_parameters(dmap_filter_list dpfl, bitstream *stream){
+  dmap_filter_args_ptr ptr = *dpfl ;
+  ssize_t status = 0 ;
+  fprintf(stderr, "dmap_decode_parameters : available %ld bits\n", StreamAvailableBits(stream)) ;
+  while(ptr != NULL){
+    if(ptr->filter != 0){
+//       if(ptr->filter > 7) fprintf(stderr, "dmap_decode_parameters : filter = %d\n", ptr->filter) ;
+      dmap_filter_ptr filter = dmap_filter_get(ptr->filter) ;
+      status += (*filter)((void *)1, (void *)1, dpfl, stream) ;
+//       fprintf(stderr, "dmap_decode_parameters : status = %ld, available %ld bits\n", status, StreamAvailableBits(stream)) ;
+    }
+    dpfl++ ;
+    ptr = *dpfl ;
+  }
+  fprintf(stderr, "dmap_decode_parameters : status = %ld, available %ld bits\n\n", status, StreamAvailableBits(stream)) ;
+  return status ;
+}
+

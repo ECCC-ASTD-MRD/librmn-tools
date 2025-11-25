@@ -18,10 +18,10 @@
 #define SPLIT_DIMENSION_H
 
 // generic signed integer pair
-typedef struct{
-  int32_t i1 ;
-  int32_t i2 ;
-}int_pair ;              // pair of signed integers
+// typedef struct{
+//   int32_t i1 ;
+//   int32_t i2 ;
+// }int_pair ;              // pair of signed integers
 
 // index pair for 2D array
 typedef struct{
@@ -99,18 +99,44 @@ static inline index_range block_limits(array_axis axis,int32_t ordinal){
 }
 
 // split n into pieces preferably of size bsize
-// n     [IN] : total number of pieces
+// n     [IN] : total number of items
 // bsize [IN] : requested size of pieces
 // the first piece may be smaller or larger than the requested size
 // if size is even, pieces will be >= bsize/2 or <  bsize + bsize/2
 // if size is odd,  pieces will be >  bsize/2 or <= bsize + bsize/2
-// pieces will smaller than the minimum only if n is also smaller
+// pieces will be smaller than the minimum only if n is also smaller
 static inline array_axis split_axis(int n, int bsize){
-  array_axis r ;
+  array_axis r = (array_axis){ .nbk=0, .ln0=-1, .ln1=-1 } ;
+  if(n <= 0 || bsize <= 0) goto end ;
   r.nbk = (n + bsize/2) / bsize ;      // number of pieces
-  r.nbk = (r.nbk == 0) ? 1 : r.nbk ;
+  r.nbk = (r.nbk == 0) ? 1 : r.nbk ;   // cannot be less than 1
   r.ln0 = n - (r.nbk - 1) * bsize ;    // size of first piece
   r.ln1 = bsize ;
+end:
+  return r ;
+}
+
+// split n into pieces preferably of size bsize
+// n     [IN] : total number of items
+// bsize [IN] : requested size of pieces
+// the first piece may be smaller or larger than the requested size
+// if size is even, pieces will be >= bsize/2 or <  bsize + bsize/2
+// if size is odd,  pieces will be >  bsize/2 or <= bsize + bsize/2
+// pieces will be smaller than the minimum only if n is also smaller
+// residual processing is performed as if bsize was 32
+static inline array_axis split_axis_32(int n, int bsize){
+  array_axis r = (array_axis){ .nbk=0, .ln0=-1, .ln1=-1 } ;
+  if(n <= 0 || bsize <= 0) goto end ;
+  r.nbk = n / bsize ;                  // number of pieces
+  r.ln0 = n - (bsize * r.nbk) ;        // residual
+  if(r.ln0 > 31) {                     // add a piece of size >= 32
+    r.nbk++ ;
+  }else{
+    r.nbk = (r.nbk == 0) ? 1 : r.nbk ; // cannot be less than 1
+    r.ln0 += bsize;                    // increment size of first piece by bsize
+  }
+  r.ln1 = bsize ;
+end:
   return r ;
 }
 

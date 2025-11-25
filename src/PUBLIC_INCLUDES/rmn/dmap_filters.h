@@ -21,7 +21,7 @@
 #define FILTER_CHAIN_END 0377
 
 #include <rmn/cpp_extras.h>
-#include <rmn/data_map.h>
+// #include <rmn/data_map.h>
 #include <rmn/array_nd.h>
 #include <rmn/be_stream.h>
 #include <rmn/bitstream.h>
@@ -81,16 +81,22 @@ typedef ssize_t dmap_filter(array_nd *, block_properties *, dmap_filter_list, bi
 // generic pointer to data pipe filter function
 typedef dmap_filter *dmap_filter_ptr ;
 
+// data pipe filter parameter encoder
+ssize_t dmap_encode_parameters(dmap_filter_list, bitstream *) ;
+
+// data pipe filter parameter decoder
+ssize_t dmap_decode_parameters(dmap_filter_list, bitstream *) ;
+
 #include <rmn/dmap_filters_000_007.h>
 #include <rmn/dmap_filters_010_017.h>
 #include <rmn/dmap_filters_020_027.h>
 #include <rmn/dmap_filters_030_037.h>
 
 // list of pointers to dmapfilter_args structures
-typedef struct{
-  uint32_t nfilters ;
-  dmapfilter_args *filters[] ;
-} dmapfilter_list ;
+// typedef struct{
+//   uint32_t nfilters ;
+//   dmapfilter_args *filters[] ;
+// } dmapfilter_list ;
 
 // bit stream encoding format for filter metadata
 // first element of metadata for ALL filters (MUST be present and be the FIRST element)
@@ -102,6 +108,7 @@ typedef struct{
 #define DMAPFILTER_PROLOG uint16_t id:7, flags:4, size:5 ; uint16_t meta0 ;
 #endif
 
+// ============ preliminary, subject to changes ============
 // bit stream encoding of a datamap block :
 // number of filters (8 bits)
 // metadata for filter 1 (n x 32 bits)

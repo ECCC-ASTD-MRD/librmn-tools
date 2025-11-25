@@ -96,6 +96,12 @@ reverse:
 #define FILTER_ARGS CAT(dmap_filter_arg_,FILTER_ID)
 ssize_t FILTER_NAME(array_nd *a, block_properties *bp, dmap_filter_list dpfl, bitstream *stream){
   uint32_t self = FILTER_ID ;
+  FILTER_ARGS *arg ;
+  uint32_t filter ;
+
+  if(a == NULL && bp == NULL && stream != NULL && dpfl != NULL) goto encode ;
+  if((void *)a == (void *)bp && stream != NULL && dpfl != NULL) goto decode ;
+
   if(a == NULL || stream == NULL) goto fail ;    // no array or no stream
   void *array = array_address(a) ;               // get array address, dimension(s), and type
   int rank = a->rank, type = a->type ;
@@ -106,7 +112,7 @@ ssize_t FILTER_NAME(array_nd *a, block_properties *bp, dmap_filter_list dpfl, bi
 //   if(bp == NULL) { bp = &lbp ; lbp.kind = bad_data ; }
   if(dpfl == NULL) goto reverse ;                // call to reverse filter
   if(! dmap_filter_valid(dpfl,self)) goto fail ;   // not the right filter or NULL pointer
-  FILTER_ARGS *arg = (FILTER_ARGS *)(*dpfl) ;    // get parameters for this filter
+  arg = (FILTER_ARGS *)(*dpfl) ;    // get parameters for this filter
 // check a->type and a->rank
   if(type != float_data || rank != 2) goto fail ;
 // filter processing code goes here
@@ -138,15 +144,17 @@ ssize_t FILTER_NAME(array_nd *a, block_properties *bp, dmap_filter_list dpfl, bi
   fprintf(stderr, "filter 001(W) %3.3o, %8.8x , %8.8x\n", FILTER_ID, *tmp1, *tmp2) ;
   status += 72 ;
 
-// end:
-  *stream = s ;   // SAVE stream changes
   fprintf(stderr, "filter 001(X) : available space in stream %ld bits\n", StreamAvailableSpace(stream)) ;
+
+// successful end
+end:
+  *stream = s ;   // SAVE stream changes
   return status ;
 
+// miserable failure
 fail:
   return -1 ;     // DO NOT SAVE stream changes
 
-  uint32_t filter ;
 reverse:
   STREAM_GET_NBITS(s, filter, 8) ;
 //   fprintf(stderr, "reverse filter %3.3o, id = %d\n", FILTER_ID, filter) ;
@@ -159,8 +167,37 @@ reverse:
 
   ssize_t status2 = dmap_filter_inv(a, &s) ;     // call next inverse filter
   if(status2 < 0) goto fail ; else status += status2 ;
-  *stream = s ;   // SAVE stream changes
-  return status ;
+
+  goto end ;
+//   *stream = s ;   // SAVE stream changes
+//   return status ;
+
+encode:
+  if(self != FILTER_ID) goto fail ;                     // wrong id, MUST be FILTER_ID
+  s = *stream ;
+  fprintf(stderr, "encode parameters, filter = %d", self) ;
+  STREAM_PUT_NBITS(s, self, 8) ; status = 8 ;
+  arg = (FILTER_ARGS *)(*dpfl) ;    // parameters for this filter
+  STREAM_PUT_NBITS(s, arg->iscale , 32) ; status += 32 ;
+  STREAM_PUT_NBITS(s, arg->ioffset, 32) ; status += 32 ;
+  fprintf(stderr, ", self = %8.8x, scale = %8.8x, offset = %8.8x, status = %ld\n", self, arg->iscale, arg->ioffset, status) ;
+  goto end ;
+//   *stream = s ;   // SAVE stream changes
+//   return status ;
+
+decode:
+  s = *stream ;
+  fprintf(stderr, "decode parameters, filter = %d", self) ;
+  self = 0xFFFFFFFF ;
+  STREAM_GET_NBITS(s, self, 8) ; status = 8 ;
+  if(self != FILTER_ID) goto fail ;                     // wrong id, MUST be FILTER_ID
+  FILTER_ARGS arg0 ;    // parameters for this filter
+  STREAM_GET_NBITS(s, arg0.iscale , 32) ; status += 32 ;
+  STREAM_GET_NBITS(s, arg0.ioffset, 32) ; status += 32 ;
+  fprintf(stderr, ", self = %8.8x, scale = %8.8x, offset = %8.8x, status = %ld\n", self, arg0.iscale, arg0.ioffset, status) ;
+  goto end ;
+//   *stream = s ;   // SAVE stream changes
+//   return status ;
 }
 #undef FILTER_NAME
 #undef FILTER_ARGS
@@ -175,6 +212,10 @@ reverse:
 #define FILTER_ARGS CAT(dmap_filter_arg_,FILTER_ID)
 ssize_t FILTER_NAME(array_nd *a, block_properties *bp, dmap_filter_list dpfl, bitstream *stream){
   uint32_t self = FILTER_ID ;
+
+  if(a == NULL && bp == NULL && stream != NULL && dpfl != NULL) goto encode ;
+  if((void *)a == (void *)bp && stream != NULL && dpfl != NULL) goto decode ;
+
   if(a == NULL || stream == NULL) goto fail ;    // no array or no stream
   void *array = array_address(a) ;               // get array address, dimension(s), and type
 //   int rank = a->rank, type = a->type ;
@@ -202,9 +243,10 @@ ssize_t FILTER_NAME(array_nd *a, block_properties *bp, dmap_filter_list dpfl, bi
   STREAM_INSERT_PUSH(s) ;
   status += 16 ;
 
-// end:
-  *stream = s ;   // SAVE stream changes
   fprintf(stderr, "filter 002(X) : available space in stream %ld bits\n", StreamAvailableSpace(stream)) ;
+
+end:
+  *stream = s ;   // SAVE stream changes
   return status ;
 
 fail:
@@ -223,8 +265,30 @@ reverse:
 
   ssize_t status2 = dmap_filter_inv(a, &s) ;     // call next inverse filter
   if(status2 < 0) goto fail ; else status += status2 ;
-  *stream = s ;   // SAVE stream changes
-  return status ;
+  goto end ;
+//   *stream = s ;   // SAVE stream changes
+//   return status ;
+
+encode:
+  if(self != FILTER_ID) goto fail ;                     // wrong id, MUST be FILTER_ID
+  s = *stream ;
+  fprintf(stderr, "encode parameters, filter = %d", self) ;
+  STREAM_PUT_NBITS(s, self, 8) ; status = 8 ;
+  arg = (FILTER_ARGS *)(*dpfl) ;    // parameters for this filter
+  STREAM_PUT_NBITS(s, arg->flag, 16) ; status += 16 ;
+  fprintf(stderr, ", flag = %8x, status = %ld\n", arg->flag, status) ;
+  goto end ;
+
+decode:
+  s = *stream ;
+  fprintf(stderr, "decode parameters") ;
+  self = 0xFFFFFFFF ;
+  STREAM_GET_NBITS(s, self, 8) ; status = 8 ;
+  if(self != FILTER_ID) goto fail ;                     // wrong id, MUST be FILTER_ID
+  FILTER_ARGS arg0 ;    // parameters for this filter
+  STREAM_GET_NBITS(s, arg0.flag, 16) ; status += 16 ;
+  fprintf(stderr, ", filter = %d, flag = %8x, status = %ld\n", self, arg0.flag, status) ;
+  goto end ;
 }
 #undef FILTER_NAME
 #undef FILTER_ARGS
@@ -246,6 +310,10 @@ reverse:
 ssize_t FILTER_NAME(array_nd *a, block_properties *bp, dmap_filter_list dpfl, bitstream *stream){
   char *errmsg = "" ;
   uint32_t self = FILTER_ID, filter ;
+
+  if(a == NULL && bp == NULL && stream != NULL && dpfl != NULL) goto encode ;
+  if((void *)a == (void *)bp && stream != NULL && dpfl != NULL) goto decode ;
+
   errmsg = "a == NULL || stream == NULL" ;
   if(a == NULL || stream == NULL) goto fail ;    // no array or no stream
   void *array = array_address(a) ;               // get array address, dimension(s), and type
@@ -334,10 +402,11 @@ ssize_t FILTER_NAME(array_nd *a, block_properties *bp, dmap_filter_list dpfl, bi
 //   fprintf(stderr, "filter %3.3o : inserted %d bits, quantum = %f, exp = %d, offset = %d, mode = %d\n",
 //           FILTER_ID, inserted, fp32_pow2(e_base-127), e_base, offset, mode) ;
 
-// end:
+// successful end
+end:
   *stream = s ;   // success, SAVE stream changes
   return status ;
-
+// miserable falure
 fail:
   fprintf(stderr, "%s filter %3.3o ERROR : %s\n", (dpfl == NULL) ? "reverse" : "forward", FILTER_ID, errmsg) ;
   return -1 ;     // failure, DO NOT SAVE stream changes
@@ -377,8 +446,28 @@ reverse:
 
   ssize_t status2 = dmap_filter_inv(a, &s) ;           // call next inverse filter
   if(status2 < 0) goto fail ; else status += status2 ;
-  *stream = s ;                                        // SAVE stream changes
-  return status ;
+  goto end ;
+//   *stream = s ;                                        // SAVE stream changes
+//   return status ;
+
+encode:
+  if(self != FILTER_ID) goto fail ;                     // wrong id, MUST be FILTER_ID
+  s = *stream ;
+  fprintf(stderr, "encode parameters, filter = %d", self) ;
+  STREAM_PUT_NBITS(s, self, 8) ; status = 8 ;
+  arg = (FILTER_ARGS *)(*dpfl) ;    // parameters for this filter
+  fprintf(stderr, ", status = %ld\n", status) ;
+  goto end ;
+
+decode:
+  s = *stream ;
+  fprintf(stderr, "decode parameters") ;
+  self = 0xFFFFFFFF ;
+  STREAM_GET_NBITS(s, self, 8) ; status = 8 ;
+  if(self != FILTER_ID) goto fail ;                     // wrong id, MUST be FILTER_ID
+  FILTER_ARGS arg0 ;    // parameters for this filter
+  fprintf(stderr, ", status = %ld\n", status) ;
+  goto end ;
 }
 #undef FILTER_NAME
 #undef FILTER_ARGS
@@ -398,6 +487,10 @@ reverse:
 ssize_t FILTER_NAME(array_nd *a, block_properties *bp, dmap_filter_list dpfl, bitstream *stream){
   char *errmsg = "" ;
   uint32_t self = FILTER_ID ;
+
+  if(a == NULL && bp == NULL && stream != NULL && dpfl != NULL) goto encode ;
+  if((void *)a == (void *)bp && stream != NULL && dpfl != NULL) goto decode ;
+
   errmsg = "no array" ;
   if(a == NULL) goto fail ;                      // no array
   errmsg = "no stream" ;
@@ -460,6 +553,14 @@ reverse:
 // fprintf(stderr, "filter %3.3o(END) Lorenzo post  [%d x %d]\n", FILTER_ID, a->dim[0].gnn, a->dim[1].gnn) ;
   *stream = s ;   // SAVE stream changes
   return status ;
+
+encode:
+  fprintf(stderr, "encode parameters, filter = %d\n", self) ;
+  return 0 ;
+
+decode:
+  fprintf(stderr, "decode parameters, filter = %d\n", self) ;
+  return 0 ;
 }
 #undef FILTER_NAME
 #undef FILTER_ARGS
@@ -478,6 +579,10 @@ reverse:
 ssize_t FILTER_NAME(array_nd *a, block_properties *bp, dmap_filter_list dpfl, bitstream *stream){
   char *errmsg = "" ;
   uint32_t self = FILTER_ID ;
+
+  if(a == NULL && bp == NULL && stream != NULL && dpfl != NULL) goto encode ;
+  if((void *)a == (void *)bp && stream != NULL && dpfl != NULL) goto decode ;
+
   errmsg = "no array" ;
   if(a == NULL) goto fail ;                      // no array
   errmsg = "no stream" ;
@@ -555,6 +660,14 @@ reverse:
   goto end ;
 //   *stream = s ;   // SAVE stream changes
 //   return status ;
+
+encode:
+  fprintf(stderr, "encode parameters, filter = %d\n", self) ;
+  return 0 ;
+
+decode:
+  fprintf(stderr, "decode parameters, filter = %d\n", self) ;
+  return 0 ;
 }
 #undef FILTER_NAME
 #undef FILTER_ARGS
@@ -577,6 +690,10 @@ reverse:
 ssize_t FILTER_NAME(array_nd *a, block_properties *bp, dmap_filter_list dpfl, bitstream *stream){
   char *errmsg = "" ;
   uint32_t self = FILTER_ID, zigzag  ;
+
+  if(a == NULL && bp == NULL && stream != NULL && dpfl != NULL) goto encode ;
+  if((void *)a == (void *)bp && stream != NULL && dpfl != NULL) goto decode ;
+
   ssize_t status = 0, status_0 ;
   int32_t ni, nj, mode, nbits, tnbits, tile, bhw, nelem, i ;
 
@@ -713,10 +830,14 @@ ssize_t FILTER_NAME(array_nd *a, block_properties *bp, dmap_filter_list dpfl, bi
     for(i=0 ; i<nelem ; i++) { STREAM_PUT_NBITS(s, z[i], nbits) ; status += nbits ; } ;   // inject data into stream
     STREAM_INSERT_PUSH(s) ;   // push all data into stream
   }
+  status = status + status_0 ;
+
+// successsful end
+end:
   *stream = s ;   // SAVE stream changes
 //   fprintf(stderr, "filter 006(X) : available space in stream %ld bits\n", StreamAvailableSpace(stream)) ;
 // fprintf(stderr, "filter 006(X) : inserted %ld bits\n", status);
-  return status + status_0 ;    // return number of bits produced
+  return status ;    // return number of bits produced/decoded
 
 // ================================ miserable failure ================================
 // used by forward and reverse filter
@@ -802,8 +923,37 @@ reverse:
   if(a->rank == 2) nj = a->dim[1].gnn ;
   errmsg = "final array dimensions not as expected" ;
   if(ni != ni_in || nj != nj_in || rank != a->rank) goto fail ;
-  *stream = s ;      // SAVE stream changes
-  return status ;    // return number of bits consumed
+
+  goto end ;
+//   *stream = s ;      // SAVE stream changes
+//   return status ;    // return number of bits consumed
+
+encode:
+  errmsg = "encode : self != FILTER_ID" ;
+  if(self != FILTER_ID) goto fail ;                     // wrong id, MUST be FILTER_ID
+  status = 0 ;
+  s = *stream ;                        // local copy of stream control structure
+  fprintf(stderr, "encode parameters, filter = %d", self) ;
+  STREAM_PUT_NBITS(s, self, 8) ; status = 8 ;
+  arg = (FILTER_ARGS *)(*dpfl) ;    // parameters for this filter
+  STREAM_PUT_NBITS(s, arg->mode   , 8) ; status += 8 ;
+  STREAM_PUT_NBITS(s, arg->options, 8) ; status += 8 ;
+  fprintf(stderr, ", self = %8.8x, mode = %d, options = %x, status = %ld\n", self, arg->mode, arg->options, status) ;
+  goto end ;
+
+decode:
+  errmsg = "decode : self != FILTER_ID" ;
+  status = 0 ;
+  s = *stream ;                        // local copy of stream control structure
+  fprintf(stderr, "decode parameters, filter = %d", self) ;
+  self = 0xFFFFFFFF ;
+  STREAM_GET_NBITS(s, self, 8) ; status = 8 ;
+  if(self != FILTER_ID) goto fail ;                     // wrong id, MUST be FILTER_ID
+  FILTER_ARGS arg0 ;    // parameters for this filter
+  STREAM_GET_NBITS(s, arg0.mode   , 8) ; status += 8 ;
+  STREAM_GET_NBITS(s, arg0.options, 8) ; status += 8 ;
+  fprintf(stderr, ", self = %8.8x, mode = %d, options = %x, status = %ld\n", self, arg0.mode, arg0.options, status) ;
+  goto end ;
 }
 #undef FILTER_NAME
 #undef FILTER_ARGS
@@ -817,6 +967,10 @@ reverse:
 #define FILTER_ARGS CAT(dmap_filter_arg_,FILTER_ID)
 ssize_t FILTER_NAME(array_nd *a, block_properties *bp, dmap_filter_list dpfl, bitstream *stream){
   uint32_t self = FILTER_ID ;
+
+  if(a == NULL && bp == NULL && stream != NULL && dpfl != NULL) goto encode ;
+  if((void *)a == (void *)bp && stream != NULL && dpfl != NULL) goto decode ;
+
   if(a == NULL || stream == NULL) goto fail ;    // no array or no stream
   void *array = array_address(a) ;               // get array address, dimension(s), and type
   int rank = a->rank, type = a->type ;
@@ -885,6 +1039,14 @@ reverse:
   if(status2 < 0) goto fail ; else status += status2 ;
   *stream = s ;
   return status ;
+
+encode:
+  fprintf(stderr, "encode parameters, filter = %d\n", self) ;
+  return 0 ;
+
+decode:
+  fprintf(stderr, "decode parameters, filter = %d\n", self) ;
+  return 0 ;
 }
 #undef FILTER_NAME
 #undef FILTER_ARGS

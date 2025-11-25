@@ -227,6 +227,45 @@ static inline int invalid_zmap(zmap *map){
   return 0 ;
 }
 
+typedef struct{
+  uint16_t nb ;         // number of blocks
+  uint8_t  n0 ;         // size of first block
+  uint8_t  n1 ;         // size of folloring blocks
+} mapdim ;
+CT_ASSERT(sizeof(mapdim) == 4, "unexpected size of mapdim structure")
+
+typedef struct{
+  uint8_t  version:6 ,  // version marker
+           rank:2 ;     // number of dimensions (0 == NO MAP)
+  uint8_t  xdim:2 ,     // dimension ext applies to (0 == NONE)
+           spare:6 ;
+  uint16_t ext ;        // upper 16 bits of dimension indicated by xdim
+} map0 ;
+CT_ASSERT(sizeof(map0) == 4, "unexpected size of map0 structure")
+
+typedef struct{
+  map0     map ;        // present for all maps
+  mapdim   dim[] ;      // dimensions of block map ( 1/2/3 dimensions )
+} bmap ;
+
+typedef struct{
+  map0     map ;        // present for all maps
+  mapdim   dim[1] ;     // dimensions of block map
+} bmap1 ;               // 1D block map
+CT_ASSERT(sizeof(bmap1) == 8, "unexpected size of bmap1 structure")
+
+typedef struct{
+  map0     map ;        // present for all maps
+  mapdim   dim[2] ;     // dimensions of block map
+} bmap2 ;               // 2D block map
+CT_ASSERT(sizeof(bmap2) == 12, "unexpected size of bmap2 structure")
+
+typedef struct{
+  map0     map ;        // present for all maps
+  mapdim   dim[3] ;     // dimensions of block map
+} bmap3 ;               // 3D block map
+CT_ASSERT(sizeof(bmap3) == 16, "unexpected size of bmap3 structure")
+
 int32_t Zindex_from_ij(int32_t i, int32_t j, int32_t nti, int32_t ntj, int32_t sf0);
 index_pair Zindex_to_ij(int32_t zij, int32_t nti, int32_t ntj, int32_t sf0);
 

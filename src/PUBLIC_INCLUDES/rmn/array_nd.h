@@ -26,7 +26,7 @@
 #include <rmn/data_kind.h>
 // extra cpp macros (VA_ARGS related)
 #include <rmn/cpp_extras.h>
-// block movers
+// block movers/analyzers
 #include <rmn/move_blocks.h>
 
 // dimensionality description along a dimension

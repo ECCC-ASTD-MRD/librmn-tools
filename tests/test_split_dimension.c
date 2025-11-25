@@ -22,6 +22,8 @@
 #include <rmn/split_dimension.h>
 
 int main(int argc, char **argv){
+  (void)(argc) ;
+  (void)(argv) ;
   int npts, ix, bsize, i, i0, in, ncheck ;
   array_axis axis ;
   index_range range ;
