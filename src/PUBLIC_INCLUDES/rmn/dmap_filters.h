@@ -85,7 +85,7 @@ typedef dmap_filter *dmap_filter_ptr ;
 ssize_t dmap_encode_parameters(dmap_filter_list, bitstream *) ;
 
 // data pipe filter parameter decoder
-ssize_t dmap_decode_parameters(dmap_filter_list, bitstream *) ;
+ssize_t dmap_decode_parameters(dmap_filter_list, int, bitstream *) ;
 
 #include <rmn/dmap_filters_000_007.h>
 #include <rmn/dmap_filters_010_017.h>

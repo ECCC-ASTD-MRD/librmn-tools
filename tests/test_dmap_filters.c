@@ -329,7 +329,9 @@ process:
   STREAM_INIT(str000, NULL, 0, 0) ;               // full RW stream reset (keep buffer, size, and mode)
   dmap_encode_parameters(dpfl, str000) ;
   STREAM_REWIND(*str000, 1) ;
-  dmap_decode_parameters(dpfl, str000) ;
+  dmap_filter_args_ptr dpfb[10] ;
+  dmap_filter_list dpfl2 = &dpfb[0] ;
+  dmap_decode_parameters(dpfl2, sizeof(dpfb)/sizeof(void *), str000) ;
 
 if(argc < 1000) goto end ;     // suppress unreachable code warning
 

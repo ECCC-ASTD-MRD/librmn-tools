@@ -466,7 +466,7 @@ decode:
   STREAM_GET_NBITS(s, self, 8) ; status = 8 ;
   if(self != FILTER_ID) goto fail ;                     // wrong id, MUST be FILTER_ID
   FILTER_ARGS arg0 ;    // parameters for this filter
-  fprintf(stderr, ", status = %ld\n", status) ;
+  fprintf(stderr, ", filter = %d, status = %ld\n", self, status) ;
   goto end ;
 }
 #undef FILTER_NAME
