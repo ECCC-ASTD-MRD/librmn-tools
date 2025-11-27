@@ -206,7 +206,7 @@ static ssize_t dmap_filter_last(array_nd *a, block_properties *bp, dmap_filter_l
 
 typedef struct{
   dmap_filter_ptr ptr ;    // pointer to dmap filter function
-  char *name ;             // function description
+  const char *name ;             // function description
   size_t sz ;              // argument list size
 } filter_properties ;
 
@@ -278,7 +278,7 @@ int dmap_filter_exists(int ordinal){
 
 // ordinal [IN] : filter id
 // return name of filter having this id
-char *dmap_filter_name(int ordinal){
+const char *dmap_filter_name(int ordinal){
   if(ordinal < 0 || ordinal >= MAX_DP_FILTERS+3) return "filter_not_valid" ;
   if(filters[ordinal].ptr == NULL) return "filter_not_defined" ;
   return filters[ordinal].name ;
@@ -297,16 +297,22 @@ dmap_filter_ptr dmap_filter_get(int ordinal){
 // insert a filter address into the filter table at position ordinal
 // filter  [IN] : address of dmap filter function
 // ordinal [IN] : desired position in table
+// name    [IN] : name of new filter (MUST BE STATIC)
+// sz      [IN] : expected size of argument list
 // force   [IN] : if force != 0, override table entry if it was non NULL
 //                if force == 0, return error if table entry was non NULL
 // return ordinal if O.K., negative error code in case of error
-int dmap_filter_set(dmap_filter_ptr filter, int ordinal, int force){
+int dmap_filter_set(dmap_filter_ptr filter, int ordinal, const char *name, size_t sz, int force){
   if(ordinal < 0 || ordinal >= MAX_DP_FILTERS) return -1 ;  // invalid filter ordinal
   if(filters[ordinal].ptr == NULL){                  // filter not already defined
-    filters[ordinal].ptr = filter ;                  // set to filter
+    filters[ordinal].ptr  = filter ;                 // set to filter
+    filters[ordinal].sz   = sz ;                     // expected argument size
+    filters[ordinal].name = name ;                   // filter name
   }else{
     if(force == 0) return -2 ;                       // filter already defined
-    filters[ordinal].ptr = filter ;                  // override previous filter
+    filters[ordinal].ptr  = filter ;                 // override previous filter
+    filters[ordinal].sz   = sz ;                     // expected argument size
+    filters[ordinal].name = name ;                   // filter name
   }
   return ordinal ;
 }
@@ -549,7 +555,7 @@ ssize_t dmap_encode_parameters(dmap_filter_list dpfl, bitstream *stream){
 // stream [INOUT] : stream to get filter parameters from
 // return number of bits read from stream
 ssize_t dmap_decode_parameters(dmap_filter_list dpfl, int nfilters, bitstream *stream){
-  dmap_filter_args_ptr ptr = *dpfl ;
+//   dmap_filter_args_ptr ptr = *dpfl ;
   uint32_t filter_no = 0 ;
   int nf = 0 ;
   ssize_t status = 0 ;

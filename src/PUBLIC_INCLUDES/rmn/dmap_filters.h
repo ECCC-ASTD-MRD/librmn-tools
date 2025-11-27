@@ -128,9 +128,9 @@ ssize_t dmap_decode_parameters(dmap_filter_list, int, bitstream *) ;
 // }
 
 dmap_filter_ptr dmap_filter_get(int ordinal);
-int dmap_filter_set(dmap_filter_ptr filter, int ordinal, int force);
+int dmap_filter_set(dmap_filter_ptr filter, int ordinal, const char *name, size_t arg_size, int force);
 int dmap_filter_exists(int ordinal);
-char *dmap_filter_name(int ordinal);
+const char *dmap_filter_name(int ordinal);
 
 // ssize_t dmap_filter_bad(array_nd *a, block_properties *bp, dmap_filter_list dpfl, bitstream *stream);
 // ssize_t dmap_filter_none(array_nd *a, block_properties *bp, dmap_filter_list dpfl, bitstream *stream);
