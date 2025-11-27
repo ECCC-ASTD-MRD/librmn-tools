@@ -207,46 +207,47 @@ static ssize_t dmap_filter_last(array_nd *a, block_properties *bp, dmap_filter_l
 typedef struct{
   dmap_filter_ptr ptr ;    // pointer to dmap filter function
   char *name ;             // function description
+  size_t sz ;              // argument list size
 } filter_properties ;
 
 // table of filter addresses and names
 // 3 extra entries at end, for internal dummy filters
 static filter_properties filters[MAX_DP_FILTERS+3] = {
-  { dmap_filter_fwd,  "array dimensions and type"  } ,   // filter 000 is a special filter, always present, hidden
-  { dmap_filter_001,  "int/fp offset and scale"    } ,   // test filter for now
-  { dmap_filter_002,  "float pseudo log quantizer" } ,
-  { dmap_filter_003,  "float quantizer"            } ,
-  { dmap_filter_004,  "integer Lorenzo predictor"  } ,
-  { dmap_filter_005,  "integer wavelet transform"  } ,
-  { dmap_filter_006,  "bit stream encoder"         } ,
-  { dmap_filter_007,  "compound filter"            } ,
-  { dmap_filter_010,  "filter_010"                 } ,
-  { dmap_filter_011,  "filter_011"                 } ,
-  { dmap_filter_012,  "filter_012"                 } ,
-  { dmap_filter_013,  "filter_013"                 } ,
-  { dmap_filter_014,  "filter_014"                 } ,
-  { dmap_filter_015,  "filter_015"                 } ,
-  { dmap_filter_016,  "filter_016"                 } ,
-  { dmap_filter_017,  "filter_017"                 } ,
-  { dmap_filter_020,  "filter_020"                 } ,
-  { dmap_filter_021,  "filter_021"                 } ,
-  { dmap_filter_022,  "filter_022"                 } ,
-  { dmap_filter_023,  "filter_023"                 } ,
-  { dmap_filter_024,  "filter_024"                 } ,
-  { dmap_filter_025,  "filter_025"                 } ,
-  { dmap_filter_026,  "filter_026"                 } ,
-  { dmap_filter_027,  "filter_027"                 } ,
-  { dmap_filter_030,  "filter_030"                 } ,
-  { dmap_filter_031,  "filter_031"                 } ,
-  { dmap_filter_032,  "filter_032"                 } ,
-  { dmap_filter_033,  "filter_033"                 } ,
-  { dmap_filter_034,  "filter_034"                 } ,
-  { dmap_filter_035,  "filter_035"                 } ,
-  { dmap_filter_036,  "filter_036"                 } ,
-  { dmap_filter_037,  "filter_037"                 } ,
-  { dmap_filter_none, "filter_none"                } ,
-  { dmap_filter_bad,  "filter_bad"                 } ,
-  { dmap_filter_last, "filter_last"                }
+  { dmap_filter_fwd,  "array dimensions and type"  , sizeof(dmap_filter_arg_000) } ,   // filter 000 is a special filter, always present, hidden
+  { dmap_filter_001,  "int/fp offset and scale"    , sizeof(dmap_filter_arg_001) } ,   // test filter for now
+  { dmap_filter_002,  "float pseudo log quantizer" , sizeof(dmap_filter_arg_002) } ,
+  { dmap_filter_003,  "float quantizer"            , sizeof(dmap_filter_arg_003) } ,
+  { dmap_filter_004,  "integer Lorenzo predictor"  , sizeof(dmap_filter_arg_004) } ,
+  { dmap_filter_005,  "integer wavelet transform"  , sizeof(dmap_filter_arg_005) } ,
+  { dmap_filter_006,  "bit stream encoder"         , sizeof(dmap_filter_arg_006) } ,
+  { dmap_filter_007,  "compound filter"            , sizeof(dmap_filter_arg_007) } ,
+  { dmap_filter_010,  "filter_010"                 , sizeof(dmap_filter_arg_000) } ,
+  { dmap_filter_011,  "filter_011"                 , sizeof(dmap_filter_arg_000) } ,
+  { dmap_filter_012,  "filter_012"                 , sizeof(dmap_filter_arg_000) } ,
+  { dmap_filter_013,  "filter_013"                 , sizeof(dmap_filter_arg_000) } ,
+  { dmap_filter_014,  "filter_014"                 , sizeof(dmap_filter_arg_000) } ,
+  { dmap_filter_015,  "filter_015"                 , sizeof(dmap_filter_arg_000) } ,
+  { dmap_filter_016,  "filter_016"                 , sizeof(dmap_filter_arg_000) } ,
+  { dmap_filter_017,  "filter_017"                 , sizeof(dmap_filter_arg_000) } ,
+  { dmap_filter_020,  "filter_020"                 , sizeof(dmap_filter_arg_000) } ,
+  { dmap_filter_021,  "filter_021"                 , sizeof(dmap_filter_arg_000) } ,
+  { dmap_filter_022,  "filter_022"                 , sizeof(dmap_filter_arg_000) } ,
+  { dmap_filter_023,  "filter_023"                 , sizeof(dmap_filter_arg_000) } ,
+  { dmap_filter_024,  "filter_024"                 , sizeof(dmap_filter_arg_000) } ,
+  { dmap_filter_025,  "filter_025"                 , sizeof(dmap_filter_arg_000) } ,
+  { dmap_filter_026,  "filter_026"                 , sizeof(dmap_filter_arg_000) } ,
+  { dmap_filter_027,  "filter_027"                 , sizeof(dmap_filter_arg_000) } ,
+  { dmap_filter_030,  "filter_030"                 , sizeof(dmap_filter_arg_000) } ,
+  { dmap_filter_031,  "filter_031"                 , sizeof(dmap_filter_arg_000) } ,
+  { dmap_filter_032,  "filter_032"                 , sizeof(dmap_filter_arg_000) } ,
+  { dmap_filter_033,  "filter_033"                 , sizeof(dmap_filter_arg_000) } ,
+  { dmap_filter_034,  "filter_034"                 , sizeof(dmap_filter_arg_000) } ,
+  { dmap_filter_035,  "filter_035"                 , sizeof(dmap_filter_arg_000) } ,
+  { dmap_filter_036,  "filter_036"                 , sizeof(dmap_filter_arg_000) } ,
+  { dmap_filter_037,  "filter_037"                 , sizeof(dmap_filter_arg_000) } ,
+  { dmap_filter_none, "filter_none"                , sizeof(dmap_filter_arg_000) } ,
+  { dmap_filter_bad,  "filter_bad"                 , sizeof(dmap_filter_arg_000) } ,
+  { dmap_filter_last, "filter_last"                , sizeof(dmap_filter_arg_000) }
 } ;
 
 // dpfl [IN] : pointer to argument list for a filter
@@ -557,14 +558,15 @@ ssize_t dmap_decode_parameters(dmap_filter_list dpfl, int nfilters, bitstream *s
   STREAM_PEEK_NBITS(*stream, filter_no, 8) ;
   while(filter_no != 0xFF && nf < nfilters-1){
     dmap_filter_ptr filter = dmap_filter_get(filter_no) ;
+    // filters[filter_no] will provide the expected length of the argument list for this filter
     status += (*filter)((void *)1, (void *)1, dpfl, stream) ;
     dpfl++ ;
+    dpfl[0] = NULL ;       // nullify next argument list
     nf++ ;
     STREAM_XTRACT_CHECK(*stream) ;
     STREAM_PEEK_NBITS(*stream, filter_no, 8) ;
   }
   STREAM_GET_NBITS(*stream, filter_no, 8) ; status += 8 ;
-  dpfl[0] = NULL ;
   fprintf(stderr, "dmap_decode_parameters : status = %ld, available %ld bits, nf = %d\n\n", status, StreamAvailableBits(stream), nf) ;
   return status ;
 }

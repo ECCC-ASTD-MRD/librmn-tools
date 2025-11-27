@@ -316,6 +316,7 @@ ssize_t FILTER_NAME(array_nd *a, block_properties *bp, dmap_filter_list dpfl, bi
 
   errmsg = "a == NULL || stream == NULL" ;
   if(a == NULL || stream == NULL) goto fail ;    // no array or no stream
+
   void *array = array_address(a) ;               // get array address, dimension(s), and type
   int32_t nvalues, rank = a->rank, type = a->type, offset = 0,  e_base = 0 ;
   ssize_t status = 0 ;
@@ -406,11 +407,13 @@ ssize_t FILTER_NAME(array_nd *a, block_properties *bp, dmap_filter_list dpfl, bi
 end:
   *stream = s ;   // success, SAVE stream changes
   return status ;
+
 // miserable falure
 fail:
   fprintf(stderr, "%s filter %3.3o ERROR : %s\n", (dpfl == NULL) ? "reverse" : "forward", FILTER_ID, errmsg) ;
   return -1 ;     // failure, DO NOT SAVE stream changes
 
+// restore original data using forward filter result
 reverse:
   errmsg = "reverse filter : data type MUST BE integer" ;
   if(type != int_data && type != uint_data) goto fail ;             // data type MUST BE INTEGER
@@ -446,28 +449,28 @@ reverse:
 
   ssize_t status2 = dmap_filter_inv(a, &s) ;           // call next inverse filter
   if(status2 < 0) goto fail ; else status += status2 ;
-  goto end ;
-//   *stream = s ;                                        // SAVE stream changes
-//   return status ;
+  goto end ;                                           // success
 
+// encode filter parameters into bit stream
 encode:
-  if(self != FILTER_ID) goto fail ;                     // wrong id, MUST be FILTER_ID
+  if(self != FILTER_ID) goto fail ;                    // wrong id, MUST be FILTER_ID
   s = *stream ;
   fprintf(stderr, "encode parameters, filter = %d", self) ;
   STREAM_PUT_NBITS(s, self, 8) ; status = 8 ;
   arg = (FILTER_ARGS *)(*dpfl) ;    // parameters for this filter
   fprintf(stderr, ", status = %ld\n", status) ;
-  goto end ;
+  goto end ;                                           // success
 
+// recover filter parameters from bit stream
 decode:
   s = *stream ;
   fprintf(stderr, "decode parameters") ;
   self = 0xFFFFFFFF ;
   STREAM_GET_NBITS(s, self, 8) ; status = 8 ;
-  if(self != FILTER_ID) goto fail ;                     // wrong id, MUST be FILTER_ID
+  if(self != FILTER_ID) goto fail ;                    // wrong id, MUST be FILTER_ID
   FILTER_ARGS arg0 ;    // parameters for this filter
   fprintf(stderr, ", filter = %d, status = %ld\n", self, status) ;
-  goto end ;
+  goto end ;                                           // success
 }
 #undef FILTER_NAME
 #undef FILTER_ARGS

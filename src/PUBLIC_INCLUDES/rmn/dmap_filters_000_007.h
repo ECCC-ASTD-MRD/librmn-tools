@@ -20,8 +20,14 @@
 #if ! defined(DMAP_FILTER_001)
 
 // filter 000 is a special case, it MUST be present
+// dmap_filter_arg_000 is a generic structure with a flexible array
 // there is no argument struct associated with it
 dmap_filter  dmap_filter_fwd ;
+typedef struct{
+  uint32_t filter ;  // filter number
+  uint32_t arg[] ;
+} dmap_filter_arg_000 ;
+
 
 // filter 001, integer/float demo/saxpy filter
 // upper 9 bits used to differentiate floats from ints (all 1s or all 0s for ints)
