@@ -22,7 +22,7 @@
 // filter 000 is a special case, it MUST be present
 // dmap_filter_arg_000 is a generic structure with a flexible array
 // there is no argument struct associated with it
-dmap_filter  dmap_filter_fwd ;
+dmap_filter  dmap_filter_000 ;
 typedef struct{
   uint32_t filter ;  // filter number
   uint32_t arg[] ;
@@ -38,6 +38,7 @@ typedef struct{
   union{ float offset ; int32_t ioffset ; } ;
   union{ float  scale ; int32_t  iscale ; } ;
 } dmap_filter_arg_001 ;
+typedef dmap_filter_arg_001 dmap_saxpy_arg ;
 #define DMAP_FILTER_001(...) (dmap_filter_arg_001) { .filter = 001 , __VA_ARGS__ }
 #define DMAP_SAXPY(...) (dmap_filter_arg_001) { 001 , __VA_ARGS__ }
 
@@ -48,8 +49,10 @@ typedef struct{
   uint32_t filter ;  // filter number
   int32_t flag ;
 } dmap_filter_arg_002 ;
+typedef dmap_filter_arg_002 dmap_no_op2 ;
 #define DMAP_FILTER_002(...) (dmap_filter_arg_002) { 002 , __VA_ARGS__ }
-#define DMAP_FP_LOG_QUANTIZE(...) (dmap_filter_arg_002) { 002 , __VA_ARGS__ }
+#define DMAP_NO_OP2(...) (dmap_filter_arg_002) { 002 , __VA_ARGS__ }
+// #define DMAP_FP_LOG_QUANTIZE(...) (dmap_filter_arg_002) { 002 , __VA_ARGS__ }
 
 // filter 003, float -> integer quantizers
 #pragma weak dmap_filter_003
@@ -107,21 +110,22 @@ typedef dmap_filter_arg_006 dmap_encode_arg ;
 #define DMAP_FILTER_006(...) (dmap_filter_arg_006) { 006 , __VA_ARGS__ }
 #define DMAP_ENCODE(...) (dmap_filter_arg_006) { 006 , __VA_ARGS__ }
 
-// filter 007, all in one filter for floats, quantize/decimate/predict/encode
+// filter 007, future all in one filter for floats, quantize/decimate/predict/encode
 #pragma weak dmap_filter_007
 dmap_filter  dmap_filter_007 ;
 typedef struct{
   uint32_t filter ;    // filter number
-  float    maxerr ;    // maximum absolute or relative error
-  float    zero ;      // maximum significant value (only for log quantizing)
-  int32_t  nbits ;     // number of significant bits
-  int32_t  qmode ;     // quantization mode (linear, pseudo log, fake integer, ...)
-  int32_t  decimate ;  // decimation factor (0 or 1 : NONE, even, no more than 2 for new)
-  int32_t  predict ;   // predictor (None, Lorenzo, Wavelet, ...)
-  int32_t  tsize ;     // encoding tile size
-  int32_t  options ;   // tile encoding options
+//   float    maxerr ;    // maximum absolute or relative error
+//   float    zero ;      // maximum significant value (only for log quantizing)
+//   int32_t  nbits ;     // number of significant bits
+//   int32_t  qmode ;     // quantization mode (linear, pseudo log, fake integer, ...)
+//   int32_t  decimate ;  // decimation factor (0 or 1 : NONE, even, no more than 2 for new)
+//   int32_t  predict ;   // predictor (None, Lorenzo, Wavelet, ...)
+//   int32_t  tsize ;     // encoding tile size
+//   int32_t  options ;   // tile encoding options
 } dmap_filter_arg_007 ;
+typedef dmap_filter_arg_007 dmap_no_op7 ;
 #define DMAP_FILTER_007(...) (dmap_filter_arg_007) { 007 , __VA_ARGS__ }
-#define DMAP_FP_BLOCK(...) (dmap_filter_arg_007) { 007 , __VA_ARGS__ }
+#define DMAP_NO_OP7(...) (dmap_filter_arg_007) { 007 , __VA_ARGS__ }
 
 #endif

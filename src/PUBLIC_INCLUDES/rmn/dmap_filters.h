@@ -76,8 +76,9 @@ typedef dmap_filter_args *dmap_filter_args_ptr ;
 // list of pointers to dmap_filter_args structures (NULL TERMINATED)
 typedef  dmap_filter_args_ptr *dmap_filter_list ;
 
+typedef enum { DMAP_FILTER, DMAP_RESTORE, DMAP_ENCODE, DMAP_DECODE, DMAP_PRINT } dmap_command ;
 // generic data pipe filter function
-typedef ssize_t dmap_filter(array_nd *, block_properties *, dmap_filter_list, bitstream *) ;
+typedef ssize_t dmap_filter(array_nd *, block_properties *, dmap_filter_list, bitstream *, dmap_command) ;
 // generic pointer to data pipe filter function
 typedef dmap_filter *dmap_filter_ptr ;
 
@@ -86,6 +87,9 @@ ssize_t dmap_encode_parameters(dmap_filter_list, bitstream *) ;
 
 // data pipe filter parameter decoder
 ssize_t dmap_decode_parameters(dmap_filter_list, int, bitstream *) ;
+
+// print filter parameters
+int32_t dmap_print_parameters(dmap_filter_list dpfl) ;
 
 #include <rmn/dmap_filters_000_007.h>
 #include <rmn/dmap_filters_010_017.h>
@@ -138,7 +142,10 @@ const char *dmap_filter_name(int ordinal);
 dmap_filter_ptr dmap_filter_next(dmap_filter_list dpfl);
 int dmap_filter_valid(dmap_filter_list dpfl, uint32_t id);
 int dmap_filter_is_last(dmap_filter_list dpfl);
+
+ssize_t dmap_filter_fwd(array_nd *a, block_properties *bp, dmap_filter_list dpfl, bitstream *stream);
 ssize_t dmap_filter_inv(array_nd *a, bitstream *stream);
+
 int32_t dmap_filter_put_array_info(array_nd *a, bitstream *stream);
 int32_t dmap_filter_get_array_info(array_nd *a, bitstream *stream, int allocate);
 

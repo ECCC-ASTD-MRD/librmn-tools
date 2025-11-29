@@ -124,7 +124,7 @@
 //   |                 |                 |   [znij]    |  info   |                    |
 //   +-----------------+-----------------+-------------+---------+--------------------+
 //                     |                 |
-//                     |data_head        |size[]                 |data stream
+//                     |data_head        |size[]       |data stream
 //                     <-------------------------- in file --------------------------->
 //
 // data map can be mapped directly to the beginning of the packed data representation
@@ -187,6 +187,7 @@ typedef struct{
   // ---------------- start of in file header ----------------
   // TODO: add flags for 3D storage ni/nj/nk vs nk/ni/nj vs ... and compression(2D/3D)
   // TODO: add flags for Z ordering algorithm kind (Morton order, stripes, ...)
+  // TODO: finalize what is needed and what is not needed
   struct{
     union{
       uint32_t data_head ;  // target for & operator to get address of header

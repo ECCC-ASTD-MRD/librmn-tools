@@ -163,7 +163,7 @@ int dmap_debug_mode(int mode){
 // if strict_mode is active, return ERROR
 // a, bp, stream : passthrough filter arguments
 // dpfl  [IN] : filter list
-static ssize_t dmap_filter_none(array_nd *a, block_properties *bp, dmap_filter_list dpfl, bitstream *stream){
+static ssize_t dmap_filter_none(array_nd *a, block_properties *bp, dmap_filter_list dpfl, bitstream *stream, dmap_command command){
   (void) (a) ;
   (void) (bp) ;
   (void) (stream) ;
@@ -171,7 +171,7 @@ static ssize_t dmap_filter_none(array_nd *a, block_properties *bp, dmap_filter_l
   if(debug_mode) fprintf(stderr, "UNDEFINED FILTER (%d)\n", dpfl[0]->filter) ;
   dpfl++ ;                              // next filter
   dmap_filter_ptr next_filter = dmap_filter_next(dpfl) ;
-  if(next_filter != NULL) return (*next_filter)(a, bp, dpfl, stream) ;
+  if(next_filter != NULL) return (*next_filter)(a, bp, dpfl, stream, command) ;
   return 0 ;
 }
 
@@ -180,7 +180,7 @@ static ssize_t dmap_filter_none(array_nd *a, block_properties *bp, dmap_filter_l
 // if strict_mode is active,return  ERROR
 // a, bp, stream : passthrough filter arguments
 // dpfl  [IN] : filter list
-static ssize_t dmap_filter_bad(array_nd *a, block_properties *bp, dmap_filter_list dpfl, bitstream *stream){
+static ssize_t dmap_filter_bad(array_nd *a, block_properties *bp, dmap_filter_list dpfl, bitstream *stream, dmap_command command){
   (void) (a) ;
   (void) (bp) ;
   (void) (stream) ;
@@ -188,18 +188,19 @@ static ssize_t dmap_filter_bad(array_nd *a, block_properties *bp, dmap_filter_li
   if(debug_mode) fprintf(stderr, "INVALID FILTER (%d)\n", dpfl[0]->filter) ;
   dpfl++ ;                              // next filter
   dmap_filter_ptr next_filter = dmap_filter_next(dpfl) ;
-  if(next_filter != NULL) return (*next_filter)(a, bp, dpfl, stream) ;
+  if(next_filter != NULL) return (*next_filter)(a, bp, dpfl, stream, command) ;
   return 0 ;
 }
 
 // this null filter terminates the filter chain (place holder)
 // the FILTER_CHAIN_END marker will be inserted into the bit stream by dmap_filter_fwd (head of chain)
 // a, bp, dpfl, stream : unused arguments, for compatibility with all other dmap filter arguments
-static ssize_t dmap_filter_last(array_nd *a, block_properties *bp, dmap_filter_list dpfl, bitstream *stream){
+static ssize_t dmap_filter_last(array_nd *a, block_properties *bp, dmap_filter_list dpfl, bitstream *stream, dmap_command command){
   (void) (a) ;
   (void) (bp) ;
   (void) (dpfl) ;
   (void) (stream) ;
+  (void) (command) ;
   if(debug_mode) fprintf(stderr, "END of filter chain\n") ;
   return 0 ;
 }
@@ -213,7 +214,7 @@ typedef struct{
 // table of filter addresses and names
 // 3 extra entries at end, for internal dummy filters
 static filter_properties filters[MAX_DP_FILTERS+3] = {
-  { dmap_filter_fwd,  "array dimensions and type"  , sizeof(dmap_filter_arg_000) } ,   // filter 000 is a special filter, always present, hidden
+  { dmap_filter_000,  "array dimensions and type"  , sizeof(dmap_filter_arg_000) } ,   // filter 000 is a special filter, always present, hidden
   { dmap_filter_001,  "int/fp offset and scale"    , sizeof(dmap_filter_arg_001) } ,   // test filter for now
   { dmap_filter_002,  "float pseudo log quantizer" , sizeof(dmap_filter_arg_002) } ,
   { dmap_filter_003,  "float quantizer"            , sizeof(dmap_filter_arg_003) } ,
@@ -343,7 +344,7 @@ ssize_t dmap_filter_inv(array_nd *a, bitstream *stream){
     if(id >= MAX_DP_FILTERS) goto fail ;                // ERROR, invalid filter ID
     dmap_filter_ptr filter = filters[id].ptr ;          // get filter address for this ID
     if(filter == NULL) goto fail ;                      // ERROR, filter is not defined
-    status = (*filter)(a, NULL, NULL, stream) ;         // call selected inverse filter
+    status = (*filter)(a, NULL, NULL, stream, DMAP_RESTORE) ;         // call selected inverse filter
   }
   return status ;
 
@@ -518,6 +519,29 @@ int32_t dmap_filter_put_array_info(array_nd *a, bitstream *stream){
   return nbits ;
 }
 
+// print filter list parameters
+// return number of filters
+int32_t dmap_print_parameters(dmap_filter_list dpfl){
+  dmap_filter_args_ptr ptr = *dpfl ;
+  int nfilters = 0 ;
+
+  while(ptr != NULL){
+    if(ptr->filter > 7){
+      fprintf(stderr, "dmap_print_parameters : filter = %d\n", ptr->filter) ;
+    }else{
+      nfilters++ ;
+      dmap_filter_ptr filter = dmap_filter_get(ptr->filter) ;
+      if((*filter)(NULL, NULL, dpfl, NULL, DMAP_PRINT) < 0) goto fail ;
+    }
+    dpfl++ ;
+    ptr = *dpfl ;
+  }
+
+  return nfilters ;
+fail:
+  return -1 ;
+}
+
 // data pipe filter parameter encoder
 // encode original filter list parameters into bit stream
 // return number of bits written into stream
@@ -534,7 +558,7 @@ ssize_t dmap_encode_parameters(dmap_filter_list dpfl, bitstream *stream){
       }else{
         nfilters++ ;
         dmap_filter_ptr filter = dmap_filter_get(ptr->filter) ;
-        status += (*filter)(NULL, NULL, dpfl, stream) ;
+        status += (*filter)(NULL, NULL, dpfl, stream, DMAP_ENCODE) ;
       }
 //       fprintf(stderr, "dmap_encode_parameters : status = %ld, available %ld bits\n", status, StreamAvailableBits(stream)) ;
     }
@@ -565,7 +589,7 @@ ssize_t dmap_decode_parameters(dmap_filter_list dpfl, int nfilters, bitstream *s
   while(filter_no != 0xFF && nf < nfilters-1){
     dmap_filter_ptr filter = dmap_filter_get(filter_no) ;
     // filters[filter_no] will provide the expected length of the argument list for this filter
-    status += (*filter)((void *)1, (void *)1, dpfl, stream) ;
+    status += (*filter)((void *)1, (void *)1, dpfl, stream, DMAP_DECODE) ;
     dpfl++ ;
     dpfl[0] = NULL ;       // nullify next argument list
     nf++ ;

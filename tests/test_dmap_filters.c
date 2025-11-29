@@ -135,6 +135,10 @@ process:
     STREAM_INIT(str000, NULL, 0, 0) ;               // full RW stream reset (keep buffer, size, and mode)
     dmap_fp_quantize arg_003 = DMAP_FP_QUANTIZE(.mode = -1) ;
     dmap_lorenzo_arg arg_004 = DMAP_LORENZO() ;
+    dmap_no_op7      arg_007 = DMAP_NO_OP7() ;
+    dmap_wavelet_arg arg_005 = DMAP_WAVELET(0) ;
+    dmap_saxpy_arg   arg_001 = DMAP_SAXPY({0.0f}, {1.0f}) ;
+    dmap_no_op2      arg_002 = DMAP_NO_OP2(123) ;
 //     dmap_encode_arg  arg_006 = DMAP_ENCODE(.mode= 32, .options=0) ; // filter 006, raw, 32 bits per item
     dmap_encode_arg  arg_006 = DMAP_ENCODE(.mode= 104, .options=0) ; // filter 006, tile encoding
 
@@ -150,10 +154,15 @@ process:
         break ;
       default : goto fail ;
     }
-    dpfl[0] = (dmap_filter_args_ptr)&arg_003 ;    // linear quantizer
-    dpfl[1] = (dmap_filter_args_ptr)&arg_004 ;    // Lorenzo predictor
-    dpfl[2] = (dmap_filter_args_ptr)&arg_006 ;    // tile encoder
-    dpfl[3] = NULL ;
+    dpfl[0] = (dmap_filter_args_ptr)&arg_001 ;    // neutral saxpy
+    dpfl[1] = (dmap_filter_args_ptr)&arg_003 ;    // linear quantizer
+    dpfl[2] = (dmap_filter_args_ptr)&arg_004 ;    // Lorenzo predictor
+    dpfl[3] = (dmap_filter_args_ptr)&arg_007 ;    // pass through
+    dpfl[4] = (dmap_filter_args_ptr)&arg_005 ;    // 0 level wavelet
+    dpfl[5] = (dmap_filter_args_ptr)&arg_002 ;    // pass through with flag
+    dpfl[6] = (dmap_filter_args_ptr)&arg_006 ;    // tile encoder
+    dpfl[7] = NULL ;
+    dmap_print_parameters(dpfl) ;
 
     fprintf(stderr, "filter test : available space in str000 %ld bits, available bits = %ld bits\n", StreamAvailableSpace(str000), StreamAvailableBits(str000)) ;
     if((NI * NJ) != copy_array_data(&f2d, &a2d)) goto fail ;
@@ -189,7 +198,7 @@ process:
     fprintf(stderr, "============================== float quantize test %d end ==============================\n", test_no) ;
   }
 
-//   if(argc < 1000) goto end ;     // suppress unreachable code warning
+  if(argc < 1000) goto end ;     // suppress unreachable code warning
   char *test_nam1[6] = { "RAW-15", "RAW-24", "RAW-32", "ZIGZAG", "BHW   ", "TILE  " } ;
   for(test_no = 0 ; test_no < 6 ; test_no++){
     fprintf(stderr, "============================== 2D integer encode test %d start ==============================\n", test_no) ;

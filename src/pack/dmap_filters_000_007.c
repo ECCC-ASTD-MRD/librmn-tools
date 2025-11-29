@@ -24,8 +24,14 @@
 #include <rmn/fp_qlin.h>
 #include <rmn/fp_qflog.h>
 
-#define FILTER_ID 000
 // ======================================= filter 000 =======================================
+// head of forward filter chain, calls dmap_filter_000 with command = DMAP_FILTER
+ssize_t dmap_filter_fwd(array_nd *a, block_properties *bp, dmap_filter_list dpfl, bitstream *stream){
+  return dmap_filter_000(a, bp, dpfl, stream, DMAP_FILTER) ;
+}
+#define FILTER_ID 000
+#define FILTER_NAME CAT(dmap_filter_,FILTER_ID)
+#define FILTER_ARGS CAT(dmap_filter_arg_,FILTER_ID)
 // special filter used to get/put array dimensions and type information (found in dmap_filters.c)
 // this filter writes into bit stream BEFORE calling the filter chain and AFTER calling said chain
 // this filter expects NO ARGUMENT from the filter list
@@ -34,7 +40,7 @@
 // for data type and dimensions
 // TODO: allocate memory for the target array if necessary
 // this filter will be the first to be called in reverse mode (get/check rank and dimensions)
-ssize_t dmap_filter_fwd(array_nd *a, block_properties *bp, dmap_filter_list dpfl, bitstream *stream){
+ssize_t FILTER_NAME(array_nd *a, block_properties *bp, dmap_filter_list dpfl, bitstream *stream, dmap_command command){
   uint32_t self = FILTER_ID ;
   if(a == NULL || stream == NULL) goto fail ;    // no array or no stream
   void *array = array_address(a) ;               // get array address, dimension(s), and type
@@ -42,7 +48,12 @@ ssize_t dmap_filter_fwd(array_nd *a, block_properties *bp, dmap_filter_list dpfl
   bitstream s = *stream ;                        // local copy of stream control structure
   int32_t nbits ;
 
-  if(dpfl == NULL) goto reverse ;                // call to reverse filter
+  if(command == DMAP_ENCODE)  return 0 ;
+  if(command == DMAP_DECODE)  return 0 ;
+  if(command == DMAP_RESTORE) goto reverse ;
+  if(command == DMAP_PRINT)   return 0 ;
+
+//   if(dpfl == NULL) goto reverse ;                // call to reverse filter
 
   STREAM_PUT_NBITS(s, self, 8) ; nbits = 8 ;     // insert own filter id into stream
   // insert array description information into the bit stream
@@ -52,7 +63,7 @@ ssize_t dmap_filter_fwd(array_nd *a, block_properties *bp, dmap_filter_list dpfl
   // call next filter in list
   // DO NOT USE dpfl++, dmap_filter_fwd is a filter implicitely in the list
   dmap_filter_ptr next_filter = dmap_filter_next(dpfl) ;
-  status = (*next_filter)(a, bp, dpfl, &s) ;
+  status = (*next_filter)(a, bp, dpfl, &s, command) ;
   if(status < 0) goto fail ;
 //   fprintf(stderr, "dmap_filter_fwd(MID) : nbits in stream = %ld\n", nbits+status) ;
 
@@ -90,18 +101,20 @@ reverse:
 #undef FILTER_ID
 
 // ======================================= filter 001 =======================================
-// integer/float offset and scale
+// integer/float offset and scale (NO OP for now)
 #define FILTER_ID 001
 #define FILTER_NAME CAT(dmap_filter_,FILTER_ID)
 #define FILTER_ARGS CAT(dmap_filter_arg_,FILTER_ID)
-ssize_t FILTER_NAME(array_nd *a, block_properties *bp, dmap_filter_list dpfl, bitstream *stream){
+ssize_t FILTER_NAME(array_nd *a, block_properties *bp, dmap_filter_list dpfl, bitstream *stream, dmap_command command){
   uint32_t self = FILTER_ID ;
+  char *errmsg ;
   FILTER_ARGS *arg ;
-  uint32_t filter ;
 
-  if(a == NULL && bp == NULL && stream != NULL && dpfl != NULL) goto encode ;
-  if((void *)a == (void *)bp && stream != NULL && dpfl != NULL) goto decode ;
+  if(command == DMAP_ENCODE) goto encode ;
+  if(command == DMAP_DECODE) goto decode ;
+  if(command == DMAP_PRINT)  goto print ;
 
+  errmsg = "no array or no stream" ;
   if(a == NULL || stream == NULL) goto fail ;    // no array or no stream
   void *array = array_address(a) ;               // get array address, dimension(s), and type
   int rank = a->rank, type = a->type ;
@@ -110,41 +123,46 @@ ssize_t FILTER_NAME(array_nd *a, block_properties *bp, dmap_filter_list dpfl, bi
 //   block_properties lbp ;
 // 
 //   if(bp == NULL) { bp = &lbp ; lbp.kind = bad_data ; }
-  if(dpfl == NULL) goto reverse ;                // call to reverse filter
+  if(command == DMAP_RESTORE) goto reverse ;     // this is a call to the reverse filter
+
+  errmsg = "invalid filter" ;
   if(! dmap_filter_valid(dpfl,self)) goto fail ;   // not the right filter or NULL pointer
   arg = (FILTER_ARGS *)(*dpfl) ;    // get parameters for this filter
 // check a->type and a->rank
+  errmsg = "type != float_data || rank != 2" ;
   if(type != float_data || rank != 2) goto fail ;
 // filter processing code goes here
   int i, j, lni = a->dim[0].gnn, lnj = a->dim[1].gnn ;
   float *f = (float *)array ;
-  fprintf(stderr, "filter 001, offset =%f, scale = %f, array[%d:%d]", arg->offset, arg->scale, lni, lnj) ;
-  fprintf(stderr, ", LL = %f, UR = %f, ", f[0] , f[lni*lnj-1]) ;
-  for(j=0 ; j<lnj ; j++){
-    for(i=0 ; i<lni ; i++){
-      f[i + j*lni] = (f[i + j*lni] * arg->scale) + arg->offset ;
-    }
-  }
+  fprintf(stderr, "filter 001, offset =%f, scale = %f, array[%d:%d]\n", arg->offset, arg->scale, lni, lnj) ;
+// NO OP for now
+//   fprintf(stderr, ", LL = %f, UR = %f, ", f[0] , f[lni*lnj-1]) ;
+//   for(j=0 ; j<lnj ; j++){
+//     for(i=0 ; i<lni ; i++){
+//       f[i + j*lni] = (f[i + j*lni] * arg->scale) + arg->offset ;
+//     }
+//   }
 //   fprintf(stderr, ", LL = %f, UR = %f\n", f[0] , f[lni*lnj-1]) ;
 
-  fprintf(stderr, "filter 001(E) : available space in stream %ld bits\n", StreamAvailableSpace(&s)) ;
+//   fprintf(stderr, "filter 001(E) : available space in stream %ld bits\n", StreamAvailableSpace(&s)) ;
 
   dpfl++ ;                              // call next filter if there is one
   dmap_filter_ptr next_filter = dmap_filter_next(dpfl) ;
-  status = (*next_filter)(a, bp, dpfl, &s) ;
+  status = (*next_filter)(a, bp, dpfl, &s, command) ;
+  errmsg = "filter chain failed" ;
   if(status < 0) goto fail ;
-  fprintf(stderr, "filter 001(M) : status = %ld, available space in stream %ld bits\n", status, StreamAvailableSpace(&s)) ;
+//   fprintf(stderr, "filter 001(M) : status = %ld, available space in stream %ld bits\n", status, StreamAvailableSpace(&s)) ;
 
-  STREAM_PUT_NBITS(s, FILTER_ID, 8) ;
+  STREAM_PUT_NBITS(s, FILTER_ID, 8) ; status += 8 ;
   uint32_t *tmp1 = (uint32_t *) &(arg->offset) ;
-  STREAM_PUT_NBITS(s, *tmp1, 32) ;
+  STREAM_PUT_NBITS(s, *tmp1, 32) ; status += 32 ;
   uint32_t *tmp2 = (uint32_t *) &(arg->scale) ;
-  STREAM_PUT_NBITS(s, *tmp2, 32) ;
+  STREAM_PUT_NBITS(s, *tmp2, 32) ; status += 32 ;
   STREAM_INSERT_PUSH(s) ;
-  fprintf(stderr, "filter 001(W) %3.3o, %8.8x , %8.8x\n", FILTER_ID, *tmp1, *tmp2) ;
-  status += 72 ;
+  fprintf(stderr, "filter 001(W), offset =%10E, scale = %10E, array[%d:%d]\n", arg->offset, arg->scale, lni, lnj) ;
+//   fprintf(stderr, "filter 001(W) %3.3o, %8.8x , %8.8x\n", FILTER_ID, *tmp1, *tmp2) ;
 
-  fprintf(stderr, "filter 001(X) : available space in stream %ld bits\n", StreamAvailableSpace(stream)) ;
+//   fprintf(stderr, "filter 001(X) : available space in stream %ld bits\n", StreamAvailableSpace(stream)) ;
 
 // successful end
 end:
@@ -153,26 +171,31 @@ end:
 
 // miserable failure
 fail:
+  fprintf(stderr, "filter %3.3o ERROR : %s\n", FILTER_ID, errmsg) ;
   return -1 ;     // DO NOT SAVE stream changes
 
 reverse:
-  STREAM_GET_NBITS(s, filter, 8) ;
+  STREAM_GET_NBITS(s, self, 8) ; status = 8 ;
 //   fprintf(stderr, "reverse filter %3.3o, id = %d\n", FILTER_ID, filter) ;
-  if(filter != FILTER_ID) goto fail ;                     // wrong id, MUST be FILTER_ID
+  errmsg = "inconsistent filter ID" ;
+  if(self != FILTER_ID) goto fail ;                     // wrong id, MUST be FILTER_ID
   uint32_t t1, t2 ;
-  STREAM_GET_NBITS(s, t1, 32) ;
-  STREAM_GET_NBITS(s, t2, 32) ;
-  fprintf(stderr, "reverse filter %3.3o, id = %d, args = %8.8x, %8.8x\n", FILTER_ID, filter, t1, t2) ;
-  status = 72 ;
+  STREAM_GET_NBITS(s, t1, 32) ; status += 32 ;
+  STREAM_GET_NBITS(s, t2, 32) ; status += 32 ;
+  float *ft1 = (float *)&t1, *ft2 = (float *)&t2 ;
+  fprintf(stderr, "reverse filter %3.3o, id = %d, args = %10E, %10E\n", FILTER_ID, self, *ft1, *ft2) ;
+//   fprintf(stderr, "reverse filter %3.3o, id = %d, args = %8.8x, %8.8x\n", FILTER_ID, filter, t1, t2) ;
 
   ssize_t status2 = dmap_filter_inv(a, &s) ;     // call next inverse filter
-  if(status2 < 0) goto fail ; else status += status2 ;
-
+  errmsg = "restore filter chain failed" ;
+  if(status2 < 0) goto fail ;
+  status += status2 ;
   goto end ;
 //   *stream = s ;   // SAVE stream changes
 //   return status ;
 
 encode:
+  errmsg = "invalid filter ID" ;
   if(self != FILTER_ID) goto fail ;                     // wrong id, MUST be FILTER_ID
   s = *stream ;
   fprintf(stderr, "encode parameters, filter = %d", self) ;
@@ -190,32 +213,41 @@ decode:
   fprintf(stderr, "decode parameters, filter = %d", self) ;
   self = 0xFFFFFFFF ;
   STREAM_GET_NBITS(s, self, 8) ; status = 8 ;
+  errmsg = "invalid filter ID" ;
   if(self != FILTER_ID) goto fail ;                     // wrong id, MUST be FILTER_ID
   FILTER_ARGS arg0 ;    // parameters for this filter
   STREAM_GET_NBITS(s, arg0.iscale , 32) ; status += 32 ;
   STREAM_GET_NBITS(s, arg0.ioffset, 32) ; status += 32 ;
   fprintf(stderr, ", self = %8.8x, scale = %8.8x, offset = %8.8x, status = %ld\n", self, arg0.iscale, arg0.ioffset, status) ;
   goto end ;
-//   *stream = s ;   // SAVE stream changes
-//   return status ;
+
+print:
+  errmsg = "invalid filter" ;
+  if(! dmap_filter_valid(dpfl,self)) goto fail ;   // not the right filter or NULL pointer
+  arg = (FILTER_ARGS *)(*dpfl) ;    // parameters for this filter
+  fprintf(stderr, "[%d] SAXPY, scale = %8.8x, offset = %8.8x\n", self, arg->iscale, arg->ioffset) ;
+  return 0 ;
 }
 #undef FILTER_NAME
 #undef FILTER_ARGS
 #undef FILTER_ID
 
 // ======================================= filter 002 =======================================
-#include <rmn/quantizers.h>
+// #include <rmn/quantizers.h>
 
-// 32 bit float pseudo log quantizer
+// (NO OP for now)
 #define FILTER_ID 002
 #define FILTER_NAME CAT(dmap_filter_,FILTER_ID)
 #define FILTER_ARGS CAT(dmap_filter_arg_,FILTER_ID)
-ssize_t FILTER_NAME(array_nd *a, block_properties *bp, dmap_filter_list dpfl, bitstream *stream){
+ssize_t FILTER_NAME(array_nd *a, block_properties *bp, dmap_filter_list dpfl, bitstream *stream, dmap_command command){
   uint32_t self = FILTER_ID ;
+  char *errmsg ;
 
-  if(a == NULL && bp == NULL && stream != NULL && dpfl != NULL) goto encode ;
-  if((void *)a == (void *)bp && stream != NULL && dpfl != NULL) goto decode ;
+  if(command == DMAP_ENCODE) goto encode ;
+  if(command == DMAP_DECODE) goto decode ;
+  if(command == DMAP_PRINT)  goto print ;
 
+  errmsg = "no array or no stream" ;
   if(a == NULL || stream == NULL) goto fail ;    // no array or no stream
   void *array = array_address(a) ;               // get array address, dimension(s), and type
 //   int rank = a->rank, type = a->type ;
@@ -224,7 +256,9 @@ ssize_t FILTER_NAME(array_nd *a, block_properties *bp, dmap_filter_list dpfl, bi
 //   block_properties lbp ;
 // 
 //   if(bp == NULL) { bp = &lbp ; lbp.kind = bad_data ; }
-  if(dpfl == NULL) goto reverse ;                // call to reverse filter
+  if(command == DMAP_RESTORE) goto reverse ;     // this is a call to the reverse filter
+
+  errmsg = "invalid filter" ;
   if(! dmap_filter_valid(dpfl,self)) goto fail ;   // not the right filter or NULL pointer
   FILTER_ARGS *arg = (FILTER_ARGS *)(*dpfl) ;    // get parameters for this filter
 
@@ -233,15 +267,15 @@ ssize_t FILTER_NAME(array_nd *a, block_properties *bp, dmap_filter_list dpfl, bi
 
   dpfl++ ;                              // call next filter if there is one
   dmap_filter_ptr next_filter = dmap_filter_next(dpfl) ;
-  status = (*next_filter)(a, bp, dpfl, &s) ;
+  status = (*next_filter)(a, bp, dpfl, &s, command) ;
+  errmsg = "filter chain failed" ;
   if(status < 0) goto fail ;
   fprintf(stderr, "filter 002(M) : status = %ld, available space in stream %ld bits\n", status, StreamAvailableSpace(&s)) ;
 
-  STREAM_PUT_NBITS(s, FILTER_ID, 8) ;
+  STREAM_PUT_NBITS(s, FILTER_ID, 8) ; status += 8 ;
   uint32_t *tmp1 = (uint32_t *) &(arg->flag) ;
-  STREAM_PUT_NBITS(s, *tmp1, 8) ;
+  STREAM_PUT_NBITS(s, *tmp1, 8) ; status += 8 ;
   STREAM_INSERT_PUSH(s) ;
-  status += 16 ;
 
   fprintf(stderr, "filter 002(X) : available space in stream %ld bits\n", StreamAvailableSpace(stream)) ;
 
@@ -250,21 +284,24 @@ end:
   return status ;
 
 fail:
+  fprintf(stderr, "filter %3.3o ERROR : %s\n", FILTER_ID, errmsg) ;
   return -1 ;     // DO NOT SAVE stream changes
 
-  uint32_t filter ;
 reverse:
-  STREAM_GET_NBITS(s, filter, 8) ;
+  STREAM_GET_NBITS(s, self, 8) ;
   status = 8 ;                                         // 8 bits extracted so far
 //   fprintf(stderr, "reverse filter %3.3o, id = %d\n", FILTER_ID, filter) ;
-  if(filter != FILTER_ID) goto fail ;                  // wrong id, MUST be FILTER_ID
+  errmsg = "inconsistent filter ID" ;
+  if(self != FILTER_ID) goto fail ;                  // wrong id, MUST be FILTER_ID
   uint32_t t ;
   STREAM_GET_NBITS(s, t, 8) ;
-  fprintf(stderr, "reverse filter %3.3o, id = %d, t = %d\n", FILTER_ID, filter, t) ;
+  fprintf(stderr, "reverse filter %3.3o, id = %d, t = %d\n", FILTER_ID, self, t) ;
   status += 8 ;
 
   ssize_t status2 = dmap_filter_inv(a, &s) ;     // call next inverse filter
-  if(status2 < 0) goto fail ; else status += status2 ;
+  errmsg = "restore filter chain failed" ;
+  if(status2 < 0) goto fail ;
+  status += status2 ;
   goto end ;
 //   *stream = s ;   // SAVE stream changes
 //   return status ;
@@ -289,6 +326,13 @@ decode:
   STREAM_GET_NBITS(s, arg0.flag, 16) ; status += 16 ;
   fprintf(stderr, ", filter = %d, flag = %8x, status = %ld\n", self, arg0.flag, status) ;
   goto end ;
+
+print:
+  errmsg = "invalid filter" ;
+  if(! dmap_filter_valid(dpfl,self)) goto fail ;   // not the right filter or NULL pointer
+  arg = (FILTER_ARGS *)(*dpfl) ;                    //  parameters for this filter
+  fprintf(stderr, "[%d] Dummy filter, flag = %8x\n", self, arg->flag) ;
+  return 0 ;
 }
 #undef FILTER_NAME
 #undef FILTER_ARGS
@@ -307,12 +351,13 @@ decode:
 // the filter may modify the contents of the array described by a and of the data properties bp
 // in filter mode, bp == NULL if no properties information is available
 // the filter list MUST BE NULL TERMINATED
-ssize_t FILTER_NAME(array_nd *a, block_properties *bp, dmap_filter_list dpfl, bitstream *stream){
+ssize_t FILTER_NAME(array_nd *a, block_properties *bp, dmap_filter_list dpfl, bitstream *stream, dmap_command command){
   char *errmsg = "" ;
-  uint32_t self = FILTER_ID, filter ;
+  uint32_t self = FILTER_ID ;
 
-  if(a == NULL && bp == NULL && stream != NULL && dpfl != NULL) goto encode ;
-  if((void *)a == (void *)bp && stream != NULL && dpfl != NULL) goto decode ;
+  if(command == DMAP_ENCODE) goto encode ;
+  if(command == DMAP_DECODE) goto decode ;
+  if(command == DMAP_PRINT)  goto print ;
 
   errmsg = "a == NULL || stream == NULL" ;
   if(a == NULL || stream == NULL) goto fail ;    // no array or no stream
@@ -326,7 +371,8 @@ ssize_t FILTER_NAME(array_nd *a, block_properties *bp, dmap_filter_list dpfl, bi
   if(rank != 2) goto fail ;                      // only 2D is supported at this time
   nvalues = a->dim[0].gnn * a->dim[1].gnn ;      // number of values in array
 
-  if(dpfl == NULL ) goto reverse ;               // this is a call to the reverse filter
+  if(command == DMAP_RESTORE) goto reverse ;     // this is a call to the reverse filter
+//   if(dpfl == NULL ) goto reverse ;
 
   errmsg = "invalid filter" ;
   if(! dmap_filter_valid(dpfl,self)) goto fail ;   // not the right filter or NULL pointer
@@ -359,7 +405,7 @@ ssize_t FILTER_NAME(array_nd *a, block_properties *bp, dmap_filter_list dpfl, bi
   }else if(mode == FP_2_FAKELOG){
     errmsg = "minabs < 0" ;
     if(minabs < 0) goto fail ;
-    errmsg = "mode == FP_2_FAKELOG, unsupported" ;
+    errmsg = "mode == FP_2_FAKELOG, not supported yet" ;
     goto fail ;        // fake log quantizer not supported yet
   }else{
     errmsg = "invalid mode" ;
@@ -368,7 +414,7 @@ ssize_t FILTER_NAME(array_nd *a, block_properties *bp, dmap_filter_list dpfl, bi
 
   dpfl++ ;                                       // call next filter if there is one
   dmap_filter_ptr next_filter = dmap_filter_next(dpfl) ;
-  status = (*next_filter)(a, NULL, dpfl, &s) ;   // block properties are no longer valid
+  status = (*next_filter)(a, NULL, dpfl, &s, command) ;   // block properties are no longer valid
   if(status < 0) goto fail ;
 //
 // insert into bitstream the appropriate data for the reverse filter (PUT)
@@ -410,7 +456,7 @@ end:
 
 // miserable falure
 fail:
-  fprintf(stderr, "%s filter %3.3o ERROR : %s\n", (dpfl == NULL) ? "reverse" : "forward", FILTER_ID, errmsg) ;
+  fprintf(stderr, "filter %3.3o ERROR : %s\n", FILTER_ID, errmsg) ;
   return -1 ;     // failure, DO NOT SAVE stream changes
 
 // restore original data using forward filter result
@@ -418,11 +464,10 @@ reverse:
   errmsg = "reverse filter : data type MUST BE integer" ;
   if(type != int_data && type != uint_data) goto fail ;             // data type MUST BE INTEGER
 // get the appropriate information for the reverse filter from bitstream (GET)
-  filter = 0xFFFFu ;
-  STREAM_GET_NBITS(s, filter, 8) ;
+  STREAM_GET_NBITS(s, self, 8) ;
   status = 8 ;                                         // 8 bits extracted so far
-  errmsg = "bad filter ID" ;
-  if(filter != FILTER_ID) goto fail ;                  // wrong id, MUST be FILTER_ID
+  errmsg = "inconsistent filter ID" ;
+  if(self != FILTER_ID) goto fail ;                  // wrong id, MUST be FILTER_ID
   STREAM_GET_NBITS(s, mode, 2) ;
   status += 2 ;
   if(mode == FP_2_INT){
@@ -448,11 +493,14 @@ reverse:
   a->type = float_data ;                               // mark data as float data
 
   ssize_t status2 = dmap_filter_inv(a, &s) ;           // call next inverse filter
-  if(status2 < 0) goto fail ; else status += status2 ;
+  errmsg = "restore filter chain failed" ;
+  if(status2 < 0) goto fail ;
+  status += status2 ;
   goto end ;                                           // success
 
 // encode filter parameters into bit stream
 encode:
+  errmsg = "invalid filter" ;
   if(self != FILTER_ID) goto fail ;                    // wrong id, MUST be FILTER_ID
   s = *stream ;
   fprintf(stderr, "encode parameters, filter = %d", self) ;
@@ -467,10 +515,19 @@ decode:
   fprintf(stderr, "decode parameters") ;
   self = 0xFFFFFFFF ;
   STREAM_GET_NBITS(s, self, 8) ; status = 8 ;
+  errmsg = "invalid filter" ;
   if(self != FILTER_ID) goto fail ;                    // wrong id, MUST be FILTER_ID
 //   FILTER_ARGS arg0 ;    // parameters for this filter
   fprintf(stderr, ", filter = %d, status = %ld\n", self, status) ;
   goto end ;                                           // success
+
+print:
+  errmsg = "invalid filter" ;
+  if(! dmap_filter_valid(dpfl,self)) goto fail ;   // not the right filter or NULL pointer
+  FILTER_ARGS *arg0 = (FILTER_ARGS *)(*dpfl) ;      // get parameters for this filter
+  fprintf(stderr, "[%d] Float Quantizer, mode = %d, nbits = %d, err = %10E, offset = %8.8x, minabs = %10E, zval = %10E\n",
+                  self, arg0->mode, arg0->nbits, arg0->maxerr, arg0->offset, arg0->minabs, arg0->zval) ;
+  return 0 ;
 }
 #undef FILTER_NAME
 #undef FILTER_ARGS
@@ -487,12 +544,13 @@ decode:
 // the filter may modify the contents of the array described by a
 // in filter mode, bp == NULL if no properties information is available
 // the filter list MUST BE NULL TERMINATED
-ssize_t FILTER_NAME(array_nd *a, block_properties *bp, dmap_filter_list dpfl, bitstream *stream){
+ssize_t FILTER_NAME(array_nd *a, block_properties *bp, dmap_filter_list dpfl, bitstream *stream, dmap_command command){
   char *errmsg = "" ;
   uint32_t self = FILTER_ID ;
 
-  if(a == NULL && bp == NULL && stream != NULL && dpfl != NULL) goto encode ;
-  if((void *)a == (void *)bp && stream != NULL && dpfl != NULL) goto decode ;
+  if(command == DMAP_ENCODE) goto encode ;
+  if(command == DMAP_DECODE) goto decode ;
+  if(command == DMAP_PRINT)  goto print ;
 
   errmsg = "no array" ;
   if(a == NULL) goto fail ;                      // no array
@@ -503,7 +561,7 @@ ssize_t FILTER_NAME(array_nd *a, block_properties *bp, dmap_filter_list dpfl, bi
   ssize_t status = 0 ;
   bitstream s = *stream ;                        // local copy of stream control structure
 
-  if(dpfl == NULL) goto reverse ;                // reverse filter
+  if(command == DMAP_RESTORE) goto reverse ;     // this is a call to the reverse filter
 
   errmsg = "invalid/inconsistent filter ID" ;
   if(! dmap_filter_valid(dpfl,self)) goto fail ;   // not the right filter or NULL pointer
@@ -519,7 +577,7 @@ ssize_t FILTER_NAME(array_nd *a, block_properties *bp, dmap_filter_list dpfl, bi
   bp = NULL ;                                    // not used
   dpfl++ ;                                       // call next filter if there is one
   dmap_filter_ptr next_filter = dmap_filter_next(dpfl) ;
-  status = (*next_filter)(a, bp, dpfl, &s) ;
+  status = (*next_filter)(a, bp, dpfl, &s, command) ;
   if(status < 0) goto fail ;
 //
 // insert the appropriate data into bitstream for the reverse filter
@@ -531,17 +589,16 @@ ssize_t FILTER_NAME(array_nd *a, block_properties *bp, dmap_filter_list dpfl, bi
   *stream = s ;   // SAVE stream changes
   return status ;
 
+// miserable falure
 fail:
-  fprintf(stderr, "%s filter %3.3o ERROR : %s\n", (dpfl == NULL) ? "reverse" : "forward", FILTER_ID, errmsg) ;
-  return -1 ;     // DO NOT SAVE stream changes
+  fprintf(stderr, "filter %3.3o ERROR : %s\n", FILTER_ID, errmsg) ;
+  return -1 ;     // failure, DO NOT SAVE stream changes
 
 reverse:
-  errmsg = "inconsistent filter ID" ;
-  uint32_t filter ;
-  STREAM_GET_NBITS(s, filter, 8) ;
-  status = 8 ;                                         // 8 bits extracted so far
+  STREAM_GET_NBITS(s, self, 8) ; status = 8 ;           // 8 bits extracted so far
 //   fprintf(stderr, "reverse filter %3.3o, id = %d\n", FILTER_ID, filter) ;
-  if(filter != FILTER_ID) goto fail ;                     // wrong id, MUST be FILTER_ID
+  errmsg = "inconsistent filter ID" ;
+  if(self != FILTER_ID) goto fail ;                     // wrong id, MUST be FILTER_ID
   errmsg = "expecting int_data" ;
   if(type != int_data) goto fail ;
   errmsg = "expecting 2D array" ;
@@ -552,7 +609,9 @@ reverse:
   a->type = int_data ;
 
   ssize_t status2 = dmap_filter_inv(a, &s) ;     // call next reverse filter
-  if(status2 < 0) goto fail ; else status += status2 ;
+  errmsg = "restore filter chain failed" ;
+  if(status2 < 0) goto fail ;
+  status += status2 ;
 // fprintf(stderr, "filter %3.3o(END) Lorenzo post  [%d x %d]\n", FILTER_ID, a->dim[0].gnn, a->dim[1].gnn) ;
   *stream = s ;   // SAVE stream changes
   return status ;
@@ -563,6 +622,12 @@ encode:
 
 decode:
   fprintf(stderr, "decode parameters, filter = %d\n", self) ;
+  return 0 ;
+
+print:
+  errmsg = "invalid filter" ;
+  if(! dmap_filter_valid(dpfl,self)) goto fail ;   // not the right filter or NULL pointer
+  fprintf(stderr, "[%d] Lorenzo predictor\n", self) ;
   return 0 ;
 }
 #undef FILTER_NAME
@@ -579,12 +644,14 @@ decode:
 // the filter may modify the contents of the array described by a
 // in filter mode, bp == NULL if no properties information is available
 // the filter list MUST BE NULL TERMINATED
-ssize_t FILTER_NAME(array_nd *a, block_properties *bp, dmap_filter_list dpfl, bitstream *stream){
+ssize_t FILTER_NAME(array_nd *a, block_properties *bp, dmap_filter_list dpfl, bitstream *stream, dmap_command command){
   char *errmsg = "" ;
   uint32_t self = FILTER_ID ;
+  FILTER_ARGS *arg ;
 
-  if(a == NULL && bp == NULL && stream != NULL && dpfl != NULL) goto encode ;
-  if((void *)a == (void *)bp && stream != NULL && dpfl != NULL) goto decode ;
+  if(command == DMAP_ENCODE) goto encode ;
+  if(command == DMAP_DECODE) goto decode ;
+  if(command == DMAP_PRINT)  goto print ;
 
   errmsg = "no array" ;
   if(a == NULL) goto fail ;                      // no array
@@ -595,17 +662,17 @@ ssize_t FILTER_NAME(array_nd *a, block_properties *bp, dmap_filter_list dpfl, bi
   ssize_t status = 0 ;
   bitstream s = *stream ;                        // local copy of stream control structure
 
-  if(dpfl == NULL) goto reverse ;                // call to reverse filter
+  if(command == DMAP_RESTORE) goto reverse ;     // this is a call to the reverse filter
 
   errmsg = "invalid/inconsistent filter ID" ;
-  if(! dmap_filter_valid(dpfl,self)) goto fail ;   // not the right filter or NULL pointer
+  if(! dmap_filter_valid(dpfl,self)) goto fail ; // not the right filter or NULL pointer
 
   errmsg = "expecting int_data or uint_data" ;
   if(type != int_data && type != uint_data) goto fail ;    // integers only
   errmsg = "expecting 2D array" ;
-  if(rank != 2) goto fail ;                                // 2 D only
+  if(rank != 2) goto fail ;                      // 2 D only
 
-  FILTER_ARGS *arg = (FILTER_ARGS *)(*dpfl) ;    // get parameters for this filter
+  arg = (FILTER_ARGS *)(*dpfl) ;                 // get parameters for this filter
   levels = arg->levels ;
   errmsg = "0 <= levels <= 4 NOT TRUE" ;
   if(levels < 0 || levels > 4) goto fail ;
@@ -617,9 +684,9 @@ ssize_t FILTER_NAME(array_nd *a, block_properties *bp, dmap_filter_list dpfl, bi
   a->type = int_data ;
   bp = NULL ;                                    // not used
 //
-  dpfl++ ;                                     // call next filter if there is one
+  dpfl++ ;                                       // call next filter if there is one
   dmap_filter_ptr next_filter = dmap_filter_next(dpfl) ;
-  status = (*next_filter)(a, bp, dpfl, &s) ;
+  status = (*next_filter)(a, bp, dpfl, &s, command) ;
   if(status < 0) goto fail ;
 //
 // insert into bitstream the appropriate metadata for the reverse filter
@@ -630,20 +697,21 @@ ssize_t FILTER_NAME(array_nd *a, block_properties *bp, dmap_filter_list dpfl, bi
   STREAM_PUT_NBITS(s, levels, 8) ;
   status += 8 ;
 
+// successful end
 end:
   *stream = s ;   // SAVE stream changes
   return status ;
 
+// miserable falure
 fail:
-  fprintf(stderr, "%s filter %3.3o ERROR : %s\n", (dpfl == NULL) ? "reverse" : "forward", FILTER_ID, errmsg) ;
-  return -1 ;     // DO NOT SAVE stream changes
+  fprintf(stderr, "filter %3.3o ERROR : %s\n", FILTER_ID, errmsg) ;
+  return -1 ;     // failure, DO NOT SAVE stream changes
 
-  uint32_t filter ;
 reverse:
-  STREAM_GET_NBITS(s, filter, 8) ;
-  status = 8 ;
+  STREAM_GET_NBITS(s, self, 8) ; status = 8 ;
 //   fprintf(stderr, "reverse filter %3.3o, id = %d\n", FILTER_ID, filter) ;
-  if(filter != FILTER_ID) goto fail ;                     // wrong id, MUST be FILTER_ID
+  errmsg = "inconsistent filter ID" ;
+  if(self != FILTER_ID) goto fail ;                     // wrong id, MUST be FILTER_ID
 
   STREAM_GET_NBITS(s, levels, 8) ;
   status += 8 ;
@@ -659,10 +727,10 @@ reverse:
   a->type = int_data ;
 
   ssize_t status2 = dmap_filter_inv(a, &s) ;     // call next inverse filter
-  if(status2 < 0) goto fail ; else status += status2 ;
+  errmsg = "restore filter chain failed" ;
+  if(status2 < 0) goto fail ;
+  status += status2 ;
   goto end ;
-//   *stream = s ;   // SAVE stream changes
-//   return status ;
 
 encode:
   fprintf(stderr, "encode parameters, filter = %d\n", self) ;
@@ -670,6 +738,13 @@ encode:
 
 decode:
   fprintf(stderr, "decode parameters, filter = %d\n", self) ;
+  return 0 ;
+
+print:
+  errmsg = "invalid filter" ;
+  if(! dmap_filter_valid(dpfl,self)) goto fail ;   // not the right filter or NULL pointer
+  FILTER_ARGS *arg0 = (FILTER_ARGS *)(*dpfl) ;      // get parameters for this filter
+  fprintf(stderr, "[%d] Integer Wavelet, levels = %d\n", self, arg0->levels) ;
   return 0 ;
 }
 #undef FILTER_NAME
@@ -690,12 +765,14 @@ decode:
 // the filter list MUST BE NULL TERMINATED
 //
 // this filter MUST BE THE LAST active filter in the chain as it encodes its data
-ssize_t FILTER_NAME(array_nd *a, block_properties *bp, dmap_filter_list dpfl, bitstream *stream){
+ssize_t FILTER_NAME(array_nd *a, block_properties *bp, dmap_filter_list dpfl, bitstream *stream, dmap_command command){
   char *errmsg = "" ;
-  uint32_t self = FILTER_ID, zigzag  ;
+  uint32_t self = FILTER_ID, zigzag ;
+  FILTER_ARGS *arg ;
 
-  if(a == NULL && bp == NULL && stream != NULL && dpfl != NULL) goto encode ;
-  if((void *)a == (void *)bp && stream != NULL && dpfl != NULL) goto decode ;
+  if(command == DMAP_ENCODE) goto encode ;
+  if(command == DMAP_DECODE) goto decode ;
+  if(command == DMAP_PRINT)  goto print ;
 
   ssize_t status = 0, status_0 ;
   int32_t ni, nj, mode, nbits, tnbits, tile, bhw, nelem, i ;
@@ -710,11 +787,11 @@ ssize_t FILTER_NAME(array_nd *a, block_properties *bp, dmap_filter_list dpfl, bi
   bitstream s = *stream ;                        // local copy of stream control structure
 //   fprintf(stderr, "filter 006(I) : available space = %ld bits, available bits = %ld bits\n", StreamAvailableSpace(&s), StreamAvailableBits(stream)) ;
 
-  if(dpfl == NULL) goto reverse ;                // reverse filter call
+  if(command == DMAP_RESTORE) goto reverse ;     // this is a call to the reverse filter
 // ================================ forward filter ================================
   errmsg = "invalid filter" ;
   if(! dmap_filter_valid(dpfl,self)) goto fail ; // not the right filter or NULL pointer
-  FILTER_ARGS *arg = (FILTER_ARGS *)(*dpfl) ;    // get parameters for this filter
+  arg = (FILTER_ARGS *)(*dpfl) ;                 // get parameters for this filter
 
   if(! dmap_filter_is_last(dpfl)){
     errmsg = "filter 006 MUST BE THE LAST FILTER" ;
@@ -744,7 +821,7 @@ ssize_t FILTER_NAME(array_nd *a, block_properties *bp, dmap_filter_list dpfl, bi
 //   fprintf(stderr, ", saving %d array elements\n", array_dimension(a)) ;
 //
   dmap_filter_ptr next_filter = dmap_filter_next(++dpfl) ;       // call next filter (filter chain terminator for thi particular filter)
-  status_0 = (*next_filter)(a, bp, dpfl, &s) ;                   // should not fail
+  status_0 = (*next_filter)(a, bp, dpfl, &s, command) ;                   // should not fail
   errmsg="tail filter failure" ;  if(status_0 < 0) goto fail ;
 //   fprintf(stderr, "filter 006(M) : status = %ld, available space in stream = %ld bits", status, StreamAvailableSpace(&s)) ;
 //   fprintf(stderr, ", available bits = %ld bits", StreamAvailableBits(&s)) ;
@@ -842,16 +919,16 @@ end:
 // fprintf(stderr, "filter 006(X) : inserted %ld bits\n", status);
   return status ;    // return number of bits produced/decoded
 
-// ================================ miserable failure ================================
-// used by forward and reverse filter
+// miserable falure
 fail:
-  fprintf(stderr, "%s filter %3.3o ERROR : %s\n", (dpfl == NULL) ? "reverse" : "forward", FILTER_ID, errmsg) ;
-  return -1 ;     // DO NOT SAVE stream changes
+  fprintf(stderr, "filter %3.3o ERROR : %s\n", FILTER_ID, errmsg) ;
+  return -1 ;     // failure, DO NOT SAVE stream changes
 
 // ================================ reverse filter ================================
 // decode bit stream encoded by forward filter
 reverse:
   STREAM_GET_NBITS(s, self, 8) ; status = 8 ;            // filter ID from stream
+  errmsg = "inconsistent filter ID" ;
   if(self != FILTER_ID) goto fail ;                      // wrong id, MUST be FILTER_ID
 
   STREAM_GET_NBITS(s, rank, 3) ; status += 3 ;           // get rank from stream
@@ -957,6 +1034,13 @@ decode:
   STREAM_GET_NBITS(s, arg0.options, 8) ; status += 8 ;
   fprintf(stderr, ", self = %8.8x, mode = %d, options = %x, status = %ld\n", self, arg0.mode, arg0.options, status) ;
   goto end ;
+
+print:
+  errmsg = "invalid filter" ;
+  if(! dmap_filter_valid(dpfl,self)) goto fail ;   // not the right filter or NULL pointer
+  FILTER_ARGS *arg1 = (FILTER_ARGS *)(*dpfl) ;      // get parameters for this filter
+  fprintf(stderr, "[%d] Integer Encoder, mode = %d, options = %x\n", self, arg1->mode, arg1->options) ;
+  return 0 ;
 }
 #undef FILTER_NAME
 #undef FILTER_ARGS
@@ -964,16 +1048,20 @@ decode:
 
 
 // ======================================= filter 007 =======================================
-// compound filter (quantize/decimate/predict/encode)
+// NO-OP filter for now
 #define FILTER_ID 007
 #define FILTER_NAME CAT(dmap_filter_,FILTER_ID)
 #define FILTER_ARGS CAT(dmap_filter_arg_,FILTER_ID)
-ssize_t FILTER_NAME(array_nd *a, block_properties *bp, dmap_filter_list dpfl, bitstream *stream){
+ssize_t FILTER_NAME(array_nd *a, block_properties *bp, dmap_filter_list dpfl, bitstream *stream, dmap_command command){
   uint32_t self = FILTER_ID ;
+  char *errmsg ;
+  FILTER_ARGS *arg ;
 
-  if(a == NULL && bp == NULL && stream != NULL && dpfl != NULL) goto encode ;
-  if((void *)a == (void *)bp && stream != NULL && dpfl != NULL) goto decode ;
+  if(command == DMAP_ENCODE) goto encode ;
+  if(command == DMAP_DECODE) goto decode ;
+  if(command == DMAP_PRINT)  goto print ;
 
+  errmsg = "a == NULL || stream == NULL" ;
   if(a == NULL || stream == NULL) goto fail ;    // no array or no stream
   void *array = array_address(a) ;               // get array address, dimension(s), and type
   int rank = a->rank, type = a->type ;
@@ -982,73 +1070,65 @@ ssize_t FILTER_NAME(array_nd *a, block_properties *bp, dmap_filter_list dpfl, bi
 //   block_properties lbp ;
 // 
 //   if(bp == NULL) { bp = &lbp ; lbp.kind = bad_data ; }
-  if(dpfl == NULL) goto reverse ;                // call to reverse filter
+  if(command == DMAP_RESTORE) goto reverse ;     // this is a call to the reverse filter
+
+  errmsg = "invalid filter" ;
   if(! dmap_filter_valid(dpfl,self)) goto fail ;   // not the right filter or NULL pointer
-//   FILTER_ARGS *arg = (FILTER_ARGS *)(*dpfl) ;    // get parameters for this filter
+  arg = (FILTER_ARGS *)(*dpfl) ;                   // get parameters for this filter
 
 // check a->type and a->rank
-  if(type != float_data || rank != 2) goto fail ;
+  errmsg = "type != float_data || rank != 2" ;
+//   if(type != float_data || rank != 2) goto fail ;
 // filter processing code goes here
-//   int i, j, lni = a->dim[0].gnn, lnj = a->dim[1].gnn ;
-//   float *f = (float *)array ;
-//   fprintf(stderr, "filter 007, offset =%f, scale = %f, array[%d:%d]", arg->offset, arg->scale, lni, lnj) ;
-//   fprintf(stderr, ", LL = %f, UR = %f, ", f[0] , f[lni*lnj-1]) ;
-//   for(j=0 ; j<lnj ; j++){
-//     for(i=0 ; i<lni ; i++){
-//       f[i + j*lni] = (f[i + j*lni] * arg->scale) + arg->offset ;
-//     }
-//   }
-//   fprintf(stderr, ", LL = %f, UR = %f\n", f[0] , f[lni*lnj-1]) ;
-//   fprintf(stderr, "filter 007(E) : available space in stream %ld bits\n", StreamAvailableSpace(&s)) ;
 
   dpfl++ ;                              // call next filter if there is one
   dmap_filter_ptr next_filter = dmap_filter_next(dpfl) ;
-  status = (*next_filter)(a, bp, dpfl, &s) ;
+  status = (*next_filter)(a, bp, dpfl, &s, command) ;
+  errmsg = "filter chain failed" ;
   if(status < 0) goto fail ;
-  fprintf(stderr, "filter 007(M) : status = %ld, available space in stream %ld bits\n", status, StreamAvailableSpace(stream)) ;
+//   fprintf(stderr, "filter 007(M) : status = %ld, available space in stream %ld bits\n", status, StreamAvailableSpace(stream)) ;
 
-//   STREAM_PUT_NBITS(s, FILTER_ID, 8) ;
-//   uint32_t *tmp1 = (uint32_t *) &(arg->offset) ;
-//   STREAM_PUT_NBITS(s, *tmp1, 32) ;
-//   uint32_t *tmp2 = (uint32_t *) &(arg->scale) ;
-//   STREAM_PUT_NBITS(s, *tmp2, 32) ;
-//   STREAM_INSERT_PUSH(s) ;
-//   fprintf(stderr, "filter 007(W) %3.3o, %8.8x , %8.8x\n", FILTER_ID, *tmp1, *tmp2) ;
-//   status += 72 ;
-  status += 8 ;
+  STREAM_PUT_NBITS(s, FILTER_ID, 8) ; status += 8 ;
 
-// end:
+//   fprintf(stderr, "filter 007(X) : available space in stream %ld bits\n", StreamAvailableSpace(stream)) ;
+
+// successful end
+end:
   *stream = s ;   // SAVE stream changes
-  fprintf(stderr, "filter 007(X) : available space in stream %ld bits\n", StreamAvailableSpace(stream)) ;
   return status ;
 
+// miserable falure
 fail:
-  fprintf(stderr, "filter 007 FAILED\n");
-  return -1 ;     // DO NOT SAVE stream changes
+  fprintf(stderr, "filter %3.3o ERROR : %s\n", FILTER_ID, errmsg) ;
+  return -1 ;     // failure, DO NOT SAVE stream changes
 
-  uint32_t filter ;
 reverse:
-  STREAM_GET_NBITS(s, filter, 8) ;
+  STREAM_GET_NBITS(s, self, 8) ; status = 8 ;
 //   fprintf(stderr, "reverse filter %3.3o, id = %d\n", FILTER_ID, filter) ;
-//   if(filter != FILTER_ID) goto fail ;                     // wrong id, MUST be FILTER_ID
-//   uint32_t t1, t2 ;
-//   STREAM_GET_NBITS(s, t1, 32) ;
-//   STREAM_GET_NBITS(s, t2, 32) ;
-//   fprintf(stderr, "filter 007(R) %3.3o, %8.8x , %8.8x\n", FILTER_ID, t1, t2) ;
-//   status = 72 ;
-  status = 8 ;
+  errmsg = "inconsistent filter ID" ;
+  if(self != FILTER_ID) goto fail ;                     // wrong id, MUST be FILTER_ID
 
   ssize_t status2 = dmap_filter_inv(a, &s) ;     // call next inverse filter
-  if(status2 < 0) goto fail ; else status += status2 ;
-  *stream = s ;
-  return status ;
+  errmsg = "restore filter chain failed" ;
+  if(status2 < 0) goto fail ;
+  status += status2 ;
+  goto end ;
 
 encode:
   fprintf(stderr, "encode parameters, filter = %d\n", self) ;
-  return 0 ;
+  status = 0 ;
+  goto end ;
 
 decode:
   fprintf(stderr, "decode parameters, filter = %d\n", self) ;
+  status = 0 ;
+  goto end ;
+
+print:
+  errmsg = "invalid filter" ;
+  if(! dmap_filter_valid(dpfl,self)) goto fail ;   // not the right filter or NULL pointer
+  arg = (FILTER_ARGS *)(*dpfl) ;                    //  parameters for this filter
+  fprintf(stderr, "[%d] NO-OP\n", self) ;
   return 0 ;
 }
 #undef FILTER_NAME
