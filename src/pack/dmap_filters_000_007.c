@@ -132,9 +132,9 @@ ssize_t FILTER_NAME(array_nd *a, block_properties *bp, dmap_filter_list dpfl, bi
   errmsg = "type != float_data || rank != 2" ;
   if(type != float_data || rank != 2) goto fail ;
 // filter processing code goes here
-  int i, j, lni = a->dim[0].gnn, lnj = a->dim[1].gnn ;
-  float *f = (float *)array ;
-  fprintf(stderr, "filter 001, offset =%f, scale = %f, array[%d:%d]\n", arg->offset, arg->scale, lni, lnj) ;
+//   int i, j, lni = a->dim[0].gnn, lnj = a->dim[1].gnn ;
+//   float *f = (float *)array ;
+//   fprintf(stderr, "filter 001, offset =%f, scale = %f, array[%d:%d]\n", arg->offset, arg->scale, lni, lnj) ;
 // NO OP for now
 //   fprintf(stderr, ", LL = %f, UR = %f, ", f[0] , f[lni*lnj-1]) ;
 //   for(j=0 ; j<lnj ; j++){
@@ -159,7 +159,7 @@ ssize_t FILTER_NAME(array_nd *a, block_properties *bp, dmap_filter_list dpfl, bi
   uint32_t *tmp2 = (uint32_t *) &(arg->scale) ;
   STREAM_PUT_NBITS(s, *tmp2, 32) ; status += 32 ;
   STREAM_INSERT_PUSH(s) ;
-  fprintf(stderr, "filter 001(W), offset =%10E, scale = %10E, array[%d:%d]\n", arg->offset, arg->scale, lni, lnj) ;
+//   fprintf(stderr, "filter 001(W), offset =%10E, scale = %10E, array[%d:%d]\n", arg->offset, arg->scale, lni, lnj) ;
 //   fprintf(stderr, "filter 001(W) %3.3o, %8.8x , %8.8x\n", FILTER_ID, *tmp1, *tmp2) ;
 
 //   fprintf(stderr, "filter 001(X) : available space in stream %ld bits\n", StreamAvailableSpace(stream)) ;
@@ -212,12 +212,13 @@ decode:
   s = *stream ;
   fprintf(stderr, "decode parameters, filter = %d", self) ;
   self = 0xFFFFFFFF ;
-  STREAM_GET_NBITS(s, self, 8) ; status = 8 ;
+  STREAM_GET_NBITS(s, self, 8) ;
   errmsg = "invalid filter ID" ;
   if(self != FILTER_ID) goto fail ;                     // wrong id, MUST be FILTER_ID
   FILTER_ARGS arg0 ;    // parameters for this filter
-  STREAM_GET_NBITS(s, arg0.iscale , 32) ; status += 32 ;
-  STREAM_GET_NBITS(s, arg0.ioffset, 32) ; status += 32 ;
+  STREAM_GET_NBITS(s, arg0.iscale , 32) ;
+  STREAM_GET_NBITS(s, arg0.ioffset, 32) ;
+  status = sizeof(FILTER_ARGS) ;
   fprintf(stderr, ", self = %8.8x, scale = %8.8x, offset = %8.8x, status = %ld\n", self, arg0.iscale, arg0.ioffset, status) ;
   goto end ;
 
@@ -320,10 +321,11 @@ decode:
   s = *stream ;
   fprintf(stderr, "decode parameters") ;
   self = 0xFFFFFFFF ;
-  STREAM_GET_NBITS(s, self, 8) ; status = 8 ;
+  STREAM_GET_NBITS(s, self, 8) ;
   if(self != FILTER_ID) goto fail ;                     // wrong id, MUST be FILTER_ID
   FILTER_ARGS arg0 ;    // parameters for this filter
-  STREAM_GET_NBITS(s, arg0.flag, 16) ; status += 16 ;
+  STREAM_GET_NBITS(s, arg0.flag, 16) ;
+  status = sizeof(FILTER_ARGS) ;
   fprintf(stderr, ", filter = %d, flag = %8x, status = %ld\n", self, arg0.flag, status) ;
   goto end ;
 
@@ -518,6 +520,7 @@ decode:
   errmsg = "invalid filter" ;
   if(self != FILTER_ID) goto fail ;                    // wrong id, MUST be FILTER_ID
 //   FILTER_ARGS arg0 ;    // parameters for this filter
+  status = sizeof(FILTER_ARGS) ;
   fprintf(stderr, ", filter = %d, status = %ld\n", self, status) ;
   goto end ;                                           // success
 
@@ -586,6 +589,8 @@ ssize_t FILTER_NAME(array_nd *a, block_properties *bp, dmap_filter_list dpfl, bi
   STREAM_INSERT_PUSH(s) ;
   status += 8 ;                                  // 8 bits inserted
 
+// successful end
+end:
   *stream = s ;   // SAVE stream changes
   return status ;
 
@@ -622,7 +627,8 @@ encode:
 
 decode:
   fprintf(stderr, "decode parameters, filter = %d\n", self) ;
-  return 0 ;
+  status = sizeof(FILTER_ARGS) ;
+  goto end ;
 
 print:
   errmsg = "invalid filter" ;
@@ -738,7 +744,8 @@ encode:
 
 decode:
   fprintf(stderr, "decode parameters, filter = %d\n", self) ;
-  return 0 ;
+  status = sizeof(FILTER_ARGS) ;
+  goto end ;
 
 print:
   errmsg = "invalid filter" ;
@@ -1027,11 +1034,12 @@ decode:
   s = *stream ;                        // local copy of stream control structure
   fprintf(stderr, "decode parameters, filter = %d", self) ;
   self = 0xFFFFFFFF ;
-  STREAM_GET_NBITS(s, self, 8) ; status = 8 ;
+  STREAM_GET_NBITS(s, self, 8) ;
   if(self != FILTER_ID) goto fail ;                     // wrong id, MUST be FILTER_ID
   FILTER_ARGS arg0 ;    // parameters for this filter
-  STREAM_GET_NBITS(s, arg0.mode   , 8) ; status += 8 ;
-  STREAM_GET_NBITS(s, arg0.options, 8) ; status += 8 ;
+  STREAM_GET_NBITS(s, arg0.mode   , 8) ;
+  STREAM_GET_NBITS(s, arg0.options, 8) ;
+  status = sizeof(FILTER_ARGS) ;
   fprintf(stderr, ", self = %8.8x, mode = %d, options = %x, status = %ld\n", self, arg0.mode, arg0.options, status) ;
   goto end ;
 
@@ -1055,7 +1063,7 @@ print:
 ssize_t FILTER_NAME(array_nd *a, block_properties *bp, dmap_filter_list dpfl, bitstream *stream, dmap_command command){
   uint32_t self = FILTER_ID ;
   char *errmsg ;
-  FILTER_ARGS *arg ;
+//   FILTER_ARGS *arg ;
 
   if(command == DMAP_ENCODE) goto encode ;
   if(command == DMAP_DECODE) goto decode ;
@@ -1064,7 +1072,7 @@ ssize_t FILTER_NAME(array_nd *a, block_properties *bp, dmap_filter_list dpfl, bi
   errmsg = "a == NULL || stream == NULL" ;
   if(a == NULL || stream == NULL) goto fail ;    // no array or no stream
   void *array = array_address(a) ;               // get array address, dimension(s), and type
-  int rank = a->rank, type = a->type ;
+//   int rank = a->rank, type = a->type ;
   ssize_t status = 0 ;
   bitstream s = *stream ;                        // local copy of stream control structure
 //   block_properties lbp ;
@@ -1074,10 +1082,10 @@ ssize_t FILTER_NAME(array_nd *a, block_properties *bp, dmap_filter_list dpfl, bi
 
   errmsg = "invalid filter" ;
   if(! dmap_filter_valid(dpfl,self)) goto fail ;   // not the right filter or NULL pointer
-  arg = (FILTER_ARGS *)(*dpfl) ;                   // get parameters for this filter
+//   arg = (FILTER_ARGS *)(*dpfl) ;                   // get parameters for this filter
 
 // check a->type and a->rank
-  errmsg = "type != float_data || rank != 2" ;
+//   errmsg = "type != float_data || rank != 2" ;
 //   if(type != float_data || rank != 2) goto fail ;
 // filter processing code goes here
 
@@ -1121,13 +1129,13 @@ encode:
 
 decode:
   fprintf(stderr, "decode parameters, filter = %d\n", self) ;
-  status = 0 ;
+  status = sizeof(FILTER_ARGS) ;
   goto end ;
 
 print:
   errmsg = "invalid filter" ;
   if(! dmap_filter_valid(dpfl,self)) goto fail ;   // not the right filter or NULL pointer
-  arg = (FILTER_ARGS *)(*dpfl) ;                    //  parameters for this filter
+//   arg = (FILTER_ARGS *)(*dpfl) ;                    //  parameters for this filter
   fprintf(stderr, "[%d] NO-OP\n", self) ;
   return 0 ;
 }
