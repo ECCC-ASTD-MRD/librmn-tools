@@ -18,7 +18,7 @@
 
 #if ! defined(FP_2_INT)
 
-#define FP_2_INT 0
+#define FP_2_INT 1
 
 #include <stdint.h>
 #include <rmn/move_blocks.h>

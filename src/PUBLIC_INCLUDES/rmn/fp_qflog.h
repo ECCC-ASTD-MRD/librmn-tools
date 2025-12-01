@@ -20,7 +20,7 @@
 
 #if ! defined(FP_2_FAKELOG)
 
-#define FP_2_FAKELOG 1
+#define FP_2_FAKELOG 2
 
 int32_t fp_to_qflog_1(float f, int nbits, float minabs, float zval);
 void    fp_to_qflog_n(float *z, int32_t *q, int n, int32_t nbits, float minabs, float zval);
