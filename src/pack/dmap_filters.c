@@ -207,7 +207,7 @@ static ssize_t dmap_filter_last(array_nd *a, block_properties *bp, dmap_filter_l
 
 typedef struct{
   dmap_filter_ptr ptr ;    // pointer to dmap filter function
-  const char *name ;             // function description
+  const char *name ;       // function description
   size_t sz ;              // argument list size
 } filter_properties ;
 
@@ -268,6 +268,13 @@ int dmap_filter_valid(dmap_filter_list dpfl, uint32_t id){
 int dmap_filter_is_last(dmap_filter_list dpfl){
   if(dpfl == NULL) return 0 ;
   return (dpfl[1] == NULL) ;    // true if next list entry is NULL (no next filter)
+}
+
+// ordinal [IN] : filter id
+// return expected argument size for this filter
+size_t dmap_filter_argsize(int ordinal){
+  if(ordinal < 0 || ordinal >= MAX_DP_FILTERS+3) return 0 ;
+  return (filters[ordinal].sz) ;
 }
 
 // ordinal [IN] : filter id
@@ -477,8 +484,6 @@ fprintf(stderr, "dmap_filter_get_array_info : ERROR %s\n", msg);
 // a      [INOUT] : array descriptor
 // stream [INOUT] : bit stream
 // return number of bits inserted into bi stream
-// TODO : use BHW coding for dimensions et al ?
-// TODO : add esize to the fray ?
 // put rank, type, element size, dimensions[rank] into bitstream
 int32_t dmap_filter_put_array_info(array_nd *a, bitstream *stream){
 // #if defined(NEW_CODE)
@@ -526,8 +531,12 @@ int32_t dmap_print_parameters(dmap_filter_list dpfl){
   int nfilters = 0 ;
 
   while(ptr != NULL){
-    if(ptr->filter > 7){
-      fprintf(stderr, "dmap_print_parameters : filter = %d\n", ptr->filter) ;
+    if(filters[ptr->filter].ptr == NULL && ptr->filter < MAX_DP_FILTERS){
+      fprintf(stderr, "dmap_print_parameters : undefined filter = %d\n", ptr->filter) ;
+    }else if(ptr->filter > MAX_DP_FILTERS){
+      fprintf(stderr, "dmap_print_parameters : invalid filter = %d\n", ptr->filter) ;
+    }else if(filters[ptr->filter].ptr == NULL){
+      fprintf(stderr, "dmap_print_parameters : virtual filter = %d\n", ptr->filter) ;
     }else{
       nfilters++ ;
       dmap_filter_ptr filter = dmap_filter_get(ptr->filter) ;
@@ -552,18 +561,20 @@ ssize_t dmap_encode_parameters(dmap_filter_list dpfl, bitstream *stream){
 //   STREAM_PUT_NBITS(*stream, nfilters, 8) ;
 //   fprintf(stderr, "dmap_encode_parameters : available %ld bits\n", StreamAvailableBits(stream)) ;
   while(ptr != NULL){
-    if(ptr->filter != 0){
-      if(ptr->filter > 7){
-        fprintf(stderr, "dmap_encode_parameters : filter = %d\n", ptr->filter) ;
+    if(ptr->filter >= 0 && ptr->filter < MAX_DP_FILTERS+3){
+      if(filters[ptr->filter].ptr == NULL || ptr->filter >= MAX_DP_FILTERS){
+        fprintf(stderr, "dmap_encode_parameters : undefined filter = %d\n", ptr->filter) ;
       }else{
         nfilters++ ;
         dmap_filter_ptr filter = dmap_filter_get(ptr->filter) ;
         status += (*filter)(NULL, NULL, dpfl, stream, DMAP_ENCODE) ;
       }
-//       fprintf(stderr, "dmap_encode_parameters : status = %ld, available %ld bits\n", status, StreamAvailableBits(stream)) ;
+    }else{
+      fprintf(stderr, "dmap_encode_parameters : invalid filter = %d\n", ptr->filter) ;
     }
     dpfl++ ;
     ptr = *dpfl ;
+//     fprintf(stderr, "dmap_encode_parameters : status = %ld, available %ld bits\n", status, StreamAvailableBits(stream)) ;
   }
   STREAM_PUT_NBITS(*stream, 0xFF, 8) ; status += 8 ;
   STREAM_INSERT_ALIGN32(*stream) ;        // align to a 32 bit boundary
@@ -572,32 +583,54 @@ ssize_t dmap_encode_parameters(dmap_filter_list dpfl, bitstream *stream){
   return status ;
 }
 
+#define MAX_FILTERS MAX_DP_FILTERS
 // data pipe filter parameter decoder
 // decode original filter list parameters from bit stream
 // dpfl     [OUT] : filter list
 // nfilters  [IN] : size of filter list
 // stream [INOUT] : stream to get filter parameters from
-// return number of bits read from stream
-ssize_t dmap_decode_parameters(dmap_filter_list dpfl, int nfilters, bitstream *stream){
+// return a properly set filter list
+dmap_filter_list dmap_decode_parameters(bitstream *stream){
 //   dmap_filter_args_ptr ptr = *dpfl ;
+// TODO : allocate a large enough buffer for the filters and the filter list,
+//        (pointers followed by data) populate it with DECODE calls
+//        dpfl and nfilters probably not needed once done
   uint32_t filter_no = 0 ;
   int nf = 0 ;
   ssize_t status = 0 ;
-  fprintf(stderr, "dmap_decode_parameters : available %ld bits, max filters = %d\n", StreamAvailableBits(stream), nfilters-1) ;
+  typedef struct{                              // accomodate large set of filters
+    dmap_filter_args_ptr ptr[MAX_FILTERS] ;    // pointers into arg for filter arguments
+    void          *nul ;                       // NULL pointer at end
+    uint8_t       arg[MAX_FILTER_ARG_SIZE] ;   // max length argument data for filters
+  } arg_list ;
+  arg_list *list ;
+  list = calloc(1, sizeof(arg_list)) ;
+  dmap_filter_list dpfl = (dmap_filter_list) list ;
+  uint8_t *ptr = (uint8_t *) (&(list->arg[0])) ;
+
+  fprintf(stderr, "dmap_decode_parameters : available %ld bits, max filters = %d\n", StreamAvailableBits(stream), MAX_DP_FILTERS) ;
   STREAM_XTRACT_CHECK(*stream) ;
   STREAM_PEEK_NBITS(*stream, filter_no, 8) ;
-  while(filter_no != 0xFF && nf < nfilters-1){
+  while(filter_no != 0xFF && nf < MAX_FILTERS){
     dmap_filter_ptr filter = dmap_filter_get(filter_no) ;
     // filters[filter_no] will provide the expected length of the argument list for this filter
-    status += (*filter)((void *)1, (void *)1, dpfl, stream, DMAP_DECODE) ;
+    // or dmap_filter_argsize(filter_no)
+    dpfl[0] = (dmap_filter_args_ptr) ptr ;
+    status = (*filter)(NULL, NULL, dpfl, stream, DMAP_DECODE) ;
+    if(dpfl[0]->filter != filter_no) goto fail ;
     dpfl++ ;
-    dpfl[0] = NULL ;       // nullify next argument list
+    ptr += status ;
     nf++ ;
     STREAM_XTRACT_CHECK(*stream) ;
     STREAM_PEEK_NBITS(*stream, filter_no, 8) ;
   }
   STREAM_GET_NBITS(*stream, filter_no, 8) ; status += 8 ;
   fprintf(stderr, "dmap_decode_parameters : status = %ld, available %ld bits, nf = %d\n\n", status, StreamAvailableBits(stream), nf) ;
-  return status ;
+
+  return (dmap_filter_list) list ;   // return what can be used as a proper filter list
+
+fail:
+  fprintf(stderr, "dmap_decode_parameters : filter_no = %d, filter = %d\n", filter_no, dpfl[0]->filter) ;
+  return NULL ;
 }
 

@@ -215,11 +215,15 @@ decode:
   STREAM_GET_NBITS(s, self, 8) ;
   errmsg = "invalid filter ID" ;
   if(self != FILTER_ID) goto fail ;                     // wrong id, MUST be FILTER_ID
-  FILTER_ARGS arg0 ;    // parameters for this filter
-  STREAM_GET_NBITS(s, arg0.iscale , 32) ;
-  STREAM_GET_NBITS(s, arg0.ioffset, 32) ;
   status = sizeof(FILTER_ARGS) ;
-  fprintf(stderr, ", self = %8.8x, scale = %8.8x, offset = %8.8x, status = %ld\n", self, arg0.iscale, arg0.ioffset, status) ;
+  FILTER_ARGS *argp = (FILTER_ARGS *) dpfl[0] ;         // parameters for this filter
+  argp->filter  = self ;
+  int32_t w32 ;
+  STREAM_GET_NBITS(s, w32 , 32) ;                       // get scale
+  argp->iscale  = w32 ;
+  STREAM_GET_NBITS(s, w32, 32) ;                        // get offset
+  argp->ioffset = w32 ;
+  fprintf(stderr, ", self = %8.8x, scale = %8.8x, offset = %8.8x, status = %ld\n", self, argp->iscale, argp->ioffset, status) ;
   goto end ;
 
 print:
@@ -323,10 +327,14 @@ decode:
   self = 0xFFFFFFFF ;
   STREAM_GET_NBITS(s, self, 8) ;
   if(self != FILTER_ID) goto fail ;                     // wrong id, MUST be FILTER_ID
-  FILTER_ARGS arg0 ;    // parameters for this filter
-  STREAM_GET_NBITS(s, arg0.flag, 16) ;
   status = sizeof(FILTER_ARGS) ;
-  fprintf(stderr, ", filter = %d, flag = %8x, status = %ld\n", self, arg0.flag, status) ;
+  FILTER_ARGS *argp = (FILTER_ARGS *) dpfl[0] ;         // parameters for this filter
+  argp->filter  = self ;
+  uint32_t w32 ;
+  STREAM_GET_NBITS(s, w32, 16) ;
+  argp->flag = w32 ;
+  status = sizeof(FILTER_ARGS) ;
+  fprintf(stderr, ", filter = %d, flag = %8x, status = %ld\n", self, argp->flag, status) ;
   goto end ;
 
 print:
@@ -356,6 +364,7 @@ print:
 ssize_t FILTER_NAME(array_nd *a, block_properties *bp, dmap_filter_list dpfl, bitstream *stream, dmap_command command){
   char *errmsg = "" ;
   uint32_t self = FILTER_ID ;
+  union{ float f32 ; int32_t i32 ; uint32_t u32 ; } x32 ;
 
   if(command == DMAP_ENCODE) goto encode ;
   if(command == DMAP_DECODE) goto decode ;
@@ -502,26 +511,45 @@ reverse:
 
 // encode filter parameters into bit stream
 encode:
+  errmsg = "no stream" ;
+  if(stream == NULL) goto fail ;
   errmsg = "invalid filter" ;
   if(self != FILTER_ID) goto fail ;                    // wrong id, MUST be FILTER_ID
   s = *stream ;
   fprintf(stderr, "encode parameters, filter = %d", self) ;
   STREAM_PUT_NBITS(s, self, 8) ; status = 8 ;
   arg = (FILTER_ARGS *)(*dpfl) ;    // parameters for this filter
-  fprintf(stderr, ", status = %ld\n", status) ;
+                          STREAM_PUT_NBITS(s, arg->mode  , 12) ; status += 12 ;
+                          STREAM_PUT_NBITS(s, arg->nbits , 12) ; status += 12 ;
+  x32.f32 = arg->abserr ; STREAM_PUT_NBITS(s, x32.u32, 32)     ; status += 32 ;
+                          STREAM_PUT_NBITS(s, arg->offset, 32) ; status += 32 ;
+  x32.f32 = arg->minabs ; STREAM_PUT_NBITS(s, x32.u32, 32)     ; status += 32 ;
+  x32.f32 = arg->zval   ; STREAM_PUT_NBITS(s, x32.u32, 32)     ; status += 32 ;
+  fprintf(stderr, ", status = %ld, mode = %d, nbits = %d, err = %10E, offset = %8.8x, minabs = %10E, zval = %10E\n",
+                   status, arg->mode, arg->nbits, arg->maxerr, arg->offset, arg->minabs, arg->zval) ;
   goto end ;                                           // success
 
 // recover filter parameters from bit stream
 decode:
+  errmsg = "no stream" ;
+  if(stream == NULL) goto fail ;
   s = *stream ;
   fprintf(stderr, "decode parameters") ;
-  self = 0xFFFFFFFF ;
-  STREAM_GET_NBITS(s, self, 8) ; status = 8 ;
+  STREAM_GET_NBITS(s, self, 8) ;
   errmsg = "invalid filter" ;
-  if(self != FILTER_ID) goto fail ;                    // wrong id, MUST be FILTER_ID
-//   FILTER_ARGS arg0 ;    // parameters for this filter
+  if(self != FILTER_ID) goto fail ;
+  FILTER_ARGS *argp = (FILTER_ARGS *) dpfl[0] ;         // parameters for this filter
+  argp->filter  = self ;
+  uint32_t u32 ; int32_t i32 ;
+  STREAM_GET_NBITS(s, i32, 12)     ; argp->mode   = i32 ;
+  STREAM_GET_NBITS(s, u32, 12)     ; argp->nbits  = u32 ;
+  STREAM_GET_NBITS(s, x32.u32, 32) ; argp->abserr = x32.f32 ;
+  STREAM_GET_NBITS(s, i32, 32)     ; argp->offset = i32 ;
+  STREAM_GET_NBITS(s, x32.u32, 32) ; argp->minabs = x32.f32 ;
+  STREAM_GET_NBITS(s, x32.u32, 32) ; argp->zval   = x32.f32 ;
   status = sizeof(FILTER_ARGS) ;
-  fprintf(stderr, ", filter = %d, status = %ld\n", self, status) ;
+  fprintf(stderr, ", filter = %d, mode = %d, nbits = %d, err = %10E, offset = %8.8x, minabs = %10E, zval = %10E\n",
+                   self, argp->mode, argp->nbits, argp->maxerr, argp->offset, argp->minabs, argp->zval) ;
   goto end ;                                           // success
 
 print:
@@ -1036,11 +1064,16 @@ decode:
   self = 0xFFFFFFFF ;
   STREAM_GET_NBITS(s, self, 8) ;
   if(self != FILTER_ID) goto fail ;                     // wrong id, MUST be FILTER_ID
-  FILTER_ARGS arg0 ;    // parameters for this filter
-  STREAM_GET_NBITS(s, arg0.mode   , 8) ;
-  STREAM_GET_NBITS(s, arg0.options, 8) ;
   status = sizeof(FILTER_ARGS) ;
-  fprintf(stderr, ", self = %8.8x, mode = %d, options = %x, status = %ld\n", self, arg0.mode, arg0.options, status) ;
+  FILTER_ARGS *argp = (FILTER_ARGS *) dpfl[0] ;         // parameters for this filter
+  argp->filter  = self ;
+  int32_t w32 ;
+  STREAM_GET_NBITS(s, w32, 8) ;
+  argp->mode = w32 ;
+  STREAM_GET_NBITS(s, w32, 8) ;
+  argp->options = w32 ;
+  status = sizeof(FILTER_ARGS) ;
+  fprintf(stderr, ", self = %8.8x, mode = %d, options = %x, status = %ld\n", self, argp->mode, argp->options, status) ;
   goto end ;
 
 print:

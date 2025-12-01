@@ -198,7 +198,7 @@ process:
     fprintf(stderr, "============================== float quantize test %d end ==============================\n", test_no) ;
   }
 
-  if(argc < 1000) goto end ;     // suppress unreachable code warning
+// if(argc < 1000) goto end ;     // suppress unreachable code warning
   char *test_nam1[6] = { "RAW-15", "RAW-24", "RAW-32", "ZIGZAG", "BHW   ", "TILE  " } ;
   for(test_no = 0 ; test_no < 6 ; test_no++){
     fprintf(stderr, "============================== 2D integer encode test %d start ==============================\n", test_no) ;
@@ -324,8 +324,9 @@ process:
     fprintf(stderr, "============================== 1D integer encode test %d end ==============================\n", test_no) ;
   }
 //   if(argc < 1000) goto end ;     // suppress unreachable code warning
+  fprintf(stderr, "============================== encode/decode/print filter arguments ==============================\n") ;
   errmsg = "" ;
-  dmap_fp_quantize arg_003 = DMAP_FP_QUANTIZE(.mode = FP_2_INT, .offset = 0x7FFFFFFF,  .nbits = 16, .abserr = 07.5f) ;
+  dmap_fp_quantize arg_003 = DMAP_FP_QUANTIZE(.mode = FP_2_INT, .offset = 0x7FFFFFFF,  .nbits = 16, .abserr = 7.5f, .zval = .0001f, .minabs = .0002f) ;
   dpfl[0] = (dmap_filter_args_ptr)&arg_001a ;     // filter 001
   dpfl[1] = (dmap_filter_args_ptr)&arg_001b ;     // filter 001
   dpfl[2] = (dmap_filter_args_ptr)&arg_006a ;     // filter 006
@@ -335,12 +336,16 @@ process:
   dpfl[6] = (dmap_filter_args_ptr)&arg_003 ;      // filter 003
   dpfl[7] = NULL ;                                // end of filter list
 
+  dmap_print_parameters(dpfl) ;
   STREAM_INIT(str000, NULL, 0, 0) ;               // full RW stream reset (keep buffer, size, and mode)
   dmap_encode_parameters(dpfl, str000) ;
   STREAM_REWIND(*str000, 1) ;
-  dmap_filter_args_ptr dpfb[10] ;
-  dmap_filter_list dpfl2 = &dpfb[0] ;
-  dmap_decode_parameters(dpfl2, sizeof(dpfb)/sizeof(void *), str000) ;
+  dmap_filter_list dpfl2 ;
+  dpfl2 = dmap_decode_parameters(str000) ;
+  errmsg = "dmap_decode_parameters returned NULL" ;
+  if(dpfl2 == NULL) goto fail ;
+  dmap_print_parameters(dpfl2) ;
+  free(dpfl2) ;
 
 if(argc < 1000) goto end ;     // suppress unreachable code warning
 

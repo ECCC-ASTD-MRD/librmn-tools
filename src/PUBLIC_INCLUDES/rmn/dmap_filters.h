@@ -15,7 +15,10 @@
 //     M. Valin,   Recherche en Prevision Numerique, 2025
 //
 #if ! defined(MAX_DP_FILTERS)
-#define MAX_DP_FILTERS 32
+#define MAX_DP_FILTERS      32
+// max number of 32 bit arguments, excluding filter number (1st item in struct)
+#define MAX_ARG_NUM         8
+#define MAX_FILTER_ARG_SIZE ((MAX_ARG_NUM+1) * sizeof(uint32_t))
 
 // end of filter chain marker
 #define FILTER_CHAIN_END 0377
@@ -86,7 +89,7 @@ typedef dmap_filter *dmap_filter_ptr ;
 ssize_t dmap_encode_parameters(dmap_filter_list, bitstream *) ;
 
 // data pipe filter parameter decoder
-ssize_t dmap_decode_parameters(dmap_filter_list, int, bitstream *) ;
+dmap_filter_list dmap_decode_parameters(bitstream *) ;
 
 // print filter parameters
 int32_t dmap_print_parameters(dmap_filter_list dpfl) ;
@@ -131,10 +134,12 @@ int32_t dmap_print_parameters(dmap_filter_list dpfl) ;
 //   return (args->filter != expected) ;
 // }
 
-dmap_filter_ptr dmap_filter_get(int ordinal);
 int dmap_filter_set(dmap_filter_ptr filter, int ordinal, const char *name, size_t arg_size, int force);
 int dmap_filter_exists(int ordinal);
+
+dmap_filter_ptr dmap_filter_get(int ordinal);
 const char *dmap_filter_name(int ordinal);
+size_t dmap_filter_argsize(int ordinal);
 
 // ssize_t dmap_filter_bad(array_nd *a, block_properties *bp, dmap_filter_list dpfl, bitstream *stream);
 // ssize_t dmap_filter_none(array_nd *a, block_properties *bp, dmap_filter_list dpfl, bitstream *stream);
