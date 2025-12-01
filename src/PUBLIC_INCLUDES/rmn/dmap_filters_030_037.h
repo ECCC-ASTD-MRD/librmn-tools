@@ -25,7 +25,7 @@ typedef struct{
   uint32_t filter ;  // filter number
   uint8_t args[] ;
 } dmap_filter_arg_030 ;
-#define DMAP_FILTER_030(...) (dmap_filter_arg_001) { 030 , __VA_ARGS__ }
+#define DMAP_FILTER_030(...) (dmap_filter_arg_030) { 030 , __VA_ARGS__ }
 
 #pragma weak dmap_filter_031
 dmap_filter  dmap_filter_031 ;
@@ -33,7 +33,7 @@ typedef struct{
   uint32_t filter ;  // filter number
   uint8_t args[] ;
 } dmap_filter_arg_031 ;
-#define DMAP_FILTER_031(...) (dmap_filter_arg_001) { 031 , __VA_ARGS__ }
+#define DMAP_FILTER_031(...) (dmap_filter_arg_031) { 031 , __VA_ARGS__ }
 
 #pragma weak dmap_filter_032
 dmap_filter  dmap_filter_032 ;
@@ -41,7 +41,7 @@ typedef struct{
   uint32_t filter ;  // filter number
   uint8_t args[] ;
 } dmap_filter_arg_032 ;
-#define DMAP_FILTER_032(...) (dmap_filter_arg_001) { 032 , __VA_ARGS__ }
+#define DMAP_FILTER_032(...) (dmap_filter_arg_032) { 032 , __VA_ARGS__ }
 
 #pragma weak dmap_filter_033
 dmap_filter  dmap_filter_033 ;
@@ -49,7 +49,7 @@ typedef struct{
   uint32_t filter ;  // filter number
   uint8_t args[] ;
 } dmap_filter_arg_033 ;
-#define DMAP_FILTER_033(...) (dmap_filter_arg_001) { 033 , __VA_ARGS__ }
+#define DMAP_FILTER_033(...) (dmap_filter_arg_033) { 033 , __VA_ARGS__ }
 
 #pragma weak dmap_filter_034
 dmap_filter  dmap_filter_034 ;
@@ -57,7 +57,7 @@ typedef struct{
   uint32_t filter ;  // filter number
   uint8_t args[] ;
 } dmap_filter_arg_034 ;
-#define DMAP_FILTER_034(...) (dmap_filter_arg_001) { 034 , __VA_ARGS__ }
+#define DMAP_FILTER_034(...) (dmap_filter_arg_034) { 034 , __VA_ARGS__ }
 
 #pragma weak dmap_filter_035
 dmap_filter  dmap_filter_035 ;
@@ -65,7 +65,7 @@ typedef struct{
   uint32_t filter ;  // filter number
   uint8_t args[] ;
 } dmap_filter_arg_035 ;
-#define DMAP_FILTER_035(...) (dmap_filter_arg_001) { 035 , __VA_ARGS__ }
+#define DMAP_FILTER_035(...) (dmap_filter_arg_035) { 035 , __VA_ARGS__ }
 
 #pragma weak dmap_filter_036
 dmap_filter  dmap_filter_036 ;
@@ -73,7 +73,7 @@ typedef struct{
   uint32_t filter ;  // filter number
   uint8_t args[] ;
 } dmap_filter_arg_036 ;
-#define DMAP_FILTER_036(...) (dmap_filter_arg_001) { 036 , __VA_ARGS__ }
+#define DMAP_FILTER_036(...) (dmap_filter_arg_036) { 036 , __VA_ARGS__ }
 
 #pragma weak dmap_filter_037
 dmap_filter  dmap_filter_037 ;
@@ -81,6 +81,6 @@ typedef struct{
   uint32_t filter ;  // filter number
   uint8_t args[] ;
 } dmap_filter_arg_037 ;
-#define DMAP_FILTER_037(...) (dmap_filter_arg_001) { 037 , __VA_ARGS__ }
+#define DMAP_FILTER_037(...) (dmap_filter_arg_037) { 037 , __VA_ARGS__ }
 
 #endif

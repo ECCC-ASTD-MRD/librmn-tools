@@ -561,13 +561,14 @@ ssize_t dmap_encode_parameters(dmap_filter_list dpfl, bitstream *stream){
 //   STREAM_PUT_NBITS(*stream, nfilters, 8) ;
 //   fprintf(stderr, "dmap_encode_parameters : available %ld bits\n", StreamAvailableBits(stream)) ;
   while(ptr != NULL){
-    if(ptr->filter >= 0 && ptr->filter < MAX_DP_FILTERS+3){
+    if(ptr->filter > 0 && ptr->filter < MAX_DP_FILTERS+3){
       if(filters[ptr->filter].ptr == NULL || ptr->filter >= MAX_DP_FILTERS){
         fprintf(stderr, "dmap_encode_parameters : undefined filter = %d\n", ptr->filter) ;
       }else{
         nfilters++ ;
         dmap_filter_ptr filter = dmap_filter_get(ptr->filter) ;
         status += (*filter)(NULL, NULL, dpfl, stream, DMAP_ENCODE) ;
+//         fprintf(stderr, "dmap_encode_parameters : defined filter = %d, status = %ld\n", ptr->filter, status) ;
       }
     }else{
       fprintf(stderr, "dmap_encode_parameters : invalid filter = %d\n", ptr->filter) ;

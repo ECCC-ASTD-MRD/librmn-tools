@@ -69,8 +69,7 @@ process:
   dmap_encode_arg arg_006a = DMAP_FILTER_006(100, 0) ;
   dmap_filter_arg_002 arg_002a = { 0002, 127 } ;
   dmap_fp_quantize arg_003a ; // = { 0003, .25f, 12, 0, FP_QUANTIZE_LIN } ;
-  dmap_filter_arg_036 arg_036z = { 0036 } ;
-  dmap_filter_arg_036 arg_177n = { 0177 } ;
+//   dmap_filter_arg_036 arg_036z = DMAP_FILTER_036() ;
   array_2d a2d, b2d, g2d, f2d, i2d, o2d, r2d ;
   array_1d i1d, o1d, r1d ;
 //   block_properties bp2d ;
@@ -326,15 +325,23 @@ process:
 //   if(argc < 1000) goto end ;     // suppress unreachable code warning
   fprintf(stderr, "============================== encode/decode/print filter arguments ==============================\n") ;
   errmsg = "" ;
-  dmap_fp_quantize arg_003 = DMAP_FP_QUANTIZE(.mode = FP_2_INT, .offset = 0x7FFFFFFF,  .nbits = 16, .abserr = 7.5f, .zval = .0001f, .minabs = .0002f) ;
-  dpfl[0] = (dmap_filter_args_ptr)&arg_001a ;     // filter 001
-  dpfl[1] = (dmap_filter_args_ptr)&arg_001b ;     // filter 001
-  dpfl[2] = (dmap_filter_args_ptr)&arg_006a ;     // filter 006
-  dpfl[3] = (dmap_filter_args_ptr)&arg_002a ;     // filter 002
-  dpfl[4] = (dmap_filter_args_ptr)&arg_036z ;     // undefined filter 036 (30)
-  dpfl[5] = (dmap_filter_args_ptr)&arg_177n ;     // invalid filter 0177 (127)
-  dpfl[6] = (dmap_filter_args_ptr)&arg_003 ;      // filter 003
-  dpfl[7] = NULL ;                                // end of filter list
+  dmap_fp_quantize arg_003  = DMAP_FP_QUANTIZE(.mode = FP_2_INT, .offset = 0x7FFFFFFF,  .nbits = 16, .abserr = 7.5f, .zval = .0001f, .minabs = .0002f) ;
+  dmap_lorenzo_arg arg_004a = DMAP_LORENZO() ;
+  dmap_wavelet_arg arg_005a = DMAP_WAVELET(1) ;
+  dmap_no_op7 arg_007       = DMAP_NO_OP7() ;
+  dmap_filter_arg_036 arg_036 = (dmap_filter_arg_036) { .filter =  036 } ;
+  dmap_filter_args arg_177    = (dmap_filter_args   ) { .filter = 0177 } ;
+  dpfl[0] = (dmap_filter_args_ptr) &arg_001a ;     // filter 001
+  dpfl[1] = (dmap_filter_args_ptr) &arg_001b ;     // filter 001
+  dpfl[2] = (dmap_filter_args_ptr) &arg_003 ;      // filter 003
+  dpfl[3] = (dmap_filter_args_ptr) &arg_002a ;     // filter 002
+  dpfl[4] = (dmap_filter_args_ptr) &arg_004a ;     // filter 004
+  dpfl[5] = (dmap_filter_args_ptr) &arg_005a ;     // filter 005
+  dpfl[6] = (dmap_filter_args_ptr) &arg_036 ;      // undefined filter 036 (30)
+  dpfl[7] = (dmap_filter_args_ptr) &arg_177 ;      // invalid filter 0177 (127)
+  dpfl[8] = (dmap_filter_args_ptr) &arg_007 ;      // filter 003
+  dpfl[9] = (dmap_filter_args_ptr) &arg_006a ;     // filter 006
+  dpfl[10] = NULL ;                                // end of filter list
 
   dmap_print_parameters(dpfl) ;
   STREAM_INIT(str000, NULL, 0, 0) ;               // full RW stream reset (keep buffer, size, and mode)

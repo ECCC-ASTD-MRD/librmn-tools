@@ -318,7 +318,7 @@ encode:
   STREAM_PUT_NBITS(s, self, 8) ; status = 8 ;
   arg = (FILTER_ARGS *)(*dpfl) ;    // parameters for this filter
   STREAM_PUT_NBITS(s, arg->flag, 16) ; status += 16 ;
-  fprintf(stderr, ", flag = %8x, status = %ld\n", arg->flag, status) ;
+  fprintf(stderr, ", flag = %4.4x, status = %ld\n", arg->flag, status) ;
   goto end ;
 
 decode:
@@ -333,15 +333,14 @@ decode:
   uint32_t w32 ;
   STREAM_GET_NBITS(s, w32, 16) ;
   argp->flag = w32 ;
-  status = sizeof(FILTER_ARGS) ;
-  fprintf(stderr, ", filter = %d, flag = %8x, status = %ld\n", self, argp->flag, status) ;
+  fprintf(stderr, ", filter = %d, flag = %4.4x, status = %ld\n", self, argp->flag, status) ;
   goto end ;
 
 print:
   errmsg = "invalid filter" ;
   if(! dmap_filter_valid(dpfl,self)) goto fail ;   // not the right filter or NULL pointer
   arg = (FILTER_ARGS *)(*dpfl) ;                    //  parameters for this filter
-  fprintf(stderr, "[%d] Dummy filter, flag = %8x\n", self, arg->flag) ;
+  fprintf(stderr, "[%d] Dummy filter, flag = %4.4x\n", self, arg->flag) ;
   return 0 ;
 }
 #undef FILTER_NAME
@@ -525,8 +524,8 @@ encode:
                           STREAM_PUT_NBITS(s, arg->offset, 32) ; status += 32 ;
   x32.f32 = arg->minabs ; STREAM_PUT_NBITS(s, x32.u32, 32)     ; status += 32 ;
   x32.f32 = arg->zval   ; STREAM_PUT_NBITS(s, x32.u32, 32)     ; status += 32 ;
-  fprintf(stderr, ", status = %ld, mode = %d, nbits = %d, err = %10E, offset = %8.8x, minabs = %10E, zval = %10E\n",
-                   status, arg->mode, arg->nbits, arg->maxerr, arg->offset, arg->minabs, arg->zval) ;
+  fprintf(stderr, ", mode = %d, nbits = %d, err = %10E, offset = %8.8x, minabs = %10E, zval = %10E, status = %ld\n",
+                   arg->mode, arg->nbits, arg->maxerr, arg->offset, arg->minabs, arg->zval,status) ;
   goto end ;                                           // success
 
 // recover filter parameters from bit stream
@@ -548,8 +547,8 @@ decode:
   STREAM_GET_NBITS(s, x32.u32, 32) ; argp->minabs = x32.f32 ;
   STREAM_GET_NBITS(s, x32.u32, 32) ; argp->zval   = x32.f32 ;
   status = sizeof(FILTER_ARGS) ;
-  fprintf(stderr, ", filter = %d, mode = %d, nbits = %d, err = %10E, offset = %8.8x, minabs = %10E, zval = %10E\n",
-                   self, argp->mode, argp->nbits, argp->maxerr, argp->offset, argp->minabs, argp->zval) ;
+  fprintf(stderr, ", filter = %d, mode = %d, nbits = %d, err = %10E, offset = %8.8x, minabs = %10E, zval = %10E, status = %ld\n",
+                   self, argp->mode, argp->nbits, argp->maxerr, argp->offset, argp->minabs, argp->zval, status) ;
   goto end ;                                           // success
 
 print:
@@ -650,12 +649,21 @@ reverse:
   return status ;
 
 encode:
-  fprintf(stderr, "encode parameters, filter = %d\n", self) ;
-  return 0 ;
+  if(self != FILTER_ID) goto fail ;                     // wrong id, MUST be FILTER_ID
+  s = *stream ;
+  STREAM_PUT_NBITS(s, self, 8) ; status = 8 ;
+  fprintf(stderr, "encode parameters, filter = %d, status = %ld\n", self, status) ;
+  goto end ;
 
 decode:
-  fprintf(stderr, "decode parameters, filter = %d\n", self) ;
+  s = *stream ;
+  fprintf(stderr, "decode parameters") ;
+  STREAM_GET_NBITS(s, self, 8) ;
+  if(self != FILTER_ID) goto fail ;                     // wrong id, MUST be FILTER_ID
+  FILTER_ARGS *argp = (FILTER_ARGS *) dpfl[0] ;         // parameters for this filter
+  argp->filter  = self ;
   status = sizeof(FILTER_ARGS) ;
+  fprintf(stderr, ", filter = %d, status = %ld\n", self, status) ;
   goto end ;
 
 print:
@@ -767,12 +775,27 @@ reverse:
   goto end ;
 
 encode:
-  fprintf(stderr, "encode parameters, filter = %d\n", self) ;
-  return 0 ;
+  if(self != FILTER_ID) goto fail ;                     // wrong id, MUST be FILTER_ID
+  s = *stream ;
+  fprintf(stderr, "encode parameters, filter = %d", self) ;
+  STREAM_PUT_NBITS(s, self, 8) ; status = 8 ;
+  arg = (FILTER_ARGS *)(*dpfl) ;    // parameters for this filter
+  STREAM_PUT_NBITS(s, arg->levels, 8) ; status += 8 ;
+  fprintf(stderr, ", levels = %d, status = %ld\n", arg->levels, status) ;
+  goto end ;
 
 decode:
-  fprintf(stderr, "decode parameters, filter = %d\n", self) ;
+  s = *stream ;
+  fprintf(stderr, "decode parameters") ;
+  STREAM_GET_NBITS(s, self, 8) ;
+  if(self != FILTER_ID) goto fail ;                     // wrong id, MUST be FILTER_ID
+  FILTER_ARGS *argp = (FILTER_ARGS *) dpfl[0] ;         // parameters for this filter
+  argp->filter  = self ;
+  uint32_t w32 ;
+  STREAM_GET_NBITS(s, w32, 8) ;
+  argp->levels = w32 ;
   status = sizeof(FILTER_ARGS) ;
+  fprintf(stderr, ", filter = %d, levels = %d, status = %ld\n", self, argp->levels, status) ;
   goto end ;
 
 print:
@@ -1061,7 +1084,6 @@ decode:
   status = 0 ;
   s = *stream ;                        // local copy of stream control structure
   fprintf(stderr, "decode parameters, filter = %d", self) ;
-  self = 0xFFFFFFFF ;
   STREAM_GET_NBITS(s, self, 8) ;
   if(self != FILTER_ID) goto fail ;                     // wrong id, MUST be FILTER_ID
   status = sizeof(FILTER_ARGS) ;
@@ -1156,20 +1178,27 @@ reverse:
   goto end ;
 
 encode:
-  fprintf(stderr, "encode parameters, filter = %d\n", self) ;
-  status = 0 ;
+  if(self != FILTER_ID) goto fail ;                     // wrong id, MUST be FILTER_ID
+  s = *stream ;
+  STREAM_PUT_NBITS(s, self, 8) ; status = 8 ;
+  fprintf(stderr, "encode parameters, filter = %d, status = %ld\n", self, status) ;
   goto end ;
 
 decode:
-  fprintf(stderr, "decode parameters, filter = %d\n", self) ;
+  s = *stream ;
+  fprintf(stderr, "decode parameters") ;
+  STREAM_GET_NBITS(s, self, 8) ;
+  if(self != FILTER_ID) goto fail ;                     // wrong id, MUST be FILTER_ID
+  FILTER_ARGS *argp = (FILTER_ARGS *) dpfl[0] ;         // parameters for this filter
+  argp->filter  = self ;
   status = sizeof(FILTER_ARGS) ;
+  fprintf(stderr, ", filter = %d, status = %ld\n", self, status) ;
   goto end ;
 
 print:
   errmsg = "invalid filter" ;
   if(! dmap_filter_valid(dpfl,self)) goto fail ;   // not the right filter or NULL pointer
-//   arg = (FILTER_ARGS *)(*dpfl) ;                    //  parameters for this filter
-  fprintf(stderr, "[%d] NO-OP\n", self) ;
+  fprintf(stderr, "[%d] Dummy Filter\n", self) ;
   return 0 ;
 }
 #undef FILTER_NAME
