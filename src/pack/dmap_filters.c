@@ -43,8 +43,8 @@
 //       calls the next filter
 //    the next filter is called 
 //       after performing the filter action onto the array
-//       before writing the information needed by the reverse filter
-// this makes it easy for the inverse filter chain to be applied in reverse order
+//       before writing the information needed by the restore filter
+// this makes it easy for the inverse filter chain to be applied in restore order
 // in inverse (INV) mode
 //    the start filter  (ID == 0)
 //       reads array information from the bit stream
@@ -52,79 +52,130 @@
 //       calls the filter chain
 //    each filter in turn calls the next one until the end of the chain
 //
+
+#include <stdlib.h>
+#include <rmn/dmap_filters.h>
+
 // ================================= generic template for filters =================================
 //
 #undef COMPILE_FILTER_TEMPLATE_NEVER_TRUE
+#define COMPILE_FILTER_TEMPLATE_NEVER_TRUE 1
 #if defined(COMPILE_FILTER_TEMPLATE_NEVER_TRUE)
-
-#define FILTER_ID xxx
-#define FILTER_NAME CONCAT2(dmap_filter_,FILTER_ID)
-#define FILTER_ARGS CONCAT2(dmap_filter_arg_,FILTER_ID)
-// dpfl == NULL means a reverse filter call
-// for the reverse filter, the data from the bit stream provides the necessary information
+// FILTER_ID expected to be 000 -> 037 (Octal)
+#define FILTER_ID 037
+#define FILTER_NAME CAT(dmap_filter_,FILTER_ID)
+#define FILTER_ARGS CAT(dmap_filter_arg_,FILTER_ID)
+// for the restore filter, the data from the bit stream provides the necessary information
 // the filter may modify the contents of the array described by a
 // in filter mode, bp == NULL if no properties information is available
 // the filter list MUST BE NULL TERMINATED
-ssize_t FILTER_NAME(array_nd *a, block_properties *bp, dmap_filter_list dpfl, bitstream *stream){
+// a      [INOUT] : pointer to array descriptor, only used for DMAP_FILTER and DMAP_RESTORE command
+// bp        [IN] : block properties, only used for DMAP_FILTER command
+// dpfl      [IN] ; used for DMAP_FILTER, DMAP_ENCODE, DMAP_PRINT commands, ignored for DMAP_RESTORE command
+//          [OUT] : for DMAP_DECODE command
+// stream [INOUT] : ignored for DMAP_PRINT command, IN and OUT for all other commands
+// command   [IN] : DMAP_FILTER | DMAP_RESTORE | DMAP_ENCODE | DMAP_DECODE | DMAP_PRINT
+ssize_t FILTER_NAME(array_nd *a, block_properties *bp, dmap_filter_list dpfl, bitstream *stream, dmap_command command){
+  ssize_t status = 0, status2 ;
+  uint32_t self = FILTER_ID, rank, type ;
   char *errmsg = "" ;
-  uint32_t me = FILTER_ID ;
-  if(a == NULL || stream == NULL) goto fail ;    // no array or no stream
-  void *array = array_address(a) ;               // get array address, dimension(s), and type
-  int rank = a->rank, type = a->type ;
-  ssize_t status = 0 ;
-  bitstream s = *stream ;                        // local copy of stream control structure
-//   block_properties lbp ;
-// 
-//   if(bp == NULL) { bp = &lbp ; lbp.kind = bad_data ; }
-  if(dpfl == NULL) goto reverse ;                // call to reverse filter
-  if(! dmap_filter_valid(dpfl,me)) goto fail ;   // not the right filter or NULL pointer
-  FILTER_ARGS *arg = (FILTER_ARGS *)(*dpfl) ;    // get parameters for this filter
+  FILTER_ARGS *arg ;
+  void *array ;
+  bitstream s ;
 
-//
-// check a->type and a->rank as needed
+  // specific variable declarations
+
+  if(command != DMAP_RESTORE){                       // DMAP_RESTORE does not use a parameter list
+    errmsg = "dmap filter list is NULL" ;
+    if(dpfl == NULL) goto fail ;
+    arg = (FILTER_ARGS *) dpfl[0] ;                  // get parameters for this filter
+    errmsg = "invalid/inconsistent filter ID" ;
+    if(! dmap_filter_valid(dpfl,FILTER_ID)) goto fail ;   // not the expected filter ID
+  }
+  if(command != DMAP_PRINT){                         // DMAP_PRINT does not use the bit stream
+    errmsg = "no stream" ;
+    if(stream == NULL) goto fail ;                   // no bit stream
+    s = *stream ;                                    // local copy of stream control structure
+  }
+
+  if(command == DMAP_ENCODE) goto encode ;
+  if(command == DMAP_DECODE) goto decode ;
+  if(command == DMAP_PRINT)  goto print ;
+  if(command == DMAP_RESTORE || command == DMAP_FILTER){
+    errmsg = "no array" ;
+    if(a == NULL) goto fail ;
+    array = array_address(a) ;                     // get array address, dimension(s), and type
+    rank = a->rank ;
+    type = a->type ;
+    // check a->type and a->rank as needed
+    if(command == DMAP_RESTORE) goto restore ;
+    goto fwd_filter ;
+  }else{
+    errmsg = "invalid command" ;
+    goto fail ;
+  }
+
 //
 // filter processing code goes here  (FWD)
 //
-  dpfl++ ;                                     // call next filter if there is one
+fwd_filter :
+  dpfl++ ;                              // call next filter
   dmap_filter_ptr next_filter = dmap_filter_next(dpfl) ;
-  status = (*next_filter)(a, bp, dpfl, &s) ;
+  status = (*next_filter)(a, bp, dpfl, &s, command) ;
+  errmsg = "filter chain failed" ;
   if(status < 0) goto fail ;
-//
-// insert into bitstream the appropriate information for the reverse filter (PUT)
-//
-  STREAM_PUT_NBITS(s, FILTER_ID, 8) ;
-  status += 8 ;     // 8 bits inserted so far
-//
-  STREAM_INSERT_PUSH(s) ;
+
+  STREAM_PUT_NBITS(s, FILTER_ID, 8) ; status += 8 ;
+
+// successful end
 end:
   *stream = s ;   // success, SAVE stream changes
   return status ;
 
+// miserable failure
 fail:
-  fprintf(stderr, "%s filter %3.3o ERROR : %s\n", (dpfl == NULL) ? "reverse" : "forward", FILTER_ID, errmsg) ;
+  fprintf(stderr, "filter %3.3o ERROR : %s\n", FILTER_ID, errmsg) ;
   return -1 ;     // failure, DO NOT SAVE stream changes
 
-  uint32_t filter ;
-reverse:
-// get from bitstream the appropriate information for the reverse filter (GET)
+restore:
+// get the appropriate information for the restore filter from bitstream
   status = 8 ;                                         // 8 bits extracted so far
-  STREAM_GET_NBITS(s, filter, 8) ;
-//   fprintf(stderr, "reverse filter %3.3o, id = %d\n", FILTER_ID, filter) ;
-  if(filter != FILTER_ID) goto fail ;                  // wrong id, MUST be FILTER_ID
+  STREAM_GET_NBITS(s, self, 8) ;
+  errmsg = "inconsistent filter ID" ;
+  if(self != FILTER_ID) goto fail ;                      // wrong id, MUST be FILTER_ID
 //
-// inverse filter processing code goes here  (INV)
+// restore filter processing code goes here  (INV)
 //
-  ssize_t status2 = dmap_filter_inv(a, &s) ;           // call next inverse filter
-  if(status2 < 0) goto fail ; else status += status2 ;
-  *stream = s ;                                        // SAVE stream changes
-  return status ;
+  status2 = dmap_filter_inv(a, &s) ;           // call next inverse filter
+  if(status2 < 0) goto fail ;
+  status += status2 ;
+  goto end ;
 
 encode:
-  fprintf(stderr, "encode parameters, filter = %d\n", self) ;
-  return 0 ;
+  status = 0 ;
+  s = *stream ;                        // local copy of stream control structure
+  fprintf(stderr, "encode parameters, filter = %3.3o", arg->filter) ;
+  arg = (FILTER_ARGS *) dpfl[0] ;    // parameters for this filter
+  STREAM_PUT_NBITS(s, arg->filter , 8) ; status = 8 ;
+  fprintf(stderr, "(%3.3o), status = %ld\n", arg->filter, status) ;
+  goto end ;
 
 decode:
-  fprintf(stderr, "encode parameters, filter = %d\n", self) ;
+  status = 0 ;
+  s = *stream ;                        // local copy of stream control structure
+  fprintf(stderr, "decode parameters, filter = %3.3o", arg->filter) ;
+  STREAM_GET_NBITS(s, self, 8) ;
+  errmsg = "decode : self != FILTER_ID" ;
+  if(self != FILTER_ID) goto fail ;                     // wrong id, MUST be FILTER_ID
+  status = sizeof(FILTER_ARGS) ;
+  arg = (FILTER_ARGS *) dpfl[0] ;                       // parameters for this filter
+  arg->filter  = self ;
+  status = sizeof(FILTER_ARGS) ;
+  fprintf(stderr, "(%3.3o), status = %ld\n", self, status) ;
+  goto end ;
+
+print:
+  fprintf(stderr, "[%3.3o] Dummy Filter\n", self) ;
   return 0 ;
 }
 #undef FILTER_NAME
@@ -133,9 +184,6 @@ decode:
 
 #endif      // COMPILE_FILTER_TEMPLATE_NEVER_TRUE
 // ================================= end of filter template =================================
-
-#include <stdlib.h>
-#include <rmn/dmap_filters.h>
 
 // workaround for a potential optimizer problem
 // void do_nothing_with(void *what){
@@ -617,6 +665,7 @@ dmap_filter_list dmap_decode_parameters(bitstream *stream){
     // filters[filter_no] will provide the expected length of the argument list for this filter
     // or dmap_filter_argsize(filter_no)
     dpfl[0] = (dmap_filter_args_ptr) ptr ;
+    dpfl[0]->filter = filter_no ;
     status = (*filter)(NULL, NULL, dpfl, stream, DMAP_DECODE) ;
     if(dpfl[0]->filter != filter_no) goto fail ;
     dpfl++ ;

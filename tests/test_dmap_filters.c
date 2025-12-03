@@ -60,7 +60,7 @@ fail:
 process:
   if(argc > 1 && argv[1] == NULL) goto fail ;       // dummy code to avoid warnings
 
-  dmap_filter_args_ptr dpfa[10] ;
+  dmap_filter_args_ptr dpfa[16] ;
   dmap_filter_list dpfl = &dpfa[0] ;
   dmap_filter_arg_001 arg_001a = DMAP_SAXPY( .iscale = 1,    .ioffset = 2   ) ;
 //   arg_001a = DMAP_SAXPY( {1},  {2}) ;
