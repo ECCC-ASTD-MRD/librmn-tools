@@ -754,7 +754,7 @@ end:
   *stream = s ;   // success, SAVE stream changes
   return status ;
 
-// miserable falure
+// miserable failure
 fail:
   fprintf(stderr, "filter %3.3o ERROR : %s\n", FILTER_ID, errmsg) ;
   return -1 ;     // failure, DO NOT SAVE stream changes
@@ -1190,6 +1190,319 @@ print:
 // the filter list MUST BE NULL TERMINATED
 //
 // this filter MUST BE THE LAST active filter in the chain as it encodes its data
+#if 1
+ssize_t FILTER_NAME(array_nd *a, block_properties *bp, dmap_filter_list dpfl, bitstream *stream, dmap_command command){
+  ssize_t status = 0, status2 ;
+  uint32_t self, rank, type ;
+  char *errmsg = "" ;
+  FILTER_ARGS *arg ;
+  void *array ;
+  bitstream s ;
+
+// ==================== local variable declarations ====================
+  int32_t ni, nj, mode, nbits, tnbits, tile, bhw, nelem, i ;
+  uint32_t zigzag ;
+// ========================================================================
+  if(command != DMAP_RESTORE){                       // DMAP_RESTORE does not use a parameter list
+    errmsg = "dmap filter list is NULL" ;
+    if(dpfl == NULL) goto fail ;
+    arg = (FILTER_ARGS *) dpfl[0] ;                  // get parameters for this filter
+    errmsg = "invalid/inconsistent filter ID" ;
+    if(! dmap_filter_valid(dpfl,FILTER_ID)) goto fail ;   // not the expected filter ID
+  }
+  if(command != DMAP_PRINT){                         // DMAP_PRINT does not use the bit stream
+    errmsg = "no stream" ;
+    if(stream == NULL) goto fail ;                   // no bit stream
+    s = *stream ;                                    // local copy of stream control structure
+  }
+
+  if(command == DMAP_ENCODE) goto encode ;
+  if(command == DMAP_DECODE) goto decode ;
+  if(command == DMAP_PRINT)  goto print ;
+  if(command == DMAP_RESTORE || command == DMAP_FILTER){
+    errmsg = "no array" ;
+    if(a == NULL) goto fail ;
+    array = array_address(a) ;                     // get array address, dimension(s), and type
+    if(array == NULL) goto fail ;
+    rank = a->rank ;
+    type = a->type ;
+    // check type and rank as/if needed
+    // local code
+    if(command == DMAP_RESTORE) goto restore ;
+    goto forward ;
+  }else{      // not DMAP_ENCODE, DMAP_DECODE, DMAP_PRINT, DMAP_RESTORE, DMAP_FILTER
+    errmsg = "invalid command" ;
+    goto fail ;
+  }
+// forward filter
+forward :
+// ====================  filter processing code  (FWD) ====================
+  if(! dmap_filter_is_last(dpfl)){
+    errmsg = "filter 006 MUST BE THE LAST FILTER" ;
+    goto fail ;
+  }
+
+  errmsg = "data must be integer (signed or unsigned)" ;
+  if(type != int_data && type != uint_data) goto fail ;
+
+  errmsg="encoder only supports 1D or 2D arrays" ;
+  if(rank > 2) goto fail ;
+// local code transforming array before calling next filter
+
+  // mode ==  -1       : raw encoding using size from array descriptor
+  // 0   <= mode <  65 : raw encoding using mode bits ( 0 - 64 )
+  // mode == 98        : zigzag encoding, nbits auto adjusted
+  // mode == 99        : BHW encoding (2 bit length code, followed by 8/16/24/32 bits of data), nbits irrelevant
+  // mode >=  100      : tile encoding with tile size mode - 100 (nbits/zigzag computed independently for each tile)
+  // nbits == 0        : auto adjust number of bits and zigzag flag according to data values
+  // nbits > 0         : force value of nbits (at own risk)
+  // modes 0 and 100 both set nbits to 0 (automatically compute necessary nbits)
+  mode = arg->mode, zigzag = 0, nbits = 32, tile = 0, bhw = 0 ;
+  if     (mode ==  -1) nbits = a->esize * 8 ;                              // nbits from data element size
+  else if(mode >= 100) { tile  = mode - 100 ; if(tile < 8) tile = 8 ; }    // tile mode, nbits/zigzag/bhw are irrelevant
+  else if(mode ==  99) { bhw = 1 ; }                                       // BHW mode, nbits/zigzag are irrelevant
+  else if(mode ==  98) { zigzag = 1 ; }                                    // zigzag mode forces to compute nbits
+  else if(mode >=   0) { nbits = mode ; }
+
+  errmsg="nbits is too large" ; if(nbits > 32) goto fail ;                 // not supported yet
+//   fprintf(stderr, "filter 006(E) : available space = %ld bits, mode = %d, nbits = %d, bhw = %d", StreamAvailableSpace(&s), mode, nbits, bhw) ;
+//   fprintf(stderr, ", saving %d array elements\n", array_dimension(a)) ;
+//
+// ========================================================================
+  dpfl++ ;                              // call next filter
+  dmap_filter_ptr next_filter = dmap_filter_next(dpfl) ;
+  status = (*next_filter)(a, bp, dpfl, &s, command) ;
+  errmsg = "filter chain failed" ;
+  if(status < 0) goto fail ;
+
+  STREAM_PUT_NBITS(s, FILTER_ID, 8) ; status += 8 ;
+// ====================  filter processing code  (FWD) ====================
+//
+  uint32_t header, *z = (uint32_t *) array ;
+  ssize_t available = StreamAvailableSpace(&s) ;
+
+  STREAM_PUT_NBITS(s, rank, 3) ; status += 3 ;
+
+  ni = a->dim[0].gnn, nj = 1 ;                 // 1D setup
+  // store dimensions into stream
+  STREAM_PUT_BHW(s, ni, tnbits) ; status += tnbits ;
+  if(rank == 2){ 
+    nj = a->dim[1].gnn ;
+    STREAM_PUT_BHW(s, nj, tnbits) ; status += tnbits ;
+  }
+  nelem = ni * nj ;
+
+  if(mode >= 100){                             // tile encoding
+    int32_t *block = (int32_t *) array ;
+    ssize_t encoded, needed ;
+    errmsg="tile mode needs 2D array" ;
+    if(rank != 2) goto fail ;
+    header = 0b00110011 ;
+    errmsg="tile mode, not enough space to encode data" ;
+    // dry-run of encoder to check that there is enough space to encode data
+    needed = encode_block(&s, block, ni, ni, nj, tile, arg->options | ENCODE_DRY_RUN) ;
+    if(available < needed) goto fail ;         // not enough space
+    STREAM_PUT_NBITS(s, header   , 8) ;        // (indicator for tile encoding mode)
+    status += 8 ;
+    STREAM_PUT_BHW(s, tile, tnbits) ;          // tile size
+    status += tnbits ;
+    encoded = encode_block(&s, block, ni, ni, nj, tile, arg->options) ;
+    status += encoded ;
+// fprintf(stderr, "filter 006(X), tile size = %d, tnbits = %d", tile, tnbits) ;
+// fprintf(stderr, ", needed = %ld, encoded = %ld\n", needed, encoded) ;
+    STREAM_PUT_NBITS(s, header   , 8) ;        // NULL tile (flag for last tile )
+    status += 8 ;
+
+  }else if(bhw == 1){                        // "BHW" encoding
+    errmsg="BHW mode, not enough space to encode data" ;
+    if(available < 24 + nelem*34) goto fail ;  // not enough space for worst case
+    header = 0b00110000 ;                      // constant nbits/zigzag/bhw
+    STREAM_PUT_NBITS(s, header   , 8) ;        // 8 bit header
+    STREAM_PUT_NBITS(s, 31       , 6) ;        // nbits is set to 32 for BHW encoding
+    STREAM_PUT_NBITS(s, 2        , 2) ;        // BHW flag
+    status += 16 ;
+    for(i=0 ; i<nelem ; i++) { STREAM_PUT_BHW(s, z[i], tnbits) ; status += tnbits ; } ;
+// fprintf(stderr, "filter 006(X), after BHW encoding %ld bits\n", status) ;
+
+  }else{                                       // constant nbits, 1 block, no tiling, maybe zigzag
+    if(nbits == 0){                            // find number of bits to use and value of zigzag flag
+      block_properties bp0 ;
+      if(nelem != analyze_data32_block((void *)array, nelem, nelem, 1, &bp0)) goto fail ;
+      if(bp0.mins.i < 0 && type == int_data){
+        zigzag = 1 ;             // negative values are present, will use zigzag encoding
+      }else{                     // negative values are not present, no need for zigzag
+        zigzag = 0 ;             // max value will be used to determine nb of bits needed
+        nbits = BitsNeeded_u32(bp0.maxu.u) ;
+      }
+      fprintf(stderr, "filter 006(XW) : max = %8.8x, nbits = %d, zigzag = %d\n", bp0.maxu.u, nbits, zigzag) ;
+    }
+    uint32_t umax = 0 ;
+    if(zigzag == 1){       // if zigzag encoding is selected, use absolute max value to (re)set nbits
+      umax = v_to_zigzag_32_inplace((int32_t *)array, nelem) ;    // transform array into zigzag form
+      nbits = BitsNeeded_u32(umax) ;
+    }
+    nbits = (nbits < 1) ? 1 : nbits ;     // nbits cannot be 0
+    errmsg="constant nbits, not enough space to encode data" ;
+    if(available < 24 + nelem*nbits) goto fail ;   // not enough space to encode data into stream
+    header = 0b00110000 ;                 // constant nbits/zigzag/bhw
+    STREAM_PUT_NBITS(s, header   , 8) ;   // 8 bit header
+    STREAM_PUT_NBITS(s, nbits-1  , 6) ;   // nbits
+    STREAM_PUT_NBITS(s, zigzag   , 2) ;   // zigzag flag ( 0 or 1 )
+    status += 16 ;
+//     fprintf(stderr, "filter 006(X) : mode = %d, zigzag = %d, umax = %d, nbits = %d, items = %d\n", mode, zigzag, umax, nbits, nelem) ;
+
+    for(i=0 ; i<nelem ; i++) { STREAM_PUT_NBITS(s, z[i], nbits) ; status += nbits ; } ;   // inject data into stream
+    STREAM_INSERT_PUSH(s) ;   // push all data into stream
+  }
+  status = status ;
+// ========================================================================
+
+// successful end
+end:
+  *stream = s ;   // success, SAVE stream changes
+  return status ;
+
+// miserable failure
+fail:
+  fprintf(stderr, "filter %3.3o ERROR : %s\n", FILTER_ID, errmsg) ;
+  return -1 ;     // failure, DO NOT SAVE stream changes
+
+// inverse of forward filter
+restore:
+// get the appropriate information for the restore filter from bitstream
+  STREAM_GET_NBITS(s, self, 8) ; status = 8 ;          // 8 bits extracted so far
+  errmsg = "inconsistent filter ID" ;
+  if(self != FILTER_ID) goto fail ;                    // wrong id, MUST be FILTER_ID
+
+// ====================  restore (INV) ====================
+// local code to restore from bit stream
+// inverse array processing code
+  STREAM_GET_NBITS(s, rank, 3) ; status += 3 ;           // get rank from stream
+  errmsg="decoding rank mismatch" ;
+  if(rank != a->rank) goto fail ;
+  errmsg="decoder only supports 1D or 2D" ;
+  if(rank > 2) goto fail ;
+  errmsg = "REVERSE  filter 006 : input array should be empty" ;
+  if( ! array_no_data(a) ) goto fail ;                  // array should not contain valid data
+
+  // get dimensions from stream, reshape array descriptor a-> (STREAM_GET_BHW), remember input array dimensions
+  int32_t ni_in, nj_in ;                                 // input array dimensions
+  STREAM_GET_BHW(s, ni, tnbits) ;  status += tnbits ;
+  ni_in = a->dim[0].gnn ;                                // remember first dimension
+  if(rank == 1){
+    nj = nj_in = 1 ;
+    reshape_array((array_1d *)a, a->esize, a->type, ni) ;
+  }else{
+    STREAM_GET_BHW(s, nj, tnbits) ; status += tnbits ;
+    reshape_array((array_2d *)a, a->esize, a->type, ni, nj) ;
+    nj_in = a->dim[1].gnn ;                              // remember second dimension
+  }
+//   fprintf(stderr, "rank = %d, ni = %d, expected %d, nj = %d, expected = %d, status = %ld\n", rank, ni, a->dim[0].gnn, nj, (rank>1) ? a->dim[1].gnn : 1, status) ;
+
+  STREAM_GET_NBITS(s, header, 8) ; status += 8 ;         // 8 bit header
+  if(header == 0b00110011){                              // tile encoding
+    errmsg="tile decoder needs 2D array" ;
+    if(rank != 2) goto fail ;
+    int32_t *block = (int32_t *) array ;
+    STREAM_GET_BHW(s, tile, tnbits) ;                    // get tile size
+    status += tnbits ;
+// fprintf(stderr, "REVERSE  filter 006 : tilesize = %d, tnbits = %d\n", tile, tnbits) ;
+// fprintf(stderr, "REVERSE  filter 006 : decoding ni = %d, nj = %d", ni, nj);
+    ssize_t decoded = decode_block(&s, block, ni, ni, nj, tile) ;
+    status += decoded ;
+// fprintf(stderr, ", TILE decoded %ld bits\n", decoded) ;
+    STREAM_GET_NBITS(s, header , 8) ;                    // check end of tiles flag
+    if(header != 0b00110011) goto fail ;
+    status += 8 ;
+
+  }else if(header == 0b00110000){                        // nbits per value, RAW/zigzag/BHW
+    STREAM_GET_NBITS(s, nbits , 6) ; nbits++ ;           // nbits - 1 was encoded into stream
+    STREAM_GET_NBITS(s, zigzag, 2) ;                     // RAW/zigzag/BHW mode
+    status += 8 ;
+//     fprintf(stderr, "restore filter %3.3o, id = %d, header = 0x%2.2x, nbits = %d, zigzag = %d\n", FILTER_ID, self, header, nbits, zigzag) ;
+    if(nbits > 32)           goto fail ;                 // not supported yet
+    nelem = ni * nj ;
+    z = (uint32_t *) array ;
+//     fprintf(stderr, "restore filter %3.3o restoring %d array elements\n", FILTER_ID, nelem) ;
+    if(zigzag == 2){                                     // BHW mode, nbits MUST be 32 (but will be ignored)
+      if(nbits != 32) goto fail ;
+      for(i=0 ; i<nelem ; i++) { STREAM_GET_BHW(s, z[i], tnbits) ; status += tnbits ; } ;
+// fprintf(stderr, "BHW decoded %ld bits\n", status) ;
+    }else{                                               // constant nbits, maybe zigzag
+      int32_t max = 0 ;                                  // make sure that max is always initialized
+      for(i=0 ; i<nelem ; i++) { STREAM_GET_NBITS(s, z[i], nbits) ; status += nbits ; } ;
+      if(zigzag != 0) max = v_from_zigzag_32_inplace((int32_t *)array, nelem) ;
+      if(max == 0) fprintf(stderr, "restore filter %3.3o, max = %d, zigzag = %d\n", FILTER_ID, max, zigzag) ;
+    }
+
+  }else{                                                 // invalid header value
+    goto fail ;
+  }
+  a->type = int_data ;                                   // output data type is signed integers
+  array_set_used(a) ;
+// fprintf(stderr, "REVERSE  filter 006(X) : extracted %ld bits\n", status) ;
+// ========================================================================
+
+  status2 = dmap_filter_inv(a, &s) ;           // call next inverse filter
+  errmsg = "restore filter chain failed" ;
+  if(status2 < 0) goto fail ;
+  status += status2 ;
+// ========================================================================
+  errmsg = "array should contain data" ;
+  if( ! array_has_data(a) ) goto fail ;                  // array should be filled
+  ni = a->dim[0].gnn ; nj = 1 ;                          // and final shape should be as expected
+  if(a->rank == 2) nj = a->dim[1].gnn ;
+  errmsg = "final array dimensions not as expected" ;
+  if(ni != ni_in || nj != nj_in || rank != a->rank) goto fail ;
+// ========================================================================
+  goto end ;
+
+// encode filter parameters from *dpfl[0] into bit stream
+encode:
+  status = 0 ;
+  s = *stream ;                        // local copy of stream control structure
+  fprintf(stderr, "encode parameters : filter = %3.3o", arg->filter) ;
+  arg = (FILTER_ARGS *) dpfl[0] ;    // parameters for this filter
+  STREAM_PUT_NBITS(s, arg->filter , 8) ; status = 8 ;
+// ========================================================================
+  STREAM_PUT_NBITS(s, arg->mode   , 8) ; status += 8 ;
+  STREAM_PUT_NBITS(s, arg->options, 8) ; status += 8 ;
+  fprintf(stderr, "(%3.3o), mode = %d, options = %x, status = %ld\n", arg->filter, arg->mode, arg->options, status) ;
+// ========================================================================
+  goto end ;
+
+// decode filter parameters from bit stream, copy into *dpfl[0]
+decode:
+  status = 0 ;
+  s = *stream ;                        // local copy of stream control structure
+  fprintf(stderr, "decode parameters, filter = %3.3o", arg->filter) ;
+  STREAM_GET_NBITS(s, self, 8) ;
+  errmsg = "decode parameters : self != FILTER_ID" ;
+  if(self != FILTER_ID) goto fail ;                     // wrong id, MUST be FILTER_ID
+  status = sizeof(FILTER_ARGS) ;
+  arg = (FILTER_ARGS *) dpfl[0] ;                       // parameters for this filter
+  arg->filter  = self ;
+  status = sizeof(FILTER_ARGS) ;
+// ========================================================================
+//   fprintf(stderr, "(%3.3o), status = %ld\n", self, status) ;
+  int32_t w32 ;
+  STREAM_GET_NBITS(s, w32, 8) ;
+  arg->mode = w32 ;
+  STREAM_GET_NBITS(s, w32, 8) ;
+  arg->options = w32 ;
+  fprintf(stderr, "(%3.3o), mode = %d, options = %x, status = %ld\n", arg->filter, arg->mode, arg->options, status) ;
+// ========================================================================
+  goto end ;
+
+// print filter parameters
+print:
+  arg = (FILTER_ARGS *) dpfl[0] ;                       // parameters for this filter
+// ========================================================================
+  fprintf(stderr, "[%3.3o] Integer Encoder, mode = %d, options = %x\n", arg->filter, arg->mode, arg->options) ;
+// ========================================================================
+  return 0 ;
+}
+#else
 ssize_t FILTER_NAME(array_nd *a, block_properties *bp, dmap_filter_list dpfl, bitstream *stream, dmap_command command){
   ssize_t status = 0 ;
   uint32_t self = FILTER_ID, rank, type ;
@@ -1354,7 +1667,7 @@ end:
 // fprintf(stderr, "filter 006(X) : inserted %ld bits\n", status);
   return status ;    // return number of bits produced/decoded
 
-// miserable falure
+// miserable failure
 fail:
   fprintf(stderr, "filter %3.3o ERROR : %s\n", FILTER_ID, errmsg) ;
   return -1 ;     // failure, DO NOT SAVE stream changes
@@ -1480,6 +1793,7 @@ print:
   fprintf(stderr, "[%3.3o] Integer Encoder, mode = %d, options = %x\n", arg->filter, arg->mode, arg->options) ;
   return 0 ;
 }
+#endif
 #undef FILTER_NAME
 #undef FILTER_ARGS
 #undef FILTER_ID
