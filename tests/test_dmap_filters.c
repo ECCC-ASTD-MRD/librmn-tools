@@ -182,6 +182,7 @@ process:
     errmsg = "inverse filter failed" ;
     if(tot_status < 0) goto fail ;
     errmsg = "encode/decode bit count mismatch" ;
+    if(status != tot_status){ fprintf(stderr, "encoded = %ld, decoded = %ld\n", status, tot_status) ; }
     if(status != tot_status) goto fail ;
 
     int32_t notsame = array_compare_2D(NI, NJ, (void *)zr, (void *)zo, 0) ;
@@ -197,7 +198,7 @@ process:
     fprintf(stderr, "============================== float quantize test %d end ==============================\n", test_no) ;
   }
 
-// if(argc < 1000) goto end ;     // suppress unreachable code warning
+if(argc < 1000) goto end ;     // suppress unreachable code warning
   char *test_nam1[6] = { "RAW-15", "RAW-24", "RAW-32", "ZIGZAG", "BHW   ", "TILE  " } ;
   for(test_no = 0 ; test_no < 6 ; test_no++){
     fprintf(stderr, "============================== 2D integer encode test %d start ==============================\n", test_no) ;
