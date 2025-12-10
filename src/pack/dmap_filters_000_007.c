@@ -26,6 +26,7 @@
 
 // ======================================= filter 000 =======================================
 // head of forward filter chain, calls dmap_filter_000 with command = DMAP_FILTER
+// the filter template is not used for this special filter
 ssize_t dmap_filter_fwd(array_nd *a, block_properties *bp, dmap_filter_list dpfl, bitstream *stream){
   return dmap_filter_000(a, bp, dpfl, stream, DMAP_FILTER) ;
 }
@@ -48,41 +49,41 @@ ssize_t FILTER_NAME(array_nd *a, block_properties *bp, dmap_filter_list dpfl, bi
   bitstream s = *stream ;                        // local copy of stream control structure
   int32_t nbits ;
 
-  if(command == DMAP_ENCODE)  return 0 ;
-  if(command == DMAP_DECODE)  return 0 ;
+  if(command == DMAP_ENCODE)  return 0 ;         // irrelevant
+  if(command == DMAP_DECODE)  return 0 ;         // irrelevant
   if(command == DMAP_RESTORE) goto restore ;
-  if(command == DMAP_PRINT)   return 0 ;
+  if(command == DMAP_PRINT)   return 0 ;         // irrelevant
 
+// ========== forward filter ==========
   STREAM_PUT_NBITS(s, self, 8) ; nbits = 8 ;     // insert own filter id into stream
   // insert array description information into the bit stream
   nbits += dmap_filter_put_array_info(a, &s) ;
-//   fprintf(stderr, "dmap_filter_fwd(HEAD) : inserted %d bits\n", nbits) ;
 
   // call next filter in list
-  // DO NOT USE dpfl++, dmap_filter_fwd is a filter implicitely in the list
+  // DO NOT USE dpfl++, dmap_filter_fwd is a filter implicitely at the head of the list
   dmap_filter_ptr next_filter = dmap_filter_next(dpfl) ;
   status = (*next_filter)(a, bp, dpfl, &s, command) ;
   if(status < 0) goto fail ;
-//   fprintf(stderr, "dmap_filter_fwd(MID) : nbits in stream = %ld\n", nbits+status) ;
 
   // insert the FILTER_CHAIN_END marker into the bit stream
   STREAM_PUT_NBITS(s, FILTER_CHAIN_END, 8) ;
   nbits += 8 ;
   STREAM_INSERT_ALIGN32(s) ;        // align stream to a 32 bit boundary
   STREAM_FLUSH(s) ;                 // flush stream data
-
-  *stream = s ;   // SAVE stream changes
   status += nbits ;
-//   fprintf(stderr, "dmap_filter_fwd(TAIL) : inserted %d bits, bits in stream = %ld\n", nbits, status) ;
+
+// successful end
+end :
+  *stream = s ;   // SAVE stream changes
   return status ;
 
+// miserable failure
 fail:
   return -1 ;     // DO NOT SAVE stream changes
 
 restore:
   STREAM_GET_NBITS(s, self, 8) ;
   status = 8 ;
-//   fprintf(stderr, "in restore filter %3.3o, id = %d\n", FILTER_ID, self) ;
   if(self != FILTER_ID) goto fail ;                     // wrong id, MUST be FILTER_ID (0)
 
   // get array description from stream
@@ -91,10 +92,9 @@ restore:
   status += temp ;
   array_set_empty(a) ;                                  // mark array as having no valid data
 
-  ssize_t status2 = dmap_filter_inv(a, &s) ;            // call next inverse filter
+  ssize_t status2 = dmap_filter_inv(a, &s) ;            // call first inverse filter
   if(status2 < 0) goto fail ; else status += status2 ;
-  *stream = s ;   // SAVE stream changes
-  return status ;
+  goto end ;
 }
 #undef FILTER_ID
 
@@ -1484,7 +1484,6 @@ decode:
   arg->filter  = self ;
   status = sizeof(FILTER_ARGS) ;
 // ========================================================================
-//   fprintf(stderr, "(%3.3o), status = %ld\n", self, status) ;
   int32_t w32 ;
   STREAM_GET_NBITS(s, w32, 8) ;
   arg->mode = w32 ;
