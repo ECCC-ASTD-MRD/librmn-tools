@@ -135,7 +135,7 @@ process:
     dmap_fp_quantize arg_003 = DMAP_FP_QUANTIZE(.mode = -1) ;
     dmap_lorenzo_arg arg_004 = DMAP_LORENZO() ;
     dmap_no_op7      arg_007 = DMAP_NO_OP7() ;
-    dmap_wavelet_arg arg_005 = DMAP_WAVELET(0) ;
+    dmap_wavelet_arg arg_005 = DMAP_WAVELET(1) ;
     dmap_saxpy_arg   arg_001 = DMAP_SAXPY({0.0f}, {1.0f}) ;
     dmap_no_op2      arg_002 = DMAP_NO_OP2(123) ;
 //     dmap_encode_arg  arg_006 = DMAP_ENCODE(.mode= 32, .options=0) ; // filter 006, raw, 32 bits per item

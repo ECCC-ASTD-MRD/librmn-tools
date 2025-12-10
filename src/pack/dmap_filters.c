@@ -200,8 +200,6 @@ decode:
 
 // print filter parameters
 print:
-  errmsg = "invalid filter" ;
-  if(! dmap_filter_valid(dpfl,self)) goto fail ;   // not the right filter or NULL pointer
   arg = (FILTER_ARGS *) dpfl[0] ;                       // parameters for this filter
 // ========================================================================
 //   fprintf(stderr, "[%3.3o] Demo Filter\n", self) ;
