@@ -14,8 +14,7 @@
 // Author:
 //     M. Valin,   Recherche en Prevision Numerique, 2025
 //
-#if ! defined(DMAP_FILTERS_030_037)
-#define DMAP_FILTERS_030_037
+#if ! defined(DMAP_FILTER_030)
 
 #include <rmn/dmap_filters.h>
 
