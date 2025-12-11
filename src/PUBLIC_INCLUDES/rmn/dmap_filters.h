@@ -99,13 +99,7 @@ int32_t dmap_print_parameters(dmap_filter_list dpfl) ;
 #include <rmn/dmap_filters_020_027.h>
 #include <rmn/dmap_filters_030_037.h>
 
-// list of pointers to dmapfilter_args structures
-// typedef struct{
-//   uint32_t nfilters ;
-//   dmapfilter_args *filters[] ;
-// } dmapfilter_list ;
-
-// bit stream encoding format for filter metadata
+// alternative bit stream encoding format for filter metadata
 // first element of metadata for ALL filters (MUST be present and be the FIRST element)
 // id    : filter ID (000 -> 255)
 // flags : local flags for this filter (0 -> 15)
@@ -126,16 +120,25 @@ int32_t dmap_print_parameters(dmap_filter_list dpfl) ;
 //
 // encoded data stream is written in decoding order
 
-// a float block would use a sequence like
+// a float block would use a filter list sequence like
 // quantization filter | prediction filter | encoding filter
-
-// processed subarray will be stored into memory described by zmap table entries mem[index] and size[index]
-// typedef int (*dmapfilter_ptr)(zmap *map, int index, array_nd *array, dmapfilter_args *args) ;   // pointer to processing function
-
 
 // static inline int dmapfilter_invalid(dmapfilter_args *args, uint32_t expected){
 //   return (args->filter != expected) ;
 // }
+
+// handle error message text and error code for data map pipe filter
+// id  : filter id
+// msg : error message string
+static inline int dmap_filter_error(int id, char *msg){
+  int msg0 = (msg[0] & 0x7F) ;
+  int err = ( msg0 < 32 ) ? msg0 : 077 ;    // 077 if not a control character
+  err = (err == 0) ? 077 : err ;
+  int inc = (err == 077) ? 0 : 1 ;          // skip first character if it is a control character
+  fprintf(stderr, "filter %3.3o ERROR %2.2o : %s\n", id, err, msg+inc) ;
+  err |= (id << 6) ;                        // filter id * 64 + specific error
+  return -err ;
+}
 
 // make a new data map pipe filter available
 int dmap_filter_set(dmap_filter_ptr filter, int ordinal, const char *name, size_t arg_size, int force);
