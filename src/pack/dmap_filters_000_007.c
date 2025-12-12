@@ -64,10 +64,11 @@ ssize_t FILTER_NAME(array_nd *a, block_properties *bp, dmap_filter_list dpfl, bi
   if(command == DMAP_PRINT)   return 0 ;         // irrelevant
   if(command == DMAP_RESTORE || command == DMAP_FILTER){
     errmsg = "\004no array" ;
-    if(a == NULL) goto fail ;
-    array = array_address(a) ;                   // get array address, dimension(s), and type
-    if(array == NULL) goto fail ;
+    if(a == NULL) goto fail ;                    // array descriptor must exist
     if(command == DMAP_RESTORE) goto restore ;
+    array = array_address(a) ;                   // get array address, dimension(s), and type
+    errmsg = "\020no data in array" ;
+    if(array == NULL) goto fail ;                // array descriptor must have valid data
     goto forward ;
   }else{
     errmsg = "\005invalid command" ;
@@ -112,7 +113,7 @@ restore:
   if(self != FILTER_ID) goto fail ;                     // wrong id, MUST be FILTER_ID (0)
 
   // get array description from stream
-  int32_t temp = dmap_filter_get_array_info(a, &s, 1) ;
+  int32_t temp = dmap_filter_get_array_info(a, &s, 1) ; // allocate data space if necessary
   errmsg = "\012dmap_filter_get_array_info failed" ;
   if(temp < 0) goto fail ;
   status += temp ;
@@ -1283,7 +1284,7 @@ forward :
   errmsg = "\021data must be integer (signed or unsigned)" ;
   if(type != int_data && type != uint_data) goto fail ;
 
-  errmsg="\022encoder only supports 1D or 2D arrays" ;
+  errmsg = "\022encoder only supports 1D or 2D arrays" ;
   if(rank > 2) goto fail ;
 // local code transforming array before calling next filter
 
@@ -1300,9 +1301,9 @@ forward :
   else if(mode >= 100) { tile  = mode - 100 ; if(tile < 8) tile = 8 ; }    // tile mode, nbits/zigzag/bhw are irrelevant
   else if(mode ==  99) { bhw = 1 ; }                                       // BHW mode, nbits/zigzag are irrelevant
   else if(mode ==  98) { zigzag = 1 ; }                                    // zigzag mode forces to compute nbits
-  else if(mode >=   0) { nbits = mode ; }
+  else if(mode >=   0) { nbits = mode ; }                                  // raw, keep nbits per value
 
-  errmsg="\023nbits is too large" ; if(nbits > 32) goto fail ;                 // not supported yet
+  errmsg = "\023nbits is too large" ; if(nbits > 32) goto fail ;           // not supported yet
 //   fprintf(stderr, "filter 006(E) : available space = %ld bits, mode = %d, nbits = %d, bhw = %d", StreamAvailableSpace(&s), mode, nbits, bhw) ;
 //   fprintf(stderr, ", saving %d array elements\n", array_dimension(a)) ;
 //
@@ -1333,12 +1334,13 @@ forward :
   if(mode >= 100){                             // tile encoding
     int32_t *block = (int32_t *) array ;
     ssize_t encoded, needed ;
-    errmsg="tile mode needs 2D array" ;
-    if(rank != 2) goto fail ;
+//     errmsg = "\030tile mode needs 2D array" ;
+//     if(rank != 2) goto fail ;
     header = 0b00110011 ;
-    errmsg="tile mode, not enough space to encode data" ;
+if(rank != 2) fprintf(stderr, "calling encode_block, ni = %d, nj = %d, tile = %d\n", ni, nj, tile) ;
     // dry-run of encoder to check that there is enough space to encode data
     needed = encode_block(&s, block, ni, ni, nj, tile, arg->options | ENCODE_DRY_RUN) ;
+    errmsg = "\031tile mode, not enough space to encode data" ;
     if(available < needed) goto fail ;         // not enough space
     STREAM_PUT_NBITS(s, header   , 8) ;        // (indicator for tile encoding mode)
     status += 8 ;
@@ -1352,7 +1354,7 @@ forward :
     status += 8 ;
 
   }else if(bhw == 1){                        // "BHW" encoding
-    errmsg="BHW mode, not enough space to encode data" ;
+    errmsg = "\032BHW mode, not enough space to encode data" ;
     if(available < 24 + nelem*34) goto fail ;  // not enough space for worst case
     header = 0b00110000 ;                      // constant nbits/zigzag/bhw
     STREAM_PUT_NBITS(s, header   , 8) ;        // 8 bit header
@@ -1380,7 +1382,7 @@ forward :
       nbits = BitsNeeded_u32(umax) ;
     }
     nbits = (nbits < 1) ? 1 : nbits ;     // nbits cannot be 0
-    errmsg="constant nbits, not enough space to encode data" ;
+    errmsg = "\033constant nbits, not enough space to encode data" ;
     if(available < 24 + nelem*nbits) goto fail ;   // not enough space to encode data into stream
     header = 0b00110000 ;                 // constant nbits/zigzag/bhw
     STREAM_PUT_NBITS(s, header   , 8) ;   // 8 bit header
@@ -1418,9 +1420,9 @@ restore:
 // local code to restore from bit stream
 // inverse array processing code
   STREAM_GET_NBITS(s, rank, 3) ; status += 3 ;           // get rank from stream
-  errmsg="decoding rank mismatch" ;
+  errmsg = "\034decoding rank mismatch" ;
   if(rank != a->rank) goto fail ;
-  errmsg="decoder only supports 1D or 2D" ;
+  errmsg = "\035decoder only supports 1D or 2D" ;
   if(rank > 2) goto fail ;
   errmsg = "\024REVERSE  filter 006 : input array should be empty" ;
   if( ! array_no_data(a) ) goto fail ;                  // array should not contain valid data
@@ -1441,8 +1443,8 @@ restore:
 
   STREAM_GET_NBITS(s, header, 8) ; status += 8 ;         // 8 bit header
   if(header == 0b00110011){                              // tile encoding
-    errmsg="\025tile decoder needs 2D array" ;
-    if(rank != 2) goto fail ;
+//     errmsg = "\025tile decoder needs 2D array" ;
+//     if(rank != 2) goto fail ;
     int32_t *block = (int32_t *) array ;
     STREAM_GET_BHW(s, tile, tnbits) ;                    // get tile size
     status += tnbits ;

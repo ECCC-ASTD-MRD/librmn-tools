@@ -73,7 +73,7 @@ process:
   array_2d a2d, b2d, g2d, f2d, i2d, o2d, r2d ;
   array_1d i1d, o1d, r1d ;
 //   block_properties bp2d ;
-  ssize_t status ;
+  ssize_t status = 0 ;
   uint64_t freq ;
   double nano ;
   int i, j, debug_mode, strict_mode, errors ;
@@ -161,7 +161,7 @@ process:
     dpfl[5] = (dmap_filter_args_ptr)&arg_002 ;    // pass through with flag
     dpfl[6] = (dmap_filter_args_ptr)&arg_006 ;    // tile encoder
     dpfl[7] = (dmap_filter_args_ptr)&arg_007 ;    // pass through
-//     dpfl[7] = NULL ;
+    dpfl[7] = NULL ;      // comment to test error return propagation
     dpfl[8] = NULL ;
     dmap_print_parameters(dpfl) ;
 
@@ -173,7 +173,7 @@ process:
     estream = str000 ;
     errmsg = "forward filter failed" ;
     if(status < 0){
-      fprintf(stderr, "filter test : status = %5.5lo\n", -status) ;
+      fprintf(stderr, "filter test : status = %4.4lo, error 0%2.2lo in filter 0%2.2lo\n", -status, (-status) & 077, (-status) >> 6) ;
       goto fail ;
     }
     fprintf(stderr, "filter test : '%s' , bits inserted = %ld\n\n", test_nam0[test_no], status) ;
@@ -185,7 +185,10 @@ process:
     array_set_empty(&g2d) ;
     tot_status = dmap_filter_inv((array_nd *)&g2d, str000) ;              // inverse filter
     errmsg = "inverse filter failed" ;
-    if(tot_status < 0) goto fail ;
+    if(tot_status < 0){
+      fprintf(stderr, "filter test : status = %5.5lo\n", -tot_status) ;
+      goto fail ;
+    }
     errmsg = "encode/decode bit count mismatch" ;
     if(status != tot_status){ fprintf(stderr, "encoded = %ld, decoded = %ld\n", status, tot_status) ; }
     if(status != tot_status) goto fail ;
@@ -203,7 +206,7 @@ process:
     fprintf(stderr, "============================== float quantize test %d end ==============================\n", test_no) ;
   }
 
-if(argc < 1000) goto end ;     // suppress unreachable code warning
+// if(argc < 1000) goto end ;     // suppress unreachable code warning
   char *test_nam1[6] = { "RAW-15", "RAW-24", "RAW-32", "ZIGZAG", "BHW   ", "TILE  " } ;
   for(test_no = 0 ; test_no < 6 ; test_no++){
     fprintf(stderr, "============================== 2D integer encode test %d start ==============================\n", test_no) ;
@@ -263,17 +266,18 @@ if(argc < 1000) goto end ;     // suppress unreachable code warning
 
   }
 //   if(argc < 1000) goto end ;     // suppress unreachable code warning
-  char *test_nam2[3] = { "RAW-32", "ZIGZAG", "BHW   " } ;
-  for(test_no = 0 ; test_no < 3 ; test_no++){
+  char *test_nam2[4] = { "RAW-32", "ZIGZAG", "BHW   ", "TILE  " } ;
+  for(test_no = 0 ; test_no < 4 ; test_no++){
     fprintf(stderr, "============================== 1D integer encode test %d start ==============================\n", test_no) ;
     array_2d o1d = array_2d_invalid ;
     array_2d *o1d_p = &o1d ;
     STREAM_INIT(str000, NULL, 0, 0) ;               // full RW stream reset (keep buffer, size, and mode)
     dmap_encode_arg  arg_006 ;
     switch(test_no){
-      case 0  : arg_006 = DMAP_ENCODE(.mode= 32, .options=0) ; break ;    // filter 006, raw, 32 bits per item
-      case 1  : arg_006 = DMAP_ENCODE(.mode= 98, .options=0) ; break ;    // filter 006, zigzag, up to 32 bits per item
-      case 2  : arg_006 = DMAP_ENCODE(.mode= 99, .options=0) ; break ;    // filter 006, BHW, auto bits per item
+      case 0  : arg_006 = DMAP_ENCODE(.mode=  32, .options=0) ; break ;    // filter 006, raw, 32 bits per item
+      case 1  : arg_006 = DMAP_ENCODE(.mode=  98, .options=0) ; break ;    // filter 006, zigzag, up to 32 bits per item
+      case 2  : arg_006 = DMAP_ENCODE(.mode=  99, .options=0) ; break ;    // filter 006, BHW, auto bits per item
+      case 3  : arg_006 = DMAP_ENCODE(.mode= 100, .options=0) ; break ;    // filter 006, tile encoding
       default : goto fail ;                                   // invalid test number
     }
     dpfl[0] = (dmap_filter_args_ptr)&arg_006 ;
@@ -285,6 +289,7 @@ if(argc < 1000) goto end ;     // suppress unreachable code warning
     i1d.type = int_data ;
 
     status = dmap_filter_fwd((array_nd *)&i1d, NULL, dpfl, str000) ;      // forward filter
+
     estream = str000 ;
     errmsg = "forward filter failed" ;
     if(status < 0) goto fail ;
@@ -303,21 +308,24 @@ if(argc < 1000) goto end ;     // suppress unreachable code warning
     fprintf(stderr, "rank of o1d : syntactic = %d/%d/%d, effective = %d, data at %p->%p, flags = %d\n",
                     ARRAY_ALLOC_RANK( o1d ), ARRAY_ALLOC_RANK( *(array_nd *)o1d_p ), o1d.ndim,
                     ARRAY_RANK( *o1d_p ), ARRAY_DATA( *o1d_p ), ARRAY_LIMIT( *o1d_p ), o1d.flags) ;
-    errmsg = "inverse filter failed" ;
-    if(tot_status < 0) goto fail ;
+    if(tot_status < 0){
+      fprintf(stderr, "status = %5.5lo\n", -tot_status) ;
+      errmsg = "inverse filter failed" ;
+      goto fail ;
+    }
     errmsg = "encode/decode bit count mismatch" ;
     if(status != tot_status) goto fail ;
 
 //     errors = array_compare_2D(NI*NJ, 1, (void *)ur, (void *)uo, 1) ;
     errors = array_compare_2D(NI*NJ, 1, (void *)ur, (void *)o1d.data, 1) ;
     int32_t fstatus = free_array(&o1d) ;
-    fprintf(stderr, "fstatus = %d", fstatus) ;
+    fprintf(stderr, "fstatus = %d (expecting 1)", fstatus) ;
     if(fstatus < 0){
       errmsg = "free failed" ;
       goto fail ;
     }
     fstatus = free_array(&o1d) ;
-    fprintf(stderr, ", fstatus = %d\n", fstatus) ;
+    fprintf(stderr, ", fstatus = %d (expecting -1)\n", fstatus) ;
 
     fprintf(stderr, "filter test : '%s' ,  bits extracted = %ld, errors = %d\n", test_nam2[test_no], tot_status, errors) ;
     errmsg = "data restore failed" ;
