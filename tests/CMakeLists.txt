@@ -181,6 +181,7 @@ add_project_test(test_serialized_functions test_serialized_functions.c LINK_LIBS
 # add_project_test(test_ieeequantize test_ieeequantize.c LINK_LIBS "rmn::rmn-shared" NODIAG)
 
 add_project_test(test_logquantize          test_logquantize.c          LINK_LIBS "rmn::rmn-shared" NODIAG)
+add_project_test(test_qflog                test_qflog.c                LINK_LIBS "rmn::rmn"        NODIAG)
 # add_project_test(test_encoders test_encoders.c LINK_LIBS "rmn::rmn-shared" NODIAG)
 add_project_test(test_split_dimension      test_split_dimension.c      LINK_LIBS "rmn::rmn-shared" NODIAG)
 # add_project_test(test_bitstream test_bitstream.c LINK_LIBS "rmn::rmn-shared" NODIAG)

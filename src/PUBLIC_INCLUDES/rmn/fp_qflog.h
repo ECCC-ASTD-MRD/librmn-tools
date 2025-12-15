@@ -22,12 +22,18 @@
 
 #define FP_2_FAKELOG 2
 
+int32_t fp_to_flog_1(float f, int nbits);
+void    fp_to_flog(float * restrict z, int32_t * restrict q, int n, int32_t nbits);
+
+float flog_to_fp_1(int32_t q, int nbits);
+void  flog_to_fp(float * restrict z, int32_t * restrict q, int n, int32_t nbits);
+
 int32_t fp_to_qflog_1(float f, int nbits, float minabs, float zval);
-void    fp_to_qflog_n(float *z, int32_t *q, int n, int32_t nbits, float minabs, float zval);
+// void    fp_to_qflog_n(float *z, int32_t *q, int n, int32_t nbits, float minabs, float zval);
 void    fp_to_qflog(float *z, int32_t *q, int n, int32_t nbits, float minabs, float zval);
 
-float qflog_to_fp_1(int32_t i, int nbits, float minabs);
-void  qflog_to_fp_n(float *z, int32_t *q, int n, int32_t nbits, float minabs);
+float qflog_to_fp_1(int32_t q, int nbits, float minabs);
+// void  qflog_to_fp_n(float *z, int32_t *q, int n, int32_t nbits, float minabs);
 void  qflog_to_fp(float *z, int32_t *q, int n, int32_t nbits, float minabs);
 
 float fp_to_from_qflog(float *f, int n, int nbits, float minabs, float zval);
