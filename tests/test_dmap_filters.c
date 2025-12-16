@@ -24,6 +24,7 @@
 #include <rmn/split_dimension.h>
 #include <rmn/quantizers.h>
 #include <rmn/fp_qlin.h>
+#include <rmn/fp_qflog.h>
 #include <rmn/eval_diff.h>
 
 // end of section to be moved to dmap_filters.c
@@ -127,8 +128,8 @@ process:
   new_array(&g2d, (void *)&zo, sizeof(float), float_data, NI, NJ) ;
   new_array(&b2d, (void *)&zo, sizeof(float), raw_data,   NI, NJ) ;
 
-  char *test_nam0[3] = { "LIN 00", "LINo16", "LINo00" } ;
-  for(test_no = 0 ; test_no < 3 ; test_no++){
+  char *test_nam0[4] = { "LIN 00", "LINo16", "LINo00", "FLOG16" } ;
+  for(test_no = 0 ; test_no < 4 ; test_no++){
     fprintf(stderr, "============================== float quantize test %d start ==============================\n", test_no) ;
     float abs_err = 07.5f ;
     STREAM_INIT(str000, NULL, 0, 0) ;               // full RW stream reset (keep buffer, size, and mode)
@@ -143,13 +144,16 @@ process:
 
     switch(test_no){
       case 0 :
-        arg_003 = DMAP_FP_QUANTIZE(.mode = FP_2_INT, .offset = 0,           .nbits = 0, .abserr = abs_err) ;
+        arg_003 = DMAP_FP_QUANTIZE(.mode = FP_2_INT,  .offset = 0,           .nbits =  0, .maxerr = abs_err) ;
         break ;
       case 1 :
-        arg_003 = DMAP_FP_QUANTIZE(.mode = FP_2_INT, .offset = 0x7FFFFFFF,  .nbits = 16, .abserr = abs_err) ;
+        arg_003 = DMAP_FP_QUANTIZE(.mode = FP_2_INT,  .offset = 0x7FFFFFFF,  .nbits = 16, .maxerr = abs_err) ;
         break ;
       case 2 :
-        arg_003 = DMAP_FP_QUANTIZE(.mode = FP_2_INT, .offset = 0x7FFFFFFF,  .nbits = 0, .abserr = abs_err) ;
+        arg_003 = DMAP_FP_QUANTIZE(.mode = FP_2_INT,  .offset = 0x7FFFFFFF,  .nbits =  0, .maxerr = abs_err) ;
+        break ;
+      case 3 :
+        arg_003 = DMAP_FP_QUANTIZE(.mode = FP_2_FLOG, .offset = 0,           .nbits = 16, .maxerr = abs_err) ;
         break ;
       default : goto fail ;
     }
@@ -206,7 +210,7 @@ process:
     fprintf(stderr, "============================== float quantize test %d end ==============================\n", test_no) ;
   }
 
-// if(argc < 1000) goto end ;     // suppress unreachable code warning
+if(argc < 1000) goto end ;     // suppress unreachable code warning
   char *test_nam1[6] = { "RAW-15", "RAW-24", "RAW-32", "ZIGZAG", "BHW   ", "TILE  " } ;
   for(test_no = 0 ; test_no < 6 ; test_no++){
     fprintf(stderr, "============================== 2D integer encode test %d start ==============================\n", test_no) ;
@@ -339,7 +343,7 @@ process:
 //   if(argc < 1000) goto end ;     // suppress unreachable code warning
   fprintf(stderr, "============================== encode/decode/print filter arguments ==============================\n") ;
   errmsg = "" ;
-  dmap_fp_quantize arg_003  = DMAP_FP_QUANTIZE(.mode = FP_2_INT, .offset = 0x7FFFFFFF,  .nbits = 16, .abserr = 7.5f, .zval = .0001f, .minabs = .0002f) ;
+  dmap_fp_quantize arg_003  = DMAP_FP_QUANTIZE(.mode = FP_2_INT, .offset = 0x7FFFFFFF,  .nbits = 16, .maxerr = 7.5f, .zval = .0001f, .minabs = .0002f) ;
   dmap_lorenzo_arg arg_004a = DMAP_LORENZO() ;
   dmap_wavelet_arg arg_005a = DMAP_WAVELET(1) ;
   dmap_no_op7 arg_007       = DMAP_NO_OP7() ;
@@ -447,7 +451,7 @@ if(argc < 1000) goto end ;     // suppress unreachable code warning
   float z2[NJ][NI] ; // , r2[NJ][NI] ;   // 3 tiles horizontally, 1 tile vertically
   uint32_t buf2[NI*NJ*2] ;         // enough space for stream packing
 //   bitstream *stream2 = NULL ;
-  dmap_filter_arg_003 quantize = DMAP_FILTER_003( .mode = 0, .abserr = .25f, .nbits = 12) ;
+  dmap_filter_arg_003 quantize = DMAP_FILTER_003( .mode = 0, .maxerr = .25f, .nbits = 12) ;
   dmap_filter_arg_006 encode   = DMAP_FILTER_006( .mode = 24 ) ;
 
   dpfl[0] = (dmap_filter_args_ptr)&quantize ;     // filter 003, linear float quantizer

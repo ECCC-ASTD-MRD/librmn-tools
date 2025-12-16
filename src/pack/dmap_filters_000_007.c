@@ -16,13 +16,8 @@
 //
 
 #include <rmn/dmap_filters.h>
-#include <rmn/ieee_extras.h>
 #include <rmn/move_blocks.h>
 #include <rmn/misc_operators.h>
-#include <rmn/tile_encoders.h>
-#include <rmn/dwt_i_lgt53.h>
-#include <rmn/fp_qlin.h>
-#include <rmn/fp_qflog.h>
 
 // ======================================= filter 000 =======================================
 // head of forward filter chain, calls dmap_filter_000 with command = DMAP_FILTER
@@ -125,8 +120,9 @@ restore:
   goto end ;
 }
 #undef FILTER_ID
-
+//
 // ======================================= filter 001 =======================================
+//
 // integer/float offset and scale (NO OP for now)
 #define FILTER_ID 001
 #define FILTER_NAME CAT(dmap_filter_,FILTER_ID)
@@ -290,10 +286,9 @@ print:
 #undef FILTER_NAME
 #undef FILTER_ARGS
 #undef FILTER_ID
-
+//
 // ======================================= filter 002 =======================================
-// #include <rmn/quantizers.h>
-
+//
 // (NO OP with a flag for now)
 #define FILTER_ID 002
 #define FILTER_NAME CAT(dmap_filter_,FILTER_ID)
@@ -437,11 +432,11 @@ print:
 #undef FILTER_NAME
 #undef FILTER_ARGS
 #undef FILTER_ID
-
+//
 // ======================================= filter 003 =======================================
-#include <rmn/quantizers.h>
+//
+#include <rmn/fp_qlin.h>
 #include <rmn/fp_qflog.h>
-
 // 32 bit float quantizer
 #define FILTER_ID 003
 #define FILTER_NAME CAT(dmap_filter_,FILTER_ID)
@@ -462,8 +457,9 @@ ssize_t FILTER_NAME(array_nd *a, block_properties *bp, dmap_filter_list dpfl, bi
 
 // ==================== local variable declarations ====================
   union{ float f32 ; int32_t i32 ; uint32_t u32 ; } x32 ;
-  int32_t mode, nvalues, nbits, e_base, offset ;
-  float maxerr, minabs ;
+  int32_t mode, nvalues, nbits, e_base, offset, i32 ;
+  float maxerr, minabs, zval ;
+  uint32_t u32 ;
 // ========================================================================
   if(command != DMAP_RESTORE){                       // DMAP_RESTORE does not use a parameter list
     errmsg = "\001dmap filter list is NULL" ;
@@ -502,50 +498,67 @@ forward :
 // ====================  filter processing code  (FWD) ====================
   errmsg = "\021type != float_data" ;
   if(type != float_data) goto fail ;             // data type MUST BE FLOAT
-  mode = arg->mode ;                     // get mode
-  nbits = arg->nbits ;                   // max number of bits to be used for quantization
+  mode   = arg->mode ;                           // get mode
+  nbits  = arg->nbits ;                          // max number of bits to be used for quantization
+  maxerr = arg->maxerr ;                         // largest absolute/relative error desired
+  minabs = arg->minabs ;
+  zval   = arg->zval ;
   offset = 0 ;
   e_base = 0 ;
   nvalues = a->dim[0].gnn * a->dim[1].gnn ;      // number of values in array
+
   errmsg = "\022nbits < 0" ;
   if(nbits    < 0) goto fail ;                   // nbits MUST BE >= 0
-  maxerr = arg->maxerr ;                   // largest absolute/relative error desired
   errmsg = "\023maxerr < 0" ;
   if(maxerr < 0) goto fail ;                     // maxerr MUST BE >= 0
   errmsg = "\024maxerr and nbits both 0" ;
   if(nbits == 0 && maxerr == 0) goto fail ;      // cannot be BOTH 0
 
-  minabs = arg->minabs ;
 
-  if(mode == FP_2_INT){       // linear quantizer
+  if(mode == FP_2_INT){                          // linear quantizer
     offset = arg->offset ;                       // discretization offset
-// fprintf(stderr,"nvalues = %d, maxerr = %f, nbits = %d, offset = %8.8x, bp = %p\n", nvalues, maxerr, nbits, offset, bp) ;
     e_base = fp_to_qlin((float *)array, (int32_t *)array, nvalues, maxerr, nbits, &offset, bp) ;
     if(e_base <= 0) goto fail ;
     a->type = (offset == 0x7FFFFFFF) ? uint_data : int_data ;
-  }else if(mode == FP_2_FAKELOG){
+
+  }else if(mode == FP_2_FLOG){                   // kind of log quantizer 1
+    errmsg = "\026nbits == 0" ;
+    if(nbits == 0) goto fail ;
+    nbits = (nbits > 23) ? 23 : nbits ;
+    fp_to_flog((float *)array, (int32_t *)array, nvalues, nbits);
+    a->type = int_data ;
+
+  }else if(mode == FP_2_QLOG){                   // kind of log quantizer 2
+    errmsg = "\025nbits == 0" ;
+    if(nbits == 0) goto fail ;
     errmsg = "\025minabs < 0" ;
     if(minabs < 0) goto fail ;
-    errmsg = "\026mode == FP_2_FAKELOG, not supported yet" ;
-    goto fail ;        // fake log quantizer not supported yet
+    errmsg = "\025zval < 0" ;
+    if(zval < 0) goto fail ;
+//     errmsg = "\025mode == FP_2_QFLOG, not supported yet" ;
+//     goto fail ;        // this fake log quantizer not supported yet
+    nbits = (nbits > 23) ? 23 : 0 ;
+    fp_to_qlog((float *)array, (int32_t *)array, nvalues, nbits, minabs, zval);
+    a->type = int_data ;
+
   }else{
     errmsg = "\027invalid mode" ;
     goto fail ;        // invalid mode
   }
 // ========================================================================
-  dpfl++ ;                              // call next filter
-  dmap_filter_ptr next_filter = dmap_filter_next(dpfl) ;
-  status = (*next_filter)(a, bp, dpfl, &s, command) ;
-  errmsg = "\006filter chain failed" ;
-  if(status < 0) goto fail ;
-
-  STREAM_PUT_NBITS(s, FILTER_ID, 8) ; status += 8 ;
+  dpfl++ ;                              // call next filter              //
+  dmap_filter_ptr next_filter = dmap_filter_next(dpfl) ;                 //
+  status = (*next_filter)(a, bp, dpfl, &s, command) ;                    //
+  errmsg = "\006filter chain failed" ;                                   //
+  if(status < 0) goto fail ;                                             //
+                                                                         //
+  STREAM_PUT_NBITS(s, FILTER_ID, 8) ; status += 8 ;                      //
 // ====================  filter processing code  (FWD) ====================
 // local code inserting proper data into bit stream
   int inserted ;
 
-  STREAM_PUT_NBITS(s, (mode & 0x3), 2) ; inserted = 2 ;  // 2 bits inserted so far
-  if(mode == FP_2_INT){
+  STREAM_PUT_NBITS(s, (mode & 0xF), 4) ; inserted = 4 ;  // 4 bits inserted so far
+  if(mode == FP_2_INT){                             // linear quantizer
     STREAM_PUT_NBITS(s, e_base, 8) ;
     inserted += 8 ;
     if(offset != 0){
@@ -561,13 +574,25 @@ forward :
       STREAM_PUT_NBITS(s, nbits, 5) ;               // nbits == 0 (decoded as 1) means offset is not used
       inserted += 5 ;
     }
-  }else if(mode == FP_2_FAKELOG){
+
+  }else if(mode == FP_2_FLOG){                      // kind of log quantizer 1
     STREAM_PUT_NBITS(s, (nbits & 0x3F), 6) ;        // 0 -> 23 (only useful for fake log quantizer)
     inserted += 6 ;
+
+  }else if(mode == FP_2_QLOG){                      // kind of log quantizer 2
+    STREAM_PUT_NBITS(s, (nbits & 0x3F), 6) ;        // 0 -> 23 (only useful for fake log quantizer)
+    inserted += 6 ;
+    x32.f32 = minabs ;
+    STREAM_PUT_NBITS(s, x32.u32, 32) ;              // minabs needed for restore
+    inserted += 32 ;
+
+  }else{
+    errmsg = "\027invalid mode" ;
+    goto fail ;
   }
   STREAM_INSERT_PUSH(s) ;
   status += inserted ;
-  fprintf(stderr, "filter %3.3o : inserted %d bits, quantum = %f, exp = %d, offset = %d, mode = %d, nvalues = %d\n",
+  fprintf(stderr, "filter %3.3o : inserted %d bits, quantum = %f, exp = %d, offset = %8.8x, mode = %d, nvalues = %d\n",
           FILTER_ID, inserted+8, fp32_pow2(e_base-127), e_base, offset, mode, nvalues) ;
 // ========================================================================
 
@@ -589,14 +614,20 @@ restore:
   STREAM_GET_NBITS(s, self, 8) ; status = 8 ;          // 8 bits extracted so far
   errmsg = "\007inconsistent filter ID" ;
   if(self != FILTER_ID) goto fail ;                    // wrong id, MUST be FILTER_ID
+
+// ====================  restore (INV) ====================
+// local code to restore from bit stream
+// inverse array processing code
+//
   errmsg = "\020restore filter : data type MUST BE integer" ;
   if(type != int_data && type != uint_data) goto fail ;             // data type MUST BE INTEGER
 // get the appropriate information for the restore filter from bitstream (GET)
-  STREAM_GET_NBITS(s, mode, 2) ; status += 2 ;
+  STREAM_GET_NBITS(s, mode, 4) ; status += 4 ;
   nvalues = a->dim[0].gnn * a->dim[1].gnn ;      // number of values in array
-  if(mode == FP_2_INT){
-    uint32_t ue_base ;
-    STREAM_GET_NBITS(s, ue_base, 8) ; e_base = ue_base ;
+  offset = 0xDEADBEEF ;                          // initialize to nonsense
+
+  if(mode == FP_2_INT){                                // linear quantizer
+    STREAM_GET_NBITS(s, u32, 8) ; e_base = u32 ;
     status += 8 ;
     STREAM_GET_NBITS(s, nbits, 5) ; nbits++ ;
     status += 5 ;
@@ -608,17 +639,28 @@ restore:
       offset = from_zigzag_32(zigzag) ;                // restore offset to signed integer
     }
     qflin_to_fp((float *)array, (int32_t *)array, nvalues, e_base, offset) ;
-  }else if(mode == FP_2_FAKELOG){                      // 0 -> 23 (only useful for pseudo log quantizer)
-    STREAM_GET_NBITS(s, nbits, 6) ;
-    status += 6 ;
+
+  }else if(mode == FP_2_FLOG){                         // kind of log quantizer 1
+    STREAM_GET_NBITS(s, u32, 6) ; status += 6 ;
+    nbits = u32 ;
+    flog_to_fp((float *)array, (int32_t *)array, nvalues, nbits);
+
+  }else if(mode == FP_2_QLOG){                         // kind of log quantizer 2
+    STREAM_GET_NBITS(s, x32.u32, 6) ; status += 6 ;
+    nbits = x32.u32 ;
+    STREAM_GET_NBITS(s, x32.u32, 32) ; status += 32 ;
+    minabs = x32.f32 ;
+    qlog_to_fp((float *)array, (int32_t *)array, nvalues, nbits, minabs);
+
+  }else{
+    errmsg = "\030invalid mode" ;
+    goto fail ;
   }
-  fprintf(stderr, "restore filter %3.3o, array[%d,%d](%d)(%dD), offset = %d, extracted %ld bits\n",
+
+  fprintf(stderr, "restore filter %3.3o, array[%d,%d](%d)(%dD), offset = %8.8x, extracted %ld bits\n",
                   FILTER_ID, a->dim[0].gnn, a->dim[1].gnn, nvalues, a->rank, offset, status) ;
   a->type = float_data ;                               // mark data as float data
 
-// ====================  restore (INV) ====================
-// local code to restore from bit stream
-// inverse array processing code
 // ========================================================================
 
   status2 = dmap_filter_inv(a, &s) ;           // call next inverse filter
@@ -637,7 +679,7 @@ encode:
 // ========================================================================
                           STREAM_PUT_NBITS(s, arg->mode  , 12) ; status += 12 ;
                           STREAM_PUT_NBITS(s, arg->nbits , 12) ; status += 12 ;
-  x32.f32 = arg->abserr ; STREAM_PUT_NBITS(s, x32.u32, 32)     ; status += 32 ;
+  x32.f32 = arg->maxerr ; STREAM_PUT_NBITS(s, x32.u32, 32)     ; status += 32 ;
                           STREAM_PUT_NBITS(s, arg->offset, 32) ; status += 32 ;
   x32.f32 = arg->minabs ; STREAM_PUT_NBITS(s, x32.u32, 32)     ; status += 32 ;
   x32.f32 = arg->zval   ; STREAM_PUT_NBITS(s, x32.u32, 32)     ; status += 32 ;
@@ -659,10 +701,9 @@ decode:
   arg->filter  = self ;
   status = sizeof(FILTER_ARGS) ;
 // ========================================================================
-  uint32_t u32 ; int32_t i32 ;
   STREAM_GET_NBITS(s, i32, 12)     ; arg->mode   = i32 ;
   STREAM_GET_NBITS(s, u32, 12)     ; arg->nbits  = u32 ;
-  STREAM_GET_NBITS(s, x32.u32, 32) ; arg->abserr = x32.f32 ;
+  STREAM_GET_NBITS(s, x32.u32, 32) ; arg->maxerr = x32.f32 ;
   STREAM_GET_NBITS(s, i32, 32)     ; arg->offset = i32 ;
   STREAM_GET_NBITS(s, x32.u32, 32) ; arg->minabs = x32.f32 ;
   STREAM_GET_NBITS(s, x32.u32, 32) ; arg->zval   = x32.f32 ;
@@ -892,8 +933,9 @@ print:
 #undef FILTER_NAME
 #undef FILTER_ARGS
 #undef FILTER_ID
-
+//
 // ======================================= filter 004 =======================================
+//
 // Lorenzo predictor
 #include <rmn/lorenzo.h>
 #define FILTER_ID 004
@@ -1047,8 +1089,10 @@ print:
 #undef FILTER_NAME
 #undef FILTER_ARGS
 #undef FILTER_ID
-
+//
 // ======================================= filter 005 =======================================
+//
+#include <rmn/dwt_i_lgt53.h>
 // integer wavelet transform
 #define FILTER_ID 005
 #define FILTER_NAME CAT(dmap_filter_,FILTER_ID)
@@ -1216,8 +1260,10 @@ print:
 #undef FILTER_NAME
 #undef FILTER_ARGS
 #undef FILTER_ID
-
+//
 // ======================================= filter 006 =======================================
+//
+#include <rmn/tile_encoders.h>
 // for the restore filter, the bit stream provides the necessary information
 // bit stream encoder
 #define FILTER_ID 006
@@ -1840,9 +1886,9 @@ print:
 #undef FILTER_NAME
 #undef FILTER_ARGS
 #undef FILTER_ID
-
-
+//
 // ======================================= filter 007 =======================================
+//
 // NO-OP filter for now
 #define FILTER_ID 007
 #define FILTER_NAME CAT(dmap_filter_,FILTER_ID)
