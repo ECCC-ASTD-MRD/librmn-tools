@@ -61,7 +61,7 @@ program fstd_to_raw
   endif
   if(c0 < 2 .or. c0 > 3) then
     call get_command_argument(0,filename,ilen,status)
-    write(0,*)'usage : '//trim(filename)//' standard_file variable_name'
+    write(0,*)'usage : '//trim(filename)//' standard_file variable_name [nbits]'
     stop
   endif
 

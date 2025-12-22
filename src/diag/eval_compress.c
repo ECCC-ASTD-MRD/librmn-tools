@@ -52,6 +52,43 @@ static inline int32_t BitsNeeded_u32(uint32_t what){
   return 32 - lzcnt_32(what) ;
 }
 
+int analyze_4x4(int ni, int nj, float f[nj][ni], int etab[256]){
+  int i, j, i0, j0 ;
+  uint32_t e, emi, ema, count = 0, slot, emi0, ema0 ;
+  union{ uint32_t u ; float f ; } x32 ;
+
+  for(i=0 ; i<256 ; i++){ etab[i] = 0 ; } ;
+  ema0 = 0 ;
+  emi0 = 255 ;
+  for(j0=0 ; j0<nj ; j0+=4){
+    if(j0 > nj-4) j0 = nj-4 ;
+    for(i0=0 ; i0<ni ; i0+=4){
+      if(i0 > ni-4) i0 = ni-4 ;
+      emi = 255 ; ema = 0 ;
+      for(j=0 ; j<4 ; j++){
+        for(i=0 ; i<4 ; i++){
+          x32.f = f[j0+j][i0+i] ;
+          e = (x32.u >> 23) & 0xFF ;
+          if(e < 122) e = 120 ;
+          emi  = (e <  emi) ? e :  emi ;
+          ema  = (e >  ema) ? e :  ema ;
+          ema0 = (e > ema0) ? e : ema0 ;
+          emi0 = (e < emi0) ? e : emi0 ;
+        }
+      }
+      if(ema < emi) return -1 ;
+      if((ema-emi) > 255) return -1 ;
+      if(ema>=emi){
+        count++ ;
+        slot = BitsNeeded_u32(ema-emi) ;
+        etab[slot] = etab[slot] + 1 ;
+      }
+    }
+  }
+fprintf(stderr, "exp <%3d:%3d> %3d) ", emi0, ema0, ema0-emi0) ;
+  return count ;
+}
+
 // convert signed integer to sign and magnitude form, sign becomes Least Significant Bit
 static inline uint32_t to_zigzag_32(int32_t what){
   return (what << 1) ^ (what >> 31) ;
@@ -424,9 +461,9 @@ fprintf(stderr, ", quant = %G\n", quant) ;
       rawp8 += nbi ;
     }
   }
-fprintf(stderr, "%s[%d,%d,%d,%d]: ", nbits ? "" : "\n", info[33], info[34], info[35], info[36]) ;
-for(i=0 ; i<16 ; i++){ fprintf(stderr, "%4d ", info[i]) ; } ;
-fprintf(stderr, " |%d,%d,%d,%d,%d,%d, %d ,%d,%d,%d,%d,%d,%d|\n",info[58],info[59],info[60],info[61],info[62],info[63],info[64],info[65],info[66],info[67],info[68],info[69],info[70]) ;
+// fprintf(stderr, "%s[%d,%d,%d,%d]: ", nbits ? "" : "\n", info[33], info[34], info[35], info[36]) ;
+// for(i=0 ; i<16 ; i++){ fprintf(stderr, "%4d ", info[i]) ; } ;
+// fprintf(stderr, " |%d,%d,%d,%d,%d,%d, %d ,%d,%d,%d,%d,%d,%d|\n",info[58],info[59],info[60],info[61],info[62],info[63],info[64],info[65],info[66],info[67],info[68],info[69],info[70]) ;
 //
 // ========================= quantize/predict/encode by chunk =========================
 //
@@ -479,13 +516,13 @@ fprintf(stderr, " |%d,%d,%d,%d,%d,%d, %d ,%d,%d,%d,%d,%d,%d|\n",info[58],info[59
       STREAM_CREATE(ps0, stream_buffer0, sizeof(stream_buffer0)*8, BIT_FULL_INIT) ;
       STREAM_INSERT_BEGIN(*ps0) ;
       int tilebits0 = encode_block(ps0, pred, in, in, jn, 8, 0);
-fprintf(stderr, "jn = %d, in = %d, tilebits0 = %d\n", jn, in, tilebits0) ;
+// fprintf(stderr, "jn = %d, in = %d, tilebits0 = %d\n", jn, in, tilebits0) ;
       STREAM_INSERT_FINALIZE(*ps0) ;
       STREAM_XTRACT_BEGIN(*ps0) ;
       int tilebits1 = decode_block(ps0, pred0, in, in, jn, 8);
       ndiff = 0 ;
       for(i=0 ; i<in*jn ; i++) if(pred0[i] != pred[i]) ndiff++ ;
-fprintf(stderr, "jn = %d, in = %d, tilebits1 = %d, ndiff = %d\n", jn, in, tilebits1, ndiff) ;
+// fprintf(stderr, "jn = %d, in = %d, tilebits1 = %d, ndiff = %d\n", jn, in, tilebits1, ndiff) ;
 // exit(1);
       ndwt8 += 64 ;  // large block overhead
       int encoded_bits, decoded_bits ;
@@ -508,12 +545,12 @@ fprintf(stderr, "jn = %d, in = %d, tilebits1 = %d, ndiff = %d\n", jn, in, tilebi
 //           }
           STREAM_REWIND(*ps, 1) ;
           decoded_bits = decode_tile(ps, restr8, i8n*j8n) ;
-          fprintf(stderr, "nbi = %d, encoded_bits = %d, decoded_bits = %d, diff = %d\n", nbi, encoded_bits, decoded_bits, block_diff(block8,restr8, i8n*j8n)) ;
+//           fprintf(stderr, "nbi = %d, encoded_bits = %d, decoded_bits = %d, diff = %d\n", nbi, encoded_bits, decoded_bits, block_diff(block8,restr8, i8n*j8n)) ;
         }
       }
       STREAM_INSERT_FINALIZE(*ps) ;
-      print_encode_stats(0) ;
-fprintf(stderr, "residual stats tilebits1 = %d\n", tilebits1) ;
+//       print_encode_stats(0) ;
+// fprintf(stderr, "residual stats tilebits1 = %d\n", tilebits1) ;
 //       exit(1) ;
       // study losses when using "lossy" transform
 //       un_clip_quadrants(in, jn, (void *) pred, 1) ;
@@ -559,12 +596,12 @@ fprintf(stderr, "residual stats tilebits1 = %d\n", tilebits1) ;
       }
     }
   }
-fprintf(stderr, "[%d,%d,%d,%d]: ",info[33],info[34],info[35],info[36]) ;
-for(i=0 ; i<16 ; i++){ fprintf(stderr, "%4d ", info[i]) ; } ;
-fprintf(stderr, " |%d,%d,%d,%d,%d,%d, %d ,%d,%d,%d,%d,%d,%d|",info[58],info[59],info[60],info[61],info[62],info[63],info[64],info[65],info[66],info[67],info[68],info[69],info[70]) ;
-  if(nraw8 != nblock8) exit(1);
-fbias /= (ni * nj) ;
-fprintf(stderr, ", dmax %f %f, bias = %f ", diffmax, *dmax, fbias) ;
+// fprintf(stderr, "[%d,%d,%d,%d]: ",info[33],info[34],info[35],info[36]) ;
+// for(i=0 ; i<16 ; i++){ fprintf(stderr, "%4d ", info[i]) ; } ;
+// fprintf(stderr, " |%d,%d,%d,%d,%d,%d, %d ,%d,%d,%d,%d,%d,%d|",info[58],info[59],info[60],info[61],info[62],info[63],info[64],info[65],info[66],info[67],info[68],info[69],info[70]) ;
+//   if(nraw8 != nblock8) exit(1);
+// fbias /= (ni * nj) ;
+// fprintf(stderr, ", dmax %f %f, bias = %f ", diffmax, *dmax, fbias) ;
 *dmax = diffmax ;
   // detailed stats
   btab[ 0] = nblocks ;   // number of quantization/prediction blocks

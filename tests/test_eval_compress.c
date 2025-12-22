@@ -64,12 +64,17 @@ void get_min_max(float *buf, int ninj, float *min, float *max){
   *max = ma ;
 }
 
+// program [quantum] [filename]
+// default quantum .125
+// if no filename is given, perform synthetic test
+// expected file type : 32 bit C data record (see c_record_io.c)
 int main(int argc, char **argv){
   float f[NJ][NI], bpp, quant = .125f, quant0, min, max, npts, diffmax, bpptot, bpptotg, dwttot ;
-  char *filename = NULL ;
-  int i, j, nbits, fd = 0, ndim = 0, ndata, nij, ncases = 0, gained = 0 ;
+  char *filename = NULL, name[5] ;
+  int i, j, nbits, fd = 0, ndim = 0, ndata, nij, ncases = 0, gained = 0, np ;
   int dims[10], btab[MAXBTAB] ;
   void *buf ;
+  int etab[256] ;
 
   fprintf(stderr, "================= test eval_compress ================\n") ;
 #if 0
@@ -86,9 +91,10 @@ int main(int argc, char **argv){
 #endif
   if(argc > 1) quant = atof(argv[1]) ;
   if(quant > 0) quant = 2.0f * power2_err(quant) ;
-  fprintf(stderr, "quant = %G\n", quant) ;
   if(argc < 3) goto synthetic ;
   filename = argv[2] ;
+  if(*argv[1] != '.') goto ieee_4x4 ;
+  fprintf(stderr, "quant = %G, file ='%s'\n", quant, filename) ;
   quant0 = quant ;
 
   // ndim == number of dimensions, dims[] == dimensions, ndata == number of data elements, fd == file descriptor
@@ -128,8 +134,8 @@ int main(int argc, char **argv){
   fprintf(stderr, "\nbits/value (avg) : by chunk = %5.2f, dwt = %5.2f, whole = %5.2f, %d samples, pred gain/value (avg) = %G , dwt vs pred gain %G\n", bpptot/ncases, dwttot/ncases, bpptotg/ncases, ncases, bpp, bpptot/ncases - dwttot/ncases) ;
   return 0 ;
 
-  fprintf(stderr, "================= synthetic data =====================\n") ;
 synthetic:     // in case no filename is given
+  fprintf(stderr, "================= synthetic data =====================\n") ;
   min = 999999.0 ;
   max = -min ;
   for(j=0 ; j<NJ ; j++){
@@ -146,6 +152,29 @@ synthetic:     // in case no filename is given
   bpp = nbits ;
   bpp = bpp / (NI*NJ) ;
   fprintf(stderr, " error = %5.2f, nbits = %d (%5.2f bits/value)\n", quant, nbits, bpp) ;
+  return 0 ;
+
+ieee_4x4:
+  fprintf(stderr, "================= ieee_4x4 =====================\n") ;
+  name[4] = '\0' ;
+  buf = read_32bit_data_record_named(filename, &fd, dims, &ndim, &ndata, name) ;  // get data record
+  while(buf != NULL){
+    ncases++ ;
+    if(ndim == 1) dims[1] = 1 ;
+    nij = dims[0]*dims[1] ;
+    np = analyze_4x4(dims[0], dims[1], buf, etab) ;
+    np *= 16 ;
+
+    fprintf(stderr, " %4s[%3d] xtra = %d, nij = %d[%d,%d] <", name, ncases, np-nij, nij, dims[0], dims[1]) ;
+    for(i=0 ; i<9; i++){
+      fprintf(stderr, "%10d", etab[i]);
+    }
+    fprintf(stderr, " >\n");
+
+    free(buf) ;
+    buf = read_32bit_data_record_named(filename, &fd, dims, &ndim, &ndata, name) ;   // try to get next data record
+  }
+  fprintf(stderr, "ncases = %d\n", ncases) ;
   return 0 ;
 }
 

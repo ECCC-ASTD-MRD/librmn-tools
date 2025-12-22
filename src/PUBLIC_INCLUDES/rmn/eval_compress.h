@@ -15,4 +15,5 @@
 #if ! defined(MAXBTAB)
 #define MAXBTAB 64
 int float_compressed_bits(int ni, int nj, float f[nj][ni], float *quant, int btab[MAXBTAB], int bsize, float *diffmax);
+int analyze_4x4(int ni, int nj, float f[nj][ni], int etab[256]) ;
 #endif
