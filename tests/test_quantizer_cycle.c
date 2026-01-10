@@ -26,14 +26,14 @@ int main(int argc, char **argv){
 
   start_of_test("test quantizer cycle");
 
-  msg = "wrong number of arguments" ;
+  msg = "invalid arguments" ;
   switch(argc){
     case 5:
-      nbits = atoi(argv[4]) ;
+      minsig = atof(argv[4]) ;  // smallest absolute significant value (pseudo_log quantizer)
     case 4:
-      minsig = atof(argv[3]) ;
+      nbits = atoi(argv[3]) ;   // nbits (linear or pseudo_log quantizer)
     case 3:
-      quant = atof(argv[2]) ;
+      quant = atof(argv[2]) ;   // quantum (linear quantizer), max rel error (pseudo_log quantizer)
     case 2:
       filename = argv[1] ;
       break ;
@@ -41,9 +41,7 @@ int main(int argc, char **argv){
       fprintf(stderr, "expected at least 1 argument, got %d\n", argc-1) ;
       goto fail ;
   }
-//   if(argc < 3) goto fail ; ;
-//   filename = argv[1] ;
-//   quant = atof(argv[2]) ;
+  // if argc > 2, use pseudo log quantizer)
 
   fprintf(stderr,"filename  = '%s', quant = %f, minsig = %f, nbits = %d\n", filename, quant, minsig, nbits) ;
   buf = read_32bit_data_record(filename, &fd, dims, &ndim, &ndata) ;  // get data record
@@ -51,9 +49,15 @@ int main(int argc, char **argv){
     nij = dims[0]*dims[1] ;
     msg = "dimension mismatch or not a 2D record" ;
     if(nij != ndata || ndim != 2) goto fail ;
-    fprintf(stderr, "number of dimensions = %d : (", ndim) ;
-    for(j=0 ; j<ndim ; j++) { fprintf(stderr, "%d ", dims[j]) ; } ;
-    fprintf(stderr, ") [%d]\n", nij);
+    fprintf(stderr, "%d dimensions : ", ndim) ;
+    for(j=0 ; j<ndim ; j++) { fprintf(stderr, "[%d]", dims[j]) ; } ;
+    fprintf(stderr, " (%d)\n", nij);
+
+    // allocate q and ref ( ndata * sizeof(float/int) )
+    // quantize buf to q, restore q to ref
+    // loop for NCYCLES
+      // quantize ref to q, restore q to buf
+      // compare ref to buf, fail if not identical
 
     ncases++ ;
     free(buf) ;
