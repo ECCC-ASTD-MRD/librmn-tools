@@ -69,18 +69,18 @@ void fp_to_flog(float *z, int32_t *q, int n, int32_t nbits){
 static inline int32_t fp_to_qlog_(float f, int nbits, float minabs, float zval){
   union{ int32_t i ; float f ; } r, m, z ;
 
-  r.f = f ;
+  r.f = f ;                       // value to process
   m.f = minabs ;
-  m.i &= 0x7F800000 ;             // truncate to power of 2 <= value
+  m.i &= 0x7F800000 ;             // truncate to power of 2 <= |value|
   z.f = zval   ;
-  z.i &= 0x7F800000 ;             // truncate to power of 2 <= value
+  z.i &= 0x7F800000 ;             // truncate to power of 2 <= |value|
   int32_t round = (1 << nbits) ;  // rounding term
   round >>= 1 ;
   int32_t s = (r.i >> 31) ;       // 0 or 0xFFFFFFFF (extended sign)
-  r.i &= 0x7FFFFFFF ;             // get rid of sign
+  r.i &= 0x7FFFFFFF ;             // absolute value of f
   r.i = (r.i + round) ;           // apply rounding term to absolute value
   r.i = (r.i < m.i) ? z.i : r.i ; // replace values below minimum significant value
-  r.i >>= nbits ;                 // scale the absolute value, then apply sign
+  r.i >>= nbits ;                 // scale the absolute value, then apply saved sign
   r.i ^= s ;                      // no-op if s == 0, negate if s == 0xFFFFFFFF
   r.i -= s ;                      // complement and add 1 is 2's complement negate
   return r.i ;                    // float represented as a signed integer
@@ -106,7 +106,7 @@ void fp_to_qlog(float *z, int32_t *q, int n, int32_t nbits, float minabs, float 
   }
 
   nbits = (nbits < 0) ? 0 : nbits ;
-  nbits = 23 - nbits ;                      // number of bits to eliminate
+  nbits = 23 - nbits ;                      // number of mantissa bits to eliminate
   nbits = (nbits < 0) ? 0 : nbits ;
   for(i=0 ; i<n ; i++){
     q[i] = fp_to_qlog_(z[i], nbits, minabs, zval) ;
