@@ -295,7 +295,7 @@ print:
 #define FILTER_ARGS CAT(dmap_filter_arg_,FILTER_ID)
 ssize_t FILTER_NAME(array_nd *a, block_properties *bp, dmap_filter_list dpfl, bitstream *stream, dmap_command command){
   ssize_t status = 0, status2 = 0 ;
-  uint32_t self, rank, type ;
+  uint32_t self /*, rank, type*/ ;
   char *errmsg = "" ;
   FILTER_ARGS *arg ;
   void *array ;
@@ -325,8 +325,8 @@ ssize_t FILTER_NAME(array_nd *a, block_properties *bp, dmap_filter_list dpfl, bi
     if(a == NULL) goto fail ;
     array = array_address(a) ;                     // get array address, dimension(s), and type
     if(array == NULL) goto fail ;
-    rank = a->rank ;
-    type = a->type ;
+//     rank = a->rank ;
+//     type = a->type ;
     // check type and rank as/if needed
     // local code
     if(command == DMAP_RESTORE) goto restore ;
