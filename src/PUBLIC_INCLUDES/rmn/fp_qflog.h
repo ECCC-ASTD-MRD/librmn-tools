@@ -23,20 +23,16 @@
 #define FP_2_FLOG 2
 #define FP_2_QLOG 3
 
-int32_t fp_to_flog_1(float f, int nbits);
-void    fp_to_flog(float *z, int32_t *q, int n, int32_t nbits);
+void fp_to_flog(float *z, int32_t *q, int n, int32_t nbits);
+void flog_to_fp(float *z, int32_t *q, int n, int32_t nbits);
 
-float flog_to_fp_1(int32_t q, int nbits);
-void  flog_to_fp(float *z, int32_t *q, int n, int32_t nbits);
+void fp_to_qlog(float *z, int32_t *q, int n, int32_t nbits, float minabs, float zval);
+void qlog_to_fp(float *z, int32_t *q, int n, int32_t nbits, float minabs);
 
-int32_t fp_to_qlog_1(float f, int nbits, float minabs, float zval);
-// void    fp_to_qlog_n(float *z, int32_t *q, int n, int32_t nbits, float minabs, float zval);
-void    fp_to_qlog(float *z, int32_t *q, int n, int32_t nbits, float minabs, float zval);
-
-float qlog_to_fp_1(int32_t q, int nbits, float minabs);
-// void  qlog_to_fp_n(float *z, int32_t *q, int n, int32_t nbits, float minabs);
-void  qlog_to_fp(float *z, int32_t *q, int n, int32_t nbits, float minabs);
-
+// COMPILE_TEST_CODE is expected to be NOT DEFINED
+#if defined(COMPILE_TEST_CODE)
 float fp_to_from_qlog(float *f, int n, int nbits, float minabs, float zval);
+float fp_to_from_flog(float *f, int n, int nbits);
+#endif
 
 #endif

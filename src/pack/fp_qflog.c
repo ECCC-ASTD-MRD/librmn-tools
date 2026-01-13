@@ -39,9 +39,9 @@ static inline int32_t fp_to_flog_(float f, int nbits){
   r.i -= sign ;                   // complement and add 1 is 2's complement negate
   return r.i ;                    // float represented as a signed integer
 }
-int32_t fp_to_flog_1(float f, int nbits){
-  return fp_to_flog_(f, nbits) ;
-}
+// int32_t fp_to_flog_1(float f, int nbits){
+//   return fp_to_flog_(f, nbits) ;
+// }
 
 // convert sign magnitude float to rounded and scaled signed integer, order preserving
 // both 0.0 and -0.0 come back as 0
@@ -66,6 +66,8 @@ void fp_to_flog(float *z, int32_t *q, int n, int32_t nbits){
 // minabs: smallest signicant absolute value
 // zval  : any absolute value < minabs gets replaced with zval
 // return fake integer
+// if the absolute value of an input float is <= minabs, it is forced to zval
+// (zval would normally be equal to minabs)
 static inline int32_t fp_to_qlog_(float f, int nbits, float minabs, float zval){
   union{ int32_t i ; float f ; } r, m, z ;
 
@@ -74,7 +76,7 @@ static inline int32_t fp_to_qlog_(float f, int nbits, float minabs, float zval){
   m.i &= 0x7F800000 ;             // truncate to power of 2 <= |value|
   z.f = zval   ;
   z.i &= 0x7F800000 ;             // truncate to power of 2 <= |value|
-  int32_t round = (1 << nbits) ;  // rounding term
+  int32_t round = (1 << nbits) ;  // rounding term (0 if nbits == 0)
   round >>= 1 ;
   int32_t s = (r.i >> 31) ;       // 0 or 0xFFFFFFFF (extended sign)
   r.i &= 0x7FFFFFFF ;             // absolute value of f
@@ -85,9 +87,9 @@ static inline int32_t fp_to_qlog_(float f, int nbits, float minabs, float zval){
   r.i -= s ;                      // complement and add 1 is 2's complement negate
   return r.i ;                    // float represented as a signed integer
 }
-int32_t fp_to_qlog_1(float f, int nbits, float minabs, float zval){
-  return fp_to_qlog_(f, nbits, minabs, zval) ;
-}
+// int32_t fp_to_qlog_1(float f, int nbits, float minabs, float zval){
+//   return fp_to_qlog_(f, nbits, minabs, zval) ;
+// }
 
 // convert sign magnitude float to rounded and scaled signed integer, order preserving
 // both 0.0 and -0.0 come back as 0
@@ -118,7 +120,7 @@ void fp_to_qlog(float *z, int32_t *q, int n, int32_t nbits, float minabs, float 
 // rounded and scaled signed integer to sign magnitude float, order preserving
 // i     : fake integer
 // nbits : number of significant bits kept (0 <= nbits <= 23) 
-//         (MUST be the same value previously used by fp_to_qlog_s)
+//         (MUST be the same value previously used by fp_to_qlog_)
 // return restored float value
 // 0 comes back as 0.0f, -0.0f is never produced
 static inline float flog_to_fp_(int32_t i, int nbits){
@@ -140,7 +142,7 @@ float flog_to_fp_1(int32_t i, int nbits){
 // z     [OUT] : restored float values
 // q      [IN] : integer values
 // n      [IN] : number of values
-// nbits  [IN] : number of significant mantissa bits kept (MUST BE the same value used for fp_to_qlog_n)
+// nbits  [IN] : number of significant mantissa bits kept (MUST BE the same value used for fp_to_qlog)
 void flog_to_fp(float *z, int32_t *q, int n, int32_t nbits){
   int32_t i ;
 
@@ -154,7 +156,7 @@ void flog_to_fp(float *z, int32_t *q, int n, int32_t nbits){
 // i     : fake integer
 // nbits : number of less significant bits eliminated (0 <= nbits <= 23) 
 //         (MUST be the same value previously used by fp_to_qlog)
-// minabs: smallest signicant absolute value (should match minabs/zval from fp_to_qlog_1)
+// minabs: smallest signicant absolute value (should match minabs/zval from fp_to_qlog_)
 // return appropriate float value ( minabs with appropriate sign if |value| < minabs )
 // 0 comes back as 0.0f, -0.0f is never produced
 static inline float qlog_to_fp_(int32_t i, int nbits, float minabs){
@@ -171,9 +173,9 @@ static inline float qlog_to_fp_(int32_t i, int nbits, float minabs){
   r.i |= (s << 31) ;              // restore the sign bit
   return r.f ;                    // restored float
 }
-float qlog_to_fp_1(int32_t i, int nbits, float minabs){
-  return qlog_to_fp_(i, nbits, minabs) ;
-}
+// float qlog_to_fp_1(int32_t i, int nbits, float minabs){
+//   return qlog_to_fp_(i, nbits, minabs) ;
+// }
 
 // rounded and scaled signed integer to sign magnitude float, order preserving
 // z     [OUT] : restored float values
@@ -198,6 +200,7 @@ void qlog_to_fp(float *z, int32_t *q, int n, int32_t nbits, float minabs){
 }
 
 // ================================== difference test ==================================
+// COMPILE_TEST_CODE is expected to be NOT DEFINED
 #if defined(COMPILE_TEST_CODE)
 float fp_to_from_qlog(float *f, int n, int nbits, float minabs, float zval){
   int32_t i, q[n] ;
