@@ -650,7 +650,7 @@ restore:
     nbits = x32.u32 ;
     STREAM_GET_NBITS(s, x32.u32, 32) ; status += 32 ;
     minabs = x32.f32 ;
-    qlog_to_fp((float *)array, (int32_t *)array, nvalues, nbits, minabs);
+    qlog_to_fp((float *)array, (int32_t *)array, nvalues, nbits, minabs, minabs);
 
   }else{
     errmsg = "\030invalid mode" ;

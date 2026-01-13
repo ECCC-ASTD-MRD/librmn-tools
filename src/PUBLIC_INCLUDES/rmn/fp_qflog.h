@@ -27,7 +27,7 @@ void fp_to_flog(float *z, int32_t *q, int n, int32_t nbits);
 void flog_to_fp(float *z, int32_t *q, int n, int32_t nbits);
 
 void fp_to_qlog(float *z, int32_t *q, int n, int32_t nbits, float minabs, float zval);
-void qlog_to_fp(float *z, int32_t *q, int n, int32_t nbits, float minabs);
+void qlog_to_fp(float *z, int32_t *q, int n, int32_t nbits, float minabs, float zval);
 
 // COMPILE_TEST_CODE is expected to be NOT DEFINED
 #if defined(COMPILE_TEST_CODE)

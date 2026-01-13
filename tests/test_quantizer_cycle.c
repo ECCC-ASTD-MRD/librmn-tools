@@ -25,32 +25,30 @@
 #define NCYCLES 10
 
 // make sure that the absolute value of all elements of floating point array f is at least ref
-static int32_t fix_abs(float *f, float ref, int32_t n){
+static int32_t fix_abs(float *f, float ref, float zval, int32_t n){
   int i, count = 0 ;
-  float af ;
-  ref = (ref < 0) ? -ref : ref ;    // |ref|
+  ref  = (ref  < 0) ? -ref  :  ref ;     // |ref|
+  zval = (zval < 0) ? -zval : zval ;     // |zval|
   for(i=0 ;i<n ; i++){
     if(f[i] >= 0){
-      if(f[i] < ref) f[i] = ref ;
+      if(f[i] < ref){ f[i] = zval ; count++ ; }
     }else{
-      if((-f[i]) < ref) f[i] = -ref ;
+      if((-f[i]) < ref){ f[i] = -zval ; count++ ; }
     }
-    af = (f[i] < 0) ? (-f[i]) : f[i] ;
-    if(af <= ref) count++ ;
   }
   return count ;
 }
 
 // count number of values less than or equal to ref in floating point array f
-// static int32_t count_le(float *f, float ref, int32_t n){
-//   int i, count = 0 ;
-//   float af ;
-//   for(i=0 ;i<n ; i++){
-//     af = (f[i] < 0) ? (-f[i]) : f[i] ;
-//     if(af <= ref) count++ ;
-//   }
-//   return count ;
-// }
+static int32_t count_le(float *f, float ref, int32_t n){
+  int i, count = 0 ;
+  float af ;
+  for(i=0 ;i<n ; i++){
+    af = (f[i] < 0) ? (-f[i]) : f[i] ;
+    if(af <= ref) count++ ;
+  }
+  return count ;
+}
 
 // count number of values less than ref in floating point array f
 // static int32_t count_lt(float *f, float ref, int32_t n){
@@ -133,7 +131,7 @@ static int32_t linear_cycles(int ni, int nj, float f[nj][ni], float quant){
   float ref[nj][ni], t[nj][ni] ;
   int32_t q[nj][ni] ;
   // quantize f to q, restore q to ref
-  memset((void *)q, 0, sizeof(int32_t)*ni*nj) ;     // set q to 0
+  memset((void *)q  , 0, sizeof(int32_t)*ni*nj) ;   // set q to 0
   memset((void *)ref, 0, sizeof(float)*ni*nj) ;     // set ref to 0
   int32_t e_base = fp_to_qlin_n((void *)f, (void *)q, ni*nj, quant, offset) ;
   qflin_to_fp((void *)ref, (void *)q, ni*nj, e_base, offset) ;
@@ -160,37 +158,41 @@ static int32_t linear_cycles(int ni, int nj, float f[nj][ni], float quant){
 // and that the maximum relative difference remains within the expected limits
 // set by nbits
 // qlog quantizer
-static int32_t qlog_cycles(int ni, int nj, float f[nj][ni], int nbits, float zval){
-  int32_t count = 0, iter ;
+static int32_t qlog_cycles(int ni, int nj, float f[nj][ni], int nbits, float msig){
+  int32_t count = 0, iter, nfix ;
   // allocate q and ref
-  float ref[nj][ni], t[nj][ni] ;
+  float ref[nj][ni], t[nj][ni], zval = msig * 0.0001f ;
   int32_t q[nj][ni] ;
 
+//   zval = msig ;
   // quantize f to q, restore q to ref
-  memset((void *)q, 0, sizeof(int32_t)*ni*nj) ;     // set q to 0
+  memset((void *)q  , 0, sizeof(int32_t)*ni*nj) ;   // set q to 0
   memset((void *)ref, 0, sizeof(float)*ni*nj) ;     // set ref to 0
-  fp_to_qlog((float *)f, (int32_t *)q, ni*nj, nbits, zval, zval) ;    // quantize
-  qlog_to_fp((float *)ref, (int32_t *)q, ni*nj, nbits, zval) ;        // restore
+  fp_to_qlog((float *)f  , (int32_t *)q, ni*nj, nbits, msig, zval) ;  // quantize
+  qlog_to_fp((float *)ref, (int32_t *)q, ni*nj, nbits, msig, zval) ;  // restore
   // loop for NCYCLES
   for(iter=0 ; iter<NCYCLES ; iter++){
     // quantize ref to q
     memset((void *)q, 0, sizeof(int32_t)*ni*nj) ;     // set q to 0
-    fp_to_qlog((float *)ref, (int32_t *)q, ni*nj, nbits, zval, zval) ;
+    fp_to_qlog((float *)ref, (int32_t *)q, ni*nj, nbits, msig, zval) ;
     // restore q to t
     memset((void *)t, 0, sizeof(float)*ni*nj) ;      // set t to 0
-    qlog_to_fp((float *)t, (int32_t *)q, ni*nj, nbits, zval) ;
+    qlog_to_fp((float *)t, (int32_t *)q, ni*nj, nbits, msig, zval) ;
     // compare ref to t, fail if not identical
     count = count_diff((void *)ref, (void *)t, ni*nj) ;
     if(count > 0) break ;
   }
-  fix_abs((float *)f, zval, ni*nj) ;    // fix absolute values <= zval in source array
+  nfix = fix_abs((float *)t, msig, zval, ni*nj) ;    // fix absolute values <= msig in restored array
+  nfix = fix_abs((float *)f, msig, zval, ni*nj) ;    // fix absolute values <= msig in source array
+// nfix = count_le((float *)f, msig, ni*nj) ;
+fprintf(stderr, "nfix = %d, msig = %f, zval = %f\n", nfix, msig, zval) ;
   fprintf(stderr, "%d qlog cycles (%d bits, z = %f) : %d differences (%d with original)",
-                  iter, nbits, zval, count, count_diff((void *)f, (void *)t, ni*nj)) ;
+                  iter, nbits, msig, count, count_diff((void *)f, (void *)t, ni*nj)) ;
   fprintf(stderr, ", max abs err = %f, max rel err = 1 part in %d\n", max_abs_err((void *)f, (void *)t, ni*nj), max_rel_err((void *)f, (void *)t, ni*nj)) ;
   // check that the max relative error is less than 1 part in 2 ** (nbits+1)
   if(max_rel_err((void *)f, (void *)t, ni*nj) < (1 << (nbits+1)) ) count = ni*nj ;
-//   fprintf(stderr, "values <= %f : original = %d, ref = %d, t = %d\n", zval,
-//                   count_le((void *)f, zval, ni*nj), count_le((void *)ref, zval, ni*nj), count_le((void *)t, zval, ni*nj)) ;
+//   fprintf(stderr, "values <= %f : original = %d, ref = %d, t = %d\n", msig,
+//                   count_le((void *)f, msig, ni*nj), count_le((void *)ref, msig, ni*nj), count_le((void *)t, msig, ni*nj)) ;
   return count ;
 }
 
@@ -237,7 +239,7 @@ int main(int argc, char **argv){
     if(status != 0) goto fail ;
 
     msg = "differences detected after first qlog quantize" ;
-    status = qlog_cycles(dims[0], dims[1], buf, nbits, minsig) ;
+    status = qlog_cycles(dims[0], dims[1], buf, nbits, minsig) ;    // modifies buf (applies minsig)
     if(status != 0) goto fail ;
 
     ncases++ ;

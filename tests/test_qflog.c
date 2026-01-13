@@ -94,12 +94,12 @@ int main(int argc, char **argv){
   t0 = timer_min * NaNoSeC / (NPTS) ;
   fprintf(stderr, "flog_to_fp  : %4.2f ns/float, %s\n", t0, timer_msg) ;
 
-  TIME_LOOP_EZ(NITER, NPTS, qlog_to_fp(r, q, NPTS, nbits, 0.0f) ) ;
+  TIME_LOOP_EZ(NITER, NPTS, qlog_to_fp(r, q, NPTS, nbits, 0.0f, 0.0f) ) ;
   if(timer_min == timer_max) timer_avg = timer_max ;
   t0 = timer_min * NaNoSeC / (NPTS) ;
   fprintf(stderr, "qlog_to_fp0 : %4.2f ns/float, %s\n", t0, timer_msg) ;
 
-  TIME_LOOP_EZ(NITER, NPTS, qlog_to_fp(r, q, NPTS, nbits, 1.0E-34f) ) ;
+  TIME_LOOP_EZ(NITER, NPTS, qlog_to_fp(r, q, NPTS, nbits, 1.0E-34f, 1.0E-34f) ) ;
   if(timer_min == timer_max) timer_avg = timer_max ;
   t0 = timer_min * NaNoSeC / (NPTS) ;
   fprintf(stderr, "qlog_to_fp  : %4.2f ns/float, %s\n", t0, timer_msg) ;
