@@ -174,7 +174,7 @@ static inline float qlog_to_fp_(int32_t i, int nbits, float minabs, float zval){
   r.i ^= s ;                      // no-op if s == 0, negate if s == 0xFFFFFFFF
   r.i -= s ;                      // complement and add 1 is 2's complement negate
   r.i <<= nbits ;                 // unscale the absolute value
-  r.i = (r.i <= m.i) ? z.i : r.i ; // replace values with |value| <= minimum significant value
+  r.i = (r.i < m.i) ? z.i : r.i ; // replace values where |value| < minimum significant value
   r.i |= (s << 31) ;              // restore the sign bit
   return r.f ;                    // restored float
 }
