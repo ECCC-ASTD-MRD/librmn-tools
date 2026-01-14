@@ -67,21 +67,21 @@ void fp_to_flog(float *z, int32_t *q, int n, int32_t nbits){
 // zval  : any absolute value < minabs gets replaced with zval
 // return fake integer
 // if the absolute value of an input float is <= minabs, it is forced to zval
-// (zval would normally be equal to minabs or 0.0)
+// (zval would usually be equal to minabs or 0.0)
 static inline int32_t fp_to_qlog_(float f, int nbits, float minabs, float zval){
   union{ int32_t i ; float f ; } r, m, z ;
 
   r.f = f ;                       // value to process
+  int32_t s = (r.i >> 31) ;       // 0 or 0xFFFFFFFF (extended sign)
   m.f = minabs ;
   m.i &= 0x7F800000 ;             // truncate to power of 2 <= |value|
   z.f = zval   ;
   z.i &= 0x7F800000 ;             // truncate to power of 2 <= |value|
   int32_t round = (1 << nbits) ;  // rounding term (0 if nbits == 0)
   round >>= 1 ;
-  int32_t s = (r.i >> 31) ;       // 0 or 0xFFFFFFFF (extended sign)
   r.i &= 0x7FFFFFFF ;             // absolute value of f
-  r.i = (r.i + round) ;           // apply rounding term to absolute value
   r.i = (r.i < m.i) ? z.i : r.i ; // replace values below minimum significant value
+  r.i = (r.i + round) ;           // apply rounding term to absolute value
   r.i >>= nbits ;                 // scale the absolute value, then apply saved sign
   r.i ^= s ;                      // no-op if s == 0, negate if s == 0xFFFFFFFF
   r.i -= s ;                      // complement and add 1 is 2's complement negate
@@ -161,7 +161,7 @@ void flog_to_fp(float *z, int32_t *q, int n, int32_t nbits){
 // return appropriate float value ( minabs with appropriate sign if |value| < minabs )
 // 0 comes back as 0.0f, -0.0f is never produced
 // 0 can only happen when minabs == 0.0
-// (zval would normally be equal to minabs or 0.0)
+// (zval would usually be equal to minabs or 0.0)
 static inline float qlog_to_fp_(int32_t i, int nbits, float minabs, float zval){
   union{ int32_t i ; float f ; } r, m, z ;
 
@@ -174,7 +174,7 @@ static inline float qlog_to_fp_(int32_t i, int nbits, float minabs, float zval){
   r.i ^= s ;                      // no-op if s == 0, negate if s == 0xFFFFFFFF
   r.i -= s ;                      // complement and add 1 is 2's complement negate
   r.i <<= nbits ;                 // unscale the absolute value
-  r.i = (r.i < m.i) ? z.i : r.i ; // replace values with |value| < minimum significant value
+  r.i = (r.i <= m.i) ? z.i : r.i ; // replace values with |value| <= minimum significant value
   r.i |= (s << 31) ;              // restore the sign bit
   return r.f ;                    // restored float
 }
