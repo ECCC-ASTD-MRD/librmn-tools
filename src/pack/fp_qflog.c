@@ -70,13 +70,15 @@ void fp_to_flog(float *z, int32_t *q, int n, int32_t nbits){
 // (zval would usually be equal to minabs or 0.0)
 static inline int32_t fp_to_qlog_(float f, int nbits, float minabs, float zval){
   union{ int32_t i ; float f ; } r, m, z ;
+  (void) (zval) ;
 
   r.f = f ;                       // value to process
   int32_t s = (r.i >> 31) ;       // 0 or 0xFFFFFFFF (extended sign)
   m.f = minabs ;
   m.i &= 0x7F800000 ;             // truncate to power of 2 <= |value|
-  z.f = zval   ;
-  z.i &= 0x7F800000 ;             // truncate to power of 2 <= |value|
+//   z.f = zval   ;
+//   z.i &= 0x7F800000 ;             // truncate to power of 2 <= |value|
+  z.i = m.i - 1 ;                 // |minabs| - epsilon
   int32_t round = (1 << nbits) ;  // rounding term (0 if nbits == 0)
   round >>= 1 ;
   r.i &= 0x7FFFFFFF ;             // absolute value of f
@@ -155,7 +157,7 @@ void flog_to_fp(float *z, int32_t *q, int n, int32_t nbits){
 // rounded and scaled signed integer to sign magnitude float, order preserving
 // i     : fake integer
 // nbits : number of less significant bits eliminated (0 <= nbits <= 23) 
-//         (MUST be the same value previously used by fp_to_qlog)
+//         (SHOULD be the same value previously used by fp_to_qlog)
 // minabs: smallest signicant absolute value (should match minabs from fp_to_qlog_)
 // zval  : any absolute value < minabs gets replaced with zval
 // return appropriate float value ( minabs with appropriate sign if |value| < minabs )
@@ -168,7 +170,8 @@ static inline float qlog_to_fp_(int32_t i, int nbits, float minabs, float zval){
   m.f = minabs ;
   m.i &= 0x7F800000 ;             // truncate to power of 2 <= value
   z.f = zval   ;
-  z.i &= 0x7F800000 ;             // truncate to power of 2 <= |value|
+  z.i &= 0x7FFFFFFF ;             // |zval|
+//   z.i &= 0x7F800000 ;             // truncate to power of 2 <= |value|
   int32_t s = (i >> 31) ;         // 0 or 0xFFFFFFFF (extended sign)
   r.i = i ;                       // absolute value of i
   r.i ^= s ;                      // no-op if s == 0, negate if s == 0xFFFFFFFF
@@ -188,11 +191,12 @@ static inline float qlog_to_fp_(int32_t i, int nbits, float minabs, float zval){
 // n      [IN] : number of values
 // nbits  [IN] : number of significant mantissa bits (MUST BE the same value used for fp2fsi_n)
 // minabs [IN] : smallest signicant absolute value (should match minabs/zval from fp_to_qlog_n)
+// zval   [IN] : an absolute value < |minabs| gets replaced with |zval| (sign of value is preserved)
 void qlog_to_fp(float *z, int32_t *q, int n, int32_t nbits, float minabs, float zval){
   int32_t i ;
 
   if(minabs == 0.0f){
-    flog_to_fp(z, q, n, nbits) ;
+    flog_to_fp(z, q, n, nbits) ;            // no check/replacement needed
     return ;
   }
 
