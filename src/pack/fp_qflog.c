@@ -78,7 +78,7 @@ static inline int32_t fp_to_qlog_(float f, int nbits, float minabs, float zval){
   m.i &= 0x7F800000 ;             // truncate to power of 2 <= |value|
 //   z.f = zval   ;
 //   z.i &= 0x7F800000 ;             // truncate to power of 2 <= |value|
-  z.i = m.i - 1 ;                 // |minabs| - epsilon
+  z.i = m.i - (1<<nbits) ;        // transform(|minabs|) - 1
   int32_t round = (1 << nbits) ;  // rounding term (0 if nbits == 0)
   round >>= 1 ;
   r.i &= 0x7FFFFFFF ;             // absolute value of f
@@ -166,11 +166,12 @@ void flog_to_fp(float *z, int32_t *q, int n, int32_t nbits){
 // (zval would usually be equal to minabs or 0.0)
 static inline float qlog_to_fp_(int32_t i, int nbits, float minabs, float zval){
   union{ int32_t i ; float f ; } r, m, z ;
-
+// fprintf(stderr, "minabs = %f, zval = %f\n", minabs, zval) ;
   m.f = minabs ;
-  m.i &= 0x7F800000 ;             // truncate to power of 2 <= value
+  m.i &= 0x7F800000 ;             // truncate to power of 2 <= |value|
   z.f = zval   ;
   z.i &= 0x7FFFFFFF ;             // |zval|
+  z.i = (z.i > m.i) ? m.i : z.i ; // shall not be larger than |minabs|
 //   z.i &= 0x7F800000 ;             // truncate to power of 2 <= |value|
   int32_t s = (i >> 31) ;         // 0 or 0xFFFFFFFF (extended sign)
   r.i = i ;                       // absolute value of i
