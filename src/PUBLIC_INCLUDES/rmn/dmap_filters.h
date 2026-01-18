@@ -29,11 +29,13 @@
 #include <rmn/be_stream.h>
 #include <rmn/bitstream.h>
 
-// the following 3 macros will eventually come from rmn/common_stream.h
+// the following 3 macros should now come from rmn/common_stream.h
 #if ! defined(STREAM_BITS_BHW)
+#error STREAM_BITS_BHW should now come from librmn
 #define STREAM_BITS_BHW(v, nbits) { uint32_t c = 2 + 8 + ((v >> 8) ? 8 : 0) + ((v >> 16) ? 8 : 0) + ((v >> 24) ? 8 : 0) ; nbits = c ; }
 #endif
 #if ! defined(STREAM_GET_BHW)
+#error STREAM_GET_BHW should now come from librmn
 #define STREAM_GET_BHW(s, v, nbits) { uint32_t c ; \
                                       STREAM_GET_NBITS(s, c , 2) ; \
                                       uint32_t TbItS = (1 + c) << 3 ; \
@@ -42,6 +44,7 @@
                                     }
 #endif
 #if ! defined(STREAM_PUT_BHW)
+#error STREAM_PUT_BHW should now come from librmn
 // store v into stream, set nbits to 10/18/26/34 according to number of bits needed
 #define STREAM_PUT_BHW(s, v, nbits) { uint32_t c = ((v >> 8) ? 1 : 0) + ((v >> 16) ? 1 : 0) + ((v >> 24) ? 1 : 0) ; \
                                       uint32_t TbItS = (1 + c) << 3 ; \
