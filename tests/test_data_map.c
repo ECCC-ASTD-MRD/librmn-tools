@@ -255,7 +255,7 @@ int main(int argc, char **argv){
   fprintf(stderr, "size of array_3d = %ld\n", sizeof(array_3d));
   fprintf(stderr, "size of array_4d = %ld\n", sizeof(array_4d));
   fprintf(stderr, "size of array_5d = %ld\n", sizeof(array_5d));
-fprintf(stderr, "mem[0] = %p\n", map->mhead.mem[0]) ;
+
   zblocks *mem = map->mhead.mem ;
   znij = map->fhead.zni * map->fhead.znj ;
   fprintf(stderr, "size from old pointer table[%d] :", znij);
@@ -269,7 +269,6 @@ fprintf(stderr, "mem[0] = %p\n", map->mhead.mem[0]) ;
 
   free_zmap(map, 0) ;             // partial free (only mem table)
   mem = mem_zmap(map, NULL) ;     // reallocate mem table
-fprintf(stderr, "mem[0] = %p\n", map->mhead.mem[0]) ;
   znij = map->fhead.zni * map->fhead.znj ;
   fprintf(stderr, "size from new pointer table[%d] :", znij);
   for(i=0 ; i < znij ; i++) fprintf(stderr, "%6ld", mem[i+1] - mem[i]) ;
@@ -296,7 +295,7 @@ fprintf(stderr, "mem[0] = %p\n", map->mhead.mem[0]) ;
   fprintf(stderr, "\n");
   for(i=0 ; i < znij ; i++) if(map->size[i] != (mem[i+1] - mem[i])) exit(1) ;
   fprintf(stderr, "SUCCESS\n") ;
-exit(0) ;
+
   fprintf(stderr, "=============== data map sizes restore ===============\n") ;
   // restore packed stream pointers
   for(i=0 ; i<znij ; i++) map->size[i] += 2 ;

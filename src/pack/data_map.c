@@ -297,7 +297,8 @@ zblocks *mem_zmap(zmap *map, uint32_t *data){
   if(mem){          // allocation was successful
     int i ;
     map->mhead.mem = mem ;
-    mem[0] = data ? data : (uint32_t *)&(map->size[znij]) ;      // if data is NULL, packed data stream follows data map in memory
+//     mem[0] = data ? data : (uint32_t *)&(map->size[znij]) ;      // if data is NULL, packed data stream follows data map in memory
+    mem[0] = map->mhead.first ;                // if data is NULL, set to start of data in memory according to map
     for(i=1 ; i<znij+1 ; i++) mem[i] = mem[i-1] + map->size[i-1] ;
   }
   if(data != NULL){
