@@ -270,7 +270,7 @@ static int32_t qlog_cycles(int ni, int nj, float f[nj][ni], int nbits, float msi
 }
 
 #define NPTS 16
-int32_t synthetic_qlog(float quant, int nbits, float msig, float zval){
+static int32_t synthetic_qlog(float quant, int nbits, float msig, float zval){
   int npts = NPTS ;
   float f[npts], r[npts] ;
   int32_t q[npts] ;

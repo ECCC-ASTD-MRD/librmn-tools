@@ -211,6 +211,7 @@ add_project_test(test_compare_count        test_compare_count.c        LINK_LIBS
 
 add_project_test(test_eval_compress        test_eval_compress.c        LINK_LIBS "rmn::rmn"        NODIAG)
 add_project_test(test_quantizer_cycle      test_quantizer_cycle.c      LINK_LIBS "rmn::rmn"        NODIAG)
+add_project_test(test_dmap_compress        test_dmap_compress.c        LINK_LIBS "rmn::rmn"        NODIAG)
 
 add_project_test(test_lorenzo_f_shared test_lorenzo.F90 LINK_LIBS "rmn::rmn-shared;libaec::aec" DL)                        # build with shared libraries
 if(NOT ( ${COMPILER_SUITE} MATCHES  "nvhpc") )

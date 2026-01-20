@@ -183,6 +183,7 @@ typedef struct{
     uint8_t *options ;     // same dimension as size, options associated with each encoded block
     uint32_t *first ;      // start of compressed data stream
     uint32_t *limit ;      // one past the end of compressed data stream
+    uint32_t *extra ;      // points to extra information
   } mhead ;
   // ---------------- start of in file header ----------------
   // TODO: add flags for 3D storage ni/nj/nk vs nk/ni/nj vs ... and compression(2D/3D)
@@ -219,8 +220,8 @@ typedef struct{
   // if extra is not 0, mextra uint32_t items are added after the size table
   // ---------------- end of data map ----------------
 }zmap ;
-//                        mhead              fhead - zemta       zmeta
-CT_ASSERT(sizeof(zmap) == 5*sizeof(void *) + 10*sizeof(int32_t) + sizeof(zmeta), "unexpected size of zmap structure")
+//                        mhead              fhead - zmta         zmeta
+CT_ASSERT(sizeof(zmap) == 6*sizeof(void *) + 10*sizeof(int32_t) + sizeof(zmeta), "unexpected size of zmap structure")
 
 static inline int invalid_zmap(zmap *map){
   if(map->mhead.signature != 0x1AD0FADA || map->fhead.signature != 0xBEBEFADA) return 1 ;
