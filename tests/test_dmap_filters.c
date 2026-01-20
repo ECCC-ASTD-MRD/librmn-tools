@@ -33,11 +33,11 @@
 #define NJ 65
 
 // will be transferred to dmap_filters.c when finished
-void dmap_filter_array(array_nd *a, dmap_filter_list dpfl, bitstream *stream){
-  (void) (a) ;
-  (void) (dpfl) ;
-  (void) (stream) ;
-}
+// static void dmap_filter_array(array_nd *a, dmap_filter_list dpfl, bitstream *stream){
+//   (void) (a) ;
+//   (void) (dpfl) ;
+//   (void) (stream) ;
+// }
 
 int main(int argc, char **argv){
   bitstream *estream = NULL ;

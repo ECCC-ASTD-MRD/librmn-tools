@@ -26,7 +26,7 @@
 #include <rmn/array_nd.h>
 #include <rmn/move_blocks.h>
 
-void fill_2d_array(int32_t ni, int32_t nj, int32_t z[nj][ni]){
+static void fill_2d_array(int32_t ni, int32_t nj, int32_t z[nj][ni]){
   int i, j ;
   for(j=0 ; j<nj ; j++){
     for(i=0 ; i<ni ; i++){
@@ -36,11 +36,11 @@ void fill_2d_array(int32_t ni, int32_t nj, int32_t z[nj][ni]){
 fprintf(stderr, "z[0][0] = %8.8x, z[%3d][%3d] = %8.8x (%3d %3d)\n", z[0][0], ni-1, nj-1, z[nj-1][ni-1], ni-1, nj-1) ;
 }
 
-void  fill_array(array_2d *a){
+static void  fill_array(array_2d *a){
   fill_2d_array(a->dim[0].gnn, a->dim[1].gnn, ( int32_t (*)[] )a->data) ;
 }
 
-int32_t check_2d_block(int32_t ni, int32_t nj, int32_t block[nj][ni], int32_t i0, int32_t j0, block_properties bp){
+static int32_t check_2d_block(int32_t ni, int32_t nj, int32_t block[nj][ni], int32_t i0, int32_t j0, block_properties bp){
   int errors = 0, i, j ;
   for(j=0 ; j<nj ; j++){
     for(i=0 ; i<ni ; i++){
@@ -57,7 +57,7 @@ int32_t check_2d_block(int32_t ni, int32_t nj, int32_t block[nj][ni], int32_t i0
 //   return 0 ;
 // }
 
-int process_2d_block(array_2d *a_in, sfn_ptr fn, sfn_args *fnargs){
+static int process_2d_block(array_2d *a_in, sfn_ptr fn, sfn_args *fnargs){
   (void) (fn) ; (void) (fnargs) ;      // unused for now
   if(a_in == NULL) return -1 ;
   if(a_in->rank != 2) return -1 ;
@@ -85,7 +85,7 @@ int process_2d_block(array_2d *a_in, sfn_ptr fn, sfn_args *fnargs){
 }
 
 // process array and store it into zmap
-zmap *array_to_zmap(zmap *map, array_2d *a_in, sfn_ptr fn, sfn_args *fnargs){
+static zmap *array_to_zmap(zmap *map, array_2d *a_in, sfn_ptr fn, sfn_args *fnargs){
   int zx ;
   array_2d a ;
 //   (void) (fn) ; (void) (fnargs) ;      // unused for now

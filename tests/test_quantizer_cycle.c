@@ -305,7 +305,6 @@ int main(int argc, char **argv){
       nbits = atoi(argv[3]) ;   // nbits (linear or pseudo_log quantizer)
     case 3:
       quant = atof(argv[2]) ;   // quantum (linear quantizer), smallest absolute significant value  (pseudo_log quantizer)
-      quant = f_adjust(quant) ;
     case 2:
       filename = argv[1] ;
       break ;
@@ -315,6 +314,7 @@ int main(int argc, char **argv){
   }
   msg = "synthetic_qlog failed" ;
   if(synthetic_qlog(quant, nbits, minsig, zval)) goto fail ;
+  quant = f_adjust(quant) ;
 
   fprintf(stderr,"filename  = '%s', quant = %f, minsig = %f, nbits = %d\n", filename, quant, minsig, nbits) ;
   buf = read_32bit_data_record(filename, &fd, dims, &ndim, &ndata) ;  // get data record

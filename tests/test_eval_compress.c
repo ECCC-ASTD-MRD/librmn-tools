@@ -53,7 +53,7 @@ static float power2_err(float err){
   return uf.f ;
 }
 
-void get_min_max(float *buf, int ninj, float *min, float *max){
+static void get_min_max(float *buf, int ninj, float *min, float *max){
   int i ;
   float mi = buf[0], ma = buf[0];
   for(i=1 ; i<ninj ; i++){
