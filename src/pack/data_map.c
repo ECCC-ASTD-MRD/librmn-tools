@@ -136,6 +136,10 @@ ij_range map_block_limits(zmap *map, int32_t bi, int32_t bj){
   return ij ;
 }
 
+// TODO:
+// separate zmap create from zmap populate ?
+// function to calculate worst case data size from block_sizes[]
+//
 // create a data map with a worst case buffer for map and packed data
 // gni    [IN] : first dimension of array (row size)
 // gnj    [IN] : second dimension of array (number of rows)
@@ -144,6 +148,9 @@ ij_range map_block_limits(zmap *map, int32_t bi, int32_t bj){
 // mextra [IN] : size of extra global information for data decoding (in bytes)
 //               mextra will be roubded up to a multiple of sizeof(uint32_t)
 // NOTE: array dimensions are Fortran ordered (i index varying first)
+//
+// zmap    *new_zmap(int32_t gni, int32_t gnj, int32_t stripe, size_t esize, int32_t extra,
+//                   int32_t blocksize, int32_t *data, int32_t *mem);
 zmap *new_zmap(int32_t gni, int32_t gnj, int32_t stripe, size_t esize, int32_t mextra){
   mextra = (mextra + sizeof(uint32_t) - 1) / sizeof(uint32_t) ; // round up to multiple of uint32_t size
   mextra = mextra * sizeof(uint32_t) ;
@@ -157,6 +164,7 @@ zmap *new_zmap(int32_t gni, int32_t gnj, int32_t stripe, size_t esize, int32_t m
   int32_t znj = p.nbk ;               // number of blocks along j
   int32_t lnj = p.ln1 ;               // bsize
   int32_t ljx = p.ln0 ;               // size of first block along j
+
   zmap *map = NULL ;
   ssize_t size ;
   size = sizeof(zmap) + sizeof(uint16_t) * zni * znj ;          // base size of data map + table of sizes
@@ -171,6 +179,8 @@ zmap *new_zmap(int32_t gni, int32_t gnj, int32_t stripe, size_t esize, int32_t m
   int32_t zij, znij ;
   uint32_t *current ;
 
+  if(DEBUG)
+    fprintf(stderr, "sizeof(mhead) = %ld, sizeof(fhead) = %ld, sizeof(zmap) = %ld\n", sizeof(map->mhead), sizeof(map->fhead), sizeof(zmap)) ;
   if(DEBUG)
     fprintf(stderr, "bsize = %d, gni = %d, gnj = %d, zni = %d, znj = %d\n", bsize, gni, gnj, zni, znj);
   // compute worst case block sizes for packed data = size of data + 4 rounded up to sizeof(uint32_t)
@@ -191,8 +201,10 @@ zmap *new_zmap(int32_t gni, int32_t gnj, int32_t stripe, size_t esize, int32_t m
     lbj = lnj ;                     // after first row
   }
 
+  // allocate map with enough space for worst case
   map = (zmap *) malloc(size) ;     // hsize + sum of lsize(s)
   if(map){         // allocation was successful
+    map->mhead.limit = (uint8_t *)map + size ;   // 1 + end of data stream buffer
     if(DEBUG)
       fprintf(stderr, "allocated zmap(%p), [%ld bytes], size table[%d,%d] at %p\n", map, size, zni, znj, map->size) ;
     znij  = zni * znj ;
@@ -206,7 +218,7 @@ zmap *new_zmap(int32_t gni, int32_t gnj, int32_t stripe, size_t esize, int32_t m
     map->fhead.stripe    = stripe ;
     map->fhead.mextra     = mextra ;
     map->fhead.flags     = 0 ;
-    map->fhead.meta      = zmeta_null ;
+//     map->fhead.meta      = zmeta_null ;
     map->fhead.gni       = gni ;
     map->fhead.gnj       = gnj ;
     map->fhead.zni       = zni ;
@@ -216,6 +228,7 @@ zmap *new_zmap(int32_t gni, int32_t gnj, int32_t stripe, size_t esize, int32_t m
     map->fhead.lix       = lix ;
     map->fhead.ljx       = ljx ;
     map->mhead.signature = 0x1AD0FADA ;
+//     map->mhead.options   = NULL ;
     map->mhead.mem = (zblocks *)malloc( (znij + 1) * sizeof(uint32_t *) ) ;
     if(DEBUG){
       fprintf(stderr, "map at %p", map) ;
@@ -248,7 +261,7 @@ zmap *new_zmap(int32_t gni, int32_t gnj, int32_t stripe, size_t esize, int32_t m
       lbj = lnj ;                     // after first row
     }
     for(i=0 ; i<znij ; i++) map->mhead.mem[i+1] = map->mhead.mem[i] + map->size[i] ;
-    map->mhead.limit = map->mhead.mem[znij] ;
+    map->mhead.last = map->mhead.mem[znij] ;
     if(DEBUG>1) {
       fprintf(stderr, "range     : ");
       for(i=0 ; i<znij ; i++)fprintf(stderr, "%6ld", map->mhead.mem[i] - map->mhead.mem[0]);
@@ -286,33 +299,43 @@ end:
   return map ;
 }
 
-// allocate table of pointers to packed blocks, fill it using map->size
+// (re)allocate table of pointers to packed blocks, fill it using map->size
 // map  [INOUT] : pointer to data map
 // data    [IN] : pointer to start of packed data (if NULL, packed data follows map in memory)
-// return address of table of pointers to packed blocks, NULL if allocation failed
-zblocks *mem_zmap(zmap *map, uint32_t *data){
-  int32_t znij = map->fhead.zni * map->fhead.znj ;
-  zblocks *mem = (zblocks *)malloc((znij+1) * sizeof(uint32_t *)) ;
+// size    [IN] : size of memory block at data in bytes
+// return address of table of pointers to packed blocks, NULL if there was any error
+zblocks *mem_zmap(zmap *map, uint32_t *data, size_t size){
+  int32_t znij = map->fhead.zni * map->fhead.znj, i ;
+  size_t needed = 0 ;
+
+  if(data != NULL){    // check that enough space is available, set first/last/limit
+    for(i=0 ; i<znij ; i++){ needed += map->size[i] ; }
+    if(size < needed) return NULL ;
+    map->mhead.extra = data ;
+    map->mhead.first = data + map->fhead.mextra ;
+    map->mhead.last  = map->mhead.first ;
+    map->mhead.limit = (uint8_t *)data + size ;
+    if(DEBUG)
+      fprintf(stderr, "DEBUG mem_zmap, switching stream buffer to %16p -> %16p\n", (void *)map->mhead.first, (void *)map->mhead.limit) ;
+  }
+  // allocate mem table
+  zblocks *mem = (zblocks *)malloc((znij+1) * sizeof(uint32_t *)) ;  // znij + 1 entries needed
 
   if(mem){          // allocation was successful
-    int i ;
+    if(map->mhead.mem) free(map->mhead.mem) ;  // free old table if there was one
     map->mhead.mem = mem ;
-//     mem[0] = data ? data : (uint32_t *)&(map->size[znij]) ;      // if data is NULL, packed data stream follows data map in memory
-    mem[0] = map->mhead.first ;                // if data is NULL, set to start of data in memory according to map
-    for(i=1 ; i<znij+1 ; i++) mem[i] = mem[i-1] + map->size[i-1] ;
-  }
-  if(data != NULL){
-    map->mhead.first = mem[0] ;
-    map->mhead.limit = mem[znij] ;
-    fprintf(stderr, "DEBUG mem_zmap, switching data buffer to %16p -> %16p\n", (void *)map->mhead.first, (void *)map->mhead.limit) ;
+    mem[0] = map->mhead.first ;
+    for(i=1 ; i<znij+1 ; i++){
+      mem[i] = mem[i-1] + map->size[i-1] ;   // recalculate mem[] using block sizes
+    }
+    if((uint8_t *)mem[znij] > map->mhead.limit){   // OOPS, not enough space in data
+      free(mem) ;
+      mem = NULL ;
+    }else{
+      map->mhead.last = mem[znij] ;                      // update last
+    }
   }
 
-//   uint32_t *current = map->mhead.mem[0] ;          // initial position
-//   if(current != map->mhead.first){
-//     int32_t *data = (int32_t *)&(map->size[map->fhead.zni*map->fhead.znj]) ;
-//     fprintf(stderr, "ERROR mem_map : first map entry not pointing to start of stream\n") ;
-//     fprintf(stderr, "      first = %16p, start = %16p, data = %16p\n", map->mhead.first, current, data) ;
-//   }
   return mem ;
 }
 
@@ -320,6 +343,8 @@ zblocks *mem_zmap(zmap *map, uint32_t *data){
 // data element size and dimensions will be taken from map
 // void fill_zmap(zmap *map, void *src){
 // }
+
+// NOTE if first/last/limit out of map we have an external bit stream buffer
 
 // full/partial deallocation of data map and its components
 // map  [INOUT] : pointer to data map
@@ -331,6 +356,11 @@ int free_zmap(zmap *map, int full){
     free(map->mhead.mem) ;
   }
   map->mhead.mem = NULL ;
+//   if(map->mhead.options){
+//     if(DEBUG) fprintf(stderr, "freeing map->mhead.options at %p\n", map->mhead.options) ;
+//     free(map->mhead.options) ;
+//   }
+//   map->mhead.options = NULL ;
   if(full) {
     free(map) ;
 if(DEBUG) fprintf(stderr, "FULL map free\n") ;
@@ -353,7 +383,7 @@ ssize_t resize_map(zmap *map){
   for(k=0 ; k < map->fhead.zni * map->fhead.znj ; k++){
     map->mhead.mem[k] = current ;
     current += map->size[k] ;
-    if(current > map->mhead.limit){
+    if(current > map->mhead.last){
       fprintf(stderr, "ERROR: cannot resize map, not enough space occording to size table\n") ;
       return -1 ;
     }
