@@ -87,8 +87,10 @@ int main(int argc, char **argv){
     nij = dims[0]*dims[1] ;
     msg = "dimension mismatch or not a 2D record" ;
     if(nij != ndata || ndim != 2) goto fail ;
-    i_axis = split_axis_32(dims[0], BSIZE) ;
-    j_axis = split_axis_32(dims[1], BSIZE) ;
+//     i_axis = split_axis_32(dims[0], BSIZE) ;
+    i_axis = split_axis_min(dims[0], BSIZE, 32) ;
+//     j_axis = split_axis_32(dims[1], BSIZE) ;
+    j_axis = split_axis_min(dims[1], BSIZE, 32) ;
 
     minmax(buf, nij, &min, &max) ;
     fprintf(stderr, "[%2d] %d dimensions : ", ncases, ndim) ;
