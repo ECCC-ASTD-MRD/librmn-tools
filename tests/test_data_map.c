@@ -248,7 +248,7 @@ int main(int argc, char **argv){
   if(map == NULL) exit(1) ;
   if(map->fhead.zni != 3 || map->fhead.znj != 3) exit(1) ;
 
-  fprintf(stderr, "size of preamble = %ld\n", (uint8_t *)&(map->fhead.data_head) - (uint8_t *)&(map->mhead.data_head)) ;
+  fprintf(stderr, "size of preamble = %ld\n", (uint8_t *)&(map->fhead.signature) - (uint8_t *)&(map->mhead.signature)) ;
   fprintf(stderr, "size of array_nd = %ld\n", sizeof(array_nd));
   fprintf(stderr, "size of array_1d = %ld\n", sizeof(array_1d));
   fprintf(stderr, "size of array_2d = %ld\n", sizeof(array_2d));
@@ -268,7 +268,7 @@ int main(int argc, char **argv){
   fprintf(stderr, "SUCCESS\n") ;
 
   free_zmap(map, 0) ;             // partial free (only mem table)
-  mem = mem_zmap(map, NULL) ;     // reallocate mem table
+  mem = mem_zmap(map, NULL, 0) ;  // reallocate mem table
   znij = map->fhead.zni * map->fhead.znj ;
   fprintf(stderr, "size from new pointer table[%d] :", znij);
   for(i=0 ; i < znij ; i++) fprintf(stderr, "%6ld", mem[i+1] - mem[i]) ;
