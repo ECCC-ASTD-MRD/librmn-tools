@@ -44,7 +44,7 @@ typedef struct{
   int32_t ixn ;   // index of last element in block along a dimension
 } index_range ;
 // invalid range
-#define INDEX_RANGE_NULL (index_range) { .ix0=0, .ixn=-1 }
+#define INDEX_RANGE_BAD (index_range) { .ix0=0, .ixn=-1 }
 
 typedef struct{
   int32_t i0  ;   // index of first point along first dimension
@@ -60,8 +60,9 @@ typedef struct{
 // l   [IN] : index of array element along an array dimension (origin 0)
 // ln1 [IN] : size of all blocks but first one along a dimension
 // ln0 [IN] : size of first block along a dimension
-// return block ordinal along that dimension
+// return block ordinal along that dimension (-1 if l < 0)
 static inline int32_t b_index(int32_t l, int32_t ln1, int32_t ln0){
+  if(l < 0) return -1 ;                           // invalid index
   return (l < ln0) ? 0 : ((l + ln1 - ln0)/ln1) ;
 }
 
@@ -72,32 +73,32 @@ static inline int32_t b_index(int32_t l, int32_t ln1, int32_t ln0){
 // return block ordinal containing requested element (-1 if error)
 static inline int32_t block_ordinal(int32_t index, array_axis axis){
   if(index < 0) return -1 ;                           // invalid index
-//   int ordinal = axis_b_index(index, axis) ;
   int ordinal = b_index(index, axis.ln1, axis.ln0) ;
   return (ordinal >= axis.nbk) ? -1 : ordinal ;       // check for ordinal out of range (beyond last block)
 }
 
 // ==================== index range of a block along an axis ====================
 
-// index range from block index and sizes (along one dimension) (unsafe)
+// index limits from block index and sizes (along one dimension) (unsafe)
 // used by block_limits
 // bl  [IN] : block index along a dimension
 // ln1 [IN] : size of all but first block along a dimension
 // ln0 [IN] : size of first block along a dimension (ln/2 <= ln0 < 2*ln)
 // return index limits along a dimension for this block
+// INDEX_RANGE_BAD is returned in case of errror
 static inline index_range r_limits(int32_t bl, int32_t ln1, int32_t ln0){
-  if(bl < 0) return INDEX_RANGE_NULL ;  // return invalid range
+  if(bl < 0) return INDEX_RANGE_BAD ;  // return invalid range
   return (bl == 0) ? (index_range){.ix0 = 0 , .ixn = ln0-1} : (index_range){.ix0 = (bl-1)*ln1 + ln0, .ixn = bl*ln1 + ln0 -1 } ;
 }
 
-// get index limits for block number index along a dimension
+// index limits for block ordinal from axis descriptor
 // uses axis_r_limits
 // ordinal [IN] : block ordinal along axis
 // axis    [IN] : axis description
 // return first index and last index for requested block ordinal
-// { 0, -1 } is returned in case of errror
+// INDEX_RANGE_BAD is returned in case of errror
 static inline index_range block_limits(int32_t ordinal, array_axis axis){
-  if((ordinal >= axis.nbk) || (ordinal < 0)) return INDEX_RANGE_NULL ;
+  if((ordinal >= axis.nbk) || (ordinal < 0)) return INDEX_RANGE_BAD ;
   return r_limits(ordinal, axis.ln1, axis.ln0) ;
 }
 
