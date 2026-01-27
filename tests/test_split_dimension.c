@@ -40,15 +40,15 @@ int main(int argc, char **argv){
     axis = split_axis_min(ax[j], bsize, minsize) ;
     fprintf(stderr, "n = %3d, nblks = %3d, l0 = %3d, ln = %3d", ax[j], axis.nbk, axis.ln0, axis.ln1) ;
     for(i=-2 ; i<(axis.nbk+2) ; i++){    // i<0 and i>=axis.nbk are expected to return invalid block limits
-      range = block_limits(axis, i) ;
+      range = block_limits(i, axis) ;
       if(range.ix0 > range.ixn){
         if(i < 0 || i >= axis.nbk) continue ;
         goto fail ;
       }
       fprintf(stderr, " [%3d:%3d]", range.ix0, range.ixn) ;
       for(ix=range.ix0 ; ix<=range.ixn ; ix++){
-        if(i != block_ordinal(axis, ix)){
-          fprintf(stderr, "\n ERROR: index = %d, expecting block ordinal %d, got %d", ix, i, block_ordinal(axis, ix));
+        if(i != block_ordinal(ix, axis)){
+          fprintf(stderr, "\n ERROR: index = %d, expecting block ordinal %d, got %d", ix, i, block_ordinal(ix, axis));
           goto fail ;
         }
       }
@@ -64,15 +64,15 @@ int main(int argc, char **argv){
     axis = split_axis_min(bx[j], bsize, minsize) ;
     fprintf(stderr, "n = %3d, nblks = %3d, l0 = %3d, ln = %3d", bx[j], axis.nbk, axis.ln0, axis.ln1) ;
     for(i=-1 ; i<axis.nbk+1 ; i++){
-      range = block_limits(axis, i) ;
+      range = block_limits(i, axis) ;
       if(range.ix0 > range.ixn){
         if(i < 0 || i >= axis.nbk) continue ;
         goto fail ;
       }
       fprintf(stderr, " [%3d:%3d]", range.ix0, range.ixn) ;
       for(ix=range.ix0 ; ix<=range.ixn ; ix++){
-        if(i != block_ordinal(axis, ix)){
-          fprintf(stderr, "\n ERROR: index = %d, expecting block ordinal %d, got %d", ix, i, block_ordinal(axis, ix));
+        if(i != block_ordinal(ix, axis)){
+          fprintf(stderr, "\n ERROR: index = %d, expecting block ordinal %d, got %d", ix, i, block_ordinal(ix, axis));
           goto fail ;
         }
       }
@@ -88,15 +88,15 @@ int main(int argc, char **argv){
 //     axis = split_axis(npts, bsize) ;
     fprintf(stderr, "n = %3d, nblks = %3d, l0 = %3d, ln = %3d", npts, axis.nbk, axis.ln0, axis.ln1) ;
     for(i=-1 ; i<axis.nbk+1 ; i++){
-      range = block_limits(axis, i) ;
+      range = block_limits(i, axis) ;
       if(range.ix0 > range.ixn){
         if(i < 0 || i >= axis.nbk) continue ;
         goto fail ;
       }
       fprintf(stderr, " [%3d:%3d]", range.ix0, range.ixn) ;
       for(ix=range.ix0 ; ix<=range.ixn ; ix++){
-        if(i != block_ordinal(axis, ix)){
-          fprintf(stderr, "\n ERROR: index = %d, expecting block ordinal %d, got %d", ix, i, block_ordinal(axis, ix));
+        if(i != block_ordinal(ix, axis)){
+          fprintf(stderr, "\n ERROR: index = %d, expecting block ordinal %d, got %d", ix, i, block_ordinal(ix, axis));
           goto fail ;
         }
       }
@@ -114,7 +114,7 @@ int main(int argc, char **argv){
       in = -1 ;
       ncheck = 0 ;
       for(i=-1 ; i<axis.nbk+1 ; i++){
-        range = block_limits(axis, i) ;
+        range = block_limits(i, axis) ;
         if(range.ix0 > range.ixn){
           if(i < 0 || i >= axis.nbk) continue ;
           fprintf(stderr, "ERROR : i = %d, nbk = %d, range - %3d:%3d\n", i, axis.nbk, range.ix0, range.ixn) ;
@@ -129,8 +129,8 @@ int main(int argc, char **argv){
         in = range.ixn ;
         for(ix=i0 ; ix<=in ; ix++){  // check that all elements in block i return i as ordinal
           ncheck++ ;
-          if(i != block_ordinal(axis, ix)){
-            fprintf(stderr, "ERROR: bsize = %d, index = %d, expecting block ordinal %d, got %d\n", bsize, ix, i, block_ordinal(axis, ix));
+          if(i != block_ordinal(ix, axis)){
+            fprintf(stderr, "ERROR: bsize = %d, index = %d, expecting block ordinal %d, got %d\n", bsize, ix, i, block_ordinal(ix, axis));
             goto fail ;
           }
         }

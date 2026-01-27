@@ -475,11 +475,11 @@ if(argc < 1000) goto end ;     // suppress unreachable code warning
   iaxis = split_axis(NI, BLOCKSIZE) ;
   jaxis = split_axis(NJ, BLOCKSIZE) ;
   for(j0 = 0 ; j0<jaxis.nbk ; j0++){
-    index_range jrange = block_limits(jaxis, j0) ;
+    index_range jrange = block_limits(j0, jaxis) ;
     int jsize = jrange.ixn - jrange.ix0 + 1 ;
     for(i0=0 ; i0<iaxis.nbk ; i0++){
       //  get the float block to process
-      index_range irange = block_limits(iaxis, i0) ;
+      index_range irange = block_limits(i0, iaxis) ;
       int isize = irange.ixn - irange.ix0 + 1 ;
       fprintf(stderr, "block[%d,%d] limits = [%3d:%3d,%3d:%3d] (%3dx%3d)\n", i0, j0, irange.ix0, irange.ixn, jrange.ix0, jrange.ixn, isize, jsize) ;
       if(2 != set_array_lbounds(&z2d, irange.ix0, irange.ixn, jrange.ix0, jrange.ixn)) goto fail ;
