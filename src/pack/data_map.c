@@ -12,7 +12,7 @@
 // Library General Public License for more details.
 //
 // Author:
-//     M. Valin,   Recherche en Prevision Numerique, 2024
+//     M. Valin,   Recherche en Prevision Numerique, 2024-2026
 //
 
 #include <stdio.h>
@@ -216,7 +216,7 @@ zmap *new_zmap(int32_t gni, int32_t gnj, int32_t stripe, size_t esize, int32_t m
     map->fhead.signature = 0xBEBEFADA ;
     map->fhead.version   = Z_DATA_MAP_VERSION ;
     map->fhead.stripe    = stripe ;
-    map->fhead.mextra     = mextra ;
+//     map->fhead.mextra     = mextra ;
     map->fhead.flags     = 0 ;
 //     map->fhead.meta      = zmeta_null ;
     map->fhead.gni       = gni ;
@@ -312,7 +312,7 @@ zblocks *mem_zmap(zmap *map, uint32_t *data, size_t size){
     for(i=0 ; i<znij ; i++){ needed += map->size[i] ; }
     if(size < needed) return NULL ;
     map->mhead.extra = data ;
-    map->mhead.first = data + map->fhead.mextra ;
+    map->mhead.first = data /*+ map->fhead.mextra*/ ;
     map->mhead.last  = map->mhead.first ;
     map->mhead.limit = (uint8_t *)data + size ;
     if(DEBUG)

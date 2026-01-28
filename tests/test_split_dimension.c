@@ -12,7 +12,7 @@
 // Lesser General Public License for more details .
 //
 // Author:
-//     M. Valin,   Recherche en Prevision Numerique, 2025
+//     M. Valin,   Recherche en Prevision Numerique, 2025, 2026
 //
 #include <stdio.h>
 #include <stdlib.h>

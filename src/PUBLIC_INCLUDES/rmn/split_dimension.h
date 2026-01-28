@@ -25,6 +25,17 @@ typedef struct{
 // initializer for array_axis
 #define AXIS_NULL (array_axis){ .nbk=0, .ln0=0, .ln1=0 }
 
+typedef struct{
+  array_axis x ;
+  array_axis y ;
+} array_axis_2d ;
+
+typedef struct{
+  array_axis x ;
+  array_axis y ;
+  array_axis z ;
+} array_axis_3d ;
+
 // index pair for 2D array
 typedef struct{
   int32_t i  ;
@@ -154,6 +165,31 @@ static inline array_axis split_axis_min(int n, int bsize, int minsize){
     if(r.nbk == 1) r.ln1 = 0 ;
   }else{                                 // n or bsize <= 0
     r = AXIS_NULL ;
+  }
+  return r ;
+}
+
+// ==================== 2/3 D split along axis ====================
+
+static inline array_axis_2d split_axis_2d(int gni, int gnj, int bszi, int aspect){
+  array_axis_2d r = { AXIS_NULL, AXIS_NULL} ;
+  if(gni > 0 && gnj > 0){
+    bszi = (bszi <= 0) ? 64 : bszi ;
+    aspect = (aspect <= 0) ? 1 : aspect ;
+    r.x = split_axis(gni, bszi)  ;
+    r.y = split_axis_min(gnj, bszi*aspect, bszi/2)  ;
+  }
+  return r ;
+}
+
+static inline array_axis_3d split_axis_3d(int gni, int gnj, int gnk, int bszi, int aspect){
+  array_axis_3d r = { AXIS_NULL, AXIS_NULL, AXIS_NULL} ;
+  if(gni > 0 && gnj > 0 && gnk > 0){
+    bszi = (bszi <= 0) ? 64 : bszi ;
+    aspect = (aspect <= 0) ? 1 : aspect ;
+    r.x = split_axis(gni, bszi)  ;
+    r.y = split_axis_min(gnj, bszi*aspect, bszi/2)  ;
+    r.z.nbk = gnk ; r.z.ln0 = r.z.ln1 = 1 ;
   }
   return r ;
 }

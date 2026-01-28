@@ -12,7 +12,7 @@
 // Library General Public License for more details.
 //
 // Author:
-//     M. Valin,   Recherche en Prevision Numerique, 2024
+//     M. Valin,   Recherche en Prevision Numerique, 2024-2026
 //
 // data zblocks layout example (2D example)
 //
@@ -175,8 +175,8 @@ typedef struct{            // file header
     uint32_t version : 8,  // version marker (MUST BE the same as in memory header)
              stripe  : 6,  // aspect ratio (size along j = stripe * size along i)
              ztype   : 2,  // (i,j) to index mapping type (0 = linear, 1 = Morton, 2 = stripes)
-             mextra  : 8,  // extra global info length (in 32 bit units) (after size table)
-             flags   : 8;  // reserved for global flags
+//              mextra  : 8,  // extra global info length (in 32 bit units) (after size table)
+             flags   :16;  // reserved for global flags
     int32_t  gni ;         // first dimension of data array   = lix + (zni - 1) * lni (row size)
     int32_t  zni ;         // number of blocks in a row
     int32_t  lni:16 ,      // first dimension of all but first block (number of values)
