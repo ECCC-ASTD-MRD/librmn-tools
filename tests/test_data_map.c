@@ -94,10 +94,12 @@ static zmap *array_to_zmap(zmap *map, array_2d *a_in, sfn_ptr fn, sfn_args *fnar
   a = *a_in ;
   int32_t esize = a.esize ;
 
-  fprintf(stderr, "array_to_zmap : stripe = %d, esize = %d\n", map->fhead.stripe, esize) ;
+//   fprintf(stderr, "array_to_zmap : aspect = %d, esize = %d\n", map->fhead.aspect, esize) ;
+  fprintf(stderr, "array_to_zmap : aspect = %d, esize = %d\n", 1, esize) ;
   fprintf(stderr, "map block sizes : ") ;for(zx=0 ; zx < map->fhead.zni * map->fhead.znj ; zx++){ fprintf(stderr, "%4d ",map->size[zx]);}  fprintf(stderr, "\n") ;
   for(zx=0 ; zx < map->fhead.zni * map->fhead.znj ; zx++){  // loop over zindex
-    index_pair  ijp = Zindex_to_ij(zx, map->fhead.zni, map->fhead.znj, map->fhead.stripe) ;
+//     index_pair  ijp = Zindex_to_ij(zx, map->fhead.zni, map->fhead.znj, map->fhead.aspect) ;
+    index_pair  ijp = Zindex_to_ij(zx, map->fhead.zni, map->fhead.znj, 1) ;
     ij_range ijr = map_block_limits(map, ijp.i, ijp.j) ;
     int32_t gni = a.dim[0].gnn ;
     int32_t i0 = ijr.i0 ;
@@ -158,6 +160,7 @@ int main(int argc, char **argv){
   index_pair ijp ;
   index_range irange ;
   ij_range ijr ;
+  char *msg = "" ;
 
   if(argc > 1 && argv[0] == NULL) return 1 ;  // useless code to get rid of compiler warning
 //   if(argc > 0) return 0 ;
@@ -192,14 +195,14 @@ int main(int argc, char **argv){
 //       if(ijp.i != i0+1 || ijp.j != i0+lb){
       if(irange.ix0 != i0+1 || irange.ixn != i0+lb){
         fprintf(stderr, "ERROR: block %d limits, expected [%d,%d], got [%d,%d]\n", j, i0+1, i0+lb, irange.ix0, irange.ixn) ;
-        exit(1) ;
+        goto fail ;
       }
       for(i=0 ; i<lb ; i++){
         i0++ ;
         l = b_index(i0, ln, ln0) ;
         if(l != j){
           fprintf(stderr, "ERROR: index = %d, ln0 = %d, ln = %d, expecting block %d, got %d\n", i0, ln0, ln, j, l) ;
-          exit(1) ;
+          goto fail ;
         }
       }
     }
@@ -217,7 +220,7 @@ int main(int argc, char **argv){
       ijp   = Zindex_to_ij(y[i], NTI, NTJ, SF0) ;
       if(ijp.i != i || ijp.j != j){
         fprintf(stderr, "ERROR: zij = %3d, expecting i,j = (%2d,%2d), got (%2d,%2d)\n", x[i], i, j, ijp.i, ijp.j) ;
-        exit(1) ;
+        goto fail ;
       }
     }
     if(argc > 1){
@@ -243,19 +246,29 @@ int main(int argc, char **argv){
   fprintf(stderr, "SUCCESS\n") ;
 
   fprintf(stderr, "=============== data map creation ===============\n") ;
-  int gni = 128+65, gnj = 128+33, stripe = 2 ;
-  zmap *map = new_zmap(gni, gnj, stripe, sizeof(uint32_t), 0);
-  if(map == NULL) exit(1) ;
-  if(map->fhead.zni != 3 || map->fhead.znj != 3) exit(1) ;
+  int gni = 128+65, gnj = 256+33, aspect = 2 ;
+  size_t esize = sizeof(uint32_t) ;
+  zmap *map = new_zmap(gni, gnj, 1, 64, aspect, esize, 0);
+  msg = "map == NULL" ;
+  if(map == NULL) goto fail ;
+
+  print_zmap(map, "gni = 128+65, gnj = 256+33, aspect = 2") ;
+  msg = "map->fhead.zni != 3 || map->fhead.znj != 3" ;
+  if(map->fhead.zni != 3 || map->fhead.znj != 3) goto fail ;
+  znij = map->fhead.zni * map->fhead.znj ;
 
   fprintf(stderr, "size of preamble = %ld\n", (uint8_t *)&(map->fhead.signature) - (uint8_t *)&(map->mhead.signature)) ;
-  fprintf(stderr, "size of array_nd = %ld\n", sizeof(array_nd));
-  fprintf(stderr, "size of array_1d = %ld\n", sizeof(array_1d));
-  fprintf(stderr, "size of array_2d = %ld\n", sizeof(array_2d));
-  fprintf(stderr, "size of array_3d = %ld\n", sizeof(array_3d));
-  fprintf(stderr, "size of array_4d = %ld\n", sizeof(array_4d));
-  fprintf(stderr, "size of array_5d = %ld\n", sizeof(array_5d));
+//   fprintf(stderr, "size of array_nd = %ld\n", sizeof(array_nd));
+//   fprintf(stderr, "size of array_1d = %ld\n", sizeof(array_1d));
+//   fprintf(stderr, "size of array_2d = %ld\n", sizeof(array_2d));
+//   fprintf(stderr, "size of array_3d = %ld\n", sizeof(array_3d));
+//   fprintf(stderr, "size of array_4d = %ld\n", sizeof(array_4d));
+//   fprintf(stderr, "size of array_5d = %ld\n", sizeof(array_5d));
 
+  msg = "bsize_zmap failed" ;
+  if(znij != bsize_zmap(map, esize)) goto fail ;    // create sizes
+  msg = "fillmem_zmap failed" ;
+  if(znij != fillmem_zmap(map)) goto fail ;          // adjust map->mem
   zblocks *mem = map->mhead.mem ;
   znij = map->fhead.zni * map->fhead.znj ;
   fprintf(stderr, "size from old pointer table[%d] :", znij);
@@ -264,7 +277,8 @@ int main(int argc, char **argv){
   fprintf(stderr, "size from old sizes table  [%d] :", znij);
   for(i=0 ; i < znij ; i++) fprintf(stderr, "%6d", map->size[i]) ;
   fprintf(stderr, "\n");
-  for(i=0 ; i < znij ; i++) if(map->size[i] != (mem[i+1] - mem[i])) exit(1) ;
+  msg = "map->size[i] != (mem[i+1] - mem[i])" ;
+  for(i=0 ; i < znij ; i++) if(map->size[i] != (mem[i+1] - mem[i])) goto fail ;
   fprintf(stderr, "SUCCESS\n") ;
 
   free_zmap(map, 0) ;             // partial free (only mem table)
@@ -276,7 +290,7 @@ int main(int argc, char **argv){
   fprintf(stderr, "size from old sizes table  [%d] :", znij);
   for(i=0 ; i < znij ; i++) fprintf(stderr, "%6d", map->size[i]) ;
   fprintf(stderr, "\n");
-  for(i=0 ; i < znij ; i++) if(map->size[i] != (mem[i+1] - mem[i])) exit(1) ;
+  for(i=0 ; i < znij ; i++) if(map->size[i] != (mem[i+1] - mem[i])) goto fail ;
   fprintf(stderr, "SUCCESS\n") ;
 
   fprintf(stderr, "=============== data map sizes reduce ===============\n") ;
@@ -285,7 +299,7 @@ int main(int argc, char **argv){
   for(i=0 ; i<znij ; i++) map->size[i] -= 2 ;
   uint32_t newsize = repack_map(map) ;
   fprintf(stderr, "packed data size = %6d\n", newsize) ;
-  if(newsize != oldsize - 2*znij) exit(1) ;
+  if(newsize != oldsize - 2*znij) goto fail ;
   fprintf(stderr, "SUCCESS\n") ;
   fprintf(stderr, "size from new pointer table[%d] :", znij);
   for(i=0 ; i < znij ; i++) fprintf(stderr, "%6ld", mem[i+1] - mem[i]) ;
@@ -293,7 +307,7 @@ int main(int argc, char **argv){
   fprintf(stderr, "size from new sizes table  [%d] :", znij);
   for(i=0 ; i < znij ; i++) fprintf(stderr, "%6d", map->size[i]) ;
   fprintf(stderr, "\n");
-  for(i=0 ; i < znij ; i++) if(map->size[i] != (mem[i+1] - mem[i])) exit(1) ;
+  for(i=0 ; i < znij ; i++) if(map->size[i] != (mem[i+1] - mem[i])) goto fail ;
   fprintf(stderr, "SUCCESS\n") ;
 
   fprintf(stderr, "=============== data map sizes restore ===============\n") ;
@@ -311,7 +325,7 @@ int main(int argc, char **argv){
     ijr = map_block_limits(map, 0, 0) ;       // no more warning about possibility of ijr.j0 to be uninitialized
     for(i = 0 ; i < (int)map->fhead.zni ; i++){
       ijr = map_block_limits(map, i, j-1) ;
-//       zx = Zindex_from_ij(i, j-1, map->fhead.zni, map->fhead.znj, map->fhead.stripe);
+//       zx = Zindex_from_ij(i, j-1, map->fhead.zni, map->fhead.znj, map->fhead.aspect);
       zx = Z_map_index(map, i, j-1) ;
       fprintf(stderr, "data[%4d:%4d,%4d:%4d](Z %2d)  ", ijr.i0, ijr.in, ijr.j0, ijr.jn, zx) ;
     }
@@ -329,11 +343,11 @@ int main(int argc, char **argv){
   new_array(&a2d, NULL, 4, uint_data, map->fhead.gni, map->fhead.gnj) ;  // create 2D array, map->fhead.gni x map->fhead.gnj
   fill_array(&a2d) ;
   zmap *result = array_to_zmap(map, &a2d, NULL, NULL) ;
-  if(result == NULL) exit(1) ;
+  if(result == NULL) goto fail ;
   fprintf(stderr, "SUCCESS\n") ;
   return 0 ;
 
 fail:
-  fprintf(stderr, "FAIL\n") ;
+  fprintf(stderr, "FAIL : %s\n", msg) ;
   return 1 ;
 }

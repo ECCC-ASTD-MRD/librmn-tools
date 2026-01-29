@@ -52,7 +52,7 @@ static void minmax(float *f, int32_t n, float *fmin, float *fmax){
 int main(int argc, char **argv){
   char *filename = NULL, *msg = "" ;
   float quant = 0.0, minsig = 0.0, min, max, zval = 0.0 ;
-  int32_t nij, dims[10], ndim = 0, fd = 0, ndata, ncases = 0, j, nbits = 16, stripe = 1, mextra = 0 ;
+  int32_t nij, dims[10], ndim = 0, fd = 0, ndata, ncases = 0, j, nbits = 16, aspect = 1, mextra = 0 ;
   void *buf ;
   array_axis i_axis, j_axis ;
   zmap *map ;
@@ -99,7 +99,7 @@ int main(int argc, char **argv){
     fprintf(stderr, " [%2d blocks %2d,%2d] [%2d blocks %2d,%2d]\n", i_axis.nbk, i_axis.ln0, i_axis.ln1, j_axis.nbk, j_axis.ln0, j_axis.ln1) ;
 
     // create data map (mextra = 16 bytes)
-    map = new_zmap(dims[0], dims[1], stripe = 1, sizeof(int32_t), mextra = 16) ;
+    map = new_zmap(dims[0], dims[1], 1, 64, aspect = 1, sizeof(int32_t), mextra = 16) ;
     free_zmap(map, 1) ;
 //     nw32 = map_compress_2d(buf, dims, map, filters, bitstream) ;
 

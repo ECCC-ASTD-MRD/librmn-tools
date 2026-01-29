@@ -170,22 +170,24 @@ typedef struct{
 // TODO: add flags for 3D storage ni/nj/nk vs nk/ni/nj vs ... and compression(2D/3D)
 // TODO: add flags for Z ordering algorithm kind (Morton order, stripes, ...)
 // TODO: finalize what is needed and what is not needed
+// NOTE : signature, version, stripe, ztype, flags can probably be moved out of fmap.
+//        leaving in fmap only the spatial decomposition
 typedef struct{            // file header
     uint32_t signature ;   // should be 0xBEBEFADA, target for & operator to get address of header
-    uint32_t version : 8,  // version marker (MUST BE the same as in memory header)
-             stripe  : 6,  // aspect ratio (size along j = stripe * size along i)
-             ztype   : 2,  // (i,j) to index mapping type (0 = linear, 1 = Morton, 2 = stripes)
+    uint16_t version ;     // version marker (MUST BE the same as in memory header)
+    uint16_t  flags ;      // reserved for global flags
+//              stripe  : 6,  // aspect ratio (size along j = stripe * size along i)
+//              ztype   : 2,  // (i,j) to index mapping type (0 = linear, 1 = Morton, 2 = stripes)
 //              mextra  : 8,  // extra global info length (in 32 bit units) (after size table)
-             flags   :16;  // reserved for global flags
     int32_t  gni ;         // first dimension of data array   = lix + (zni - 1) * lni (row size)
-    int32_t  zni ;         // number of blocks in a row
-    int32_t  lni:16 ,      // first dimension of all but first block (number of values)
-             lix:16 ;      // first dimension of the first block in row
     int32_t  gnj ;         // second dimension of data array  = ljx + (znj - 1) * lnj (column size)
-    int32_t  znj ;         // number of block rows
-    int32_t  lnj:16 ,      // second dimension of all but first block (number of values)
-             ljx:16 ;      // second dimension of blocks in the first (bottom) row
     int32_t  gnk ;         // third dimension of data array ( 1 for 2D data)
+    int16_t  zni ;         // number of blocks in a row
+    int16_t  lni ;         // first dimension of all but first block (number of values)
+    int16_t  lix ;         // first dimension of the first block in row
+    int16_t  znj ;         // number of block rows
+    int16_t  lnj ;         // second dimension of all but first block (number of values)
+    int16_t  ljx ;         // second dimension of blocks in the first (bottom) row
 //     int32_t  znk:16 ,      // number of block planes ( 1 for 2D data)
 //              lnk: 8 ,      // third dimension of data blocks
 //              lkx: 8 ;      // third dimension of data blocks in the first(bottom) plane
@@ -194,9 +196,8 @@ typedef struct{            // file header
 
 typedef struct{            // in memory header
     uint32_t signature ;   // should be 0x1AD0FADA, target for & operator to get address of header
-    uint32_t version: 8,   // version marker (MUST BE the same as in file header)
-              spare :16,
-              flags : 8 ;  // reserved for internal use flags
+    uint16_t version ;     // version marker (MUST BE the same as in file header)
+    uint16_t  flags ;      // reserved for internal use flags
     zblocks  *mem ;        // table[zni*znj] : memory addresses of encoded blocks in memory
 //     uint8_t  *options ;    // same dimension as size, options associated with each encoded block (may be NULL)
     uint32_t *first ;      // start of bit stream
@@ -217,6 +218,7 @@ typedef struct{
   // ---------------- sizes table ----------------
   uint16_t size[] ;        // size (in 32 bit units) of encoded blocks ( size[znj*zni] )
   // if znj*zni is odd, there is a supplementary uint16_t (padding to multiple of uint32_t length)
+  // ---------------- global metadata ----------------
   // if mextra is not 0, mextra uint32_t items are added after the size table
   // ---------------- end of data map ----------------
 }zmap ;
@@ -276,13 +278,14 @@ int32_t  Z_map_index(zmap *map, int32_t i, int32_t j);
 index_pair  block_index(zmap *map, int32_t i, int32_t j);
 ij_range map_block_limits(zmap *map, int32_t i, int32_t j);
 
-zmap    *new_zmap(int32_t gni, int32_t gnj, int32_t stripe, size_t esize, int32_t extra);
-// zmap    *new_zmap(int32_t gni, int32_t gnj, int32_t stripe, size_t esize, int32_t extra,
-//                   int32_t blocksize, int32_t *data, int32_t *mem);
+zmap    *new_zmap(int32_t gni, int32_t gnj, int32_t gnk, int32_t bsize, int32_t aspect, size_t esize, int32_t extra);
 zblocks *mem_zmap(zmap *map, uint32_t *data, size_t size);
+int bsize_zmap(zmap *map, size_t esize);
+int fillmem_zmap(zmap *map);
 ssize_t repack_map(zmap *map);
 ssize_t resize_map(zmap *map);
 int     free_zmap(zmap *map, int full);
+void print_zmap(zmap *map, char *msg);
 
 static inline int zmap_index_invalid(zmap *map, int index){
   return (index < 0 || index >= map->fhead.zni * map->fhead.znj) ;
