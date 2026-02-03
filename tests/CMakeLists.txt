@@ -232,6 +232,7 @@ add_project_test(test_array_nd             test_array_nd.c             LINK_LIBS
 # to be added to librmn tests
 # add_project_test(test_tile_encoders        test_tile_encoders.c        LINK_LIBS "rmn::rmn;libaec::aec"                 NODIAG)
 add_project_test(test_tile_encoders        test_tile_encoders.c        LINK_LIBS "rmn::rmn"                 NODIAG)
+add_project_test(test_move_bhd_blocks      test_move_bhd_blocks.c      LINK_LIBS "rmn::rmn"                 NODIAG)
 
 # added to librmn tests
 add_project_test(test_move_blocks          test_move_blocks.c          LINK_LIBS "rmn::rmn"        NO_TOOLS NODIAG)

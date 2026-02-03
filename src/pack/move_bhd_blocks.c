@@ -14,7 +14,7 @@
 // Author:
 //     M. Valin,   Recherche en Prevision Numerique, 2026
 //
-
+#include <stdio.h>
 #include <rmn/move_bhd_blocks.h>
 
 #include <rmn/identify_fc_compiler.h>
@@ -34,6 +34,7 @@
 // get subarray of u8 into u32 block (unsigned)
 void move_u8_to_u32(uint32_t *w, uint8_t *bhd, int lni, int ni, int nj){  // unsigned 8 -> 32
   int i ;
+fprintf(stderr, "move_u8_to_u32, lni = %d, ni = %d, nj = %d\n", lni, ni, nj) ;
   while(nj-- > 0){
     for(i=0 ; i<ni; i++){ w[i] = bhd[i]; };
     w   +=  ni ;
@@ -43,8 +44,10 @@ void move_u8_to_u32(uint32_t *w, uint8_t *bhd, int lni, int ni, int nj){  // uns
 //
 // store subarray of u8 from u32 block (unsigned)
 void move_u32_to_u8(uint8_t *bhd, uint32_t *w, int lni, int ni, int nj){  // unsigned 32 -> 8
-  int i ;
+  int i, iter = 0 ;
+fprintf(stderr, "move_u32_to_u8, lni = %d, ni = %d, nj = %d\n", lni, ni, nj) ;
   while(nj-- > 0){
+    iter++ ;
     for(i=0 ; i<ni; i++){ bhd[i] = (w[i] > UINT8_MAX) ? UINT8_MAX : w[i] ; };
     w   +=  ni ;
     bhd += lni ;
@@ -54,6 +57,7 @@ void move_u32_to_u8(uint8_t *bhd, uint32_t *w, int lni, int ni, int nj){  // uns
 // get subarray of i8 into i32 block (signed)
 void move_i8_to_i32(int32_t *w, int8_t *bhd, int lni, int ni, int nj){  // signed 8 -> 32
   int i ;
+fprintf(stderr, "move_i8_to_i32, lni = %d, ni = %d, nj = %d\n", lni, ni, nj) ;
   while(nj-- > 0){
     for(i=0 ; i<ni; i++){ w[i] = bhd[i]; };
     w   +=  ni ;
@@ -64,6 +68,7 @@ void move_i8_to_i32(int32_t *w, int8_t *bhd, int lni, int ni, int nj){  // signe
 // store subarray of u8 from i32 block (signed)
 void move_i32_to_i8(int8_t *bhd, int32_t *w, int lni, int ni, int nj){  // signed 32 -> 8
   int i ;
+fprintf(stderr, "move_i32_to_i8, lni = %d, ni = %d, nj = %d\n", lni, ni, nj) ;
   while(nj-- > 0){
     for(i=0 ; i<ni; i++){ int32_t t = w[i] ; t = (t>INT8_MAX) ? INT8_MAX : t ; t = (t < INT8_MIN) ? INT8_MIN : t ; bhd[i] =t; };
     w   +=  ni ;
@@ -82,6 +87,7 @@ void move_i32_to_i8(int8_t *bhd, int32_t *w, int lni, int ni, int nj){  // signe
 // get subarray of u16 into u32 block (unsigned)
 void move_u16_to_u32(uint32_t *w, uint16_t *bhd, int lni, int ni, int nj){  // unsigned 16 -> 32
   int i ;
+fprintf(stderr, "move_u16_to_u32, lni = %d, ni = %d, nj = %d\n", lni, ni, nj) ;
   while(nj-- > 0){
     for(i=0 ; i<ni; i++){ w[i] = bhd[i]; };
     w   +=  ni ;
@@ -92,6 +98,7 @@ void move_u16_to_u32(uint32_t *w, uint16_t *bhd, int lni, int ni, int nj){  // u
 // store subarray of u16 from u32 block (unsigned)
 void move_u32_to_u16(uint16_t *bhd, uint32_t *w, int lni, int ni, int nj){  // unsigned 32 -> 16
   int i ;
+fprintf(stderr, "move_u32_to_u16, lni = %d, ni = %d, nj = %d\n", lni, ni, nj) ;
   while(nj-- > 0){
     for(i=0 ; i<ni; i++){ bhd[i] = (w[i] > UINT16_MAX) ? UINT16_MAX : w[i] ; };
     w   +=  ni ;
@@ -102,6 +109,7 @@ void move_u32_to_u16(uint16_t *bhd, uint32_t *w, int lni, int ni, int nj){  // u
 // get subarray of i16 into i32 block (signed)
 void move_i16_to_i32(int32_t *w, int16_t *bhd, int lni, int ni, int nj){  // signed 16 -> 32
   int i ;
+fprintf(stderr, "move_i16_to_i32, lni = %d, ni = %d, nj = %d\n", lni, ni, nj) ;
   while(nj-- > 0){
     for(i=0 ; i<ni; i++){ w[i] = bhd[i]; };
     w   +=  ni ;
@@ -112,6 +120,7 @@ void move_i16_to_i32(int32_t *w, int16_t *bhd, int lni, int ni, int nj){  // sig
 // store subarray of i16 from i32 block (signed)
 void move_i32_to_i16(int16_t *bhd, int32_t *w, int lni, int ni, int nj){  // signed 32 -> 16
   int i ;
+fprintf(stderr, "move_i32_to_i16, lni = %d, ni = %d, nj = %d\n", lni, ni, nj) ;
   while(nj-- > 0){
     for(i=0 ; i<ni; i++){ int32_t t = w[i] ; t = (t>INT16_MAX) ? INT16_MAX : t ; t = (t < INT16_MIN) ? INT16_MIN : t ; bhd[i] =t; };
     w   +=  ni ;
@@ -130,6 +139,7 @@ void move_i32_to_i16(int16_t *bhd, int32_t *w, int lni, int ni, int nj){  // sig
 // get subarray of u64 into u32 block (unsigned)
 void move_u64_to_u32(uint32_t *w, uint64_t *bhd, int lni, int ni, int nj){  // unsigned 64 -> 32
   int i ;
+fprintf(stderr, "move_u64_to_u32, lni = %d, ni = %d, nj = %d\n", lni, ni, nj) ;
   while(nj-- > 0){
     for(i=0 ; i<ni; i++){ w[i] = (bhd[i] > UINT32_MAX) ? UINT32_MAX : bhd[i] ; };
     w   +=  ni ;
@@ -140,6 +150,7 @@ void move_u64_to_u32(uint32_t *w, uint64_t *bhd, int lni, int ni, int nj){  // u
 // store subarray of u64 from u32 block (signed)
 void move_u32_to_u64(uint64_t *bhd, uint32_t *w, int lni, int ni, int nj){  // unsigned 32 -> 64
   int i ;
+fprintf(stderr, "move_u32_to_u64, lni = %d, ni = %d, nj = %d\n", lni, ni, nj) ;
   while(nj-- > 0){
     for(i=0 ; i<ni; i++){ bhd[i] = w[i]; };
     w   +=  ni ;
@@ -150,6 +161,7 @@ void move_u32_to_u64(uint64_t *bhd, uint32_t *w, int lni, int ni, int nj){  // u
 // get subarray of i64 into i32 block (unsigned)
 void move_i64_to_i32(int32_t *w, int64_t *bhd, int lni, int ni, int nj){  // signed 64 -> 32
   int i ;
+fprintf(stderr, "move_i64_to_i32, lni = %d, ni = %d, nj = %d\n", lni, ni, nj) ;
   while(nj-- > 0){
     for(i=0 ; i<ni; i++){ int64_t t = bhd[i] ; t = (t>INT32_MAX) ? INT32_MAX : t ; t = (t < INT32_MIN) ? INT32_MIN : t ; w[i] =t; };
     w   +=  ni ;
@@ -160,6 +172,7 @@ void move_i64_to_i32(int32_t *w, int64_t *bhd, int lni, int ni, int nj){  // sig
 // store subarray of i64 from i32 block (signed)
 void move_i32_to_i64(int64_t *bhd, int32_t *w, int lni, int ni, int nj){  // signed 32 -> 64
   int i ;
+fprintf(stderr, "move_i32_to_i64, lni = %d, ni = %d, nj = %d\n", lni, ni, nj) ;
   while(nj-- > 0){
     for(i=0 ; i<ni; i++){ bhd[i] = w[i]; };
     w   +=  ni ;
@@ -177,6 +190,7 @@ void move_i32_to_i64(int64_t *bhd, int32_t *w, int lni, int ni, int nj){  // sig
 //
 void move_d64_to_f32(float *fp, double *dp, int lni, int ni, int nj){
   int i ;
+fprintf(stderr, "move_d64_to_f32, lni = %d, ni = %d, nj = %d\n", lni, ni, nj) ;
   while(nj-- > 0){
     for(i=0 ; i<ni ; i++){ fp[i] = dp[i] ; }
     fp +=  ni ;
@@ -186,6 +200,7 @@ void move_d64_to_f32(float *fp, double *dp, int lni, int ni, int nj){
 //
 void move_f32_to_d64(double *dp, float *fp, int lni, int ni, int nj){
   int i ;
+fprintf(stderr, "move_f32_to_d64, lni = %d, ni = %d, nj = %d\n", lni, ni, nj) ;
   while(nj-- > 0){
     for(i=0 ; i<ni ; i++){ dp[i] = fp[i] ; }
     fp +=  ni ;
