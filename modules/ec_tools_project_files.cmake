@@ -35,6 +35,7 @@ set(PROJECT_C_FILES
   src/pack/misc_operators.c
   src/pack/misc_pack.c
 #   src/pack/move_blocks.c
+  src/pack/move_bhd_blocks.c
   src/pack/pipe_filters.c
   src/pack/pixmaps.c
   src/plugins/plugin_code.c
