@@ -12,13 +12,12 @@
 // Library General Public License for more details.
 //
 // Author:
-//     M. Valin,   Recherche en Prevision Numerique, 2025
+//     M. Valin,   Recherche en Prevision Numerique, 2026
 //
 
-#include <stdint.h>
+#include <rmn/move_bhd_blocks.h>
 
 #include <rmn/identify_fc_compiler.h>
-
 #if defined(COMPILER_IS_GCC)
 #pragma GCC optimize "tree-vectorize"
 #endif
