@@ -35,6 +35,20 @@ typedef void (* bhwd_fn)(void *, void *, int, int, int) ;
                          default    : 0 \
                          )
 
+#define block_type_name(what) _Generic((what), \
+                              uint8_t   *: "uint8_t" , uint8_t    : "uint8_t" , \
+                              int8_t    *: "int8_t"  , int8_t     : "int8_t"  , \
+                              uint16_t  *: "uint16_t", uint16_t   : "uint16_t", \
+                              int16_t   *: "int16_t" , int16_t    : "int16_t" , \
+                              int32_t   *: "int32_t" , int32_t    : "int32_t" , \
+                              uint32_t  *: "uint32_t", uint32_t   : "uint32_t", \
+                              float     *: "float"   , float      : "float"   , \
+                              uint64_t  *: "uint64_t", uint64_t   : "uint64_t", \
+                              int64_t   *: "int64_t" , int64_t    : "int64_t" , \
+                              double    *: "double"  , double     : "double"  , \
+                              default    : "UNKNOWN" \
+                              )
+
 #define from_block_fn(src) _Generic((src), \
                            uint8_t  *: (bhwd_fn)move_u32_to_u8 , uint8_t  : (bhwd_fn)move_u32_to_u8 , \
                            int8_t   *: (bhwd_fn)move_i32_to_i8 , int8_t   : (bhwd_fn)move_i32_to_i8 , \
@@ -97,35 +111,35 @@ typedef void (* bhwd_fn)(void *, void *, int, int, int) ;
 // array section to block movers
 // blocks are contiguous 32 bit arrays
 
-void move_u8_to_u32(uint32_t *w   , uint8_t *bhwd , int lni, int ni, int nj);  // unsigned 8 -> 32
-void move_u32_to_u8(uint8_t *bhwd  , uint32_t *w  , int lni, int ni, int nj);  // unsigned 32 -> 8
+void move_u8_to_u32(uint32_t * restrict w   , uint8_t * restrict bhwd , int lni, int ni, int nj);  // unsigned 8 -> 32
+void move_u32_to_u8(uint8_t * restrict bhwd  , uint32_t * restrict w  , int lni, int ni, int nj);  // unsigned 32 -> 8
 
-void move_i8_to_i32(int32_t *w    , int8_t *bhwd  , int lni, int ni, int nj);  // signed 8 -> 32
-void move_i32_to_i8(int8_t *bhwd   , int32_t *w   , int lni, int ni, int nj);  // signed 32 -> 8
+void move_i8_to_i32(int32_t * restrict w    , int8_t * restrict bhwd  , int lni, int ni, int nj);  // signed 8 -> 32
+void move_i32_to_i8(int8_t * restrict bhwd   , int32_t * restrict w   , int lni, int ni, int nj);  // signed 32 -> 8
 
-void move_u16_to_u32(uint32_t *w  , uint16_t *bhwd, int lni, int ni, int nj);  // unsigned 16 -> 32
-void move_u32_to_u16(uint16_t *bhwd, uint32_t *w  , int lni, int ni, int nj);  // unsigned 32 -> 16
+void move_u16_to_u32(uint32_t * restrict w  , uint16_t * restrict bhwd, int lni, int ni, int nj);  // unsigned 16 -> 32
+void move_u32_to_u16(uint16_t * restrict bhwd, uint32_t * restrict w  , int lni, int ni, int nj);  // unsigned 32 -> 16
 
-void move_i16_to_i32(int32_t *w   , int16_t *bhwd , int lni, int ni, int nj);  // signed 16 -> 32
-void move_i32_to_i16(int16_t *bhwd , int32_t *w   , int lni, int ni, int nj);  // signed 32 -> 16
+void move_i16_to_i32(int32_t * restrict w   , int16_t * restrict bhwd , int lni, int ni, int nj);  // signed 16 -> 32
+void move_i32_to_i16(int16_t * restrict bhwd , int32_t * restrict w   , int lni, int ni, int nj);  // signed 32 -> 16
 
-void move_u32_to_blk(uint32_t *blk, uint32_t *w32, int lni, int ni, int nj);  // array 32 -> block 32 (unsigned)
-void move_blk_to_u32(uint32_t *w32, uint32_t *blk, int lni, int ni, int nj);  // block 32 -> array 32 (unsigned)
+void move_u32_to_blk(uint32_t * restrict blk, uint32_t * restrict w32, int lni, int ni, int nj);   // array 32 -> block 32 (unsigned)
+void move_blk_to_u32(uint32_t * restrict w32, uint32_t * restrict blk, int lni, int ni, int nj);   // block 32 -> array 32 (unsigned)
 
-void move_i32_to_blk(int32_t *blk , int32_t *w32 , int lni, int ni, int nj);  // array 32 -> block 32 (signed)
-void move_blk_to_i32(int32_t *w32 , int32_t *blk , int lni, int ni, int nj);  // block 32 -> array 32 (signed)
+void move_i32_to_blk(int32_t * restrict blk , int32_t * restrict w32 , int lni, int ni, int nj);   // array 32 -> block 32 (signed)
+void move_blk_to_i32(int32_t * restrict w32 , int32_t * restrict blk , int lni, int ni, int nj);   // block 32 -> array 32 (signed)
 
-void move_flt_to_blk(float *blk   , float *w32   , int lni, int ni, int nj);  // array 32 -> block 32 (float)
-void move_blk_to_flt(float *w32   , float *blk   , int lni, int ni, int nj);  // block 32 -> array 32 (float)
+void move_flt_to_blk(float * restrict blk   , float * restrict w32   , int lni, int ni, int nj);   // array 32 -> block 32 (float)
+void move_blk_to_flt(float * restrict w32   , float * restrict blk   , int lni, int ni, int nj);   // block 32 -> array 32 (float)
 
-void move_u64_to_u32(uint32_t *w  , uint64_t *bhwd, int lni, int ni, int nj);  // unsigned 64 -> 32
-void move_u32_to_u64(uint64_t *bhwd, uint32_t *w  , int lni, int ni, int nj);  // unsigned 32 -> 64
+void move_u64_to_u32(uint32_t * restrict w  , uint64_t * restrict bhwd, int lni, int ni, int nj);  // unsigned 64 -> 32
+void move_u32_to_u64(uint64_t * restrict bhwd, uint32_t * restrict w  , int lni, int ni, int nj);  // unsigned 32 -> 64
 
-void move_i64_to_i32(int32_t *w   , int64_t *bhwd , int lni, int ni, int nj);  // signed 64 -> 32
-void move_i32_to_i64(int64_t *bhwd , int32_t *w   , int lni, int ni, int nj);  // signed 32 -> 64
+void move_i64_to_i32(int32_t * restrict w   , int64_t * restrict bhwd , int lni, int ni, int nj);  // signed 64 -> 32
+void move_i32_to_i64(int64_t * restrict bhwd , int32_t * restrict w   , int lni, int ni, int nj);  // signed 32 -> 64
 
-void move_d64_to_f32(float *fp    , double *dp   , int lni, int ni, int nj);  // double -> float
-void move_f32_to_d64(double *dp   , float *fp    , int lni, int ni, int nj);  // float -> double
+void move_d64_to_f32(float * restrict fp    , double * restrict dp   , int lni, int ni, int nj);   // double -> float
+void move_f32_to_d64(double * restrict dp   , float * restrict fp    , int lni, int ni, int nj);   // float -> double
 
 #define block2bhwd(dst,...) _Generic((dst), \
                             uint8_t   *: move_u32_to_u8,  \

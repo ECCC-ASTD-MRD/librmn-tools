@@ -52,24 +52,28 @@ int main(int argc, char **argv){
 
 // syntax check
 
-  fprintf(stderr, "char code = %d(%d), fn = %p/%p, '%s/%s'\n",
-          block_type(dummy), block_type(dummy[0]), to_block_fn(dummy), from_block_fn(dummy), to_block_name(dummy), from_block_name(dummy));
+  fprintf(stderr, "char code = %d(%s), fn = %p/%p, '%s/%s'\n",
+          block_type(dummy), block_type_name(dummy[0]), to_block_fn(dummy), from_block_fn(dummy), to_block_name(dummy), from_block_name(dummy));
 
-  fprintf(stderr, "u8 code = %d(%d), fn = %p/%p, '%s/%s'\n",
-          block_type(src_u8), block_type(src_u8[0]), to_block_fn(src_u8), from_block_fn(src_u8), to_block_name(src_u8), from_block_name(src_u8)) ;
-//   kind = block_type(src_u8) ;
-//   fwd = bhwd_table[kind][FETCH_BLOCK] ;
+  fprintf(stderr, "u8 code = %d(%s), fn = '%s/%s'\n",
+          block_type(src_u8), block_type_name(src_u8[0]), to_block_name(src_u8), from_block_name(src_u8)) ;
   fwd = to_block_fn(src_u8) ;
-//   inv = bhwd_table[kind][STORE_BLOCK] ;
   inv = from_block_fn(src_u8) ;
   bhwd2block(blocku, src_u8, GNI, NI, NJ) ;  // unsigned 8 bit
   (*fwd)(blocku, src_u8, GNI, NI, NJ) ;
   block2bhwd(src_u8, blocku, GNI, NI, NJ) ;
   (*inv)(src_u8, blocku, GNI, NI, NJ) ;
 
+  bhwd2block(blockf, src_u8, GNI, NI, NJ) ;  // failing unsigned 8 bit
+
+  fprintf(stderr, "i8 code = %d(%s), fn = '%s/%s'\n",
+          block_type(src_i8), block_type_name(src_i8[0]), to_block_name(src_i8), from_block_name(src_i8)) ;
+  fwd = to_block_fn(src_i8) ;
+  inv = from_block_fn(src_i8) ;
   bhwd2block(blocki, src_i8, GNI, NI, NJ) ;  // signed 8 bit
+  (*fwd)(blocku, src_i8, GNI, NI, NJ) ;
   block2bhwd(src_i8, blocki, GNI, NI, NJ) ;
-  fprintf(stderr, "i8 code = %d(%d)\n", block_type(src_i8), block_type(src_i8[0])) ;
+  (*inv)(src_i8, blocku, GNI, NI, NJ) ;
 
   bhwd2block(blocku, src_u16, GNI, NI, NJ) ;  // unsigned 16 bit
   block2bhwd(src_u16, blocku, GNI, NI, NJ) ;
@@ -92,7 +96,13 @@ int main(int argc, char **argv){
   bhwd2block(blocki, src_i64, GNI, NI, NJ) ;  // signed 64 bit
   block2bhwd(src_i64, blocki, GNI, NI, NJ) ;
 
+  fprintf(stderr, "d64 code = %d(%s), fn = '%s/%s'\n",
+          block_type(src_d64), block_type_name(src_d64[0]), to_block_name(src_d64), from_block_name(src_d64)) ;
+  fwd = to_block_fn(src_d64) ;
+  inv = from_block_fn(src_d64) ;
   bhwd2block(blockf, src_d64, GNI, NI, NJ) ;  // double 64 bit
+  (*fwd)(blockf, src_d64, GNI, NI, NJ) ;
   block2bhwd(src_d64, blockf, GNI, NI, NJ) ;
+  (*inv)(src_d64, blockf, GNI, NI, NJ) ;
 
 }
