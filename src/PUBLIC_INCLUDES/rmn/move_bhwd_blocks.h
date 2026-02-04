@@ -1,0 +1,156 @@
+// Hopefully useful code for C (memory block movers)
+// Copyright (C) 2026  Recherche en Prevision Numerique
+//
+// This code is free software; you can redistribute it and/or
+// modify it under the terms of the GNU Lesser General Public
+// License as published by the Free Software Foundation,
+// version 2.1 of the License.
+//
+// This code is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+// Library General Public License for more details.
+//
+// Author:
+//     M. Valin,   Recherche en Prevision Numerique, 2026
+//
+
+#if ! defined(block2bhwd)
+
+#include <stdint.h>
+
+typedef void (* bhwd_fn)(void *, void *, int, int, int) ;
+
+#define block_type(what) _Generic((what), \
+                         uint8_t   *:  1, uint8_t    :  1,  \
+                         int8_t    *:  2, int8_t     :  2,  \
+                         uint16_t  *:  3, uint16_t   :  3, \
+                         int16_t   *:  4, int16_t    :  4, \
+                         int32_t   *:  5, int32_t    :  5, \
+                         uint32_t  *:  6, uint32_t   :  6, \
+                         float     *:  7, float      :  7, \
+                         uint64_t  *:  8, uint64_t   :  8, \
+                         int64_t   *:  9, int64_t    :  9, \
+                         double    *: 10, double     : 10, \
+                         default    : 0 \
+                         )
+
+#define from_block_fn(src) _Generic((src), \
+                           uint8_t  *: (bhwd_fn)move_u32_to_u8 , uint8_t  : (bhwd_fn)move_u32_to_u8 , \
+                           int8_t   *: (bhwd_fn)move_i32_to_i8 , int8_t   : (bhwd_fn)move_i32_to_i8 , \
+                           uint16_t *: (bhwd_fn)move_u32_to_u16, uint16_t : (bhwd_fn)move_u32_to_u16, \
+                           int16_t  *: (bhwd_fn)move_i32_to_i16, int16_t  : (bhwd_fn)move_i32_to_i16, \
+                           int32_t  *: (bhwd_fn)move_blk_to_i32, int32_t  : (bhwd_fn)move_blk_to_i32, \
+                           uint32_t *: (bhwd_fn)move_blk_to_u32, uint32_t : (bhwd_fn)move_blk_to_u32, \
+                           float    *: (bhwd_fn)move_blk_to_flt, float    : (bhwd_fn)move_blk_to_flt, \
+                           uint64_t *: (bhwd_fn)move_u32_to_u64, uint64_t : (bhwd_fn)move_u32_to_u64, \
+                           int64_t  *: (bhwd_fn)move_i32_to_i64, int64_t  : (bhwd_fn)move_i32_to_i64, \
+                           double   *: (bhwd_fn)move_f32_to_d64, double   : (bhwd_fn)move_f32_to_d64, \
+                           default   : NULL \
+                           )
+#define from_block_name(src) _Generic((src), \
+                             uint8_t  *: "move_u32_to_u8" , uint8_t  : "move_u32_to_u8" , \
+                             int8_t   *: "move_i32_to_i8" , int8_t   : "move_i32_to_i8" , \
+                             uint16_t *: "move_u32_to_u16", uint16_t : "move_u32_to_u16", \
+                             int16_t  *: "move_i32_to_i16", int16_t  : "move_i32_to_i16", \
+                             int32_t  *: "move_blk_to_i32", int32_t  : "move_blk_to_i32", \
+                             uint32_t *: "move_blk_to_u32", uint32_t : "move_blk_to_u32", \
+                             float    *: "move_blk_to_flt", float    : "move_blk_to_flt", \
+                             uint64_t *: "move_u32_to_u64", uint64_t : "move_u32_to_u64", \
+                             int64_t  *: "move_i32_to_i64", int64_t  : "move_i32_to_i64", \
+                             double   *: "move_f32_to_d64", double   : "move_f32_to_d64", \
+                             default   : "INVALID" \
+                             )
+
+#define to_block_fn(src) _Generic((src), \
+                         uint8_t  *: (bhwd_fn)move_u8_to_u32 , uint8_t  : (bhwd_fn)move_u8_to_u32 , \
+                         int8_t   *: (bhwd_fn)move_i8_to_i32 , int8_t   : (bhwd_fn)move_i8_to_i32 , \
+                         uint16_t *: (bhwd_fn)move_u16_to_u32, uint16_t : (bhwd_fn)move_u16_to_u32, \
+                         int16_t  *: (bhwd_fn)move_i16_to_i32, int16_t  : (bhwd_fn)move_i16_to_i32, \
+                         int32_t  *: (bhwd_fn)move_i32_to_blk, int32_t  : (bhwd_fn)move_i32_to_blk, \
+                         uint32_t *: (bhwd_fn)move_u32_to_blk, uint32_t : (bhwd_fn)move_u32_to_blk, \
+                         float    *: (bhwd_fn)move_flt_to_blk, float    : (bhwd_fn)move_flt_to_blk, \
+                         uint64_t *: (bhwd_fn)move_u64_to_u32, uint64_t : (bhwd_fn)move_u64_to_u32, \
+                         int64_t  *: (bhwd_fn)move_i64_to_i32, int64_t  : (bhwd_fn)move_i64_to_i32, \
+                         double   *: (bhwd_fn)move_d64_to_f32, double   : (bhwd_fn)move_d64_to_f32, \
+                         default   : NULL \
+                         )
+
+#define to_block_name(src) _Generic((src), \
+                           uint8_t  *: "move_u8_to_u32" , uint8_t  : "move_u8_to_u32",  \
+                           int8_t   *: "move_i8_to_i32" , int8_t   : "move_i8_to_i32",  \
+                           uint16_t *: "move_u16_to_u32", uint16_t : "move_u16_to_u32", \
+                           int16_t  *: "move_i16_to_i32", int16_t  : "move_i16_to_i32", \
+                           int32_t  *: "move_i32_to_blk", int32_t  : "move_i32_to_blk", \
+                           uint32_t *: "move_u32_to_blk", uint32_t : "move_u32_to_blk", \
+                           float    *: "move_flt_to_blk", float    : "move_flt_to_blk", \
+                           uint64_t *: "move_u64_to_u32", uint64_t : "move_u64_to_u32", \
+                           int64_t  *: "move_i64_to_i32", int64_t  : "move_i64_to_i32", \
+                           double   *: "move_d64_to_f32", double   : "move_d64_to_f32", \
+                           default   : "INVALID" \
+                           )
+
+// extern bhwd_fn bhwd_table[][2] ;
+// #define FETCH_BLOCK 0
+// #define STORE_BLOCK 1
+
+// array section to block movers
+// blocks are contiguous 32 bit arrays
+
+void move_u8_to_u32(uint32_t *w   , uint8_t *bhwd , int lni, int ni, int nj);  // unsigned 8 -> 32
+void move_u32_to_u8(uint8_t *bhwd  , uint32_t *w  , int lni, int ni, int nj);  // unsigned 32 -> 8
+
+void move_i8_to_i32(int32_t *w    , int8_t *bhwd  , int lni, int ni, int nj);  // signed 8 -> 32
+void move_i32_to_i8(int8_t *bhwd   , int32_t *w   , int lni, int ni, int nj);  // signed 32 -> 8
+
+void move_u16_to_u32(uint32_t *w  , uint16_t *bhwd, int lni, int ni, int nj);  // unsigned 16 -> 32
+void move_u32_to_u16(uint16_t *bhwd, uint32_t *w  , int lni, int ni, int nj);  // unsigned 32 -> 16
+
+void move_i16_to_i32(int32_t *w   , int16_t *bhwd , int lni, int ni, int nj);  // signed 16 -> 32
+void move_i32_to_i16(int16_t *bhwd , int32_t *w   , int lni, int ni, int nj);  // signed 32 -> 16
+
+void move_u32_to_blk(uint32_t *blk, uint32_t *w32, int lni, int ni, int nj);  // array 32 -> block 32 (unsigned)
+void move_blk_to_u32(uint32_t *w32, uint32_t *blk, int lni, int ni, int nj);  // block 32 -> array 32 (unsigned)
+
+void move_i32_to_blk(int32_t *blk , int32_t *w32 , int lni, int ni, int nj);  // array 32 -> block 32 (signed)
+void move_blk_to_i32(int32_t *w32 , int32_t *blk , int lni, int ni, int nj);  // block 32 -> array 32 (signed)
+
+void move_flt_to_blk(float *blk   , float *w32   , int lni, int ni, int nj);  // array 32 -> block 32 (float)
+void move_blk_to_flt(float *w32   , float *blk   , int lni, int ni, int nj);  // block 32 -> array 32 (float)
+
+void move_u64_to_u32(uint32_t *w  , uint64_t *bhwd, int lni, int ni, int nj);  // unsigned 64 -> 32
+void move_u32_to_u64(uint64_t *bhwd, uint32_t *w  , int lni, int ni, int nj);  // unsigned 32 -> 64
+
+void move_i64_to_i32(int32_t *w   , int64_t *bhwd , int lni, int ni, int nj);  // signed 64 -> 32
+void move_i32_to_i64(int64_t *bhwd , int32_t *w   , int lni, int ni, int nj);  // signed 32 -> 64
+
+void move_d64_to_f32(float *fp    , double *dp   , int lni, int ni, int nj);  // double -> float
+void move_f32_to_d64(double *dp   , float *fp    , int lni, int ni, int nj);  // float -> double
+
+#define block2bhwd(dst,...) _Generic((dst), \
+                            uint8_t   *: move_u32_to_u8,  \
+                            int8_t    *: move_i32_to_i8,  \
+                            uint16_t  *: move_u32_to_u16, \
+                            int16_t   *: move_i32_to_i16, \
+                            int32_t   *: move_blk_to_i32, \
+                            uint32_t  *: move_blk_to_u32, \
+                            float     *: move_blk_to_flt, \
+                            uint64_t  *: move_u32_to_u64, \
+                            int64_t   *: move_i32_to_i64, \
+                            double    *: move_f32_to_d64  \
+                       ) (dst, __VA_ARGS__)
+
+#define bhwd2block(dst,src,...) _Generic((src), \
+                                uint8_t   *: move_u8_to_u32,  \
+                                int8_t    *: move_i8_to_i32,   \
+                                uint16_t  *: move_u16_to_u32, \
+                                int16_t   *: move_i16_to_i32, \
+                                int32_t   *: move_i32_to_blk, \
+                                uint32_t  *: move_u32_to_blk, \
+                                float     *: move_flt_to_blk, \
+                                uint64_t  *: move_u64_to_u32, \
+                                int64_t   *: move_i64_to_i32, \
+                                double    *: move_d64_to_f32  \
+                                ) (dst, src, __VA_ARGS__)
+
+#endif

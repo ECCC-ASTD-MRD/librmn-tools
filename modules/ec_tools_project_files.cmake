@@ -35,7 +35,7 @@ set(PROJECT_C_FILES
   src/pack/misc_operators.c
   src/pack/misc_pack.c
 #   src/pack/move_blocks.c
-  src/pack/move_bhd_blocks.c
+  src/pack/move_bhwd_blocks.c
   src/pack/pipe_filters.c
   src/pack/pixmaps.c
   src/plugins/plugin_code.c
@@ -128,7 +128,7 @@ set(PROJECT_H_FILES
   src/PUBLIC_INCLUDES/rmn/misc_pack.hf
   src/PUBLIC_INCLUDES/rmn/misc_operators.h
 #   src/PUBLIC_INCLUDES/rmn/move_blocks.h
-  src/PUBLIC_INCLUDES/rmn/move_bhd_blocks.h
+  src/PUBLIC_INCLUDES/rmn/move_bhwd_blocks.h
   src/PUBLIC_INCLUDES/rmn/pack_macros.h
   src/PUBLIC_INCLUDES/rmn/pipe_filters.h
   src/PUBLIC_INCLUDES/rmn/pixmaps.h
