@@ -174,7 +174,7 @@ static void to_blk(void * restrict blk_, void * restrict w32_, int lni, int ni, 
   }
 }
 // to_w32 copies from block[nj][ni] to array[nj][lni]
-static void to_w32(void * restrict blk_, void * restrict w32_, int lni, int ni, int nj, int z){  // 32 array -> 32 block
+static void to_w32(void * restrict w32_, void * restrict blk_, int lni, int ni, int nj, int z){  // 32 array -> 32 block
   int32_t *blk = (int32_t *)blk_, *w32 = (int32_t *)w32_ ;
   int i ;
   while(nj-- > 0){

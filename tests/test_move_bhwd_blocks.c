@@ -76,7 +76,9 @@ int check_32(void *ref_, void *new_, int n){
   int diff = 0 ;
   for(int i=0 ; i<n ; i++){
     if(ref[i] != new[i]) diff++ ;
+    if(diff == 1) fprintf(stderr, "i = %d, expecting %8.8x, got %8.8x, ", i, ref[i], new[i]) ;
   }
+  if(diff) fprintf(stderr, "%d differences\n", diff) ;
   return diff ;
 }
 
@@ -119,11 +121,11 @@ int main(int argc, char **argv){
     src_u8[i]  = i & 0xFF ;
     src_u16[i] = i & 0xFFFF ;
     src_u32[i] = i ;
-    src_u64[i] = i ;
+    src_u64[i] = src_u32[i] ;
     src_i8[i]  = i & 0xFF - 128 ;
     src_i16[i] = i - (GNI*GNJ)/2 ;
     src_i32[i] = i - (GNI*GNJ)/2 ;
-    src_i64[i] = i - (GNI*GNJ)/2 ;
+    src_i64[i] = src_i32[i] ;
     src_f32[i] = i ;
     src_d64[i] = i ;
   }
@@ -177,14 +179,23 @@ int main(int argc, char **argv){
    if(check_16(src_u16, rst_u16, GNI*GNJ) != 0) goto fail ;
   fprintf(stderr, "SUCCESS: i16\n") ;
 
+  msg = "src_u32" ; set_32(rst_u32, GNI*GNJ) ; set_32(blocku, NI*NJ) ;
   bhwd2block(blocku, src_u32, GNI, NI, NJ) ;  // unsigned 32 bit
-  block2bhwd(src_u32, blocku, GNI, NI, NJ) ;
+  block2bhwd(rst_u32, blocku, GNI, NI, NJ) ;
+  if(check_32(src_u32, rst_u32, GNI*GNJ) != 0) goto fail ;
+  fprintf(stderr, "SUCCESS: u32\n") ;
 
+  msg = "src_i32" ; set_32(rst_i32, GNI*GNJ) ; set_32(blocki, NI*NJ) ;
   bhwd2block(blocki, src_i32, GNI, NI, NJ) ;  // signed 32 bit
-  block2bhwd(src_i32, blocki, GNI, NI, NJ) ;
+  block2bhwd(rst_i32, blocki, GNI, NI, NJ) ;
+  if(check_32(src_i32, rst_i32, GNI*GNJ) != 0) goto fail ;
+  fprintf(stderr, "SUCCESS: i32\n") ;
 
+  msg = "src_f32" ; set_32(rst_f32, GNI*GNJ) ; set_32(blockf, NI*NJ) ;
   bhwd2block(blockf, src_f32, GNI, NI, NJ) ;  // float 32 bit
-  block2bhwd(src_f32, blockf, GNI, NI, NJ) ;
+  block2bhwd(rst_f32, blockf, GNI, NI, NJ) ;
+  if(check_32(src_f32, rst_f32, GNI*GNJ) != 0) goto fail ;
+  fprintf(stderr, "SUCCESS: f32\n") ;
 
   msg = "src_u64" ; set_64(rst_u64, GNI*GNJ) ; set_64(blocku, NI*NJ) ;
   bhwd2block(blocku, src_u64, GNI, NI, NJ) ;  // unsigned 64 bit
@@ -200,12 +211,11 @@ int main(int argc, char **argv){
 
   fprintf(stderr, "d64 code = %d(%s), fn = '%s/%s'\n",
           block_type(src_d64), block_type_name(src_d64[0]), to_block_name(src_d64), from_block_name(src_d64)) ;
-  fwd = to_block_fn(src_d64) ;
-  inv = from_block_fn(src_d64) ;
+  msg = "src_d64" ; set_64(rst_d64, GNI*GNJ) ; set_64(blockf, NI*NJ) ;
   bhwd2block(blockf, src_d64, GNI, NI, NJ) ;  // double 64 bit
-  (*fwd)(blockf, src_d64, GNI, NI, NJ, 0) ;
-  block2bhwd(src_d64, blockf, GNI, NI, NJ) ;
-  (*inv)(src_d64, blockf, GNI, NI, NJ, 0) ;
+  block2bhwd(rst_d64, blockf, GNI, NI, NJ) ;
+  if(check_64(src_d64, rst_d64, GNI*GNJ) != 0) goto fail ;
+  fprintf(stderr, "SUCCESS: d64\n") ;
 
   return 0 ;
 
