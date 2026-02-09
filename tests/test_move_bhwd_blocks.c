@@ -24,12 +24,14 @@
 #include <rmn/test_helpers.h>
 #include <rmn/move_bhwd_blocks.h>
 
-// #define GNI 95
-// #define GNJ 97
-#define GNI 64
-#define GNJ 64
+#define GNI 95
+#define GNJ 97
+// #define GNI 64
+// #define GNJ 64
 #define NI 64
 #define NJ 64
+
+#define DNIJ ((GNI-NI)/3 + (GNI*((GNJ-NJ)/5)))
 
 void set_8(void *new_, int n){
   uint8_t *new = (uint8_t *)new_ ;
@@ -51,46 +53,94 @@ void set_64(void *new_, int n){
   for(int i=0 ; i<n ; i++) new[i] = 0 ;
 }
 
-int check_8(void *ref_, void *new_, int n){
-  uint8_t *ref = (uint8_t *)ref_, *new = (uint8_t *)new_ ;
+int nz_8(void *f_, int n){
+  uint8_t *f = (uint8_t *) f_ ;
+  int nz = 0 ;
+  for(int i=0 ; i<n ; i++){ if(f[i] != 0) nz++ ; }
+  return nz ;
+}
+
+int check_8_(int lni, int ni, int nj,  uint8_t ref[nj][lni],  uint8_t new[nj][lni]){
   int diff = 0 ;
-  for(int i=0 ; i<n ; i++){
-    if(ref[i] != new[i]) diff++ ;
-    if(diff == 1) fprintf(stderr, "i = %d, expecting %4.4x, got %4.4x, ", i, ref[i], new[i]) ;
+  for(int j=0 ; j<nj ; j++){
+    for(int i=0 ; i<ni ; i++){
+      if(ref[j][i] != new[j][i]) diff++ ;
+      if(diff == 1) fprintf(stderr, "i,j = [%d,%d], expecting %4.4x, got %4.4x, ", i, j, ref[j][i], new[i][i]) ;
+    }
   }
   if(diff) fprintf(stderr, "%d differences\n", diff) ;
   return diff ;
 }
 
-int check_16(void *ref_, void *new_, int n){
-  uint16_t *ref = (uint16_t *)ref_, *new = (uint16_t *)new_ ;
+int check_8(void *ref, void *new, int n){
+  (void) (n) ;
+  return check_8_(GNI, NI, NJ, ref,  new) ;
+}
+
+int nz_16(void *f_, int n){
+  uint16_t *f = (uint16_t *) f_ ;
+  int nz = 0 ;
+  for(int i=0 ; i<n ; i++){ if(f[i] != 0) nz++ ; }
+  return nz ;
+}
+
+int check_16_(int lni, int ni, int nj,  uint16_t ref[nj][lni],  uint16_t new[nj][lni]){
   int diff = 0 ;
-  for(int i=0 ; i<n ; i++){
-    if(ref[i] != new[i]) diff++ ;
+  for(int j=0 ; j<nj ; j++){
+    for(int i=0 ; i<ni ; i++){
+      if(ref[j][i] != new[j][i]) diff++ ;
+      if(diff == 1) fprintf(stderr, "i,j = [%d,%d], expecting %8.8x, got %8.8x, ", i, j, ref[j][i], new[i][i]) ;
+    }
   }
+  if(diff) fprintf(stderr, "[%d,%d] %d differences\n", ni, nj, diff) ;
   return diff ;
 }
 
-int check_32(void *ref_, void *new_, int n){
-  uint32_t *ref = (uint32_t *)ref_, *new = (uint32_t *)new_ ;
+int check_16(void *ref, void *new, int n){
+  (void) (n) ;
+  return check_16_(GNI, NI, NJ, ref,  new) ;
+}
+
+int nz_32(void *f_, int n){
+  uint32_t *f = (uint32_t *) f_ ;
+  int nz = 0 ;
+  for(int i=0 ; i<n ; i++){ if(f[i] != 0) nz++ ; }
+  return nz ;
+}
+
+int check_32_(int lni, int ni, int nj,  uint32_t ref[nj][lni],  uint32_t new[nj][lni]){
   int diff = 0 ;
-  for(int i=0 ; i<n ; i++){
-    if(ref[i] != new[i]) diff++ ;
-    if(diff == 1) fprintf(stderr, "i = %d, expecting %8.8x, got %8.8x, ", i, ref[i], new[i]) ;
+  for(int j=0 ; j<nj ; j++){
+    for(int i=0 ; i<ni ; i++){
+      if(ref[j][i] != new[j][i]) diff++ ;
+      if(diff == 1) fprintf(stderr, "i,j = [%d,%d], expecting %8.8x, got %8.8x, ", i, j, ref[j][i], new[i][i]) ;
+    }
   }
   if(diff) fprintf(stderr, "%d differences\n", diff) ;
   return diff ;
 }
 
-int check_64(void *ref_, void *new_, int n){
-  uint64_t *ref = (uint64_t *)ref_, *new = (uint64_t *)new_ ;
+int check_32(void *ref, void *new, int n){
+  (void) (n) ;
+  return check_32_(GNI, NI, NJ, ref,  new) ;
+}
+
+int check_64_(int lni, int ni, int nj,  uint64_t ref[nj][lni],  uint64_t new[nj][lni]){
   int diff = 0 ;
-  for(int i=0 ; i<n ; i++){
-    if(ref[i] != new[i]) diff++ ;
-    if(diff == 1) fprintf(stderr, "i = %d, expecting %16.16lx, got %16.16lx, ", i, ref[i], new[i]) ;
+  for(int j=0 ; j<nj ; j++){
+    for(int i=0 ; i<ni ; i++){
+      if(ref[j][i] != new[j][i]) diff++ ;
+      if(diff == 1) fprintf(stderr, "i,j = [%d,%d], expecting %16.16lx, got %16.16lx, ", i, j, ref[j][i], new[i][i]) ;
+    }
   }
   if(diff) fprintf(stderr, "%d differences\n", diff) ;
+//   fprintf(stderr, "%d differences, [%d,%d]\n", diff, ni, nj) ;
   return diff ;
+}
+
+int check_64(void *ref, void *new, int n){
+  (void) (n) ;
+  return check_64_(GNI, NI, NJ, ref,  new) ;
 }
 
 int main(int argc, char **argv){
@@ -115,19 +165,20 @@ int main(int argc, char **argv){
   char *msg ;
 
   start_of_test("bdh block move functions") ;
+  fprintf(stderr, "global values = %d, block values = %d\n", GNI*GNJ, NI*NJ) ;
 
 // fill arrays
   for(i=0 ; i<GNI*GNJ ; i++){
-    src_u8[i]  = i & 0xFF ;
-    src_u16[i] = i & 0xFFFF ;
-    src_u32[i] = i ;
-    src_u64[i] = src_u32[i] ;
-    src_i8[i]  = i & 0xFF - 128 ;
-    src_i16[i] = i - (GNI*GNJ)/2 ;
-    src_i32[i] = i - (GNI*GNJ)/2 ;
-    src_i64[i] = src_i32[i] ;
-    src_f32[i] = i ;
-    src_d64[i] = i ;
+    src_u8[i]  = ( 1 | (i & 0xFF)) ;
+    src_u16[i] = ( 1 | (i & 0xFFFF)) ;
+    src_u32[i] = ( 1 | (i)) ;
+    src_u64[i] = ( 1 | (src_u32[i])) ;
+    src_i8[i]  = ( 1 | (i & 0xFF - 128)) ;
+    src_i16[i] = ( 1 | (i - (GNI*GNJ)/2)) ;
+    src_i32[i] = ( 1 | (i - (GNI*GNJ)/2)) ;
+    src_i64[i] = ( 1 | (src_i32[i])) ;
+    src_f32[i] = ( 1 | (i)) ;
+    src_d64[i] = ( 1 | (i)) ;
   }
 
 // syntax check
@@ -138,7 +189,15 @@ int main(int argc, char **argv){
   fprintf(stderr, "u8 code = %d(%s), fn = '%s/%s'\n",
           block_type(src_u8), block_type_name(src_u8[0]), to_block_name(src_u8), from_block_name(src_u8)) ;
 
-  msg = "src_u8" ; set_8(rst_u8, GNI*GNJ) ; set_32(blocku, NI*NJ) ;
+  msg = "src_u8-1" ; set_8(rst_u8, GNI*GNJ) ; set_32(blocku, NI*NJ) ;
+  bhwd2block(blocku, src_u8, GNI, NI, NJ) ;  // unsigned 8 bit
+  block2bhwd(rst_u8, blocku, GNI, NI, NJ) ;
+  if(check_8(src_u8, rst_u8, GNI*GNJ) != 0) goto fail ;
+  msg = "src_u2" ; set_8(rst_u8, GNI*GNJ) ; set_32(blocku, NI*NJ) ;
+  bhwd2block(blocku, src_u8+DNIJ, GNI, NI, NJ) ;  // unsigned 8 bit
+  block2bhwd(rst_u8+DNIJ, blocku, GNI, NI, NJ) ;
+  if(check_8(src_u8+DNIJ, rst_u8+DNIJ, GNI*GNJ) != 0) goto fail ;
+  msg = "src_u8-3" ; set_8(rst_u8, GNI*GNJ) ; set_32(blocku, NI*NJ) ;
   bhwd2block(blocku, src_u8, GNI, NI, NJ) ;  // unsigned 8 bit
   block2bhwd(rst_u8, blocku, GNI, NI, NJ) ;
   if(check_8(src_u8, rst_u8, GNI*GNJ) != 0) goto fail ;
@@ -159,51 +218,141 @@ int main(int argc, char **argv){
 
   fprintf(stderr, "i8 code = %d(%s), fn = '%s/%s'\n",
           block_type(src_i8), block_type_name(src_i8[0]), to_block_name(src_i8), from_block_name(src_i8)) ;
-  msg = "src_i8" ; set_8(rst_i8, GNI*GNJ) ; set_32(blocki, NI*NJ) ;
+
   fwd = to_block_fn(src_i8) ;
   inv = from_block_fn(src_i8) ;
+  msg = "src_i8-1" ; set_8(rst_i8, GNI*GNJ) ; set_32(blocki, NI*NJ) ;
+  bhwd2block(blocki, src_i8, GNI, NI, NJ) ;  // signed 8 bit
+  block2bhwd(rst_i8, blocki, GNI, NI, NJ) ;
+  if(check_8(src_i8, rst_i8, GNI*GNJ) != 0) goto fail ;
+  msg = "src_i8-2" ; set_8(rst_i8, GNI*GNJ) ; set_32(blocki, NI*NJ) ;
+  bhwd2block(blocki, src_i8+DNIJ, GNI, NI, NJ) ;  // signed 8 bit
+  block2bhwd(rst_i8+DNIJ, blocki, GNI, NI, NJ) ;
+  if(check_8(src_i8+DNIJ, rst_i8+DNIJ, GNI*GNJ) != 0) goto fail ;
+  msg = "src_i8-2" ; set_8(rst_i8, GNI*GNJ) ; set_32(blocki, NI*NJ) ;
   bhwd2block(blocki, src_i8, GNI, NI, NJ) ;  // signed 8 bit
   block2bhwd(rst_i8, blocki, GNI, NI, NJ) ;
   if(check_8(src_i8, rst_i8, GNI*GNJ) != 0) goto fail ;
   fprintf(stderr, "SUCCESS: i8\n") ;
 
-  msg = "src_u16" ; set_16(rst_u16, GNI*GNJ) ; set_32(blocku, NI*NJ) ;
+  msg = "src_u16-1" ; set_16(rst_u16, GNI*GNJ) ; set_32(blocku, NI*NJ) ;
+// fprintf(stderr, ", src_u16 != 0 : %d", nz_16(src_u16, GNI*GNJ)) ;
+// fprintf(stderr, ", blocku != 0 : %d", nz_32(blocku, NI*NJ)) ;
   bhwd2block(blocku, src_u16, GNI, NI, NJ) ;  // unsigned 16 bit
+// fprintf(stderr, ", blocku != 0 : %d", nz_32(blocku, NI*NJ)) ;
+// fprintf(stderr, ", rst_u16 != 0 : %d", nz_16(rst_u16, GNI*GNJ)) ;
   block2bhwd(rst_u16, blocku, GNI, NI, NJ) ;
+// fprintf(stderr, ", rst_u16 != 0 : %d\n", nz_16(rst_u16, GNI*GNJ)) ;
+  if(check_16(src_u16, rst_u16, GNI*GNJ) != 0) goto fail ;
+  msg = "src_u16-2" ; set_16(rst_u16, GNI*GNJ) ; set_32(blocku, NI*NJ) ;
+// fprintf(stderr, ", rst_u16 != 0 : %d", nz_16(rst_u16, GNI*GNJ)) ;
+// fprintf(stderr, ", blocku != 0 : %d", nz_32(blocku, NI*NJ)) ;
+// fprintf(stderr, ", src_u16 != 0 : %d", nz_16(src_u16, GNI*GNJ)) ;
+  bhwd2block(blocku, src_u16+DNIJ, GNI, NI, NJ) ;  // unsigned 16 bit
+// fprintf(stderr, ", blocku != 0 : %d", nz_32(blocku, NI*NJ)) ;
+  block2bhwd(rst_u16+DNIJ, blocku, GNI, NI, NJ) ;
+// fprintf(stderr, ", rst_u16 != 0 : %d\n", nz_16(rst_u16, GNI*GNJ)) ;
+  if(check_16(src_u16+DNIJ, rst_u16+DNIJ, GNI*GNJ) != 0) goto fail ;
+  msg = "src_u16-3" ; set_16(rst_u16, GNI*GNJ) ; set_32(blocku, NI*NJ) ;
+// fprintf(stderr, "rst_u16 != 0 : %d", nz_16(rst_u16, GNI*GNJ)) ;
+// fprintf(stderr, ", blocku != 0 : %d", nz_32(blocku, NI*NJ)) ;
+// fprintf(stderr, ", src_u16 != 0 : %d", nz_16(src_u16, GNI*GNJ)) ;
+  bhwd2block(blocku, src_u16, GNI, NI, NJ) ;  // unsigned 16 bit
+// fprintf(stderr, ", blocku != 0 : %d", nz_32(blocku, NI*NJ)) ;
+  block2bhwd(rst_u16, blocku, GNI, NI, NJ) ;
+// fprintf(stderr, ", rst_u16 != 0 : %d\n", nz_16(rst_u16, GNI*GNJ)) ;
   if(check_16(src_u16, rst_u16, GNI*GNJ) != 0) goto fail ;
   fprintf(stderr, "SUCCESS: u16\n") ;
 
-  msg = "src_i16" ; set_16(rst_i16, GNI*GNJ) ; set_32(blocki, NI*NJ) ;
+  msg = "src_i16-1" ; set_16(rst_i16, GNI*GNJ) ; set_32(blocki, NI*NJ) ;
+// fprintf(stderr, ", src_i16 != 0 : %d", nz_16(src_i16, GNI*GNJ)) ;
+// fprintf(stderr, ", blocki != 0 : %d", nz_32(blocki, NI*NJ)) ;
+  bhwd2block(blocki, src_i16, GNI, NI, NJ) ;  // signed 16 bit
+// fprintf(stderr, ", blocki != 0 : %d", nz_32(blocki, NI*NJ)) ;
+// fprintf(stderr, ", rst_i16 != 0 : %d", nz_16(rst_i16, GNI*GNJ)) ;
+  block2bhwd(rst_i16, blocki, GNI, NI, NJ) ;
+// fprintf(stderr, ", rst_i16 != 0 : %d\n", nz_16(rst_i16, GNI*GNJ)) ;
+   if(check_16(src_u16, rst_u16, GNI*GNJ) != 0) goto fail ;
+  msg = "src_i16-2" ; set_16(rst_i16, GNI*GNJ) ; set_32(blocki, NI*NJ) ;
+// fprintf(stderr, ", src_i16 != 0 : %d", nz_16(src_i16, GNI*GNJ)) ;
+// fprintf(stderr, ", blocki != 0 : %d", nz_32(blocki, NI*NJ)) ;
+  bhwd2block(blocki, src_i16+DNIJ, GNI, NI, NJ) ;  // signed 16 bit
+// fprintf(stderr, ", blocki != 0 : %d", nz_32(blocki, NI*NJ)) ;
+// fprintf(stderr, ", rst_i16 != 0 : %d", nz_16(rst_i16, GNI*GNJ)) ;
+  block2bhwd(rst_i16+DNIJ, blocki, GNI, NI, NJ) ;
+// fprintf(stderr, ", rst_i16 != 0 : %d\n", nz_16(rst_i16, GNI*GNJ)) ;
+   if(check_16(src_i16+DNIJ, rst_i16+DNIJ, GNI*GNJ) != 0) goto fail ;
+  msg = "src_i16-2" ; set_16(rst_i16, GNI*GNJ) ; set_32(blocki, NI*NJ) ;
   bhwd2block(blocki, src_i16, GNI, NI, NJ) ;  // signed 16 bit
   block2bhwd(rst_i16, blocki, GNI, NI, NJ) ;
-   if(check_16(src_u16, rst_u16, GNI*GNJ) != 0) goto fail ;
+   if(check_16(src_i16, rst_i16, GNI*GNJ) != 0) goto fail ;
   fprintf(stderr, "SUCCESS: i16\n") ;
 
-  msg = "src_u32" ; set_32(rst_u32, GNI*GNJ) ; set_32(blocku, NI*NJ) ;
+  msg = "src_u32-1" ; set_32(rst_u32, GNI*GNJ) ; set_32(blocku, NI*NJ) ;
+  bhwd2block(blocku, src_u32, GNI, NI, NJ) ;  // unsigned 32 bit
+  block2bhwd(rst_u32, blocku, GNI, NI, NJ) ;
+  if(check_32(src_u32, rst_u32, GNI*GNJ) != 0) goto fail ;
+  msg = "src_u32-2" ; set_32(rst_u32, GNI*GNJ) ; set_32(blocku, NI*NJ) ;
+  bhwd2block(blocku, src_u32+DNIJ, GNI, NI, NJ) ;  // unsigned 32 bit
+  block2bhwd(rst_u32+DNIJ, blocku, GNI, NI, NJ) ;
+  if(check_32(src_u32+DNIJ, rst_u32+DNIJ, GNI*GNJ) != 0) goto fail ;
+  msg = "src_u32-3" ; set_32(rst_u32, GNI*GNJ) ; set_32(blocku, NI*NJ) ;
   bhwd2block(blocku, src_u32, GNI, NI, NJ) ;  // unsigned 32 bit
   block2bhwd(rst_u32, blocku, GNI, NI, NJ) ;
   if(check_32(src_u32, rst_u32, GNI*GNJ) != 0) goto fail ;
   fprintf(stderr, "SUCCESS: u32\n") ;
 
-  msg = "src_i32" ; set_32(rst_i32, GNI*GNJ) ; set_32(blocki, NI*NJ) ;
+  msg = "src_i32-1" ; set_32(rst_i32, GNI*GNJ) ; set_32(blocki, NI*NJ) ;
+  bhwd2block(blocki, src_i32, GNI, NI, NJ) ;  // signed 32 bit
+  block2bhwd(rst_i32, blocki, GNI, NI, NJ) ;
+  if(check_32(src_i32, rst_i32, GNI*GNJ) != 0) goto fail ;
+  msg = "src_i32-2" ; set_32(rst_i32, GNI*GNJ) ; set_32(blocki, NI*NJ) ;
+  bhwd2block(blocki, src_i32+DNIJ, GNI, NI, NJ) ;  // signed 32 bit
+  block2bhwd(rst_i32+DNIJ, blocki, GNI, NI, NJ) ;
+  if(check_32(src_i32+DNIJ, rst_i32+DNIJ, GNI*GNJ) != 0) goto fail ;
+  msg = "src_i32-3" ; set_32(rst_i32, GNI*GNJ) ; set_32(blocki, NI*NJ) ;
   bhwd2block(blocki, src_i32, GNI, NI, NJ) ;  // signed 32 bit
   block2bhwd(rst_i32, blocki, GNI, NI, NJ) ;
   if(check_32(src_i32, rst_i32, GNI*GNJ) != 0) goto fail ;
   fprintf(stderr, "SUCCESS: i32\n") ;
 
-  msg = "src_f32" ; set_32(rst_f32, GNI*GNJ) ; set_32(blockf, NI*NJ) ;
+  msg = "src_f32-1" ; set_32(rst_f32, GNI*GNJ) ; set_32(blockf, NI*NJ) ;
+  bhwd2block(blockf, src_f32, GNI, NI, NJ) ;  // float 32 bit
+  block2bhwd(rst_f32, blockf, GNI, NI, NJ) ;
+  if(check_32(src_f32, rst_f32, GNI*GNJ) != 0) goto fail ;
+  msg = "src_f32-2" ; set_32(rst_f32, GNI*GNJ) ; set_32(blockf, NI*NJ) ;
+  bhwd2block(blockf, src_f32+DNIJ, GNI, NI, NJ) ;  // float 32 bit
+  block2bhwd(rst_f32+DNIJ, blockf, GNI, NI, NJ) ;
+  if(check_32(src_f32+DNIJ, rst_f32+DNIJ, GNI*GNJ) != 0) goto fail ;
+  msg = "src_f32-3" ; set_32(rst_f32, GNI*GNJ) ; set_32(blockf, NI*NJ) ;
   bhwd2block(blockf, src_f32, GNI, NI, NJ) ;  // float 32 bit
   block2bhwd(rst_f32, blockf, GNI, NI, NJ) ;
   if(check_32(src_f32, rst_f32, GNI*GNJ) != 0) goto fail ;
   fprintf(stderr, "SUCCESS: f32\n") ;
 
-  msg = "src_u64" ; set_64(rst_u64, GNI*GNJ) ; set_64(blocku, NI*NJ) ;
+  msg = "src_u64-1" ; set_64(rst_u64, GNI*GNJ) ; set_64(blocku, NI*NJ) ;
+  bhwd2block(blocku, src_u64, GNI, NI, NJ) ;  // unsigned 64 bit
+  block2bhwd(rst_u64, blocku, GNI, NI, NJ) ;
+  if(check_64(src_u64, rst_u64, GNI*GNJ) != 0) goto fail ;
+  msg = "src_u64-2" ; set_64(rst_u64, GNI*GNJ) ; set_64(blocku, NI*NJ) ;
+  bhwd2block(blocku, src_u64+DNIJ, GNI, NI, NJ) ;  // unsigned 64 bit
+  block2bhwd(rst_u64+DNIJ, blocku, GNI, NI, NJ) ;
+  if(check_64(src_u64+DNIJ, rst_u64+DNIJ, GNI*GNJ) != 0) goto fail ;
+  msg = "src_u64-2" ; set_64(rst_u64, GNI*GNJ) ; set_64(blocku, NI*NJ) ;
   bhwd2block(blocku, src_u64, GNI, NI, NJ) ;  // unsigned 64 bit
   block2bhwd(rst_u64, blocku, GNI, NI, NJ) ;
   if(check_64(src_u64, rst_u64, GNI*GNJ) != 0) goto fail ;
   fprintf(stderr, "SUCCESS: u64\n") ;
 
-  msg = "src_i64" ; set_64(rst_i64, GNI*GNJ) ; set_64(blocki, NI*NJ) ;
+  msg = "src_i64-1" ; set_64(rst_i64, GNI*GNJ) ; set_64(blocki, NI*NJ) ;
+  bhwd2block(blocki, src_i64, GNI, NI, NJ) ;  // signed 64 bit
+  block2bhwd(rst_i64, blocki, GNI, NI, NJ) ;
+  if(check_64(src_i64, rst_i64, GNI*GNJ) != 0) goto fail ;
+  msg = "src_i64-2" ; set_64(rst_i64, GNI*GNJ) ; set_64(blocki, NI*NJ) ;
+  bhwd2block(blocki, src_i64+DNIJ, GNI, NI, NJ) ;  // signed 64 bit
+  block2bhwd(rst_i64+DNIJ, blocki, GNI, NI, NJ) ;
+  if(check_64(src_i64+DNIJ, rst_i64+DNIJ, GNI*GNJ) != 0) goto fail ;
+  msg = "src_i64-3" ; set_64(rst_i64, GNI*GNJ) ; set_64(blocki, NI*NJ) ;
   bhwd2block(blocki, src_i64, GNI, NI, NJ) ;  // signed 64 bit
   block2bhwd(rst_i64, blocki, GNI, NI, NJ) ;
   if(check_64(src_i64, rst_i64, GNI*GNJ) != 0) goto fail ;
@@ -211,7 +360,15 @@ int main(int argc, char **argv){
 
   fprintf(stderr, "d64 code = %d(%s), fn = '%s/%s'\n",
           block_type(src_d64), block_type_name(src_d64[0]), to_block_name(src_d64), from_block_name(src_d64)) ;
-  msg = "src_d64" ; set_64(rst_d64, GNI*GNJ) ; set_64(blockf, NI*NJ) ;
+  msg = "src_d64-1" ; set_64(rst_d64, GNI*GNJ) ; set_64(blockf, NI*NJ) ;
+  bhwd2block(blockf, src_d64, GNI, NI, NJ) ;  // double 64 bit
+  block2bhwd(rst_d64, blockf, GNI, NI, NJ) ;
+  if(check_64(src_d64, rst_d64, GNI*GNJ) != 0) goto fail ;
+  msg = "src_d64-2" ; set_64(rst_d64, GNI*GNJ) ; set_64(blockf, NI*NJ) ;
+  bhwd2block(blockf, src_d64+DNIJ, GNI, NI, NJ) ;  // double 64 bit
+  block2bhwd(rst_d64+DNIJ, blockf, GNI, NI, NJ) ;
+  if(check_64(src_d64+DNIJ, rst_d64+DNIJ, GNI*GNJ) != 0) goto fail ;
+  msg = "src_d64-3" ; set_64(rst_d64, GNI*GNJ) ; set_64(blockf, NI*NJ) ;
   bhwd2block(blockf, src_d64, GNI, NI, NJ) ;  // double 64 bit
   block2bhwd(rst_d64, blockf, GNI, NI, NJ) ;
   if(check_64(src_d64, rst_d64, GNI*GNJ) != 0) goto fail ;
