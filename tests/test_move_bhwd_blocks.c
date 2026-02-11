@@ -38,37 +38,7 @@
 
 #define NITER 5000
 
-typedef struct{
-  uint32_t minu, maxu ;
-  int32_t  mins, maxs ;
-  int32_t zero ;
-}minmax ;
-
-minmax vminmax(uint32_t *s, int n){
-  minmax r ;
-  uint32_t tu, mxu, mnu ;
-  int32_t  ts, mxs, mns, zro ;
-  mxu = mnu = (uint32_t)s[0] ;
-  mxs = mns = (int32_t) s[0] ;
-  zro = 0 ;
-  for(int i=0 ; i<n ; i++){
-    tu = (uint32_t)s[i] ;
-    ts = (int32_t) s[i] ;
-    zro = zro + ((tu == 0) ? 1 : 0) ;
-    mxu = (tu > mxu) ? tu : mxu ;
-    mxs = (ts > mxs) ? ts : mxs ;
-    mnu = (tu < mnu) ? tu : mnu ;
-    mns = (ts < mns) ? ts : mns ;
-  }
-  r.maxu = mxu ;
-  r.maxs = mxs ;
-  r.mins = mns ;
-  r.minu = mnu ;
-  r.zero = zro ;
-  return r ;
-}
-
-void  print_minmax(minmax tmm){
+void  print_minmax(zminmax tmm){
   fprintf(stderr, "minu = %8.8x, maxu = %8.8x, mins = %8.8x, maxs = %8.8x, zeros = %d\n",
           tmm.minu, tmm.maxu, tmm.mins, tmm.maxs, tmm.zero) ;
 }
@@ -211,7 +181,7 @@ int main(int argc, char **argv){
   uint32_t i ;
   char *msg ;
   TIME_LOOP_DATA ;
-  minmax tmm ;
+  zminmax tmm ;
 
   start_of_test("bdh block move functions") ;
   fprintf(stderr, "global values = %d, block values = %d\n", GNI*GNJ, NI*NJ) ;
@@ -284,7 +254,7 @@ int main(int argc, char **argv){
   fprintf(stderr, "%s", timer_msg) ;
   TIME_LOOP_EZ(NITER, (NI*NJ), block2bhwd(rst_u8, blocku, GNI, NI, NJ) ) ;
   fprintf(stderr, " | %s\n", timer_msg) ;
-  tmm = vminmax((void *)blocku, NI*NJ) ;
+  tmm = block_zminmax((void *)blocku, NI*NJ) ;
   print_minmax(tmm) ;
   fprintf(stderr, "SUCCESS: u8\n") ;
 
@@ -319,7 +289,7 @@ int main(int argc, char **argv){
   fprintf(stderr, "%s", timer_msg) ;
   TIME_LOOP_EZ(NITER, (NI*NJ), block2bhwd(rst_i8, blocki, GNI, NI, NJ) ) ;
   fprintf(stderr, " | %s\n", timer_msg) ;
-  tmm = vminmax((void *)blocki, NI*NJ) ;
+  tmm = block_zminmax((void *)blocki, NI*NJ) ;
   print_minmax(tmm) ;
   fprintf(stderr, "SUCCESS: i8\n") ;
 
@@ -339,7 +309,7 @@ int main(int argc, char **argv){
   fprintf(stderr, "%s", timer_msg) ;
   TIME_LOOP_EZ(NITER, (NI*NJ), block2bhwd(rst_u16, blocku, GNI, NI, NJ) ) ;
   fprintf(stderr, " | %s\n", timer_msg) ;
-  tmm = vminmax((void *)blocku, NI*NJ) ;
+  tmm = block_zminmax((void *)blocku, NI*NJ) ;
   print_minmax(tmm) ;
   fprintf(stderr, "SUCCESS: u16\n") ;
 
@@ -359,7 +329,7 @@ int main(int argc, char **argv){
   fprintf(stderr, "%s", timer_msg) ;
   TIME_LOOP_EZ(NITER, (NI*NJ), block2bhwd(rst_i16, blocki, GNI, NI, NJ) ) ;
   fprintf(stderr, " | %s\n", timer_msg) ;
-  tmm = vminmax((void *)blocki, NI*NJ) ;
+  tmm = block_zminmax((void *)blocki, NI*NJ) ;
   print_minmax(tmm) ;
   fprintf(stderr, "SUCCESS: i16\n") ;
 
@@ -379,7 +349,7 @@ int main(int argc, char **argv){
   fprintf(stderr, "%s", timer_msg) ;
   TIME_LOOP_EZ(NITER, (NI*NJ), block2bhwd(rst_u32, blocku, GNI, NI, NJ) ) ;
   fprintf(stderr, " | %s\n", timer_msg) ;
-  tmm = vminmax((void *)blocku, NI*NJ) ;
+  tmm = block_zminmax((void *)blocku, NI*NJ) ;
   print_minmax(tmm) ;
   fprintf(stderr, "SUCCESS: u32\n") ;
 
@@ -399,7 +369,7 @@ int main(int argc, char **argv){
   fprintf(stderr, "%s", timer_msg) ;
   TIME_LOOP_EZ(NITER, (NI*NJ), block2bhwd(rst_i32, blocki, GNI, NI, NJ) ) ;
   fprintf(stderr, " | %s\n", timer_msg) ;
-  tmm = vminmax((void *)blocki, NI*NJ) ;
+  tmm = block_zminmax((void *)blocki, NI*NJ) ;
   print_minmax(tmm) ;
   fprintf(stderr, "SUCCESS: i32\n") ;
 
@@ -419,7 +389,7 @@ int main(int argc, char **argv){
   fprintf(stderr, "%s", timer_msg) ;
   TIME_LOOP_EZ(NITER, (NI*NJ), block2bhwd(rst_f32, blockf, GNI, NI, NJ) ) ;
   fprintf(stderr, " | %s\n", timer_msg) ;
-  tmm = vminmax((void *)blockf, NI*NJ) ;
+  tmm = block_zminmax((void *)blockf, NI*NJ) ;
   print_minmax(tmm) ;
   fprintf(stderr, "SUCCESS: f32\n") ;
 
@@ -439,7 +409,7 @@ int main(int argc, char **argv){
   fprintf(stderr, "%s", timer_msg) ;
   TIME_LOOP_EZ(NITER, (NI*NJ), block2bhwd(rst_u64, blocku, GNI, NI, NJ) ) ;
   fprintf(stderr, " | %s\n", timer_msg) ;
-  tmm = vminmax((void *)blocku, NI*NJ) ;
+  tmm = block_zminmax((void *)blocku, NI*NJ) ;
   print_minmax(tmm) ;
   fprintf(stderr, "SUCCESS: u64\n") ;
 
@@ -459,7 +429,7 @@ int main(int argc, char **argv){
   fprintf(stderr, "%s", timer_msg) ;
   TIME_LOOP_EZ(NITER, (NI*NJ), block2bhwd(rst_i64, blocki, GNI, NI, NJ) ) ;
   fprintf(stderr, " | %s\n", timer_msg) ;
-  tmm = vminmax((void *)blocki, NI*NJ) ;
+  tmm = block_zminmax((void *)blocki, NI*NJ) ;
   print_minmax(tmm) ;
   fprintf(stderr, "SUCCESS: i64\n") ;
 
@@ -479,15 +449,15 @@ int main(int argc, char **argv){
   fprintf(stderr, "%s", timer_msg) ;
   TIME_LOOP_EZ(NITER, (NI*NJ), block2bhwd(rst_d64, blockf, GNI, NI, NJ) ) ;
   fprintf(stderr, " | %s\n", timer_msg) ;
-  tmm = vminmax((void *)blockf, NI*NJ) ;
+  tmm = block_zminmax((void *)blockf, NI*NJ) ;
   print_minmax(tmm) ;
   fprintf(stderr, "SUCCESS: d64\n") ;
   if(timer_min == timer_max) fprintf(stderr, "this is unlikely to print\n") ; // get rid of warning set but unused
 
-  tmm = vminmax((void *)blockf, NI*NJ) ;
+  tmm = block_zminmax((void *)blockf, NI*NJ) ;
   print_minmax(tmm) ;
-  TIME_LOOP_EZ(NITER, (NI*NJ), tmm = vminmax((void *)blockf, NI*NJ) ) ;
-  fprintf(stderr, "vminmax : %s\n", timer_msg) ;
+  TIME_LOOP_EZ(NITER, (NI*NJ), tmm = block_zminmax((void *)blockf, NI*NJ) ) ;
+  fprintf(stderr, "block_zminmax : %s\n", timer_msg) ;
 
   return 0 ;
 

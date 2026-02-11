@@ -19,6 +19,14 @@
 
 #include <stdint.h>
 
+typedef struct{
+  uint32_t minu, maxu ;
+  int32_t  mins, maxs ;
+  int32_t zero ;
+}zminmax ;
+
+zminmax block_zminmax(void *s, int n);
+
 typedef void (* bhwd_fn)(void *, void *, int, int, int, int) ;
 
 // call block transfer function pointed to by FN

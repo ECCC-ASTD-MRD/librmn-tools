@@ -303,3 +303,30 @@ void move_f32_to_d64(double * restrict dp, float * restrict fp, int lni, int ni,
 }
 //
 // ==========================================================================
+//
+zminmax block_zminmax(void *s_in, int n){
+  uint32_t *s = (uint32_t *) s_in ;
+  zminmax r ;
+  uint32_t tu, mxu, mnu ;
+  int32_t  ts, mxs, mns, zro ;
+  mxu = mnu = (uint32_t)s[0] ;
+  mxs = mns = (int32_t) s[0] ;
+  zro = 0 ;
+  for(int i=0 ; i<n ; i++){
+    tu = (uint32_t)s[i] ;
+    ts = (int32_t) s[i] ;
+    zro = zro + ((tu == 0) ? 1 : 0) ;
+    mxu = (tu > mxu) ? tu : mxu ;
+    mxs = (ts > mxs) ? ts : mxs ;
+    mnu = (tu < mnu) ? tu : mnu ;
+    mns = (ts < mns) ? ts : mns ;
+  }
+  r.maxu = mxu ;
+  r.maxs = mxs ;
+  r.mins = mns ;
+  r.minu = mnu ;
+  r.zero = zro ;
+  return r ;
+}
+//
+// ==========================================================================
