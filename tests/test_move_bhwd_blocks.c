@@ -25,8 +25,8 @@
 #include <rmn/move_bhwd_blocks.h>
 #include <rmn/timers.h>
 
-#define GNI 1095
-#define GNJ 1097
+#define GNI 195
+#define GNJ 97
 // #define GNI 64
 // #define GNJ 64
 #define NI 64
@@ -34,9 +34,44 @@
 
 #define DNIJ ((GNI-NI)/3 + (GNI*((GNJ-NJ)/5)))
 
-#define OR_1 0x01
+#define OR_1 0x00
 
 #define NITER 5000
+
+typedef struct{
+  uint32_t minu, maxu ;
+  int32_t  mins, maxs ;
+  int32_t zero ;
+}minmax ;
+
+minmax vminmax(uint32_t *s, int n){
+  minmax r ;
+  uint32_t tu, mxu, mnu ;
+  int32_t  ts, mxs, mns, zro ;
+  mxu = mnu = (uint32_t)s[0] ;
+  mxs = mns = (int32_t) s[0] ;
+  zro = 0 ;
+  for(int i=0 ; i<n ; i++){
+    tu = (uint32_t)s[i] ;
+    ts = (int32_t) s[i] ;
+    zro = zro + ((tu == 0) ? 1 : 0) ;
+    mxu = (tu > mxu) ? tu : mxu ;
+    mxs = (ts > mxs) ? ts : mxs ;
+    mnu = (tu < mnu) ? tu : mnu ;
+    mns = (ts < mns) ? ts : mns ;
+  }
+  r.maxu = mxu ;
+  r.maxs = mxs ;
+  r.mins = mns ;
+  r.minu = mnu ;
+  r.zero = zro ;
+  return r ;
+}
+
+void  print_minmax(minmax tmm){
+  fprintf(stderr, "minu = %8.8x, maxu = %8.8x, mins = %8.8x, maxs = %8.8x, zeros = %d\n",
+          tmm.minu, tmm.maxu, tmm.mins, tmm.maxs, tmm.zero) ;
+}
 
 void set_8(void *new_, int n){
   uint8_t *new = (uint8_t *)new_ ;
@@ -176,6 +211,7 @@ int main(int argc, char **argv){
   uint32_t i ;
   char *msg ;
   TIME_LOOP_DATA ;
+  minmax tmm ;
 
   start_of_test("bdh block move functions") ;
   fprintf(stderr, "global values = %d, block values = %d\n", GNI*GNJ, NI*NJ) ;
@@ -191,7 +227,8 @@ int main(int argc, char **argv){
     src_i32[i] = ( OR_1 | (i - (GNI*GNJ)/2)) ;
     src_i64[i] = ( OR_1 | (src_i32[i])) ;
     src_f32[i] = ( OR_1 | (i)) ;
-    src_d64[i] = ( OR_1 | (i)) ;
+    if(i & 1) src_f32[i] = (-src_f32[i]) ;
+    src_d64[i] = src_f32[i] ;
   }
 
 // syntax check
@@ -247,6 +284,8 @@ int main(int argc, char **argv){
   fprintf(stderr, "%s", timer_msg) ;
   TIME_LOOP_EZ(NITER, (NI*NJ), block2bhwd(rst_u8, blocku, GNI, NI, NJ) ) ;
   fprintf(stderr, " | %s\n", timer_msg) ;
+  tmm = vminmax((void *)blocku, NI*NJ) ;
+  print_minmax(tmm) ;
   fprintf(stderr, "SUCCESS: u8\n") ;
 
   fwd = to_block_fn(src_u8) ;
@@ -280,6 +319,8 @@ int main(int argc, char **argv){
   fprintf(stderr, "%s", timer_msg) ;
   TIME_LOOP_EZ(NITER, (NI*NJ), block2bhwd(rst_i8, blocki, GNI, NI, NJ) ) ;
   fprintf(stderr, " | %s\n", timer_msg) ;
+  tmm = vminmax((void *)blocki, NI*NJ) ;
+  print_minmax(tmm) ;
   fprintf(stderr, "SUCCESS: i8\n") ;
 
   msg = "src_u16-1" ; set_16(rst_u16, GNI*GNJ) ; set_32(blocku, NI*NJ) ;
@@ -298,6 +339,8 @@ int main(int argc, char **argv){
   fprintf(stderr, "%s", timer_msg) ;
   TIME_LOOP_EZ(NITER, (NI*NJ), block2bhwd(rst_u16, blocku, GNI, NI, NJ) ) ;
   fprintf(stderr, " | %s\n", timer_msg) ;
+  tmm = vminmax((void *)blocku, NI*NJ) ;
+  print_minmax(tmm) ;
   fprintf(stderr, "SUCCESS: u16\n") ;
 
   msg = "src_i16-1" ; set_16(rst_i16, GNI*GNJ) ; set_32(blocki, NI*NJ) ;
@@ -316,6 +359,8 @@ int main(int argc, char **argv){
   fprintf(stderr, "%s", timer_msg) ;
   TIME_LOOP_EZ(NITER, (NI*NJ), block2bhwd(rst_i16, blocki, GNI, NI, NJ) ) ;
   fprintf(stderr, " | %s\n", timer_msg) ;
+  tmm = vminmax((void *)blocki, NI*NJ) ;
+  print_minmax(tmm) ;
   fprintf(stderr, "SUCCESS: i16\n") ;
 
   msg = "src_u32-1" ; set_32(rst_u32, GNI*GNJ) ; set_32(blocku, NI*NJ) ;
@@ -334,6 +379,8 @@ int main(int argc, char **argv){
   fprintf(stderr, "%s", timer_msg) ;
   TIME_LOOP_EZ(NITER, (NI*NJ), block2bhwd(rst_u32, blocku, GNI, NI, NJ) ) ;
   fprintf(stderr, " | %s\n", timer_msg) ;
+  tmm = vminmax((void *)blocku, NI*NJ) ;
+  print_minmax(tmm) ;
   fprintf(stderr, "SUCCESS: u32\n") ;
 
   msg = "src_i32-1" ; set_32(rst_i32, GNI*GNJ) ; set_32(blocki, NI*NJ) ;
@@ -350,8 +397,10 @@ int main(int argc, char **argv){
   if(check_32(src_i32, rst_i32, GNI*GNJ) != 0) goto fail ;
   TIME_LOOP_EZ(NITER, (NI*NJ), bhwd2block(blocki, src_i32, GNI, NI, NJ)  ) ;
   fprintf(stderr, "%s", timer_msg) ;
-  TIME_LOOP_EZ(NITER, (NI*NJ), block2bhwd(src_i32, rst_i32, GNI, NI, NJ) ) ;
+  TIME_LOOP_EZ(NITER, (NI*NJ), block2bhwd(rst_i32, blocki, GNI, NI, NJ) ) ;
   fprintf(stderr, " | %s\n", timer_msg) ;
+  tmm = vminmax((void *)blocki, NI*NJ) ;
+  print_minmax(tmm) ;
   fprintf(stderr, "SUCCESS: i32\n") ;
 
   msg = "src_f32-1" ; set_32(rst_f32, GNI*GNJ) ; set_32(blockf, NI*NJ) ;
@@ -370,6 +419,8 @@ int main(int argc, char **argv){
   fprintf(stderr, "%s", timer_msg) ;
   TIME_LOOP_EZ(NITER, (NI*NJ), block2bhwd(rst_f32, blockf, GNI, NI, NJ) ) ;
   fprintf(stderr, " | %s\n", timer_msg) ;
+  tmm = vminmax((void *)blockf, NI*NJ) ;
+  print_minmax(tmm) ;
   fprintf(stderr, "SUCCESS: f32\n") ;
 
   msg = "src_u64-1" ; set_64(rst_u64, GNI*GNJ) ; set_32(blocku, NI*NJ) ;
@@ -388,6 +439,8 @@ int main(int argc, char **argv){
   fprintf(stderr, "%s", timer_msg) ;
   TIME_LOOP_EZ(NITER, (NI*NJ), block2bhwd(rst_u64, blocku, GNI, NI, NJ) ) ;
   fprintf(stderr, " | %s\n", timer_msg) ;
+  tmm = vminmax((void *)blocku, NI*NJ) ;
+  print_minmax(tmm) ;
   fprintf(stderr, "SUCCESS: u64\n") ;
 
   msg = "src_i64-1" ; set_64(rst_i64, GNI*GNJ) ; set_32(blocki, NI*NJ) ;
@@ -406,6 +459,8 @@ int main(int argc, char **argv){
   fprintf(stderr, "%s", timer_msg) ;
   TIME_LOOP_EZ(NITER, (NI*NJ), block2bhwd(rst_i64, blocki, GNI, NI, NJ) ) ;
   fprintf(stderr, " | %s\n", timer_msg) ;
+  tmm = vminmax((void *)blocki, NI*NJ) ;
+  print_minmax(tmm) ;
   fprintf(stderr, "SUCCESS: i64\n") ;
 
   msg = "src_d64-1" ; set_64(rst_d64, GNI*GNJ) ; set_32(blockf, NI*NJ) ;
@@ -424,8 +479,15 @@ int main(int argc, char **argv){
   fprintf(stderr, "%s", timer_msg) ;
   TIME_LOOP_EZ(NITER, (NI*NJ), block2bhwd(rst_d64, blockf, GNI, NI, NJ) ) ;
   fprintf(stderr, " | %s\n", timer_msg) ;
+  tmm = vminmax((void *)blockf, NI*NJ) ;
+  print_minmax(tmm) ;
   fprintf(stderr, "SUCCESS: d64\n") ;
-  if(timer_min == timer_max) fprintf(stderr, "this is unlikely to print\n") ;
+  if(timer_min == timer_max) fprintf(stderr, "this is unlikely to print\n") ; // get rid of warning set but unused
+
+  tmm = vminmax((void *)blockf, NI*NJ) ;
+  print_minmax(tmm) ;
+  TIME_LOOP_EZ(NITER, (NI*NJ), tmm = vminmax((void *)blockf, NI*NJ) ) ;
+  fprintf(stderr, "vminmax : %s\n", timer_msg) ;
 
   return 0 ;
 
