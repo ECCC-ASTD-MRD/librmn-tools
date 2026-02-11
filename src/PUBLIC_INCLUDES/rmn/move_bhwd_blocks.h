@@ -33,8 +33,8 @@ typedef void (* bhwd_fn)(void *, void *, int, int, int, int) ;
                            int8_t   *: (int32_t  *) what , \
                            uint16_t *: (uint32_t *) what , \
                            int16_t  *: (int32_t  *) what , \
-                           int32_t  *: (int32_t  *) what , \
                            uint32_t *: (uint32_t *) what , \
+                           int32_t  *: (int32_t  *) what , \
                            float    *: (float    *) what , \
                            uint64_t *: (uint32_t *) what , \
                            int64_t  *: (int32_t  *) what , \
@@ -46,8 +46,8 @@ typedef void (* bhwd_fn)(void *, void *, int, int, int, int) ;
                          int8_t   *:  2, int8_t     :  2,  \
                          uint16_t *:  3, uint16_t   :  3, \
                          int16_t  *:  4, int16_t    :  4, \
-                         int32_t  *:  5, int32_t    :  5, \
-                         uint32_t *:  6, uint32_t   :  6, \
+                         uint32_t *:  5, uint32_t   :  5, \
+                         int32_t  *:  6, int32_t    :  6, \
                          float    *:  7, float      :  7, \
                          uint64_t *:  8, uint64_t   :  8, \
                          int64_t  *:  9, int64_t    :  9, \
