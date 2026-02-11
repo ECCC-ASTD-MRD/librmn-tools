@@ -186,7 +186,7 @@ int main(int argc, char **argv){
     src_u16[i] = ( OR_1 | (i & 0xFFFF)) ;
     src_u32[i] = ( OR_1 | (i)) ;
     src_u64[i] = ( OR_1 | (src_u32[i])) ;
-    src_i8[i]  = ( OR_1 | (i & 0xFF - 128)) ;
+    src_i8[i]  = ( OR_1 | ((i & 0xFF) - 128)) ;
     src_i16[i] = ( OR_1 | (i - (GNI*GNJ)/2)) ;
     src_i32[i] = ( OR_1 | (i - (GNI*GNJ)/2)) ;
     src_i64[i] = ( OR_1 | (src_i32[i])) ;
@@ -372,15 +372,15 @@ int main(int argc, char **argv){
   fprintf(stderr, " | %s\n", timer_msg) ;
   fprintf(stderr, "SUCCESS: f32\n") ;
 
-  msg = "src_u64-1" ; set_64(rst_u64, GNI*GNJ) ; set_64(blocku, NI*NJ) ;
+  msg = "src_u64-1" ; set_64(rst_u64, GNI*GNJ) ; set_32(blocku, NI*NJ) ;
   bhwd2block(blocku, src_u64, GNI, NI, NJ) ;  // unsigned 64 bit
   block2bhwd(rst_u64, blocku, GNI, NI, NJ) ;
   if(check_64(src_u64, rst_u64, GNI*GNJ) != 0) goto fail ;
-  msg = "src_u64-2" ; set_64(rst_u64, GNI*GNJ) ; set_64(blocku, NI*NJ) ;
+  msg = "src_u64-2" ; set_64(rst_u64, GNI*GNJ) ; set_32(blocku, NI*NJ) ;
   bhwd2block(blocku, src_u64+DNIJ, GNI, NI, NJ) ;  // unsigned 64 bit
   block2bhwd(rst_u64+DNIJ, blocku, GNI, NI, NJ) ;
   if(check_64(src_u64+DNIJ, rst_u64+DNIJ, GNI*GNJ) != 0) goto fail ;
-  msg = "src_u64-2" ; set_64(rst_u64, GNI*GNJ) ; set_64(blocku, NI*NJ) ;
+  msg = "src_u64-2" ; set_64(rst_u64, GNI*GNJ) ; set_32(blocku, NI*NJ) ;
   bhwd2block(blocku, src_u64, GNI, NI, NJ) ;  // unsigned 64 bit
   block2bhwd(rst_u64, blocku, GNI, NI, NJ) ;
   if(check_64(src_u64, rst_u64, GNI*GNJ) != 0) goto fail ;
@@ -390,15 +390,15 @@ int main(int argc, char **argv){
   fprintf(stderr, " | %s\n", timer_msg) ;
   fprintf(stderr, "SUCCESS: u64\n") ;
 
-  msg = "src_i64-1" ; set_64(rst_i64, GNI*GNJ) ; set_64(blocki, NI*NJ) ;
+  msg = "src_i64-1" ; set_64(rst_i64, GNI*GNJ) ; set_32(blocki, NI*NJ) ;
   bhwd2block(blocki, src_i64, GNI, NI, NJ) ;  // signed 64 bit
   block2bhwd(rst_i64, blocki, GNI, NI, NJ) ;
   if(check_64(src_i64, rst_i64, GNI*GNJ) != 0) goto fail ;
-  msg = "src_i64-2" ; set_64(rst_i64, GNI*GNJ) ; set_64(blocki, NI*NJ) ;
+  msg = "src_i64-2" ; set_64(rst_i64, GNI*GNJ) ; set_32(blocki, NI*NJ) ;
   bhwd2block(blocki, src_i64+DNIJ, GNI, NI, NJ) ;  // signed 64 bit
   block2bhwd(rst_i64+DNIJ, blocki, GNI, NI, NJ) ;
   if(check_64(src_i64+DNIJ, rst_i64+DNIJ, GNI*GNJ) != 0) goto fail ;
-  msg = "src_i64-3" ; set_64(rst_i64, GNI*GNJ) ; set_64(blocki, NI*NJ) ;
+  msg = "src_i64-3" ; set_64(rst_i64, GNI*GNJ) ; set_32(blocki, NI*NJ) ;
   bhwd2block(blocki, src_i64, GNI, NI, NJ) ;  // signed 64 bit
   block2bhwd(rst_i64, blocki, GNI, NI, NJ) ;
   if(check_64(src_i64, rst_i64, GNI*GNJ) != 0) goto fail ;
@@ -408,15 +408,15 @@ int main(int argc, char **argv){
   fprintf(stderr, " | %s\n", timer_msg) ;
   fprintf(stderr, "SUCCESS: i64\n") ;
 
-  msg = "src_d64-1" ; set_64(rst_d64, GNI*GNJ) ; set_64(blockf, NI*NJ) ;
+  msg = "src_d64-1" ; set_64(rst_d64, GNI*GNJ) ; set_32(blockf, NI*NJ) ;
   bhwd2block(blockf, src_d64, GNI, NI, NJ) ;  // double 64 bit
   block2bhwd(rst_d64, blockf, GNI, NI, NJ) ;
   if(check_64(src_d64, rst_d64, GNI*GNJ) != 0) goto fail ;
-  msg = "src_d64-2" ; set_64(rst_d64, GNI*GNJ) ; set_64(blockf, NI*NJ) ;
+  msg = "src_d64-2" ; set_64(rst_d64, GNI*GNJ) ; set_32(blockf, NI*NJ) ;
   bhwd2block(blockf, src_d64+DNIJ, GNI, NI, NJ) ;  // double 64 bit
   block2bhwd(rst_d64+DNIJ, blockf, GNI, NI, NJ) ;
   if(check_64(src_d64+DNIJ, rst_d64+DNIJ, GNI*GNJ) != 0) goto fail ;
-  msg = "src_d64-3" ; set_64(rst_d64, GNI*GNJ) ; set_64(blockf, NI*NJ) ;
+  msg = "src_d64-3" ; set_64(rst_d64, GNI*GNJ) ; set_32(blockf, NI*NJ) ;
   bhwd2block(blockf, src_d64, GNI, NI, NJ) ;  // double 64 bit
   block2bhwd(rst_d64, blockf, GNI, NI, NJ) ;
   if(check_64(src_d64, rst_d64, GNI*GNJ) != 0) goto fail ;
@@ -425,6 +425,7 @@ int main(int argc, char **argv){
   TIME_LOOP_EZ(NITER, (NI*NJ), block2bhwd(rst_d64, blockf, GNI, NI, NJ) ) ;
   fprintf(stderr, " | %s\n", timer_msg) ;
   fprintf(stderr, "SUCCESS: d64\n") ;
+  if(timer_min == timer_max) fprintf(stderr, "this is unlikely to print\n") ;
 
   return 0 ;
 
