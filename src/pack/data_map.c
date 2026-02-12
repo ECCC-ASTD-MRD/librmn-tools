@@ -168,7 +168,7 @@ zmap *new_zmap(int32_t gni, int32_t gnj, int32_t gnk, int32_t bsize, int32_t asp
   int32_t lnj = p.ln1 ;               // bsize
   int32_t ljx = p.ln0 ;               // size of first block along j
   // no split along third dimension  TODO : add gnk to argument list
-  int32_t znk = 1 ;
+//   int32_t znk = 1 ;
 
   zmap *map = NULL ;
   ssize_t size ;
@@ -179,9 +179,9 @@ zmap *new_zmap(int32_t gni, int32_t gnj, int32_t gnk, int32_t bsize, int32_t asp
   spad = size - spad ;                                          // size of padding (0,1,2,3)
   size = size + mextra * sizeof(uint32_t) ;                     // + size of global information
   ssize_t hsize = size ;                                        // size without data but including global information
-  ssize_t lsize ;
-  int32_t i, j, lbi, lbj ;
-  int32_t zij, znij ;
+//   ssize_t lsize ;
+  int32_t i/*, j, lbi, lbj*/ ;
+  int32_t /*zij,*/ znij ;
   uint32_t *current ;
 
   // compute worst case size needed to encode data (esize bytes per element)
