@@ -253,7 +253,16 @@ void move_i64_to_i32(int32_t * restrict w, int64_t * restrict bhd, int lni, int 
   int i ;
 // fprintf(stderr, "move_i64_to_i32, lni = %d, ni = %d, nj = %d\n", lni, ni, nj) ;
   while(nj-- > 0){
-    for(i=0 ; i<ni; i++){ int64_t t = bhd[i] ; t = (t>INT32_MAX) ? INT32_MAX : t ; t = (t < INT32_MIN) ? INT32_MIN : t ; w[i] =t; };
+    for(i=0 ; i<ni; i++){
+      int64_t t = bhd[i] ;
+      if(t > INT32_MAX){
+        fprintf(stderr, "t > INT32_MAX, bhd[i] = %16.16lx , t = %16.16lx, i = %d, nj = %d\n", bhd[i], t, i, nj) ;
+        exit(1) ;
+      }
+      t = (t > INT32_MAX) ? INT32_MAX : t ;
+      t = (t < INT32_MIN) ? INT32_MIN : t ;
+      w[i] =t;
+    };
     w   +=  ni ;
     bhd += lni ;
   }
@@ -302,31 +311,126 @@ void move_f32_to_d64(double * restrict dp, float * restrict fp, int lni, int ni,
   }
 }
 //
-// ==========================================================================
+// ============ block properties functions ============
 //
-zminmax block_zminmax(void *s_in, int n){
+// get signed and unsigned extrema and number of zero values
+// data is treated as integers
+// s_in  [IN] : 32 bit data values
+// n     [IN] : number of values
+block_properties block_zminmax(void *s_in, int n){
   uint32_t *s = (uint32_t *) s_in ;
-  zminmax r ;
+  block_properties r ;
   uint32_t tu, mxu, mnu ;
   int32_t  ts, mxs, mns, zro ;
   mxu = mnu = (uint32_t)s[0] ;
   mxs = mns = (int32_t) s[0] ;
   zro = 0 ;
   for(int i=0 ; i<n ; i++){
-    tu = (uint32_t)s[i] ;
-    ts = (int32_t) s[i] ;
-    zro = zro + ((tu == 0) ? 1 : 0) ;
-    mxu = (tu > mxu) ? tu : mxu ;
-    mxs = (ts > mxs) ? ts : mxs ;
-    mnu = (tu < mnu) ? tu : mnu ;
-    mns = (ts < mns) ? ts : mns ;
+    tu = (uint32_t)s[i] ;                 // data as unsigned integers
+    ts = (int32_t) s[i] ;                 // data as signed integers
+    zro = zro + ((tu == 0) ? 1 : 0) ;     // number of zero values
+    mxu = (tu > mxu) ? tu : mxu ;         // unsigned maximum
+    mxs = (ts > mxs) ? ts : mxs ;         // signed maximum
+    mnu = (tu < mnu) ? tu : mnu ;         // unsigned minimum
+    mns = (ts < mns) ? ts : mns ;         // signed minimum
   }
-  r.maxu = mxu ;
-  r.maxs = mxs ;
-  r.mins = mns ;
-  r.minu = mnu ;
-  r.zero = zro ;
+  r.maxu.u = mxu ;
+  r.maxs.i = mxs ;
+  r.minu.u = mnu ;
+  r.mins.i = mns ;
+  r.zeros = zro ;
   return r ;
+}
+
+// compute full bp according to data type (see data_kind.h)
+// bp    [INOUT] : pointer to block properties struct (min / max / min abs)
+// datatype [IN] : data type int_data / uint_data / float_data / raw_data
+void full_block_properties(block_properties *bp, data_kind datatype){
+  if(bp == NULL) return ;
+//   if(datatype == any_data) datatype = bp->kind ;
+  if(datatype == float_data){
+    if(bp->maxs.i < 0){           // all numbers are negative
+      float max = bp->minu.f ;
+      float min = bp->maxu.f ;
+      bp->mins.f =  min ;         // most negative value  (minimum value)
+      bp->maxs.f =  max ;         // least negative value  (maximum value)
+      bp->minu.f = -max ;         // smallest absolute value
+      bp->maxu.f = -min ;         // largest absolute value
+    }else if(bp->mins.i < 0) {    // negative and non negative numbers
+      float max = bp->maxs.f ;    // most positive value
+      float min = bp->maxu.f ;    // most negative value
+      float mins = bp->mins.f ;   // negative value closest to zero
+      float minu = bp->minu.f ;   // positive value closest to zero
+      bp->mins.f =  min ;         // largest negative value  (minimum value)
+      bp->maxs.f =  max ;         // largest positive value  (maximum value)
+      bp->minu.f = (minu < (-mins)) ? minu : (-mins) ;       // smallest absolute value
+      bp->maxu.f = ((max > (-min)) ? max : (-min) ) ;        // largest absolute value
+    }
+    bp->kind = float_data ;
+  }else if(datatype == int_data){
+    bp->kind = int_data ;
+    // bp->minu.i will be the smallest value >= 0
+    // bp->maxu.i will be the negative value closest to 0 if negative values are present
+    // if no negative values are present, bp->maxu.i will be equal to bp->maxs.i
+  }else if(datatype == uint_data){
+    bp->kind = uint_data ;
+    // bp->maxs and bp->mins  are meaningless
+//   }else if(datatype == raw_data){
+//     bp->kind = raw_data ;
+  }else{
+    bp->kind = bad_data ;
+  }
+}
+
+// fix bp according to data type (see data_kind.h)
+// bp       [IN] : block properties struct (min / max / min abs)
+// datatype [IN] : data type int_data / uint_data / float_data / raw_data
+// return fixed block properties
+block_properties fix_block_properties(block_properties bp, data_kind datatype){
+//   if(datatype == any_data) datatype = bp.kind ;
+  if(datatype == float_data){
+    if(bp.maxs.i < 0){           // all numbers are negative
+      float max = bp.minu.f ;
+      float min = bp.maxu.f ;
+      bp.mins.f =  min ;         // most negative value  (minimum value)
+      bp.maxs.f =  max ;         // least negative value  (maximum value)
+      bp.minu.f = -max ;         // smallest absolute value
+      bp.maxu.f = -min ;         // largest absolute value
+    }else if(bp.mins.i < 0) {    // negative and non negative numbers
+      float max = bp.maxs.f ;    // most positive value
+      float min = bp.maxu.f ;    // most negative value
+      float mins = bp.mins.f ;   // negative value closest to zero
+      float minu = bp.minu.f ;   // positive value closest to zero
+      bp.mins.f =  min ;         // largest negative value  (minimum value)
+      bp.maxs.f =  max ;         // largest positive value  (maximum value)
+      bp.minu.f = (minu < (-mins)) ? minu : (-mins) ;       // smallest absolute value
+      bp.maxu.f = ((max > (-min)) ? max : (-min) ) ;        // largest absolute value
+    }
+    bp.kind = float_data ;
+  }else if(datatype == int_data){
+    bp.kind = int_data ;
+    // bp.minu.i will be the smallest value >= 0
+    // bp.maxu.i will be the negative value closest to 0 if negative values are present
+    // if no negative values are present, bp.maxu.i will be equal to bp.maxs.i
+  }else if(datatype == uint_data){
+    bp.kind = uint_data ;
+    // bp.maxs and bp.mins  are meaningless
+//   }else if(datatype == raw_data){
+//     bp.kind = raw_data ;
+  }else{
+    bp.kind = bad_data ;
+  }
+  return bp ;
+}
+
+// bp [IN] : block properties struct (min / max / min abs)
+void  print_block_properties(block_properties bp){
+  fprintf(stderr, "kind = %-7s", printable_type[bp.kind]) ;
+  if(bp.kind != bad_data){
+    fprintf(stderr, ", minu = %8.8x, maxu = %8.8x, mins = %8.8x, maxs = %8.8x, zeros = %d",
+            bp.minu.u, bp.maxu.u, bp.mins.i, bp.maxs.i, bp.zeros) ;
+  }
+  fprintf(stderr, "\n") ;
 }
 //
 // ==========================================================================

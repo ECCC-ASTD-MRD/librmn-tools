@@ -19,13 +19,16 @@
 
 #include <stdint.h>
 
-typedef struct{
-  uint32_t minu, maxu ;
-  int32_t  mins, maxs ;
-  int32_t zero ;
-}zminmax ;
+#include <rmn/data_properties.h>
 
-zminmax block_zminmax(void *s, int n);
+block_properties block_zminmax(void *s, int n);
+void full_block_properties(block_properties *bp, data_kind datatype);
+block_properties fix_block_properties(block_properties bp, data_kind datatype);
+void  print_block_properties(block_properties bp);
+
+#define set_block_properties(bp, block) full_block_properties(bp, array_block_kind(block))
+
+#define get_block_properties(block, n) fix_block_properties(block_zminmax((void *)block, n), array_block_kind(block))
 
 typedef void (* bhwd_fn)(void *, void *, int, int, int, int) ;
 
@@ -36,20 +39,22 @@ typedef void (* bhwd_fn)(void *, void *, int, int, int, int) ;
                            bhwd_fn : (*FN) \
                            ) (__VA_ARGS__, 0)
 
-#define w32_cast(what, to) _Generic((to), \
-                           uint8_t  *: (uint32_t *) what , \
-                           int8_t   *: (int32_t  *) what , \
-                           uint16_t *: (uint32_t *) what , \
-                           int16_t  *: (int32_t  *) what , \
-                           uint32_t *: (uint32_t *) what , \
-                           int32_t  *: (int32_t  *) what , \
-                           float    *: (float    *) what , \
-                           uint64_t *: (uint32_t *) what , \
-                           int64_t  *: (int32_t  *) what , \
-                           double   *: (float    *) what   \
-                           )
+// type block should be cast to according to array type
+#define w32_cast(block, array) _Generic((array), \
+                               uint8_t  *: (uint32_t *) block, \
+                               int8_t   *: (int32_t  *) block, \
+                               uint16_t *: (uint32_t *) block, \
+                               int16_t  *: (int32_t  *) block, \
+                               uint32_t *: (uint32_t *) block, \
+                               int32_t  *: (int32_t  *) block, \
+                               float    *: (float    *) block, \
+                               uint64_t *: (uint32_t *) block, \
+                               int64_t  *: (int32_t  *) block, \
+                               double   *: (float    *) block  \
+                               )
 
-#define block_type(what) _Generic((what), \
+// type number associated with array or element
+#define array_type(what) _Generic((what), \
                          uint8_t  *:  1, uint8_t    :  1,  \
                          int8_t   *:  2, int8_t     :  2,  \
                          uint16_t *:  3, uint16_t   :  3, \
@@ -63,7 +68,8 @@ typedef void (* bhwd_fn)(void *, void *, int, int, int, int) ;
                          default   : 0 \
                          )
 
-#define block_type_name(what) _Generic((what), \
+// type name associated with array or element
+#define array_type_name(what) _Generic((what), \
                               uint8_t  *: "uint8_t" , uint8_t    : "uint8_t" , \
                               int8_t   *: "int8_t"  , int8_t     : "int8_t"  , \
                               uint16_t *: "uint16_t", uint16_t   : "uint16_t", \
@@ -77,6 +83,45 @@ typedef void (* bhwd_fn)(void *, void *, int, int, int, int) ;
                               default   : "UNKNOWN" \
                               )
 
+// kind associated to block
+#define array_block_kind(block) _Generic((block), \
+                                uint32_t *: uint_data,  \
+                                int32_t  *: int_data,   \
+                                float    *: float_data, \
+                                default   : bad_data \
+                                )
+
+// block kind associated to array type
+#define block_kind(array) _Generic((array), \
+                          uint8_t  *: uint_data,  \
+                          int8_t   *: int_data,   \
+                          uint16_t *: uint_data,  \
+                          int16_t  *: int_data,   \
+                          uint32_t *: uint_data,  \
+                          int32_t  *: int_data,   \
+                          float    *: float_data, \
+                          uint64_t *: uint_data,  \
+                          int64_t  *: int_data,   \
+                          double   *: float_data, \
+                          default   : bad_data \
+                          )
+
+// block kind name associated to array type
+#define block_kind_name(array) _Generic((array), \
+                               uint8_t  *: "uint_data",  \
+                               int8_t   *: "int_data",   \
+                               uint16_t *: "uint_data",  \
+                               int16_t  *: "int_data",   \
+                               uint32_t *: "uint_data",  \
+                               int32_t  *: "int_data",   \
+                               float    *: "float_data", \
+                               uint64_t *: "uint_data",  \
+                               int64_t  *: "int_data",   \
+                               double   *: "float_data", \
+                               default   : "bad_data" \
+                               )
+
+// block -> array copy functions associated to array/scalar type
 #define from_block_fn(src) _Generic((src), \
                            uint8_t  *: (bhwd_fn)move_u32_to_u8 , uint8_t  : (bhwd_fn)move_u32_to_u8 , \
                            int8_t   *: (bhwd_fn)move_i32_to_i8 , int8_t   : (bhwd_fn)move_i32_to_i8 , \
@@ -90,6 +135,7 @@ typedef void (* bhwd_fn)(void *, void *, int, int, int, int) ;
                            double   *: (bhwd_fn)move_f32_to_d64, double   : (bhwd_fn)move_f32_to_d64, \
                            default   : NULL \
                            )
+// block -> array copy function names associated to array/scalar type
 #define from_block_name(src) _Generic((src), \
                              uint8_t  *: "move_u32_to_u8" , uint8_t  : "move_u32_to_u8" , \
                              int8_t   *: "move_i32_to_i8" , int8_t   : "move_i32_to_i8" , \
@@ -104,6 +150,7 @@ typedef void (* bhwd_fn)(void *, void *, int, int, int, int) ;
                              default   : "INVALID" \
                              )
 
+// block <- array copy functions associated to array/scalar type
 #define to_block_fn(src) _Generic((src), \
                          uint8_t  *: (bhwd_fn)move_u8_to_u32 , uint8_t  : (bhwd_fn)move_u8_to_u32 , \
                          int8_t   *: (bhwd_fn)move_i8_to_i32 , int8_t   : (bhwd_fn)move_i8_to_i32 , \
@@ -118,6 +165,7 @@ typedef void (* bhwd_fn)(void *, void *, int, int, int, int) ;
                          default   : NULL \
                          )
 
+// block <- array copy function names associated to array/scalar type
 #define to_block_name(src) _Generic((src), \
                            uint8_t  *: "move_u8_to_u32" , uint8_t  : "move_u8_to_u32",  \
                            int8_t   *: "move_i8_to_i32" , int8_t   : "move_i8_to_i32",  \
@@ -132,12 +180,11 @@ typedef void (* bhwd_fn)(void *, void *, int, int, int, int) ;
                            default   : "INVALID" \
                            )
 
-// extern bhwd_fn bhwd_table[][2] ;
-// #define FETCH_BLOCK 0
-// #define STORE_BLOCK 1
-
 // array section to block movers
 // blocks are contiguous 32 bit arrays
+
+// the last argument, z, is only used for 32 bit -> 32 bit moves, and should be 0
+// its purpose is to prevent compilers from using the library memory mover for short transfers
 
 void move_u8_to_u32(uint32_t * restrict w   , uint8_t * restrict bhwd , int lni, int ni, int nj, int z);  // unsigned 8 -> 32
 void move_u32_to_u8(uint8_t * restrict bhwd  , uint32_t * restrict w  , int lni, int ni, int nj, int z);  // unsigned 32 -> 8

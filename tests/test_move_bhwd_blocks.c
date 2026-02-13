@@ -34,14 +34,9 @@
 
 #define DNIJ ((GNI-NI)/3 + (GNI*((GNJ-NJ)/5)))
 
-#define OR_1 0x00
+#define OR_X 0x00
 
 #define NITER 5000
-
-void  print_minmax(zminmax tmm){
-  fprintf(stderr, "minu = %8.8x, maxu = %8.8x, mins = %8.8x, maxs = %8.8x, zeros = %d\n",
-          tmm.minu, tmm.maxu, tmm.mins, tmm.maxs, tmm.zero) ;
-}
 
 void set_8(void *new_, int n){
   uint8_t *new = (uint8_t *)new_ ;
@@ -147,7 +142,7 @@ int check_64_(int lni, int ni, int nj,  uint64_t ref[nj][lni],  uint64_t new[nj]
   for(int j=0 ; j<nj ; j++){
     for(int i=0 ; i<ni ; i++){
       if(ref[j][i] != new[j][i]) diff++ ;
-      if(diff == 1) fprintf(stderr, "i,j = [%d,%d], expecting %16.16lx, got %16.16lx, ", i, j, ref[j][i], new[i][i]) ;
+      if(diff >0 && diff < 2) fprintf(stderr, "i,j = [%d,%d], expecting %16.16lx, got %16.16lx, ", i, j, ref[j][i], new[i][i]) ;
     }
   }
   if(diff) fprintf(stderr, "%d differences\n", diff) ;
@@ -178,63 +173,88 @@ int main(int argc, char **argv){
   double   src_d64[GNI*GNJ], rst_d64[GNI*GNJ] ;
   char dummy[2] ;
   bhwd_fn fwd, inv ;
-  uint32_t i ;
+  int32_t i ;
   char *msg ;
   TIME_LOOP_DATA ;
-  zminmax tmm ;
+  block_properties tmm ;
+  int kind ;
 
   start_of_test("bdh block move functions") ;
   fprintf(stderr, "global values = %d, block values = %d\n", GNI*GNJ, NI*NJ) ;
 
 // fill arrays
   for(i=0 ; i<GNI*GNJ ; i++){
-    src_u8[i]  = ( OR_1 | (i & 0xFF)) ;
-    src_u16[i] = ( OR_1 | (i & 0xFFFF)) ;
-    src_u32[i] = ( OR_1 | (i)) ;
-    src_u64[i] = ( OR_1 | (src_u32[i])) ;
-    src_i8[i]  = ( OR_1 | ((i & 0xFF) - 128)) ;
-    src_i16[i] = ( OR_1 | (i - (GNI*GNJ)/2)) ;
-    src_i32[i] = ( OR_1 | (i - (GNI*GNJ)/2)) ;
-    src_i64[i] = ( OR_1 | (src_i32[i])) ;
-    src_f32[i] = ( OR_1 | (i)) ;
+    src_u8[i]  = ( OR_X | (i & 0xFF)) ;
+    src_u16[i] = ( OR_X | (i & 0xFFFF)) ;
+    src_u32[i] = ( OR_X | (i)) ;
+    src_u64[i] = ( OR_X | (src_u32[i])) ;
+    src_i8[i]  = ( OR_X | ((int32_t)(i & 0xFF) - 128)) ;
+    src_i16[i] = ( OR_X | ((int32_t)i - (GNI*GNJ)/2)) ;
+    src_i32[i] = ( OR_X | ((int32_t)i - (GNI*GNJ)/2)) ;
+//     src_i32[i] = ( OR_X | (i - (GNI*GNJ)/2)) ;
+    src_i32[i] = (i - (GNI*GNJ)/2) ;
+    src_i64[i] = ( OR_X | (src_i32[i])) ;
+    src_f32[i] = ( OR_X | (i)) ;
     if(i & 1) src_f32[i] = (-src_f32[i]) ;
     src_d64[i] = src_f32[i] ;
   }
-
+for(i=0 ; i<2 ; i++) fprintf(stderr, " i = %d, src_i64[i] = %ld, src_i32[i] = %d\n", i, src_i64[i], src_i32[i]) ;
 // syntax check
 
-  fprintf(stderr, "char code = %2d(%s), fn = %p/%p, '%s/%s'\n",
-          block_type(dummy), block_type_name(dummy[0]), to_block_fn(dummy), from_block_fn(dummy), to_block_name(dummy), from_block_name(dummy));
+  fprintf(stderr, "char code = %2d(%s), fn = %p/%p, '%s/%s'",
+          array_type(dummy), array_type_name(dummy[0]), to_block_fn(dummy), from_block_fn(dummy), to_block_name(dummy), from_block_name(dummy));
+  kind=block_kind(dummy) ;
+  fprintf(stderr,",      block kind %2d %10s %10s\n", kind, block_kind_name(dummy), printable_type[kind]);
 
-  fprintf(stderr, "u8  code = %2d(%8s), fn = '%15s / %15s'\n",
-          block_type(src_u8), block_type_name(src_u8[0]), to_block_name(src_u8), from_block_name(src_u8)) ;
+  fprintf(stderr, "u8  code = %2d(%8s), fn = '%15s / %15s'",
+          array_type(src_u8), array_type_name(src_u8[0]), to_block_name(src_u8), from_block_name(src_u8)) ;
+  kind=block_kind(src_u8) ;
+  fprintf(stderr,", block kind %2d %10s %10s\n", kind, block_kind_name(src_u8), printable_type[kind]);
 
-  fprintf(stderr, "i8  code = %2d(%8s), fn = '%15s / %15s'\n",
-          block_type(src_i8), block_type_name(src_i8[0]), to_block_name(src_i8), from_block_name(src_i8)) ;
+  fprintf(stderr, "i8  code = %2d(%8s), fn = '%15s / %15s'",
+          array_type(src_i8), array_type_name(src_i8[0]), to_block_name(src_i8), from_block_name(src_i8)) ;
+  kind=block_kind(src_i8) ;
+  fprintf(stderr,", block kind %2d %10s %10s\n", kind, block_kind_name(src_i8), printable_type[kind]);
 
-  fprintf(stderr, "u16 code = %2d(%8s), fn = '%15s / %15s'\n",
-          block_type(src_u16), block_type_name(src_u16[0]), to_block_name(src_u16), from_block_name(src_u16)) ;
+  fprintf(stderr, "u16 code = %2d(%8s), fn = '%15s / %15s'",
+          array_type(src_u16), array_type_name(src_u16[0]), to_block_name(src_u16), from_block_name(src_u16)) ;
+  kind=block_kind(src_u16) ;
+  fprintf(stderr,", block kind %2d %10s %10s\n", kind, block_kind_name(src_u16), printable_type[kind]);
 
-  fprintf(stderr, "i16 code = %2d(%8s), fn = '%15s / %15s'\n",
-          block_type(src_i16), block_type_name(src_i16[0]), to_block_name(src_i16), from_block_name(src_i16)) ;
+  fprintf(stderr, "i16 code = %2d(%8s), fn = '%15s / %15s'",
+          array_type(src_i16), array_type_name(src_i16[0]), to_block_name(src_i16), from_block_name(src_i16)) ;
+  kind=block_kind(src_i16) ;
+  fprintf(stderr,", block kind %2d %10s %10s\n", kind, block_kind_name(src_i16), printable_type[kind]);
 
-  fprintf(stderr, "u32 code = %2d(%8s), fn = '%15s / %15s'\n",
-          block_type(src_u32), block_type_name(src_u32[0]), to_block_name(src_u32), from_block_name(src_u32)) ;
+  fprintf(stderr, "u32 code = %2d(%8s), fn = '%15s / %15s'",
+          array_type(src_u32), array_type_name(src_u32[0]), to_block_name(src_u32), from_block_name(src_u32)) ;
+  kind=block_kind(src_u32) ;
+  fprintf(stderr,", block kind %2d %10s %10s\n", kind, block_kind_name(src_u32), printable_type[kind]);
 
-  fprintf(stderr, "i32 code = %2d(%8s), fn = '%15s / %15s'\n",
-          block_type(src_i32), block_type_name(src_i32[0]), to_block_name(src_i32), from_block_name(src_i32)) ;
+  fprintf(stderr, "i32 code = %2d(%8s), fn = '%15s / %15s'",
+          array_type(src_i32), array_type_name(src_i32[0]), to_block_name(src_i32), from_block_name(src_i32)) ;
+  kind=block_kind(src_i32) ;
+  fprintf(stderr,", block kind %2d %10s %10s\n", kind, block_kind_name(src_i32), printable_type[kind]);
 
-  fprintf(stderr, "f32 code = %2d(%8s), fn = '%15s / %15s'\n",
-          block_type(src_f32), block_type_name(src_f32[0]), to_block_name(src_f32), from_block_name(src_f32)) ;
+  fprintf(stderr, "f32 code = %2d(%8s), fn = '%15s / %15s'",
+          array_type(src_f32), array_type_name(src_f32[0]), to_block_name(src_f32), from_block_name(src_f32)) ;
+  kind=block_kind(src_f32) ;
+  fprintf(stderr,", block kind %2d %10s %10s\n", kind, block_kind_name(src_f32), printable_type[kind]);
 
-  fprintf(stderr, "u64 code = %2d(%8s), fn = '%15s / %15s'\n",
-          block_type(src_u64), block_type_name(src_u64[0]), to_block_name(src_u64), from_block_name(src_u64)) ;
+  fprintf(stderr, "u64 code = %2d(%8s), fn = '%15s / %15s'",
+          array_type(src_u64), array_type_name(src_u64[0]), to_block_name(src_u64), from_block_name(src_u64)) ;
+  kind=block_kind(src_u64) ;
+  fprintf(stderr,", block kind %2d %10s %10s\n", kind, block_kind_name(src_u64), printable_type[kind]);
 
-  fprintf(stderr, "i64 code = %2d(%8s), fn = '%15s / %15s'\n",
-          block_type(src_i64), block_type_name(src_i64[0]), to_block_name(src_i64), from_block_name(src_i64)) ;
+  fprintf(stderr, "i64 code = %2d(%8s), fn = '%15s / %15s'",
+          array_type(src_i64), array_type_name(src_i64[0]), to_block_name(src_i64), from_block_name(src_i64)) ;
+  kind=block_kind(src_i64) ;
+  fprintf(stderr,", block kind %2d %10s %10s\n", kind, block_kind_name(src_i64), printable_type[kind]);
 
-  fprintf(stderr, "d64 code = %2d(%8s), fn = '%15s / %15s'\n",
-          block_type(src_d64), block_type_name(src_d64[0]), to_block_name(src_d64), from_block_name(src_d64)) ;
+  fprintf(stderr, "d64 code = %2d(%8s), fn = '%15s / %15s'",
+          array_type(src_d64), array_type_name(src_d64[0]), to_block_name(src_d64), from_block_name(src_d64)) ;
+  kind=block_kind(src_d64) ;
+  fprintf(stderr,", block kind %2d %10s %10s\n", kind, block_kind_name(src_d64), printable_type[kind]);
 
   fprintf(stderr, "\n") ;
 
@@ -254,8 +274,9 @@ int main(int argc, char **argv){
   fprintf(stderr, "%s", timer_msg) ;
   TIME_LOOP_EZ(NITER, (NI*NJ), block2bhwd(rst_u8, blocku, GNI, NI, NJ) ) ;
   fprintf(stderr, " | %s\n", timer_msg) ;
-  tmm = block_zminmax((void *)blocku, NI*NJ) ;
-  print_minmax(tmm) ;
+//   tmm = block_zminmax((void *)blocku, NI*NJ) ; set_block_properties(&tmm, blocku) ;
+  tmm = get_block_properties(blocku, NI*NJ) ;
+  print_block_properties(tmm) ;
   fprintf(stderr, "SUCCESS: u8\n") ;
 
   fwd = to_block_fn(src_u8) ;
@@ -289,8 +310,9 @@ int main(int argc, char **argv){
   fprintf(stderr, "%s", timer_msg) ;
   TIME_LOOP_EZ(NITER, (NI*NJ), block2bhwd(rst_i8, blocki, GNI, NI, NJ) ) ;
   fprintf(stderr, " | %s\n", timer_msg) ;
-  tmm = block_zminmax((void *)blocki, NI*NJ) ;
-  print_minmax(tmm) ;
+//   tmm = block_zminmax((void *)blocki, NI*NJ) ; set_block_properties(&tmm, blocki) ;
+  tmm = get_block_properties(blocki, NI*NJ) ;
+  print_block_properties(tmm) ;
   fprintf(stderr, "SUCCESS: i8\n") ;
 
   msg = "src_u16-1" ; set_16(rst_u16, GNI*GNJ) ; set_32(blocku, NI*NJ) ;
@@ -309,8 +331,9 @@ int main(int argc, char **argv){
   fprintf(stderr, "%s", timer_msg) ;
   TIME_LOOP_EZ(NITER, (NI*NJ), block2bhwd(rst_u16, blocku, GNI, NI, NJ) ) ;
   fprintf(stderr, " | %s\n", timer_msg) ;
-  tmm = block_zminmax((void *)blocku, NI*NJ) ;
-  print_minmax(tmm) ;
+//   tmm = block_zminmax((void *)blocku, NI*NJ) ; set_block_properties(&tmm, blocku) ;
+  tmm = get_block_properties(blocku, NI*NJ) ;
+  print_block_properties(tmm) ;
   fprintf(stderr, "SUCCESS: u16\n") ;
 
   msg = "src_i16-1" ; set_16(rst_i16, GNI*GNJ) ; set_32(blocki, NI*NJ) ;
@@ -329,8 +352,9 @@ int main(int argc, char **argv){
   fprintf(stderr, "%s", timer_msg) ;
   TIME_LOOP_EZ(NITER, (NI*NJ), block2bhwd(rst_i16, blocki, GNI, NI, NJ) ) ;
   fprintf(stderr, " | %s\n", timer_msg) ;
-  tmm = block_zminmax((void *)blocki, NI*NJ) ;
-  print_minmax(tmm) ;
+//   tmm = block_zminmax((void *)blocki, NI*NJ) ; set_block_properties(&tmm, blocki) ;
+  tmm = get_block_properties(blocki, NI*NJ) ;
+  print_block_properties(tmm) ;
   fprintf(stderr, "SUCCESS: i16\n") ;
 
   msg = "src_u32-1" ; set_32(rst_u32, GNI*GNJ) ; set_32(blocku, NI*NJ) ;
@@ -349,8 +373,9 @@ int main(int argc, char **argv){
   fprintf(stderr, "%s", timer_msg) ;
   TIME_LOOP_EZ(NITER, (NI*NJ), block2bhwd(rst_u32, blocku, GNI, NI, NJ) ) ;
   fprintf(stderr, " | %s\n", timer_msg) ;
-  tmm = block_zminmax((void *)blocku, NI*NJ) ;
-  print_minmax(tmm) ;
+//   tmm = block_zminmax((void *)blocku, NI*NJ) ; set_block_properties(&tmm, blocku) ;
+  tmm = get_block_properties(blocku, NI*NJ) ;
+  print_block_properties(tmm) ;
   fprintf(stderr, "SUCCESS: u32\n") ;
 
   msg = "src_i32-1" ; set_32(rst_i32, GNI*GNJ) ; set_32(blocki, NI*NJ) ;
@@ -369,8 +394,9 @@ int main(int argc, char **argv){
   fprintf(stderr, "%s", timer_msg) ;
   TIME_LOOP_EZ(NITER, (NI*NJ), block2bhwd(rst_i32, blocki, GNI, NI, NJ) ) ;
   fprintf(stderr, " | %s\n", timer_msg) ;
-  tmm = block_zminmax((void *)blocki, NI*NJ) ;
-  print_minmax(tmm) ;
+//   tmm = block_zminmax((void *)blocki, NI*NJ) ; set_block_properties(&tmm, blocki) ;
+  tmm = get_block_properties(blocki, NI*NJ) ;
+  print_block_properties(tmm) ;
   fprintf(stderr, "SUCCESS: i32\n") ;
 
   msg = "src_f32-1" ; set_32(rst_f32, GNI*GNJ) ; set_32(blockf, NI*NJ) ;
@@ -389,8 +415,9 @@ int main(int argc, char **argv){
   fprintf(stderr, "%s", timer_msg) ;
   TIME_LOOP_EZ(NITER, (NI*NJ), block2bhwd(rst_f32, blockf, GNI, NI, NJ) ) ;
   fprintf(stderr, " | %s\n", timer_msg) ;
-  tmm = block_zminmax((void *)blockf, NI*NJ) ;
-  print_minmax(tmm) ;
+//   tmm = block_zminmax((void *)blockf, NI*NJ) ; set_block_properties(&tmm, blockf) ;
+  tmm = get_block_properties(blockf, NI*NJ) ;
+  print_block_properties(tmm) ;
   fprintf(stderr, "SUCCESS: f32\n") ;
 
   msg = "src_u64-1" ; set_64(rst_u64, GNI*GNJ) ; set_32(blocku, NI*NJ) ;
@@ -409,8 +436,9 @@ int main(int argc, char **argv){
   fprintf(stderr, "%s", timer_msg) ;
   TIME_LOOP_EZ(NITER, (NI*NJ), block2bhwd(rst_u64, blocku, GNI, NI, NJ) ) ;
   fprintf(stderr, " | %s\n", timer_msg) ;
-  tmm = block_zminmax((void *)blocku, NI*NJ) ;
-  print_minmax(tmm) ;
+//   tmm = block_zminmax((void *)blocku, NI*NJ) ; set_block_properties(&tmm, blocku) ;
+  tmm = get_block_properties(blocku, NI*NJ) ;
+  print_block_properties(tmm) ;
   fprintf(stderr, "SUCCESS: u64\n") ;
 
   msg = "src_i64-1" ; set_64(rst_i64, GNI*GNJ) ; set_32(blocki, NI*NJ) ;
@@ -429,8 +457,9 @@ int main(int argc, char **argv){
   fprintf(stderr, "%s", timer_msg) ;
   TIME_LOOP_EZ(NITER, (NI*NJ), block2bhwd(rst_i64, blocki, GNI, NI, NJ) ) ;
   fprintf(stderr, " | %s\n", timer_msg) ;
-  tmm = block_zminmax((void *)blocki, NI*NJ) ;
-  print_minmax(tmm) ;
+//   tmm = block_zminmax((void *)blocki, NI*NJ) ; set_block_properties(&tmm, blocki) ;
+  tmm = get_block_properties(blocki, NI*NJ) ;
+  print_block_properties(tmm) ;
   fprintf(stderr, "SUCCESS: i64\n") ;
 
   msg = "src_d64-1" ; set_64(rst_d64, GNI*GNJ) ; set_32(blockf, NI*NJ) ;
@@ -449,15 +478,30 @@ int main(int argc, char **argv){
   fprintf(stderr, "%s", timer_msg) ;
   TIME_LOOP_EZ(NITER, (NI*NJ), block2bhwd(rst_d64, blockf, GNI, NI, NJ) ) ;
   fprintf(stderr, " | %s\n", timer_msg) ;
-  tmm = block_zminmax((void *)blockf, NI*NJ) ;
-  print_minmax(tmm) ;
+//   tmm = block_zminmax((void *)blockf, NI*NJ) ; set_block_properties(&tmm, blockf) ;
+  tmm = get_block_properties(blockf, NI*NJ) ;
+  print_block_properties(tmm) ;
   fprintf(stderr, "SUCCESS: d64\n") ;
   if(timer_min == timer_max) fprintf(stderr, "this is unlikely to print\n") ; // get rid of warning set but unused
 
-  tmm = block_zminmax((void *)blockf, NI*NJ) ;
-  print_minmax(tmm) ;
+  fprintf(stderr, "\n") ;
+  tmm = get_block_properties(blockf, NI*NJ) ;
+  print_block_properties(tmm) ;
   TIME_LOOP_EZ(NITER, (NI*NJ), tmm = block_zminmax((void *)blockf, NI*NJ) ) ;
-  fprintf(stderr, "block_zminmax : %s\n", timer_msg) ;
+  fprintf(stderr, "%s\n", timer_msg) ;
+  fprintf(stderr, "SUCCESS: block_zminmax\n") ;
+
+  fprintf(stderr, "\nunsupported block pointer types, expecting kind = INVALID\n") ;
+  tmm = get_block_properties((char *)blockf, NI*NJ) ;
+  print_block_properties(tmm) ;
+  if(tmm.kind != bad_data) goto fail ;
+  tmm = get_block_properties((void *)blockf, NI*NJ) ;
+  print_block_properties(tmm) ;
+  if(tmm.kind != bad_data) goto fail ;
+  tmm = get_block_properties((ssize_t *)blockf, NI*NJ) ;
+  print_block_properties(tmm) ;
+  if(tmm.kind != bad_data) goto fail ;
+  fprintf(stderr, "SUCCESS\n") ;
 
   return 0 ;
 
