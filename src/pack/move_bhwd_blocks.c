@@ -48,8 +48,8 @@
 // z       [IN] : integer value, not used
 //
 // get subarray of u8 into u32 block (unsigned)
-void move_u8_to_u32(uint32_t * restrict w32, uint8_t * restrict bhd, int lni, int ni, int nj, int z){  // unsigned 8 -> 32
-  (void) (z) ;
+void move_u8_to_u32(uint32_t * restrict w32, uint8_t * restrict bhd, int lni, int ni, int nj, block_properties *bp, int z){  // unsigned 8 -> 32
+  (void) (z) ; (void) (bp) ;
   int i ;
 // fprintf(stderr, "move_u8_to_u32, lni = %d, ni = %d, nj = %d\n", lni, ni, nj) ;
   while(nj-- > 0){
@@ -60,8 +60,8 @@ void move_u8_to_u32(uint32_t * restrict w32, uint8_t * restrict bhd, int lni, in
 }
 //
 // store subarray of u8 from u32 block (unsigned)
-void move_u32_to_u8(uint8_t * restrict bhd, uint32_t * restrict w32, int lni, int ni, int nj, int z){  // unsigned 32 -> 8
-  (void) (z) ;
+void move_u32_to_u8(uint8_t * restrict bhd, uint32_t * restrict w32, int lni, int ni, int nj, block_properties *bp, int z){  // unsigned 32 -> 8
+  (void) (z) ; (void) (bp) ;
   int i, iter = 0 ;
 // fprintf(stderr, "move_u32_to_u8, lni = %d, ni = %d, nj = %d\n", lni, ni, nj) ;
   while(nj-- > 0){
@@ -73,8 +73,8 @@ void move_u32_to_u8(uint8_t * restrict bhd, uint32_t * restrict w32, int lni, in
 }
 //
 // get subarray of i8 into i32 block (signed)
-void move_i8_to_i32(int32_t * restrict w32, int8_t * restrict bhd, int lni, int ni, int nj, int z){  // signed 8 -> 32
-  (void) (z) ;
+void move_i8_to_i32(int32_t * restrict w32, int8_t * restrict bhd, int lni, int ni, int nj, block_properties *bp, int z){  // signed 8 -> 32
+  (void) (z) ; (void) (bp) ;
   int i ;
 // fprintf(stderr, "move_i8_to_i32, lni = %d, ni = %d, nj = %d\n", lni, ni, nj) ;
   while(nj-- > 0){
@@ -85,8 +85,8 @@ void move_i8_to_i32(int32_t * restrict w32, int8_t * restrict bhd, int lni, int 
 }
 //
 // store subarray of u8 from i32 block (signed)
-void move_i32_to_i8(int8_t * restrict bhd, int32_t * restrict w32, int lni, int ni, int nj, int z){  // signed 32 -> 8
-  (void) (z) ;
+void move_i32_to_i8(int8_t * restrict bhd, int32_t * restrict w32, int lni, int ni, int nj, block_properties *bp, int z){  // signed 32 -> 8
+  (void) (z) ; (void) (bp) ;
   int i ;
 // fprintf(stderr, "move_i32_to_i8, lni = %d, ni = %d, nj = %d\n", lni, ni, nj) ;
   while(nj-- > 0){
@@ -106,8 +106,8 @@ void move_i32_to_i8(int8_t * restrict bhd, int32_t * restrict w32, int lni, int 
 // z       [IN] : integer value, not used
 //
 // get subarray of u16 into u32 block (unsigned)
-void move_u16_to_u32(uint32_t * restrict w32, uint16_t * restrict bhd, int lni, int ni, int nj, int z){  // unsigned 16 -> 32
-  (void) (z) ;
+void move_u16_to_u32(uint32_t * restrict w32, uint16_t * restrict bhd, int lni, int ni, int nj, block_properties *bp, int z){  // unsigned 16 -> 32
+  (void) (z) ; (void) (bp) ;
   int i ;
 // fprintf(stderr, "move_u16_to_u32, lni = %d, ni = %d, nj = %d\n", lni, ni, nj) ;
   while(nj-- > 0){
@@ -118,8 +118,8 @@ void move_u16_to_u32(uint32_t * restrict w32, uint16_t * restrict bhd, int lni, 
 }
 //
 // store subarray of u16 from u32 block (unsigned)
-void move_u32_to_u16(uint16_t * restrict bhd, uint32_t * restrict w32, int lni, int ni, int nj, int z){  // unsigned 32 -> 16
-  (void) (z) ;
+void move_u32_to_u16(uint16_t * restrict bhd, uint32_t * restrict w32, int lni, int ni, int nj, block_properties *bp, int z){  // unsigned 32 -> 16
+  (void) (z) ; (void) (bp) ;
   int i ;
 // fprintf(stderr, "move_u32_to_u16, lni = %d, ni = %d, nj = %d\n", lni, ni, nj) ;
   while(nj-- > 0){
@@ -130,8 +130,8 @@ void move_u32_to_u16(uint16_t * restrict bhd, uint32_t * restrict w32, int lni, 
 }
 //
 // get subarray of i16 into i32 block (signed)
-void move_i16_to_i32(int32_t * restrict w32, int16_t * restrict bhd, int lni, int ni, int nj, int z){  // signed 16 -> 32
-  (void) (z) ;
+void move_i16_to_i32(int32_t * restrict w32, int16_t * restrict bhd, int lni, int ni, int nj, block_properties *bp, int z){  // signed 16 -> 32
+  (void) (z) ; (void) (bp) ;
   int i ;
 // fprintf(stderr, "move_i16_to_i32, lni = %d, ni = %d, nj = %d\n", lni, ni, nj) ;
   while(nj-- > 0){
@@ -142,8 +142,8 @@ void move_i16_to_i32(int32_t * restrict w32, int16_t * restrict bhd, int lni, in
 }
 //
 // store subarray of i16 from i32 block (signed)
-void move_i32_to_i16(int16_t * restrict bhd, int32_t * restrict w32, int lni, int ni, int nj, int z){  // signed 32 -> 16
-  (void) (z) ;
+void move_i32_to_i16(int16_t * restrict bhd, int32_t * restrict w32, int lni, int ni, int nj, block_properties *bp, int z){  // signed 32 -> 16
+  (void) (z) ; (void) (bp) ;
   int i ;
 // fprintf(stderr, "move_i32_to_i16, lni = %d, ni = %d, nj = %d\n", lni, ni, nj) ;
   while(nj-- > 0){
@@ -183,33 +183,33 @@ static void to_w32(void * restrict w32_, void * restrict blk_, int lni, int ni, 
     w32 += lni ;
   }
 }
-void move_i32_to_blk(int32_t * restrict blk, int32_t * restrict w32, int lni, int ni, int nj, int z){  // 32 array -> 32 block
-  (void) (z) ;
+void move_i32_to_blk(int32_t * restrict blk, int32_t * restrict w32, int lni, int ni, int nj, block_properties *bp, int z){  // 32 array -> 32 block
+  (void) (z) ; (void) (bp) ;
 // fprintf(stderr, "move_i32_to_blk, lni = %d, ni = %d, nj = %d\n", lni, ni, nj) ;
   to_blk(blk, w32, lni, ni, nj, z) ;
 }
-void move_blk_to_i32(int32_t * restrict w32, int32_t * restrict blk, int lni, int ni, int nj, int z){  // 32 block -> 32 array
-  (void) (z) ;
+void move_blk_to_i32(int32_t * restrict w32, int32_t * restrict blk, int lni, int ni, int nj, block_properties *bp, int z){  // 32 block -> 32 array
+  (void) (z) ; (void) (bp) ;
 // fprintf(stderr, "move_blk_to_i32, lni = %d, ni = %d, nj = %d\n", lni, ni, nj) ;
   to_w32(w32, blk, lni, ni, nj, z) ;
 }
-void move_u32_to_blk(uint32_t * restrict blk, uint32_t * restrict w32, int lni, int ni, int nj, int z){  // 32 array -> 32 block
-  (void) (z) ;
+void move_u32_to_blk(uint32_t * restrict blk, uint32_t * restrict w32, int lni, int ni, int nj, block_properties *bp, int z){  // 32 array -> 32 block
+  (void) (z) ; (void) (bp) ;
 // fprintf(stderr, "move_u32_to_blk, lni = %d, ni = %d, nj = %d\n", lni, ni, nj) ;
   to_blk(blk, w32, lni, ni, nj, z) ;
 }
-void move_blk_to_u32(uint32_t * restrict w32, uint32_t * restrict blk, int lni, int ni, int nj, int z){  // 32 block -> 32 array
-  (void) (z) ;
+void move_blk_to_u32(uint32_t * restrict w32, uint32_t * restrict blk, int lni, int ni, int nj, block_properties *bp, int z){  // 32 block -> 32 array
+  (void) (z) ; (void) (bp) ;
 // fprintf(stderr, "move_blk_to_u32, lni = %d, ni = %d, nj = %d\n", lni, ni, nj) ;
   to_w32(w32, blk, lni, ni, nj, z) ;
 }
-void move_flt_to_blk(float * restrict blk, float * restrict w32, int lni, int ni, int nj, int z){  // 32 array -> 32 block
-  (void) (z) ;
+void move_flt_to_blk(float * restrict blk, float * restrict w32, int lni, int ni, int nj, block_properties *bp, int z){  // 32 array -> 32 block
+  (void) (z) ; (void) (bp) ;
 // fprintf(stderr, "move_flt_to_blk, lni = %d, ni = %d, nj = %d\n", lni, ni, nj) ;
   to_blk(blk, w32, lni, ni, nj, z) ;
 }
-void move_blk_to_flt(float * restrict w32, float * restrict blk, int lni, int ni, int nj, int z){  // 32 block -> 32 array
-  (void) (z) ;
+void move_blk_to_flt(float * restrict w32, float * restrict blk, int lni, int ni, int nj, block_properties *bp, int z){  // 32 block -> 32 array
+  (void) (z) ; (void) (bp) ;
 // fprintf(stderr, "move_blk_to_flt, lni = %d, ni = %d, nj = %d\n", lni, ni, nj) ;
   to_w32(w32, blk, lni, ni, nj, z) ;
 }
@@ -224,8 +224,8 @@ void move_blk_to_flt(float * restrict w32, float * restrict blk, int lni, int ni
 // z       [IN] : integer value, not used
 //
 // get subarray of u64 into u32 block (unsigned)
-void move_u64_to_u32(uint32_t * restrict w32, uint64_t * restrict bhd, int lni, int ni, int nj, int z){  // unsigned 64 -> 32
-  (void) (z) ;
+void move_u64_to_u32(uint32_t * restrict w32, uint64_t * restrict bhd, int lni, int ni, int nj, block_properties *bp, int z){  // unsigned 64 -> 32
+  (void) (z) ; (void) (bp) ;
   int i ;
 // fprintf(stderr, "move_u64_to_u32, lni = %d, ni = %d, nj = %d\n", lni, ni, nj) ;
   while(nj-- > 0){
@@ -236,8 +236,8 @@ void move_u64_to_u32(uint32_t * restrict w32, uint64_t * restrict bhd, int lni, 
 }
 //
 // store subarray of u64 from u32 block (signed)
-void move_u32_to_u64(uint64_t * restrict bhd, uint32_t * restrict w32, int lni, int ni, int nj, int z){  // unsigned 32 -> 64
-  (void) (z) ;
+void move_u32_to_u64(uint64_t * restrict bhd, uint32_t * restrict w32, int lni, int ni, int nj, block_properties *bp, int z){  // unsigned 32 -> 64
+  (void) (z) ; (void) (bp) ;
   int i ;
 // fprintf(stderr, "move_u32_to_u64, lni = %d, ni = %d, nj = %d\n", lni, ni, nj) ;
   while(nj-- > 0){
@@ -248,8 +248,8 @@ void move_u32_to_u64(uint64_t * restrict bhd, uint32_t * restrict w32, int lni, 
 }
 //
 // get subarray of i64 into i32 block (unsigned)
-void move_i64_to_i32(int32_t * restrict w32, int64_t * restrict bhd, int lni, int ni, int nj, int z){  // signed 64 -> 32
-  (void) (z) ;
+void move_i64_to_i32(int32_t * restrict w32, int64_t * restrict bhd, int lni, int ni, int nj, block_properties *bp, int z){  // signed 64 -> 32
+  (void) (z) ; (void) (bp) ;
   int i ;
 // fprintf(stderr, "move_i64_to_i32, lni = %d, ni = %d, nj = %d\n", lni, ni, nj) ;
   while(nj-- > 0){
@@ -269,8 +269,8 @@ void move_i64_to_i32(int32_t * restrict w32, int64_t * restrict bhd, int lni, in
 }
 //
 // store subarray of i64 from i32 block (signed)
-void move_i32_to_i64(int64_t * restrict bhd, int32_t * restrict w32, int lni, int ni, int nj, int z){  // signed 32 -> 64
-  (void) (z) ;
+void move_i32_to_i64(int64_t * restrict bhd, int32_t * restrict w32, int lni, int ni, int nj, block_properties *bp, int z){  // signed 32 -> 64
+  (void) (z) ; (void) (bp) ;
   int i ;
 // fprintf(stderr, "move_i32_to_i64, lni = %d, ni = %d, nj = %d\n", lni, ni, nj) ;
   while(nj-- > 0){
@@ -289,8 +289,8 @@ void move_i32_to_i64(int64_t * restrict bhd, int32_t * restrict w32, int lni, in
 // nj      [IN] : number of rows
 // z       [IN] : integer value, not used
 //
-void move_d64_to_f32(float * restrict w32, double * restrict dp, int lni, int ni, int nj, int z){
-  (void) (z) ;
+void move_d64_to_f32(float * restrict w32, double * restrict dp, int lni, int ni, int nj, block_properties *bp, int z){
+  (void) (z) ; (void) (bp) ;
   int i ;
 // fprintf(stderr, "move_d64_to_f32, lni = %d, ni = %d, nj = %d\n", lni, ni, nj) ;
   while(nj-- > 0){
@@ -300,8 +300,8 @@ void move_d64_to_f32(float * restrict w32, double * restrict dp, int lni, int ni
   }
 }
 //
-void move_f32_to_d64(double * restrict dp, float * restrict w32, int lni, int ni, int nj, int z){
-  (void) (z) ;
+void move_f32_to_d64(double * restrict dp, float * restrict w32, int lni, int ni, int nj, block_properties *bp, int z){
+  (void) (z) ; (void) (bp) ;
   int i ;
 // fprintf(stderr, "move_f32_to_d64, lni = %d, ni = %d, nj = %d\n", lni, ni, nj) ;
   while(nj-- > 0){
