@@ -235,7 +235,7 @@ void move_u64_to_u32(uint32_t * restrict w32, uint64_t * restrict bhd, int lni, 
   int i ;
 // fprintf(stderr, "move_u64_to_u32, lni = %d, ni = %d, nj = %d\n", lni, ni, nj) ;
   while(nj-- > 0){
-    for(i=0 ; i<ni; i++){ w32[i] = (bhd[i] > UINT32_MAX) ? UINT32_MAX : bhd[i] ; };
+    for(i=0 ; i<ni; i++){ w32[i] = (bhd[i] > UINT32_MAX) ? UINT32_MAX : bhd[i] ; };  // copy with saturation
     w32 +=  ni ;
     bhd += lni ;
   }
@@ -262,12 +262,8 @@ void move_i64_to_i32(int32_t * restrict w32, int64_t * restrict bhd, int lni, in
   while(nj-- > 0){
     for(i=0 ; i<ni; i++){
       int64_t t = bhd[i] ;
-      if(t > INT32_MAX){
-        fprintf(stderr, "t > INT32_MAX, bhd[i] = %16.16lx , t = %16.16lx, i = %d, nj = %d\n", bhd[i], t, i, nj) ;
-        exit(1) ;
-      }
-      t = (t > INT32_MAX) ? INT32_MAX : t ;
-      t = (t < INT32_MIN) ? INT32_MIN : t ;
+      t = (t > INT32_MAX) ? INT32_MAX : t ;  // copy with saturation
+      t = (t < INT32_MIN) ? INT32_MIN : t ;  // copy with saturation
       w32[i] =t;
     };
     w32 +=  ni ;
@@ -327,6 +323,7 @@ void move_f32_to_d64(double * restrict dp, float * restrict w32, int lni, int ni
 // data is treated as integers
 // s_in  [IN] : 32 bit data values
 // n     [IN] : number of values
+// return a block_properties struct
 block_properties block_zminmax(void *s_in, int n){
   uint32_t *s = (uint32_t *) s_in ;
   block_properties r ;
@@ -356,6 +353,7 @@ block_properties block_zminmax(void *s_in, int n){
 // compute full bp according to data type (see data_kind.h)
 // bp    [INOUT] : pointer to block properties struct (min / max / min abs)
 // datatype [IN] : data type int_data / uint_data / float_data / raw_data
+// similar to block_zminmax, uses a pointer argument instead of returning a struct
 void full_block_properties(block_properties *bp, data_kind datatype){
   if(bp == NULL) return ;
 //   if(datatype == any_data) datatype = bp->kind ;
@@ -434,6 +432,7 @@ block_properties fix_block_properties(block_properties bp, data_kind datatype){
   return bp ;
 }
 
+// print block properties
 // bp [IN] : block properties struct (min / max / min abs)
 void  print_block_properties(block_properties bp){
   fprintf(stderr, "kind = %-7s", printable_type[bp.kind]) ;
