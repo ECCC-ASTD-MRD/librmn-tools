@@ -361,19 +361,19 @@ void full_block_properties(block_properties *bp, data_kind datatype){
     if(bp->maxs.i < 0){           // all numbers are negative
       float max = bp->minu.f ;
       float min = bp->maxu.f ;
-      bp->mins.f =  min ;         // most negative value  (minimum value)
-      bp->maxs.f =  max ;         // least negative value  (maximum value)
-      bp->minu.f = -max ;         // smallest absolute value
-      bp->maxu.f = -min ;         // largest absolute value
+      bp->mins.f =  min ;         // most negative value  (minimum value)   FLOAT_MIN_VALUE(BP)
+      bp->maxs.f =  max ;         // least negative value  (maximum value)  FLOAT_MAX_VALUE(BP)
+      bp->minu.f = -max ;         // smallest absolute value                FLOAT_MIN_ABS(BP)
+      bp->maxu.f = -min ;         // largest absolute value                 FLOAT_MAX_ABS(BP)
     }else if(bp->mins.i < 0) {    // negative and non negative numbers
       float max = bp->maxs.f ;    // most positive value
       float min = bp->maxu.f ;    // most negative value
       float mins = bp->mins.f ;   // negative value closest to zero
       float minu = bp->minu.f ;   // positive value closest to zero
-      bp->mins.f =  min ;         // largest negative value  (minimum value)
-      bp->maxs.f =  max ;         // largest positive value  (maximum value)
-      bp->minu.f = (minu < (-mins)) ? minu : (-mins) ;       // smallest absolute value
-      bp->maxu.f = ((max > (-min)) ? max : (-min) ) ;        // largest absolute value
+      bp->mins.f =  min ;         // largest negative value  (minimum value)        FLOAT_MIN_VALUE(BP)
+      bp->maxs.f =  max ;         // largest positive value  (maximum value)        FLOAT_MAX_VALUE(BP)
+      bp->minu.f = (minu < (-mins)) ? minu : (-mins) ;  // smallest absolute value  FLOAT_MIN_ABS(BP)
+      bp->maxu.f = ((max > (-min)) ? max : (-min) ) ;   // largest absolute value   FLOAT_MAX_ABS(BP)
     }
     bp->kind = float_data ;
   }else if(datatype == int_data){
@@ -384,8 +384,6 @@ void full_block_properties(block_properties *bp, data_kind datatype){
   }else if(datatype == uint_data){
     bp->kind = uint_data ;
     // bp->maxs and bp->mins  are meaningless
-//   }else if(datatype == raw_data){
-//     bp->kind = raw_data ;
   }else{
     bp->kind = bad_data ;
   }
@@ -401,19 +399,19 @@ block_properties fix_block_properties(block_properties bp, data_kind datatype){
     if(bp.maxs.i < 0){           // all numbers are negative
       float max = bp.minu.f ;
       float min = bp.maxu.f ;
-      bp.mins.f =  min ;         // most negative value  (minimum value)
-      bp.maxs.f =  max ;         // least negative value  (maximum value)
-      bp.minu.f = -max ;         // smallest absolute value
-      bp.maxu.f = -min ;         // largest absolute value
+      bp.mins.f =  min ;         // most negative value  (minimum value)   FLOAT_MIN_VALUE(BP)
+      bp.maxs.f =  max ;         // least negative value  (maximum value)  FLOAT_MAX_VALUE(BP)
+      bp.minu.f = -max ;         // smallest absolute value                FLOAT_MIN_ABS(BP)
+      bp.maxu.f = -min ;         // largest absolute value                 FLOAT_MAX_ABS(BP)
     }else if(bp.mins.i < 0) {    // negative and non negative numbers
       float max = bp.maxs.f ;    // most positive value
       float min = bp.maxu.f ;    // most negative value
       float mins = bp.mins.f ;   // negative value closest to zero
       float minu = bp.minu.f ;   // positive value closest to zero
-      bp.mins.f =  min ;         // largest negative value  (minimum value)
-      bp.maxs.f =  max ;         // largest positive value  (maximum value)
-      bp.minu.f = (minu < (-mins)) ? minu : (-mins) ;       // smallest absolute value
-      bp.maxu.f = ((max > (-min)) ? max : (-min) ) ;        // largest absolute value
+      bp.mins.f =  min ;         // largest negative value  (minimum value)        FLOAT_MIN_VALUE(BP)
+      bp.maxs.f =  max ;         // largest positive value  (maximum value)        FLOAT_MAX_VALUE(BP)
+      bp.minu.f = (minu < (-mins)) ? minu : (-mins) ;  // smallest absolute value  FLOAT_MIN_ABS(BP)
+      bp.maxu.f = ((max > (-min)) ? max : (-min) ) ;   // largest absolute value   FLOAT_MAX_ABS(BP)
     }
     bp.kind = float_data ;
   }else if(datatype == int_data){
@@ -424,8 +422,6 @@ block_properties fix_block_properties(block_properties bp, data_kind datatype){
   }else if(datatype == uint_data){
     bp.kind = uint_data ;
     // bp.maxs and bp.mins  are meaningless
-//   }else if(datatype == raw_data){
-//     bp.kind = raw_data ;
   }else{
     bp.kind = bad_data ;
   }
