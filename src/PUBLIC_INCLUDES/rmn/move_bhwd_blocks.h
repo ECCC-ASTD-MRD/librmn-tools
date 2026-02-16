@@ -26,9 +26,9 @@ void full_block_properties(block_properties *bp, data_kind datatype);
 block_properties fix_block_properties(block_properties bp, data_kind datatype);
 void  print_block_properties(block_properties bp);
 
-#define set_block_properties(bp, block) full_block_properties(bp, array_block_kind(block))
+#define set_block_properties(bp, block) full_block_properties((bp), array_block_kind((block)))
 
-#define get_block_properties(block, n) fix_block_properties(block_zminmax((void *)block, n), array_block_kind(block))
+#define get_block_properties(block, n) fix_block_properties(block_zminmax((void *)(block), (n)), array_block_kind((block)))
 
 typedef void (* bhwd_fn)(void *, void *, int, int, int, void *, int) ;
 
@@ -230,6 +230,19 @@ void move_f32_to_d64(double * restrict dp   , float * restrict fp     , int lni,
                        ) (dst, __VA_ARGS__, NULL, 0)
 
 #define bhwd2block(dst,src,...) _Generic((src), \
+                                uint8_t   *: move_u8_to_u32,  \
+                                int8_t    *: move_i8_to_i32,   \
+                                uint16_t  *: move_u16_to_u32, \
+                                int16_t   *: move_i16_to_i32, \
+                                int32_t   *: move_i32_to_blk, \
+                                uint32_t  *: move_u32_to_blk, \
+                                float     *: move_flt_to_blk, \
+                                uint64_t  *: move_u64_to_u32, \
+                                int64_t   *: move_i64_to_i32, \
+                                double    *: move_d64_to_f32  \
+                                ) (dst, src, __VA_ARGS__, 0)
+
+#define bhwd2block_nobp(dst,src,...) _Generic((src), \
                                 uint8_t   *: move_u8_to_u32,  \
                                 int8_t    *: move_i8_to_i32,   \
                                 uint16_t  *: move_u16_to_u32, \
