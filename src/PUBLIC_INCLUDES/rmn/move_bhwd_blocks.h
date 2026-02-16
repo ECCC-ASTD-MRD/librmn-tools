@@ -181,22 +181,26 @@ typedef void (* bhwd_fn)(void *, void *, int, int, int, void *, int) ;
                            )
 
 // array section to block movers
-// blocks are contiguous 32 bit arrays
+// blocks (blk) are contiguous 32 bit arrays
+// bhwd can byte/halfword/word/doubleword depending upon the function
+// w32 is a 32 bit word
 
+// if bp is not NULL, block properties are computed when moving from bhwd to a block
+// when moving from a block into bhwd, bp is ignored
 // the last argument, z, is only used for 32 bit -> 32 bit moves, and should be 0
 // its purpose is to prevent compilers from using the library memory mover for short transfers
 
-void move_u8_to_u32(uint32_t * restrict w   , uint8_t * restrict bhwd , int lni, int ni, int nj, block_properties *bp, int z);  // unsigned 8 -> 32
-void move_u32_to_u8(uint8_t * restrict bhwd  , uint32_t * restrict w  , int lni, int ni, int nj, block_properties *bp, int z);  // unsigned 32 -> 8
+void move_u8_to_u32(uint32_t * restrict blk , uint8_t * restrict bhwd , int lni, int ni, int nj, block_properties *bp, int z);  // unsigned 8 -> 32
+void move_u32_to_u8(uint8_t * restrict bhwd  , uint32_t * restrict blk, int lni, int ni, int nj, block_properties *bp, int z);  // unsigned 32 -> 8
 
-void move_i8_to_i32(int32_t * restrict w    , int8_t * restrict bhwd  , int lni, int ni, int nj, block_properties *bp, int z);  // signed 8 -> 32
-void move_i32_to_i8(int8_t * restrict bhwd   , int32_t * restrict w   , int lni, int ni, int nj, block_properties *bp, int z);  // signed 32 -> 8
+void move_i8_to_i32(int32_t * restrict blk  , int8_t * restrict bhwd  , int lni, int ni, int nj, block_properties *bp, int z);  // signed 8 -> 32
+void move_i32_to_i8(int8_t * restrict bhwd   , int32_t * restrict blk , int lni, int ni, int nj, block_properties *bp, int z);  // signed 32 -> 8
 
-void move_u16_to_u32(uint32_t * restrict w  , uint16_t * restrict bhwd, int lni, int ni, int nj, block_properties *bp, int z);  // unsigned 16 -> 32
-void move_u32_to_u16(uint16_t * restrict bhwd, uint32_t * restrict w  , int lni, int ni, int nj, block_properties *bp, int z);  // unsigned 32 -> 16
+void move_u16_to_u32(uint32_t * restrict blk, uint16_t * restrict bhwd, int lni, int ni, int nj, block_properties *bp, int z);  // unsigned 16 -> 32
+void move_u32_to_u16(uint16_t * restrict bhwd, uint32_t * restrict blk, int lni, int ni, int nj, block_properties *bp, int z);  // unsigned 32 -> 16
 
-void move_i16_to_i32(int32_t * restrict w   , int16_t * restrict bhwd , int lni, int ni, int nj, block_properties *bp, int z);  // signed 16 -> 32
-void move_i32_to_i16(int16_t * restrict bhwd , int32_t * restrict w   , int lni, int ni, int nj, block_properties *bp, int z);  // signed 32 -> 16
+void move_i16_to_i32(int32_t * restrict blk , int16_t * restrict bhwd , int lni, int ni, int nj, block_properties *bp, int z);  // signed 16 -> 32
+void move_i32_to_i16(int16_t * restrict bhwd , int32_t * restrict blk , int lni, int ni, int nj, block_properties *bp, int z);  // signed 32 -> 16
 
 void move_u32_to_blk(uint32_t * restrict blk, uint32_t * restrict w32 , int lni, int ni, int nj, block_properties *bp, int z);  // array 32 -> block 32 (unsigned)
 void move_blk_to_u32(uint32_t * restrict w32, uint32_t * restrict blk , int lni, int ni, int nj, block_properties *bp, int z);  // block 32 -> array 32 (unsigned)
@@ -207,15 +211,16 @@ void move_blk_to_i32(int32_t * restrict w32 , int32_t * restrict blk  , int lni,
 void move_flt_to_blk(float * restrict blk   , float * restrict w32    , int lni, int ni, int nj, block_properties *bp, int z);  // array 32 -> block 32 (float)
 void move_blk_to_flt(float * restrict w32   , float * restrict blk    , int lni, int ni, int nj, block_properties *bp, int z);  // block 32 -> array 32 (float)
 
-void move_u64_to_u32(uint32_t * restrict w  , uint64_t * restrict bhwd, int lni, int ni, int nj, block_properties *bp, int z);  // unsigned 64 -> 32
-void move_u32_to_u64(uint64_t * restrict bhwd, uint32_t * restrict w  , int lni, int ni, int nj, block_properties *bp, int z);  // unsigned 32 -> 64
+void move_u64_to_u32(uint32_t * restrict blk, uint64_t * restrict bhwd, int lni, int ni, int nj, block_properties *bp, int z);  // unsigned 64 -> 32
+void move_u32_to_u64(uint64_t * restrict bhwd, uint32_t * restrict blk, int lni, int ni, int nj, block_properties *bp, int z);  // unsigned 32 -> 64
 
-void move_i64_to_i32(int32_t * restrict w   , int64_t * restrict bhwd , int lni, int ni, int nj, block_properties *bp, int z);  // signed 64 -> 32
-void move_i32_to_i64(int64_t * restrict bhwd , int32_t * restrict w   , int lni, int ni, int nj, block_properties *bp, int z);  // signed 32 -> 64
+void move_i64_to_i32(int32_t * restrict blk , int64_t * restrict bhwd , int lni, int ni, int nj, block_properties *bp, int z);  // signed 64 -> 32
+void move_i32_to_i64(int64_t * restrict bhwd , int32_t * restrict blk , int lni, int ni, int nj, block_properties *bp, int z);  // signed 32 -> 64
 
 void move_d64_to_f32(float * restrict fp    , double * restrict dp    , int lni, int ni, int nj, block_properties *bp, int z);  // double -> float
 void move_f32_to_d64(double * restrict dp   , float * restrict fp     , int lni, int ni, int nj, block_properties *bp, int z);  // float -> double
 
+// move from block, properties are irrelevant
 #define block2bhwd(dst,...) _Generic((dst), \
                             uint8_t   *: move_u32_to_u8,  \
                             int8_t    *: move_i32_to_i8,  \
@@ -229,6 +234,7 @@ void move_f32_to_d64(double * restrict dp   , float * restrict fp     , int lni,
                             double    *: move_f32_to_d64  \
                        ) (dst, __VA_ARGS__, NULL, 0)
 
+// move to block and compute properties
 #define bhwd2block(dst,src,...) _Generic((src), \
                                 uint8_t   *: move_u8_to_u32,  \
                                 int8_t    *: move_i8_to_i32,   \
@@ -242,6 +248,7 @@ void move_f32_to_d64(double * restrict dp   , float * restrict fp     , int lni,
                                 double    *: move_d64_to_f32  \
                                 ) (dst, src, __VA_ARGS__, 0)
 
+// move to block without computing properties
 #define bhwd2block_nobp(dst,src,...) _Generic((src), \
                                 uint8_t   *: move_u8_to_u32,  \
                                 int8_t    *: move_i8_to_i32,   \
