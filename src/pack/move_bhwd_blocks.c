@@ -23,20 +23,63 @@
 #pragma GCC optimize "tree-vectorize"
 #endif
 
-// bhwd_fn bhwd_table[][2] = {
-//   { NULL                    ,  NULL                   }  ,  // INVALID
-//   {(bhwd_fn) move_u8_to_u32  , (bhwd_fn) move_u32_to_u8 }  ,  // 8 bit items
-//   {(bhwd_fn) move_i8_to_i32  , (bhwd_fn) move_i32_to_i8 }  ,
-//   {(bhwd_fn) move_u16_to_u32 , (bhwd_fn) move_u32_to_u16 } ,  // 16 bit items
-//   {(bhwd_fn) move_i16_to_i32 , (bhwd_fn) move_i32_to_i16 } ,
-//   {(bhwd_fn) move_u32_to_blk , (bhwd_fn) move_blk_to_u32 } ,  // 32 bit items
-//   {(bhwd_fn) move_i32_to_blk , (bhwd_fn) move_blk_to_i32 } ,
-//   {(bhwd_fn) move_flt_to_blk , (bhwd_fn) move_blk_to_flt } ,
-//   {(bhwd_fn) move_u64_to_u32 , (bhwd_fn) move_u32_to_u64 } ,  // 64 bit items
-//   {(bhwd_fn) move_i64_to_i32 , (bhwd_fn) move_i32_to_i64 } ,
-//   {(bhwd_fn) move_d64_to_f32 , (bhwd_fn) move_f32_to_d64 }
+//
+// ============ auxiliary tables and internal variables ============
+static int DEBUG = 0 ;
+//
+// length in bytes of array elements indexed by type code
+int element_bytes[MAX_ARRAY_TYPES] = { 1, 1, 2, 2, 4, 4, 4, 8, 8, 8 } ;
+// {
+//   element_length(UINT8_T ) ,
+//   element_length(INT8_T  ) ,
+//   element_length(UINT16_T) ,
+//   element_length(INT16_T ) ,
+//   element_length(UINT32_T) ,
+//   element_length(INT32_T ) ,
+//   element_length(FLOAT   ) ,
+//   element_length(UINT64_T) ,
+//   element_length(INT64_T ) ,
+//   element_length(DOUBLE  )
 // } ;
 
+// array to block copy functions table indexed by type code
+bhwd_fn into_bhwd[MAX_ARRAY_TYPES] =
+{
+  (bhwd_fn)move_u8_to_u32 ,
+  (bhwd_fn)move_i8_to_i32 ,
+  (bhwd_fn)move_u16_to_u32,
+  (bhwd_fn)move_i16_to_i32,
+  (bhwd_fn)move_i32_to_blk,
+  (bhwd_fn)move_u32_to_blk,
+  (bhwd_fn)move_flt_to_blk,
+  (bhwd_fn)move_u64_to_u32,
+  (bhwd_fn)move_i64_to_i32,
+  (bhwd_fn)move_d64_to_f32
+} ;
+
+// block to array copy functions table indexed by type code
+bhwd_fn from_bhwd[MAX_ARRAY_TYPES] =
+{
+  (bhwd_fn)move_u32_to_u8 ,
+  (bhwd_fn)move_i32_to_i8 ,
+  (bhwd_fn)move_u32_to_u16,
+  (bhwd_fn)move_i32_to_i16,
+  (bhwd_fn)move_blk_to_i32,
+  (bhwd_fn)move_blk_to_u32,
+  (bhwd_fn)move_blk_to_flt,
+  (bhwd_fn)move_u32_to_u64,
+  (bhwd_fn)move_i32_to_i64,
+  (bhwd_fn)move_f32_to_d64
+} ;
+
+//
+// ============ control functions ============
+//
+int set_bhwd_debug(int value){
+  int old = DEBUG ;
+  DEBUG = value ;
+  return old ;
+}
 //
 // ============ 8 bits to/from 32 bits ============
 //
@@ -51,7 +94,7 @@
 void move_u8_to_u32(uint32_t * restrict w32, uint8_t * restrict bhd, int lni, int ni, int nj, block_properties *bp, int z){  // unsigned 8 -> 32
   (void) (z) ; int nij = ni*nj ;
   int i ;
-// fprintf(stderr, "move_u8_to_u32, lni = %d, ni = %d, nj = %d\n", lni, ni, nj) ;
+if(DEBUG > 0)  fprintf(stderr, "move_u8_to_u32, lni = %d, ni = %d, nj = %d, bp = %s\n", lni, ni, nj, bp ? "ON" : "OFF") ;
   while(nj-- > 0){
     for(i=0 ; i<ni; i++){ w32[i] = bhd[i]; };
     w32 +=  ni ;
@@ -64,7 +107,7 @@ void move_u8_to_u32(uint32_t * restrict w32, uint8_t * restrict bhd, int lni, in
 void move_u32_to_u8(uint8_t * restrict bhd, uint32_t * restrict w32, int lni, int ni, int nj, block_properties *bp, int z){  // unsigned 32 -> 8
   (void) (z) ; (void) (bp) ;
   int i, iter = 0 ;
-// fprintf(stderr, "move_u32_to_u8, lni = %d, ni = %d, nj = %d\n", lni, ni, nj) ;
+if(DEBUG > 0)  fprintf(stderr, "move_u32_to_u8, lni = %d, ni = %d, nj = %d\n", lni, ni, nj) ;
   while(nj-- > 0){
     iter++ ;
     for(i=0 ; i<ni; i++){ bhd[i] = (w32[i] > UINT8_MAX) ? UINT8_MAX : w32[i] ; };
@@ -77,7 +120,7 @@ void move_u32_to_u8(uint8_t * restrict bhd, uint32_t * restrict w32, int lni, in
 void move_i8_to_i32(int32_t * restrict w32, int8_t * restrict bhd, int lni, int ni, int nj, block_properties *bp, int z){  // signed 8 -> 32
   (void) (z) ; int nij = ni*nj ;
   int i ;
-// fprintf(stderr, "move_i8_to_i32, lni = %d, ni = %d, nj = %d\n", lni, ni, nj) ;
+if(DEBUG > 0)  fprintf(stderr, "move_i8_to_i32, lni = %d, ni = %d, nj = %d, bp = %s\n", lni, ni, nj, bp ? "ON" : "OFF") ;
   while(nj-- > 0){
     for(i=0 ; i<ni; i++){ w32[i] = bhd[i]; };
     w32 +=  ni ;
@@ -90,7 +133,7 @@ void move_i8_to_i32(int32_t * restrict w32, int8_t * restrict bhd, int lni, int 
 void move_i32_to_i8(int8_t * restrict bhd, int32_t * restrict w32, int lni, int ni, int nj, block_properties *bp, int z){  // signed 32 -> 8
   (void) (z) ; (void) (bp) ;
   int i ;
-// fprintf(stderr, "move_i32_to_i8, lni = %d, ni = %d, nj = %d\n", lni, ni, nj) ;
+if(DEBUG > 0)  fprintf(stderr, "move_i32_to_i8, lni = %d, ni = %d, nj = %d\n", lni, ni, nj) ;
   while(nj-- > 0){
     for(i=0 ; i<ni; i++){ int32_t t = w32[i] ; t = (t>INT8_MAX) ? INT8_MAX : t ; t = (t < INT8_MIN) ? INT8_MIN : t ; bhd[i] =t; };
     w32 +=  ni ;
@@ -111,7 +154,7 @@ void move_i32_to_i8(int8_t * restrict bhd, int32_t * restrict w32, int lni, int 
 void move_u16_to_u32(uint32_t * restrict w32, uint16_t * restrict bhd, int lni, int ni, int nj, block_properties *bp, int z){  // unsigned 16 -> 32
   (void) (z) ; int nij = ni*nj ;
   int i ;
-// fprintf(stderr, "move_u16_to_u32, lni = %d, ni = %d, nj = %d\n", lni, ni, nj) ;
+if(DEBUG > 0)  fprintf(stderr, "move_u16_to_u32, lni = %d, ni = %d, nj = %d, bp = %s\n", lni, ni, nj, bp ? "ON" : "OFF") ;
   while(nj-- > 0){
     for(i=0 ; i<ni; i++){ w32[i] = bhd[i]; };
     w32 +=  ni ;
@@ -124,7 +167,7 @@ void move_u16_to_u32(uint32_t * restrict w32, uint16_t * restrict bhd, int lni, 
 void move_u32_to_u16(uint16_t * restrict bhd, uint32_t * restrict w32, int lni, int ni, int nj, block_properties *bp, int z){  // unsigned 32 -> 16
   (void) (z) ; (void) (bp) ;
   int i ;
-// fprintf(stderr, "move_u32_to_u16, lni = %d, ni = %d, nj = %d\n", lni, ni, nj) ;
+if(DEBUG > 0)  fprintf(stderr, "move_u32_to_u16, lni = %d, ni = %d, nj = %d\n", lni, ni, nj) ;
   while(nj-- > 0){
     for(i=0 ; i<ni; i++){ bhd[i] = (w32[i] > UINT16_MAX) ? UINT16_MAX : w32[i] ; };
     w32 +=  ni ;
@@ -136,7 +179,7 @@ void move_u32_to_u16(uint16_t * restrict bhd, uint32_t * restrict w32, int lni, 
 void move_i16_to_i32(int32_t * restrict w32, int16_t * restrict bhd, int lni, int ni, int nj, block_properties *bp, int z){  // signed 16 -> 32
   (void) (z) ; int nij = ni*nj ;
   int i ;
-// fprintf(stderr, "move_i16_to_i32, lni = %d, ni = %d, nj = %d\n", lni, ni, nj) ;
+if(DEBUG > 0)  fprintf(stderr, "move_i16_to_i32, lni = %d, ni = %d, nj = %d, bp = %s\n", lni, ni, nj, bp ? "ON" : "OFF") ;
   while(nj-- > 0){
     for(i=0 ; i<ni; i++){ w32[i] = bhd[i]; };
     w32 +=  ni ;
@@ -149,7 +192,7 @@ void move_i16_to_i32(int32_t * restrict w32, int16_t * restrict bhd, int lni, in
 void move_i32_to_i16(int16_t * restrict bhd, int32_t * restrict w32, int lni, int ni, int nj, block_properties *bp, int z){  // signed 32 -> 16
   (void) (z) ; (void) (bp) ;
   int i ;
-// fprintf(stderr, "move_i32_to_i16, lni = %d, ni = %d, nj = %d\n", lni, ni, nj) ;
+if(DEBUG > 0)  fprintf(stderr, "move_i32_to_i16, lni = %d, ni = %d, nj = %d\n", lni, ni, nj) ;
   while(nj-- > 0){
     for(i=0 ; i<ni; i++){ int32_t t = w32[i] ; t = (t>INT16_MAX) ? INT16_MAX : t ; t = (t < INT16_MIN) ? INT16_MIN : t ; bhd[i] =t; };
     w32 +=  ni ;
@@ -189,34 +232,35 @@ static void to_w32(void * restrict w32_, void * restrict blk_, int lni, int ni, 
 }
 void move_u32_to_blk(uint32_t * restrict blk, uint32_t * restrict w32, int lni, int ni, int nj, block_properties *bp, int z){  // 32 array -> 32 block
   (void) (z) ; int nij = ni*nj ;
+if(DEBUG > 0)  fprintf(stderr, "move_blk_to_u32, lni = %d, ni = %d, nj = %d, bp = %s\n", lni, ni, nj, bp ? "ON" : "OFF") ;
   to_blk(blk, w32, lni, ni, nj, z) ;
   if(bp != NULL){ *bp = get_block_properties(blk, nij) ; }
 }
 void move_blk_to_u32(uint32_t * restrict w32, uint32_t * restrict blk, int lni, int ni, int nj, block_properties *bp, int z){  // 32 block -> 32 array
   (void) (z) ; (void) (bp) ;
-// fprintf(stderr, "move_blk_to_u32, lni = %d, ni = %d, nj = %d\n", lni, ni, nj) ;
+if(DEBUG > 0)  fprintf(stderr, "move_blk_to_u32, lni = %d, ni = %d, nj = %d\n", lni, ni, nj) ;
   to_w32(w32, blk, lni, ni, nj, z) ;
 }
 void move_i32_to_blk(int32_t * restrict blk, int32_t * restrict w32, int lni, int ni, int nj, block_properties *bp, int z){  // 32 array -> 32 block
   (void) (z) ; int nij = ni*nj ;
-// fprintf(stderr, "move_i32_to_blk, lni = %d, ni = %d, nj = %d\n", lni, ni, nj) ;
+if(DEBUG > 0)  fprintf(stderr, "move_i32_to_blk, lni = %d, ni = %d, nj = %d, bp = %s\n", lni, ni, nj, bp ? "ON" : "OFF") ;
   to_blk(blk, w32, lni, ni, nj, z) ;
   if(bp != NULL){ *bp = get_block_properties(blk, nij) ; }
 }
 void move_blk_to_i32(int32_t * restrict w32, int32_t * restrict blk, int lni, int ni, int nj, block_properties *bp, int z){  // 32 block -> 32 array
   (void) (z) ; (void) (bp) ;
-// fprintf(stderr, "move_blk_to_i32, lni = %d, ni = %d, nj = %d\n", lni, ni, nj) ;
+if(DEBUG > 0)  fprintf(stderr, "move_blk_to_i32, lni = %d, ni = %d, nj = %d\n", lni, ni, nj) ;
   to_w32(w32, blk, lni, ni, nj, z) ;
 }
 void move_flt_to_blk(float * restrict blk, float * restrict w32, int lni, int ni, int nj, block_properties *bp, int z){  // 32 array -> 32 block
   (void) (z) ; int nij = ni*nj ;
-// fprintf(stderr, "move_flt_to_blk, lni = %d, ni = %d, nj = %d\n", lni, ni, nj) ;
+if(DEBUG > 0)  fprintf(stderr, "move_flt_to_blk, lni = %d, ni = %d, nj = %d, bp = %s\n", lni, ni, nj, bp ? "ON" : "OFF") ;
   to_blk(blk, w32, lni, ni, nj, z) ;
   if(bp != NULL){ *bp = get_block_properties(blk, nij) ; }
 }
 void move_blk_to_flt(float * restrict w32, float * restrict blk, int lni, int ni, int nj, block_properties *bp, int z){  // 32 block -> 32 array
   (void) (z) ; (void) (bp) ;
-// fprintf(stderr, "move_blk_to_flt, lni = %d, ni = %d, nj = %d\n", lni, ni, nj) ;
+if(DEBUG > 0)  fprintf(stderr, "move_blk_to_flt, lni = %d, ni = %d, nj = %d\n", lni, ni, nj) ;
   to_w32(w32, blk, lni, ni, nj, z) ;
 }
 //
@@ -233,7 +277,7 @@ void move_blk_to_flt(float * restrict w32, float * restrict blk, int lni, int ni
 void move_u64_to_u32(uint32_t * restrict w32, uint64_t * restrict bhd, int lni, int ni, int nj, block_properties *bp, int z){  // unsigned 64 -> 32
   (void) (z) ; int nij = ni*nj ;
   int i ;
-// fprintf(stderr, "move_u64_to_u32, lni = %d, ni = %d, nj = %d\n", lni, ni, nj) ;
+if(DEBUG > 0)  fprintf(stderr, "move_u64_to_u32, lni = %d, ni = %d, nj = %d, bp = %s\n", lni, ni, nj, bp ? "ON" : "OFF") ;
   while(nj-- > 0){
     for(i=0 ; i<ni; i++){ w32[i] = (bhd[i] > UINT32_MAX) ? UINT32_MAX : bhd[i] ; };  // copy with saturation
     w32 +=  ni ;
@@ -246,7 +290,7 @@ void move_u64_to_u32(uint32_t * restrict w32, uint64_t * restrict bhd, int lni, 
 void move_u32_to_u64(uint64_t * restrict bhd, uint32_t * restrict w32, int lni, int ni, int nj, block_properties *bp, int z){  // unsigned 32 -> 64
   (void) (z) ; (void) (bp) ;
   int i ;
-// fprintf(stderr, "move_u32_to_u64, lni = %d, ni = %d, nj = %d\n", lni, ni, nj) ;
+if(DEBUG > 0)  fprintf(stderr, "move_u32_to_u64, lni = %d, ni = %d, nj = %d\n", lni, ni, nj) ;
   while(nj-- > 0){
     for(i=0 ; i<ni; i++){ bhd[i] = w32[i]; };
     w32 +=  ni ;
@@ -258,7 +302,7 @@ void move_u32_to_u64(uint64_t * restrict bhd, uint32_t * restrict w32, int lni, 
 void move_i64_to_i32(int32_t * restrict w32, int64_t * restrict bhd, int lni, int ni, int nj, block_properties *bp, int z){  // signed 64 -> 32
   (void) (z) ; int nij = ni*nj ;
   int i ;
-// fprintf(stderr, "move_i64_to_i32, lni = %d, ni = %d, nj = %d\n", lni, ni, nj) ;
+if(DEBUG > 0)  fprintf(stderr, "move_i64_to_i32, lni = %d, ni = %d, nj = %d, bp = %s\n", lni, ni, nj, bp ? "ON" : "OFF") ;
   while(nj-- > 0){
     for(i=0 ; i<ni; i++){
       int64_t t = bhd[i] ;
@@ -276,7 +320,7 @@ void move_i64_to_i32(int32_t * restrict w32, int64_t * restrict bhd, int lni, in
 void move_i32_to_i64(int64_t * restrict bhd, int32_t * restrict w32, int lni, int ni, int nj, block_properties *bp, int z){  // signed 32 -> 64
   (void) (z) ; (void) (bp) ;
   int i ;
-// fprintf(stderr, "move_i32_to_i64, lni = %d, ni = %d, nj = %d\n", lni, ni, nj) ;
+if(DEBUG > 0)  fprintf(stderr, "move_i32_to_i64, lni = %d, ni = %d, nj = %d\n", lni, ni, nj) ;
   while(nj-- > 0){
     for(i=0 ; i<ni; i++){ bhd[i] = w32[i]; };
     w32 +=  ni ;
@@ -296,7 +340,7 @@ void move_i32_to_i64(int64_t * restrict bhd, int32_t * restrict w32, int lni, in
 void move_d64_to_f32(float * restrict w32, double * restrict dp, int lni, int ni, int nj, block_properties *bp, int z){
   (void) (z) ; int nij = ni*nj ;
   int i ;
-// fprintf(stderr, "move_d64_to_f32, lni = %d, ni = %d, nj = %d\n", lni, ni, nj) ;
+if(DEBUG > 0)  fprintf(stderr, "move_d64_to_f32, lni = %d, ni = %d, nj = %d, bp = %s\n", lni, ni, nj, bp ? "ON" : "OFF") ;
   while(nj-- > 0){
     for(i=0 ; i<ni ; i++){ w32[i] = dp[i] ; }
     w32 +=  ni ;
@@ -309,7 +353,7 @@ void move_d64_to_f32(float * restrict w32, double * restrict dp, int lni, int ni
 void move_f32_to_d64(double * restrict dp, float * restrict w32, int lni, int ni, int nj, block_properties *bp, int z){
   (void) (z) ; (void) (bp) ;
   int i ;
-// fprintf(stderr, "move_f32_to_d64, lni = %d, ni = %d, nj = %d\n", lni, ni, nj) ;
+if(DEBUG > 0)  fprintf(stderr, "move_f32_to_d64, lni = %d, ni = %d, nj = %d\n", lni, ni, nj) ;
   while(nj-- > 0){
     for(i=0 ; i<ni ; i++){ dp[i] = w32[i] ; }
     w32 +=  ni ;

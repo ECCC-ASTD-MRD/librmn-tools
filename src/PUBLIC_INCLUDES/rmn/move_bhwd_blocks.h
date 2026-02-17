@@ -21,25 +21,53 @@
 
 #include <rmn/data_properties.h>
 
+#define MAX_ARRAY_TYPES 10
+
+// static uint8_t  UINT8_T  ;
+// static int8_t   INT8_T   ;
+// static uint16_t UINT16_T ;
+// static int16_t  INT16_T  ;
+// static uint32_t UINT32_T ;
+// static int32_t  INT32_T  ;
+// static float    FLOAT    ;
+// static uint64_t UINT64_T ;
+// static int64_t  INT64_T  ;
+// static double   DOUBLE   ;
+
+typedef void (* bhwd_fn)(void *, void *, int, int, int, void *, int) ;
+
+extern int element_bytes[MAX_ARRAY_TYPES] ;       // length in bytes of array elements indexed by type code
+extern bhwd_fn into_bhwd[MAX_ARRAY_TYPES] ;       // array to block copy functions table indexed by type code
+extern bhwd_fn from_bhwd[MAX_ARRAY_TYPES] ;       // block to array copy functions table indexed by type code
+
 block_properties block_zminmax(void *s, int n);
 void full_block_properties(block_properties *bp, data_kind datatype);
 block_properties fix_block_properties(block_properties bp, data_kind datatype);
 void  print_block_properties(block_properties bp);
+int set_bhwd_debug(int value);
+
 
 #define set_block_properties(bp, block) full_block_properties((bp), array_block_kind((block)))
 
 #define get_block_properties(block, n) fix_block_properties(block_zminmax((void *)(block), (n)), array_block_kind((block)))
 
-typedef void (* bhwd_fn)(void *, void *, int, int, int, void *, int) ;
-
 // call block transfer function pointed to by FN
 // automatically add zero value at the end of the argument list
 // _Generic will check that FN is a pointer to a block transfer function
-#define block_fn(FN, ...)  _Generic((FN), \
-                           bhwd_fn : (*FN) \
-                           ) (__VA_ARGS__, NULL, 0)
+// generic into/from block, no properties computed if copy into block
+#define copy_block_fn(FN, ...)  _Generic((FN), \
+                                bhwd_fn : (*FN) \
+                                ) (__VA_ARGS__, NULL, 0)
+// copy into block, properties will be computed, block properties pointer mandatory
+#define copy_into_block(FN, ...)  _Generic((FN), \
+                                  bhwd_fn : (*FN) \
+                                  ) (__VA_ARGS__, 0)
+// copy from block, NULL inserted for block properties pointer
+#define copy_from_block(FN, ...)  _Generic((FN), \
+                                  bhwd_fn : (*FN) \
+                                  ) (__VA_ARGS__, NULL, 0)
 
-// type block should be cast to according to array type
+// block should be cast to this type for this array type
 #define w32_cast(block, array) _Generic((array), \
                                uint8_t  *: (uint32_t *) block, \
                                int8_t   *: (int32_t  *) block, \
@@ -53,20 +81,35 @@ typedef void (* bhwd_fn)(void *, void *, int, int, int, void *, int) ;
                                double   *: (float    *) block  \
                                )
 
-// type number associated with array or element
-#define array_type(what) _Generic((what), \
-                         uint8_t  *:  1, uint8_t    :  1,  \
-                         int8_t   *:  2, int8_t     :  2,  \
-                         uint16_t *:  3, uint16_t   :  3, \
-                         int16_t  *:  4, int16_t    :  4, \
-                         uint32_t *:  5, uint32_t   :  5, \
-                         int32_t  *:  6, int32_t    :  6, \
-                         float    *:  7, float      :  7, \
-                         uint64_t *:  8, uint64_t   :  8, \
-                         int64_t  *:  9, int64_t    :  9, \
-                         double   *: 10, double     : 10, \
-                         default   : 0 \
-                         )
+// number of bytes for each array element according to array type
+#define element_length(what) _Generic((what), \
+                             uint8_t  *: 1, uint8_t    : 1,  \
+                             int8_t   *: 1, int8_t     : 1,  \
+                             uint16_t *: 2, uint16_t   : 2, \
+                             int16_t  *: 2, int16_t    : 2, \
+                             uint32_t *: 4, uint32_t   : 4, \
+                             int32_t  *: 4, int32_t    : 4, \
+                             float    *: 4, float      : 4, \
+                             uint64_t *: 8, uint64_t   : 8, \
+                             int64_t  *: 8, int64_t    : 8, \
+                             double   *: 8, double     : 8, \
+                             default   : 0 \
+                             )
+
+// type ordinal code associated with array or element
+#define array_type_code(what) _Generic((what), \
+                              uint8_t  *: 0, uint8_t    : 0, \
+                              int8_t   *: 1, int8_t     : 1, \
+                              uint16_t *: 2, uint16_t   : 2, \
+                              int16_t  *: 3, int16_t    : 3, \
+                              uint32_t *: 4, uint32_t   : 4, \
+                              int32_t  *: 5, int32_t    : 5, \
+                              float    *: 6, float      : 6, \
+                              uint64_t *: 7, uint64_t   : 7, \
+                              int64_t  *: 8, int64_t    : 8, \
+                              double   *: 9, double     : 9, \
+                              default   : -1 \
+                              )
 
 // type name associated with array or element
 #define array_type_name(what) _Generic((what), \
@@ -83,7 +126,7 @@ typedef void (* bhwd_fn)(void *, void *, int, int, int, void *, int) ;
                               default   : "UNKNOWN" \
                               )
 
-// kind associated to block
+// data kind associated to block type (rmn/data_kind.h)
 #define array_block_kind(block) _Generic((block), \
                                 uint32_t *: uint_data,  \
                                 int32_t  *: int_data,   \
@@ -91,18 +134,18 @@ typedef void (* bhwd_fn)(void *, void *, int, int, int, void *, int) ;
                                 default   : bad_data \
                                 )
 
-// block kind associated to array type
+// block kind associated to array type (rmn/data_kind.h)
 #define block_kind(array) _Generic((array), \
-                          uint8_t  *: uint_data,  \
-                          int8_t   *: int_data,   \
-                          uint16_t *: uint_data,  \
-                          int16_t  *: int_data,   \
-                          uint32_t *: uint_data,  \
-                          int32_t  *: int_data,   \
-                          float    *: float_data, \
-                          uint64_t *: uint_data,  \
-                          int64_t  *: int_data,   \
-                          double   *: float_data, \
+                          uint8_t  *: uint_data,   \
+                          int8_t   *: int_data,    \
+                          uint16_t *: uint_data,   \
+                          int16_t  *: int_data,    \
+                          uint32_t *: uint_data,   \
+                          int32_t  *: int_data,    \
+                          float    *: float_data,  \
+                          uint64_t *: ulong_data,  \
+                          int64_t  *: long_data,   \
+                          double   *: double_data, \
                           default   : bad_data \
                           )
 
