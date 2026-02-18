@@ -279,6 +279,26 @@ for(i=0 ; i<2 ; i++) fprintf(stderr, " i = %d, src_i64[i] = %ld, src_i32[i] = %d
   kind=block_kind(src_d64) ;
   fprintf(stderr,", block kind %2d %10s %10s\n", kind, block_kind_name(src_d64), printable_type[kind]);
 
+  fprintf(stderr, "\n===================== syntax checks =====================\n\n") ;
+
+  fwd = to_block_fn(src_u8) ;
+  copy_block_fn(fwd, blocku, src_u8, GNI, NI, NJ) ;          // copy into block, no properties computed
+  copy_into_block(fwd, blocku, src_u8, GNI, NI, NJ, NULL) ;  // copy into block, no properties computed
+  copy_into_block(fwd, blocku, src_u8, GNI, NI, NJ, &tmm) ;  // copy into block, properties will be computed
+  inv = from_block_fn(src_u8) ;
+  copy_from_block(inv, src_u8, blocku, GNI, NI, NJ) ;
+
+  fwd = to_block_fn(src_i8) ;
+  inv = from_block_fn(src_i8) ;
+
+  uint32_t *tdum1 = w32_cast(blockf, src_u8)  ;
+  bhwd2block(tdum1, src_u8, GNI, NI, NJ, &tmm) ;                     // block should be unsigned 32 bit
+  block2bhwd(src_u8, tdum1, GNI, NI, NJ) ;                           // block should be unsigned 32 bit
+  bhwd2block(w32_cast(blockf, src_u8), src_u8, GNI, NI, NJ, &tmm) ;  // block should be unsigned 32 bit
+  block2bhwd(src_u8, w32_cast(blockf, src_u8), GNI, NI, NJ) ;        // block should be unsigned 32 bit
+  bhwd2block((uint32_t *)blockf, src_u8, GNI, NI, NJ, &tmm) ;        // block should be unsigned 32 bit
+  block2bhwd(src_u8, (uint32_t *)blockf, GNI, NI, NJ) ;              // block should be unsigned 32 bit
+
   fprintf(stderr, "\n===================== single block copy, all types =====================\n\n") ;
 
   msg = "src_u8-1" ; set_8(rst_u8, GNI*GNJ) ; set_32(blocku, NI*NJ) ;
@@ -305,23 +325,6 @@ print_block_properties(tmm) ;
   print_block_properties(tmm) ;
   fprintf(stderr, "SUCCESS: u8\n") ;
 
-  fwd = to_block_fn(src_u8) ;
-  copy_block_fn(fwd, blocku, src_u8, GNI, NI, NJ) ;            // copy into block, no properties computed
-  copy_into_block(fwd, blocku, src_u8, GNI, NI, NJ, NULL) ;  // copy into block, no properties computed
-  copy_into_block(fwd, blocku, src_u8, GNI, NI, NJ, &tmm) ;  // copy into block, properties will be computed
-  inv = from_block_fn(src_u8) ;
-  copy_from_block(inv, src_u8, blocku, GNI, NI, NJ) ;
-
-  uint32_t *tdum1 = w32_cast(blockf, src_u8)  ;
-  bhwd2block(tdum1, src_u8, GNI, NI, NJ, &tmm) ;                     // block should be unsigned 32 bit
-  block2bhwd(src_u8, tdum1, GNI, NI, NJ) ;                     // block should be unsigned 32 bit
-  bhwd2block(w32_cast(blockf, src_u8), src_u8, GNI, NI, NJ, &tmm) ;  // block should be unsigned 32 bit
-  block2bhwd(src_u8, w32_cast(blockf, src_u8), GNI, NI, NJ) ;  // block should be unsigned 32 bit
-  bhwd2block((uint32_t *)blockf, src_u8, GNI, NI, NJ, &tmm) ;        // block should be unsigned 32 bit
-  block2bhwd(src_u8, (uint32_t *)blockf, GNI, NI, NJ) ;        // block should be unsigned 32 bit
-
-  fwd = to_block_fn(src_i8) ;
-  inv = from_block_fn(src_i8) ;
   msg = "src_i8-1" ; set_8(rst_i8, GNI*GNJ) ; set_32(blocki, NI*NJ) ;
   bhwd2block(blocki, src_i8, GNI, NI, NJ, &tmm) ;  // signed 8 bit
   block2bhwd(rst_i8, blocki, GNI, NI, NJ) ;
@@ -433,7 +436,7 @@ print_block_properties(tmm) ;
   if(check_bhwd(src_i32, rst_i32, GNI, NI, NJ) != 0) goto fail ;
   TIME_LOOP_EZ(NITER, (NI*NJ), bhwd2block_nobp(blocki, src_i32, GNI, NI, NJ)  ) ;
   fprintf(stderr, "%s", timer_msg) ;
-  TIME_LOOP_EZ(NITER, (NI*NJ), bhwd2block_nobp(blocki, src_i32, GNI, NI, NJ)  ) ;
+  TIME_LOOP_EZ(NITER, (NI*NJ), bhwd2block(blocki, src_i32, GNI, NI, NJ, &tmm)  ) ;
   fprintf(stderr, " | %s", timer_msg) ;
   TIME_LOOP_EZ(NITER, (NI*NJ), block2bhwd(rst_i32, blocki, GNI, NI, NJ) ) ;
   fprintf(stderr, " | %s\n", timer_msg) ;
@@ -458,7 +461,7 @@ print_block_properties(tmm) ;
   TIME_LOOP_EZ(NITER, (NI*NJ), bhwd2block_nobp(blockf, src_f32, GNI, NI, NJ)  ) ;
   fprintf(stderr, "%s", timer_msg) ;
   TIME_LOOP_EZ(NITER, (NI*NJ), bhwd2block(blockf, src_f32, GNI, NI, NJ, &tmm)  ) ;
-  fprintf(stderr, "%s", timer_msg) ;
+  fprintf(stderr, " | %s", timer_msg) ;
   TIME_LOOP_EZ(NITER, (NI*NJ), block2bhwd(rst_f32, blockf, GNI, NI, NJ) ) ;
   fprintf(stderr, " | %s\n", timer_msg) ;
 //   tmm = block_zminmax((void *)blockf, NI*NJ) ; set_block_properties(&tmm, blockf) ;
@@ -482,7 +485,7 @@ print_block_properties(tmm) ;
   TIME_LOOP_EZ(NITER, (NI*NJ), bhwd2block_nobp(blocku, src_u64, GNI, NI, NJ) ) ;
   fprintf(stderr, "%s", timer_msg) ;
   TIME_LOOP_EZ(NITER, (NI*NJ), bhwd2block(blocku, src_u64, GNI, NI, NJ, &tmm) ) ;
-  fprintf(stderr, "%s", timer_msg) ;
+  fprintf(stderr, " | %s", timer_msg) ;
   TIME_LOOP_EZ(NITER, (NI*NJ), block2bhwd(rst_u64, blocku, GNI, NI, NJ) ) ;
   fprintf(stderr, " | %s\n", timer_msg) ;
 //   tmm = block_zminmax((void *)blocku, NI*NJ) ; set_block_properties(&tmm, blocku) ;
@@ -506,7 +509,7 @@ print_block_properties(tmm) ;
   TIME_LOOP_EZ(NITER, (NI*NJ), bhwd2block_nobp(blocki, src_i64, GNI, NI, NJ) ) ;
   fprintf(stderr, "%s", timer_msg) ;
   TIME_LOOP_EZ(NITER, (NI*NJ), bhwd2block(blocki, src_i64, GNI, NI, NJ, &tmm) ) ;
-  fprintf(stderr, "%s", timer_msg) ;
+  fprintf(stderr, " | %s", timer_msg) ;
   TIME_LOOP_EZ(NITER, (NI*NJ), block2bhwd(rst_i64, blocki, GNI, NI, NJ) ) ;
   fprintf(stderr, " | %s\n", timer_msg) ;
 //   tmm = block_zminmax((void *)blocki, NI*NJ) ; set_block_properties(&tmm, blocki) ;
