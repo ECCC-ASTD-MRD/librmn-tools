@@ -263,18 +263,48 @@ void move_i32_to_i64(int64_t * restrict bhwd , int32_t * restrict blk , int lni,
 void move_d64_to_f32(float * restrict fp    , double * restrict dp    , int lni, int ni, int nj, block_properties *bp, int z);  // double -> float
 void move_f32_to_d64(double * restrict dp   , float * restrict fp     , int lni, int ni, int nj, block_properties *bp, int z);  // float -> double
 
+// bhwd (value) if bhwd is not a pointer, value pointed to if bhwd is a pointer
+#define BHWD(bhwd) \
+  _Generic((bhwd), \
+  uint8_t  *: *bhwd , uint8_t  : bhwd , \
+  int8_t   *: *bhwd , int8_t   : bhwd , \
+  uint16_t *: *bhwd , uint16_t : bhwd , \
+  int16_t  *: *bhwd , int16_t  : bhwd , \
+  int32_t  *: *bhwd , int32_t  : bhwd , \
+  uint32_t *: *bhwd , uint32_t : bhwd , \
+  float    *: *bhwd , float    : bhwd , \
+  uint64_t *: *bhwd , uint64_t : bhwd , \
+  int64_t  *: *bhwd , int64_t  : bhwd , \
+  double   *: *bhwd , double   : bhwd   \
+  )
+
+// pointer to bhwd if bhwd is not a pointer, bhwd if it is a pointer
+#define PBHWD(bhwd) \
+  _Generic((bhwd), \
+  uint8_t  *: bhwd , uint8_t  : &bhwd , \
+  int8_t   *: bhwd , int8_t   : &bhwd , \
+  uint16_t *: bhwd , uint16_t : &bhwd , \
+  int16_t  *: bhwd , int16_t  : &bhwd , \
+  int32_t  *: bhwd , int32_t  : &bhwd , \
+  uint32_t *: bhwd , uint32_t : &bhwd , \
+  float    *: bhwd , float    : &bhwd , \
+  uint64_t *: bhwd , uint64_t : &bhwd , \
+  int64_t  *: bhwd , int64_t  : &bhwd , \
+  double   *: bhwd , double   : &bhwd   \
+  )
+
 // move from block, properties are irrelevant
 #define block2bhwd(dst,...) _Generic((dst), \
-                            uint8_t   *: move_u32_to_u8,  \
-                            int8_t    *: move_i32_to_i8,  \
-                            uint16_t  *: move_u32_to_u16, \
-                            int16_t   *: move_i32_to_i16, \
-                            int32_t   *: move_blk_to_i32, \
-                            uint32_t  *: move_blk_to_u32, \
-                            float     *: move_blk_to_flt, \
-                            uint64_t  *: move_u32_to_u64, \
-                            int64_t   *: move_i32_to_i64, \
-                            double    *: move_f32_to_d64  \
+                            uint8_t   *: move_u32_to_u8  , \
+                            int8_t    *: move_i32_to_i8  , \
+                            uint16_t  *: move_u32_to_u16 , \
+                            int16_t   *: move_i32_to_i16 , \
+                            int32_t   *: move_blk_to_i32 , \
+                            uint32_t  *: move_blk_to_u32 , \
+                            float     *: move_blk_to_flt , \
+                            uint64_t  *: move_u32_to_u64 , \
+                            int64_t   *: move_i32_to_i64 , \
+                            double    *: move_f32_to_d64   \
                        ) (dst, __VA_ARGS__, NULL, 0)
 
 // move to block and compute properties
