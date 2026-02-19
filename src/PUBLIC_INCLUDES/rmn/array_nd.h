@@ -224,7 +224,15 @@ typedef struct{   // struct containing up to 5 pairs of integers (array)
 // argument A is an array_nd type structure
 
 // rank of array at allocation time
-#define ARRAY_ALLOC_RANK(A) _Generic((A), array_nd:(A).ndim, array_5d:5, array_4d:4, array_3d:3, array_2d:2, array_1d:1 )
+#define ARRAY_ALLOC_RANK(A) \
+  _Generic((A), \
+  array_5d:5, array_5d *:5, \
+  array_4d:4, array_4d *:4, \
+  array_3d:3, array_3d *:3, \
+  array_2d:2, array_2d *:2, \
+  array_1d:1, array_1d *:1,  \
+  array_nd:(A).ndim \
+  )
 
 // effective rank of array ( <= ARRAY_ALLOC_RANK(ARRAY) )
 #define ARRAY_RANK(A) _Generic((A), array_nd:(A).rank, array_5d:(A).rank, array_4d:(A).rank, array_3d:(A).rank, array_2d:(A).rank, array_1d:(A).rank )
