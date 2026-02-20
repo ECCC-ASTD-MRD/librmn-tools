@@ -89,6 +89,19 @@ typedef struct{          // generic struct for array with n dimensions
   dim_desc dim[] ;       // dimension descriptor (flexible array member)
 } array_nd ;
 
+typedef struct{          // specific struct for 0D (rank 0) array
+  uint8_t *data ;
+  uint8_t *limit ;
+  uint32_t signature ;
+  uint16_t esize ;
+  uint8_t  type:4 ,
+           ndim:4 ;      // ndim MUST be 0
+  uint8_t  flags:4,
+           rank:4 ;      // rank MUST be 0
+  dim_desc dim[0] ;
+  uint32_t w32[] ;       // usable only if created with create_array
+} array_0d ;
+
 typedef struct{          // specific struct for 1D array
   uint8_t *data ;
   uint8_t *limit ;
@@ -156,6 +169,7 @@ typedef struct{          // specific struct for 5D array
 
 // invalid array descriptors (no dimmension initialization)
 static const array_nd array_nd_invalid = {.data=NULL, .limit=NULL, .signature=0, .esize=0, .type=0, .flags=0, .rank=0, .ndim=0 } ;
+static const array_0d array_0d_invalid = {.data=NULL, .limit=NULL, .signature=0, .esize=0, .type=0, .flags=0, .rank=0, .ndim=0 } ;
 static const array_1d array_1d_invalid = {.data=NULL, .limit=NULL, .signature=0, .esize=0, .type=0, .flags=0, .rank=0, .ndim=1 } ;
 static const array_2d array_2d_invalid = {.data=NULL, .limit=NULL, .signature=0, .esize=0, .type=0, .flags=0, .rank=0, .ndim=2 } ;
 static const array_3d array_3d_invalid = {.data=NULL, .limit=NULL, .signature=0, .esize=0, .type=0, .flags=0, .rank=0, .ndim=3 } ;
@@ -164,6 +178,7 @@ static const array_5d array_5d_invalid = {.data=NULL, .limit=NULL, .signature=0,
 
 // blank array descriptors (almost valid, but with NULL data start and limit pointers, 0 element size, all dimensions 0)
 static const array_nd array_nd_null = {.data=NULL, .limit=NULL, .esize=0, .signature=NO_DATA, .type=any_data, .rank=0, .ndim=0, .flags=0 } ;
+static const array_0d array_0d_null = {.data=NULL, .limit=NULL, .esize=0, .signature=NO_DATA, .type=any_data, .rank=0, .ndim=0, .flags=0 } ;
 static const array_1d array_1d_null = {.data=NULL, .limit=NULL, .esize=0, .signature=NO_DATA, .type=any_data, .rank=1, .ndim=1, .flags=0,
                                        .dim = {DIM_ZERO} } ;
 static const array_2d array_2d_null = {.data=NULL, .limit=NULL, .esize=0, .signature=NO_DATA, .type=any_data, .rank=2, .ndim=2, .flags=0,
@@ -221,17 +236,25 @@ typedef struct{   // struct containing up to 5 pairs of integers (array)
   int32_t i32[10] ;
 }__i32__5x2__ ;
 
+#if ! defined(__INTEL_COMPILER)
+#if ! defined(__PGI)
+// suppress an aliasing warning from gcc
+#pragma GCC diagnostic ignored  "-Wstrict-aliasing"
+#endif
+#endif
+
 // argument A is an array_nd type structure
 
 // rank of array at allocation time
 #define ARRAY_ALLOC_RANK(A) \
   _Generic((A), \
-  array_5d:5, array_5d *:5, \
-  array_4d:4, array_4d *:4, \
-  array_3d:3, array_3d *:3, \
-  array_2d:2, array_2d *:2, \
-  array_1d:1, array_1d *:1,  \
-  array_nd:(*(array_nd *)(&A)).ndim, array_nd *:( **( (array_nd **)(&A) ) ).ndim \
+  array_5d:(*(array_5d *)(&A)).ndim, array_5d *:( **( (array_5d **)(&A) ) ).ndim, \
+  array_4d:(*(array_4d *)(&A)).ndim, array_4d *:( **( (array_4d **)(&A) ) ).ndim, \
+  array_3d:(*(array_3d *)(&A)).ndim, array_3d *:( **( (array_3d **)(&A) ) ).ndim, \
+  array_2d:(*(array_2d *)(&A)).ndim, array_2d *:( **( (array_2d **)(&A) ) ).ndim, \
+  array_1d:(*(array_1d *)(&A)).ndim, array_1d *:( **( (array_1d **)(&A) ) ).ndim, \
+  array_0d:(*(array_0d *)(&A)).ndim, array_0d *:( **( (array_0d **)(&A) ) ).ndim, \
+  array_nd:(*(array_nd *)(&A)).ndim, array_nd *:( **( (array_nd **)(&A) ) ).ndim  \
   )
 
 // effective rank of array ( <= ARRAY_ALLOC_RANK(ARRAY) )

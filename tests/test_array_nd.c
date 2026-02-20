@@ -50,6 +50,7 @@ void print_flags(char *msg, void *a){
 }
 
 void array_lbounds_check(int low, int high){
+  array_0d a0 = array_0d_null, *ap0 = &a0 ;
   array_1d a1 = array_1d_null, *ap1 = &a1 ;
   array_2d a2 = array_2d_null, *ap2 = &a2 ;
   array_3d a3 = array_3d_null, *ap3 = &a3 ;
@@ -59,34 +60,23 @@ void array_lbounds_check(int low, int high){
   char *errmsg = "" ;
   int32_t scrap[1024*1024], status, rank ;
 
-  rank = ARRAY_ALLOC_RANK(a1) ;
-  errmsg = "a1 rank" ; if(rank != 1) goto fail ;
-  rank = ARRAY_ALLOC_RANK(ap1) ;
-  errmsg = "ap1 rank" ; if(rank != 1) goto fail ;
-  if(rank != 1) goto fail ;
-  rank = ARRAY_ALLOC_RANK(a2) ;
-  errmsg = "a2 rank" ; if(rank != 2) goto fail ;
-  rank = ARRAY_ALLOC_RANK(ap2) ;
-  errmsg = "ap2 rank" ; if(rank != 2) goto fail ;
-  rank = ARRAY_ALLOC_RANK(a3) ;
-  errmsg = "a3 rank" ; if(rank != 3) goto fail ;
-  rank = ARRAY_ALLOC_RANK(ap3) ;
-  errmsg = "ap3 rank" ; if(rank != 3) goto fail ;
-  rank = ARRAY_ALLOC_RANK(a4) ;
-  errmsg = "a4 rank" ; if(rank != 4) goto fail ;
-  rank = ARRAY_ALLOC_RANK(ap4) ;
-  errmsg = "ap4 rank" ; if(rank != 4) goto fail ;
-  rank = ARRAY_ALLOC_RANK(a5) ;
-  errmsg = "a5 rank" ; if(rank != 5) goto fail ;
-  rank = ARRAY_ALLOC_RANK(ap5) ;
-  errmsg = "ap5 rank" ; if(rank != 5) goto fail ;
-  rank = ARRAY_ALLOC_RANK(an) ;
-  errmsg = "an rank" ; if(rank != 0) goto fail ;
-  rank = ARRAY_ALLOC_RANK(apn) ;
-  errmsg = "apn rank" ; if(rank != 0) goto fail ;
-  apn = (array_nd *)ap3 ;
-  rank = ARRAY_ALLOC_RANK(apn) ;
-  errmsg = "apn_3 rank" ; if(rank != 3) goto fail ;
+  rank = ARRAY_ALLOC_RANK(a0)  ; errmsg = "a0 rank"  ; if(rank != 0) goto fail ;
+  rank = ARRAY_ALLOC_RANK(ap0) ; errmsg = "ap0 rank" ; if(rank != 0) goto fail ;
+  rank = ARRAY_ALLOC_RANK(a1)  ; errmsg = "a1 rank"  ; if(rank != 1) goto fail ;
+  rank = ARRAY_ALLOC_RANK(ap1) ; errmsg = "ap1 rank" ; if(rank != 1) goto fail ;
+  rank = ARRAY_ALLOC_RANK(a2)  ; errmsg = "a2 rank"  ; if(rank != 2) goto fail ;
+  rank = ARRAY_ALLOC_RANK(ap2) ; errmsg = "ap2 rank" ; if(rank != 2) goto fail ;
+  rank = ARRAY_ALLOC_RANK(a3)  ; errmsg = "a3 rank"  ; if(rank != 3) goto fail ;
+  rank = ARRAY_ALLOC_RANK(ap3) ; errmsg = "ap3 rank" ; if(rank != 3) goto fail ;
+  rank = ARRAY_ALLOC_RANK(a4)  ; errmsg = "a4 rank"  ; if(rank != 4) goto fail ;
+  rank = ARRAY_ALLOC_RANK(ap4) ; errmsg = "ap4 rank" ; if(rank != 4) goto fail ;
+  rank = ARRAY_ALLOC_RANK(a5)  ; errmsg = "a5 rank"  ; if(rank != 5) goto fail ;
+  rank = ARRAY_ALLOC_RANK(ap5) ; errmsg = "ap5 rank" ; if(rank != 5) goto fail ;
+  rank = ARRAY_ALLOC_RANK(an)  ; errmsg = "an rank"  ; if(rank != 0) goto fail ;
+  rank = ARRAY_ALLOC_RANK(apn) ; errmsg = "apn rank" ; if(rank != 0) goto fail ;
+  apn = (array_nd *)ap1 ; rank = ARRAY_ALLOC_RANK(apn) ; errmsg = "apn_1 rank" ; if(rank != 1) goto fail ;
+  apn = (array_nd *)ap3 ; rank = ARRAY_ALLOC_RANK(apn) ; errmsg = "apn_3 rank" ; if(rank != 3) goto fail ;
+  apn = (array_nd *)ap5 ; rank = ARRAY_ALLOC_RANK(apn) ; errmsg = "apn_5 rank" ; if(rank != 5) goto fail ;
 
   // make new arrays using caller supplied storage, set bounds
   new_array(&a1, NULL, sizeof(int32_t), int_data, 8) ;
@@ -215,7 +205,7 @@ fail:
 #define GNK 31
 #define SUB 10
 
-int32_t fijk(int i, int j, int k){
+static inline int32_t fijk(int i, int j, int k){
   return k | (j << 8) | (i << 20) ;
 }
 
@@ -229,14 +219,16 @@ int32_t get_subarray(int gni, int gnj, int gnk, int32_t f[gnk][gnj][gni], int i,
   return f[k][j][i] ;
 }
 
+// SLOW with gcc
 int subarray_check(int gni, int gnj, int gnk, int32_t f[gnk][gnj][gni], int i0, int in, int j0, int jn, int k0, int kn){
-  int i, j, k, errors = 0 ;
+  int i, j, k, errors = 0, basejk, basei[in] ;
+  for(i=0 ; i<in ; i++){ basei[i] = ((i+i0) << 20) ; }
   for(k=0 ; k<kn ; k++){
     for(j=0 ; j<jn ; j++){
+      basejk = fijk(0, j+j0, k+k0) ;
       for(i=0 ; i<in ; i++){
-        if(f[k][j][i] != fijk(i+i0, j+j0, k+k0)){
-          errors++ ;
-        }
+        if(f[k][j][i] != (basejk | basei[i])){ errors++ ; }
+//         if(f[k][j][i] != fijk(i+i0, j+j0, k+k0)){ errors++ ; }
       }
     }
   }
@@ -513,12 +505,12 @@ int main(int argc, char **argv){
   fprintf(stderr, "SUCCESS\n") ;
 // goto end ;
   fprintf(stderr, "=============== sub array test ===============\n") ;
-  array_1d a1 = array_1d_null ;
-  array_2d a2 = array_2d_null ;
+//   array_1d a1 = array_1d_null ;
+//   array_2d a2 = array_2d_null ;
   array_3d a3 = array_3d_null ;
   array_3d b3 = array_3d_null ;
-  new_array(&a1, ref, sizeof(int32_t), 1, GNI) ;
-  new_array(&a2, ref, sizeof(int32_t), 1, GNI, GNJ) ;
+//   new_array(&a1, ref, sizeof(int32_t), 1, GNI) ;
+//   new_array(&a2, ref, sizeof(int32_t), 1, GNI, GNJ) ;
   new_array(&a3, ref, sizeof(int32_t), 1, GNI, GNJ, GNK) ;
   new_array(&b3, cpy, sizeof(int32_t), 1, GNI, GNJ, GNK) ;
   for(k=0 ; k<GNK ; k++){
@@ -533,6 +525,7 @@ int main(int argc, char **argv){
   int32_t *ptra, *ptrb ;
   int32_t copy[SUB][SUB][SUB], saved[SUB] ;
   size_t subsize ;
+  errsub = 0 ;
   for(k=0 ; k<GNK-SUB ; k++){
     for(j=0 ; j<GNJ-SUB ; j++){
       for(i=0 ; i<GNI-SUB ; i++){
@@ -552,6 +545,7 @@ int main(int argc, char **argv){
           goto fail ;
         }
         // check block
+        errsub = 0 ;
         errsub = subarray_check(SUB, SUB, SUB, copy,  i, SUB, j, SUB, k, SUB) ;
         if(0 != errsub){
           fprintf(stderr, "errsub(copy) = %d [%3d,%3d,%3d]\n", errsub, i, j, k) ;
@@ -564,12 +558,14 @@ int main(int argc, char **argv){
           goto fail ;
         }
         // check a3
+        errsub = 0 ;
         errsub = subarray_check(GNI, GNJ, GNK, (void *) ptra, i, SUB, j, SUB, k, SUB) ;
         if(0 != errsub){
           fprintf(stderr, "errsub(ptra) = %d\n", errsub) ;
           goto fail ;
         }
         // check b3
+        errsub = 0 ;
         errsub = subarray_check(GNI, GNJ, GNK, (void *) ptrb, i, SUB, j, SUB, k, SUB) ;
         if(0 != errsub){
           fprintf(stderr, "errsub(ptrb) = %d\n", errsub) ;
@@ -578,6 +574,7 @@ int main(int argc, char **argv){
 
         // set erroneous values in block, check that we are getting the right number of errors
         for(l=0 ; l<SUB ; l++) copy[l][l][l] = -1 ;
+           errsub = SUB ;
         errsub = subarray_check(SUB, SUB, SUB, copy,  i, SUB, j, SUB, k, SUB) ;
         if(SUB != errsub){
           fprintf(stderr, "errsub(copy) = %d, expected %d\n", errsub, SUB) ;
@@ -587,6 +584,7 @@ int main(int argc, char **argv){
         for(l=0 ; l<SUB ; l++) saved[l] = get_subarray(GNI, GNJ, GNK, (void *) ptra, l, l, l) ;
         // set erroneous values in a3
         for(l=0 ; l<SUB ; l++) set_subarray(GNI, GNJ, GNK, (void *) ptra, l, l, l, -1) ;
+           errsub = SUB ;
         errsub = subarray_check(GNI, GNJ, GNK, (void *) ptra, i, SUB, j, SUB, k, SUB) ;
         if(SUB != errsub){
           fprintf(stderr, "errsub(ptra) = %d, expected %d [%3d,%3d,%3d]\n", errsub, SUB, i, j, k) ;
