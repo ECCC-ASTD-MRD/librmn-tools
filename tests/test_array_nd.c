@@ -50,14 +50,43 @@ void print_flags(char *msg, void *a){
 }
 
 void array_lbounds_check(int low, int high){
-  array_1d a1 = array_1d_null, *ap1 ;
-  array_2d a2 = array_2d_null, *ap2 ;
-  array_3d a3 = array_3d_null, *ap3 ;
-  array_4d a4 = array_4d_null, *ap4 ;
-  array_5d a5 = array_5d_null, *ap5 ;
-  array_nd *apn ;
+  array_1d a1 = array_1d_null, *ap1 = &a1 ;
+  array_2d a2 = array_2d_null, *ap2 = &a2 ;
+  array_3d a3 = array_3d_null, *ap3 = &a3 ;
+  array_4d a4 = array_4d_null, *ap4 = &a4 ;
+  array_5d a5 = array_5d_null, *ap5 = &a5 ;
+  array_nd an = array_nd_null, *apn = &an ;
   char *errmsg = "" ;
-  int32_t scrap[1024*1024], status ;
+  int32_t scrap[1024*1024], status, rank ;
+
+  rank = ARRAY_ALLOC_RANK(a1) ;
+  errmsg = "a1 rank" ; if(rank != 1) goto fail ;
+  rank = ARRAY_ALLOC_RANK(ap1) ;
+  errmsg = "ap1 rank" ; if(rank != 1) goto fail ;
+  if(rank != 1) goto fail ;
+  rank = ARRAY_ALLOC_RANK(a2) ;
+  errmsg = "a2 rank" ; if(rank != 2) goto fail ;
+  rank = ARRAY_ALLOC_RANK(ap2) ;
+  errmsg = "ap2 rank" ; if(rank != 2) goto fail ;
+  rank = ARRAY_ALLOC_RANK(a3) ;
+  errmsg = "a3 rank" ; if(rank != 3) goto fail ;
+  rank = ARRAY_ALLOC_RANK(ap3) ;
+  errmsg = "ap3 rank" ; if(rank != 3) goto fail ;
+  rank = ARRAY_ALLOC_RANK(a4) ;
+  errmsg = "a4 rank" ; if(rank != 4) goto fail ;
+  rank = ARRAY_ALLOC_RANK(ap4) ;
+  errmsg = "ap4 rank" ; if(rank != 4) goto fail ;
+  rank = ARRAY_ALLOC_RANK(a5) ;
+  errmsg = "a5 rank" ; if(rank != 5) goto fail ;
+  rank = ARRAY_ALLOC_RANK(ap5) ;
+  errmsg = "ap5 rank" ; if(rank != 5) goto fail ;
+  rank = ARRAY_ALLOC_RANK(an) ;
+  errmsg = "an rank" ; if(rank != 0) goto fail ;
+  rank = ARRAY_ALLOC_RANK(apn) ;
+  errmsg = "apn rank" ; if(rank != 0) goto fail ;
+  apn = (array_nd *)ap3 ;
+  rank = ARRAY_ALLOC_RANK(apn) ;
+  errmsg = "apn_3 rank" ; if(rank != 3) goto fail ;
 
   // make new arrays using caller supplied storage, set bounds
   new_array(&a1, NULL, sizeof(int32_t), int_data, 8) ;

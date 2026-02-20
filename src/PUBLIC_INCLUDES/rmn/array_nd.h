@@ -231,7 +231,7 @@ typedef struct{   // struct containing up to 5 pairs of integers (array)
   array_3d:3, array_3d *:3, \
   array_2d:2, array_2d *:2, \
   array_1d:1, array_1d *:1,  \
-  array_nd:(A).ndim \
+  array_nd:(*(array_nd *)(&A)).ndim, array_nd *:( **( (array_nd **)(&A) ) ).ndim \
   )
 
 // effective rank of array ( <= ARRAY_ALLOC_RANK(ARRAY) )
