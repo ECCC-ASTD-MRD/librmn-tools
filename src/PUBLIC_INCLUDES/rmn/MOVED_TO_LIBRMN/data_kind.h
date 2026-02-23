@@ -24,19 +24,34 @@
 // expected data type codes
 typedef enum {
   bad_data    = 0,     // invalid
-  int_data    = 1,     // 32 bit signed integers
-  uint_data   = 2,     // 32 bit unsigned integers
-  float_data  = 3,     // 32 bit floats
-  raw_data    = 4,     // any 32 bit items (block_properties likely to be meaningless)
-  large_data  = 5,     // items use a multiple of 32 bits (block_properties are meaningless)
-  any_data    = 6,     // unknown or unspecified
+  byte_data   = 1,     // 8 bit signed integers
+  ubyte_data  = 2,     // 8 bit unsigned integers
+  short_data  = 3,     // 16 bit signed integers
+  ushort_data = 4,     // 16 bit unsigned integers
+  int_data    = 5,     // 32 bit signed integers
+  uint_data   = 6,     // 32 bit unsigned integers
   long_data   = 7,     // 64 bit signed integers
   ulong_data  = 8,     // 64 bit unsigned integers
-  double_data = 9      // 64 bit doubles
+  float_data  = 9,     // 32 bit floats
+  double_data =10,     // 64 bit doubles
+  raw_data    =11,     // any 32 bit items (block_properties likely to be meaningless)
+  large_data  =12,     // items use a multiple of 32 bits (block_properties are meaningless)
+  any_data    =13      // unknown or unspecified (block_properties likely to be meaningless)
 } data_kind ;
 
+// get rid of some gcc diagnostic messages
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-variable"
+// printable string associated to data kind
+static const char *printable_type[] = { "INVALID", "INT_8"  , "UINT_8", "INT_16" , "UINT_16", "INT_32" , "UINT_32", "INT_64" , "UINT_64",
+                                        "FLOAT"  , "DOUBLE" , "RAW_32", "LARGE"  , "UNKNOWN"} ;
+// size associated to data kind (-1 for invalid, 0 for unknown, huge value for large items)
+static const int32_t size_of_type[] = { -1       , 8        , 8       , 16       , 16       , 32       , 32       , 64       , 64       ,
+                                        32       , 64        ,32      ,INT32_MAX , 0 } ;
+#pragma GCC diagnostic pop
+
 static inline int data_kind_valid(int kind){
-  return (kind > bad_data && kind <= double_data) ? 1 : 0 ;
+  return (kind > bad_data && kind <= any_data) ? 1 : 0 ;
 }
 
 // generic 64 bit container
@@ -56,16 +71,5 @@ typedef union{
   uint32_t u ;    // unsigned integer
   float    f ;    // float
 } iuf32_t ;
-
-// get rid of some gcc diagnostic messages
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wunused-variable"
-// printable string associated to data kind
-static const char *printable_type[10] = { "INVALID", "INT_32" , "UINT_32", "FLOAT"  , "RAW_32",
-                                          "LARGE"  , "UNKNOWN", "INT_64" , "UINT_64", "DOUBLE" } ;
-// size associated to data kind (-1 for invalid, 0 for unknown, huge value for large items)
-static const int32_t size_of_type[10] = { -1       , 32       , 32       , 32       , 32      ,
-                                         INT32_MAX , 0        , 64       , 64       , 64       } ;
-#pragma GCC diagnostic pop
 
 #endif
