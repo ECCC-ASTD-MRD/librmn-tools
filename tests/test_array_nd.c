@@ -60,6 +60,22 @@ void array_lbounds_check(int low, int high){
   char *errmsg = "" ;
   int32_t scrap[1024*1024], status, rank ;
 
+  errmsg = "a0 syntax rank"  ; if(ARRAY_SYNTAX_RANK(a0) !=  0) goto fail ;
+  errmsg = "a1 syntax rank"  ; if(ARRAY_SYNTAX_RANK(a1) !=  1) goto fail ;
+  errmsg = "a2 syntax rank"  ; if(ARRAY_SYNTAX_RANK(a2) !=  2) goto fail ;
+  errmsg = "a3 syntax rank"  ; if(ARRAY_SYNTAX_RANK(a3) !=  3) goto fail ;
+  errmsg = "a4 syntax rank"  ; if(ARRAY_SYNTAX_RANK(a4) !=  4) goto fail ;
+  errmsg = "a5 syntax rank"  ; if(ARRAY_SYNTAX_RANK(a5) !=  5) goto fail ;
+  errmsg = "an syntax rank"  ; if(ARRAY_SYNTAX_RANK(an) != -1) goto fail ;
+
+  errmsg = "ap0 syntax rank"  ; if(ARRAY_SYNTAX_RANK(ap0) !=  0) goto fail ;
+  errmsg = "ap1 syntax rank"  ; if(ARRAY_SYNTAX_RANK(ap1) !=  1) goto fail ;
+  errmsg = "ap2 syntax rank"  ; if(ARRAY_SYNTAX_RANK(ap2) !=  2) goto fail ;
+  errmsg = "ap3 syntax rank"  ; if(ARRAY_SYNTAX_RANK(ap3) !=  3) goto fail ;
+  errmsg = "ap4 syntax rank"  ; if(ARRAY_SYNTAX_RANK(ap4) !=  4) goto fail ;
+  errmsg = "ap5 syntax rank"  ; if(ARRAY_SYNTAX_RANK(ap5) !=  5) goto fail ;
+  errmsg = "apn syntax rank"  ; if(ARRAY_SYNTAX_RANK(apn) != -1) goto fail ;
+
   rank = ARRAY_ALLOC_RANK(a0)  ; errmsg = "a0 rank"  ; if(rank != 0) goto fail ;
   rank = ARRAY_ALLOC_RANK(ap0) ; errmsg = "ap0 rank" ; if(rank != 0) goto fail ;
   rank = ARRAY_ALLOC_RANK(a1)  ; errmsg = "a1 rank"  ; if(rank != 1) goto fail ;
@@ -77,6 +93,17 @@ void array_lbounds_check(int low, int high){
   apn = (array_nd *)ap1 ; rank = ARRAY_ALLOC_RANK(apn) ; errmsg = "apn_1 rank" ; if(rank != 1) goto fail ;
   apn = (array_nd *)ap3 ; rank = ARRAY_ALLOC_RANK(apn) ; errmsg = "apn_3 rank" ; if(rank != 3) goto fail ;
   apn = (array_nd *)ap5 ; rank = ARRAY_ALLOC_RANK(apn) ; errmsg = "apn_5 rank" ; if(rank != 5) goto fail ;
+
+  fprintf(stderr,"sizeof(array_0d) = %ld, ", sizeof(array_0d)) ;
+  fprintf(stderr,"sizeof(array_1d) = %ld, ", sizeof(array_1d)) ;
+  fprintf(stderr,"sizeof(array_2d) = %ld, ", sizeof(array_2d)) ;
+  fprintf(stderr,"sizeof(array_3d) = %ld, ", sizeof(array_3d)) ;
+  fprintf(stderr,"sizeof(array_4d) = %ld, ", sizeof(array_4d)) ;
+  fprintf(stderr,"sizeof(array_5d) = %ld, ", sizeof(array_5d)) ;
+  fprintf(stderr,"sizeof(array_nd) = %ld\n", sizeof(array_nd)) ;
+  for(uint32_t i=0 ; i<sizeof(printable_type)/sizeof(printable_type[0]) ; i++){
+    fprintf(stderr,"data_code : %2d '%-7s', bit size = %2d\n", i, printable_type[i], size_of_type[i]) ;
+  }
 
   // make new arrays using caller supplied storage, set bounds
   new_array(&a1, NULL, sizeof(int32_t), int_data, 8) ;
@@ -205,7 +232,7 @@ fail:
 #define GNK 31
 #define SUB 10
 
-static inline int32_t fijk(int i, int j, int k){
+static /*inline*/ int32_t fijk(int i, int j, int k){
   return k | (j << 8) | (i << 20) ;
 }
 
@@ -221,14 +248,12 @@ int32_t get_subarray(int gni, int gnj, int gnk, int32_t f[gnk][gnj][gni], int i,
 
 // SLOW with gcc
 int subarray_check(int gni, int gnj, int gnk, int32_t f[gnk][gnj][gni], int i0, int in, int j0, int jn, int k0, int kn){
-  int i, j, k, errors = 0, basejk, basei[in] ;
-  for(i=0 ; i<in ; i++){ basei[i] = ((i+i0) << 20) ; }
+  int i, j, k, errors = 0 ;
   for(k=0 ; k<kn ; k++){
     for(j=0 ; j<jn ; j++){
-      basejk = fijk(0, j+j0, k+k0) ;
       for(i=0 ; i<in ; i++){
-        if(f[k][j][i] != (basejk | basei[i])){ errors++ ; }
-//         if(f[k][j][i] != fijk(i+i0, j+j0, k+k0)){ errors++ ; }
+//         if(f[k][j][i] != ( ((j+j0) << 8) | (k+k0) | ((i+i0) << 20) ) ) errors++ ;
+        if(f[k][j][i] != fijk(i+i0, j+j0, k+k0) ) errors++ ;
       }
     }
   }

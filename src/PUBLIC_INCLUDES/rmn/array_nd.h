@@ -74,120 +74,216 @@ static const dim_desc  dim_zero = DIM_ZERO ;
 // this flag is intended to be set or cleared by application code
 #define DATA_IS_REFERENCED 8
 
+// array_xd structures are 64 bit aligned, size is always a multiple of 64 bits
+#define SMALL_ARRAY_STRUCT
+// #define LARGE_ARRAY_STRUCT
 typedef struct{          // generic struct for array with n dimensions
   uint8_t *data ;        // starting address of array (byte pointer)
   uint8_t *limit ;       // pointer to 1 byte beyond array (byte pointer)
   uint32_t signature ;   // MUST be 0xBEBEFADA or 0xFADABEBE
-  // 16 | 8 | 4 | 4       esize, type, flag, rank
-  // add a "at creation" rank ndim ?
-  // 24 | 8 | 8 | 4 | 4 | 16  esize, type, flag, rank, ndim, ref_count
-  uint16_t esize ;       // size of array elements in bytes (1, 2, 4, 8, ..., )
-  uint8_t  type:4 ,      // element type, see rmn/data_kind.h
-           ndim:4 ;      // number of dimensions at creation time
-  uint8_t  flags:4,      // flags
-           rank:4 ;      // rank (number of used dimensions) (MUST BE <= ndim)
+#if defined(SMALL_ARRAY_STRUCT)
+  // 16 | 8 | 4 | 4       esize, type, ndim, flags, rank
+  uint32_t esize:16 ,    // size of array elements in bytes (1, 2, 4, 8, ..., )
+           type : 4 ,    // element type, see rmn/data_kind.h
+           ndim : 3 ,    // number of dimensions at creation time
+           count: 1 ,    // not used
+           flags: 5,     // flags
+           rank : 3 ;    // rank (number of used dimensions) (MUST BE <= ndim)
+#elif defined(LARGE_ARRAY_STRUCT)
+  // 4 | 4 | 4 | 4 | 16 | 64  type, flags, rank, ndim, ref_count, esize
+  uint32_t type : 4 ,
+           flags: 4 ,
+           rank : 4 ,
+           ndim : 4 ,
+           count:16 ;
+  uint64_t esize ;
+#endif
+  // 32 | 16 | 16 | 16 | 16   esize, type, flags, rank, ndim
+//   uint32_t esize ;
+//   uint16_t  type ;
+//   uint16_t  flags ;
+//   uint16_t  rank ;
+//   uint16_t  ndim ;
   dim_desc dim[] ;       // dimension descriptor (flexible array member)
 } array_nd ;
 
+// ndim MUST be 0, rank MUST be 0
 typedef struct{          // specific struct for 0D (rank 0) array
   uint8_t *data ;
   uint8_t *limit ;
   uint32_t signature ;
-  uint16_t esize ;
-  uint8_t  type:4 ,
-           ndim:4 ;      // ndim MUST be 0
-  uint8_t  flags:4,
-           rank:4 ;      // rank MUST be 0
+#if defined(SMALL_ARRAY_STRUCT)
+  // 16 | 8 | 4 | 4       esize, type, ndim, flags, rank
+  uint32_t esize:16 ,    // size of array elements in bytes (1, 2, 4, 8, ..., )
+           type : 4 ,    // element type, see rmn/data_kind.h
+           ndim : 3 ,    // number of dimensions at creation time
+           count: 1 ,    // not used
+           flags: 5,     // flags
+           rank : 3 ;    // rank (number of used dimensions) (MUST BE <= ndim)
+#elif defined(LARGE_ARRAY_STRUCT)
+  // 4 | 4 | 4 | 4 | 16 | 64  type, flags, rank, ndim, ref_count, esize
+  uint32_t type : 4 ,
+           flags: 4 ,
+           rank : 4 ,
+           ndim : 4 ,
+           count:16 ;
+  uint64_t esize ;
+#endif
   dim_desc dim[0] ;
   uint32_t w32[] ;       // usable only if created with create_array
 } array_0d ;
 
+// ndim MUST be 1, rank MUST be <= 1
 typedef struct{          // specific struct for 1D array
   uint8_t *data ;
   uint8_t *limit ;
   uint32_t signature ;
-  uint16_t esize ;
-  uint8_t  type:4 ,
-           ndim:4 ;      // ndim MUST be 1
-  uint8_t  flags:4,
-           rank:4 ;      // rank MUST be <= 1
+#if defined(SMALL_ARRAY_STRUCT)
+  // 16 | 8 | 4 | 4       esize, type, ndim, flags, rank
+  uint32_t esize:16 ,    // size of array elements in bytes (1, 2, 4, 8, ..., )
+           type : 4 ,    // element type, see rmn/data_kind.h
+           ndim : 3 ,    // number of dimensions at creation time
+           count: 1 ,    // not used
+           flags: 5,     // flags
+           rank : 3 ;    // rank (number of used dimensions) (MUST BE <= ndim)
+#elif defined(LARGE_ARRAY_STRUCT)
+  // 4 | 4 | 4 | 4 | 16 | 64  type, flags, rank, ndim, ref_count, esize
+  uint32_t type : 4 ,
+           flags: 4 ,
+           rank : 4 ,
+           ndim : 4 ,
+           count:16 ;
+  uint64_t esize ;
+#endif
   dim_desc dim[1] ;
   uint32_t w32[] ;       // usable only if created with create_array
 } array_1d ;
 
+// ndim MUST be 2, rank MUST be <= 2
 typedef struct{          // specific struct for 2D array
   uint8_t *data ;
   uint8_t *limit ;
   uint32_t signature ;
-  uint16_t esize ;
-  uint8_t  type:4 ,
-           ndim:4 ;      // ndim MUST be 2
-  uint8_t  flags:4,
-           rank:4 ;      // rank MUST be <= 2
+#if defined(SMALL_ARRAY_STRUCT)
+  // 16 | 8 | 4 | 4       esize, type, ndim, flags, rank
+  uint32_t esize:16 ,    // size of array elements in bytes (1, 2, 4, 8, ..., )
+           type : 4 ,    // element type, see rmn/data_kind.h
+           ndim : 3 ,    // number of dimensions at creation time
+           count: 1 ,    // not used
+           flags: 5,     // flags
+           rank : 3 ;    // rank (number of used dimensions) (MUST BE <= ndim)
+#elif defined(LARGE_ARRAY_STRUCT)
+  // 4 | 4 | 4 | 4 | 16 | 64  type, flags, rank, ndim, ref_count, esize
+  uint32_t type : 4 ,
+           flags: 4 ,
+           rank : 4 ,
+           ndim : 4 ,
+           count:16 ;
+  uint64_t esize ;
+#endif
   dim_desc dim[2] ;
   uint32_t w32[] ;       // usable only if created with create_array
 } array_2d ;
 
+// ndim MUST be 3, rank MUST be <= 3
 typedef struct{          // specific struct for 3D array
   uint8_t *data ;
   uint8_t *limit ;
   uint32_t signature ;
-  uint16_t esize ;
-  uint8_t  type:4 ,
-           ndim:4 ;      // ndim MUST be 3
-  uint8_t  flags:4,
-           rank:4 ;      // rank MUST be <= 3
+#if defined(SMALL_ARRAY_STRUCT)
+  // 16 | 8 | 4 | 4       esize, type, ndim, flags, rank
+  uint32_t esize:16 ,    // size of array elements in bytes (1, 2, 4, 8, ..., )
+           type : 4 ,    // element type, see rmn/data_kind.h
+           ndim : 3 ,    // number of dimensions at creation time
+           count: 1 ,    // not used
+           flags: 5,     // flags
+           rank : 3 ;    // rank (number of used dimensions) (MUST BE <= ndim)
+#elif defined(LARGE_ARRAY_STRUCT)
+  // 4 | 4 | 4 | 4 | 16 | 64  type, flags, rank, ndim, ref_count, esize
+  uint32_t type : 4 ,
+           flags: 4 ,
+           rank : 4 ,
+           ndim : 4 ,
+           count:16 ;
+  uint64_t esize ;
+#endif
   dim_desc dim[3] ;
   uint32_t w32[] ;       // usable only if created with create_array
 } array_3d ;
 
+// ndim MUST be 4, rank MUST be <= 4
 typedef struct{          // specific struct for 4D array
   uint8_t *data ;
   uint8_t *limit ;
   uint32_t signature ;
-  uint16_t esize ;
-  uint8_t  type:4 ,
-           ndim:4 ;      // ndim MUST be 4
-  uint8_t  flags:4,
-           rank:4 ;      // rank MUST be <= 4
+#if defined(SMALL_ARRAY_STRUCT)
+  // 16 | 8 | 4 | 4       esize, type, ndim, flags, rank
+  uint32_t esize:16 ,    // size of array elements in bytes (1, 2, 4, 8, ..., )
+           type : 4 ,    // element type, see rmn/data_kind.h
+           ndim : 3 ,    // number of dimensions at creation time
+           count: 1 ,    // not used
+           flags: 5,     // flags
+           rank : 3 ;    // rank (number of used dimensions) (MUST BE <= ndim)
+#elif defined(LARGE_ARRAY_STRUCT)
+  // 4 | 4 | 4 | 4 | 16 | 64  type, flags, rank, ndim, ref_count, esize
+  uint32_t type : 4 ,
+           flags: 4 ,
+           rank : 4 ,
+           ndim : 4 ,
+           count:16 ;
+  uint64_t esize ;
+#endif
   dim_desc dim[4] ;
   uint32_t w32[] ;       // usable only if created with create_array
 } array_4d ;
 
+// ndim MUST be 5, rank MUST be <= 5
 typedef struct{          // specific struct for 5D array
   uint8_t *data ;
   uint8_t *limit ;
   uint32_t signature ;
-  uint16_t esize ;
-  uint8_t  type:4 ,
-           ndim:4 ;      // ndim MUST be 5
-  uint8_t  flags:4,
-           rank:4 ;      // rank MUST be <= 5
+#if defined(SMALL_ARRAY_STRUCT)
+  // 16 | 8 | 4 | 4       esize, type, ndim, flags, rank
+  uint32_t esize:16 ,    // size of array elements in bytes (1, 2, 4, 8, ..., )
+           type : 4 ,    // element type, see rmn/data_kind.h
+           ndim : 3 ,    // number of dimensions at creation time
+           count: 1 ,    // not used
+           flags: 5,     // flags
+           rank : 3 ;    // rank (number of used dimensions) (MUST BE <= ndim)
+#elif defined(LARGE_ARRAY_STRUCT)
+  // 4 | 4 | 4 | 4 | 16 | 64  type, flags, rank, ndim, ref_count, esize
+  uint32_t type : 4 ,
+           flags: 4 ,
+           rank : 4 ,
+           ndim : 4 ,
+           count:16 ;
+  uint64_t esize ;
+#endif
   dim_desc dim[5] ;
   uint32_t w32[] ;       // usable only if created with create_array
 } array_5d ;
 
 // invalid array descriptors (no dimmension initialization)
-static const array_nd array_nd_invalid = {.data=NULL, .limit=NULL, .signature=0, .esize=0, .type=0, .flags=0, .rank=0, .ndim=0 } ;
-static const array_0d array_0d_invalid = {.data=NULL, .limit=NULL, .signature=0, .esize=0, .type=0, .flags=0, .rank=0, .ndim=0 } ;
-static const array_1d array_1d_invalid = {.data=NULL, .limit=NULL, .signature=0, .esize=0, .type=0, .flags=0, .rank=0, .ndim=1 } ;
-static const array_2d array_2d_invalid = {.data=NULL, .limit=NULL, .signature=0, .esize=0, .type=0, .flags=0, .rank=0, .ndim=2 } ;
-static const array_3d array_3d_invalid = {.data=NULL, .limit=NULL, .signature=0, .esize=0, .type=0, .flags=0, .rank=0, .ndim=3 } ;
-static const array_4d array_4d_invalid = {.data=NULL, .limit=NULL, .signature=0, .esize=0, .type=0, .flags=0, .rank=0, .ndim=4 } ;
-static const array_5d array_5d_invalid = {.data=NULL, .limit=NULL, .signature=0, .esize=0, .type=0, .flags=0, .rank=0, .ndim=5 } ;
+static const array_nd array_nd_invalid = {.data=NULL, .limit=NULL, .signature=0, .esize=0, .type=0, .flags=0, .rank=0, .ndim=0, .count=0 } ;
+static const array_0d array_0d_invalid = {.data=NULL, .limit=NULL, .signature=0, .esize=0, .type=0, .flags=0, .rank=0, .ndim=0, .count=0 } ;
+static const array_1d array_1d_invalid = {.data=NULL, .limit=NULL, .signature=0, .esize=0, .type=0, .flags=0, .rank=0, .ndim=1, .count=0 } ;
+static const array_2d array_2d_invalid = {.data=NULL, .limit=NULL, .signature=0, .esize=0, .type=0, .flags=0, .rank=0, .ndim=2, .count=0 } ;
+static const array_3d array_3d_invalid = {.data=NULL, .limit=NULL, .signature=0, .esize=0, .type=0, .flags=0, .rank=0, .ndim=3, .count=0 } ;
+static const array_4d array_4d_invalid = {.data=NULL, .limit=NULL, .signature=0, .esize=0, .type=0, .flags=0, .rank=0, .ndim=4, .count=0 } ;
+static const array_5d array_5d_invalid = {.data=NULL, .limit=NULL, .signature=0, .esize=0, .type=0, .flags=0, .rank=0, .ndim=5, .count=0 } ;
 
 // blank array descriptors (almost valid, but with NULL data start and limit pointers, 0 element size, all dimensions 0)
-static const array_nd array_nd_null = {.data=NULL, .limit=NULL, .esize=0, .signature=NO_DATA, .type=any_data, .rank=0, .ndim=0, .flags=0 } ;
-static const array_0d array_0d_null = {.data=NULL, .limit=NULL, .esize=0, .signature=NO_DATA, .type=any_data, .rank=0, .ndim=0, .flags=0 } ;
-static const array_1d array_1d_null = {.data=NULL, .limit=NULL, .esize=0, .signature=NO_DATA, .type=any_data, .rank=1, .ndim=1, .flags=0,
+static const array_nd array_nd_null = {.data=NULL, .limit=NULL, .esize=0, .signature=NO_DATA, .type=any_data, .rank=0, .ndim=0, .flags=0, .count=0 } ;
+static const array_0d array_0d_null = {.data=NULL, .limit=NULL, .esize=0, .signature=NO_DATA, .type=any_data, .rank=0, .ndim=0, .flags=0, .count=0 } ;
+static const array_1d array_1d_null = {.data=NULL, .limit=NULL, .esize=0, .signature=NO_DATA, .type=any_data, .rank=1, .ndim=1, .flags=0, .count=0,
                                        .dim = {DIM_ZERO} } ;
-static const array_2d array_2d_null = {.data=NULL, .limit=NULL, .esize=0, .signature=NO_DATA, .type=any_data, .rank=2, .ndim=2, .flags=0,
+static const array_2d array_2d_null = {.data=NULL, .limit=NULL, .esize=0, .signature=NO_DATA, .type=any_data, .rank=2, .ndim=2, .flags=0, .count=0,
                                        .dim = {DIM_ZERO, DIM_ZERO} } ;
-static const array_3d array_3d_null = {.data=NULL, .limit=NULL, .esize=0, .signature=NO_DATA, .type=any_data, .rank=3, .ndim=3, .flags=0,
+static const array_3d array_3d_null = {.data=NULL, .limit=NULL, .esize=0, .signature=NO_DATA, .type=any_data, .rank=3, .ndim=3, .flags=0, .count=0,
                                        .dim = {DIM_ZERO, DIM_ZERO, DIM_ZERO} } ;
-static const array_4d array_4d_null = {.data=NULL, .limit=NULL, .esize=0, .signature=NO_DATA, .type=any_data, .rank=4, .ndim=4, .flags=0,
+static const array_4d array_4d_null = {.data=NULL, .limit=NULL, .esize=0, .signature=NO_DATA, .type=any_data, .rank=4, .ndim=4, .flags=0, .count=0,
                                        .dim = {DIM_ZERO, DIM_ZERO, DIM_ZERO, DIM_ZERO} } ;
-static const array_5d array_5d_null = {.data=NULL, .limit=NULL, .esize=0, .signature=NO_DATA, .type=any_data, .rank=5, .ndim=5, .flags=0,
+static const array_5d array_5d_null = {.data=NULL, .limit=NULL, .esize=0, .signature=NO_DATA, .type=any_data, .rank=5, .ndim=5, .flags=0, .count=0,
                                        .dim = {DIM_ZERO, DIM_ZERO, DIM_ZERO, DIM_ZERO, DIM_ZERO} } ;
 
 #if 0
@@ -244,6 +340,18 @@ typedef struct{   // struct containing up to 5 pairs of integers (array)
 #endif
 
 // argument A is an array_nd type structure
+
+// rank of array at allocation time
+#define ARRAY_SYNTAX_RANK(A) \
+  _Generic((A), \
+  array_5d: 5, array_5d *: 5, \
+  array_4d: 4, array_4d *: 4, \
+  array_3d: 3, array_3d *: 3, \
+  array_2d: 2, array_2d *: 2, \
+  array_1d: 1, array_1d *: 1, \
+  array_0d: 0, array_0d *: 0, \
+  array_nd:-1, array_nd *:-1  \
+  )
 
 // rank of array at allocation time
 #define ARRAY_ALLOC_RANK(A) \
