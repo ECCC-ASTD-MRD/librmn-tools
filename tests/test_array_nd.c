@@ -104,6 +104,12 @@ void array_lbounds_check(int low, int high){
   for(uint32_t i=0 ; i<sizeof(printable_type)/sizeof(printable_type[0]) ; i++){
     fprintf(stderr,"data_code : %2d '%-7s', bit size = %2d\n", i, printable_type[i], size_of_type[i]) ;
   }
+  print_meta((void *) ap0, " : ap0 meta\n") ;
+  print_meta((void *) ap1, " : ap1 meta\n") ;
+  print_meta((void *) ap2, " : ap2 meta\n") ;
+  print_meta((void *) ap3, " : ap3 meta\n") ;
+  print_meta((void *) ap4, " : ap4 meta\n") ;
+  print_meta((void *) ap5, " : ap5 meta\n") ;
 
   // make new arrays using caller supplied storage, set bounds
   new_array(&a1, NULL, sizeof(int32_t), int_data, 8) ;
