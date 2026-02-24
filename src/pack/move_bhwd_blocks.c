@@ -16,7 +16,6 @@
 //
 #include <stdio.h>
 #include <rmn/move_bhwd_blocks.h>
-#include <rmn/move_blocks.h>
 
 #include <rmn/identify_fc_compiler.h>
 #if defined(COMPILER_IS_GCC)
@@ -94,7 +93,7 @@ int set_bhwd_debug(int value){
 void move_u8_to_u32(uint32_t * restrict w32, uint8_t * restrict bhd, int lni, int ni, int nj, block_properties *bp, int z){  // unsigned 8 -> 32
   (void) (z) ; int nij = ni*nj ;
   int i ;
-if(DEBUG > 0)  fprintf(stderr, "move_u8_to_u32, lni = %d, ni = %d, nj = %d, bp = %s\n", lni, ni, nj, bp ? "ON" : "OFF") ;
+if(DEBUG > 0)  fprintf(stderr, "move_u8_to_u32,  lni = %d, ni = %d, nj = %d, bp = %s\n", lni, ni, nj, bp ? "ON" : "OFF") ;
   while(nj-- > 0){
     for(i=0 ; i<ni; i++){ w32[i] = bhd[i]; };
     w32 +=  ni ;
@@ -107,7 +106,7 @@ if(DEBUG > 0)  fprintf(stderr, "move_u8_to_u32, lni = %d, ni = %d, nj = %d, bp =
 void move_u32_to_u8(uint8_t * restrict bhd, uint32_t * restrict w32, int lni, int ni, int nj, block_properties *bp, int z){  // unsigned 32 -> 8
   (void) (z) ; (void) (bp) ;
   int i, iter = 0 ;
-if(DEBUG > 0)  fprintf(stderr, "move_u32_to_u8, lni = %d, ni = %d, nj = %d\n", lni, ni, nj) ;
+if(DEBUG > 0)  fprintf(stderr, "move_u32_to_u8,  lni = %d, ni = %d, nj = %d\n", lni, ni, nj) ;
   while(nj-- > 0){
     iter++ ;
     for(i=0 ; i<ni; i++){ bhd[i] = (w32[i] > UINT8_MAX) ? UINT8_MAX : w32[i] ; };
@@ -120,7 +119,7 @@ if(DEBUG > 0)  fprintf(stderr, "move_u32_to_u8, lni = %d, ni = %d, nj = %d\n", l
 void move_i8_to_i32(int32_t * restrict w32, int8_t * restrict bhd, int lni, int ni, int nj, block_properties *bp, int z){  // signed 8 -> 32
   (void) (z) ; int nij = ni*nj ;
   int i ;
-if(DEBUG > 0)  fprintf(stderr, "move_i8_to_i32, lni = %d, ni = %d, nj = %d, bp = %s\n", lni, ni, nj, bp ? "ON" : "OFF") ;
+if(DEBUG > 0)  fprintf(stderr, "move_i8_to_i32,  lni = %d, ni = %d, nj = %d, bp = %s\n", lni, ni, nj, bp ? "ON" : "OFF") ;
   while(nj-- > 0){
     for(i=0 ; i<ni; i++){ w32[i] = bhd[i]; };
     w32 +=  ni ;
@@ -133,7 +132,7 @@ if(DEBUG > 0)  fprintf(stderr, "move_i8_to_i32, lni = %d, ni = %d, nj = %d, bp =
 void move_i32_to_i8(int8_t * restrict bhd, int32_t * restrict w32, int lni, int ni, int nj, block_properties *bp, int z){  // signed 32 -> 8
   (void) (z) ; (void) (bp) ;
   int i ;
-if(DEBUG > 0)  fprintf(stderr, "move_i32_to_i8, lni = %d, ni = %d, nj = %d\n", lni, ni, nj) ;
+if(DEBUG > 0)  fprintf(stderr, "move_i32_to_i8,  lni = %d, ni = %d, nj = %d\n", lni, ni, nj) ;
   while(nj-- > 0){
     for(i=0 ; i<ni; i++){ int32_t t = w32[i] ; t = (t>INT8_MAX) ? INT8_MAX : t ; t = (t < INT8_MIN) ? INT8_MIN : t ; bhd[i] =t; };
     w32 +=  ni ;
@@ -483,4 +482,74 @@ void  print_block_properties(block_properties bp){
   fprintf(stderr, "\n") ;
 }
 //
+// ============ transfers to/from arrays <rmn/array_nd.h> ============
+//
+// starting point in array dim[0].ln0 , dim[1].ln0
+// block size dim[0].lnn x dim[1].lnn
+// blk must be large enough
+// if bp is not NULL, block properties will be computed
+// return pointer to extracted block
+array_2d * array_to_block(array_2d * restrict a, array_2d * restrict blk, block_properties * restrict bp){
+  if(a == NULL || blk == NULL) goto fail ;
+  if(a->rank != 2 || blk->ndim < 1 || blk->data == NULL) goto fail ;
+
+  uint32_t npts = a->dim[0].lnn * a->dim[1].lnn ;
+  ssize_t size  = a->esize ; size *= npts ;
+  if(size > (blk->limit - blk->data)) goto fail ;  // blk is too small
+
+  void *src = subarray_address(a) ;                // source address
+  void *dst = blk->data ;                          // destination (block) address
+  blk->rank = 1 ;                                  // collapse dimensions to rank 1
+  blk->dim[0].gn0 = blk->dim[0].ln0 = 0 ;          // npts values, origin 0
+  blk->dim[0].gnn = blk->dim[0].lnn = npts ;
+  int lni = a->dim[0].gnn ;                        // row storage length in source
+  int ni  = a->dim[0].lnn ;                        // number of values along i
+  int nj  = a->dim[1].lnn ;                        // number of values along j
+// fprintf(stderr, "array_to_block : lni = %d, ni = %d, nj = %d, type = %d\n", lni, ni, nj, a->type) ;
+  switch(a->type){
+    case byte_data   :
+      bhwd2block(dst, (int8_t *)(src), lni, ni, nj, bp) ;
+      break ;
+    case ubyte_data  :
+      bhwd2block(dst, (uint8_t *)(src), lni, ni, nj, bp) ;
+      break ;
+    case short_data  :
+      bhwd2block(dst, (int16_t *)(src), lni, ni, nj, bp) ;
+      break ;
+    case ushort_data :
+      bhwd2block(dst, (uint16_t *)(src), lni, ni, nj, bp) ;
+      break ;
+    case int_data    :
+      bhwd2block(dst, (int32_t *)(src), lni, ni, nj, bp) ;
+      break ;
+    case uint_data   :
+      bhwd2block(dst, (uint32_t *)(src), lni, ni, nj, bp) ;
+      break ;
+    case long_data   :
+      bhwd2block(dst, (int64_t *)(src), lni, ni, nj, bp) ;
+      break ;
+    case ulong_data  :
+      bhwd2block(dst, (uint64_t *)(src), lni, ni, nj, bp) ;
+      break ;
+    case float_data  :
+      bhwd2block(dst, (float *)(src), lni, ni, nj, bp) ;
+      break ;
+    case double_data :
+      bhwd2block(dst, (double *)(src), lni, ni, nj, bp) ;
+      break ;
+    case raw_data    :   // treated as unsigned 32 bits
+      bhwd2block(dst, (uint32_t *)(src), lni, ni, nj, bp) ;
+      break ;
+    default :
+//       fprintf(stderr, "array_to_block : invalid type = %d\n", a->type) ;
+      goto fail ;
+  }
+
+  return blk ;
+
+fail :
+  return NULL ;  // miserable failure
+}
+//
 // ==========================================================================
+//

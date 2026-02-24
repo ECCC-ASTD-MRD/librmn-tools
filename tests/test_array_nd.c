@@ -32,8 +32,8 @@ void print_dims(void *a_, char *msg){
 
 void print_meta(void *a_, char *msg){
   array_nd *a = (array_nd *) a_ ;
-  fprintf(stderr, "ndim = %d, rank = %d, flags = %d, type = %d, esize = %d, s = %8.8x",a->ndim, a->rank, a->flags, a->type, a->esize, a->signature) ;
-  fprintf(stderr, "%s", msg) ;
+  fprintf(stderr, "ndim = %d, rank = %d, flags = %d, type = %d, esize = %lu, s = %8.8x %s",
+          a->ndim, a->rank, a->flags, a->type, (uint64_t)a->esize, a->signature, msg) ;
 }
 
 void print_flags(char *msg, void *a){

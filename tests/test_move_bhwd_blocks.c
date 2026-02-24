@@ -155,7 +155,44 @@ int check_64(void *ref, void *new, int lni, int ni, int nj){
   return check_64_(lni, ni, nj, ref,  new) ;
 }
 
-int copy_to_block_and_back(int gni, int gnj, int bni, int bnj, void *src_, int src_type, void *rst_);
+// src      [IN] : input array[gnj][gni]
+// src_type [IN] : input array type code
+// rst     [OUT] : output array[gnj][gni]
+// use element_bytes(src_type) 
+int copy_to_block_and_back(int gni, int gnj, int bni, int bnj, void *src_, int src_type, void *rst_){
+  uint32_t blk[bnj*bni*4] ;            // temporary block
+  uint32_t *pblk = (uint32_t *)blk ;  // pointer to above
+  uint8_t *src = (uint8_t *)src_ ;
+  uint8_t *rst = (uint8_t *)rst_ ;
+  int i0, i1, j0, j1, index, bytes/*, ndiff*/ ;
+  bhwd_fn into, from ;
+  block_properties bp ;
+  array_axis axi, axj ;
+
+  set_bhwd_debug(1) ;
+fprintf(stderr, "gni = %d, gnj = %d, bni = %d, bnj = %d, src_type = %d", gni, gnj, bni, bnj, src_type) ;
+  if(src_type > MAX_ARRAY_TYPES || src_type < 0) return -1 ;
+  into = into_bhwd[src_type] ;
+  from = from_bhwd[src_type] ;
+  bytes = element_bytes[src_type] ;
+fprintf(stderr, ", bytes = %d", bytes) ;
+  axi = split_axis(gni, bni) ;
+  axj = split_axis(gnj, bnj) ;
+fprintf(stderr, ", axi = %d/%d/%d, axj = %d/%d/%d\n", axi.nbk, axi.ln0, axi.ln1, axj.nbk, axj.ln0, axi.ln1) ;
+  for(j0 = 0, j1 = axj.ln0 ; j0+bnj <= gnj ; j0 += j1, j1 = axj.ln1){
+    for(i0 = 0, i1 = axi.ln0 ; i0+bni <= gni ; i0 += i1, i1 = axi.ln1){
+      index = (j0 * gni) + i0 ;
+      index *= bytes ;
+// fprintf(stderr, "[%4d:%4d,%4d%4d], index = %6d\n", i0, i0+i1-1, j0, j0+j1-1, index) ;
+      copy_into_block(into, (void *)pblk, (void *)(src+index), gni, i1, j1, &bp) ;
+      copy_from_block(from, (void *)(rst+index), (void *)pblk, gni, i1, j1) ;
+//       ndiff = check_8_(gni, i1, j1, (void *)(src+index),  (void *)(rst+index)) ;
+  set_bhwd_debug(0) ;
+    }
+  }
+
+  return 0 ;
+}
 
 #define check_bhwd(ref, new, lni, ni, nj) \
    _Generic((ref), \
@@ -606,49 +643,45 @@ print_block_properties(tmm) ;
   copy_to_block_and_back(GNI, GNJ, NI, NJ, src_d64, array_type_code(src_d64), rst_d64) ;
   if(check_64_(GNI, GNI, GNJ, (void *)src_d64,  (void *)rst_d64) != 0) goto fail ;
 
+  fprintf(stderr, "SUCCESS: multiple block copy\n") ;
+
+  fprintf(stderr, "\n===================== test with array_nd, all types =====================\n\n") ;
+
+  array_2d a2 = array_2d_null, *ap2 = &a2 ;  // data array
+  array_2d a1 = array_2d_null, *ap1 = &a1 ;  // block array
+// array_nd *new_array_nd(array_nd *a, void *mem, int32_t esize, int8_t type, int32_t ndims, int32_t nlb5, __i32__5__ lb5);
+// new_array(ARRAY_PTR, MEM, ESIZE, TYP, ...)
+  ap1 = (array_2d *)new_array( ap1, NULL,    4, int_data, NI, (NJ*4) ) ;    // worst size block
+  msg = "error creating ap1" ; if(ap1 == NULL) goto fail ;
+  ap2 = (array_2d *)new_array( ap2, src_i32, 4, int_data, GNI, GNJ ) ;      // data array[GNJ][GNI]
+  msg = "error creating ap2" ; if(ap2 == NULL) goto fail ;
+
+// array_2d * array_to_block(array_2d * restrict a, array_2d * restrict blk, block_properties * restrict bp)
+  set_array_lbounds(ap2, 0, NI, 0, NJ) ;
+  set_bhwd_debug(1) ;
+
+  msg = "error in array_to_block" ;
+  a2.type = any_data    ; if(array_to_block(ap2, ap1, NULL) != NULL) goto fail ;
+  a2.type = large_data  ; if(array_to_block(ap2, ap1, NULL) != NULL) goto fail ;
+  a2.type = bad_data    ; if(array_to_block(ap2, ap1, NULL) != NULL) goto fail ;
+  a2.type = raw_data    ; if(array_to_block(ap2, ap1, NULL) == NULL) goto fail ;
+  a2.type = ubyte_data  ; if(array_to_block(ap2, ap1, NULL) == NULL) goto fail ;
+  a2.type = byte_data   ; if(array_to_block(ap2, ap1, NULL) == NULL) goto fail ;
+  a2.type = ushort_data ; if(array_to_block(ap2, ap1, NULL) == NULL) goto fail ;
+  a2.type = short_data  ; if(array_to_block(ap2, ap1, NULL) == NULL) goto fail ;
+  a2.type = uint_data   ; if(array_to_block(ap2, ap1, NULL) == NULL) goto fail ;
+  a2.type = int_data    ; if(array_to_block(ap2, ap1, NULL) == NULL) goto fail ;
+  a2.type = ulong_data  ; if(array_to_block(ap2, ap1, NULL) == NULL) goto fail ;
+  a2.type = long_data   ; if(array_to_block(ap2, ap1, NULL) == NULL) goto fail ;
+  a2.type = float_data  ; if(array_to_block(ap2, ap1, NULL) == NULL) goto fail ;
+  a2.type = double_data ; if(array_to_block(ap2, ap1, NULL) == NULL) goto fail ;
+
+  set_bhwd_debug(0) ;
+
   fprintf(stderr, "SUCCESS\n") ;
   return 0 ;
 
 fail :
   fprintf(stderr, "ERROR : %s\n", msg) ;
   return 1 ;
-}
-
-// src      [IN] : input array[gnj][gni]
-// src_type [IN] : input array type code
-// rst     [OUT] : output array[gnj][gni]
-// use element_bytes(src_type) 
-int copy_to_block_and_back(int gni, int gnj, int bni, int bnj, void *src_, int src_type, void *rst_){
-  uint32_t blk[bnj*bni*4] ;            // temporary block
-  uint32_t *pblk = (uint32_t *)blk ;  // pointer to above
-  uint8_t *src = (uint8_t *)src_ ;
-  uint8_t *rst = (uint8_t *)rst_ ;
-  int i0, i1, j0, j1, index, bytes/*, ndiff*/ ;
-  bhwd_fn into, from ;
-  block_properties bp ;
-  array_axis axi, axj ;
-
-  set_bhwd_debug(1) ;
-fprintf(stderr, "gni = %d, gnj = %d, bni = %d, bnj = %d, src_type = %d", gni, gnj, bni, bnj, src_type) ;
-  if(src_type > MAX_ARRAY_TYPES || src_type < 0) return -1 ;
-  into = into_bhwd[src_type] ;
-  from = from_bhwd[src_type] ;
-  bytes = element_bytes[src_type] ;
-fprintf(stderr, ", bytes = %d", bytes) ;
-  axi = split_axis(gni, bni) ;
-  axj = split_axis(gnj, bnj) ;
-fprintf(stderr, ", axi = %d/%d/%d, axj = %d/%d/%d\n", axi.nbk, axi.ln0, axi.ln1, axj.nbk, axj.ln0, axi.ln1) ;
-  for(j0 = 0, j1 = axj.ln0 ; j0+bnj <= gnj ; j0 += j1, j1 = axj.ln1){
-    for(i0 = 0, i1 = axi.ln0 ; i0+bni <= gni ; i0 += i1, i1 = axi.ln1){
-      index = (j0 * gni) + i0 ;
-      index *= bytes ;
-// fprintf(stderr, "[%4d:%4d,%4d%4d], index = %6d\n", i0, i0+i1-1, j0, j0+j1-1, index) ;
-      copy_into_block(into, (void *)pblk, (void *)(src+index), gni, i1, j1, &bp) ;
-      copy_from_block(from, (void *)(rst+index), (void *)pblk, gni, i1, j1) ;
-//       ndiff = check_8_(gni, i1, j1, (void *)(src+index),  (void *)(rst+index)) ;
-  set_bhwd_debug(0) ;
-    }
-  }
-
-  return 0 ;
 }

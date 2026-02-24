@@ -20,6 +20,7 @@
 #include <stdint.h>
 
 #include <rmn/data_properties.h>
+#include <rmn/array_nd.h>
 
 #define MAX_ARRAY_TYPES 10
 
@@ -263,6 +264,8 @@ void move_i32_to_i64(int64_t * restrict bhwd , int32_t * restrict blk , int lni,
 void move_d64_to_f32(float * restrict fp    , double * restrict dp    , int lni, int ni, int nj, block_properties *bp, int z);  // double -> float
 void move_f32_to_d64(double * restrict dp   , float * restrict fp     , int lni, int ni, int nj, block_properties *bp, int z);  // float -> double
 
+array_2d * array_to_block(array_2d * restrict a, array_2d * restrict blk, block_properties * restrict bp);
+
 // bhwd (value) if bhwd is not a pointer, value pointed to if bhwd is a pointer
 #define BHWD(bhwd) \
   _Generic((bhwd), \
@@ -334,5 +337,6 @@ void move_f32_to_d64(double * restrict dp   , float * restrict fp     , int lni,
                                 int64_t   *: move_i64_to_i32, \
                                 double    *: move_d64_to_f32  \
                                 ) (dst, src, __VA_ARGS__, NULL, 0)
+
 
 #endif
