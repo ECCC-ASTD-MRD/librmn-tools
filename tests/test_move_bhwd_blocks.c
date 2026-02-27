@@ -646,9 +646,27 @@ print_block_properties(tmm) ;
   fprintf(stderr, "SUCCESS: multiple block copy\n") ;
 
   fprintf(stderr, "\n===================== test with array_nd, all types =====================\n\n") ;
-
+BLOCK_2D(bloc1, 128);
+print_block_2d((block_2d *)&bloc1, "bloc1 :") ;
+BLOCK_2D(bloc2,   0);
+print_block_2d((block_2d *)&bloc2, "bloc2 :") ;
   array_2d a2 = array_2d_null, *ap2 = &a2 ;  // data array
   array_2d a1 = array_2d_null, *ap1 = &a1 ;  // block array
+  block_2d b1 = block_2d_null, *bp1 = &b1 ;
+  block_2d b2 = block_2d_null, *bp2 = &b2 ;
+  block_2d_from_mem(b1, blocku, sizeof(blocku)) ;
+  bp2 = new_block_2d(NI*NJ*4, NI, NJ) ;
+  msg = "bp2 = new_block_2d" ; if(bp2 == NULL) goto fail ;
+  print_block_2d(bp1, "bp1 :") ;
+  msg = "realloc bp1" ; if(set_block_2d(bp1, NI, NJ) == NULL) goto fail ;
+  print_block_2d(bp1, "bp1 :") ;
+  print_block_2d(bp2, "bp2 :") ;
+  msg = "realloc bp2" ; if(set_block_2d(bp2, NI*2, NJ*2) == NULL) goto fail ;
+  print_block_2d(bp2, "bp2 :") ;
+  msg = "realloc bp2 should fail" ; if(set_block_2d(bp2, NI*2+1, NJ*2) != NULL) goto fail ;
+  msg = "free bp1" ; if(free_block_2d(bp1) != bp1)  goto fail ;    // b1 made from external memory, cannot be freed
+  msg = "free bp2" ; if(free_block_2d(bp2) != NULL) goto fail ;    // b2 is monolithic, must be freed
+
 // array_nd *new_array_nd(array_nd *a, void *mem, int32_t esize, int8_t type, int32_t ndims, int32_t nlb5, __i32__5__ lb5);
 // new_array(ARRAY_PTR, MEM, ESIZE, TYP, ...)
   ap1 = (array_2d *)new_array( ap1, NULL,    4, int_data, NI, (NJ*4) ) ;    // worst size block

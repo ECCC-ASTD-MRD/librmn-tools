@@ -40,6 +40,100 @@ typedef struct{
   int32_t  ln0 ;          // index of first point along dimension (usually 0 or 1)
 } dim_desc ;              // ln0 == gn0 , lnn == gnn : all elements along this dimension are used
 
+// flags == 0 : unknown, nothing may be freed
+// flags  & 1 : whole struct may be freed
+// flags  & 2 : monolithic
+
+// define a monolithic local block_2d variable
+// name : variable name
+// n    : number of elements in block
+// the block is initialized as a 1 dimensionl block of size (n,1)
+// if n == 0 , it is functionally equivalent to : block_2d name = block_2d_null
+#define BLOCK_2D(name, n) \
+  struct{ \
+    union{uint32_t *u32; int32_t  *i32; float    *f32;}; \
+    uint32_t *end, lni, lnj:30, flags:2, w[n]; \
+  } name ; \
+  name.u32   = (n ?  name.w        : NULL) ; \
+  name.end   = (n ? (name.u32 + n) : NULL) ; \
+  name.lni   = n ; \
+  name.lnj   = (n ? 1 : 0) ; \
+  name.flags = (n ? 2 : 0) ;
+
+typedef struct{
+  union{                 // starting address of block
+    uint32_t *u32 ;      // pointer to unsigned integer
+    int32_t  *i32 ;      // pointer to signed integer
+    float    *f32 ;      // pointer to float
+  } ;
+  uint32_t *end ;        // pointer to 32 bit word just beyond array
+  uint32_t  lni ;        // first dimension
+  uint32_t  lnj:30 ,     // second dimension (1 if block is 1D)
+          flags: 2 ;
+  uint32_t  w[] ;        // start of data if monolithic
+} block_2d ;             // 2D block, (end - u32) may me larger than (lni * lnj)
+
+// initialize a block_2d variable to null contents
+#define block_2d_null (block_2d){ .u32 = NULL, .end = NULL, .lni = 0, .lnj = 0, .flags  = 0 }
+
+// point a block_2d variable to a valid memory area, initialized as a 1 dimensional block
+// block : block_2d variable
+// mem   : memory address
+// size  : size in bytes available at memory address
+#define block_2d_from_mem(block, mem, size) { \
+          block.u32   = (uint32_t *)(mem) ; \
+          block.end   = block.u32 + ((size)/sizeof(int32_t)) ; \
+          block.lni   = (size)/sizeof(int32_t) ; \
+          block.lnj   = 1 ; \
+          block.flags = 0 ; \
+        }
+
+static inline void print_block_2d(block_2d *bp, char *msg){
+  fprintf(stderr, "%-8s struct at %p, data at %16p, block[%8d:%8d], max = %8ld elements, flags = %x\n",
+                msg, (void *)bp, (void *)bp->u32, bp->lni, bp->lnj, bp->end-bp->u32, bp->flags) ;
+}
+
+// usage : block_pointer = new_block_2d(max_size, size_i, size_j)
+static inline block_2d *new_block_2d(size_t size, uint32_t ni, uint32_t nj){
+  block_2d *result = NULL ;
+  if(ni * nj <= size){
+    result = (block_2d *) malloc(sizeof(block_2d) + size * sizeof(uint32_t *)) ;
+    if(result != NULL){
+      result->u32 = &(result->w[0]) ;
+      result->end = result->u32 + size ;
+      result->lni = ni ;
+      result->lnj = nj ;
+      result->flags = 1 ;
+    }
+  }
+  return result ;
+}
+
+// usage block_pointer_2 = set_block_2d(block_pointer, size_i, size_j)
+static inline block_2d *set_block_2d(block_2d *bp, uint32_t ni, uint32_t nj){
+  if(bp != NULL){
+    if(ni * nj <= bp->end - bp->u32){
+      bp->lni = ni ;
+      bp->lnj = nj ;
+    }else{
+      bp = NULL ;
+    }
+  }
+  return bp ;
+}
+
+// usage : block_pointer = free_block_2d(block_pointer)
+static inline block_2d *free_block_2d(block_2d *block){
+  if(block != NULL){
+    if(block->w == block->u32){
+      free(block) ;
+      block = NULL ;
+    }
+  }
+  return block ;
+}
+// #define free_block_2d(block) { if(block != NULL) free(block) ; block = NULL ; }
+
 // zero dimension
 #define DIM_ZERO (dim_desc) {.gnn=0, .gn0 = 0, .lnn=0, .ln0=0 }
 // recent compilers seem not to care, some older compilers seem to need the define way
