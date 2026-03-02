@@ -232,6 +232,12 @@ int main(int argc, char **argv){
   block_properties tmm ;
   int kind ;
 
+  goto OK ;
+fail :
+  fprintf(stderr, "ERROR : %s\n", msg) ;
+  return 1 ;
+OK :
+
   start_of_test("bdh block move functions") ;
   fprintf(stderr, "global values = %d, block values = %d\n", GNI*GNJ, NI*NJ) ;
 
@@ -646,26 +652,56 @@ print_block_properties(tmm) ;
   fprintf(stderr, "SUCCESS: multiple block copy\n") ;
 
   fprintf(stderr, "\n===================== test with array_nd, all types =====================\n\n") ;
-BLOCK_2D(bloc1, 128);
-print_block_2d((block_2d *)&bloc1, "bloc1 :") ;
-BLOCK_2D(bloc2,   0);
-print_block_2d((block_2d *)&bloc2, "bloc2 :") ;
-  array_2d a2 = array_2d_null, *ap2 = &a2 ;  // data array
-  array_2d a1 = array_2d_null, *ap1 = &a1 ;  // block array
-  block_2d b1 = block_2d_null, *bp1 = &b1 ;
+
+  array_2d a1 = array_2d_null, *ap1 = &a1 ;  // data arrays
+  array_2d a2 = array_2d_null, *ap2 = &a2 ;
+  block_2d b1 = block_2d_null, *bp1 = &b1 ;  // block arrays
   block_2d b2 = block_2d_null, *bp2 = &b2 ;
-  block_2d_from_mem(b1, blocku, sizeof(blocku)) ;
-  bp2 = new_block_2d(NI*NJ*4, NI, NJ) ;
-  msg = "bp2 = new_block_2d" ; if(bp2 == NULL) goto fail ;
-  print_block_2d(bp1, "bp1 :") ;
-  msg = "realloc bp1" ; if(set_block_2d(bp1, NI, NJ) == NULL) goto fail ;
-  print_block_2d(bp1, "bp1 :") ;
-  print_block_2d(bp2, "bp2 :") ;
-  msg = "realloc bp2" ; if(set_block_2d(bp2, NI*2, NJ*2) == NULL) goto fail ;
-  print_block_2d(bp2, "bp2 :") ;
-  msg = "realloc bp2 should fail" ; if(set_block_2d(bp2, NI*2+1, NJ*2) != NULL) goto fail ;
+
+  int ni_nj = NI + NJ + (random() & 7) ;
+  local_block_2d(bp3, ni_nj) ;               // local, monolithic
+  fprintf(stderr, "sizeof(bp3_alias) = %ld, sizeof(*bp3) = %ld\n", sizeof(bp3_alias), sizeof(*bp3));
+
+  block_2d b4 = block_2d_null, *bp4 = &b4 ;
+  msg = "dynamic_block_2d failed for bp4" ;
+  if(dynamic_block_2d(bp4, ni_nj*2) == 0) goto fail ;
+
+  print_block_2d(&b1, "&b1") ;
+  print_block_2d(&b2, "&b2") ;
+  print_block_2d(bp3, "bp3") ;
+  print_block_2d(bp4, "bp4") ;
+  fprintf(stderr, "\n") ;
+
+  mem_block_2d(b1, blocku, sizeof(blocku)) ;
+  print_block_2d(bp1, "bp1(I)") ;
+  msg = "reshape bp1 failed" ; if(shape_block_2d(bp1, NI, NJ) == NULL) goto fail ;
+  print_block_2d(bp1, "bp1(R)") ;
+  fprintf(stderr, "\n") ;
+
+  bp2 = new_block_2d(NULL, NI*NJ*4, 1) ;     // request monolithic allocation for struct/data
+  msg = "bp2 = new_block_2d failed" ; if(bp2 == NULL) goto fail ;
+  print_block_2d(bp2, "bp2(A)") ;
+  msg = "reshape bp2 failed" ; if(shape_block_2d(bp2, NI*2, NJ*2) != bp2) goto fail ;
+  print_block_2d(bp2, "bp2(R1)") ;
+  msg = "reshape bp2 should have failed" ; if(shape_block_2d(bp2, NI*2+1, NJ*2) != NULL) goto fail ;
+  print_block_2d(bp2, "bp2(R2)") ;
+  fprintf(stderr, "\n") ;
+
+  msg = "dynamic_block_2d reshape failed for bp4" ;
+  if(dynamic_block_2d(bp4, ni_nj*4) == 0) goto fail ;
+  print_block_2d(bp4, "bp4(R1)") ;
+  if(dynamic_block_2d(bp4, ni_nj*3) == 0) goto fail ;
+  print_block_2d(bp4, "bp4(R2)") ;
+  b4.flags = 0 ;
+  if(dynamic_block_2d(bp4, ni_nj*4-1) == 0) goto fail ;
+  print_block_2d(bp4, "bp4(R3)") ;
+  if(dynamic_block_2d(bp4, ni_nj*5) != 0) goto fail ;
+  print_block_2d(bp4, "bp4(R4)") ;
+  fprintf(stderr, "\n") ;
+
   msg = "free bp1" ; if(free_block_2d(bp1) != bp1)  goto fail ;    // b1 made from external memory, cannot be freed
   msg = "free bp2" ; if(free_block_2d(bp2) != NULL) goto fail ;    // b2 is monolithic, must be freed
+  msg = "free bp3" ; if(free_block_2d(bp3) != bp3)  goto fail ;    // b3 is monolithic, and local, cannot be freed
 
 // array_nd *new_array_nd(array_nd *a, void *mem, int32_t esize, int8_t type, int32_t ndims, int32_t nlb5, __i32__5__ lb5);
 // new_array(ARRAY_PTR, MEM, ESIZE, TYP, ...)
@@ -699,7 +735,7 @@ print_block_2d((block_2d *)&bloc2, "bloc2 :") ;
   fprintf(stderr, "SUCCESS\n") ;
   return 0 ;
 
-fail :
-  fprintf(stderr, "ERROR : %s\n", msg) ;
-  return 1 ;
+// fail :
+//   fprintf(stderr, "ERROR : %s\n", msg) ;
+//   return 1 ;
 }
