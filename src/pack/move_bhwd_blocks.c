@@ -553,3 +553,116 @@ fail :
 //
 // ==========================================================================
 //
+
+// usage : block_pointer = new_block_2d(mem, size)
+// if mem == NULL, allocate monolithic block
+// if mem is not NULL, 
+// if monolithic is true, use mem for block, adjust size to account for sizeof(block_2d)
+// if monolithic is false, use mem for data, no need to adjust size
+block_2d *new_block_2d(void *mem, size_t size, int monolithic){
+  block_2d *result ;
+  if(mem == NULL){                      // allocate struct with data area
+    result = (block_2d *) malloc(sizeof(block_2d) + size * sizeof(uint32_t *)) ;
+    monolithic = 1 ;
+  }else{
+    if(monolithic){
+      result = (block_2d *) mem ;                              // point struct to mem
+      size = size - (sizeof(block_2d) / sizeof(uint32_t *)) ;  // adjust size
+    }else{
+      result = (block_2d *) malloc(sizeof(block_2d)) ;         // allocate struct
+    }
+  }
+  if(result != NULL){
+    result->u32 = monolithic ? (&(result->w[0])) : mem ;       // point data to mem if not monolithic
+    result->end = size ;
+    result->lni = size ;
+    result->lnj = 1 ;
+    result->flags = 0 ;
+    if(monolithic) result->flags |= MAY_FREE_STRUCT ;
+  }
+  return result ;
+}
+
+// make a 2D block dynamic (malloc/free/resizing for the data area)
+uint32_t dynamic_block_2d(block_2d *bp, uint32_t size){
+  if(bp->u32 != NULL){                    // data pointer exists
+    if(bp->end >= size){
+      bp->lni    = size ;                 // set block shape
+      bp->lnj    = 1 ;
+      return bp->end ;  // return existing size if large enough
+    }
+    if(bp->flags & MAY_FREE_DATA){        // data reallocation is permittted
+      free(bp->u32) ;
+      bp->u32 = NULL ;
+      bp->flags &= (~MAY_FREE_DATA) ;     // cancel flag
+    }else{
+      goto fail ;                         // OOPS, operation is not possible
+    }
+  }
+  // at this point, bp->u32 is NULL
+  bp->u32 = (uint32_t *)malloc((size)*sizeof(uint32_t)) ;
+  if(bp->u32 == NULL){          // malloc failed
+    *bp = block_2d_null ;       // nullify block
+    goto fail ;
+  }
+
+  bp->end    = size ;
+  bp->lni    = bp->end ;
+  bp->lnj    = 1 ;
+  bp->flags |= MAY_FREE_DATA ;
+  return size ;
+fail :
+  return 0 ;
+}
+
+// usage block_pointer_2 = shape_block_2d(block_pointer, size_i, size_j)
+// set block shape to ni X nj
+// return NULL id error, bp if O.K.
+block_2d *shape_block_2d(block_2d *bp, uint32_t ni, uint32_t nj){
+  if(bp != NULL){
+    if(ni * nj <= bp->end){
+      bp->lni = ni ;
+      bp->lnj = nj ;
+    }else{
+      bp = NULL ;
+    }
+  }
+  return bp ;
+}
+
+// point a block_2d variable to a valid memory area, initialized as a 1 dimensional block
+// block : block_2d variable
+// mem   : memory address
+// size  : size in bytes available at memory address
+uint32_t mem_block_2d(block_2d *block, void *mem, uint32_t size) {
+  if(block == NULL || mem == NULL) return 0 ;
+  block->u32   = (uint32_t *)(mem) ;
+  block->end   = (size)/sizeof(int32_t) ;
+  block->lni   = block->end ;
+  block->lnj   = 1 ;
+  block->flags = 0 ;
+  return size ;
+}
+
+// usage : block_pointer = free_block_2d(block_pointer)
+block_2d *free_block_2d(block_2d *block){
+  if(block != NULL){
+    if(block->flags & MAY_FREE_DATA){
+      free(block->u32) ;
+      block->u32 = NULL ;
+    }
+    if(block->flags & MAY_FREE_STRUCT){
+      free(block) ;
+      block = NULL ;
+    }
+  }
+  return block ;
+}
+
+void print_block_2d(block_2d *bp, char *msg){
+  fprintf(stderr, "%-10s : struct at %p, data at %16p, block[%8d:%8d], max = %8d elements",
+                msg, (void *)bp, (void *)bp->u32, bp->lni, bp->lnj, bp->end) ;
+  fprintf(stderr, ", flags = %s%s\n",
+                   (bp->flags & MAY_FREE_STRUCT) ? "MAY_FREE_STRUCT " : "" ,
+                   (bp->flags & MAY_FREE_DATA)   ? "MAY_FREE_DATA"    : "" ) ;
+}

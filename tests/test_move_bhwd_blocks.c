@@ -672,7 +672,8 @@ print_block_properties(tmm) ;
   print_block_2d(bp4, "bp4") ;
   fprintf(stderr, "\n") ;
 
-  mem_block_2d(b1, blocku, sizeof(blocku)) ;
+  msg = "mem_block_2d failed" ;
+  if(sizeof(blocku) != mem_block_2d(bp1, blocku, sizeof(blocku))) goto fail ;
   print_block_2d(bp1, "bp1(I)") ;
   msg = "reshape bp1 failed" ; if(shape_block_2d(bp1, NI, NJ) == NULL) goto fail ;
   print_block_2d(bp1, "bp1(R)") ;
