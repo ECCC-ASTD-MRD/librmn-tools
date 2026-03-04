@@ -339,16 +339,20 @@ fail:
 // normally called via generic macro  set_array_lbounds
 int set_array_lbounds_nd(array_nd *a, int32_t narg, __i32__5x2__ lb5){
   int32_t i, j, rank = narg/2 ;
+  char *msg = "" ;
 
-  if(invalid_array(a)) goto fail ;
-  if(narg & 1) goto fail ;  // narg MUST be EVEN
+  msg = "invalid array" ; if(invalid_array(a)) goto fail ;
+  msg = "narg is odd" ; if(narg & 1) goto fail ;  // narg MUST be EVEN
   if(rank != a->rank){
     fprintf(stderr, "array_lbounds_nd, rank = %d, a->rank = %d\n", rank, a->rank) ;
+    msg = "invalid array bounds" ;
     goto fail ;    // wrong number of dimensions
   }
 
   for(i=j=0 ; i < narg ; i+=2, j++){
+    msg = "upper bound < lower bound" ;
     if(lb5.i32[i+1] < lb5.i32[i])                        goto fail ;  // upper bound < lower bound
+    msg = "upper bound beyond limits" ;
     if(lb5.i32[i+1] > a->dim[j].gn0 + a->dim[j].gnn - 1) goto fail ;  // upper bound beyond limits
 // fprintf(stderr, "[%d] gbounds = %d %d, lbounds= %d %d\n", j, a->dim[j].gn0, a->dim[j].gnn - 1, lb5.i32[i], lb5.i32[i+1]) ;
   }
@@ -360,6 +364,7 @@ int set_array_lbounds_nd(array_nd *a, int32_t narg, __i32__5x2__ lb5){
 // fprintf(stderr, "array_lbounds_nd, narg = %d, rank = %d\n", narg, rank) ;
   return rank ;
 fail:
+  fprintf(stderr, "%s\n", msg) ;
   return 0 ;
 }
 
