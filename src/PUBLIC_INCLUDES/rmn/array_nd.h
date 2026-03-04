@@ -30,8 +30,8 @@
 #include <rmn/move_blocks.h>
 
 // dimensionality description along a dimension
-// global   dimension index space : gn0 -> gn0 + gnn - 1  ( gnn elements)
-// subarray dimension index range : ln0 -> ln0 + lnn - 1  ( lnn elements)
+// global   dimension index space : gn0 : gn0 + gnn - 1  ( gnn elements)
+// subarray dimension index range : ln0 : ln0 + lnn - 1  ( lnn elements)
 // constraints : ln0 >= gn0 , ln0 + lnn <= gn0 + gnn
 typedef struct{
   int32_t  gnn ;          // number of elements stored along dimension
@@ -40,68 +40,7 @@ typedef struct{
   int32_t  ln0 ;          // index of first point along dimension (usually 0 or 1)
 } dim_desc ;              // ln0 == gn0 , lnn == gnn : all elements along this dimension are used
 
-// flags == 0 : unknown, nothing may be freed
-// flags  & 1 : monolithic, whole struct may be freed
-#define MAY_FREE_STRUCT 1
-// flags  & 4 : data area may be freed/reallocated
-#define MAY_FREE_DATA   2
-
-typedef struct{
-  union{                 // starting address of block
-    uint32_t *u32 ;      // pointer to unsigned integer
-    int32_t  *i32 ;      // pointer to signed integer
-    float    *f32 ;      // pointer to float
-  } ;
-  uint32_t end ;         // pointer to 32 bit word just beyond array
-  uint32_t lni ;         // first dimension
-  uint32_t lnj ;         // second dimension (1 if block is 1D)
-  uint32_t flags ;       // flags and extra information
-  uint32_t w[] ;         // start of data if monolithic
-} block_2d ;             // 2D block, (end - u32) may me larger than (lni * lnj)
-
-// initialize a block_2d variable to null contents
-#define block_2d_null (block_2d){ .u32 = NULL, .end = 0, .lni = 0, .lnj = 0, .flags  = 0 }
-
-// create a monolithic local block_2d variable and its pointer
-// (initialized as a 1 dimensional block)
-// block : block_2d pinnter
-// size  : number of 32 bit data elements that the block may accomodate
-// a local array blockname_alias[] will be created pointed to by (block_2d *) blockname
-// the dimension of blockname_alias will be size + size of base block_2d struct
-#define local_block_2d(blockname, size) \
-  uint32_t blockname ## _alias[size + sizeof(block_2d)/sizeof(uint32_t)] ; \
-  block_2d *blockname = (block_2d *) blockname ## _alias ;  \
-  *blockname = (block_2d) { .u32 = blockname->w, .end = size, .lni = size, .lnj = 1, .flags = 0 } ;
-
-uint32_t dynamic_block_2d(block_2d *bp, uint32_t size);
-void print_block_2d(block_2d *bp, char *msg);
-block_2d *new_block_2d(void *mem, size_t size, int monolithic);
-block_2d *shape_block_2d(block_2d *bp, uint32_t ni, uint32_t nj);
-block_2d *free_block_2d(block_2d *block);
-uint32_t mem_block_2d(block_2d *block, void *mem, uint32_t size) ;
-
-// zero dimension
-#define DIM_ZERO (dim_desc) {.gnn=0, .gn0 = 0, .lnn=0, .ln0=0 }
-// recent compilers seem not to care, some older compilers seem to need the define way
-#if defined(__PGI__OLD_COMPILER)
-// older PGI compilers seemed to want it the define way
-#define dim_zero DIM_ZERO
-#else
-// this is not a constant value according to some compilers
-static const dim_desc  dim_zero = DIM_ZERO ;
-#endif
-
-// macro argument ARRAY_PTR is a POINTER to an array_nd type structure (array_nd *)
-#define HAS_DATA 0xBEBEFADA
-#define array_has_data(ARRAY_PTR) ( (ARRAY_PTR)->signature == HAS_DATA )
-#define array_set_used(ARRAY_PTR) { (ARRAY_PTR)->signature = HAS_DATA ; }
-
-#define NO_DATA 0xFADABEBE
-#define array_no_data(ARRAY_PTR) ( (ARRAY_PTR)->signature == NO_DATA )
-#define array_set_empty(ARRAY_PTR) { (ARRAY_PTR)->signature = NO_DATA ; }
-
-#define array_is_signed(ARRAY_PTR) ( ((ARRAY_PTR)->signature == NO_DATA) || ((ARRAY_PTR)->signature == HAS_DATA) )
-#define array_signature(ARRAY_PTR) ((ARRAY_PTR)->signature)
+// flags description
 
 // DATA_IS_INTERNAL set means that the array_nd struct contains both data and control information
 #define DATA_IS_INTERNAL   1
@@ -116,6 +55,72 @@ static const dim_desc  dim_zero = DIM_ZERO ;
 // prevent freeing even if DATA_MAY_REALLOC or STRUCT_CAN_FREE or DATA_IS_INTERNAL is set
 // this flag is intended to be set or cleared by application code
 #define DATA_IS_REFERENCED 8
+
+// 32 bit data block, 2 dimensional, used mostly by 8/16/32/64 bit <-> 32 bit bhwd movers
+// block will normally contain signed/unsigned integers or floats
+typedef struct{
+  union{                 // starting address of block
+    void     *w32 ;      // generic pointer
+    uint32_t *u32 ;      // pointer to unsigned integer
+    int32_t  *i32 ;      // pointer to signed integer
+    float    *f32 ;      // pointer to float
+  } ;
+  uint32_t end ;         // pointer to 32 bit word just beyond array
+  uint32_t lni ;         // first dimension
+  uint32_t lnj ;         // second dimension (1 if block is 1D)
+  uint32_t zero :27 ,    // reserved for future use
+           flags: 5 ;    // flags and extra information
+  uint32_t w[] ;         // start of data if monolithic
+} block_2d ;             // 2D block, (end - u32) may me larger than (lni * lnj)
+
+// initialize a block_2d variable to null contents
+#define block_2d_null (block_2d){ .u32 = NULL, .end = 0, .lni = 0, .lnj = 0, .zero = 0, .flags  = 0 }
+
+// create a monolithic local block_2d variable and its pointer
+// (variable size, initialized as a 1 dimensional block)
+// block : block_2d pointer name
+// size  : number of 32 bit data elements that the block may accomodate
+// a local array named blockname_alias[] will be created pointed to by (block_2d *) blockname
+// the dimension of blockname_alias will be size + size of base block_2d struct
+// in order to be able to accomodate up to size data elements
+// line 1 : declare local array with the appropriate dimensions
+// line 2 : declare pointer, set it to address of local array
+// line 3 : initialize *blockname to appropriate values
+#define local_block_2d(blockname, size) \
+  uint32_t blockname ## _alias[size + sizeof(block_2d)/sizeof(uint32_t)] ; \
+  block_2d *blockname = (block_2d *) blockname ## _alias ;  \
+  *blockname = (block_2d) { .u32 = blockname->w, .end = size, .lni = size, .lnj = 1, .zero = 0, .flags = 0 } ;
+
+uint32_t dynamic_block_2d(block_2d *bp, uint32_t size);
+void print_block_2d(block_2d *bp, char *msg);
+block_2d *new_block_2d(void *mem, size_t size, int monolithic);
+block_2d *shape_block_2d(block_2d *bp, uint32_t ni, uint32_t nj);
+block_2d *free_block_2d(block_2d *block);
+uint32_t mem_block_2d(block_2d *block, void *mem, uint32_t size) ;
+
+// zero dimension
+#define DIM_ZERO (dim_desc) {.gnn=0, .gn0 = 0, .lnn=0, .ln0=0 }
+// recent compilers seem not to care, some older compilers seem to need the define way
+#if defined(__OLD_COMPILER__)
+// some older compilers seemed to want it the define way
+#error "this code path should not be used"
+#define dim_zero DIM_ZERO
+#else
+// this is not a constant value according to some older compilers
+static const dim_desc  dim_zero = DIM_ZERO ;
+#endif
+
+// macro argument ARRAY_PTR is a POINTER to an array_nd type structure (array_nd *)
+#define HAS_DATA 0xBEBEFADA
+#define array_has_data(ARRAY_PTR) ( (ARRAY_PTR)->signature == HAS_DATA )
+#define array_set_used(ARRAY_PTR) { (ARRAY_PTR)->signature = HAS_DATA ; }
+
+#define NO_DATA 0xFADABEBE
+#define array_no_data(ARRAY_PTR) ( (ARRAY_PTR)->signature == NO_DATA )
+#define array_set_empty(ARRAY_PTR) { (ARRAY_PTR)->signature = NO_DATA ; }
+
+#define array_is_signed(ARRAY_PTR) ( ((ARRAY_PTR)->signature == NO_DATA) || ((ARRAY_PTR)->signature == HAS_DATA) )
+#define array_signature(ARRAY_PTR) ((ARRAY_PTR)->signature)
 
 // array_xd structures are 64 bit aligned, size is always a multiple of 64 bits
 // #define SMALL_ARRAY_STRUCT
@@ -135,8 +140,8 @@ typedef struct{          // generic struct for array with n dimensions
 #elif defined(LARGE_ARRAY_STRUCT)
   // 4 | 4 | 4 | 4 | 16 | 64  type, flags, rank, ndim, ref_count, esize
   uint32_t type : 4 ,
-           flags: 4 ,
-           rank : 4 ,
+           flags: 5 ,
+           rank : 3 ,
            ndim : 4 ,
            count:16 ;
   uint64_t esize ;
@@ -166,8 +171,8 @@ typedef struct{          // specific struct for 0D (rank 0) array
 #elif defined(LARGE_ARRAY_STRUCT)
   // 4 | 4 | 4 | 4 | 16 | 64  type, flags, rank, ndim, ref_count, esize
   uint32_t type : 4 ,
-           flags: 4 ,
-           rank : 4 ,
+           flags: 5 ,
+           rank : 3 ,
            ndim : 4 ,
            count:16 ;
   uint64_t esize ;
@@ -192,8 +197,8 @@ typedef struct{          // specific struct for 1D array
 #elif defined(LARGE_ARRAY_STRUCT)
   // 4 | 4 | 4 | 4 | 16 | 64  type, flags, rank, ndim, ref_count, esize
   uint32_t type : 4 ,
-           flags: 4 ,
-           rank : 4 ,
+           flags: 5 ,
+           rank : 3 ,
            ndim : 4 ,
            count:16 ;
   uint64_t esize ;
@@ -218,8 +223,8 @@ typedef struct{          // specific struct for 2D array
 #elif defined(LARGE_ARRAY_STRUCT)
   // 4 | 4 | 4 | 4 | 16 | 64  type, flags, rank, ndim, ref_count, esize
   uint32_t type : 4 ,
-           flags: 4 ,
-           rank : 4 ,
+           flags: 5 ,
+           rank : 3 ,
            ndim : 4 ,
            count:16 ;
   uint64_t esize ;
@@ -244,8 +249,8 @@ typedef struct{          // specific struct for 3D array
 #elif defined(LARGE_ARRAY_STRUCT)
   // 4 | 4 | 4 | 4 | 16 | 64  type, flags, rank, ndim, ref_count, esize
   uint32_t type : 4 ,
-           flags: 4 ,
-           rank : 4 ,
+           flags: 5 ,
+           rank : 3 ,
            ndim : 4 ,
            count:16 ;
   uint64_t esize ;
@@ -270,8 +275,8 @@ typedef struct{          // specific struct for 4D array
 #elif defined(LARGE_ARRAY_STRUCT)
   // 4 | 4 | 4 | 4 | 16 | 64  type, flags, rank, ndim, ref_count, esize
   uint32_t type : 4 ,
-           flags: 4 ,
-           rank : 4 ,
+           flags: 5 ,
+           rank : 3 ,
            ndim : 4 ,
            count:16 ;
   uint64_t esize ;
@@ -296,8 +301,8 @@ typedef struct{          // specific struct for 5D array
 #elif defined(LARGE_ARRAY_STRUCT)
   // 4 | 4 | 4 | 4 | 16 | 64  type, flags, rank, ndim, ref_count, esize
   uint32_t type : 4 ,
-           flags: 4 ,
-           rank : 4 ,
+           flags: 5 ,
+           rank : 3 ,
            ndim : 4 ,
            count:16 ;
   uint64_t esize ;
