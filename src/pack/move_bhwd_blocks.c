@@ -506,37 +506,37 @@ block_2d *array_to_block(array_2d * restrict a, block_2d * restrict blk, block_p
 // fprintf(stderr, "array_to_block : lni = %d, ni = %d, nj = %d, type = %d\n", lni, ni, nj, a->type) ;
   switch(a->type){
     case byte_data   :
-      bhwd2block(dst, (int8_t *)(src), lni, ni, nj, bp) ;
+      bhwd2block(dst, (int8_t *)src, lni, ni, nj, bp) ;
       break ;
     case ubyte_data  :
-      bhwd2block(dst, (uint8_t *)(src), lni, ni, nj, bp) ;
+      bhwd2block(dst, (uint8_t *)src, lni, ni, nj, bp) ;
       break ;
     case short_data  :
-      bhwd2block(dst, (int16_t *)(src), lni, ni, nj, bp) ;
+      bhwd2block(dst, (int16_t *)src, lni, ni, nj, bp) ;
       break ;
     case ushort_data :
-      bhwd2block(dst, (uint16_t *)(src), lni, ni, nj, bp) ;
+      bhwd2block(dst, (uint16_t *)src, lni, ni, nj, bp) ;
       break ;
     case int_data    :
-      bhwd2block(dst, (int32_t *)(src), lni, ni, nj, bp) ;
+      bhwd2block(dst, (int32_t *)src, lni, ni, nj, bp) ;
       break ;
     case uint_data   :
-      bhwd2block(dst, (uint32_t *)(src), lni, ni, nj, bp) ;
+      bhwd2block(dst, (uint32_t *)src, lni, ni, nj, bp) ;
       break ;
     case long_data   :
-      bhwd2block(dst, (int64_t *)(src), lni, ni, nj, bp) ;
+      bhwd2block(dst, (int64_t *)src, lni, ni, nj, bp) ;
       break ;
     case ulong_data  :
-      bhwd2block(dst, (uint64_t *)(src), lni, ni, nj, bp) ;
+      bhwd2block(dst, (uint64_t *)src, lni, ni, nj, bp) ;
       break ;
     case float_data  :
-      bhwd2block(dst, (float *)(src), lni, ni, nj, bp) ;
+      bhwd2block(dst, (float *)src, lni, ni, nj, bp) ;
       break ;
     case double_data :
-      bhwd2block(dst, (double *)(src), lni, ni, nj, bp) ;
+      bhwd2block(dst, (double *)src, lni, ni, nj, bp) ;
       break ;
     case raw_data    :   // treated as unsigned 32 bits
-      bhwd2block(dst, (uint32_t *)(src), lni, ni, nj, bp) ;
+      bhwd2block(dst, (uint32_t *)src, lni, ni, nj, bp) ;
       break ;
     default :
       msg = "invalid type" ;
@@ -573,37 +573,37 @@ array_2d *block_to_array(array_2d * restrict a, block_2d * restrict blk){
 
   switch(a->type){
     case byte_data   :
-      block2bhwd((int8_t *)dst, (src), lni, ni, nj) ;
+      block2bhwd((int8_t *)dst, src, lni, ni, nj) ;
       break ;
     case ubyte_data  :
-      block2bhwd((uint8_t *)dst, (src), lni, ni, nj) ;
+      block2bhwd((uint8_t *)dst, src, lni, ni, nj) ;
       break ;
     case short_data  :
-      block2bhwd((int16_t *)dst, (src), lni, ni, nj) ;
+      block2bhwd((int16_t *)dst, src, lni, ni, nj) ;
       break ;
     case ushort_data :
-      block2bhwd((uint16_t *)dst, (src), lni, ni, nj) ;
+      block2bhwd((uint16_t *)dst, src, lni, ni, nj) ;
       break ;
     case int_data    :
-      block2bhwd((int32_t *)dst, (src), lni, ni, nj) ;
+      block2bhwd((int32_t *)dst, src, lni, ni, nj) ;
       break ;
     case uint_data   :
-      block2bhwd((uint32_t *)dst, (src), lni, ni, nj) ;
+      block2bhwd((uint32_t *)dst, src, lni, ni, nj) ;
       break ;
     case long_data   :
-      block2bhwd((int64_t *)dst, (src), lni, ni, nj) ;
+      block2bhwd((int64_t *)dst, src, lni, ni, nj) ;
       break ;
     case ulong_data  :
-      block2bhwd((uint64_t *)dst, (src), lni, ni, nj) ;
+      block2bhwd((uint64_t *)dst, src, lni, ni, nj) ;
       break ;
     case float_data  :
-      block2bhwd((float *)dst, (src), lni, ni, nj) ;
+      block2bhwd((float *)dst, src, lni, ni, nj) ;
       break ;
     case double_data :
-      block2bhwd((double *)dst, (src), lni, ni, nj) ;
+      block2bhwd((double *)dst, src, lni, ni, nj) ;
       break ;
     case raw_data    :   // treated as unsigned 32 bits
-      block2bhwd((uint32_t *)dst, (src), lni, ni, nj) ;
+      block2bhwd((uint32_t *)dst, src, lni, ni, nj) ;
       break ;
     default :
 //       fprintf(stderr, "array_to_block : invalid type = %d\n", a->type) ;
@@ -644,37 +644,37 @@ array_2d * array_to_block(array_2d * restrict a, array_2d * restrict blk, block_
 // fprintf(stderr, "array_to_block : lni = %d, ni = %d, nj = %d, type = %d\n", lni, ni, nj, a->type) ;
   switch(a->type){
     case byte_data   :
-      bhwd2block(dst, (int8_t *)(src), lni, ni, nj, bp) ;
+      bhwd2block(dst, (int8_t *)src, lni, ni, nj, bp) ;
       break ;
     case ubyte_data  :
-      bhwd2block(dst, (uint8_t *)(src), lni, ni, nj, bp) ;
+      bhwd2block(dst, (uint8_t *)src, lni, ni, nj, bp) ;
       break ;
     case short_data  :
-      bhwd2block(dst, (int16_t *)(src), lni, ni, nj, bp) ;
+      bhwd2block(dst, (int16_t *)src, lni, ni, nj, bp) ;
       break ;
     case ushort_data :
-      bhwd2block(dst, (uint16_t *)(src), lni, ni, nj, bp) ;
+      bhwd2block(dst, (uint16_t *)src, lni, ni, nj, bp) ;
       break ;
     case int_data    :
-      bhwd2block(dst, (int32_t *)(src), lni, ni, nj, bp) ;
+      bhwd2block(dst, (int32_t *)src, lni, ni, nj, bp) ;
       break ;
     case uint_data   :
-      bhwd2block(dst, (uint32_t *)(src), lni, ni, nj, bp) ;
+      bhwd2block(dst, (uint32_t *)src, lni, ni, nj, bp) ;
       break ;
     case long_data   :
-      bhwd2block(dst, (int64_t *)(src), lni, ni, nj, bp) ;
+      bhwd2block(dst, (int64_t *)src, lni, ni, nj, bp) ;
       break ;
     case ulong_data  :
-      bhwd2block(dst, (uint64_t *)(src), lni, ni, nj, bp) ;
+      bhwd2block(dst, (uint64_t *)src, lni, ni, nj, bp) ;
       break ;
     case float_data  :
-      bhwd2block(dst, (float *)(src), lni, ni, nj, bp) ;
+      bhwd2block(dst, (float *)src, lni, ni, nj, bp) ;
       break ;
     case double_data :
-      bhwd2block(dst, (double *)(src), lni, ni, nj, bp) ;
+      bhwd2block(dst, (double *)src, lni, ni, nj, bp) ;
       break ;
     case raw_data    :   // treated as unsigned 32 bits
-      bhwd2block(dst, (uint32_t *)(src), lni, ni, nj, bp) ;
+      bhwd2block(dst, (uint32_t *)src, lni, ni, nj, bp) ;
       break ;
     default :
 //       fprintf(stderr, "array_to_block : invalid type = %d\n", a->type) ;
