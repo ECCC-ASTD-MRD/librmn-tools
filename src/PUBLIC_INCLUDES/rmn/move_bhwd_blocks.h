@@ -264,7 +264,8 @@ void move_i32_to_i64(int64_t * restrict bhwd , int32_t * restrict blk , int lni,
 void move_d64_to_f32(float * restrict fp    , double * restrict dp    , int lni, int ni, int nj, block_properties *bp, int z);  // double -> float
 void move_f32_to_d64(double * restrict dp   , float * restrict fp     , int lni, int ni, int nj, block_properties *bp, int z);  // float -> double
 
-array_2d * array_to_block(array_2d * restrict a, array_2d * restrict blk, block_properties * restrict bp);
+block_2d * array_to_block(array_2d * restrict a, block_2d * restrict blk, block_properties * restrict bp);
+array_2d *block_to_array(array_2d * restrict a, block_2d * restrict blk);
 
 // bhwd (value) if bhwd is not a pointer, value pointed to if bhwd is a pointer
 #define BHWD(bhwd) \

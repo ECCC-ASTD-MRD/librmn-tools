@@ -489,6 +489,142 @@ void  print_block_properties(block_properties bp){
 // blk must be large enough
 // if bp is not NULL, block properties will be computed
 // return pointer to extracted block
+block_2d *array_to_block(array_2d * restrict a, block_2d * restrict blk, block_properties * restrict bp){
+  char *msg = "" ;
+
+  if(a == NULL || blk == NULL) goto fail ;
+  if(a->rank != 2 || blk->w32 == NULL) goto fail ;
+
+  void *src = subarray_address(a) ;                // source address
+  void *dst = blk->w32 ;                           // destination (block) address
+  uint32_t lni = a->dim[0].gnn ;                   // row storage length in source
+  uint32_t ni  = a->dim[0].lnn ;                   // number of values along i
+  uint32_t nj  = a->dim[1].lnn ;                   // number of values along j
+  if(blk->end < (ni * nj)) goto fail ;             // block is too small
+  blk->lni = ni ;
+  blk->lnj = nj ;
+// fprintf(stderr, "array_to_block : lni = %d, ni = %d, nj = %d, type = %d\n", lni, ni, nj, a->type) ;
+  switch(a->type){
+    case byte_data   :
+      bhwd2block(dst, (int8_t *)(src), lni, ni, nj, bp) ;
+      break ;
+    case ubyte_data  :
+      bhwd2block(dst, (uint8_t *)(src), lni, ni, nj, bp) ;
+      break ;
+    case short_data  :
+      bhwd2block(dst, (int16_t *)(src), lni, ni, nj, bp) ;
+      break ;
+    case ushort_data :
+      bhwd2block(dst, (uint16_t *)(src), lni, ni, nj, bp) ;
+      break ;
+    case int_data    :
+      bhwd2block(dst, (int32_t *)(src), lni, ni, nj, bp) ;
+      break ;
+    case uint_data   :
+      bhwd2block(dst, (uint32_t *)(src), lni, ni, nj, bp) ;
+      break ;
+    case long_data   :
+      bhwd2block(dst, (int64_t *)(src), lni, ni, nj, bp) ;
+      break ;
+    case ulong_data  :
+      bhwd2block(dst, (uint64_t *)(src), lni, ni, nj, bp) ;
+      break ;
+    case float_data  :
+      bhwd2block(dst, (float *)(src), lni, ni, nj, bp) ;
+      break ;
+    case double_data :
+      bhwd2block(dst, (double *)(src), lni, ni, nj, bp) ;
+      break ;
+    case raw_data    :   // treated as unsigned 32 bits
+      bhwd2block(dst, (uint32_t *)(src), lni, ni, nj, bp) ;
+      break ;
+    default :
+      msg = "invalid type" ;
+//       fprintf(stderr, "array_to_block : invalid type = %d\n", a->type) ;
+      goto fail ;
+  }
+  if(DEBUG > 1)  fprintf(stderr, "array_to_block, ->[%d:%d]\n", ni, nj) ;
+
+  return blk ;
+
+fail :
+  if(DEBUG > 0) fprintf(stderr, "array_to_block : %s\n", msg) ;
+  return NULL ;  // miserable failure
+}
+array_2d *block_to_array(array_2d * restrict a, block_2d * restrict blk){
+  char *msg = "" ;
+
+  if(a == NULL || blk == NULL) goto fail ;
+  if(a->rank != 2 || blk->w32 == NULL) goto fail ;
+
+  int32_t ni = blk->lni ;
+  int32_t nj = blk->lnj ;
+  int32_t lni = a->dim[0].gnn ;
+  void *dst = subarray_address(a) ;                // source address
+  void *src = blk->w32 ;                           // destination (block) address
+  msg = "index range mismatch along i" ;
+  if(a->dim[0].lnn != ni) goto fail ;
+  msg = "index range mismatch along j" ;
+  if(a->dim[1].lnn != nj) goto fail ;
+  msg = "index overflow along i" ;
+  if(a->dim[0].ln0 + ni > a->dim[0].gn0 + a->dim[0].gnn) goto fail ;  // index overflow along i
+  msg = "index overflow along j" ;
+  if(a->dim[1].ln0 + nj > a->dim[1].gn0 + a->dim[1].gnn) goto fail ;  // index overflow along j
+
+  switch(a->type){
+    case byte_data   :
+      block2bhwd((int8_t *)dst, (src), lni, ni, nj) ;
+      break ;
+    case ubyte_data  :
+      block2bhwd((uint8_t *)dst, (src), lni, ni, nj) ;
+      break ;
+    case short_data  :
+      block2bhwd((int16_t *)dst, (src), lni, ni, nj) ;
+      break ;
+    case ushort_data :
+      block2bhwd((uint16_t *)dst, (src), lni, ni, nj) ;
+      break ;
+    case int_data    :
+      block2bhwd((int32_t *)dst, (src), lni, ni, nj) ;
+      break ;
+    case uint_data   :
+      block2bhwd((uint32_t *)dst, (src), lni, ni, nj) ;
+      break ;
+    case long_data   :
+      block2bhwd((int64_t *)dst, (src), lni, ni, nj) ;
+      break ;
+    case ulong_data  :
+      block2bhwd((uint64_t *)dst, (src), lni, ni, nj) ;
+      break ;
+    case float_data  :
+      block2bhwd((float *)dst, (src), lni, ni, nj) ;
+      break ;
+    case double_data :
+      block2bhwd((double *)dst, (src), lni, ni, nj) ;
+      break ;
+    case raw_data    :   // treated as unsigned 32 bits
+      block2bhwd((uint32_t *)dst, (src), lni, ni, nj) ;
+      break ;
+    default :
+//       fprintf(stderr, "array_to_block : invalid type = %d\n", a->type) ;
+      msg = "invalid type" ;
+      goto fail ;
+  }
+  if(DEBUG > 1) fprintf(stderr, "block_to_array, %-10s, [%d,%d]->[%d:%d,%d:%d] of [%d:%d,%d:%d]\n",
+                printable_type[a->type], ni, nj,
+                a->dim[0].ln0, a->dim[0].ln0+ni-1,
+                a->dim[1].ln0, a->dim[1].ln0+nj-1,
+                a->dim[0].gn0, a->dim[0].gnn-1,
+                a->dim[1].gn0, a->dim[1].gnn-1 ) ;
+
+  return a ;
+
+fail :
+  if(DEBUG > 0) fprintf(stderr, "block_to_array : %s\n", msg) ;
+  return NULL ;  // miserable failure
+}
+#if 0
+// deprecated old code, temporarily kept as reference
 array_2d * array_to_block(array_2d * restrict a, array_2d * restrict blk, block_properties * restrict bp){
   if(a == NULL || blk == NULL) goto fail ;
   if(a->rank != 2 || blk->ndim < 1 || blk->data == NULL) goto fail ;
@@ -550,11 +686,12 @@ array_2d * array_to_block(array_2d * restrict a, array_2d * restrict blk, block_
 fail :
   return NULL ;  // miserable failure
 }
+#endif
 //
 // ==========================================================================
 //
 
-// usage : block_pointer = new_block_2d(mem, size)
+// usage : block_pointer = new_block_2d(mem, size, monolithic)
 // if mem == NULL, allocate monolithic block
 // if mem is not NULL, 
 // if monolithic is true, use mem for block, adjust size to account for sizeof(block_2d)
@@ -578,23 +715,23 @@ block_2d *new_block_2d(void *mem, size_t size, int monolithic){
     result->lni = size ;
     result->lnj = 1 ;
     result->flags = 0 ;
-    if(monolithic) result->flags |= MAY_FREE_STRUCT ;
+    if(monolithic) result->flags |= STRUCT_CAN_FREE ;
   }
   return result ;
 }
 
 // make a 2D block dynamic (malloc/free/resizing for the data area)
 uint32_t dynamic_block_2d(block_2d *bp, uint32_t size){
-  if(bp->u32 != NULL){                    // data pointer exists
-    if(bp->end >= size){
-      bp->lni    = size ;                 // set block shape
+  if(bp->u32 != NULL){                    // data pointer already exists
+    if(bp->end >= size){                  // the block is large enough
+      bp->lni    = size ;                 // set block shape as 1D
       bp->lnj    = 1 ;
-      return bp->end ;  // return existing size if large enough
+      return bp->end ;                    // return existing size
     }
-    if(bp->flags & MAY_FREE_DATA){        // data reallocation is permittted
+    if(bp->flags & DATA_MAY_REALLOC){        // data reallocation is permittted
       free(bp->u32) ;
       bp->u32 = NULL ;
-      bp->flags &= (~MAY_FREE_DATA) ;     // cancel flag
+      bp->flags &= (~DATA_MAY_REALLOC) ;     // cancel flag
     }else{
       goto fail ;                         // OOPS, operation is not possible
     }
@@ -609,7 +746,7 @@ uint32_t dynamic_block_2d(block_2d *bp, uint32_t size){
   bp->end    = size ;
   bp->lni    = bp->end ;
   bp->lnj    = 1 ;
-  bp->flags |= MAY_FREE_DATA ;
+  bp->flags |= DATA_MAY_REALLOC ;
   return size ;
 fail :
   return 0 ;
@@ -647,12 +784,12 @@ uint32_t mem_block_2d(block_2d *block, void *mem, uint32_t size) {
 // usage : block_pointer = free_block_2d(block_pointer)
 block_2d *free_block_2d(block_2d *block){
   if(block != NULL){
-    if(block->flags & MAY_FREE_DATA){
-      free(block->u32) ;
-      block->u32 = NULL ;
+    if(block->flags & DATA_MAY_REALLOC){
+      free(block->u32) ;    // free data block first in order not to create a memory hole
+      block->u32 = NULL ;   // advertize that memory has been freed
     }
-    if(block->flags & MAY_FREE_STRUCT){
-      free(block) ;
+    if(block->flags & STRUCT_CAN_FREE){
+      free(block) ;         // free the whole block if needed
       block = NULL ;
     }
   }
@@ -660,9 +797,9 @@ block_2d *free_block_2d(block_2d *block){
 }
 
 void print_block_2d(block_2d *bp, char *msg){
-  fprintf(stderr, "%-10s : struct at %p, data at %16p, block[%8d:%8d], max = %8d elements",
+  fprintf(stderr, "%-10s : struct at %16p, data at %16p, block[%8d:%8d], max = %8d elements",
                 msg, (void *)bp, (void *)bp->u32, bp->lni, bp->lnj, bp->end) ;
   fprintf(stderr, ", flags = %s%s\n",
-                   (bp->flags & MAY_FREE_STRUCT) ? "MAY_FREE_STRUCT " : "" ,
-                   (bp->flags & MAY_FREE_DATA)   ? "MAY_FREE_DATA"    : "" ) ;
+                   (bp->flags & STRUCT_CAN_FREE) ? "STRUCT_CAN_FREE " : "" ,
+                   (bp->flags & DATA_MAY_REALLOC)   ? "DATA_MAY_REALLOC"    : "" ) ;
 }

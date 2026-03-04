@@ -711,25 +711,46 @@ print_block_properties(tmm) ;
   ap2 = (array_2d *)new_array( ap2, src_i32, 4, int_data, GNI, GNJ ) ;      // data array[GNJ][GNI]
   msg = "error creating ap2" ; if(ap2 == NULL) goto fail ;
 
-// array_2d * array_to_block(array_2d * restrict a, array_2d * restrict blk, block_properties * restrict bp)
-  set_array_lbounds(ap2, 0, NI, 0, NJ) ;
+  fprintf(stderr, "global array bounds[%d:%d,%d:%d]\n", 0, GNI-1, 0, GNJ-1) ;
+  fprintf(stderr, "subarray bounds[%d:%d,%d:%d]\n", 0, NI-1, 0, NJ-1) ;
+  set_array_lbounds(ap2, 0, NI-1, 0, NJ-1) ;
   set_bhwd_debug(1) ;
 
+  local_block_2d(bp0, (NI*NJ*3)) ;               // local, monolithic
   msg = "error in array_to_block" ;
-  a2.type = any_data    ; if(array_to_block(ap2, ap1, NULL) != NULL) goto fail ;
-  a2.type = large_data  ; if(array_to_block(ap2, ap1, NULL) != NULL) goto fail ;
-  a2.type = bad_data    ; if(array_to_block(ap2, ap1, NULL) != NULL) goto fail ;
-  a2.type = raw_data    ; if(array_to_block(ap2, ap1, NULL) == NULL) goto fail ;
-  a2.type = ubyte_data  ; if(array_to_block(ap2, ap1, NULL) == NULL) goto fail ;
-  a2.type = byte_data   ; if(array_to_block(ap2, ap1, NULL) == NULL) goto fail ;
-  a2.type = ushort_data ; if(array_to_block(ap2, ap1, NULL) == NULL) goto fail ;
-  a2.type = short_data  ; if(array_to_block(ap2, ap1, NULL) == NULL) goto fail ;
-  a2.type = uint_data   ; if(array_to_block(ap2, ap1, NULL) == NULL) goto fail ;
-  a2.type = int_data    ; if(array_to_block(ap2, ap1, NULL) == NULL) goto fail ;
-  a2.type = ulong_data  ; if(array_to_block(ap2, ap1, NULL) == NULL) goto fail ;
-  a2.type = long_data   ; if(array_to_block(ap2, ap1, NULL) == NULL) goto fail ;
-  a2.type = float_data  ; if(array_to_block(ap2, ap1, NULL) == NULL) goto fail ;
-  a2.type = double_data ; if(array_to_block(ap2, ap1, NULL) == NULL) goto fail ;
+  a2.type = any_data    ; if(array_to_block(ap2, bp0, NULL) != NULL) goto fail ;
+  a2.type = large_data  ; if(array_to_block(ap2, bp0, NULL) != NULL) goto fail ;
+  a2.type = bad_data    ; if(array_to_block(ap2, bp0, NULL) != NULL) goto fail ;
+  a2.type = raw_data    ; if(array_to_block(ap2, bp0, NULL) == NULL) goto fail ;
+  a2.type = ubyte_data  ; if(array_to_block(ap2, bp0, NULL) == NULL) goto fail ;
+  a2.type = byte_data   ; if(array_to_block(ap2, bp0, NULL) == NULL) goto fail ;
+  a2.type = ushort_data ; if(array_to_block(ap2, bp0, NULL) == NULL) goto fail ;
+  a2.type = short_data  ; if(array_to_block(ap2, bp0, NULL) == NULL) goto fail ;
+  a2.type = uint_data   ; if(array_to_block(ap2, bp0, NULL) == NULL) goto fail ;
+  a2.type = int_data    ; if(array_to_block(ap2, bp0, NULL) == NULL) goto fail ;
+  a2.type = ulong_data  ; if(array_to_block(ap2, bp0, NULL) == NULL) goto fail ;
+  a2.type = long_data   ; if(array_to_block(ap2, bp0, NULL) == NULL) goto fail ;
+  a2.type = float_data  ; if(array_to_block(ap2, bp0, NULL) == NULL) goto fail ;
+  a2.type = double_data ; if(array_to_block(ap2, bp0, NULL) == NULL) goto fail ;
+
+  set_bhwd_debug(1) ;
+  fprintf(stderr, "subarray bounds[%d:%d,%d:%d]\n", GNI-NI, GNI-1, GNJ-NJ, GNJ-1) ;
+  set_array_lbounds(ap2, GNI-NI, GNI-1, GNJ-NJ, GNJ-1) ;
+  msg = "error in block_to_array" ;
+  a2.type = any_data    ; if(block_to_array(ap2, bp0) != NULL) goto fail ;
+  a2.type = large_data  ; if(block_to_array(ap2, bp0) != NULL) goto fail ;
+  a2.type = bad_data    ; if(block_to_array(ap2, bp0) != NULL) goto fail ;
+  a2.type = raw_data    ; if(block_to_array(ap2, bp0) == NULL) goto fail ;
+  a2.type = ubyte_data  ; if(block_to_array(ap2, bp0) == NULL) goto fail ;
+  a2.type = byte_data   ; if(block_to_array(ap2, bp0) == NULL) goto fail ;
+  a2.type = ushort_data ; if(block_to_array(ap2, bp0) == NULL) goto fail ;
+  a2.type = short_data  ; if(block_to_array(ap2, bp0) == NULL) goto fail ;
+  a2.type = uint_data   ; if(block_to_array(ap2, bp0) == NULL) goto fail ;
+  a2.type = int_data    ; if(block_to_array(ap2, bp0) == NULL) goto fail ;
+  a2.type = ulong_data  ; if(block_to_array(ap2, bp0) == NULL) goto fail ;
+  a2.type = long_data   ; if(block_to_array(ap2, bp0) == NULL) goto fail ;
+  a2.type = float_data  ; if(block_to_array(ap2, bp0) == NULL) goto fail ;
+  a2.type = double_data ; if(block_to_array(ap2, bp0) == NULL) goto fail ;
 
   set_bhwd_debug(0) ;
 
