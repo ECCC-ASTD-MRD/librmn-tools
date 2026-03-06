@@ -486,11 +486,13 @@ void  print_block_properties(block_properties bp){
 //
 // starting point in array dim[0].ln0 , dim[1].ln0
 // block size dim[0].lnn x dim[1].lnn
-// blk must be large enough
+// blk must be large enough to accomodate extracted data
 // if bp is not NULL, block properties will be computed
-// return pointer to extracted block
+// return pointer to extracted block, NULL if error
+// in case of error, blk is left untouched
 block_2d *array_to_block(array_2d * restrict a, block_2d * restrict blk, block_properties * restrict bp){
   char *msg = "" ;
+  uint32_t type ;
 
   if(a == NULL || blk == NULL) goto fail ;
   if(a->rank != 2 || blk->w32 == NULL) goto fail ;
@@ -500,43 +502,42 @@ block_2d *array_to_block(array_2d * restrict a, block_2d * restrict blk, block_p
   uint32_t lni = a->dim[0].gnn ;                   // row storage length in source
   uint32_t ni  = a->dim[0].lnn ;                   // number of values along i
   uint32_t nj  = a->dim[1].lnn ;                   // number of values along j
+  msg = "block is too small" ;
   if(blk->end < (ni * nj)) goto fail ;             // block is too small
-  blk->lni = ni ;
-  blk->lnj = nj ;
 // fprintf(stderr, "array_to_block : lni = %d, ni = %d, nj = %d, type = %d\n", lni, ni, nj, a->type) ;
   switch(a->type){
     case byte_data   :
-      bhwd2block(dst, (int8_t *)src, lni, ni, nj, bp) ;
+      bhwd2block(dst, (int8_t *)src, lni, ni, nj, bp)   ; type = int_data ;
       break ;
     case ubyte_data  :
-      bhwd2block(dst, (uint8_t *)src, lni, ni, nj, bp) ;
+      bhwd2block(dst, (uint8_t *)src, lni, ni, nj, bp)  ; type = uint_data ;
       break ;
     case short_data  :
-      bhwd2block(dst, (int16_t *)src, lni, ni, nj, bp) ;
+      bhwd2block(dst, (int16_t *)src, lni, ni, nj, bp)  ; type = int_data ;
       break ;
     case ushort_data :
-      bhwd2block(dst, (uint16_t *)src, lni, ni, nj, bp) ;
+      bhwd2block(dst, (uint16_t *)src, lni, ni, nj, bp) ; type = uint_data ;
       break ;
     case int_data    :
-      bhwd2block(dst, (int32_t *)src, lni, ni, nj, bp) ;
+      bhwd2block(dst, (int32_t *)src, lni, ni, nj, bp)  ; type = int_data ;
       break ;
     case uint_data   :
-      bhwd2block(dst, (uint32_t *)src, lni, ni, nj, bp) ;
+      bhwd2block(dst, (uint32_t *)src, lni, ni, nj, bp) ; type = uint_data ;
       break ;
     case long_data   :
-      bhwd2block(dst, (int64_t *)src, lni, ni, nj, bp) ;
+      bhwd2block(dst, (int64_t *)src, lni, ni, nj, bp)  ; type = int_data ;
       break ;
     case ulong_data  :
-      bhwd2block(dst, (uint64_t *)src, lni, ni, nj, bp) ;
+      bhwd2block(dst, (uint64_t *)src, lni, ni, nj, bp) ; type = uint_data ;
       break ;
     case float_data  :
-      bhwd2block(dst, (float *)src, lni, ni, nj, bp) ;
+      bhwd2block(dst, (float *)src, lni, ni, nj, bp)    ; type = float_data ;
       break ;
     case double_data :
-      bhwd2block(dst, (double *)src, lni, ni, nj, bp) ;
+      bhwd2block(dst, (double *)src, lni, ni, nj, bp)   ; type = float_data ;
       break ;
     case raw_data    :   // treated as unsigned 32 bits
-      bhwd2block(dst, (uint32_t *)src, lni, ni, nj, bp) ;
+      bhwd2block(dst, (uint32_t *)src, lni, ni, nj, bp) ; type = uint_data ;
       break ;
     default :
       msg = "invalid type" ;
@@ -544,6 +545,11 @@ block_2d *array_to_block(array_2d * restrict a, block_2d * restrict blk, block_p
       goto fail ;
   }
   if(DEBUG > 1)  fprintf(stderr, "array_to_block, ->[%d:%d]\n", ni, nj) ;
+  blk->lni   = ni ;
+  blk->lnj   = nj ;
+  blk->zero  = 0 ;
+  blk->type  = type ;
+  blk->flags = 0 ;
 
   return blk ;
 
@@ -551,6 +557,7 @@ fail :
   if(DEBUG > 0) fprintf(stderr, "array_to_block : %s\n", msg) ;
   return NULL ;  // miserable failure
 }
+
 array_2d *block_to_array(array_2d * restrict a, block_2d * restrict blk){
   char *msg = "" ;
 
@@ -571,38 +578,50 @@ array_2d *block_to_array(array_2d * restrict a, block_2d * restrict blk){
   msg = "index overflow along j" ;
   if(a->dim[1].ln0 + nj > a->dim[1].gn0 + a->dim[1].gnn) goto fail ;  // index overflow along j
 
+  msg = "inappropriate block type" ;
   switch(a->type){
     case byte_data   :
+      if(blk->type != int_data) goto fail ;
       block2bhwd((int8_t *)dst, src, lni, ni, nj) ;
       break ;
     case ubyte_data  :
+      if(blk->type != uint_data) goto fail ;
       block2bhwd((uint8_t *)dst, src, lni, ni, nj) ;
       break ;
     case short_data  :
+      if(blk->type != int_data) goto fail ;
       block2bhwd((int16_t *)dst, src, lni, ni, nj) ;
       break ;
     case ushort_data :
+      if(blk->type != uint_data) goto fail ;
       block2bhwd((uint16_t *)dst, src, lni, ni, nj) ;
       break ;
     case int_data    :
+      if(blk->type != int_data) goto fail ;
       block2bhwd((int32_t *)dst, src, lni, ni, nj) ;
       break ;
     case uint_data   :
+      if(blk->type != uint_data) goto fail ;
       block2bhwd((uint32_t *)dst, src, lni, ni, nj) ;
       break ;
     case long_data   :
+      if(blk->type != int_data) goto fail ;
       block2bhwd((int64_t *)dst, src, lni, ni, nj) ;
       break ;
     case ulong_data  :
+      if(blk->type != uint_data) goto fail ;
       block2bhwd((uint64_t *)dst, src, lni, ni, nj) ;
       break ;
     case float_data  :
+      if(blk->type != float_data) goto fail ;
       block2bhwd((float *)dst, src, lni, ni, nj) ;
       break ;
     case double_data :
+      if(blk->type != float_data) goto fail ;
       block2bhwd((double *)dst, src, lni, ni, nj) ;
       break ;
     case raw_data    :   // treated as unsigned 32 bits
+      if(blk->type != uint_data) goto fail ;
       block2bhwd((uint32_t *)dst, src, lni, ni, nj) ;
       break ;
     default :
@@ -714,6 +733,8 @@ block_2d *new_block_2d(void *mem, size_t size, int monolithic){
     result->end = size ;
     result->lni = size ;
     result->lnj = 1 ;
+    result->zero  = 0 ;
+    result->type  = 0 ;
     result->flags = 0 ;
     if(monolithic) result->flags |= STRUCT_CAN_FREE ;
   }
@@ -721,7 +742,9 @@ block_2d *new_block_2d(void *mem, size_t size, int monolithic){
 }
 
 // make a 2D block dynamic (malloc/free/resizing for the data area)
+// leave block type as it is
 uint32_t dynamic_block_2d(block_2d *bp, uint32_t size){
+  if(bp == NULL) goto fail ;
   if(bp->u32 != NULL){                    // data pointer already exists
     if(bp->end >= size){                  // the block is large enough
       bp->lni    = size ;                 // set block shape as 1D
@@ -755,7 +778,7 @@ fail :
 // usage block_pointer_2 = shape_block_2d(block_pointer, size_i, size_j)
 // set block shape to ni X nj
 // return NULL id error, bp if O.K.
-block_2d *shape_block_2d(block_2d *bp, uint32_t ni, uint32_t nj){
+block_2d *reshape_block_2d(block_2d *bp, uint32_t ni, uint32_t nj){
   if(bp != NULL){
     if(ni * nj <= bp->end){
       bp->lni = ni ;
@@ -794,6 +817,54 @@ block_2d *free_block_2d(block_2d *block){
     }
   }
   return block ;
+}
+
+// 2D block representing 2D 32 bit array
+// return block_2d struct with data pointing to arrray
+// array MUST be contiguous in memory (i storage dimension == i dimension)
+block_2d array_as_block(array_2d *a){
+  block_2d r = block_2d_null ;
+
+  if(a == NULL)                      goto end ;
+  if(a->rank != 2)                   goto end ;
+  if(a->esize != 4)                  goto end ;
+  if(a->dim[0].gnn != a->dim[0].lnn) goto end ;
+
+  int32_t ni = a->dim[0].lnn ;       // i dimension
+  int32_t nj = a->dim[1].lnn ;       // j dimension
+  r.w32  = subarray_address(a) ;     // start of data address
+  r.end  = ni * nj ;
+  r.lni  = ni ;
+  r.lnj  = nj ;
+  r.type = a->type ;
+
+end :
+  return r ;
+}
+
+// 2D array representing a 2D block
+// return array_2d structure with data poinint to block
+array_2d block_as_array(block_2d *blk){
+  array_2d r = array_2d_invalid ;
+
+  if(blk == NULL) goto end ;
+
+  r.data  = (uint8_t *)blk->u32 ;
+  r.limit = (uint8_t *)(blk->u32 + blk->end) ;
+  r.signature = HAS_DATA ;
+  r.esize = 4 ;
+  r.type  = blk->type ;
+  r.ndim  = 2 ;
+  r.count = 2 ;
+  r.flags = 2 ;
+  r.rank  = 2 ;
+  r.dim[0].gn0 = r.dim[0].ln0 = 0 ;
+  r.dim[0].gnn = r.dim[0].lnn = blk->lni ;
+  r.dim[1].gn0 = r.dim[1].ln0 = 0 ;
+  r.dim[1].gnn = r.dim[1].lnn = blk->lnj ;
+
+end :
+  return r ;
 }
 
 void print_block_2d(block_2d *bp, char *msg){

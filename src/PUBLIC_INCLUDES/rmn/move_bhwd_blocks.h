@@ -79,7 +79,8 @@ int set_bhwd_debug(int value);
                                float    *: (float    *) block, \
                                uint64_t *: (uint32_t *) block, \
                                int64_t  *: (int32_t  *) block, \
-                               double   *: (float    *) block  \
+                               double   *: (float    *) block, \
+                               default   : (void     *) block  \
                                )
 
 // number of bytes for each array element according to array type

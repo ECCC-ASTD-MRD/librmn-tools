@@ -68,13 +68,14 @@ typedef struct{
   uint32_t end ;         // pointer to 32 bit word just beyond array
   uint32_t lni ;         // first dimension
   uint32_t lnj ;         // second dimension (1 if block is 1D)
-  uint32_t zero :27 ,    // reserved for future use
+  uint32_t zero :23 ,    // reserved for future use
+           type : 4 ,    // block type (see rmn/data_kind.h) (bad/int/uint/float/any)
            flags: 5 ;    // flags and extra information
   uint32_t w[] ;         // start of data if monolithic
 } block_2d ;             // 2D block, (end - u32) may me larger than (lni * lnj)
 
 // initialize a block_2d variable to null contents
-#define block_2d_null (block_2d){ .u32 = NULL, .end = 0, .lni = 0, .lnj = 0, .zero = 0, .flags  = 0 }
+#define block_2d_null (block_2d){ .u32 = NULL, .end = 0, .lni = 0, .lnj = 0, .zero = 0, .type  = 0, .flags  = 0 }
 
 // create a monolithic local block_2d variable and its pointer
 // (variable size, initialized as a 1 dimensional block)
@@ -89,12 +90,12 @@ typedef struct{
 #define local_block_2d(blockname, size) \
   uint32_t blockname ## _alias[size + sizeof(block_2d)/sizeof(uint32_t)] ; \
   block_2d *blockname = (block_2d *) blockname ## _alias ;  \
-  *blockname = (block_2d) { .u32 = blockname->w, .end = size, .lni = size, .lnj = 1, .zero = 0, .flags = 0 } ;
+  *blockname = (block_2d) { .u32 = blockname->w, .end = size, .lni = size, .lnj = 1, .zero = 0, .type = 0, .flags = 0 } ;
 
 uint32_t dynamic_block_2d(block_2d *bp, uint32_t size);
 void print_block_2d(block_2d *bp, char *msg);
 block_2d *new_block_2d(void *mem, size_t size, int monolithic);
-block_2d *shape_block_2d(block_2d *bp, uint32_t ni, uint32_t nj);
+block_2d *reshape_block_2d(block_2d *bp, uint32_t ni, uint32_t nj);
 block_2d *free_block_2d(block_2d *block);
 uint32_t mem_block_2d(block_2d *block, void *mem, uint32_t size) ;
 

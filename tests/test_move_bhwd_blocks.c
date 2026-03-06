@@ -675,16 +675,16 @@ print_block_properties(tmm) ;
   msg = "mem_block_2d failed" ;
   if(sizeof(blocku) != mem_block_2d(bp1, blocku, sizeof(blocku))) goto fail ;
   print_block_2d(bp1, "bp1(I)") ;
-  msg = "reshape bp1 failed" ; if(shape_block_2d(bp1, NI, NJ) == NULL) goto fail ;
+  msg = "reshape bp1 failed" ; if(reshape_block_2d(bp1, NI, NJ) == NULL) goto fail ;
   print_block_2d(bp1, "bp1(R)") ;
   fprintf(stderr, "\n") ;
 
   bp2 = new_block_2d(NULL, NI*NJ*4, 1) ;     // request monolithic allocation for struct/data
   msg = "bp2 = new_block_2d failed" ; if(bp2 == NULL) goto fail ;
   print_block_2d(bp2, "bp2(A)") ;
-  msg = "reshape bp2 failed" ; if(shape_block_2d(bp2, NI*2, NJ*2) != bp2) goto fail ;
+  msg = "reshape bp2 failed" ; if(reshape_block_2d(bp2, NI*2, NJ*2) != bp2) goto fail ;
   print_block_2d(bp2, "bp2(R1)") ;
-  msg = "reshape bp2 should have failed" ; if(shape_block_2d(bp2, NI*2+1, NJ*2) != NULL) goto fail ;
+  msg = "reshape bp2 should have failed" ; if(reshape_block_2d(bp2, NI*2+1, NJ*2) != NULL) goto fail ;
   print_block_2d(bp2, "bp2(R2)") ;
   fprintf(stderr, "\n") ;
 
@@ -737,20 +737,20 @@ print_block_properties(tmm) ;
   fprintf(stderr, "subarray bounds[%d:%d,%d:%d]\n", GNI-NI, GNI-1, GNJ-NJ, GNJ-1) ;
   set_array_lbounds(ap2, GNI-NI, GNI-1, GNJ-NJ, GNJ-1) ;
   msg = "error in block_to_array" ;
-  a2.type = any_data    ; if(block_to_array(ap2, bp0) != NULL) goto fail ;
-  a2.type = large_data  ; if(block_to_array(ap2, bp0) != NULL) goto fail ;
-  a2.type = bad_data    ; if(block_to_array(ap2, bp0) != NULL) goto fail ;
-  a2.type = raw_data    ; if(block_to_array(ap2, bp0) == NULL) goto fail ;
-  a2.type = ubyte_data  ; if(block_to_array(ap2, bp0) == NULL) goto fail ;
-  a2.type = byte_data   ; if(block_to_array(ap2, bp0) == NULL) goto fail ;
-  a2.type = ushort_data ; if(block_to_array(ap2, bp0) == NULL) goto fail ;
-  a2.type = short_data  ; if(block_to_array(ap2, bp0) == NULL) goto fail ;
-  a2.type = uint_data   ; if(block_to_array(ap2, bp0) == NULL) goto fail ;
-  a2.type = int_data    ; if(block_to_array(ap2, bp0) == NULL) goto fail ;
-  a2.type = ulong_data  ; if(block_to_array(ap2, bp0) == NULL) goto fail ;
-  a2.type = long_data   ; if(block_to_array(ap2, bp0) == NULL) goto fail ;
-  a2.type = float_data  ; if(block_to_array(ap2, bp0) == NULL) goto fail ;
-  a2.type = double_data ; if(block_to_array(ap2, bp0) == NULL) goto fail ;
+  a2.type = any_data    ; bp0->type = any_data   ; if(block_to_array(ap2, bp0) != NULL) goto fail ;
+  a2.type = large_data  ; bp0->type = large_data ; if(block_to_array(ap2, bp0) != NULL) goto fail ;
+  a2.type = bad_data    ; bp0->type = bad_data   ; if(block_to_array(ap2, bp0) != NULL) goto fail ;
+  a2.type = raw_data    ; bp0->type = uint_data  ; if(block_to_array(ap2, bp0) == NULL) goto fail ;
+  a2.type = ubyte_data  ; bp0->type = uint_data  ; if(block_to_array(ap2, bp0) == NULL) goto fail ;
+  a2.type = byte_data   ; bp0->type = int_data   ; if(block_to_array(ap2, bp0) == NULL) goto fail ;
+  a2.type = ushort_data ; bp0->type = uint_data  ; if(block_to_array(ap2, bp0) == NULL) goto fail ;
+  a2.type = short_data  ; bp0->type = int_data   ; if(block_to_array(ap2, bp0) == NULL) goto fail ;
+  a2.type = uint_data   ; bp0->type = uint_data  ; if(block_to_array(ap2, bp0) == NULL) goto fail ;
+  a2.type = int_data    ; bp0->type = int_data   ; if(block_to_array(ap2, bp0) == NULL) goto fail ;
+  a2.type = ulong_data  ; bp0->type = uint_data  ; if(block_to_array(ap2, bp0) == NULL) goto fail ;
+  a2.type = long_data   ; bp0->type = int_data   ; if(block_to_array(ap2, bp0) == NULL) goto fail ;
+  a2.type = float_data  ; bp0->type = float_data ; if(block_to_array(ap2, bp0) == NULL) goto fail ;
+  a2.type = double_data ; bp0->type = float_data ; if(block_to_array(ap2, bp0) == NULL) goto fail ;
 
   set_bhwd_debug(0) ;
 
