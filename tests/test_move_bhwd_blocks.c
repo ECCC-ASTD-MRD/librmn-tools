@@ -100,7 +100,7 @@ int check_16_(int lni, int ni, int nj,  uint16_t ref[nj][lni],  uint16_t new[nj]
       if(diff == 1) fprintf(stderr, "i,j = [%d,%d], expecting %8.8x, got %8.8x, ", i, j, ref[j][i], new[i][i]) ;
     }
   }
-  if(diff) fprintf(stderr, "[%d,%d] %d differences\n", ni, nj, diff) ;
+  if(diff) fprintf(stderr, "[%d,%d] %d differences / %d\n", ni, nj, diff, ni*nj) ;
   return diff ;
 }
 
@@ -205,7 +205,8 @@ fprintf(stderr, ", axi = %d/%d/%d, axj = %d/%d/%d\n", axi.nbk, axi.ln0, axi.ln1,
     float    *: check_32( ref, new, lni, ni, nj) , \
     uint64_t *: check_64( ref, new, lni, ni, nj) , \
     int64_t  *: check_64( ref, new, lni, ni, nj) , \
-    double   *: check_64( ref, new, lni, ni, nj)   \
+    double   *: check_64( ref, new, lni, ni, nj) , \
+    _Float16 *: check_16( ref, new, lni, ni, nj)   \
    )
 
 int main(int argc, char **argv){
@@ -224,6 +225,7 @@ int main(int argc, char **argv){
   uint64_t src_u64[GNI*GNJ], rst_u64[GNI*GNJ] ;
   int64_t  src_i64[GNI*GNJ], rst_i64[GNI*GNJ] ;
   double   src_d64[GNI*GNJ], rst_d64[GNI*GNJ] ;
+  _Float16 src_f16[GNI*GNJ], rst_f16[GNI*GNJ] ;
   char dummy[2] ;
   bhwd_fn fwd, inv ;
   int32_t i ;
@@ -261,7 +263,24 @@ OK :
     src_f32[i] = ( OR_X | (i)) ;
     if(i & 1) src_f32[i] = (-src_f32[i]) ;
     src_d64[i] = src_f32[i] ;
+    src_f16[i] = src_f32[i] ;
   }
+  int diff = 0 ;
+  float maxdiff = 0.0, maxerr = 0.0, maxabs = 0.0f, minabs = 999999999.0f ;
+  for(i=0 ; i<GNI*GNJ ; i++){
+    if(src_f16[i] != src_f32[i]) diff++ ;
+    float diff = src_f16[i] - src_f32[i] ;
+    diff = (diff < 0) ? -diff : diff ;
+    maxdiff = (diff > maxdiff) ? diff : maxdiff ;
+    float err = diff / src_f32[i] ;
+    err = (err < 0) ? -err : err ;
+    maxerr = (err > maxerr) ? err : maxerr ;
+    float abs = (src_f32[i] < 0) ? -src_f32[i] : src_f32[i] ;
+    maxabs = (abs > maxabs) ? abs : maxabs ;
+    if(abs != 0.0f) minabs = (abs < minabs) ? abs : minabs ;
+  }
+  fprintf(stderr, "src_f16 vs src_f32 : %d differences, maxdiff = %f, maxerr = 1 part in %f, maxabs = %f, minabs = %f\n", diff, maxdiff, 1.0f / maxerr, maxabs, minabs) ;
+
 // check that signed 32 -> 64 bits copy is done right
 for(i=0 ; i<2 ; i++) fprintf(stderr, " i = %d, src_i64[i] = %ld, src_i32[i] = %d\n", i, src_i64[i], src_i32[i]) ;
 // syntax check
@@ -354,7 +373,7 @@ for(i=0 ; i<2 ; i++) fprintf(stderr, " i = %d, src_i64[i] = %ld, src_i32[i] = %d
   if(check_bhwd(&src_u8[DNIJ], &rst_u8[DNIJ], GNI, NI, NJ) != 0) goto fail ;
   msg = "src_u8-3" ; set_8(rst_u8, GNI*GNJ) ; set_32(blocku, NI*NJ) ;
   bhwd2block(blocku, src_u8, GNI, NI, NJ, &tmm) ;  // unsigned 8 bit
-print_block_properties(tmm) ;
+// print_block_properties(tmm) ;
   block2bhwd(rst_u8, blocku, GNI, NI, NJ) ;
   if(check_bhwd(src_u8, rst_u8, GNI, NI, NJ) != 0) goto fail ;
   TIME_LOOP_EZ(NITER, (NI*NJ), bhwd2block_nobp(blocku, src_u8, GNI, NI, NJ) ) ;
@@ -378,7 +397,7 @@ print_block_properties(tmm) ;
   if(check_bhwd(&src_i8[DNIJ], &rst_i8[DNIJ], GNI, NI, NJ) != 0) goto fail ;
   msg = "src_i8-3" ; set_8(rst_i8, GNI*GNJ) ; set_32(blocki, NI*NJ) ;
   bhwd2block(blocki, src_i8, GNI, NI, NJ, &tmm) ;  // signed 8 bit
-print_block_properties(tmm) ;
+// print_block_properties(tmm) ;
   block2bhwd(rst_i8, blocki, GNI, NI, NJ) ;
   if(check_bhwd(src_i8, rst_i8, GNI, NI, NJ) != 0) goto fail ;
   TIME_LOOP_EZ(NITER, (NI*NJ), bhwd2block_nobp(blocki, src_i8, GNI, NI, NJ)  ) ;
@@ -402,7 +421,7 @@ print_block_properties(tmm) ;
   if(check_bhwd(&src_u16[DNIJ], &rst_u16[DNIJ], GNI, NI, NJ) != 0) goto fail ;
   msg = "src_u16-3" ; set_16(rst_u16, GNI*GNJ) ; set_32(blocku, NI*NJ) ;
   bhwd2block(blocku, src_u16, GNI, NI, NJ, &tmm) ;  // unsigned 16 bit
-print_block_properties(tmm) ;
+// print_block_properties(tmm) ;
   block2bhwd(rst_u16, blocku, GNI, NI, NJ) ;
   if(check_bhwd(src_u16, rst_u16, GNI, NI, NJ) != 0) goto fail ;
   TIME_LOOP_EZ(NITER, (NI*NJ), bhwd2block_nobp(blocku, src_u16, GNI, NI, NJ)  ) ;
@@ -426,7 +445,7 @@ print_block_properties(tmm) ;
   if(check_bhwd(&src_i16[DNIJ], &rst_i16[DNIJ], GNI, NI, NJ) != 0) goto fail ;
   msg = "src_i16-3" ; set_16(rst_i16, GNI*GNJ) ; set_32(blocki, NI*NJ) ;
   bhwd2block(blocki, src_i16, GNI, NI, NJ, &tmm) ;  // signed 16 bit
-print_block_properties(tmm) ;
+// print_block_properties(tmm) ;
   block2bhwd(rst_i16, blocki, GNI, NI, NJ) ;
   if(check_bhwd(src_i16, rst_i16, GNI, NI, NJ) != 0) goto fail ;
   TIME_LOOP_EZ(NITER, (NI*NJ), bhwd2block_nobp(blocki, src_i16, GNI, NI, NJ)  ) ;
@@ -450,7 +469,7 @@ print_block_properties(tmm) ;
   if(check_bhwd(&src_u32[DNIJ], &rst_u32[DNIJ], GNI, NI, NJ) != 0) goto fail ;
   msg = "src_u32-3" ; set_32(rst_u32, GNI*GNJ) ; set_32(blocku, NI*NJ) ;
   bhwd2block(blocku, src_u32, GNI, NI, NJ, &tmm) ;  // unsigned 32 bit
-print_block_properties(tmm) ;
+// print_block_properties(tmm) ;
   block2bhwd(rst_u32, blocku, GNI, NI, NJ) ;
   if(check_bhwd(src_u32, rst_u32, GNI, NI, NJ) != 0) goto fail ;
   TIME_LOOP_EZ(NITER, (NI*NJ), bhwd2block_nobp(blocku, src_u32, GNI, NI, NJ)  ) ;
@@ -474,7 +493,7 @@ print_block_properties(tmm) ;
   if(check_bhwd(&src_i32[DNIJ], &rst_i32[DNIJ], GNI, NI, NJ) != 0) goto fail ;
   msg = "src_i32-3" ; set_32(rst_i32, GNI*GNJ) ; set_32(blocki, NI*NJ) ;
   bhwd2block(blocki, src_i32, GNI, NI, NJ, &tmm) ;  // signed 32 bit
-print_block_properties(tmm) ;
+// print_block_properties(tmm) ;
   block2bhwd(rst_i32, blocki, GNI, NI, NJ) ;
   if(check_bhwd(src_i32, rst_i32, GNI, NI, NJ) != 0) goto fail ;
   TIME_LOOP_EZ(NITER, (NI*NJ), bhwd2block_nobp(blocki, src_i32, GNI, NI, NJ)  ) ;
@@ -498,7 +517,7 @@ print_block_properties(tmm) ;
   if(check_bhwd(&src_f32[DNIJ], &rst_f32[DNIJ], GNI, NI, NJ) != 0) goto fail ;
   msg = "src_f32-3" ; set_32(rst_f32, GNI*GNJ) ; set_32(blockf, NI*NJ) ;
   bhwd2block(blockf, src_f32, GNI, NI, NJ, &tmm) ;  // float 32 bit
-print_block_properties(tmm) ;
+// print_block_properties(tmm) ;
   block2bhwd(rst_f32, blockf, GNI, NI, NJ) ;
   if(check_bhwd(src_f32, rst_f32, GNI, NI, NJ) != 0) goto fail ;
   TIME_LOOP_EZ(NITER, (NI*NJ), bhwd2block_nobp(blockf, src_f32, GNI, NI, NJ)  ) ;
@@ -522,7 +541,7 @@ print_block_properties(tmm) ;
   if(check_bhwd(&src_u64[DNIJ], &rst_u64[DNIJ], GNI, NI, NJ) != 0) goto fail ;
   msg = "src_u64-3" ; set_64(rst_u64, GNI*GNJ) ; set_32(blocku, NI*NJ) ;
   bhwd2block(blocku, src_u64, GNI, NI, NJ, &tmm) ;  // unsigned 64 bit
-print_block_properties(tmm) ;
+// print_block_properties(tmm) ;
   block2bhwd(rst_u64, blocku, GNI, NI, NJ) ;
   if(check_bhwd(src_u64, rst_u64, GNI, NI, NJ) != 0) goto fail ;
   TIME_LOOP_EZ(NITER, (NI*NJ), bhwd2block_nobp(blocku, src_u64, GNI, NI, NJ) ) ;
@@ -546,7 +565,7 @@ print_block_properties(tmm) ;
   if(check_bhwd(&src_i64[DNIJ], &rst_i64[DNIJ], GNI, NI, NJ) != 0) goto fail ;
   msg = "src_i64-3" ; set_64(rst_i64, GNI*GNJ) ; set_32(blocki, NI*NJ) ;
   bhwd2block(blocki, src_i64, GNI, NI, NJ, &tmm) ;  // signed 64 bit
-print_block_properties(tmm) ;
+// print_block_properties(tmm) ;
   block2bhwd(rst_i64, blocki, GNI, NI, NJ) ;
   if(check_bhwd(src_i64, rst_i64, GNI, NI, NJ) != 0) goto fail ;
   TIME_LOOP_EZ(NITER, (NI*NJ), bhwd2block_nobp(blocki, src_i64, GNI, NI, NJ) ) ;
@@ -570,7 +589,7 @@ print_block_properties(tmm) ;
   if(check_bhwd(&src_d64[DNIJ], &rst_d64[DNIJ], GNI, NI, NJ) != 0) goto fail ;
   msg = "src_d64-3" ; set_64(rst_d64, GNI*GNJ) ; set_32(blockf, NI*NJ) ;
   bhwd2block(blockf, src_d64, GNI, NI, NJ, &tmm) ;  // double 64 bit
-print_block_properties(tmm) ;
+// print_block_properties(tmm) ;
   block2bhwd(rst_d64, blockf, GNI, NI, NJ) ;
   if(check_bhwd(src_d64, rst_d64, GNI, NI, NJ) != 0) goto fail ;
   TIME_LOOP_EZ(NITER, (NI*NJ), bhwd2block_nobp(blockf, src_d64, GNI, NI, NJ)  ) ;
@@ -583,6 +602,31 @@ print_block_properties(tmm) ;
   tmm = get_block_properties(blockf, NI*NJ) ;
   print_block_properties(tmm) ;
   fprintf(stderr, "SUCCESS: d64\n") ;
+
+  msg = "src_f16-1" ; set_32(blockf, NI*NJ) ; set_16(rst_f16, GNI*GNJ) ; 
+  bhwd2block(blockf, src_f16, GNI, NI, NJ, NULL) ;  // float 16 bit
+  block2bhwd(rst_f16, blockf, GNI, NI, NJ) ;
+  if(check_bhwd(src_f16, rst_f16, GNI, NI, NJ) != 0) goto fail ;
+  msg = "src_f16-2" ; set_32(blockf, NI*NJ) ; set_16(rst_f16, GNI*GNJ) ; 
+  bhwd2block(blockf, &src_f16[DNIJ], GNI, NI, NJ, &tmm) ;  // double 64 bit
+  block2bhwd(&rst_f16[DNIJ], blockf, GNI, NI, NJ) ;
+  if(check_bhwd(&src_f16[DNIJ], &rst_f16[DNIJ], GNI, NI, NJ) != 0) goto fail ;
+  msg = "src_f16-3" ; set_32(blockf, NI*NJ) ; set_16(rst_f16, GNI*GNJ) ; 
+  bhwd2block(blockf, src_f16, GNI, NI, NJ, NULL) ;  // float 16 bit
+  block2bhwd(rst_f16, blockf, GNI, NI, NJ) ;
+  if(check_bhwd(src_f16, rst_f16, GNI, NI, NJ) != 0) goto fail ;
+  TIME_LOOP_EZ(NITER, (NI*NJ), bhwd2block_nobp(blockf, src_f16, GNI, NI, NJ)  ) ;
+  fprintf(stderr, "%s", timer_msg) ;
+  TIME_LOOP_EZ(NITER, (NI*NJ), bhwd2block(blockf, src_f16, GNI, NI, NJ, &tmm)  ) ;
+  fprintf(stderr, " | %s", timer_msg) ;
+  TIME_LOOP_EZ(NITER, (NI*NJ), block2bhwd(rst_f16, blockf, GNI, NI, NJ) ) ;
+  fprintf(stderr, " | %s\n", timer_msg) ;
+  set_32(blockf, NI*NJ) ;
+  bhwd2block(blockf, src_f16, GNI, NI, NJ, NULL) ;  // float 16 bit
+  tmm = get_block_properties(blockf, NI*NJ) ;
+  print_block_properties(tmm) ;
+  fprintf(stderr, "SUCCESS: f16\n") ;
+
   if(timer_min == timer_max) fprintf(stderr, "this is unlikely to print\n") ; // get rid of warning set but unused
 
   fprintf(stderr, "\n") ;
@@ -718,6 +762,8 @@ print_block_properties(tmm) ;
 
   local_block_2d(bp0, (NI*NJ*3)) ;               // local, monolithic
   msg = "error in array_to_block" ;
+  a2.type = bf16_data   ; if(array_to_block(ap2, bp0, NULL) != NULL) goto fail ;
+  a2.type = fp16_data   ; if(array_to_block(ap2, bp0, NULL) != NULL) goto fail ;
   a2.type = any_data    ; if(array_to_block(ap2, bp0, NULL) != NULL) goto fail ;
   a2.type = large_data  ; if(array_to_block(ap2, bp0, NULL) != NULL) goto fail ;
   a2.type = bad_data    ; if(array_to_block(ap2, bp0, NULL) != NULL) goto fail ;
@@ -737,6 +783,8 @@ print_block_properties(tmm) ;
   fprintf(stderr, "subarray bounds[%d:%d,%d:%d]\n", GNI-NI, GNI-1, GNJ-NJ, GNJ-1) ;
   set_array_lbounds(ap2, GNI-NI, GNI-1, GNJ-NJ, GNJ-1) ;
   msg = "error in block_to_array" ;
+  a2.type = bf16_data   ; bp0->type = float_data ; if(block_to_array(ap2, bp0) != NULL) goto fail ;
+  a2.type = fp16_data   ; bp0->type = float_data ; if(block_to_array(ap2, bp0) != NULL) goto fail ;
   a2.type = any_data    ; bp0->type = any_data   ; if(block_to_array(ap2, bp0) != NULL) goto fail ;
   a2.type = large_data  ; bp0->type = large_data ; if(block_to_array(ap2, bp0) != NULL) goto fail ;
   a2.type = bad_data    ; bp0->type = bad_data   ; if(block_to_array(ap2, bp0) != NULL) goto fail ;
@@ -753,6 +801,8 @@ print_block_properties(tmm) ;
   a2.type = double_data ; bp0->type = float_data ; if(block_to_array(ap2, bp0) == NULL) goto fail ;
 
   set_bhwd_debug(0) ;
+
+  fprintf(stderr, "size of src_f16 element = %ld\n", sizeof(src_f16[0])) ;
 
   fprintf(stderr, "SUCCESS\n") ;
   return 0 ;

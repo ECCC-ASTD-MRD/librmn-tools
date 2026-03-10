@@ -25,6 +25,10 @@
 // f     : 32 bit float to transform
 // nbits : number of significant mantissa bits to keep (0 <= nbits <= 23)
 // return fake integer
+// TODO ? add round to even capability
+// (set LSB after shift to 0 if lower part == round)
+// mask = 0x7FFFFFFF >> nbits, lower part = (mask & value)
+// round_to_even_mask = 0x7FFFFF (no action) of 0x7FFFFE (force even)
 static inline int32_t fp_to_flog_(float f, int nbits){
   union{ int32_t i ; float f ; } r ;
   int32_t round, sign ;
@@ -35,6 +39,7 @@ static inline int32_t fp_to_flog_(float f, int nbits){
   r.i &= 0x7FFFFFFF ;             // suppress sign
   r.i = (r.i + round) ;           // add rounding term to absolute value
   r.i >>= (23 - nbits) ;          // scale the absolute value, then apply sign
+//   r.i &= round_to_even_mask       // eventual round to even
   r.i ^= sign ;                   // no-op if s == 0, negate if s == 0xFFFFFFFF
   r.i -= sign ;                   // complement and add 1 is 2's complement negate
   return r.i ;                    // float represented as a signed integer

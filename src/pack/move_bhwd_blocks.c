@@ -199,6 +199,31 @@ if(DEBUG > 0)  fprintf(stderr, "move_i32_to_i16, lni = %d, ni = %d, nj = %d\n", 
   }
 }
 //
+// get subarray of f16 into f32 block (signed)
+void move_f16_to_f32(float * restrict f32, _Float16 * restrict f16, int lni, int ni, int nj, block_properties *bp, int z){  // signed 16 -> 32
+  (void) (z) ; int nij = ni*nj ;
+  int i ;
+if(DEBUG > 0)  fprintf(stderr, "move_f16_to_f32, lni = %d, ni = %d, nj = %d, bp = %s\n", lni, ni, nj, bp ? "ON" : "OFF") ;
+  while(nj-- > 0){
+    for(i=0 ; i<ni; i++){ f32[i] = f16[i]; };
+    f32 +=  ni ;
+    f16 += lni ;
+  }
+  if(bp != NULL){ *bp = get_block_properties(f32-nij, nij) ; }
+}
+//
+// store subarray of f16 from f32 block (signed)
+void move_f32_to_f16(_Float16 * restrict f16, float * restrict f32, int lni, int ni, int nj, block_properties *bp, int z){  // signed 32 -> 16
+  (void) (z) ; (void) (bp) ;
+  int i ;
+if(DEBUG > 0)  fprintf(stderr, "move_f32_to_f16, lni = %d, ni = %d, nj = %d\n", lni, ni, nj) ;
+  while(nj-- > 0){
+    for(i=0 ; i<ni; i++){ f16[i] = f32[i]; };
+    f32 +=  ni ;
+    f16 += lni ;
+  }
+}
+//
 // ============ 32 bits to/from 32 bits ============
 //
 // blk [IN/OUT] : 32 bit block[nj][ni]
@@ -541,7 +566,7 @@ block_2d *array_to_block(array_2d * restrict a, block_2d * restrict blk, block_p
       break ;
     default :
       msg = "invalid type" ;
-//       fprintf(stderr, "array_to_block : invalid type = %d\n", a->type) ;
+      if(DEBUG > 0) fprintf(stderr, "array_to_block : invalid type %s (%d)\n", printable_type[a->type], a->type) ;
       goto fail ;
   }
   if(DEBUG > 1)  fprintf(stderr, "array_to_block, ->[%d:%d]\n", ni, nj) ;
@@ -625,7 +650,7 @@ array_2d *block_to_array(array_2d * restrict a, block_2d * restrict blk){
       block2bhwd((uint32_t *)dst, src, lni, ni, nj) ;
       break ;
     default :
-//       fprintf(stderr, "array_to_block : invalid type = %d\n", a->type) ;
+      if(DEBUG > 0) fprintf(stderr, "block_to_array : invalid type %s (%d)\n", printable_type[a->type], a->type) ;
       msg = "invalid type" ;
       goto fail ;
   }
@@ -855,7 +880,6 @@ array_2d block_as_array(block_2d *blk){
   r.esize = 4 ;
   r.type  = blk->type ;
   r.ndim  = 2 ;
-  r.count = 2 ;
   r.flags = 2 ;
   r.rank  = 2 ;
   r.dim[0].gn0 = r.dim[0].ln0 = 0 ;
