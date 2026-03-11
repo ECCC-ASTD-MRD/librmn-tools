@@ -209,6 +209,10 @@ fprintf(stderr, ", axi = %d/%d/%d, axj = %d/%d/%d\n", axi.nbk, axi.ln0, axi.ln1,
     _Float16 *: check_16( ref, new, lni, ni, nj)   \
    )
 
+float b16_to_f32(__bf16 bf16);
+__bf16 f32_to_b16(float f32);
+void move_b16_to_f32(float * restrict f32, __bf16* restrict b16, int lni, int ni, int nj);
+
 int main(int argc, char **argv){
   (void) (argc) ;
   (void) (argv) ;
@@ -226,6 +230,7 @@ int main(int argc, char **argv){
   int64_t  src_i64[GNI*GNJ], rst_i64[GNI*GNJ] ;
   double   src_d64[GNI*GNJ], rst_d64[GNI*GNJ] ;
   _Float16 src_f16[GNI*GNJ], rst_f16[GNI*GNJ] ;
+  __bf16   src_b16[GNI*GNJ], rst_b16[GNI*GNJ] ;
   char dummy[2] ;
   bhwd_fn fwd, inv ;
   int32_t i ;
@@ -264,9 +269,11 @@ OK :
     if(i & 1) src_f32[i] = (-src_f32[i]) ;
     src_d64[i] = src_f32[i] ;
     src_f16[i] = src_f32[i] ;
+    src_b16[i] = f32_to_b16(src_f32[i]) ;
   }
   int diff = 0 ;
   float maxdiff = 0.0, maxerr = 0.0, maxabs = 0.0f, minabs = 999999999.0f ;
+
   for(i=0 ; i<GNI*GNJ ; i++){
     if(src_f16[i] != src_f32[i]) diff++ ;
     float diff = src_f16[i] - src_f32[i] ;
@@ -279,8 +286,29 @@ OK :
     maxabs = (abs > maxabs) ? abs : maxabs ;
     if(abs != 0.0f) minabs = (abs < minabs) ? abs : minabs ;
   }
+  fprintf(stderr, "size of src_f16 element = %ld\n", sizeof(src_f16[0])) ;
   fprintf(stderr, "src_f16 vs src_f32 : %d differences, maxdiff = %f, maxerr = 1 part in %f, maxabs = %f, minabs = %f\n", diff, maxdiff, 1.0f / maxerr, maxabs, minabs) ;
 
+  fprintf(stderr, "size of src_b16 element = %ld\n", sizeof(src_b16[0])) ;
+  move_b16_to_f32(rst_f32, src_b16, GNI, GNI, GNJ);
+  maxdiff = 0.0 ; maxerr = 0.0 ; maxabs = 0.0f ; minabs = 999999999.0f ; diff = 0 ;
+  for(i=0 ; i<GNI*GNJ ; i++){
+    float t ;
+    t = rst_f32[i] ;
+//     t = b16_to_f32(src_b16[i]) ;
+    if( t != src_f32[i]) diff++ ;
+    float diff = t - src_f32[i] ;
+    diff = (diff < 0) ? -diff : diff ;
+    maxdiff = (diff > maxdiff) ? diff : maxdiff ;
+    float err = diff / src_f32[i] ;
+    err = (err < 0) ? -err : err ;
+    maxerr = (err > maxerr) ? err : maxerr ;
+    float abs = (src_f32[i] < 0) ? -src_f32[i] : src_f32[i] ;
+    maxabs = (abs > maxabs) ? abs : maxabs ;
+    if(abs != 0.0f) minabs = (abs < minabs) ? abs : minabs ;
+  }
+  fprintf(stderr, "src_b16 vs src_f32 : %d differences, maxdiff = %f, maxerr = 1 part in %f, maxabs = %f, minabs = %f\n", diff, maxdiff, 1.0f / maxerr, maxabs, minabs) ;
+return 0 ;
 // check that signed 32 -> 64 bits copy is done right
 for(i=0 ; i<2 ; i++) fprintf(stderr, " i = %d, src_i64[i] = %ld, src_i32[i] = %d\n", i, src_i64[i], src_i32[i]) ;
 // syntax check
@@ -802,7 +830,13 @@ for(i=0 ; i<2 ; i++) fprintf(stderr, " i = %d, src_i64[i] = %ld, src_i32[i] = %d
 
   set_bhwd_debug(0) ;
 
-  fprintf(stderr, "size of src_f16 element = %ld\n", sizeof(src_f16[0])) ;
+
+//   typedef struct{
+//     uint16_t h ;
+//   }_BFloat16 ;
+//   _Float16 src_f16[1000] ;
+  fprintf(stderr, "type of src_f16 is %s\n", block_kind_name(src_f16[0])) ;
+  fprintf(stderr, "type of src_b16 is %s\n", block_kind_name(src_b16[0])) ;
 
   fprintf(stderr, "SUCCESS\n") ;
   return 0 ;

@@ -891,6 +891,34 @@ end :
   return r ;
 }
 
+__bf16 f32_to_b16(float f32){
+  union{
+    float  f ;
+    __bf16 b[2] ;
+  }z ;
+  z.f = f32 ;
+  return z.b[1] ;
+}
+
+float b16_to_f32(__bf16 bf16){
+  union{
+    float  f ;
+    __bf16 b[2] ;
+  }z ;
+  z.b[0] = 0 ;
+  z.b[1] = bf16 ;
+  return z.f ;
+}
+
+void move_b16_to_f32(float * restrict f32, __bf16* restrict b16, int lni, int ni, int nj){
+  int i ;
+  while(nj-- > 0){
+    for(i=0 ; i<ni; i++){ f32[i] = b16_to_f32(b16[i]) ; };
+    f32 +=  ni ;
+    b16 += lni ;
+  }
+}
+
 void print_block_2d(block_2d *bp, char *msg){
   fprintf(stderr, "%-10s : struct at %16p, data at %16p, block[%8d:%8d], max = %8d elements",
                 msg, (void *)bp, (void *)bp->u32, bp->lni, bp->lnj, bp->end) ;

@@ -153,16 +153,18 @@ int set_bhwd_debug(int value);
 
 // block kind name associated to array type
 #define block_kind_name(array) _Generic((array), \
-                               uint8_t  *: "uint_data",  \
-                               int8_t   *: "int_data",   \
-                               uint16_t *: "uint_data",  \
-                               int16_t  *: "int_data",   \
-                               uint32_t *: "uint_data",  \
-                               int32_t  *: "int_data",   \
-                               float    *: "float_data", \
-                               uint64_t *: "uint_data",  \
-                               int64_t  *: "int_data",   \
-                               double   *: "float_data", \
+                               uint8_t  *: "uint_data" , uint8_t  : "uint_data" , \
+                               int8_t   *: "int_data"  , int8_t   : "int_data"  , \
+                               uint16_t *: "uint_data" , uint16_t : "uint_data" , \
+                               int16_t  *: "int_data"  , int16_t  : "int_data"  , \
+                               uint32_t *: "uint_data" , uint32_t : "uint_data" , \
+                               int32_t  *: "int_data"  , int32_t  : "int_data"  , \
+                               float    *: "float_data", float    : "float_data", \
+                               uint64_t *: "uint_data" , uint64_t : "uint_data" , \
+                               int64_t  *: "int_data"  , int64_t  : "int_data"  , \
+                               double   *: "float_data", double   : "float_data", \
+                               _Float16 *: "e5m10_data", _Float16 : "e5m10_data", \
+                               __bf16   *: "e8m7_data" , __bf16   : "e8m7_data" , \
                                default   : "bad_data" \
                                )
 
@@ -225,6 +227,7 @@ int set_bhwd_debug(int value);
                            uint64_t *: "move_u64_to_u32", uint64_t : "move_u64_to_u32", \
                            int64_t  *: "move_i64_to_i32", int64_t  : "move_i64_to_i32", \
                            double   *: "move_d64_to_f32", double   : "move_d64_to_f32", \
+                           _Float16 *: "move_f16_to_f32", _Float16 : "move_f16_to_f32", \
                            default   : "INVALID" \
                            )
 
