@@ -27,49 +27,106 @@
 static int DEBUG = 0 ;
 //
 // length in bytes of array elements indexed by type code
-int element_bytes[MAX_ARRAY_TYPES] = { 1, 1, 2, 2, 4, 4, 4, 8, 8, 8 } ;
-// {
-//   element_length(UINT8_T ) ,
-//   element_length(INT8_T  ) ,
-//   element_length(UINT16_T) ,
-//   element_length(INT16_T ) ,
-//   element_length(UINT32_T) ,
-//   element_length(INT32_T ) ,
-//   element_length(FLOAT   ) ,
-//   element_length(UINT64_T) ,
-//   element_length(INT64_T ) ,
-//   element_length(DOUBLE  )
-// } ;
+int element_bytes(int code){
+  switch(code){
+    case byte_data:
+      return 1 ;
+    case ubyte_data:
+      return 1 ;
+    case short_data:
+      return 2 ;
+    case ushort_data:
+      return 2 ;
+    case int_data:
+      return 4 ;
+    case uint_data:
+      return 4 ;
+    case long_data:
+      return 8 ;
+    case ulong_data:
+      return 8 ;
+    case float_data:
+      return 4 ;
+    case double_data:
+      return 8 ;
+    case raw_data:
+      return 4 ;
+    case bf16_data:
+      return 2 ;
+    case fp16_data:
+      return 2 ;
+    default:
+      return -1 ;
+  }
+}
 
 // array to block copy functions table indexed by type code
-bhwd_fn into_bhwd[MAX_ARRAY_TYPES] =
-{
-  (bhwd_fn)move_u8_to_u32 ,
-  (bhwd_fn)move_i8_to_i32 ,
-  (bhwd_fn)move_u16_to_u32,
-  (bhwd_fn)move_i16_to_i32,
-  (bhwd_fn)move_i32_to_blk,
-  (bhwd_fn)move_u32_to_blk,
-  (bhwd_fn)move_flt_to_blk,
-  (bhwd_fn)move_u64_to_u32,
-  (bhwd_fn)move_i64_to_i32,
-  (bhwd_fn)move_d64_to_f32
-} ;
+bhwd_fn fn_into_block(int code){
+  switch(code){
+    case byte_data:
+      return (bhwd_fn)move_i8_to_i32 ;
+    case ubyte_data:
+      return (bhwd_fn)move_u8_to_u32 ;
+    case short_data:
+      return (bhwd_fn)move_i16_to_i32 ;
+    case ushort_data:
+      return (bhwd_fn)move_u16_to_u32 ;
+    case int_data:
+      return (bhwd_fn)move_i32_to_w32 ;
+    case uint_data:
+      return (bhwd_fn)move_u32_to_w32 ;
+    case long_data:
+      return (bhwd_fn)move_i64_to_i32 ;
+    case ulong_data:
+      return (bhwd_fn)move_u64_to_u32 ;
+    case float_data:
+      return (bhwd_fn)move_f32_to_w32 ;
+    case double_data:
+      return (bhwd_fn)move_d64_to_f32 ;
+    case raw_data:
+      return (bhwd_fn)move_u32_to_w32 ;
+    case bf16_data:
+      return (bhwd_fn)move_b16_to_f32 ;
+    case fp16_data:
+      return (bhwd_fn)move_f16_to_f32 ;
+    default:
+      return NULL ;
+  }
+}
 
 // block to array copy functions table indexed by type code
-bhwd_fn from_bhwd[MAX_ARRAY_TYPES] =
-{
-  (bhwd_fn)move_u32_to_u8 ,
-  (bhwd_fn)move_i32_to_i8 ,
-  (bhwd_fn)move_u32_to_u16,
-  (bhwd_fn)move_i32_to_i16,
-  (bhwd_fn)move_blk_to_i32,
-  (bhwd_fn)move_blk_to_u32,
-  (bhwd_fn)move_blk_to_flt,
-  (bhwd_fn)move_u32_to_u64,
-  (bhwd_fn)move_i32_to_i64,
-  (bhwd_fn)move_f32_to_d64
-} ;
+bhwd_fn fn_from_block(int code){
+  switch(code){
+    case byte_data:
+      return (bhwd_fn)move_i32_to_i8 ;
+    case ubyte_data:
+      return (bhwd_fn)move_u32_to_u8 ;
+    case short_data:
+      return (bhwd_fn)move_i32_to_i16 ;
+    case ushort_data:
+      return (bhwd_fn)move_u32_to_u16 ;
+    case int_data:
+      return (bhwd_fn)move_w32_to_i32 ;
+    case uint_data:
+      return (bhwd_fn)move_w32_to_u32 ;
+    case long_data:
+      return (bhwd_fn)move_i32_to_i64 ;
+    case ulong_data:
+      return (bhwd_fn)move_u32_to_u64 ;
+    case float_data:
+      return (bhwd_fn)move_w32_to_f32 ;
+    case double_data:
+      return (bhwd_fn)move_f32_to_d64 ;
+    case raw_data:
+      return (bhwd_fn)move_w32_to_u32 ;
+    case bf16_data:
+      return (bhwd_fn)move_f32_to_b16 ;
+    case fp16_data:
+      return (bhwd_fn)move_f32_to_f16 ;
+    default:
+      return NULL ;
+  }
+}
 
 //
 // ============ control functions ============
@@ -199,31 +256,6 @@ if(DEBUG > 0)  fprintf(stderr, "move_i32_to_i16, lni = %d, ni = %d, nj = %d\n", 
   }
 }
 //
-// get subarray of f16 into f32 block (signed)
-void move_f16_to_f32(float * restrict f32, _Float16 * restrict f16, int lni, int ni, int nj, block_properties *bp, int z){  // signed 16 -> 32
-  (void) (z) ; int nij = ni*nj ;
-  int i ;
-if(DEBUG > 0)  fprintf(stderr, "move_f16_to_f32, lni = %d, ni = %d, nj = %d, bp = %s\n", lni, ni, nj, bp ? "ON" : "OFF") ;
-  while(nj-- > 0){
-    for(i=0 ; i<ni; i++){ f32[i] = f16[i]; };
-    f32 +=  ni ;
-    f16 += lni ;
-  }
-  if(bp != NULL){ *bp = get_block_properties(f32-nij, nij) ; }
-}
-//
-// store subarray of f16 from f32 block (signed)
-void move_f32_to_f16(_Float16 * restrict f16, float * restrict f32, int lni, int ni, int nj, block_properties *bp, int z){  // signed 32 -> 16
-  (void) (z) ; (void) (bp) ;
-  int i ;
-if(DEBUG > 0)  fprintf(stderr, "move_f32_to_f16, lni = %d, ni = %d, nj = %d\n", lni, ni, nj) ;
-  while(nj-- > 0){
-    for(i=0 ; i<ni; i++){ f16[i] = f32[i]; };
-    f32 +=  ni ;
-    f16 += lni ;
-  }
-}
-//
 // ============ 32 bits to/from 32 bits ============
 //
 // blk [IN/OUT] : 32 bit block[nj][ni]
@@ -234,8 +266,8 @@ if(DEBUG > 0)  fprintf(stderr, "move_f32_to_f16, lni = %d, ni = %d, nj = %d\n", 
 // z       [IN] : integer value
 // NOTE: expected value of z is 0, + z prevents the optimizer from calling memcpy
 //
-// to_blk copies from array[nj][lni] to block[nj][ni]
-static void to_blk(void * restrict blk_, void * restrict w32_, int lni, int ni, int nj, int z){  // 32 array -> 32 block
+// to_w32 copies from array[nj][lni] to block[nj][ni]
+static void to_w32(void * restrict blk_, void * restrict w32_, int lni, int ni, int nj, int z){  // 32 array -> 32 block
   int32_t *blk = (int32_t *)blk_, *w32 = (int32_t *)w32_ ;
   int i ;
   while(nj-- > 0){
@@ -244,8 +276,8 @@ static void to_blk(void * restrict blk_, void * restrict w32_, int lni, int ni, 
     w32 += lni ;
   }
 }
-// to_w32 copies from block[nj][ni] to array[nj][lni]
-static void to_w32(void * restrict w32_, void * restrict blk_, int lni, int ni, int nj, int z){  // 32 array -> 32 block
+// from_w32 copies from block[nj][ni] to array[nj][lni]
+static void from_w32(void * restrict w32_, void * restrict blk_, int lni, int ni, int nj, int z){  // 32 array -> 32 block
   int32_t *blk = (int32_t *)blk_, *w32 = (int32_t *)w32_ ;
   int i ;
   while(nj-- > 0){
@@ -254,38 +286,38 @@ static void to_w32(void * restrict w32_, void * restrict blk_, int lni, int ni, 
     w32 += lni ;
   }
 }
-void move_u32_to_blk(uint32_t * restrict blk, uint32_t * restrict w32, int lni, int ni, int nj, block_properties *bp, int z){  // 32 array -> 32 block
+void move_u32_to_w32(uint32_t * restrict blk, uint32_t * restrict w32, int lni, int ni, int nj, block_properties *bp, int z){  // 32 array -> 32 block
   (void) (z) ; int nij = ni*nj ;
-if(DEBUG > 0)  fprintf(stderr, "move_blk_to_u32, lni = %d, ni = %d, nj = %d, bp = %s\n", lni, ni, nj, bp ? "ON" : "OFF") ;
-  to_blk(blk, w32, lni, ni, nj, z) ;
+if(DEBUG > 0)  fprintf(stderr, "move_w32_to_u32, lni = %d, ni = %d, nj = %d, bp = %s\n", lni, ni, nj, bp ? "ON" : "OFF") ;
+  to_w32(blk, w32, lni, ni, nj, z) ;
   if(bp != NULL){ *bp = get_block_properties(blk, nij) ; }
 }
-void move_blk_to_u32(uint32_t * restrict w32, uint32_t * restrict blk, int lni, int ni, int nj, block_properties *bp, int z){  // 32 block -> 32 array
+void move_w32_to_u32(uint32_t * restrict w32, uint32_t * restrict blk, int lni, int ni, int nj, block_properties *bp, int z){  // 32 block -> 32 array
   (void) (z) ; (void) (bp) ;
-if(DEBUG > 0)  fprintf(stderr, "move_blk_to_u32, lni = %d, ni = %d, nj = %d\n", lni, ni, nj) ;
-  to_w32(w32, blk, lni, ni, nj, z) ;
+if(DEBUG > 0)  fprintf(stderr, "move_w32_to_u32, lni = %d, ni = %d, nj = %d\n", lni, ni, nj) ;
+  from_w32(w32, blk, lni, ni, nj, z) ;
 }
-void move_i32_to_blk(int32_t * restrict blk, int32_t * restrict w32, int lni, int ni, int nj, block_properties *bp, int z){  // 32 array -> 32 block
+void move_i32_to_w32(int32_t * restrict blk, int32_t * restrict w32, int lni, int ni, int nj, block_properties *bp, int z){  // 32 array -> 32 block
   (void) (z) ; int nij = ni*nj ;
-if(DEBUG > 0)  fprintf(stderr, "move_i32_to_blk, lni = %d, ni = %d, nj = %d, bp = %s\n", lni, ni, nj, bp ? "ON" : "OFF") ;
-  to_blk(blk, w32, lni, ni, nj, z) ;
+if(DEBUG > 0)  fprintf(stderr, "move_i32_to_w32, lni = %d, ni = %d, nj = %d, bp = %s\n", lni, ni, nj, bp ? "ON" : "OFF") ;
+  to_w32(blk, w32, lni, ni, nj, z) ;
   if(bp != NULL){ *bp = get_block_properties(blk, nij) ; }
 }
-void move_blk_to_i32(int32_t * restrict w32, int32_t * restrict blk, int lni, int ni, int nj, block_properties *bp, int z){  // 32 block -> 32 array
+void move_w32_to_i32(int32_t * restrict w32, int32_t * restrict blk, int lni, int ni, int nj, block_properties *bp, int z){  // 32 block -> 32 array
   (void) (z) ; (void) (bp) ;
-if(DEBUG > 0)  fprintf(stderr, "move_blk_to_i32, lni = %d, ni = %d, nj = %d\n", lni, ni, nj) ;
-  to_w32(w32, blk, lni, ni, nj, z) ;
+if(DEBUG > 0)  fprintf(stderr, "move_w32_to_i32, lni = %d, ni = %d, nj = %d\n", lni, ni, nj) ;
+  from_w32(w32, blk, lni, ni, nj, z) ;
 }
-void move_flt_to_blk(float * restrict blk, float * restrict w32, int lni, int ni, int nj, block_properties *bp, int z){  // 32 array -> 32 block
+void move_f32_to_w32(float * restrict blk, float * restrict w32, int lni, int ni, int nj, block_properties *bp, int z){  // 32 array -> 32 block
   (void) (z) ; int nij = ni*nj ;
-if(DEBUG > 0)  fprintf(stderr, "move_flt_to_blk, lni = %d, ni = %d, nj = %d, bp = %s\n", lni, ni, nj, bp ? "ON" : "OFF") ;
-  to_blk(blk, w32, lni, ni, nj, z) ;
+if(DEBUG > 0)  fprintf(stderr, "move_f32_to_w32, lni = %d, ni = %d, nj = %d, bp = %s\n", lni, ni, nj, bp ? "ON" : "OFF") ;
+  to_w32(blk, w32, lni, ni, nj, z) ;
   if(bp != NULL){ *bp = get_block_properties(blk, nij) ; }
 }
-void move_blk_to_flt(float * restrict w32, float * restrict blk, int lni, int ni, int nj, block_properties *bp, int z){  // 32 block -> 32 array
+void move_w32_to_f32(float * restrict w32, float * restrict blk, int lni, int ni, int nj, block_properties *bp, int z){  // 32 block -> 32 array
   (void) (z) ; (void) (bp) ;
-if(DEBUG > 0)  fprintf(stderr, "move_blk_to_flt, lni = %d, ni = %d, nj = %d\n", lni, ni, nj) ;
-  to_w32(w32, blk, lni, ni, nj, z) ;
+if(DEBUG > 0)  fprintf(stderr, "move_w32_to_f32, lni = %d, ni = %d, nj = %d\n", lni, ni, nj) ;
+  from_w32(w32, blk, lni, ni, nj, z) ;
 }
 //
 // ============ 64 bits to/from 32 bits ============
@@ -349,6 +381,61 @@ if(DEBUG > 0)  fprintf(stderr, "move_i32_to_i64, lni = %d, ni = %d, nj = %d\n", 
     for(i=0 ; i<ni; i++){ bhd[i] = w32[i]; };
     w32 +=  ni ;
     bhd += lni ;
+  }
+}
+//
+// ============ float to/from float 16 ============
+//
+// get subarray of f16 into f32 block (signed)
+void move_f16_to_f32(float * restrict f32, _Float16 * restrict f16, int lni, int ni, int nj, block_properties *bp, int z){  // signed 16 -> 32
+  (void) (z) ; int nij = ni*nj ;
+  int i ;
+if(DEBUG > 0)  fprintf(stderr, "move_f16_to_f32, lni = %d, ni = %d, nj = %d, bp = %s\n", lni, ni, nj, bp ? "ON" : "OFF") ;
+  while(nj-- > 0){
+    for(i=0 ; i<ni; i++){ f32[i] = f16[i]; };
+    f32 +=  ni ;
+    f16 += lni ;
+  }
+  if(bp != NULL){ *bp = get_block_properties(f32-nij, nij) ; }
+}
+//
+// store subarray of f16 from f32 block (signed)
+void move_f32_to_f16(_Float16 * restrict f16, float * restrict f32, int lni, int ni, int nj, block_properties *bp, int z){  // signed 32 -> 16
+  (void) (z) ; (void) (bp) ;
+  int i ;
+if(DEBUG > 0)  fprintf(stderr, "move_f32_to_f16, lni = %d, ni = %d, nj = %d\n", lni, ni, nj) ;
+  while(nj-- > 0){
+    for(i=0 ; i<ni; i++){ f16[i] = f32[i]; };
+    f32 +=  ni ;
+    f16 += lni ;
+  }
+}
+//
+// ============ float to/from brainfloat 16 ============
+//
+void move_b16_to_f32(float * restrict f32_, void * restrict b16_, int lni, int ni, int nj, block_properties *bp, int z){
+  (void) (z) ; (void) (bp) ;
+  uint32_t *f32 = (uint32_t *)f32_ ;
+  uint16_t *b16 = (uint16_t *)b16_ ;
+  int i ;
+if(DEBUG > 0)  fprintf(stderr, "move_b16_to_f32, lni = %d, ni = %d, nj = %d, bp = %s\n", lni, ni, nj, bp ? "ON" : "OFF") ;
+  while(nj-- > 0){
+    for(i=0 ; i<ni; i++){ f32[i] = b16[i] ; f32[i] <<= 16 ; };
+    f32 +=  ni ;
+    b16 += lni ;
+  }
+}
+
+void move_f32_to_b16(void * restrict b16_, float * restrict f32_, int lni, int ni, int nj, block_properties *bp, int z){
+  (void) (z) ; (void) (bp) ;
+  uint32_t *f32 = (uint32_t *)f32_ ;
+  uint16_t *b16 = (uint16_t *)b16_ ;
+  int i ;
+if(DEBUG > 0)  fprintf(stderr, "move_f32_to_b16, lni = %d, ni = %d, nj = %d\n", lni, ni, nj) ;
+  while(nj-- > 0){
+    for(i=0 ; i<ni; i++){ b16[i] = ((f32[i] + 0x80FFu) >> 16) ; };
+    f32 +=  ni ;
+    b16 += lni ;
   }
 }
 //
@@ -558,6 +645,12 @@ block_2d *array_to_block(array_2d * restrict a, block_2d * restrict blk, block_p
     case float_data  :
       bhwd2block(dst, (float *)src, lni, ni, nj, bp)    ; type = float_data ;
       break ;
+    case bf16_data  :
+      bhwd2block(dst, (float *)src, lni, ni, nj, bp)    ; type = float_data ;
+      break ;
+    case fp16_data  :
+      bhwd2block(dst, (float *)src, lni, ni, nj, bp)    ; type = float_data ;
+      break ;
     case double_data :
       bhwd2block(dst, (double *)src, lni, ni, nj, bp)   ; type = float_data ;
       break ;
@@ -638,6 +731,14 @@ array_2d *block_to_array(array_2d * restrict a, block_2d * restrict blk){
       block2bhwd((uint64_t *)dst, src, lni, ni, nj) ;
       break ;
     case float_data  :
+      if(blk->type != float_data) goto fail ;
+      block2bhwd((float *)dst, src, lni, ni, nj) ;
+      break ;
+    case bf16_data  :
+      if(blk->type != float_data) goto fail ;
+      block2bhwd((float *)dst, src, lni, ni, nj) ;
+      break ;
+    case fp16_data  :
       if(blk->type != float_data) goto fail ;
       block2bhwd((float *)dst, src, lni, ni, nj) ;
       break ;
@@ -889,34 +990,6 @@ array_2d block_as_array(block_2d *blk){
 
 end :
   return r ;
-}
-
-__bf16 f32_to_b16(float f32){
-  union{
-    float  f ;
-    __bf16 b[2] ;
-  }z ;
-  z.f = f32 ;
-  return z.b[1] ;
-}
-
-float b16_to_f32(__bf16 bf16){
-  union{
-    float  f ;
-    __bf16 b[2] ;
-  }z ;
-  z.b[0] = 0 ;
-  z.b[1] = bf16 ;
-  return z.f ;
-}
-
-void move_b16_to_f32(float * restrict f32, __bf16* restrict b16, int lni, int ni, int nj){
-  int i ;
-  while(nj-- > 0){
-    for(i=0 ; i<ni; i++){ f32[i] = b16_to_f32(b16[i]) ; };
-    f32 +=  ni ;
-    b16 += lni ;
-  }
 }
 
 void print_block_2d(block_2d *bp, char *msg){

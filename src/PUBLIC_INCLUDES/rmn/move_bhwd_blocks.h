@@ -18,11 +18,17 @@
 #if ! defined(block2bhwd)
 
 #include <stdint.h>
+// clang, gcc, icx know about __bf16 (brain float 16 bits)
+#if defined(__PGI)
+  typedef struct{
+    uint16_t v ;
+  } __bf16 ;
+#endif
 
 #include <rmn/data_properties.h>
 #include <rmn/array_nd.h>
 
-#define MAX_ARRAY_TYPES 10
+#define MAX_ARRAY_TYPES 32
 
 // static uint8_t  UINT8_T  ;
 // static int8_t   INT8_T   ;
@@ -37,9 +43,9 @@
 
 typedef void (* bhwd_fn)(void *, void *, int, int, int, void *, int) ;
 
-extern int element_bytes[MAX_ARRAY_TYPES] ;       // length in bytes of array elements indexed by type code
-extern bhwd_fn into_bhwd[MAX_ARRAY_TYPES] ;       // array to block copy functions table indexed by type code
-extern bhwd_fn from_bhwd[MAX_ARRAY_TYPES] ;       // block to array copy functions table indexed by type code
+int element_bytes(int code);                      // length in bytes of array elements from type code
+bhwd_fn fn_into_block(int code);                  // array to block copy functions from type code
+bhwd_fn fn_from_block(int code);                  // block to array copy functions from type code
 
 block_properties block_zminmax(void *s, int n);
 void full_block_properties(block_properties *bp, data_kind datatype);
@@ -80,6 +86,8 @@ int set_bhwd_debug(int value);
                                uint64_t *: (uint32_t *) block, \
                                int64_t  *: (int32_t  *) block, \
                                double   *: (float    *) block, \
+                               _Float16 *: (float    *) block, \
+                               __bf16   *: (float    *) block, \
                                default   : (void     *) block  \
                                )
 
@@ -95,36 +103,42 @@ int set_bhwd_debug(int value);
                              uint64_t *: 8, uint64_t   : 8, \
                              int64_t  *: 8, int64_t    : 8, \
                              double   *: 8, double     : 8, \
+                             _Float16 *: 2, _Float16   : 2, \
+                             __bf16   *: 2, __bf16     : 2, \
                              default   : 0 \
                              )
 
 // type ordinal code associated with array or element
 #define array_type_code(what) _Generic((what), \
-                              uint8_t  *: 0, uint8_t    : 0, \
-                              int8_t   *: 1, int8_t     : 1, \
-                              uint16_t *: 2, uint16_t   : 2, \
-                              int16_t  *: 3, int16_t    : 3, \
-                              uint32_t *: 4, uint32_t   : 4, \
-                              int32_t  *: 5, int32_t    : 5, \
-                              float    *: 6, float      : 6, \
-                              uint64_t *: 7, uint64_t   : 7, \
-                              int64_t  *: 8, int64_t    : 8, \
-                              double   *: 9, double     : 9, \
-                              default   : -1 \
+                              uint8_t  *: ubyte_data , uint8_t  : ubyte_data , \
+                              int8_t   *: byte_data  , int8_t   : byte_data  , \
+                              uint16_t *: ushort_data, uint16_t : ushort_data, \
+                              int16_t  *: short_data , int16_t  : short_data , \
+                              uint32_t *: uint_data  , uint32_t : uint_data  , \
+                              int32_t  *: int_data   , int32_t  : int_data   , \
+                              float    *: float_data , float    : float_data , \
+                              uint64_t *: ulong_data , uint64_t : ulong_data , \
+                              int64_t  *: long_data  , int64_t  : long_data  , \
+                              double   *: double_data, double   : double_data, \
+                              _Float16 *: fp16_data  , _Float16 : fp16_data  , \
+                              __bf16   *: bf16_data  , __bf16   : bf16_data  , \
+                              default   : bad_data \
                               )
 
 // type name associated with array or element
 #define array_type_name(what) _Generic((what), \
-                              uint8_t  *: "uint8_t" , uint8_t    : "uint8_t" , \
-                              int8_t   *: "int8_t"  , int8_t     : "int8_t"  , \
-                              uint16_t *: "uint16_t", uint16_t   : "uint16_t", \
-                              int16_t  *: "int16_t" , int16_t    : "int16_t" , \
-                              int32_t  *: "int32_t" , int32_t    : "int32_t" , \
-                              uint32_t *: "uint32_t", uint32_t   : "uint32_t", \
-                              float    *: "float"   , float      : "float"   , \
-                              uint64_t *: "uint64_t", uint64_t   : "uint64_t", \
-                              int64_t  *: "int64_t" , int64_t    : "int64_t" , \
-                              double   *: "double"  , double     : "double"  , \
+                              uint8_t  *: "uint8_t" , uint8_t  : "uint8_t" , \
+                              int8_t   *: "int8_t"  , int8_t   : "int8_t"  , \
+                              uint16_t *: "uint16_t", uint16_t : "uint16_t", \
+                              int16_t  *: "int16_t" , int16_t  : "int16_t" , \
+                              int32_t  *: "int32_t" , int32_t  : "int32_t" , \
+                              uint32_t *: "uint32_t", uint32_t : "uint32_t", \
+                              float    *: "float"   , float    : "float"   , \
+                              uint64_t *: "uint64_t", uint64_t : "uint64_t", \
+                              int64_t  *: "int64_t" , int64_t  : "int64_t" , \
+                              double   *: "double"  , double   : "double"  , \
+                              _Float16 *: "double"  , _Float16 : "double"  , \
+                              __bf16   *: "__bf16"  , __bf16   : "__bf16"  , \
                               default   : "UNKNOWN" \
                               )
 
@@ -148,6 +162,8 @@ int set_bhwd_debug(int value);
                           uint64_t *: ulong_data,  \
                           int64_t  *: long_data,   \
                           double   *: double_data, \
+                          _Float16 *: float_data,  \
+                          __bf16   *: float_data,  \
                           default   : bad_data \
                           )
 
@@ -163,8 +179,8 @@ int set_bhwd_debug(int value);
                                uint64_t *: "uint_data" , uint64_t : "uint_data" , \
                                int64_t  *: "int_data"  , int64_t  : "int_data"  , \
                                double   *: "float_data", double   : "float_data", \
-                               _Float16 *: "e5m10_data", _Float16 : "e5m10_data", \
-                               __bf16   *: "e8m7_data" , __bf16   : "e8m7_data" , \
+                               _Float16 *: "fp16_data" , _Float16 : "fp16_data", \
+                               __bf16   *: "bf16_data" , __bf16   : "bf16_data" , \
                                default   : "bad_data" \
                                )
 
@@ -174,13 +190,14 @@ int set_bhwd_debug(int value);
                            int8_t   *: (bhwd_fn)move_i32_to_i8 , int8_t   : (bhwd_fn)move_i32_to_i8 , \
                            uint16_t *: (bhwd_fn)move_u32_to_u16, uint16_t : (bhwd_fn)move_u32_to_u16, \
                            int16_t  *: (bhwd_fn)move_i32_to_i16, int16_t  : (bhwd_fn)move_i32_to_i16, \
-                           int32_t  *: (bhwd_fn)move_blk_to_i32, int32_t  : (bhwd_fn)move_blk_to_i32, \
-                           uint32_t *: (bhwd_fn)move_blk_to_u32, uint32_t : (bhwd_fn)move_blk_to_u32, \
-                           float    *: (bhwd_fn)move_blk_to_flt, float    : (bhwd_fn)move_blk_to_flt, \
+                           int32_t  *: (bhwd_fn)move_w32_to_i32, int32_t  : (bhwd_fn)move_w32_to_i32, \
+                           uint32_t *: (bhwd_fn)move_w32_to_u32, uint32_t : (bhwd_fn)move_w32_to_u32, \
+                           float    *: (bhwd_fn)move_w32_to_f32, float    : (bhwd_fn)move_w32_to_f32, \
                            uint64_t *: (bhwd_fn)move_u32_to_u64, uint64_t : (bhwd_fn)move_u32_to_u64, \
                            int64_t  *: (bhwd_fn)move_i32_to_i64, int64_t  : (bhwd_fn)move_i32_to_i64, \
                            double   *: (bhwd_fn)move_f32_to_d64, double   : (bhwd_fn)move_f32_to_d64, \
                            _Float16 *: (bhwd_fn)move_f32_to_f16, _Float16 : (bhwd_fn)move_f32_to_f16, \
+                           __bf16   *: (bhwd_fn)move_f32_to_b16, __bf16   : (bhwd_fn)move_f32_to_b16, \
                            default   : NULL \
                            )
 // block -> array copy function names associated to array/scalar type
@@ -189,13 +206,14 @@ int set_bhwd_debug(int value);
                              int8_t   *: "move_i32_to_i8" , int8_t   : "move_i32_to_i8" , \
                              uint16_t *: "move_u32_to_u16", uint16_t : "move_u32_to_u16", \
                              int16_t  *: "move_i32_to_i16", int16_t  : "move_i32_to_i16", \
-                             int32_t  *: "move_blk_to_i32", int32_t  : "move_blk_to_i32", \
-                             uint32_t *: "move_blk_to_u32", uint32_t : "move_blk_to_u32", \
-                             float    *: "move_blk_to_flt", float    : "move_blk_to_flt", \
+                             int32_t  *: "move_w32_to_i32", int32_t  : "move_w32_to_i32", \
+                             uint32_t *: "move_w32_to_u32", uint32_t : "move_w32_to_u32", \
+                             float    *: "move_w32_to_f32", float    : "move_w32_to_f32", \
                              uint64_t *: "move_u32_to_u64", uint64_t : "move_u32_to_u64", \
                              int64_t  *: "move_i32_to_i64", int64_t  : "move_i32_to_i64", \
                              double   *: "move_f32_to_d64", double   : "move_f32_to_d64", \
                              _Float16 *: "move_f32_to_f16", _Float16 : "move_f32_to_f16", \
+                             __bf16   *: "move_f32_to_b16", __bf16   : "move_f32_to_b16", \
                              default   : "INVALID" \
                              )
 
@@ -205,13 +223,14 @@ int set_bhwd_debug(int value);
                          int8_t   *: (bhwd_fn)move_i8_to_i32 , int8_t   : (bhwd_fn)move_i8_to_i32 , \
                          uint16_t *: (bhwd_fn)move_u16_to_u32, uint16_t : (bhwd_fn)move_u16_to_u32, \
                          int16_t  *: (bhwd_fn)move_i16_to_i32, int16_t  : (bhwd_fn)move_i16_to_i32, \
-                         int32_t  *: (bhwd_fn)move_i32_to_blk, int32_t  : (bhwd_fn)move_i32_to_blk, \
-                         uint32_t *: (bhwd_fn)move_u32_to_blk, uint32_t : (bhwd_fn)move_u32_to_blk, \
-                         float    *: (bhwd_fn)move_flt_to_blk, float    : (bhwd_fn)move_flt_to_blk, \
+                         int32_t  *: (bhwd_fn)move_i32_to_w32, int32_t  : (bhwd_fn)move_i32_to_w32, \
+                         uint32_t *: (bhwd_fn)move_u32_to_w32, uint32_t : (bhwd_fn)move_u32_to_w32, \
+                         float    *: (bhwd_fn)move_f32_to_w32, float    : (bhwd_fn)move_f32_to_w32, \
                          uint64_t *: (bhwd_fn)move_u64_to_u32, uint64_t : (bhwd_fn)move_u64_to_u32, \
                          int64_t  *: (bhwd_fn)move_i64_to_i32, int64_t  : (bhwd_fn)move_i64_to_i32, \
                          double   *: (bhwd_fn)move_d64_to_f32, double   : (bhwd_fn)move_d64_to_f32, \
                          _Float16 *: (bhwd_fn)move_f16_to_f32, _Float16 : (bhwd_fn)move_f16_to_f32, \
+                         __bf16   *: (bhwd_fn)move_b16_to_f32, __bf16   : (bhwd_fn)move_b16_to_f32, \
                          default   : NULL \
                          )
 
@@ -221,13 +240,14 @@ int set_bhwd_debug(int value);
                            int8_t   *: "move_i8_to_i32" , int8_t   : "move_i8_to_i32",  \
                            uint16_t *: "move_u16_to_u32", uint16_t : "move_u16_to_u32", \
                            int16_t  *: "move_i16_to_i32", int16_t  : "move_i16_to_i32", \
-                           int32_t  *: "move_i32_to_blk", int32_t  : "move_i32_to_blk", \
-                           uint32_t *: "move_u32_to_blk", uint32_t : "move_u32_to_blk", \
-                           float    *: "move_flt_to_blk", float    : "move_flt_to_blk", \
+                           int32_t  *: "move_i32_to_w32", int32_t  : "move_i32_to_w32", \
+                           uint32_t *: "move_u32_to_w32", uint32_t : "move_u32_to_w32", \
+                           float    *: "move_f32_to_w32", float    : "move_f32_to_w32", \
                            uint64_t *: "move_u64_to_u32", uint64_t : "move_u64_to_u32", \
                            int64_t  *: "move_i64_to_i32", int64_t  : "move_i64_to_i32", \
                            double   *: "move_d64_to_f32", double   : "move_d64_to_f32", \
                            _Float16 *: "move_f16_to_f32", _Float16 : "move_f16_to_f32", \
+                           __bf16   *: "move_b16_to_f32", __bf16   : "move_b16_to_f32", \
                            default   : "INVALID" \
                            )
 
@@ -256,14 +276,17 @@ void move_i32_to_i16(int16_t * restrict bhwd , int32_t * restrict blk , int lni,
 void move_f16_to_f32(float * restrict f32, _Float16 * restrict f16, int lni, int ni, int nj, block_properties *bp, int z);      // float 16 -> 32
 void move_f32_to_f16(_Float16 * restrict f16, float * restrict f32, int lni, int ni, int nj, block_properties *bp, int z);      // float 32 -> 16
 
-void move_u32_to_blk(uint32_t * restrict blk, uint32_t * restrict w32 , int lni, int ni, int nj, block_properties *bp, int z);  // array 32 -> block 32 (unsigned)
-void move_blk_to_u32(uint32_t * restrict w32, uint32_t * restrict blk , int lni, int ni, int nj, block_properties *bp, int z);  // block 32 -> array 32 (unsigned)
+void move_f32_to_b16(void * restrict b16_, float * restrict f32_, int lni, int ni, int nj, block_properties *bp, int z);        // float 32 -> brain float 16
+void move_b16_to_f32(float * restrict f32_, void * restrict b16_, int lni, int ni, int nj, block_properties *bp, int z);        // brain float 16 -> float 32
 
-void move_i32_to_blk(int32_t * restrict blk , int32_t * restrict w32  , int lni, int ni, int nj, block_properties *bp, int z);  // array 32 -> block 32 (signed)
-void move_blk_to_i32(int32_t * restrict w32 , int32_t * restrict blk  , int lni, int ni, int nj, block_properties *bp, int z);  // block 32 -> array 32 (signed)
+void move_u32_to_w32(uint32_t * restrict blk, uint32_t * restrict w32 , int lni, int ni, int nj, block_properties *bp, int z);  // array 32 -> block 32 (unsigned)
+void move_w32_to_u32(uint32_t * restrict w32, uint32_t * restrict blk , int lni, int ni, int nj, block_properties *bp, int z);  // block 32 -> array 32 (unsigned)
 
-void move_flt_to_blk(float * restrict blk   , float * restrict w32    , int lni, int ni, int nj, block_properties *bp, int z);  // array 32 -> block 32 (float)
-void move_blk_to_flt(float * restrict w32   , float * restrict blk    , int lni, int ni, int nj, block_properties *bp, int z);  // block 32 -> array 32 (float)
+void move_i32_to_w32(int32_t * restrict blk , int32_t * restrict w32  , int lni, int ni, int nj, block_properties *bp, int z);  // array 32 -> block 32 (signed)
+void move_w32_to_i32(int32_t * restrict w32 , int32_t * restrict blk  , int lni, int ni, int nj, block_properties *bp, int z);  // block 32 -> array 32 (signed)
+
+void move_f32_to_w32(float * restrict blk   , float * restrict w32    , int lni, int ni, int nj, block_properties *bp, int z);  // array 32 -> block 32 (float)
+void move_w32_to_f32(float * restrict w32   , float * restrict blk    , int lni, int ni, int nj, block_properties *bp, int z);  // block 32 -> array 32 (float)
 
 void move_u64_to_u32(uint32_t * restrict blk, uint64_t * restrict bhwd, int lni, int ni, int nj, block_properties *bp, int z);  // unsigned 64 -> 32
 void move_u32_to_u64(uint64_t * restrict bhwd, uint32_t * restrict blk, int lni, int ni, int nj, block_properties *bp, int z);  // unsigned 32 -> 64
@@ -290,6 +313,8 @@ array_2d *block_to_array(array_2d * restrict a, block_2d * restrict blk);
   uint64_t *: *bhwd , uint64_t : bhwd , \
   int64_t  *: *bhwd , int64_t  : bhwd , \
   double   *: *bhwd , double   : bhwd   \
+  _Float16 *: *bhwd , _Float16 : bhwd   \
+  __bf16   *: *bhwd , __bf16   : bhwd   \
   )
 
 // pointer to bhwd if bhwd is not a pointer, bhwd if it is a pointer
@@ -305,6 +330,8 @@ array_2d *block_to_array(array_2d * restrict a, block_2d * restrict blk);
   uint64_t *: bhwd , uint64_t : &bhwd , \
   int64_t  *: bhwd , int64_t  : &bhwd , \
   double   *: bhwd , double   : &bhwd   \
+  _Float16 *: bhwd , _Float16 : &bhwd   \
+  __bf16   *: bhwd , __bf16   : &bhwd   \
   )
 
 // move from block, properties are irrelevant
@@ -313,13 +340,14 @@ array_2d *block_to_array(array_2d * restrict a, block_2d * restrict blk);
                             int8_t    *: move_i32_to_i8  , \
                             uint16_t  *: move_u32_to_u16 , \
                             int16_t   *: move_i32_to_i16 , \
-                            int32_t   *: move_blk_to_i32 , \
-                            uint32_t  *: move_blk_to_u32 , \
-                            float     *: move_blk_to_flt , \
+                            int32_t   *: move_w32_to_i32 , \
+                            uint32_t  *: move_w32_to_u32 , \
+                            float     *: move_w32_to_f32 , \
                             uint64_t  *: move_u32_to_u64 , \
                             int64_t   *: move_i32_to_i64 , \
                             double    *: move_f32_to_d64 , \
-                            _Float16  *: move_f32_to_f16   \
+                            _Float16  *: move_f32_to_f16 , \
+                            __bf16    *: move_f32_to_b16   \
                        ) (dst, __VA_ARGS__, NULL, 0)
 
 // move to block and compute properties
@@ -328,13 +356,14 @@ array_2d *block_to_array(array_2d * restrict a, block_2d * restrict blk);
                                 int8_t    *: move_i8_to_i32 , \
                                 uint16_t  *: move_u16_to_u32, \
                                 int16_t   *: move_i16_to_i32, \
-                                int32_t   *: move_i32_to_blk, \
-                                uint32_t  *: move_u32_to_blk, \
-                                float     *: move_flt_to_blk, \
+                                int32_t   *: move_i32_to_w32, \
+                                uint32_t  *: move_u32_to_w32, \
+                                float     *: move_f32_to_w32, \
                                 uint64_t  *: move_u64_to_u32, \
                                 int64_t   *: move_i64_to_i32, \
                                 double    *: move_d64_to_f32, \
-                                _Float16  *: move_f16_to_f32  \
+                                _Float16  *: move_f16_to_f32, \
+                                __bf16    *: move_b16_to_f32  \
                                 ) (dst, src, __VA_ARGS__, 0)
 
 // move to block without computing properties
@@ -343,13 +372,14 @@ array_2d *block_to_array(array_2d * restrict a, block_2d * restrict blk);
                                 int8_t    *: move_i8_to_i32 , \
                                 uint16_t  *: move_u16_to_u32, \
                                 int16_t   *: move_i16_to_i32, \
-                                int32_t   *: move_i32_to_blk, \
-                                uint32_t  *: move_u32_to_blk, \
-                                float     *: move_flt_to_blk, \
+                                int32_t   *: move_i32_to_w32, \
+                                uint32_t  *: move_u32_to_w32, \
+                                float     *: move_f32_to_w32, \
                                 uint64_t  *: move_u64_to_u32, \
                                 int64_t   *: move_i64_to_i32, \
                                 double    *: move_d64_to_f32, \
-                                _Float16  *: move_f16_to_f32  \
+                                _Float16  *: move_f16_to_f32, \
+                                __bf16    *: move_b16_to_f32  \
                                 ) (dst, src, __VA_ARGS__, NULL, 0)
 
 

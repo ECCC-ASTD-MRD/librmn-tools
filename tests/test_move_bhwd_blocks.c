@@ -172,9 +172,9 @@ int copy_to_block_and_back(int gni, int gnj, int bni, int bnj, void *src_, int s
   set_bhwd_debug(1) ;
 fprintf(stderr, "gni = %d, gnj = %d, bni = %d, bnj = %d, src_type = %d", gni, gnj, bni, bnj, src_type) ;
   if(src_type > MAX_ARRAY_TYPES || src_type < 0) return -1 ;
-  into = into_bhwd[src_type] ;
-  from = from_bhwd[src_type] ;
-  bytes = element_bytes[src_type] ;
+  into = fn_into_block(src_type) ;
+  from = fn_from_block(src_type) ;
+  bytes = element_bytes(src_type) ;
 fprintf(stderr, ", bytes = %d", bytes) ;
   axi = split_axis(gni, bni) ;
   axj = split_axis(gnj, bnj) ;
@@ -206,12 +206,14 @@ fprintf(stderr, ", axi = %d/%d/%d, axj = %d/%d/%d\n", axi.nbk, axi.ln0, axi.ln1,
     uint64_t *: check_64( ref, new, lni, ni, nj) , \
     int64_t  *: check_64( ref, new, lni, ni, nj) , \
     double   *: check_64( ref, new, lni, ni, nj) , \
-    _Float16 *: check_16( ref, new, lni, ni, nj)   \
+    _Float16 *: check_16( ref, new, lni, ni, nj) , \
+    __bf16   *: check_16( ref, new, lni, ni, nj)   \
    )
 
-float b16_to_f32(__bf16 bf16);
-__bf16 f32_to_b16(float f32);
-void move_b16_to_f32(float * restrict f32, __bf16* restrict b16, int lni, int ni, int nj);
+// static __bf16 f32_to_b16(float f32){ union{ float f ; __bf16 b[2] ; }z ; z.f = f32 ; return z.b[1] ; }
+// static float b16_to_f32(__bf16 bf16){ union{ float f ; __bf16 b[2] ; }z ; z.b[0] = 0 ; z.b[1] = bf16 ; return z.f ;}
+// 
+// void move_b16_to_f32(float * restrict f32, __bf16* restrict b16, int lni, int ni, int nj);
 
 int main(int argc, char **argv){
   (void) (argc) ;
@@ -269,8 +271,9 @@ OK :
     if(i & 1) src_f32[i] = (-src_f32[i]) ;
     src_d64[i] = src_f32[i] ;
     src_f16[i] = src_f32[i] ;
-    src_b16[i] = f32_to_b16(src_f32[i]) ;
+    move_f32_to_b16(&src_b16[i], &src_f32[i], 1, 1, 1, NULL, 0);
   }
+//   move_f32_to_b16(src_b16, src_f32, GNI, GNI, GNJ, NULL, 0);
   int diff = 0 ;
   float maxdiff = 0.0, maxerr = 0.0, maxabs = 0.0f, minabs = 999999999.0f ;
 
@@ -290,12 +293,10 @@ OK :
   fprintf(stderr, "src_f16 vs src_f32 : %d differences, maxdiff = %f, maxerr = 1 part in %f, maxabs = %f, minabs = %f\n", diff, maxdiff, 1.0f / maxerr, maxabs, minabs) ;
 
   fprintf(stderr, "size of src_b16 element = %ld\n", sizeof(src_b16[0])) ;
-  move_b16_to_f32(rst_f32, src_b16, GNI, GNI, GNJ);
+  move_b16_to_f32(rst_f32, src_b16, GNI, GNI, GNJ, NULL, 0);
   maxdiff = 0.0 ; maxerr = 0.0 ; maxabs = 0.0f ; minabs = 999999999.0f ; diff = 0 ;
   for(i=0 ; i<GNI*GNJ ; i++){
-    float t ;
-    t = rst_f32[i] ;
-//     t = b16_to_f32(src_b16[i]) ;
+    float t = rst_f32[i] ;
     if( t != src_f32[i]) diff++ ;
     float diff = t - src_f32[i] ;
     diff = (diff < 0) ? -diff : diff ;
@@ -308,7 +309,7 @@ OK :
     if(abs != 0.0f) minabs = (abs < minabs) ? abs : minabs ;
   }
   fprintf(stderr, "src_b16 vs src_f32 : %d differences, maxdiff = %f, maxerr = 1 part in %f, maxabs = %f, minabs = %f\n", diff, maxdiff, 1.0f / maxerr, maxabs, minabs) ;
-return 0 ;
+// return 0 ;
 // check that signed 32 -> 64 bits copy is done right
 for(i=0 ; i<2 ; i++) fprintf(stderr, " i = %d, src_i64[i] = %ld, src_i32[i] = %d\n", i, src_i64[i], src_i32[i]) ;
 // syntax check
@@ -655,6 +656,30 @@ for(i=0 ; i<2 ; i++) fprintf(stderr, " i = %d, src_i64[i] = %ld, src_i32[i] = %d
   print_block_properties(tmm) ;
   fprintf(stderr, "SUCCESS: f16\n") ;
 
+  msg = "src_b16-1" ; set_32(blockf, NI*NJ) ; set_16(rst_b16, GNI*GNJ) ; 
+  bhwd2block(blockf, src_b16, GNI, NI, NJ, NULL) ;  // float 16 bit
+  block2bhwd(rst_b16, blockf, GNI, NI, NJ) ;
+  if(check_bhwd(src_b16, rst_b16, GNI, NI, NJ) != 0) goto fail ;
+  msg = "src_b16-2" ; set_32(blockf, NI*NJ) ; set_16(rst_b16, GNI*GNJ) ; 
+  bhwd2block(blockf, &src_b16[DNIJ], GNI, NI, NJ, &tmm) ;  // double 64 bit
+  block2bhwd(&rst_b16[DNIJ], blockf, GNI, NI, NJ) ;
+  if(check_bhwd(&src_b16[DNIJ], &rst_b16[DNIJ], GNI, NI, NJ) != 0) goto fail ;
+  msg = "src_b16-3" ; set_32(blockf, NI*NJ) ; set_16(rst_b16, GNI*GNJ) ; 
+  bhwd2block(blockf, src_b16, GNI, NI, NJ, NULL) ;  // float 16 bit
+  block2bhwd(rst_b16, blockf, GNI, NI, NJ) ;
+  if(check_bhwd(src_b16, rst_b16, GNI, NI, NJ) != 0) goto fail ;
+  TIME_LOOP_EZ(NITER, (NI*NJ), bhwd2block_nobp(blockf, src_b16, GNI, NI, NJ)  ) ;
+  fprintf(stderr, "%s", timer_msg) ;
+  TIME_LOOP_EZ(NITER, (NI*NJ), bhwd2block(blockf, src_b16, GNI, NI, NJ, &tmm)  ) ;
+  fprintf(stderr, " | %s", timer_msg) ;
+  TIME_LOOP_EZ(NITER, (NI*NJ), block2bhwd(rst_b16, blockf, GNI, NI, NJ) ) ;
+  fprintf(stderr, " | %s\n", timer_msg) ;
+  set_32(blockf, NI*NJ) ;
+  bhwd2block(blockf, src_b16, GNI, NI, NJ, NULL) ;  // float 16 bit
+  tmm = get_block_properties(blockf, NI*NJ) ;
+  print_block_properties(tmm) ;
+  fprintf(stderr, "SUCCESS: b16\n") ;
+
   if(timer_min == timer_max) fprintf(stderr, "this is unlikely to print\n") ; // get rid of warning set but unused
 
   fprintf(stderr, "\n") ;
@@ -720,6 +745,14 @@ for(i=0 ; i<2 ; i++) fprintf(stderr, " i = %d, src_i64[i] = %ld, src_i32[i] = %d
   msg = "src_d64-02" ; set_64(rst_d64, GNI*GNJ) ;
   copy_to_block_and_back(GNI, GNJ, NI, NJ, src_d64, array_type_code(src_d64), rst_d64) ;
   if(check_64_(GNI, GNI, GNJ, (void *)src_d64,  (void *)rst_d64) != 0) goto fail ;
+
+  msg = "src_f16-02" ; set_16(rst_f16, GNI*GNJ) ;
+  copy_to_block_and_back(GNI, GNJ, NI, NJ, src_f16, array_type_code(src_f16), rst_f16) ;
+  if(check_16_(GNI, GNI, GNJ, (void *)src_f16,  (void *)rst_f16) != 0) goto fail ;
+
+  msg = "src_b16-02" ; set_16(rst_b16, GNI*GNJ) ;
+  copy_to_block_and_back(GNI, GNJ, NI, NJ, src_b16, array_type_code(src_b16), rst_b16) ;
+  if(check_16_(GNI, GNI, GNJ, (void *)src_b16,  (void *)rst_b16) != 0) goto fail ;
 
   fprintf(stderr, "SUCCESS: multiple block copy\n") ;
 
@@ -790,8 +823,6 @@ for(i=0 ; i<2 ; i++) fprintf(stderr, " i = %d, src_i64[i] = %ld, src_i32[i] = %d
 
   local_block_2d(bp0, (NI*NJ*3)) ;               // local, monolithic
   msg = "error in array_to_block" ;
-  a2.type = bf16_data   ; if(array_to_block(ap2, bp0, NULL) != NULL) goto fail ;
-  a2.type = fp16_data   ; if(array_to_block(ap2, bp0, NULL) != NULL) goto fail ;
   a2.type = any_data    ; if(array_to_block(ap2, bp0, NULL) != NULL) goto fail ;
   a2.type = large_data  ; if(array_to_block(ap2, bp0, NULL) != NULL) goto fail ;
   a2.type = bad_data    ; if(array_to_block(ap2, bp0, NULL) != NULL) goto fail ;
@@ -805,14 +836,14 @@ for(i=0 ; i<2 ; i++) fprintf(stderr, " i = %d, src_i64[i] = %ld, src_i32[i] = %d
   a2.type = ulong_data  ; if(array_to_block(ap2, bp0, NULL) == NULL) goto fail ;
   a2.type = long_data   ; if(array_to_block(ap2, bp0, NULL) == NULL) goto fail ;
   a2.type = float_data  ; if(array_to_block(ap2, bp0, NULL) == NULL) goto fail ;
+  a2.type = bf16_data   ; if(array_to_block(ap2, bp0, NULL) == NULL) goto fail ;
+  a2.type = fp16_data   ; if(array_to_block(ap2, bp0, NULL) == NULL) goto fail ;
   a2.type = double_data ; if(array_to_block(ap2, bp0, NULL) == NULL) goto fail ;
 
   set_bhwd_debug(1) ;
   fprintf(stderr, "subarray bounds[%d:%d,%d:%d]\n", GNI-NI, GNI-1, GNJ-NJ, GNJ-1) ;
   set_array_lbounds(ap2, GNI-NI, GNI-1, GNJ-NJ, GNJ-1) ;
   msg = "error in block_to_array" ;
-  a2.type = bf16_data   ; bp0->type = float_data ; if(block_to_array(ap2, bp0) != NULL) goto fail ;
-  a2.type = fp16_data   ; bp0->type = float_data ; if(block_to_array(ap2, bp0) != NULL) goto fail ;
   a2.type = any_data    ; bp0->type = any_data   ; if(block_to_array(ap2, bp0) != NULL) goto fail ;
   a2.type = large_data  ; bp0->type = large_data ; if(block_to_array(ap2, bp0) != NULL) goto fail ;
   a2.type = bad_data    ; bp0->type = bad_data   ; if(block_to_array(ap2, bp0) != NULL) goto fail ;
@@ -826,6 +857,8 @@ for(i=0 ; i<2 ; i++) fprintf(stderr, " i = %d, src_i64[i] = %ld, src_i32[i] = %d
   a2.type = ulong_data  ; bp0->type = uint_data  ; if(block_to_array(ap2, bp0) == NULL) goto fail ;
   a2.type = long_data   ; bp0->type = int_data   ; if(block_to_array(ap2, bp0) == NULL) goto fail ;
   a2.type = float_data  ; bp0->type = float_data ; if(block_to_array(ap2, bp0) == NULL) goto fail ;
+  a2.type = bf16_data   ; bp0->type = float_data ; if(block_to_array(ap2, bp0) == NULL) goto fail ;
+  a2.type = fp16_data   ; bp0->type = float_data ; if(block_to_array(ap2, bp0) == NULL) goto fail ;
   a2.type = double_data ; bp0->type = float_data ; if(block_to_array(ap2, bp0) == NULL) goto fail ;
 
   set_bhwd_debug(0) ;
