@@ -54,7 +54,7 @@ static inline int32_t fp_to_flog_(float f, int nbits){
 // q     [OUT] : transformed integer values
 // n      [IN] : number of values
 // nbits  [IN] : number of desired significant mantissa bits ( forcing 0 <= nbits <= 23 )
-void fp_to_flog(float *z, int32_t *q, int n, int32_t nbits){
+void fp_to_flog(float *z, int32_t *q, int n, int nbits){
   int32_t i ;
 
   nbits = (nbits <  0) ?  0 : nbits ;         // number of mantissa bits to keep
@@ -90,6 +90,7 @@ static inline int32_t fp_to_qlog_(float f, int nbits, float minabs, float zval){
   r.i = (r.i < m.i) ? z.i : r.i ; // replace values below minimum significant value
   r.i = (r.i + round) ;           // apply rounding term to absolute value
   r.i >>= nbits ;                 // scale the absolute value, then apply saved sign
+//   r.i &= round_to_even_mask       // eventual round to even
   r.i ^= s ;                      // no-op if s == 0, negate if s == 0xFFFFFFFF
   r.i -= s ;                      // complement and add 1 is 2's complement negate
   return r.i ;                    // float represented as a signed integer
@@ -119,6 +120,44 @@ void fp_to_qlog(float *z, int32_t *q, int n, int32_t nbits, float minabs, float 
   nbits = (nbits < 0) ? 0 : nbits ;
   for(i=0 ; i<n ; i++){
     q[i] = fp_to_qlog_(z[i], nbits, minabs, zval) ;
+  }
+}
+
+// interpret _Float16 as int16_t
+static inline int16_t e5m10_as_i16(_Float16 z){
+  union{ int16_t i ; _Float16 f ; } r ;
+  r.f = z ;
+  return r.i ;
+}
+
+// convert sign magnitude IEEE float16 to 16 bit integer, order preserving
+void e5m10_to_flog(_Float16 *z, int16_t *q, int n, int nbits){
+  (void) (nbits) ;                 // keep same calling sequence as fp_to_flog
+  for(int i = 0 ; i<n ; i++){
+    q[i] = e5m10_as_i16(z[i]) ;     // bit pattern interpreted as a signed 16 bit integer
+    int16_t s = q[i] >> 15 ;       // 0 or 0xFFFF (extended sign)
+    q[i] &= 0x7FFF ;               // absolute value
+    q[i] ^= s ;                    // no-op if s == 0, negate if s == 0xFFFFFFFF
+    q[i] -= s ;                    // complement and add 1 is 2's complement negate
+  }
+}
+
+// interpret __bf16 as int16_t
+static inline int16_t e8m7_as_i16(__bf16 z){
+  union{ int16_t i ; __bf16 f ; } r ;
+  r.f = z ;
+  return r.i ;
+}
+
+// convert sign magnitude brain float16 to 16 bit integer, order preserving
+void e8m7_to_flog(__bf16 *z, int16_t *q, int n, int nbits){
+  (void) (nbits) ;                 // keep same calling sequence as fp_to_flog
+  for(int i = 0 ; i<n ; i++){
+    q[i] = e8m7_as_i16(z[i]) ;    // bit pattern interpreted as a signed 16 bit integer
+    int16_t s = q[i] >> 15 ;       // 0 or 0xFFFF (extended sign)
+    q[i] &= 0x7FFF ;               // absolute value
+    q[i] ^= s ;                    // no-op if s == 0, negate if s == 0xFFFFFFFF
+    q[i] -= s ;                    // complement and add 1 is 2's complement negate
   }
 }
 
@@ -213,6 +252,45 @@ void qlog_to_fp(float *z, int32_t *q, int n, int32_t nbits, float minabs, float 
     z[i] = qlog_to_fp_(q[i], nbits, minabs, zval) ;
   }
 }
+
+// interpret int16_t as _Float16
+static inline _Float16 i16_as_e5m10(int16_t z){
+  union{ int16_t i ; _Float16 f ; } r ;
+  r.i = z ;
+  return r.f ;
+}
+
+// signed 16 bit integer to sign magnitude IEEE 16 bit float, order preserving
+void flog_to_e5m10(_Float16 *z, int16_t *q, int n, int nbits){
+  (void) (nbits) ;                 // keep same calling sequence as flog_to_fp
+  for(int i=0 ; i<n ; i++){
+    int16_t s = q[i] >> 15 ;
+    q[i] &= 0x7FFF ;
+    q[i] ^= s ;
+    q[i] -= s ;
+    z[i] = i16_as_e5m10(q[i]) ;
+  }
+}
+
+// interpret int16_t as __bf16
+static inline __bf16 i16_as_e8m7(int16_t z){
+  union{ int16_t i ; __bf16 f ; } r ;
+  r.i = z ;
+  return r.f ;
+}
+
+// signed 16 bit integer to sign magnitude 16 bit brain float, order preserving
+void flog_to_e8m7(__bf16 *z, int16_t *q, int n, int nbits){
+  (void) (nbits) ;                 // keep same calling sequence as flog_to_fp
+  for(int i=0 ; i<n ; i++){
+    int16_t s = q[i] >> 15 ;
+    q[i] &= 0x7FFF ;
+    q[i] ^= s ;
+    q[i] -= s ;
+    z[i] = i16_as_e8m7(q[i]) ;
+  }
+}
+
 
 // ================================== difference test ==================================
 // COMPILE_TEST_CODE is expected to be NOT DEFINED

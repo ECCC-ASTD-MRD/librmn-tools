@@ -18,13 +18,21 @@
 
 #include <stdint.h>
 
+#include <rmn/extra_bf16.h>
+
 #if ! defined(FP_2_FLOG)
 
 #define FP_2_FLOG 2
 #define FP_2_QLOG 3
 
-void fp_to_flog(float *z, int32_t *q, int n, int32_t nbits);
+void fp_to_flog(float *z, int32_t *q, int n, int32_t nbits);     // 32 bit IEEE floats
 void flog_to_fp(float *z, int32_t *q, int n, int32_t nbits);
+
+void e5m10_to_flog(_Float16 *z, int16_t *q, int n, int nbits);   // 16 bit IEEE floats
+void flog_to_e5m10(_Float16 *z, int16_t *q, int n, int nbits);
+
+void e8m7_to_flog(__bf16 *z, int16_t *q, int n, int nbits);      // 16 bit brain floats
+void flog_to_e8m7(__bf16 *z, int16_t *q, int n, int nbits);
 
 void fp_to_qlog(float *z, int32_t *q, int n, int32_t nbits, float minabs, float zval);
 void qlog_to_fp(float *z, int32_t *q, int n, int32_t nbits, float minabs, float zval);
