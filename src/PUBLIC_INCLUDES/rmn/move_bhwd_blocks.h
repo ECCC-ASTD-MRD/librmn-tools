@@ -18,12 +18,8 @@
 #if ! defined(block2bhwd)
 
 #include <stdint.h>
-// clang, gcc, icx know about __bf16 (brain float 16 bits)
-#if defined(__PGI)
-  typedef struct{
-    uint16_t v ;
-  } __bf16 ;
-#endif
+// some compilers may not define __bf16 (brain float 16 bits)
+#include <rmn/extra_bf16.h>
 
 #include <rmn/data_properties.h>
 #include <rmn/array_nd.h>
