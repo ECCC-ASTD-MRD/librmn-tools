@@ -405,16 +405,24 @@ install(TARGETS ${TARGETS}
     PUBLIC_HEADER DESTINATION include)
 
 # Symbolic link for archive numbered version
-function(add_static_lib_link target link_name)
+function(add_lib_link target link_name postfix)
     add_custom_command(TARGET ${target} POST_BUILD
-        COMMAND ln -sfv lib${target}.a ${link_name}
+        COMMAND ln -sfv lib${target}.${postfix} ${link_name}.${postfix}
         WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
     install(FILES ${CMAKE_CURRENT_BINARY_DIR}/${link_name} DESTINATION lib)
 endfunction()
 
 if(BUILD_STATIC_LIBS)
-add_static_lib_link(rmntools-static librmntools_${PROJECT_VERSION}.a)
-add_static_lib_link(rmntoolsf-static librmntoolsf_${PROJECT_VERSION}.a)
+add_lib_link(rmntools-static librmntools a)
+add_lib_link(rmntools-static librmntools_${PROJECT_VERSION} a)
+add_lib_link(rmntoolsf-static librmntoolsf a)
+add_lib_link(rmntoolsf-static librmntoolsf_${PROJECT_VERSION} a)
+endif()
+if(BUILD_SHARED_LIBS)
+add_lib_link(rmntools-shared librmntools so)
+add_lib_link(rmntools-shared librmntools_${PROJECT_VERSION} so)
+add_lib_link(rmntoolsf-shared librmntoolsf so)
+add_lib_link(rmntoolsf-shared librmntoolsf_${PROJECT_VERSION} so)
 endif()
 
 #install public includes
