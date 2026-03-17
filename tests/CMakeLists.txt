@@ -13,7 +13,7 @@ function(add_project_test name source)
   cmake_parse_arguments(PARSE_ARGV 0 "TN" "NOCTEST;NODIAG;STATIC;NOTOOLS;NO_TOOLS;DL;BSD" "" "MPI;LINK_LIBS")
   # Use same name for target and executable file
   add_executable(${name} ${source})
-  set(PROJECT_STATIC_TEST_LIBRARIES rmntoolsf rmntools)
+  set(PROJECT_STATIC_TEST_LIBRARIES rmntoolsf-static rmntools-static)
   set(PROJECT_SHARED_TEST_LIBRARIES rmntoolsf-shared rmntools-shared)
   # suppress some diagnostics for Nvidia C compiler
   if( TN_NODIAG AND ${COMPILER_SUITE} MATCHES  "nvhpc")
@@ -43,7 +43,7 @@ function(add_project_test name source)
       target_link_libraries(${name} PRIVATE ${TN_LINK_LIBS})
 #       message(STATUS "target_link_libraries(${name} PRIVATE ${TN_LINK_LIBS})")
     else()
-      target_link_libraries(${name} PRIVATE -Bstatic ${PROJECT_STATIC_TEST_LIBRARIES} ${TN_LINK_LIBS} -Bdynamic ${libdl} ${libbsd})
+      target_link_libraries(${name} PRIVATE -Bstatic ${PROJECT_STATIC_TEST_LIBRARIES} -Bdynamic ${TN_LINK_LIBS} ${libdl} ${libbsd})
 #       message(STATUS "target_link_libraries(${name} PRIVATE -Bstatic ${PROJECT_STATIC_TEST_LIBRARIES} ${TN_LINK_LIBS} -Bdynamic)")
     endif()
   else()
@@ -143,8 +143,12 @@ add_project_test(test_identify_c_compiler test_identify_c_compiler.c LINK_LIBS "
 add_project_test(test_identify_fortran_compiler test_identify_fortran_compiler.F90 DL LINK_LIBS "rmn::rmn-shared;libaec::aec")
 add_project_test(test_timers test_timers.c LINK_LIBS "rmn::rmn-shared")
 
-add_project_test(test_tee_file test_tee_file.c LINK_LIBS "rmn::rmn-shared")
-add_project_test(test_tee_file_local test_tee_file.c LINK_LIBS "rmn::rmn-shared")
+# DYNAMIC, with static librmn
+add_project_test(test_tee_file test_tee_file.c LINK_LIBS "rmn::rmn-static")
+# STATIC, shared librmn
+# add_project_test(test_tee_file_static test_tee_file.c STATIC LINK_LIBS "rmn::rmn-shared" )
+# LOCAL, with static librmn
+add_project_test(test_tee_file_local test_tee_file.c LINK_LIBS "rmn::rmn-static")
 TARGET_COMPILE_DEFINITIONS(test_tee_file_local PRIVATE -DOVERRIDE_WITH_LOCAL)
 
 # add_project_test(test_bi_endian_pack test_bi_endian_pack.c LINK_LIBS "rmn::rmn-shared")

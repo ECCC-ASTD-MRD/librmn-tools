@@ -25,10 +25,29 @@
 #include <rmn/tee_print.h>
 
 static int32_t tee_auto_init = 1 ;
-static FILE *tee_file = NULL ;      // no tee log file by default
-static int32_t msg_level = 0 ;      // everything by default
-static int32_t tee_msg_level = 0 ;  // everything by default
-static int32_t auto_open = 0 ;      // OFF by default
+static FILE *tee_file = NULL ;               // no tee log file by default
+static int32_t msg_level = TEE_EXTRA ;       // everything by default
+static int32_t tee_msg_level = TEE_EXTRA ;   // everything by default
+static int32_t auto_open = 0 ;               // OFF by default
+static int32_t use_app = 0 ;                 // use App for messages (OFF by default)
+
+int32_t set_use_app(int32_t yes){
+  int32_t old = use_app ;
+  use_app = yes ;
+  return old ;
+}
+
+// set message levels
+int32_t set_msg_level(int32_t level){
+  int32_t old = msg_level ;
+  msg_level = level ;
+  return old ;
+}
+int32_t set_tee_msg_level(int32_t level){
+  int32_t old = tee_msg_level ;
+  tee_msg_level = level ;
+  return old ;
+}
 
 // set auto open mode (non zero = true)
 // return previous mode
@@ -74,26 +93,31 @@ fprintf(stderr, "opening automatic file '%s', prefix = '%s'\n", name, d) ;
     f = fopen(name, "a+") ;
     if(f == NULL) return tee_file ;  // open failed, NO-OP
   }
-  return set_tee_file(f) ;
+  set_tee_file(f) ;
+  return f ;
 }
 
 // diagnostic print, goes both to file f and tee_file (if not NULL)
 // if tee_file is NULL and auto_open is true, a tee log file is automatically opened
 #pragma weak print_diag=Print_diag
-// void print_diag(FILE *f, char *what, int level) ;
-void Print_diag(FILE *f, char *what, int level){
-  if(level < msg_level) return ;       // message level lower than threshold
-  fprintf(f, "%s", what) ;
+void Print_diag(FILE *f, char *what, int32_t level){
+
+  if(level > msg_level && msg_level != 0) return ;       // message level higher than threshold
+  if(use_app){
+    Lib_Log(APP_LIBRMN, level, "%s\n", what);
+  }else{
+    fprintf(f, "%s", what) ;
+  }
 
   if(tee_auto_init == 1){
     if( getenv("TEE_AUTO_OPEN") != NULL ) {
       auto_open = 1 ;
-fprintf(stderr, "DEBUG: auto_open = 1 \n") ;
+// fprintf(stderr, "DEBUG: auto_open = 1 \n") ;
     }
     tee_auto_init = 0 ;
   }
 
-  if(level < tee_msg_level) return ;   // message level lower than tee threshold
+  if(level > tee_msg_level && tee_msg_level != 0) return ;   // message level higher than tee threshold
 
   if(tee_file == NULL && auto_open){
     open_tee_file(NULL) ;

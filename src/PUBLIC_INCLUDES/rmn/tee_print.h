@@ -25,36 +25,33 @@
 //     //! [in] Variables referrenced in the format string
 //     ...
 // )
-#if ! defined(_App_h)
-typedef enum {
-    //! Written even if the selected level is quiet
-    APP_VERBATIM = -1,
-    APP_ALWAYS = 0,
-    //! Fatal error. Will cause the application to be terminated.
-    APP_FATAL = 1,
-    //! System error. Will cause the application to be terminated.
-    APP_SYSTEM = 2,
-    //! Error. Written to stderr
-    APP_ERROR = 3,
-    //! Warning
-    APP_WARNING = 4,
-    //! Informational
-    APP_INFO = 5,
-    //! Stats about process
-    APP_STAT = 6,
-    //! Trivial
-    APP_TRIVIAL = 7,
-    //! Debug
-    APP_DEBUG = 8,
-    //! Extra
-    APP_EXTRA = 9,
-    //! Quiet \todo Say what quiet actually does
-    APP_QUIET = 10,
-    // ! Fatal error, and collect from all PEs
-    APP_COLLECT = 128
-} TApp_LogLevel;
-void Lib_Log(const int lib, const TApp_LogLevel Level, const char * const Format, ... ) ;
-#endif
+// typedef enum {
+//     //! Written even if the selected level is quiet
+//     APP_VERBATIM = -1,
+//     APP_ALWAYS = 0,
+//     //! Fatal error. Will cause the application to be terminated.
+//     APP_FATAL = 1,
+//     //! System error. Will cause the application to be terminated.
+//     APP_SYSTEM = 2,
+//     //! Error. Written to stderr
+//     APP_ERROR = 3,
+//     //! Warning
+//     APP_WARNING = 4,
+//     //! Informational
+//     APP_INFO = 5,
+//     //! Stats about process
+//     APP_STAT = 6,
+//     //! Trivial
+//     APP_TRIVIAL = 7,
+//     //! Debug
+//     APP_DEBUG = 8,
+//     //! Extra
+//     APP_EXTRA = 9,
+//     //! Quiet \todo Say what quiet actually does
+//     APP_QUIET = 10,
+//     // ! Fatal error, and collect from all PEs
+//     APP_COLLECT = 128
+// } TApp_LogLevel;
 // Lib_Log(APP_LIBRMN, APP_ERROR/APP_INFO/APP_WARNING, "%s", msg)
 #if ! defined(TEE_PRINT_DEFINED)
 #define TEE_PRINT_DEFINED
@@ -62,14 +59,20 @@ void Lib_Log(const int lib, const TApp_LogLevel Level, const char * const Format
 #include <stdio.h>
 #include <stdint.h>
 
-#define TEE_DEBUG   0
-#define TEE_INFO    2
-#define TEE_WARNING 4
-#define TEE_ERROR   6
-#define TEE_FATAL   8
+#define TEE_ALWAYS  APP_ALWAYS
+#define TEE_EXTRA   APP_EXTRA
+#define TEE_DEBUG   APP_DEBUG
+#define TEE_INFO    APP_INFO
+#define TEE_WARNING APP_WARNING
+#define TEE_ERROR   APP_ERROR
+#define TEE_FATAL   APP_FATAL
 
 // print_diag is a WEAK entry point that can be overriden by a user supplied function
-void print_diag(FILE *f, char *what, int level) ;
+void print_diag(FILE *f, char *what, int32_t level) ;
+
+int32_t set_msg_level(int32_t level);
+int32_t set_tee_msg_level(int32_t level);
+int32_t set_use_app(int32_t yes);
 
 int32_t set_tee_auto_open(int32_t mode) ;
 FILE *open_tee_file(char *fname) ;
