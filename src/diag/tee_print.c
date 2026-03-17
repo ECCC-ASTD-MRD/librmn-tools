@@ -104,7 +104,7 @@ void Print_diag(FILE *f, char *what, int32_t level){
 
   if(level > msg_level && msg_level != 0) return ;       // message level higher than threshold
   if(use_app){
-    Lib_Log(APP_LIBRMN, level, "%s\n", what);
+    Lib_Log(APP_LIBRMN, (TApp_LogLevel)level, "%s\n", what);
   }else{
     fprintf(f, "%s", what) ;
   }

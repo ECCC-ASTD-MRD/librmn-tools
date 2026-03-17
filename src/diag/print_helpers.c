@@ -25,6 +25,7 @@
 // n     [IN] : number of bytes to print
 // level [IN] : message level TEE_DEBUG/.../TEE_FATAL (see rmn/tee_print.h)
 void hexprintf_08(FILE *f, void *what, int n, char *msg, int level){
+  (void) (f) ;
   uint8_t *c08 = (uint8_t *) what ;
   int i ;
   TEE_FPRINTF(f, level, " %s", msg) ;
@@ -38,6 +39,7 @@ void hexprintf_08(FILE *f, void *what, int n, char *msg, int level){
 // n     [IN] : number of halfwords to print
 // level [IN] : message level TEE_DEBUG/.../TEE_FATAL (see rmn/tee_print.h)
 void hexprintf_16(FILE *f, void *what, int n, char *msg, int level){
+  (void) (f) ;
   uint16_t *h16 = (uint16_t *) what ;
   int i ;
   TEE_FPRINTF(f, level, " %s", msg) ;
@@ -51,6 +53,7 @@ void hexprintf_16(FILE *f, void *what, int n, char *msg, int level){
 // n     [IN] : number of words to print
 // level [IN] : message level TEE_DEBUG/.../TEE_FATAL (see rmn/tee_print.h)
 void hexprintf_32(FILE *f, void *what, int n, char *msg, int level){
+  (void) (f) ;
   uint32_t *w32 = (uint32_t *) what ;
   int i ;
   TEE_FPRINTF(f, level, " %s", msg) ;
@@ -64,6 +67,7 @@ void hexprintf_32(FILE *f, void *what, int n, char *msg, int level){
 // n     [IN] : number of doublewords to print
 // level [IN] : message level TEE_DEBUG/.../TEE_FATAL (see rmn/tee_print.h)
 void hexprintf_64(FILE *f, void *what, int n, char *msg, int level){
+  (void) (f) ;
   uint64_t *l64 = (uint64_t *) what ;
   int i ;
   TEE_FPRINTF(f, level, " %s", msg) ;

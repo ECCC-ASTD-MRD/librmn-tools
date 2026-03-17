@@ -14,7 +14,6 @@
 //
 // print messages from application, possibly duplicating them to a file
 //
-#include <App.h>
 // void Lib_Log(
 //     //! [in] Library id
 //     const TApp_Lib Lib,
@@ -53,19 +52,14 @@
 //     APP_COLLECT = 128
 // } TApp_LogLevel;
 // Lib_Log(APP_LIBRMN, APP_ERROR/APP_INFO/APP_WARNING, "%s", msg)
+
+#define USE_APP
+
 #if ! defined(TEE_PRINT_DEFINED)
 #define TEE_PRINT_DEFINED
 
 #include <stdio.h>
 #include <stdint.h>
-
-#define TEE_ALWAYS  APP_ALWAYS
-#define TEE_EXTRA   APP_EXTRA
-#define TEE_DEBUG   APP_DEBUG
-#define TEE_INFO    APP_INFO
-#define TEE_WARNING APP_WARNING
-#define TEE_ERROR   APP_ERROR
-#define TEE_FATAL   APP_FATAL
 
 // print_diag is a WEAK entry point that can be overriden by a user supplied function
 void print_diag(FILE *f, char *what, int32_t level) ;
@@ -79,15 +73,53 @@ FILE *open_tee_file(char *fname) ;
 FILE *set_tee_file(FILE *f) ;
 FILE *get_tee_file(void) ;
 
-// "replacement" for printf
-#define TEE_PRINTF(level, ...) { char _TeMp_[4096] ; snprintf(_TeMp_, sizeof(_TeMp_),  __VA_ARGS__) ; print_diag(stdout, _TeMp_, level) ; }
-
-// "replacement" for fprintf
-#define TEE_FPRINTF( file, level,...) { char _TeMp_[4096] ; snprintf(_TeMp_, sizeof(_TeMp_),  __VA_ARGS__) ; print_diag(file, _TeMp_, level) ; }
-
 void hexprintf_08(FILE *f, void *what, int n, char *msg, int level);
 void hexprintf_16(FILE *f, void *what, int n, char *msg, int level);
 void hexprintf_32(FILE *f, void *what, int n, char *msg, int level);
 void hexprintf_64(FILE *f, void *what, int n, char *msg, int level);
+
+#if defined(USE_APP)
+#include <App.h>
+
+#define TEE_ALWAYS  APP_ALWAYS
+#define TEE_EXTRA   APP_EXTRA
+#define TEE_DEBUG   APP_DEBUG
+#define TEE_INFO    APP_INFO
+#define TEE_WARNING APP_WARNING
+#define TEE_ERROR   APP_ERROR
+#define TEE_SYSTEM  APP_SYSTEM
+#define TEE_FATAL   APP_FATAL
+
+#define TEE_PRINTF(level, ...)        Lib_Log(APP_LIBRMN, (TApp_LogLevel)level, __VA_ARGS__)
+#define TEE_FPRINTF( file, level,...) Lib_Log(APP_LIBRMN, (TApp_LogLevel)level, __VA_ARGS__)
+
+#else
+
+#define TEE_ALWAYS  0
+#define TEE_EXTRA   9
+#define TEE_DEBUG   8
+#define TEE_INFO    5
+#define TEE_WARNING 4
+#define TEE_ERROR   3
+#define TEE_SYSTEM  2
+#define TEE_FATAL   1
+void Lib_Log(
+    //! [in] Library id
+    const int32_t Lib,
+    //! [in] Message level. See \ref TApp_LogLevel
+    const int32_t Level,
+    //! [in] printf style format string
+    const char * const Format,
+    //! [in] Variables referrenced in the format string
+    ...
+)
+
+// "replacement" for printf
+#define TEE_PRINTF(level, ...) { char _TeMp_[4096] ; snprintf(_TeMp_, sizeof(_TeMp_),  __VA_ARGS__) ; print_diag(stdout, _TeMp_, (int32_t)level) ; }
+
+// "replacement" for fprintf
+#define TEE_FPRINTF( file, level,...) { char _TeMp_[4096] ; snprintf(_TeMp_, sizeof(_TeMp_),  __VA_ARGS__) ; print_diag(file, _TeMp_, (int32_t)level) ; }
+
+#endif
 
 #endif
