@@ -262,38 +262,38 @@ endif()
 
 # ======================== LIBRARY TARGETS ======================
 if(BUILD_STATIC_LIBS)
-  LIST(APPEND PROJECT_TEST_DEPENDENCIES rmntoolsf)
+  LIST(APPEND PROJECT_TEST_DEPENDENCIES rmntoolsf-static)
 
   # C static library
-  add_library(rmntools STATIC ${PROJECT_C_FILES})
-  set_target_properties(rmntools PROPERTIES
+  add_library(rmntools-static STATIC ${PROJECT_C_FILES})
+  set_target_properties(rmntools-static PROPERTIES
       VERSION ${PROJECT_VERSION}
       PUBLIC_HEADER ${CMAKE_CURRENT_SOURCE_DIR}/src/PUBLIC_INCLUDES/rmntools.h
       POSITION_INDEPENDENT_CODE ON
-      OUTPUT_NAME rmntools)
+      OUTPUT_NAME rmntools-static)
   if(WITH_OPENMP)
-      target_compile_definitions(rmntools PUBLIC WITH_OPENMP)
-      target_link_libraries(rmntools PUBLIC OpenMP::OpenMP_C)
+      target_compile_definitions(rmntools-static PUBLIC WITH_OPENMP)
+      target_link_libraries(rmntools-static PUBLIC OpenMP::OpenMP_C)
   endif()
 
   # Fortran static library
   # include C objects in Fortran library to avoid needing C library
-  add_library(rmntoolsf STATIC ${PROJECT_F_FILES} $<TARGET_OBJECTS:rmntools>)
-#   add_library(rmntoolsf STATIC ${PROJECT_F_FILES} ${PROJECT_C_FILES})
-  set_target_properties(rmntoolsf PROPERTIES
+  add_library(rmntoolsf-static STATIC ${PROJECT_F_FILES} $<TARGET_OBJECTS:rmntools-static>)
+#   add_library(rmntoolsf-static STATIC ${PROJECT_F_FILES} ${PROJECT_C_FILES})
+  set_target_properties(rmntoolsf-static PROPERTIES
       VERSION ${PROJECT_VERSION}
       PUBLIC_HEADER ${CMAKE_CURRENT_SOURCE_DIR}/src/PUBLIC_INCLUDES/rmntools.h
       POSITION_INDEPENDENT_CODE ON
-      OUTPUT_NAME rmntoolsf)
+      OUTPUT_NAME rmntoolsf-static)
   # (Fortran library no longer makes calls to C library, it includes it)
-  # target_link_libraries(rmntoolsf PUBLIC rmntools)
+  # target_link_libraries(rmntoolsf-static PUBLIC rmntools-static)
   if(WITH_OPENMP)
-      target_compile_definitions(rmntoolsf PUBLIC WITH_OPENMP)
-      target_link_libraries(rmntoolsf PUBLIC OpenMP::OpenMP_Fortran)
+      target_compile_definitions(rmntoolsf-static PUBLIC WITH_OPENMP)
+      target_link_libraries(rmntoolsf-static PUBLIC OpenMP::OpenMP_Fortran)
   endif()
 
-  add_library(${PROJECT_NAME}::${PROJECT_NAME} ALIAS ${PROJECT_NAME})
-  list(APPEND TARGETS rmntools rmntoolsf)
+  add_library(${PROJECT_NAME}::${PROJECT_NAME}-static ALIAS ${PROJECT_NAME}-static)
+  list(APPEND TARGETS rmntools-static rmntoolsf-static)
 
 endif(BUILD_STATIC_LIBS)
 
@@ -304,7 +304,7 @@ if(BUILD_SHARED_LIBS)
 
   # C shared library
   if(BUILD_STATIC_LIBS)
-    add_library(rmntools-shared SHARED $<TARGET_OBJECTS:rmntools>)
+    add_library(rmntools-shared SHARED $<TARGET_OBJECTS:rmntools-static>)
   else()
     add_library(rmntools-shared SHARED ${PROJECT_C_FILES})
   endif()
@@ -335,7 +335,7 @@ if(BUILD_SHARED_LIBS)
 
   # include C objects in Fortran library
   if(BUILD_STATIC_LIBS)
-    add_library(rmntoolsf-shared SHARED $<TARGET_OBJECTS:rmntoolsf> $<TARGET_OBJECTS:rmntools>)
+    add_library(rmntoolsf-shared SHARED $<TARGET_OBJECTS:rmntoolsf-static> $<TARGET_OBJECTS:rmntools-static>)
   else()
     add_library(rmntoolsf-shared SHARED ${PROJECT_F_FILES} $<TARGET_OBJECTS:rmntools-shared>)
   endif()
@@ -413,8 +413,8 @@ function(add_static_lib_link target link_name)
 endfunction()
 
 if(BUILD_STATIC_LIBS)
-add_static_lib_link(rmntools librmntools_${PROJECT_VERSION}.a)
-add_static_lib_link(rmntoolsf librmntoolsf_${PROJECT_VERSION}.a)
+add_static_lib_link(rmntools-static librmntools_${PROJECT_VERSION}.a)
+add_static_lib_link(rmntoolsf-static librmntoolsf_${PROJECT_VERSION}.a)
 endif()
 
 #install public includes
