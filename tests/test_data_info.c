@@ -14,8 +14,8 @@ int main(int argc, char **argv){
   int32_t fi[NP2] ;
   int i ;
   limits_w32 l ;
-  uint64_t u64 ;
-  uint64_t t[NTIMES] ;
+//   uint64_t u64 ;
+//   uint64_t t[NTIMES] ;
   TIME_LOOP_DATA ;
   char *errmsg ;
   float fg = 0.5f ;  // replacement value for "missing" values
@@ -185,7 +185,7 @@ int main(int argc, char **argv){
   errmsg = "getting unexpected pad value" ;
   for(i = 1 ; i < NP2-1 ; i++) if(ff[i] == pad) goto error ;  // pad should only be found at 0 and NP2-1
 
-timings :
+// timings :
   TEE_FPRINTF(stderr,2, "====================  TIMINGS ====================\n") ;
   TIME_LOOP_EZ(1000, NP2, l = IEEE32_extrema(ff, NP2)) ;
   TEE_FPRINTF(stderr,2, "IEEE32_extrema             : %s\n",timer_msg);
@@ -226,6 +226,7 @@ timings :
   TEE_FPRINTF(stderr,2, "W32_replace_special        : %s\n",timer_msg);
 //   TEE_FPRINTF(stderr,2, "W32_replace_missing        : %s\n",timer_msg);
 
+  if(timer_max == timer_min) TEE_FPRINTF(stderr,2, "unlikely to happen\n");
   TEE_FPRINTF(stderr,2, "\nSUCCESS\n") ;
   return 0 ;
 

@@ -285,4 +285,8 @@ int main(int argc, char **argv){
   npts = 1024*1024*1024 ;   // memory
   TIME_LOOP_EZ(20, npts, Copy_items_l2r(tmp1, 1, tmp2, 8, npts)) ;
   TEE_FPRINTF(stderr, TEE_INFO, "Copy_items_l2r           : %s\n", timer_msg);
+
+  if(timer_max == timer_min) TEE_FPRINTF(stderr, TEE_INFO, "unlikely to happen\n");
+  TEE_FPRINTF(stderr,2, "\nSUCCESS\n") ;
+  return 0 ;
 }

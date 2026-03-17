@@ -102,4 +102,6 @@ fprintf(stderr, "DEBUG: auto_open = 1 \n") ;
     fprintf(tee_file, "%s", what) ;
   }
 }
+// App Lib_Log alternative (used if weak Use_Lib_Log is available)
+// Use_Lib_Log(APP_LIBRMN, APP_ERROR/APP_INFO/APP_WARNING, "%s", msg)
 

@@ -22,11 +22,13 @@ int main(int argc, char **argv){
   TEE_FPRINTF(stderr, -1, "MUST NOT SEE : %d %d %d\n", 10, 20, 30) ;
   TEE_FPRINTF(stderr, 1, "MUST SEE : %d %d %d\n", 10, 20, 30) ;
   FILE *f1 = open_tee_file("test_tee_file.log") ;
+  if(f1 == NULL) exit(1) ;
   tee_file = get_tee_file() ;
   if(tee_file == stdout) fprintf(stderr,"tee file is stdout\n") ;
   TEE_FPRINTF(stderr, -1, "MUST NOT SEE : %d %d %d\n", 1, 2, 3) ;
   TEE_FPRINTF(stderr, 1, "MUST SEE : %d %d %d\n", 1, 2, 3) ;
   FILE *f2 = open_tee_file(NULL) ;
+  if(f2 == NULL) exit(1) ;
   tee_file = get_tee_file() ;
   if(tee_file == stdout) fprintf(stderr,"tee file is stdout\n") ;
   TEE_FPRINTF(stderr, -1, "MUST NOT SEE : %d %d %d\n", 4, 5, 6) ;

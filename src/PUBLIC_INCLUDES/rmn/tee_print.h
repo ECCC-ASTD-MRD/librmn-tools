@@ -1,20 +1,61 @@
-/*
- * Hopefully useful code for C
- * Copyright (C) 2023-2024  Recherche en Prevision Numerique
- *
- * This code is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Lesser General Public
- * License as published by the Free Software Foundation,
- * version 2.1 of the License.
- *
- * This code is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * Library General Public License for more details.
- *
- * print messages from application, possibly duplicating them to a file
- * 
- */
+//
+// Hopefully useful code for C
+// Copyright (C) 2023-2024  Recherche en Prevision Numerique
+//
+// This code is free software; you can redistribute it and/or
+// modify it under the terms of the GNU Lesser General Public
+// License as published by the Free Software Foundation,
+// version 2.1 of the License.
+//
+// This code is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+// Library General Public License for more details.
+//
+// print messages from application, possibly duplicating them to a file
+//
+#include <App.h>
+// void Lib_Log(
+//     //! [in] Library id
+//     const TApp_Lib Lib,
+//     //! [in] Message level. See \ref TApp_LogLevel
+//     const TApp_LogLevel Level,
+//     //! [in] printf style format string
+//     const char * const Format,
+//     //! [in] Variables referrenced in the format string
+//     ...
+// )
+#if ! defined(_App_h)
+typedef enum {
+    //! Written even if the selected level is quiet
+    APP_VERBATIM = -1,
+    APP_ALWAYS = 0,
+    //! Fatal error. Will cause the application to be terminated.
+    APP_FATAL = 1,
+    //! System error. Will cause the application to be terminated.
+    APP_SYSTEM = 2,
+    //! Error. Written to stderr
+    APP_ERROR = 3,
+    //! Warning
+    APP_WARNING = 4,
+    //! Informational
+    APP_INFO = 5,
+    //! Stats about process
+    APP_STAT = 6,
+    //! Trivial
+    APP_TRIVIAL = 7,
+    //! Debug
+    APP_DEBUG = 8,
+    //! Extra
+    APP_EXTRA = 9,
+    //! Quiet \todo Say what quiet actually does
+    APP_QUIET = 10,
+    // ! Fatal error, and collect from all PEs
+    APP_COLLECT = 128
+} TApp_LogLevel;
+void Lib_Log(const int lib, const TApp_LogLevel Level, const char * const Format, ... ) ;
+#endif
+// Lib_Log(APP_LIBRMN, APP_ERROR/APP_INFO/APP_WARNING, "%s", msg)
 #if ! defined(TEE_PRINT_DEFINED)
 #define TEE_PRINT_DEFINED
 
