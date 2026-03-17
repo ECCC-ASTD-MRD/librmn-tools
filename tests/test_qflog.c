@@ -59,8 +59,9 @@ int main(int argc, char **argv){
   fprintf(stderr, "x = ") ; for(i=0 ; i<NPTS ; i+=(NPTS/8)){ fprintf(stderr, "%14.6E", x[i]) ; } ; fprintf(stderr, "\n") ;
   fprintf(stderr, "q = ") ; for(i=0 ; i<NPTS ; i+=(NPTS/8)){ fprintf(stderr, "%14.8x", q[i]) ; } ; fprintf(stderr, "\n") ;
   fprintf(stderr, "r = ") ; for(i=0 ; i<NPTS ; i+=(NPTS/8)){ fprintf(stderr, "%14.6E", r[i]) ; } ; fprintf(stderr, "\n") ;
-  fprintf(stderr, "max rel err : 1 part in %.0f, target = 1 part in %.0f\n\n", maxerr, 1.0f*(1 << nbits)) ;
+  fprintf(stderr, "max rel err : 1 part in %.0f, target = 1 part in %.0f\n", maxerr, 1.0f*(1 << nbits)) ;
   if(maxerr < (1 << nbits)) goto fail ;
+  fprintf(stderr, "SUCCESS\n\n");
 
   for(i=0 ; i<NPTS ; i++) { x[i] = 1.0f/x[i] ; } ;
   fp_to_flog(x, q, NPTS, nbits) ;
@@ -71,8 +72,9 @@ int main(int argc, char **argv){
   fprintf(stderr, "x = ") ; for(i=0 ; i<NPTS ; i+=(NPTS/8)){ fprintf(stderr, "%14.6E", x[i]) ; } ; fprintf(stderr, "\n") ;
   fprintf(stderr, "q = ") ; for(i=0 ; i<NPTS ; i+=(NPTS/8)){ fprintf(stderr, "%14.8x", q[i]) ; } ; fprintf(stderr, "\n") ;
   fprintf(stderr, "r = ") ; for(i=0 ; i<NPTS ; i+=(NPTS/8)){ fprintf(stderr, "%14.6E", r[i]) ; } ; fprintf(stderr, "\n") ;
-  fprintf(stderr, "max rel err : 1 part in %.0f, target = 1 part in %.0f\n\n", maxerr, 1.0f*(1 << nbits)) ;
+  fprintf(stderr, "max rel err : 1 part in %.0f, target = 1 part in %.0f\n", maxerr, 1.0f*(1 << nbits)) ;
   if(maxerr < (1 << nbits)) goto fail ;
+  fprintf(stderr, "SUCCESS\n\n");
 
   TIME_LOOP_EZ(NITER, NPTS, fp_to_flog(x, q, NPTS, nbits) ) ;
   if(timer_min == timer_max) timer_avg = timer_max ;
@@ -109,6 +111,8 @@ int main(int argc, char **argv){
 //   fp_to_flog(x, q, NPTS, nbits) ;
 //   t2 = elapsed_cycles() ;
 //   fprintf(stderr, "fp_to_flog : cycles = %ld\n", t2-t1) ;
+
+// TODO : add test for e5m10_to_flog/flog_to_e5m10 and e8m7_to_flog/flog_to_e8m7
 
   fprintf(stderr, "SUCCESS\n") ;
   return 0 ;

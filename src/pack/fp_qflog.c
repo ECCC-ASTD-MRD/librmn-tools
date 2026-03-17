@@ -54,7 +54,7 @@ static inline int32_t fp_to_flog_(float f, int nbits){
 // q     [OUT] : transformed integer values
 // n      [IN] : number of values
 // nbits  [IN] : number of desired significant mantissa bits ( forcing 0 <= nbits <= 23 )
-void fp_to_flog(float *z, int32_t *q, int n, int nbits){
+void fp_to_flog(float * restrict z, int32_t * restrict q, int n, int nbits){
   int32_t i ;
 
   nbits = (nbits <  0) ?  0 : nbits ;         // number of mantissa bits to keep
@@ -107,7 +107,7 @@ static inline int32_t fp_to_qlog_(float f, int nbits, float minabs, float zval){
 // nbits  [IN] : number of desired significant mantissa bits ( forcing 0 <= nbits <= 23 )
 // minabs [IN] : smallest signicant absolute value (will be truncated to power of 2 <= minabs)
 // zval   [IN] : replace absolute value < minabs with zval (truncated to power of 2 <= zval)
-void fp_to_qlog(float *z, int32_t *q, int n, int32_t nbits, float minabs, float zval){
+void fp_to_qlog(float * restrict z, int32_t * restrict q, int n, int32_t nbits, float minabs, float zval){
   int32_t i ;
 
   if(minabs == 0.0f){
@@ -131,7 +131,7 @@ static inline int16_t e5m10_as_i16(_Float16 z){
 }
 
 // convert sign magnitude IEEE float16 to 16 bit integer, order preserving
-void e5m10_to_flog(_Float16 *z, int16_t *q, int n, int nbits){
+void e5m10_to_flog(_Float16 * restrict z, int16_t * restrict q, int n, int nbits){
   (void) (nbits) ;                 // keep same calling sequence as fp_to_flog
   for(int i = 0 ; i<n ; i++){
     q[i] = e5m10_as_i16(z[i]) ;     // bit pattern interpreted as a signed 16 bit integer
@@ -150,7 +150,7 @@ static inline int16_t e8m7_as_i16(__bf16 z){
 }
 
 // convert sign magnitude brain float16 to 16 bit integer, order preserving
-void e8m7_to_flog(__bf16 *z, int16_t *q, int n, int nbits){
+void e8m7_to_flog(__bf16 * restrict z, int16_t * restrict q, int n, int nbits){
   (void) (nbits) ;                 // keep same calling sequence as fp_to_flog
   for(int i = 0 ; i<n ; i++){
     q[i] = e8m7_as_i16(z[i]) ;    // bit pattern interpreted as a signed 16 bit integer
@@ -189,7 +189,7 @@ float flog_to_fp_1(int32_t i, int nbits){
 // q      [IN] : integer values
 // n      [IN] : number of values
 // nbits  [IN] : number of significant mantissa bits kept (MUST BE the same value used for fp_to_qlog)
-void flog_to_fp(float *z, int32_t *q, int n, int32_t nbits){
+void flog_to_fp(float * restrict z, int32_t * restrict q, int n, int32_t nbits){
   int32_t i ;
 
   nbits = (nbits < 0) ? 0 : nbits ;         // number of significant bits kept during quantization
@@ -237,7 +237,7 @@ static inline float qlog_to_fp_(int32_t i, int nbits, float minabs, float zval){
 // nbits  [IN] : number of significant mantissa bits (MUST BE the same value used for fp2fsi_n)
 // minabs [IN] : smallest signicant absolute value (should match minabs/zval from fp_to_qlog_n)
 // zval   [IN] : an absolute value < |minabs| gets replaced with |zval| (sign of value is preserved)
-void qlog_to_fp(float *z, int32_t *q, int n, int32_t nbits, float minabs, float zval){
+void qlog_to_fp(float * restrict z, int32_t * restrict q, int n, int32_t nbits, float minabs, float zval){
   int32_t i ;
 
   if(minabs == 0.0f){
@@ -261,7 +261,7 @@ static inline _Float16 i16_as_e5m10(int16_t z){
 }
 
 // signed 16 bit integer to sign magnitude IEEE 16 bit float, order preserving
-void flog_to_e5m10(_Float16 *z, int16_t *q, int n, int nbits){
+void flog_to_e5m10(_Float16 * restrict z, int16_t * restrict q, int n, int nbits){
   (void) (nbits) ;                 // keep same calling sequence as flog_to_fp
   for(int i=0 ; i<n ; i++){
     int16_t s = q[i] >> 15 ;
@@ -280,7 +280,7 @@ static inline __bf16 i16_as_e8m7(int16_t z){
 }
 
 // signed 16 bit integer to sign magnitude 16 bit brain float, order preserving
-void flog_to_e8m7(__bf16 *z, int16_t *q, int n, int nbits){
+void flog_to_e8m7(__bf16 * restrict z, int16_t * restrict q, int n, int nbits){
   (void) (nbits) ;                 // keep same calling sequence as flog_to_fp
   for(int i=0 ; i<n ; i++){
     int16_t s = q[i] >> 15 ;

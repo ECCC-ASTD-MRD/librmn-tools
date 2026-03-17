@@ -153,7 +153,8 @@ void qflin_to_fp(float *f, int32_t *q, int n, int32_t e_base, int32_t offset){
 }
 
 // ================================== difference test ==================================
-
+// COMPILE_TEST_CODE is expected to be NOT DEFINED
+#if defined(COMPILE_TEST_CODE)
 float fp_to_from_qlin(float *f, int n, float max_err, int32_t nbits, int32_t *offset){
   int32_t i, q[n] ;
   float t, maxdiff = 0.0f, r[n] ;
@@ -167,3 +168,4 @@ float fp_to_from_qlin(float *f, int n, float max_err, int32_t nbits, int32_t *of
   }
   return maxdiff ;
 }
+#endif
