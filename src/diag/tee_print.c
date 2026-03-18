@@ -25,24 +25,43 @@
 #include <rmn/tee_print.h>
 
 static int32_t tee_auto_init = 1 ;
+static FILE *msg_file = NULL ;               // no default message file
 static FILE *tee_file = NULL ;               // no tee log file by default
 static int32_t msg_level = TEE_EXTRA ;       // everything by default
 static int32_t tee_msg_level = TEE_EXTRA ;   // everything by default
 static int32_t auto_open = 0 ;               // OFF by default
-static int32_t use_app = 0 ;                 // use App for messages (OFF by default)
+static int32_t use_app = 0 ;                 // use App for messages
 
+static char *names[] = { "ALWAYS", "FATAL", "SYSTEM", "ERROR", "WARNING", "INFO", "STAT", "TRIVIAL", "DEBUG", "EXTRA", "QUIET", "INVALID" } ;
+
+char *msg_level_name(int32_t level){
+  if(level < 0 || level > 10) return names[11] ;
+  return names[level] ;
+}
+
+// get use App flag
+int32_t get_use_app() { return use_app ; }
+
+// set use App flag
 int32_t set_use_app(int32_t yes){
   int32_t old = use_app ;
   use_app = yes ;
   return old ;
 }
 
-// set message levels
+// get message threshold levels
+int32_t get_msg_level(){ return msg_level ; }
+
+// set message threshold levels
 int32_t set_msg_level(int32_t level){
   int32_t old = msg_level ;
   msg_level = level ;
-  return old ;
+  if(use_app){
+    Lib_LogLevelNo(APP_LIBRMN, (TApp_LogLevel)level) ;
+    App_LogLevelNo((TApp_LogLevel)level) ;
+  }  return old ;
 }
+// set tee message threshold level
 int32_t set_tee_msg_level(int32_t level){
   int32_t old = tee_msg_level ;
   tee_msg_level = level ;
@@ -68,6 +87,19 @@ FILE *set_tee_file(FILE *f){
 // get current tee log file pointer
 FILE *get_tee_file(void){
   return tee_file ;
+}
+
+// set message file pointer to f
+// return old file pointer
+FILE *set_msg_file(FILE *f){
+  FILE *old = msg_file ;
+  msg_file = f ;
+  return old ;
+}
+
+// get current message file pointer
+FILE *get_msg_file(void){
+  return msg_file ? msg_file : stdout ;
 }
 
 // tee log file  to file named fname
@@ -104,7 +136,7 @@ void Print_diag(FILE *f, char *what, int32_t level){
 
   if(level > msg_level && msg_level != 0) return ;       // message level higher than threshold
   if(use_app){
-    Lib_Log(APP_LIBRMN, (TApp_LogLevel)level, "%s\n", what);
+    Lib_Log(APP_LIBRMN, (TApp_LogLevel)level, "%s", what);
   }else{
     fprintf(f, "%s", what) ;
   }
@@ -112,7 +144,6 @@ void Print_diag(FILE *f, char *what, int32_t level){
   if(tee_auto_init == 1){
     if( getenv("TEE_AUTO_OPEN") != NULL ) {
       auto_open = 1 ;
-// fprintf(stderr, "DEBUG: auto_open = 1 \n") ;
     }
     tee_auto_init = 0 ;
   }
@@ -126,6 +157,4 @@ void Print_diag(FILE *f, char *what, int32_t level){
     fprintf(tee_file, "%s", what) ;
   }
 }
-// App Lib_Log alternative (used if weak Use_Lib_Log is available)
-// Use_Lib_Log(APP_LIBRMN, APP_ERROR/APP_INFO/APP_WARNING, "%s", msg)
 
