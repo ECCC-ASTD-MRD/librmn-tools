@@ -35,13 +35,13 @@ int main(int argc, char **argv){
     fi[NP+i] = -fi[NP-i] - 1 ;
   }
   if(NP < 9) {
-    for(i=0 ; i<NP2 ; i++) TEE_PRINTF(TEE_INFO, "%f ", ff[i]); TEE_PRINTF(TEE_INFO, "\n") ;
+    for(i=0 ; i<NP2 ; i++){ TEE_PRINTF(TEE_INFO, "%f ", ff[i]); TEE_PRINTF(TEE_INFO, "\n") ; }
   }
 // goto timings ;
   // testing very short case (length 3)
 
   TEE_PRINTF(TEE_INFO, "short array = ") ;
-  for(i=NP-1 ; i<NP+2 ; i++) TEE_PRINTF(TEE_INFO, "%f ", ff[i]); TEE_PRINTF(TEE_INFO, ", missing = %f\n", ff[NP]) ;
+  for(i=NP-1 ; i<NP+2 ; i++){ TEE_PRINTF(TEE_INFO, "%f ", ff[i]); TEE_PRINTF(TEE_INFO, ", missing = %f\n", ff[NP]) ; }
   l.f.maxa = l.f.mina = l.f.maxs = l.f.mins = 0 ;
   l = IEEE32_extrema(ff+NP-1, 3) ;
   TEE_PRINTF(TEE_INFO, "SHORT             : maxs = %f, mins = %f, maxa = %f, mina = %f\n", l.f.maxs, l.f.mins, l.f.maxa, l.f.mina) ;
