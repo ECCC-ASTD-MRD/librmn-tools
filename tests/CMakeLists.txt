@@ -145,9 +145,11 @@ add_project_test(test_timers test_timers.c LINK_LIBS "rmn::rmn-shared")
 
 # DYNAMIC, with static librmn
 add_project_test(test_tee_file test_tee_file.c LINK_LIBS "rmn::rmn-static")
+if(NOT ( ${COMPILER_SUITE} MATCHES  "nvhpc") )
 # STATIC, shared librmn
-# add_project_test(test_tee_file_static test_tee_file.c STATIC LINK_LIBS "rmn::rmn-shared" )
-# LOCAL, with static librmn
+add_project_test(test_tee_file_static test_tee_file.c STATIC LINK_LIBS "rmn::rmn-shared" )
+endif()
+# LOCAL logger, DYNAMIC, with static librmn
 add_project_test(test_tee_file_local test_tee_file.c LINK_LIBS "rmn::rmn-static")
 TARGET_COMPILE_DEFINITIONS(test_tee_file_local PRIVATE -DOVERRIDE_WITH_LOCAL)
 

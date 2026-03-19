@@ -32,14 +32,16 @@
 #include <App.h>
 // TEE_xxx constants
 #define TEE_LIBRMN  APP_LIBRMN
-#define TEE_ALWAYS  APP_ALWAYS
-#define TEE_EXTRA   APP_EXTRA
-#define TEE_DEBUG   APP_DEBUG
-#define TEE_INFO    APP_INFO
-#define TEE_WARNING APP_WARNING
-#define TEE_ERROR   APP_ERROR
-#define TEE_SYSTEM  APP_SYSTEM
-#define TEE_FATAL   APP_FATAL
+//
+#define TEE_VERBATIM APP_VERBATIM
+#define TEE_ALWAYS   APP_ALWAYS
+#define TEE_EXTRA    APP_EXTRA
+#define TEE_DEBUG    APP_DEBUG
+#define TEE_INFO     APP_INFO
+#define TEE_WARNING  APP_WARNING
+#define TEE_ERROR    APP_ERROR
+#define TEE_SYSTEM   APP_SYSTEM
+#define TEE_FATAL    APP_FATAL
 
 // "replacement" for printf, using Lib_Log
 #define TEE_PRINTF(level, ...)        Lib_Log(APP_LIBRMN, (TApp_LogLevel)level, __VA_ARGS__)
@@ -52,14 +54,14 @@
 #define TEE_PRINTF(level, ...) \
     { char _TeMp_[4096] ; FILE *mfile = get_msg_file() ; \
       snprintf(_TeMp_, sizeof(_TeMp_),  __VA_ARGS__) ; \
-      User_Tee_Log(mfile ? mfile : stdout, _TeMp_, (int32_t)level) ; \
+      User_Tee_Log(mfile ? mfile : stdout, _TeMp_, level) ; \
     }
 
 // User_Tee_Log "replacement" for fprintf, uses file if not NULL, stdout otherwise
 #define TEE_FPRINTF( file, level,...) \
     { char _TeMp_[4096] ; \
       snprintf(_TeMp_, sizeof(_TeMp_),  __VA_ARGS__) ; \
-      User_Tee_Log(file ? file : stdout, _TeMp_, (int32_t)level) ; \
+      User_Tee_Log(file ? file : stdout, _TeMp_, level) ; \
     }
 
 // needed if not including App.h (borrowed from App.h)
@@ -68,16 +70,17 @@ typedef enum {
     TEE_LIBRMN = 1
 } TApp_Lib ;
 typedef enum {
-    TEE_ALWAYS  = 0,
-    TEE_FATAL   = 1,
-    TEE_SYSTEM  = 2,
-    TEE_ERROR   = 3,
-    TEE_WARNING = 4,
-    TEE_INFO    = 5,
-    TEE_STAT    = 6,
-    TEE_TRIVIAL = 7,
-    TEE_DEBUG   = 8,
-    TEE_EXTRA   = 9,
+    TEE_VERBATIM = -1,
+    TEE_ALWAYS   =  0,
+    TEE_FATAL    =  1,
+    TEE_SYSTEM   =  2,
+    TEE_ERROR    =  3,
+    TEE_WARNING  =  4,
+    TEE_INFO     =  5,
+    TEE_STAT     =  6,
+    TEE_TRIVIAL  =  7,
+    TEE_DEBUG    =  8,
+    TEE_EXTRA    =  9,
 } TApp_LogLevel ;
 void Lib_Log(const TApp_Lib Lib, const TApp_LogLevel Level, const char * const Format, ...);
 int  Lib_LogLevelNo(TApp_Lib Lib, TApp_LogLevel Val);
@@ -93,7 +96,7 @@ void User_Tee_Log(FILE *f, char *what, TApp_LogLevel level) ;
 #define TEE_DIAG(level, ...)  \
     { char _TeMp_[4096] ; FILE *mfile = get_msg_file() ; \
       snprintf(_TeMp_, sizeof(_TeMp_),  __VA_ARGS__) ; \
-      User_Tee_Log(mfile ? mfile : stdout, _TeMp_, (int32_t)level) ; \
+      User_Tee_Log(mfile ? mfile : stdout, _TeMp_, level) ; \
     }
 // use App for messages if yes  != 0, otherwise use User_Tee_Log
 int32_t get_use_app(void);

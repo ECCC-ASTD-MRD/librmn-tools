@@ -35,7 +35,7 @@ static int32_t use_app = 0 ;                       // use App for messages
 static char *names[] = { "ALWAYS", "FATAL", "SYSTEM", "ERROR", "WARNING", "INFO", "STAT", "TRIVIAL", "DEBUG", "EXTRA", "QUIET", "INVALID" } ;
 
 char *msg_level_name(TApp_LogLevel level){
-  if(level < 0 || level > 10) return names[11] ;
+  if(level > TEE_EXTRA) return names[11] ;
   return names[level] ;
 }
 

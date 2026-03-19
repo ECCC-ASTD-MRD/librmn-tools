@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#define WITHOUT_APP
+// #define WITHOUT_APP
 #include <rmn/tee_print.h>
 #include <rmn/test_helpers.h>
 
@@ -78,10 +78,11 @@ int main(int argc, char **argv){
     TEE_DIAG(TEE_WARNING, "MUST SEE : %d %d %d\n", 1, 2, 3) ;
     TEE_DIAG(TEE_EXTRA, "MUST NOT SEE : %d %d %d\n", 4, 5, 6) ;
     TEE_DIAG(TEE_ERROR, "MUST SEE : %d %d %d\n", 4, 5, 6) ;
-    TEE_DIAG(-1, "MUST SEE : %d %d %d\n", -4, -5, -6) ;
+    TEE_DIAG(TEE_SYSTEM, "MUST SEE : %d %d %d\n", -4, -5, -6) ;
     TEE_DIAG(TEE_EXTRA, "MUST NOT SEE : %d %d %d\n", -7, -8, -9) ;
     set_msg_level(TEE_EXTRA) ;
     TEE_DIAG(TEE_EXTRA, "MUST SEE : %d %d %d\n", -7, -8, -9) ;
+    TEE_DIAG((TApp_LogLevel)-1, "level == -1, MUST NOT SEE\n") ;
     fprintf(stdout,"====================\n");
   }
   fclose(f1) ;
