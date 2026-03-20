@@ -14,7 +14,7 @@ void User_Tee_Log(FILE *f, char *what, TApp_LogLevel level){
   if(get_use_app()){
     char _TeMp_[4096] ;
     snprintf(_TeMp_, sizeof(_TeMp_), "MY USER TEE LOG [%s] %s", msg_level_name(level), what) ;
-    Lib_Log(TEE_LIBRMN, level, "%s", _TeMp_);
+    LIB_LOG(TEE_LIBRMN, level, "%s", _TeMp_);
   }else{
     fprintf(f, "MY USER TEE LOG [%s] %s", msg_level_name(level), what) ;
   }
@@ -26,7 +26,7 @@ void User_Tee_Log(FILE *f, char *what, TApp_LogLevel level){
 
 void dummy(char *msg){
   TEE_PRINTF(TEE_DEBUG, "in dummy\n");
-  Lib_Log(TEE_LIBRMN, TEE_INFO, "%s\n", msg);
+  LIB_LOG(TEE_LIBRMN, TEE_INFO, "%s\n", msg);
 }
 static char *TEE_FILE_DIR  = "TEE_FILE_DIR=./LOGFILES" ;
 static char *TEE_FILE_NAME = "TEE_FILE_NAME=tee_test_002.log" ;

@@ -48,19 +48,28 @@
 // "replacement" for fprintf, using Lib_Log, ignores file
 #define TEE_FPRINTF(file, level,...)  TEE_PRINTF(level, __VA_ARGS__)
 
+#define LIB_LOG(lib, level, ...) Lib_Log(lib, level, __VA_ARGS__)
+void Lib_Log(const TApp_Lib Lib, const TApp_LogLevel Level, const char * const Format, ...);
+
+#define LIB_LOG_LEVEL(lib, level) Lib_LogLevelNo(lib, level)
+int  Lib_LogLevelNo(TApp_Lib Lib, TApp_LogLevel Level);
+
+#define APP_LOG_LEVEL(level) App_LogLevelNo(level)
+int  App_LogLevelNo(const TApp_LogLevel Level);
+
 #else
 
 // User_Tee_Log "replacement" for printf, uses msg_file if not NULL, stdout otherwise
 #define TEE_PRINTF(level, ...) \
     { char _TeMp_[4096] ; FILE *mfile = get_msg_file() ; \
-      snprintf(_TeMp_, sizeof(_TeMp_),  __VA_ARGS__) ; \
+      snprintf(_TeMp_, sizeof(_TeMp_), __VA_ARGS__) ; \
       User_Tee_Log(mfile ? mfile : stdout, _TeMp_, level) ; \
     }
 
 // User_Tee_Log "replacement" for fprintf, uses file if not NULL, stdout otherwise
 #define TEE_FPRINTF( file, level,...) \
     { char _TeMp_[4096] ; \
-      snprintf(_TeMp_, sizeof(_TeMp_),  __VA_ARGS__) ; \
+      snprintf(_TeMp_, sizeof(_TeMp_), __VA_ARGS__) ; \
       User_Tee_Log(file ? file : stdout, _TeMp_, level) ; \
     }
 
@@ -82,8 +91,14 @@ typedef enum {
     TEE_DEBUG    =  8,
     TEE_EXTRA    =  9,
 } TApp_LogLevel ;
+
+#define LIB_LOG(lib, level, ...) Lib_Log(lib, level, __VA_ARGS__)
 void Lib_Log(const TApp_Lib Lib, const TApp_LogLevel Level, const char * const Format, ...);
-int  Lib_LogLevelNo(TApp_Lib Lib, TApp_LogLevel Val);
+
+#define LIB_LOG_LEVEL(lib, level) Lib_LogLevelNo(lib, level)
+int  Lib_LogLevelNo(TApp_Lib Lib, TApp_LogLevel Level);
+
+#define APP_LOG_LEVEL(level) App_LogLevelNo(level)
 int  App_LogLevelNo(const TApp_LogLevel Level);
 
 #endif
@@ -95,7 +110,7 @@ void User_Tee_Log(FILE *f, char *what, TApp_LogLevel level) ;
 // "replacement" for printf, uses User_Tee_Log, uses msg_file if not NULL, stdout otherwise
 #define TEE_DIAG(level, ...)  \
     { char _TeMp_[4096] ; FILE *mfile = get_msg_file() ; \
-      snprintf(_TeMp_, sizeof(_TeMp_),  __VA_ARGS__) ; \
+      snprintf(_TeMp_, sizeof(_TeMp_), __VA_ARGS__) ; \
       User_Tee_Log(mfile ? mfile : stdout, _TeMp_, level) ; \
     }
 // use App for messages if yes  != 0, otherwise use User_Tee_Log

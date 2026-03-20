@@ -58,8 +58,8 @@ TApp_LogLevel set_msg_level(TApp_LogLevel level){
   TApp_LogLevel old = msg_level ;
   msg_level = level ;
   if(use_app){           // in App mode, set App log levels
-    Lib_LogLevelNo(APP_LIBRMN, level) ;
-    App_LogLevelNo(level) ;
+    LIB_LOG_LEVEL(APP_LIBRMN, level) ;
+    APP_LOG_LEVEL(level) ;
   }  return old ;
 }
 
@@ -147,7 +147,7 @@ void _Default_User_Tee_Log_(FILE *f, char *what, TApp_LogLevel level){
 
   if(level > msg_level && msg_level != TEE_ALWAYS) return ;       // message level higher than threshold
   if(use_app){
-    Lib_Log(APP_LIBRMN, level, "%s", what);
+    LIB_LOG(APP_LIBRMN, level, "%s", what);
   }else{
     fprintf(f, "%s", what) ;
   }
