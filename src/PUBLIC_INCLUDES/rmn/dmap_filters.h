@@ -133,15 +133,8 @@ int32_t dmap_print_parameters(dmap_filter_list dpfl) ;
 // handle error message text and error code for data map pipe filter
 // id  : filter id
 // msg : error message string
-static inline int dmap_filter_error(int id, char *msg){
-  int msg0 = (msg[0] & 0x7F) ;
-  int err = ( msg0 < 32 ) ? msg0 : 077 ;    // 077 if not a control character
-  err = (err == 0) ? 077 : err ;
-  int inc = (err == 077) ? 0 : 1 ;          // skip first character if it is a control character
-  fprintf(stderr, "filter %3.3o ERROR %2.2o : %s\n", id, err, msg+inc) ;
-  err |= (id << 6) ;                        // filter id * 64 + specific error
-  return -err ;
-}
+// if the first character of the message is > 0 and < 32, it is an error code
+int dmap_filter_error(int id, char *msg);
 
 // make a new data map pipe filter available
 int dmap_filter_set(dmap_filter_ptr filter, int ordinal, const char *name, size_t arg_size, int force);

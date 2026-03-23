@@ -284,6 +284,20 @@ static ssize_t dmap_filter_last(array_nd *a, block_properties *bp, dmap_filter_l
   return 0 ;
 }
 
+// handle error message text and error code for data map pipe filter
+// id  : filter id
+// msg : error message string
+// if the first character of the message is > 0 and < 32, it is an error code
+int dmap_filter_error(int id, char *msg){
+  int msg0 = (msg[0] & 0x7F) ;              // first character of message (will be 00 if empty string)
+  int err = ( msg0 < 32 ) ? msg0 : 077 ;    // error code = 077 if not a control character
+  err = (err == 0) ? 077 : err ;            // empty string, set error code to 077
+  int inc = (err == 077) ? 0 : 1 ;          // skip first character if it is a control character
+  fprintf(stderr, "dmap filter %3.3o ERROR %2.2o : %s\n", id, err, msg+inc) ;
+  err |= (id << 6) ;                        // filter id * 64 + specific error code
+  return -err ;
+}
+
 typedef struct{
   dmap_filter_ptr ptr ;    // pointer to dmap filter function
   const char *name ;       // function description
