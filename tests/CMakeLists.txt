@@ -251,3 +251,4 @@ add_project_test(test_simd_functions       test_simd_functions.c       LINK_LIBS
 add_project_test(test_ieee_extras          test_ieee_extras.c          LINK_LIBS "rmn::rmn"        NO_TOOLS )
 add_project_test(test_syntax               test_syntax.c               LINK_LIBS "rmn::rmn"        NO_TOOLS DL )
 add_project_test(test_va_args              test_va_args.c              LINK_LIBS "rmn::rmn"        NO_TOOLS )
+add_project_test(test_liblog               test_liblog.c               LINK_LIBS "rmn::rmn"        NO_TOOLS )
