@@ -29,6 +29,8 @@
 
 #if defined(WITH_APP)
 
+// if WITH_APP is defined, TEE_PRINTF and TEE_FPRINTF WILL NOT USE User_Tee_Log
+
 #include <App.h>
 // TEE_xxx constants
 #define TEE_LIBRMN  APP_LIBRMN
@@ -37,6 +39,8 @@
 #define TEE_ALWAYS   APP_ALWAYS
 #define TEE_EXTRA    APP_EXTRA
 #define TEE_DEBUG    APP_DEBUG
+#define TEE_STAT     APP_STAT
+#define TEE_TRIVIAL  APP_TRIVIAL
 #define TEE_INFO     APP_INFO
 #define TEE_WARNING  APP_WARNING
 #define TEE_ERROR    APP_ERROR
@@ -57,19 +61,21 @@ int  Lib_LogLevelNo(TApp_Lib Lib, TApp_LogLevel Level);
 #define APP_LOG_LEVEL(level) App_LogLevelNo(level)
 int  App_LogLevelNo(const TApp_LogLevel Level);
 
-#else
+#else    // defined(WITH_APP)
+
+// if WITH_APP is not defined, TEE_PRINTF and TEE_FPRINTF WILL USE User_Tee_Log
 
 // User_Tee_Log "replacement" for printf, uses msg_file if not NULL, stdout otherwise
 #define TEE_PRINTF(level, ...) \
     { char _TeMp_[4096] ; FILE *mfile = get_msg_file() ; \
-      snprintf(_TeMp_, sizeof(_TeMp_), __VA_ARGS__) ; \
+      snprintf(_TeMp_, sizeof(_TeMp_), __VA_ARGS__) ; _TeMp_[4095] = '\0' ; \
       User_Tee_Log(mfile ? mfile : stdout, _TeMp_, level) ; \
     }
 
 // User_Tee_Log "replacement" for fprintf, uses file if not NULL, stdout otherwise
 #define TEE_FPRINTF( file, level,...) \
     { char _TeMp_[4096] ; \
-      snprintf(_TeMp_, sizeof(_TeMp_), __VA_ARGS__) ; \
+      snprintf(_TeMp_, sizeof(_TeMp_), __VA_ARGS__) ; _TeMp_[4095] = '\0' ; \
       User_Tee_Log(file ? file : stdout, _TeMp_, level) ; \
     }
 
@@ -80,7 +86,7 @@ typedef enum {
 } TApp_Lib ;
 typedef enum {
     TEE_VERBATIM = -1,
-    TEE_ALWAYS   =  0,
+    TEE_ALWAYS   =  0,   // identified as INFO in logs
     TEE_FATAL    =  1,
     TEE_SYSTEM   =  2,
     TEE_ERROR    =  3,
@@ -101,16 +107,22 @@ int  Lib_LogLevelNo(TApp_Lib Lib, TApp_LogLevel Level);
 #define APP_LOG_LEVEL(level) App_LogLevelNo(level)
 int  App_LogLevelNo(const TApp_LogLevel Level);
 
-#endif
+#endif     // defined(WITH_APP)
 
 // User_Tee_Log is a WEAK entry point that can be overriden by a user supplied function
 // a default User_Tee_Log function is provided by tee_print.c
 void User_Tee_Log(FILE *f, char *what, TApp_LogLevel level) ;
+// package_log returns composite error code (using id and msg)
+int package_log(char *pkg, int id, char *msg, TApp_LogLevel level);
 
+// level as first argument, consistent with TEE_DIAG, TEE_PRINTF (package_log calls User_Tee_Log)
+#define TEE_PKG_LOG(level, pkg, id, msg)  package_log(pkg, id, msg, level)
+
+// whether WITH_APP is defined or not, TEE_DIAG ALWAYS USES User_Tee_Log
 // "replacement" for printf, uses User_Tee_Log, uses msg_file if not NULL, stdout otherwise
 #define TEE_DIAG(level, ...)  \
     { char _TeMp_[4096] ; FILE *mfile = get_msg_file() ; \
-      snprintf(_TeMp_, sizeof(_TeMp_), __VA_ARGS__) ; \
+      snprintf(_TeMp_, sizeof(_TeMp_), __VA_ARGS__) ; _TeMp_[4095] = '\0' ; \
       User_Tee_Log(mfile ? mfile : stdout, _TeMp_, level) ; \
     }
 // use App for messages if yes  != 0, otherwise use User_Tee_Log
@@ -141,4 +153,4 @@ void hexprintf_16(FILE *f, void *what, int n, char *msg, TApp_LogLevel level);
 void hexprintf_32(FILE *f, void *what, int n, char *msg, TApp_LogLevel level);
 void hexprintf_64(FILE *f, void *what, int n, char *msg, TApp_LogLevel level);
 
-#endif
+#endif     // defined(TEE_PRINT_DEFINED)

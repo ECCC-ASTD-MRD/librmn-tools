@@ -32,9 +32,11 @@ static TApp_LogLevel tee_msg_level = TEE_WARNING ; // everything by default
 static int32_t auto_open = 0 ;                     // OFF by default
 static int32_t use_app = 0 ;                       // use App for messages
 
-static char *names[] = { "ALWAYS", "FATAL", "SYSTEM", "ERROR", "WARNING", "INFO", "STAT", "TRIVIAL", "DEBUG", "EXTRA", "QUIET", "INVALID" } ;
+// ALWAYS identified as INFO to be consistent with App
+static char *names[] = { "INFO", "FATAL", "SYSTEM", "ERROR", "WARNING", "INFO", "STAT", "TRIVIAL", "DEBUG", "EXTRA", "QUIET", "?", " " } ;
 
 char *msg_level_name(TApp_LogLevel level){
+  if(level < 0) return names[12] ;
   if(level > TEE_EXTRA) return names[11] ;
   return names[level] ;
 }
@@ -137,19 +139,36 @@ fprintf(stderr, "opening automatic file '%s', dir = '%s', file name = '%s'\n", n
   return f ;
 }
 
+#pragma weak User_Tee_Log = _Default_User_Tee_Log_
+// handle error message text and error code for data map pipe filter
+// id  : package id
+// msg : error message string
+// if the first character of the message is > 0 and < 32, it is a package specific error code
+int package_log(char *pkg, int id, char *msg, TApp_LogLevel level){
+  char buffer[4096] ;
+  int msg0 = (msg[0] & 0x7F) ;              // first character of message (will be '\0' if empty string)
+  int err = ( msg0 < 32 ) ? msg0 : 0 ;      // error code = 0 if not a control character
+  int inc = (err == 0) ? 0 : 1 ;            // skip first character if it is a control character > 0
+  err |= (id << 6) ;                        // package id * 64 + specific error code (printable as octal)
+  snprintf(buffer, sizeof(buffer), "%s ERROR %2.2o : %s\n", pkg, err, msg+inc) ;
+  buffer[4095] = '\0' ;
+  User_Tee_Log(msg_file ? msg_file : stdout, buffer, level) ;
+  return err ;
+}
+
 // diagnostic print, goes both to file f and tee_file (if not NULL)
 // if tee_file is NULL and auto_open is true, a tee log file is automatically opened
 // f     [IN] : message file
 // what  [IN] : message
 // level [IN] : message level, TEE_EXTRA -> TEE_FATAL
-#pragma weak User_Tee_Log=_Default_User_Tee_Log_
 void _Default_User_Tee_Log_(FILE *f, char *what, TApp_LogLevel level){
-
+// fprintf(stdout,"_Default_User_Tee_Log_ level = %d\n", level) ;
+  if(level < TEE_VERBATIM) return ;                               // invalid level
   if(level > msg_level && msg_level != TEE_ALWAYS) return ;       // message level higher than threshold
   if(use_app){
     LIB_LOG(APP_LIBRMN, level, "%s", what);
   }else{
-    fprintf(f, "%s", what) ;
+    fprintf(f, "[%7s] %s", msg_level_name(level), what) ;
   }
 
   if(tee_auto_init == 1){
@@ -165,7 +184,7 @@ void _Default_User_Tee_Log_(FILE *f, char *what, TApp_LogLevel level){
     open_tee_file(NULL) ;
   }
   if(tee_file != NULL){                                               // there is a tee file
-    fprintf(tee_file, "%s", what) ;
+    fprintf(tee_file, "[%7s] %s", msg_level_name(level), what) ;
   }
 }
 
