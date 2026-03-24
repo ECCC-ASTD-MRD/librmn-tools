@@ -20,6 +20,7 @@
 #include <stdlib.h>
 #include <sys/types.h>
 #include <unistd.h>
+#include <errno.h>
 
 #define WITHOUT_APP
 #include <rmn/tee_print.h>
@@ -31,6 +32,7 @@ static TApp_LogLevel msg_level     = TEE_WARNING ; // everything by default
 static TApp_LogLevel tee_msg_level = TEE_WARNING ; // everything by default
 static int32_t auto_open = 0 ;                     // OFF by default
 static int32_t use_app = 0 ;                       // use App for messages
+static int32_t tee_errno = -1 ;
 
 // ALWAYS identified as INFO to be consistent with App
 static char *names[] = { "INFO", "FATAL", "SYSTEM", "ERROR", "WARNING", "INFO", "STAT", "TRIVIAL", "DEBUG", "EXTRA", "QUIET", "?", " " } ;
@@ -110,6 +112,19 @@ FILE *get_msg_file(void){
   return msg_file ? msg_file : stdout ;
 }
 
+// set errno to -1 if value is 0 when level is SYSTEM
+void set_diag_errno(TApp_LogLevel level){
+  if(level != TEE_SYSTEM) return ;
+  if(errno == 0) errno = tee_errno ;
+}
+
+// set errno value to use for SYSTEM level messages
+int32_t set_tee_errno(int32_t err_val){
+  int32_t old = tee_errno ;
+  tee_errno = err_val ;
+  return old ;
+}
+
 // tee log file  to file named fname
 // if fname is NULL, generate a filename using environment variables TEE_FILE_DIR and TEE_FILE_NAME
 // return old file pointer
@@ -169,6 +184,7 @@ void _Default_User_Tee_Log_(FILE *f, char *what, TApp_LogLevel level){
     LIB_LOG(APP_LIBRMN, level, "%s", what);
   }else{
     fprintf(f, "[%7s] %s", msg_level_name(level), what) ;
+    if(level == TEE_SYSTEM) perror(what) ;
   }
 
   if(tee_auto_init == 1){

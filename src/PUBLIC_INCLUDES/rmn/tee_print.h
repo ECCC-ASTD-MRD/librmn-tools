@@ -48,7 +48,7 @@
 #define TEE_FATAL    APP_FATAL
 
 // "replacement" for printf, using Lib_Log
-#define TEE_PRINTF(level, ...)        Lib_Log(APP_LIBRMN, (TApp_LogLevel)level, __VA_ARGS__)
+#define TEE_PRINTF(level, ...)     { set_diag_errno(level) ; Lib_Log(APP_LIBRMN, (TApp_LogLevel)level, __VA_ARGS__) ; }
 // "replacement" for fprintf, using Lib_Log, ignores file
 #define TEE_FPRINTF(file, level,...)  TEE_PRINTF(level, __VA_ARGS__)
 
@@ -69,6 +69,7 @@ int  App_LogLevelNo(const TApp_LogLevel Level);
 #define TEE_PRINTF(level, ...) \
     { char _TeMp_[4096] ; FILE *mfile = get_msg_file() ; \
       snprintf(_TeMp_, sizeof(_TeMp_), __VA_ARGS__) ; _TeMp_[4095] = '\0' ; \
+      set_diag_errno(level) ; \
       User_Tee_Log(mfile ? mfile : stdout, _TeMp_, level) ; \
     }
 
@@ -76,6 +77,7 @@ int  App_LogLevelNo(const TApp_LogLevel Level);
 #define TEE_FPRINTF( file, level,...) \
     { char _TeMp_[4096] ; \
       snprintf(_TeMp_, sizeof(_TeMp_), __VA_ARGS__) ; _TeMp_[4095] = '\0' ; \
+      set_diag_errno(level) ; \
       User_Tee_Log(file ? file : stdout, _TeMp_, level) ; \
     }
 
@@ -97,6 +99,18 @@ typedef enum {
     TEE_DEBUG    =  8,
     TEE_EXTRA    =  9,
 } TApp_LogLevel ;
+//
+#define APP_VERBATIM TEE_VERBATIM
+#define APP_ALWAYS   TEE_ALWAYS
+#define APP_EXTRA    TEE_EXTRA
+#define APP_DEBUG    TEE_DEBUG
+#define APP_STAT     TEE_STAT
+#define APP_TRIVIAL  TEE_TRIVIAL
+#define APP_INFO     TEE_INFO
+#define APP_WARNING  TEE_WARNING
+#define APP_ERROR    TEE_ERROR
+#define APP_SYSTEM   TEE_SYSTEM
+#define APP_FATAL    TEE_FATAL
 
 #define LIB_LOG(lib, level, ...) Lib_Log(lib, level, __VA_ARGS__)
 void Lib_Log(const TApp_Lib Lib, const TApp_LogLevel Level, const char * const Format, ...);
@@ -116,29 +130,33 @@ void User_Tee_Log(FILE *f, char *what, TApp_LogLevel level) ;
 int package_log(char *pkg, int id, char *msg, TApp_LogLevel level);
 
 // level as first argument, consistent with TEE_DIAG, TEE_PRINTF (package_log calls User_Tee_Log)
-#define TEE_PKG_LOG(level, pkg, id, msg)  package_log(pkg, id, msg, level)
+#define TEE_PKG_LOG(level, pkg, id, msg) { set_diag_errno(level) ; package_log(pkg, id, msg, level) ; }
 
 // whether WITH_APP is defined or not, TEE_DIAG ALWAYS USES User_Tee_Log
 // "replacement" for printf, uses User_Tee_Log, uses msg_file if not NULL, stdout otherwise
 #define TEE_DIAG(level, ...)  \
     { char _TeMp_[4096] ; FILE *mfile = get_msg_file() ; \
       snprintf(_TeMp_, sizeof(_TeMp_), __VA_ARGS__) ; _TeMp_[4095] = '\0' ; \
+      set_diag_errno(level) ; \
       User_Tee_Log(mfile ? mfile : stdout, _TeMp_, level) ; \
     }
 // use App for messages if yes  != 0, otherwise use User_Tee_Log
 int32_t get_use_app(void);
 int32_t set_use_app(int32_t yes);
+
 // duplicate stdout messages to a file
 FILE *set_msg_file(FILE *f);
 FILE *get_msg_file(void);
 // get printable name of message level
 char *msg_level_name(TApp_LogLevel level);
+
 // get message level
 TApp_LogLevel get_msg_level(void);
 TApp_LogLevel set_msg_level(TApp_LogLevel level);
 // get message level for messages also sent to tee file
 TApp_LogLevel get_tee_msg_level(void);
 TApp_LogLevel set_tee_msg_level(TApp_LogLevel level);
+
 // activate tee file auto open functionality if mode != 0
 int32_t set_tee_auto_open(int32_t mode) ;
 // open a tee log file (if fname == NULL, generate name automatically)
@@ -147,7 +165,13 @@ FILE *open_tee_file(char *fname) ;
 FILE *set_tee_file(FILE *f) ;
 // get tee file descriptor pointer
 FILE *get_tee_file(void) ;
+
+// set errno to -1 if value is 0 when level is SYSTEM
+void set_diag_errno(TApp_LogLevel level);
 // print to file in hex using 2/4/8/16 characters for item length 8/16/32/64 bits
+// set errno value to use for SYSTEM level messages
+int32_t set_tee_errno(int32_t err_val);
+
 void hexprintf_08(FILE *f, void *what, int n, char *msg, TApp_LogLevel level);
 void hexprintf_16(FILE *f, void *what, int n, char *msg, TApp_LogLevel level);
 void hexprintf_32(FILE *f, void *what, int n, char *msg, TApp_LogLevel level);

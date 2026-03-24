@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-// #define WITHOUT_APP
+#define WITHOUT_APP
 #include <rmn/tee_print.h>
 #include <rmn/test_helpers.h>
 
@@ -19,6 +19,7 @@ void User_Tee_Log(FILE *f, char *what, TApp_LogLevel level){
     LIB_LOG(TEE_LIBRMN, level, "%s", _TeMp_);
   }else{
     fprintf(f, "MY USER TEE LOG [%7s] %s", msg_level_name(level), what) ;
+    if(level == TEE_SYSTEM) perror(what) ;
   }
   if(tee_file != NULL){
     fprintf(tee_file, "MY USER TEE LOG %s", what) ;
@@ -29,16 +30,16 @@ void User_Tee_Log(FILE *f, char *what, TApp_LogLevel level){
 void dummy(char *msg){
   TEE_PRINTF(TEE_ALWAYS, "TEE_PRINTF TEE_ALWAYS : in dummy\n");
   TEE_PRINTF(TEE_VERBATIM, "TEE_PRINTF TEE_VERBATIM : in dummy\n");
-  LIB_LOG(TEE_LIBRMN, TEE_INFO, "LIB_LOG TEE_LIBRMN, TEE_INFO :%s\n", msg);
-  LIB_LOG(TEE_LIBRMN, TEE_WARNING, "LIB_LOG TEE_WARNING, TEE_INFO :%s\n", msg);
+
   LIB_LOG(TEE_LIBRMN, TEE_ERROR, "LIB_LOG TEE_LIBRMN, TEE_ERROR :%s\n", msg);
   LIB_LOG(TEE_LIBRMN, TEE_SYSTEM, "LIB_LOG TEE_LIBRMN, TEE_SYSTEM :%s\n", msg);
   LIB_LOG(TEE_LIBRMN, TEE_FATAL, "LIB_LOG TEE_LIBRMN, TEE_FATAL :%s\n", msg);
+
   TEE_PKG_LOG(TEE_VERBATIM, "TEE_TEST", 076, "\002package_log message 02") ;
   TEE_PKG_LOG(TEE_VERBATIM, "TEE_TEST", 076, "package_log message 00") ;
   TEE_PKG_LOG(TEE_DEBUG, "TEE_TEST", 076, "package_log MUST SEE") ;
-  TEE_PKG_LOG(TEE_STAT, "TEE_TEST", 076, "package_log MUST SEE") ;
   TEE_PKG_LOG(TEE_FATAL, "TEE_TEST", 076, "\037package_log MUST SEE") ;
+  TEE_PKG_LOG(TEE_SYSTEM, "TEE_TEST", 076, "\036package_log MUST SEE") ;
   TEE_PKG_LOG(TEE_EXTRA, "TEE_TEST", 076, "package_log MUST NOT SEE") ;
 }
 static char *TEE_FILE_DIR  = "TEE_FILE_DIR=./LOGFILES" ;
@@ -61,6 +62,7 @@ int main(int argc, char **argv){
   Lib_LogLevelNo(TEE_LIBRMN, TEE_DEBUG) ;
   set_tee_msg_level(TEE_DEBUG) ;
   set_msg_file(stderr) ;
+  set_tee_errno(9999) ;
 
   dummy("dummy's message") ;
   fprintf(get_msg_file(), "-------\n");
@@ -94,19 +96,23 @@ int main(int argc, char **argv){
   for(int i = 0 ; i<3 ; i++){
     set_use_app(i%2) ;
     set_msg_level(TEE_DEBUG) ;
-    TEE_DIAG(TEE_ALWAYS, "TEE_ALWAYS, MUST SEE\n") ;
-    TEE_DIAG(TEE_EXTRA, "MUST NOT SEE : %d %d %d\n", 10, 20, 30) ;
-    TEE_DIAG(TEE_INFO, "TEE_INFO, MUST SEE : %d %d %d\n", 10, 20, 30) ;
-    TEE_DIAG(TEE_EXTRA, "MUST NOT SEE : %d %d %d\n", 1, 2, 3) ;
-    TEE_DIAG(TEE_WARNING, "TEE_WARNING, MUST SEE : %d %d %d\n", 1, 2, 3) ;
-    TEE_DIAG(TEE_EXTRA, "MUST NOT SEE : %d %d %d\n", 4, 5, 6) ;
-    TEE_DIAG(TEE_ERROR, "TEE_ERROR, MUST SEE : %d %d %d\n", 4, 5, 6) ;
+    TEE_DIAG(APP_ALWAYS, "TEE_ALWAYS, MUST SEE\n") ;
+    TEE_DIAG(APP_EXTRA, "MUST NOT SEE : %d %d %d\n", 10, 20, 30) ;
+
+    TEE_DIAG(APP_INFO, "TEE_INFO, MUST SEE : %d %d %d\n", 10, 20, 30) ;
+    TEE_DIAG(APP_EXTRA, "MUST NOT SEE : %d %d %d\n", 1, 2, 3) ;
+
+    TEE_DIAG(APP_WARNING, "TEE_WARNING, MUST SEE : %d %d %d\n", 1, 2, 3) ;
+    TEE_DIAG(APP_EXTRA, "MUST NOT SEE : %d %d %d\n", 4, 5, 6) ;
+
+    TEE_DIAG(APP_ERROR, "TEE_ERROR, MUST SEE : %d %d %d\n", 4, 5, 6) ;
     TEE_DIAG(APP_EXTRA, "MUST NOT SEE : %d %d %d\n", -4, -5, -6) ;
-//     TEE_DIAG(TEE_SYSTEM, "MUST SEE : %d %d %d\n", -4, -5, -6) ;
-    TEE_DIAG(APP_FATAL, "APP_FATAL, MUST SEE : %d %d %d\n", -4, -5, -6) ;
-    TEE_DIAG(TEE_EXTRA, "MUST NOT SEE : %d %d %d\n", -7, -8, -9) ;
-    set_msg_level(TEE_EXTRA) ;
-    TEE_DIAG(TEE_EXTRA, "TEE_EXTRA, MUST SEE : %d %d %d\n", -7, -8, -9) ;
+
+    TEE_DIAG(APP_SYSTEM, "TEE_SYSTEM MUST SEE : %d %d %d\n", -4, -5, -6) ;
+    TEE_DIAG(APP_EXTRA, "MUST NOT SEE : %d %d %d\n", -7, -8, -9) ;
+
+    set_msg_level(APP_EXTRA) ;
+    TEE_DIAG(APP_EXTRA, "TEE_EXTRA, MUST SEE : %d %d %d\n", -7, -8, -9) ;
     TEE_DIAG((TApp_LogLevel)-2, "level == -2, MUST NOT SEE\n") ;
     fprintf(stdout,"====================\n");
   }
