@@ -287,6 +287,6 @@ int main(int argc, char **argv){
   TEE_FPRINTF(stderr, TEE_INFO, "Copy_items_l2r           : %s\n", timer_msg);
 
   if(timer_max == timer_min) TEE_FPRINTF(stderr, TEE_INFO, "unlikely to happen\n");
-  TEE_FPRINTF(stderr,2, "\nSUCCESS\n") ;
+  TEE_FPRINTF(stderr, TEE_INFO, "\nSUCCESS\n") ;
   return 0 ;
 }

@@ -91,7 +91,7 @@ int32_t array_compare_masked(void *f1, void *f2, int n, uint32_t mask){
   for(i=0 ; i<n ; i++){
     if((w1[i] & mask) != (w2[i] & mask)) errors++ ;
     if(errors > 0 && errors < 4){
-      TEE_FPRINTF(stderr,2, "compare_masked [%d], got %8.8x (%8d), expected %8.8x (%8d)\n", i, w2[i] & mask, w2[i] & mask, w1[i] & mask, w1[i] & mask) ;
+      TEE_FPRINTF(stderr, TEE_INFO, "compare_masked [%d], got %8.8x (%8d), expected %8.8x (%8d)\n", i, w2[i] & mask, w2[i] & mask, w1[i] & mask, w1[i] & mask) ;
     }
   }
   return errors ;
