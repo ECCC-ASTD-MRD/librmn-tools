@@ -590,6 +590,9 @@ void  print_block_properties(block_properties bp){
   if(bp.kind != bad_data){
     fprintf(stderr, ", minu = %8.8x, maxu = %8.8x, mins = %8.8x, maxs = %8.8x, zeros = %d",
             bp.minu.u, bp.maxu.u, bp.mins.i, bp.maxs.i, bp.zeros) ;
+    if(bp.kind == float_data){
+      fprintf(stderr, ", max = %f, min = %f", bp.maxs.f, bp.mins.f) ;
+    }
   }
   fprintf(stderr, "\n") ;
 }
