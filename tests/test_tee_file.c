@@ -96,23 +96,23 @@ int main(int argc, char **argv){
   for(int i = 0 ; i<3 ; i++){
     set_use_app(i%2) ;
     set_msg_level(TEE_DEBUG) ;
-    TEE_DIAG(APP_ALWAYS, "TEE_ALWAYS, MUST SEE\n") ;
+    TEE_DIAG(APP_ALWAYS, "APP_ALWAYS, MUST SEE\n") ;
     TEE_DIAG(APP_EXTRA, "MUST NOT SEE : %d %d %d\n", 10, 20, 30) ;
 
-    TEE_DIAG(APP_INFO, "TEE_INFO, MUST SEE : %d %d %d\n", 10, 20, 30) ;
+    TEE_DIAG(APP_INFO, "APP_INFO, MUST SEE : %d %d %d\n", 10, 20, 30) ;
     TEE_DIAG(APP_EXTRA, "MUST NOT SEE : %d %d %d\n", 1, 2, 3) ;
 
-    TEE_DIAG(APP_WARNING, "TEE_WARNING, MUST SEE : %d %d %d\n", 1, 2, 3) ;
+    TEE_DIAG(APP_WARNING, "APP_WARNING, MUST SEE : %d %d %d\n", 1, 2, 3) ;
     TEE_DIAG(APP_EXTRA, "MUST NOT SEE : %d %d %d\n", 4, 5, 6) ;
 
-    TEE_DIAG(APP_ERROR, "TEE_ERROR, MUST SEE : %d %d %d\n", 4, 5, 6) ;
+    TEE_DIAG(APP_ERROR, "APP_ERROR, MUST SEE : %d %d %d\n", 4, 5, 6) ;
     TEE_DIAG(APP_EXTRA, "MUST NOT SEE : %d %d %d\n", -4, -5, -6) ;
 
-    TEE_DIAG(APP_SYSTEM, "TEE_SYSTEM MUST SEE : %d %d %d\n", -4, -5, -6) ;
+    TEE_DIAG(APP_SYSTEM, "APP_SYSTEM MUST SEE : %d %d %d\n", -4, -5, -6) ;
     TEE_DIAG(APP_EXTRA, "MUST NOT SEE : %d %d %d\n", -7, -8, -9) ;
 
     set_msg_level(APP_EXTRA) ;
-    TEE_DIAG(APP_EXTRA, "TEE_EXTRA, MUST SEE : %d %d %d\n", -7, -8, -9) ;
+    TEE_DIAG(APP_EXTRA, "APP_EXTRA, MUST SEE : %d %d %d\n", -7, -8, -9) ;
     TEE_DIAG((TApp_LogLevel)-2, "level == -2, MUST NOT SEE\n") ;
     fprintf(stdout,"====================\n");
   }
