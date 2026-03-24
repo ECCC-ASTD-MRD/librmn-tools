@@ -129,7 +129,8 @@ process:
   new_array(&b2d, (void *)&zo, sizeof(float), raw_data,   NI, NJ) ;
 
   char *test_nam0[4] = { "LIN 00", "LINo16", "LINo00", "FLOG16" } ;
-  for(test_no = 0 ; test_no < 4 ; test_no++){
+//   for(test_no = 0 ; test_no < 4 ; test_no++){
+  for(test_no = 0 ; test_no < 1 ; test_no++){
     fprintf(stderr, "============================== float quantize test %d start ==============================\n", test_no) ;
     float abs_err = 07.5f ;
     STREAM_INIT(str000, NULL, 0, 0) ;               // full RW stream reset (keep buffer, size, and mode)

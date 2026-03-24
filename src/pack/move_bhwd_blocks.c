@@ -591,7 +591,7 @@ void  print_block_properties(block_properties bp){
     fprintf(stderr, ", minu = %8.8x, maxu = %8.8x, mins = %8.8x, maxs = %8.8x, zeros = %d",
             bp.minu.u, bp.maxu.u, bp.mins.i, bp.maxs.i, bp.zeros) ;
     if(bp.kind == float_data){
-      fprintf(stderr, ", max = %f, min = %f", bp.maxs.f, bp.mins.f) ;
+      fprintf(stderr, ", min = %f, max = %f", bp.mins.f, bp.maxs.f) ;
     }
   }
   fprintf(stderr, "\n") ;
@@ -771,6 +771,24 @@ fail :
   if(DEBUG > 0) fprintf(stderr, "block_to_array : %s\n", msg) ;
   return NULL ;  // miserable failure
 }
+
+// view block as 2 2D array
+void array_from_block(array_2d * restrict a, block_2d * restrict blk){
+  a->data  = (uint8_t *) blk->w32 ;
+  uint32_t size = blk->lni * blk->lnj ;
+  a->limit = a->data + size * sizeof(uint32_t) ;
+  a->esize = 4 ;
+  a->type  = blk->type ;
+  a->ndim  = 2 ;
+  a->rank  = 2 ;
+  a->flags = 0 ;
+  a->dim[0].ln0 = a->dim[0].gn0 = 0 ;
+  a->dim[0].lnn = a->dim[0].gnn = blk->lni ;
+  a->dim[1].ln0 = a->dim[1].gn0 = 0 ;
+  a->dim[1].lnn = a->dim[1].gnn = blk->lnj ;
+  a->signature = HAS_DATA ;
+}
+
 #if 0
 // deprecated old code, temporarily kept as reference
 array_2d * array_to_block(array_2d * restrict a, array_2d * restrict blk, block_properties * restrict bp){

@@ -65,7 +65,7 @@ typedef struct{
     int32_t  *i32 ;      // pointer to signed integer
     float    *f32 ;      // pointer to float
   } ;
-  uint32_t end ;         // pointer to 32 bit word just beyond array
+  uint32_t end ;         // size of array in 32 bit units
   uint32_t lni ;         // first dimension
   uint32_t lnj ;         // second dimension (1 if block is 1D)
   uint32_t zero :23 ,    // reserved for future use
@@ -627,7 +627,7 @@ int       array_dimension_nd(array_nd *a);
 // users should call the generic function array_kind rather than array_kind_nd
 static inline char *array_kind_nd(array_nd *a){
   int kind = a->type ;
-  if(kind >=0 && kind < 7) return (char *) printable_type[kind] ;
+  if(kind >= bad_data && kind <= fp16_data) return (char *) printable_type[kind] ;
   return "ERROR" ;
 }
 #define array_kind(ARRAY_PTR) \
@@ -681,5 +681,7 @@ size_t set_array_value_nd(array_nd *a, int32_t v, uint32_t vlen);
 size_t array_copy_data_nd(array_nd *src, array_nd *dst);
 // users should use copy_array_data rather than array_copy_data_nd
 #define copy_array_data(SRC, DST) array_copy_data_nd((array_nd *)SRC, (array_nd *)DST)
+
+void print_array_description(array_nd *a, char *msg);
 
 #endif

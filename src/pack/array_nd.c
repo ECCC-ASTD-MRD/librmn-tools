@@ -679,3 +679,39 @@ size_t array_copy_data_nd(array_nd *src, array_nd *dst){
 fail:
   return 0 ;
 }
+
+static void print_dims(void *a_, char *msg){
+  array_nd *a = (array_nd *) a_ ;
+  int i ;
+  fprintf(stderr, valid_array(a) ? "[" : "<") ;
+  for(i=0 ; i<a->rank ; i++){
+    fprintf(stderr, "%3d(%d:%d)", a->dim[i].gnn, a->dim[i].ln0, a->dim[i].ln0+a->dim[i].lnn-1) ;
+  }
+  fprintf(stderr, "%s%s", valid_array(a) ? "]" : ">", msg) ;
+}
+
+static void print_meta(void *a_, char *msg){
+  array_nd *a = (array_nd *) a_ ;
+  fprintf(stderr, ", ndim = %d, rank = %d, flags = %d, type = %d, esize = %lu, s = %8.8x %s",
+          a->ndim, a->rank, a->flags, a->type, (uint64_t)a->esize, a->signature, msg) ;
+}
+
+static void print_flags(void *a, char *msg){
+  array_nd *ap = (array_nd *) a ;
+  uint8_t flags = ap->flags ;
+  fprintf(stderr, "%s flags = %2.2x,  %s%s%s%s%s%s\n",msg, flags,
+                  (flags & DATA_IS_INTERNAL) ?  " MONOLITHIC" : "SPLIT_STRUCT" ,
+                  (flags & DATA_MAY_REALLOC) ?  " MAY_REALLOC_DATA    " : " MAY_NOT_REALLOC_DATA" ,
+                  (flags & STRUCT_CAN_FREE)  ?  " STRUCT_CAN_BE_FREED" : "",
+                  array_is_signed(ap)        ?  " SIGNATURE_FOUND" : "",
+                  array_no_data(ap)          ?  " EMPTY" : "" ,
+                  array_has_data(ap)         ?  " VALID_DATA" : ""
+         ) ;
+}
+
+void print_array_description(array_nd *a, char *msg){
+  fprintf(stderr, "%s", msg) ;
+   print_dims(a, "") ;
+   print_meta(a, "") ;
+   print_flags(a, "") ;
+}

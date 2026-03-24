@@ -16,7 +16,7 @@
 //
 
 #include <rmn/dmap_filters.h>
-#include <rmn/move_blocks.h>
+#include <rmn/move_bhwd_blocks.h>
 #include <rmn/misc_operators.h>
 
 // ======================================= filter 000 =======================================
@@ -44,9 +44,13 @@ ssize_t FILTER_NAME(array_nd *a, block_properties *bp, dmap_filter_list dpfl, bi
   bitstream s ;                                      // local copy of stream control structure
   int32_t nbits ;
 
+  if(command == DMAP_ENCODE)  return 0 ;             // NO-OP
+  if(command == DMAP_DECODE)  return 0 ;             // NO-OP
+  if(command == DMAP_PRINT)   return 0 ;             // NO-OP
+
   if(command != DMAP_RESTORE){                       // DMAP_RESTORE does not use a parameter list
     errmsg = "\001dmap filter list is NULL" ;
-    if(dpfl == NULL) goto fail ;
+    if(dpfl == NULL) goto fail ;                     // no parameter list
   }
   if(command != DMAP_PRINT){                         // DMAP_PRINT does not use the bit stream
     errmsg = "\003no stream" ;
@@ -54,16 +58,16 @@ ssize_t FILTER_NAME(array_nd *a, block_properties *bp, dmap_filter_list dpfl, bi
     s = *stream ;                                    // local copy of stream control structure
   }
 
-  if(command == DMAP_ENCODE)  return 0 ;         // irrelevant
-  if(command == DMAP_DECODE)  return 0 ;         // irrelevant
-  if(command == DMAP_PRINT)   return 0 ;         // irrelevant
   if(command == DMAP_RESTORE || command == DMAP_FILTER){
     errmsg = "\004no array" ;
-    if(a == NULL) goto fail ;                    // array descriptor must exist
+    if(a == NULL) goto fail ;                    // array descriptor MUST exist
     if(command == DMAP_RESTORE) goto restore ;
+
     array = array_address(a) ;                   // get array address, dimension(s), and type
     errmsg = "\020no data in array" ;
-    if(array == NULL) goto fail ;                // array descriptor must have valid data
+    if(array == NULL) goto fail ;                // array descriptor MUST have valid data in forward filter mode
+    errmsg = "\021array has more than 2 dimensions" ;
+    if(a->rank > 2)   goto fail ;                // support beyond 2D NOT IMPLEMENTED YET
     goto forward ;
   }else{
     errmsg = "\005invalid command" ;
@@ -76,12 +80,31 @@ forward:
   // insert array description information into the bit stream
   nbits += dmap_filter_put_array_info(a, &s) ;
 
-  // call next filter in list
-  // DO NOT USE dpfl++, dmap_filter_fwd is a filter implicitely at the head of the list
-  dmap_filter_ptr next_filter = dmap_filter_next(dpfl) ;
-  status = (*next_filter)(a, bp, dpfl, &s, command) ;
-  errmsg = "\006filter chain failed" ;
-  if(status < 0) goto fail ;
+  {
+    // TODO : add 8/16/64 bits -> 32 bit conversion
+    uint32_t size = 1 ;
+    block_properties bp0 ;
+    for(int i = 0 ; i < a->rank ; i++) { size *= a->dim[i].lnn ; } ;
+    local_block_2d(block_a, size) ; block_a->type = a->type ;
+    if(a->rank == 2) { block_a->lni  = a->dim[0].lnn ; block_a->lnj  = a->dim[1].lnn ; }
+    array_to_block((array_2d *)a, block_a, &bp0) ;
+print_block_properties(bp0) ;
+    array_2d a_new = array_2d_null ;
+    array_from_block(&a_new, block_a) ;
+    print_array_description((array_nd *)(&a_new), "a_new :") ;
+
+fprintf(stderr, "dmap_filter_000, block [%d,%d], end = %d, alias = %ld\n", block_a->lni, block_a->lnj, block_a->end, sizeof(block_a_alias)/4) ;
+fprintf(stderr, "dmap_filter_000, esize = %d, type = '%s', rank = %d, size = %d, dimensions[", (uint32_t)a->esize, array_kind(a), a->rank, size) ;
+for(int i = 0 ; i < a->rank ; i++) { fprintf(stderr, " %d(%d) ", a->dim[i].lnn, a->dim[i].gnn) ; }
+fprintf(stderr, "], block_a[%d,%d]\n", block_a->lni, block_a->lnj);
+
+    // call next filter in list
+    // DO NOT USE dpfl++, dmap_filter_fwd is a filter implicitely at the head of the list
+    dmap_filter_ptr next_filter = dmap_filter_next(dpfl) ;
+    status = (*next_filter)(a, bp, dpfl, &s, command) ;
+    errmsg = "\006filter chain failed" ;
+    if(status < 0) goto fail ;
+  }
 
   // insert the FILTER_CHAIN_END marker into the bit stream
   STREAM_PUT_NBITS(s, FILTER_CHAIN_END, 8) ;
@@ -114,9 +137,11 @@ restore:
   status += temp ;
   array_set_empty(a) ;                                  // mark array as having no valid data
 
+  // TODO : set proper 32 bit reception array if size conversion will be needed
   status2 = dmap_filter_inv(a, &s) ;                    // call first inverse filter
   errmsg = "\010restore filter chain failed" ;
   if(status2 < 0) goto fail ; else status += status2 ;
+  // TODO : add delivery size conversion (32 bits -> 8/16/64 bits) as needed
   goto end ;
 }
 #undef FILTER_ID
