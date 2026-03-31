@@ -140,6 +140,13 @@ int package_log(char *pkg, int id, char *msg, TApp_LogLevel level);
       set_diag_errno(level) ; \
       User_Tee_Log(mfile ? mfile : stdout, _TeMp_, level) ; \
     }
+
+#define TEE_PKG_MSG(level, pkg, id, ...) \
+    { char _TeMp_[4096] ;  \
+      snprintf(_TeMp_, sizeof(_TeMp_), __VA_ARGS__) ; _TeMp_[4095] = '\0' ; \
+      TEE_PKG_LOG(level, pkg, id, _TeMp_) ; \
+    }
+
 // use App for messages if yes  != 0, otherwise use User_Tee_Log
 int32_t get_use_app(void);
 int32_t set_use_app(int32_t yes);

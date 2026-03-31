@@ -34,9 +34,9 @@
 // subarray dimension index range : ln0 : ln0 + lnn - 1  ( lnn elements)
 // constraints : ln0 >= gn0 , ln0 + lnn <= gn0 + gnn
 typedef struct{
-  int32_t  gnn ;          // number of elements stored along dimension
+  uint32_t gnn ;          // number of elements stored along dimension
   int32_t  gn0 ;          // global index of first point along dimension (usually 0 or 1)
-  int32_t  lnn ;          // number of elements used along dimension (sub array)
+  uint32_t lnn ;          // number of elements used along dimension (sub array)
   int32_t  ln0 ;          // index of first point along dimension (usually 0 or 1)
 } dim_desc ;              // ln0 == gn0 , lnn == gnn : all elements along this dimension are used
 

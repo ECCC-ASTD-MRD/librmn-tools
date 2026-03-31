@@ -457,34 +457,30 @@ fail:
 // stream [INOUT] : bit stream
 // allocate  [IN] : if nonzero, allocate spacefor data
 // return number of bits extracted from bit stream (-1 if error)
-// TODO : use BHW coding for dimensions et al ?
-// TODO : collect rank, dimensions, type first, then check that array can be (re)configured properly
-// TODO : add esize to the fray ?
 // TODO : if allocate, allocate the data container, set dimensions (new_array_nd)
 // TODO : otherwise check and potentially reallocate things
 // get rank, type, element size, dimensions[rank] from bitstream
 int32_t dmap_filter_get_array_info(array_nd *a, bitstream *stream, int allocate){
   char *msg = "" ;
-  uint32_t rank, type, esize, nbits, i ;
-  int32_t tbits, tdim[5] ;
+  uint32_t rank, type, esize, nbits, i, tbits, tdim[5] ;
   size_t mem_needed ;
 
   msg = "NULL array descriptor" ;
   if(a == NULL) goto fail ;
   msg = "NULL stream" ;
   if(stream == NULL) goto fail ;
-  STREAM_GET_NBITS(*stream, rank, 3) ; nbits = 3 ;         // rank = number of dimensions (from stream)
+  STREAM_GET_NBITS(*stream, rank, 3) ; nbits = 3 ;         // get rank = number of dimensions (from stream)
   msg = "target max rank is too small" ;
   if(rank > a->ndim) goto fail ;
 
-  STREAM_GET_NBITS(*stream, type, 8) ; nbits += 8 ;        // data type
-  STREAM_GET_BHW(*stream, esize, tbits) ; nbits += tbits ; // element size
+  STREAM_GET_NBITS(*stream, type, 8) ; nbits += 8 ;        // get element type (from stream)
+  STREAM_GET_BHW(*stream, esize, tbits) ; nbits += tbits ; // get element size (from stream)
 // fprintf(stderr, "get_array_info : rank = %d, type = %d, esize = %d, dimensions =", rank, type, esize) ;
 
   mem_needed = esize ;
-  for(i = 0 ; i < 5 ; i++) tdim[i] = 1 ;                   // initialize all dimensions to 1
-  for(i = 0 ; i < rank ; i++){                             // get dimensions from stream
-    int32_t w32 ;
+  for(i = 0 ; i < 5 ; i++) tdim[i] = 1 ;                   // initialize dimensions to 1
+  for(i = 0 ; i < rank ; i++){                             // get rank dimensions from stream
+    uint32_t w32 ;
     STREAM_GET_BHW(*stream, w32, tbits) ;
     tdim[i] = w32 ;
     nbits += tbits ;
@@ -492,29 +488,31 @@ int32_t dmap_filter_get_array_info(array_nd *a, bitstream *stream, int allocate)
 // fprintf(stderr, " %d", tdim[i]) ;
   }
 // fprintf(stderr, "\n");
-  if(a->type == any_data){                                 // set array description from stream data
+  if(a->type == any_data || a->rank == 0){                 // set array description using stream data description
 // fprintf(stderr, "type set from %d to %d, esize set from %d to %d, rank set from %d to %d\n", a->type, type, a->esize, esize, a->rank, rank) ;
-    a->type = type ;
-    a->esize = esize ;
-    a->rank = rank ;                                       // reset array rank
+    a->rank  = rank ;                                      // reset array rank with rank from stream
+    a->type  = type ;                                      // reset type with type from stream
+    a->esize = esize ;                                     // reset esize with esize from stream
     for(i = 0 ; i < rank ; i++){                           // copy a->rank dimensions into array descriptor
       a->dim[i].gnn = tdim[i] ;
     } ;
   }
   if(allocate && a->data == NULL){
 // fprintf(stderr, "calling fix_array\n");
+    a->rank = rank ;                                       // reset array description
+    a->type  = type ;
+    a->esize = esize ;
     msg = "fix_array() failed" ;
-    a->rank = rank ;                                       // reset array rank
     if(fix_array(a) == 0) goto fail ;
   }
 
   msg = "invalid rank" ;
   if(rank != a->rank) goto fail ;
-  msg = "type mismatch" ;
+  msg = "element type mismatch" ;
   if(type != a->type) goto fail ;
   msg = "element size mismatch" ;
   if(esize != a->esize) goto fail ;
-  msg = "dimension mismatch" ;
+  msg = "dimension(s) mismatch" ;
   for(i = 0 ; i < a->rank ; i++){
     if(a->dim[i].gnn != tdim[i]) goto fail ;
   }

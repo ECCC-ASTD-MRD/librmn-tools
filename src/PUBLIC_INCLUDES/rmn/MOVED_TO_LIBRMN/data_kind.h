@@ -38,7 +38,8 @@ typedef enum {
   large_data  = 12,     // items use a multiple of 32 bits (block_properties are meaningless)
   any_data    = 13,     // unknown or unspecified (block_properties likely to be meaningless)
   bf16_data   = 14,     // brain float 16
-  fp16_data   = 15      // 16 bit IEEE float
+  fp16_data   = 15,     // 16 bit IEEE float
+  quad_data   = 16      // quadruple precision float
 } data_kind ;
 
 // get rid of some gcc diagnostic messages

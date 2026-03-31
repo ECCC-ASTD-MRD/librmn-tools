@@ -27,7 +27,7 @@ ssize_t dmap_filter_fwd(array_nd *a, block_properties *bp, dmap_filter_list dpfl
 }
 #define FILTER_ID 000
 #define FILTER_NAME CAT(dmap_filter_,FILTER_ID)
-#define FILTER_ARGS CAT(dmap_filter_arg_,FILTER_ID)
+// #define FILTER_ARGS CAT(dmap_filter_arg_,FILTER_ID)
 // special filter used to get/put array dimensions and type information (found in dmap_filters.c)
 // this filter writes into bit stream BEFORE calling the filter chain and AFTER calling said chain
 // this filter expects NO ARGUMENT from the filter list
@@ -144,6 +144,8 @@ restore:
   // TODO : add delivery size conversion (32 bits -> 8/16/64 bits) as needed
   goto end ;
 }
+#undef FILTER_NAME
+// #undef FILTER_ARGS
 #undef FILTER_ID
 //
 // ======================================= filter 001 =======================================

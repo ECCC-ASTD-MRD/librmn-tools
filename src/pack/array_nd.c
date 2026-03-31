@@ -16,8 +16,23 @@
 //
 
 #include <rmn/array_nd.h>
+#include <rmn/tee_print.h>
 
+#define ARRAY_PKG 0177
 // TODO : add a function to get the "effective rank" (ignore upper dimensions == 1)
+
+static char *invalid_msg[] = { 
+  "", 
+  "NULL array pointer", 
+  "invalid array signature", 
+  "NO data in array", 
+  "data limit MUST be > start of data", 
+  "array rank > max dimensions", 
+  "a dimension is <= 0" , 
+  "lower local bound < lower global bound" ,
+  "upper local bound > upper global bound" ,
+  "array storage too small for dimensions"
+};
 
 // is this array_nd invalid ?
 // a  [IN] : pointer to array_nd struct
@@ -31,7 +46,7 @@ int invalid_array_nd(array_nd *a){
   if(a->rank > a->ndim)        return 5 ;   // rank larger than max dimensions
   ssize_t size = a->esize ;                 // size of a single array element
   for(i = 0 ; i < a->rank ; i++){
-    if(a->dim[i].lnn <= 0 || a->dim[i].gnn <= 0)                      return 6 ; // bad size
+    if(a->dim[i].lnn <= 0 || a->dim[i].gnn <= 0)                      return 6 ; // invalid dimension
     if(a->dim[i].ln0 < a->dim[i].gn0)                                 return 7 ; // lower local bound < lower global bound
     if(a->dim[i].ln0 + a->dim[i].lnn > a->dim[i].gn0 + a->dim[i].gnn) return 8 ; // upper local bound > upper global bound
     size *= a->dim[i].gnn ;                                                      // size * storage size of this dimension
@@ -148,9 +163,11 @@ array_nd *create_array_nd(uint32_t flags, int32_t esize, int8_t type, int32_t ra
   int32_t i ;
   array_nd *r ;
   uint8_t *data, local_flags = 0 ;
-
+// TODO : adjust esize according to type if necessary : size_of_type[type] / 8 if 1/2/4/8
+//        if tuples (check for appropriate multiple)
   if(rank != ndm5){
-    fprintf(stderr, "make_array_nd ERROR: %d dimensions, %d sizes\n", rank, ndm5) ;
+    TEE_PKG_MSG(TEE_ERROR, "make_array_nd", ARRAY_PKG, "\001 %dD array, %d dimensions", rank, ndm5) ;
+//     fprintf(stderr, "make_array_nd ERROR: %d dimensions, %d sizes\n", rank, ndm5) ;
     return NULL ;
   }
 
@@ -196,9 +213,10 @@ array_nd *create_array_nd(uint32_t flags, int32_t esize, int8_t type, int32_t ra
 // return pointer to array descriptor if O.K., NULL in case of error
 array_nd *new_array_nd(array_nd *a, void *mem, int32_t esize, int8_t type, int32_t rank, int32_t ndm5, __i32__5__ dm5){
   int32_t i, nelem = 1, reshape ;
-
+// TODO : adjust esize according to type if necessary : size_of_type[type] / 8 if 1/2/4/8
   if(rank != ndm5){
-    fprintf(stderr, "new_array_nd ERROR: %d dimensions, %d size arguments\n", rank, ndm5) ;
+    TEE_PKG_MSG(TEE_ERROR, "new_array_nd", ARRAY_PKG, "\002 %dD array, %d dimensions", rank, ndm5) ;
+//     fprintf(stderr, "new_array_nd ERROR: %d dimensions, %d size arguments\n", rank, ndm5) ;
     return  NULL ;
   }
   if(a == NULL){
@@ -273,31 +291,36 @@ size_t set_array_value_nd(array_nd *a, int32_t v, uint32_t vlen){
   return size ;
 }
 
-// fix array storage according to dimensions and esize
+// fix array descriptor according to dimensions and esize
 // a    [INOUT] : pointer to nD array descriptor
-// return array size, 0 in case of error
-// if data member of a is NULL, memory will be allocated
-// if available memory is too small and data member not NULL, fail
+// return array size in bytes, 0 in case of error
+// if data pointer of a is NULL, alllocate memory as needed
+// if available memory is too small and data pointer is not NULL, fail
 size_t fix_array_nd(array_nd *a){
+  char *msg = "\003 NULL array pointer" ;
   if(a == NULL) goto fail ;
-  int32_t i, rank = a->rank ;
-  ssize_t sz = 1 ;
+  uint32_t i, rank = a->rank ;
 
   a->signature = NO_DATA ;
   a->flags     = 0 ;                      // reset flags
-  for(i = 0 ; i < rank ; i++){            // number of elements in array
-    if(a->dim[i].gnn <= 0) goto fail ;
+  ssize_t sz = 1 ;
+  for(i = 0 ; i < rank ; i++){            // compute number of elements in array
+    msg = "\004 invalid dimension" ;
+    if(a->dim[i].gnn <= 0) goto fail ;    // invalid dimension
     sz *= a->dim[i].gnn ;
   }
-  sz *= a->esize ;                        // * element size
+  sz *= a->esize ;                        // multiply number of elements by element size
+
   if(a->data == NULL){                    // allocate memory if data pointer is NULL
-    a->data = malloc(a->esize * sz) ;
-    if(a->data == NULL) goto fail ;
+    a->data = malloc(sz) ;
+    msg = "\005 failed to allocate memory for array" ;
+    if(a->data == NULL) goto fail ;       // malloc failed
     a->limit = a->data + sz ;
     a->flags |= DATA_MAY_REALLOC ;
 // fprintf(stderr, "fix_array_nd : allocated %ld bytes, %ld elements, type = %d, flags = %d\n", sz, sz / a->esize, a->type, a->flags) ;
   }
-  if(sz > a->limit - a->data) goto fail ; // OOPS, not enough available space to accomodate dimensions
+  msg = "\006 not enough available space to accomodate request" ;
+  if(sz > a->limit - a->data) goto fail ; // OOPS, not enough available space to accomodate dimensions/type/esize
   for(i = 0 ; i < rank ; i++){            // set local indexes to global values
     a->dim[i].ln0 = a->dim[i].gn0 = 0 ;
     a->dim[i].lnn = a->dim[i].gnn ;
@@ -305,6 +328,7 @@ size_t fix_array_nd(array_nd *a){
   return sz ;
 
 fail:
+    TEE_PKG_MSG(TEE_ERROR, "fix_array_nd", ARRAY_PKG, "%s", msg) ;
   return 0 ;
 }
 
@@ -339,21 +363,27 @@ fail:
 // normally called via generic macro  set_array_lbounds
 int set_array_lbounds_nd(array_nd *a, int32_t narg, __i32__5x2__ lb5){
   int32_t i, j, rank = narg/2 ;
-  char *msg = "" ;
+  char *msg = "", buf[1024] ;
 
-  msg = "invalid array" ; if(invalid_array(a)) goto fail ;
-  msg = "narg is odd" ; if(narg & 1) goto fail ;  // narg MUST be EVEN
+//   msg = "\010invalid array" ; if(invalid_array(a)) goto fail ;
+  if((i = invalid_array(a))){
+    snprintf(buf, sizeof(buf), "\010 invalid array[%s]", invalid_msg[i]) ;
+    msg = buf ;
+    goto fail ;
+  }
+  msg = "\011number of bounds is odd, MUST be EVEN" ; if(narg & 1) goto fail ;  // narg MUST be EVEN
   if(rank != a->rank){
-    fprintf(stderr, "array_lbounds_nd, rank = %d, a->rank = %d\n", rank, a->rank) ;
-    msg = "invalid array bounds" ;
+    snprintf(buf, sizeof(buf), "\012invalid bounds, requested rank = %d, array rank = %d\n", rank, a->rank) ;
+    msg = buf ;
     goto fail ;    // wrong number of dimensions
   }
 
   for(i=j=0 ; i < narg ; i+=2, j++){
-    msg = "upper bound < lower bound" ;
+    msg = "\013upper bound < lower bound" ;
     if(lb5.i32[i+1] < lb5.i32[i])                        goto fail ;  // upper bound < lower bound
-    msg = "upper bound beyond limits" ;
-    if(lb5.i32[i+1] > a->dim[j].gn0 + a->dim[j].gnn - 1) goto fail ;  // upper bound beyond limits
+    msg = "\014upper bound beyond limits" ;
+    int32_t limit = a->dim[j].gn0 + a->dim[j].gnn - 1 ;
+    if(lb5.i32[i+1] > limit) goto fail ;                              // upper bound beyond limits
 // fprintf(stderr, "[%d] gbounds = %d %d, lbounds= %d %d\n", j, a->dim[j].gn0, a->dim[j].gnn - 1, lb5.i32[i], lb5.i32[i+1]) ;
   }
 
@@ -364,7 +394,8 @@ int set_array_lbounds_nd(array_nd *a, int32_t narg, __i32__5x2__ lb5){
 // fprintf(stderr, "array_lbounds_nd, narg = %d, rank = %d\n", narg, rank) ;
   return rank ;
 fail:
-  fprintf(stderr, "%s\n", msg) ;
+  TEE_PKG_MSG(TEE_ERROR, "set_array_lbounds_nd", ARRAY_PKG, "%s", msg) ;
+//   fprintf(stderr, "%s\n", msg) ;
   return 0 ;
 }
 

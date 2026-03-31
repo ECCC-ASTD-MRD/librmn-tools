@@ -44,7 +44,7 @@ void print_flags(char *msg, void *a){
                   (flags & DATA_MAY_REALLOC) ?  " MAY_REALLOC_DATA    " : " MAY_NOT_REALLOC_DATA" ,
                   (flags & STRUCT_CAN_FREE)  ?  " STRUCT_CAN_BE_FREED" : "",
                   array_is_signed(ap)        ?  " SIGNED" : "",
-                  array_no_data(ap)         ?  " EMPTY" : "" ,
+                  array_no_data(ap)          ?  " EMPTY" : "" ,
                   array_has_data(ap)         ?  " VALID_DATA" : ""
          ) ;
 }
@@ -528,6 +528,26 @@ int main(int argc, char **argv){
 
   if(argc > 1 && argv[0] == NULL) return 1 ;  // useless code to get rid of compiler warning
 
+  fprintf(stderr, "=============== errors test ===============\n") ;
+  array_1d a1 = array_1d_null, *ap1 = &a1 ;
+  array_2d a2 = array_2d_null, *ap2 = &a2 ; ;
+  new_array(&a2, ref, sizeof(int32_t), 1, GNI, GNJ, GNK) ;
+  create_array(ap1, DATA_IS_INTERNAL, 4, int_data, GNI, GNJ, GNK) ;
+  fix_array_nd(NULL) ;
+  create_array(ap1, DATA_IS_INTERNAL, 4, int_data, 10 ) ;
+  ap1->esize = 8 ;
+  fix_array(ap1) ;
+  ap1->dim[0].gnn = 0 ;
+  fix_array(ap1) ;
+  set_array_lbounds(ap1, 1, 100) ;
+  ap1->dim[0].gnn = 10 ;
+  set_array_lbounds(ap1, 1, 100) ;
+  ap1->data = NULL ;
+  set_array_lbounds(ap1, 1, 100) ;
+  new_array(ap2, ref, sizeof(int32_t), 1, GNI, GNJ) ;
+  set_array_lbounds(ap2, 1, 2, 3) ;
+  set_array_lbounds(ap2, 0, GNI, 0, GNJ) ;
+return 0 ;
   fprintf(stderr, "=============== block copy test ===============\n") ;
   block_copy_check(9, 8, 7, 6, 5) ;
 // goto end ;
