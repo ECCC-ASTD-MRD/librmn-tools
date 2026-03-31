@@ -691,13 +691,16 @@ array_2d *block_to_array(array_2d * restrict a, block_2d * restrict blk){
   void *dst = subarray_address(a) ;                // source address
   void *src = blk->w32 ;                           // destination (block) address
   msg = "index range mismatch along i" ;
-  if(a->dim[0].lnn != ni) goto fail ;
+  if(a->dim[0].lnn != (uint32_t)ni) goto fail ;
   msg = "index range mismatch along j" ;
-  if(a->dim[1].lnn != nj) goto fail ;
+  if(a->dim[1].lnn != (uint32_t)nj) goto fail ;
+  int32_t limit ;
   msg = "index overflow along i" ;
-  if(a->dim[0].ln0 + ni > a->dim[0].gn0 + a->dim[0].gnn) goto fail ;  // index overflow along i
+  limit = a->dim[0].gn0 + a->dim[0].gnn ;
+  if(a->dim[0].ln0 + ni > limit) goto fail ;  // index overflow along i
   msg = "index overflow along j" ;
-  if(a->dim[1].ln0 + nj > a->dim[1].gn0 + a->dim[1].gnn) goto fail ;  // index overflow along j
+  limit = a->dim[1].gn0 + a->dim[1].gnn ;
+  if(a->dim[1].ln0 + nj > limit) goto fail ;  // index overflow along j
 
   msg = "inappropriate block type" ;
   switch(a->type){
