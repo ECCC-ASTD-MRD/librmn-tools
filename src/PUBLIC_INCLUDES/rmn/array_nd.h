@@ -151,7 +151,7 @@ typedef struct{          // specific struct for 0D (rank 0) array
   uint32_t esize ;
   uint32_t count ;
   dim_desc dim[0] ;
-  uint32_t w32[] ;       // usable only if created with create_array
+  uint8_t w32[] ;       // usable only if created with create_array
 } array_0d ;
 
 // ndim MUST be 1, rank MUST be <= 1
@@ -167,7 +167,7 @@ typedef struct{          // specific struct for 1D array
   uint32_t esize ;
   uint32_t count ;
   dim_desc dim[1] ;
-  uint32_t w32[] ;       // usable only if created with create_array
+  uint8_t w32[] ;       // usable only if created with create_array
 } array_1d ;
 
 // ndim MUST be 2, rank MUST be <= 2
@@ -183,7 +183,7 @@ typedef struct{          // specific struct for 2D array
   uint32_t esize ;
   uint32_t count ;
   dim_desc dim[2] ;
-  uint32_t w32[] ;       // usable only if created with create_array
+  uint8_t w32[] ;       // usable only if created with create_array
 } array_2d ;
 
 // ndim MUST be 3, rank MUST be <= 3
@@ -199,7 +199,7 @@ typedef struct{          // specific struct for 3D array
   uint32_t esize ;
   uint32_t count ;
   dim_desc dim[3] ;
-  uint32_t w32[] ;       // usable only if created with create_array
+  uint8_t w32[] ;       // usable only if created with create_array
 } array_3d ;
 
 // ndim MUST be 4, rank MUST be <= 4
@@ -215,7 +215,7 @@ typedef struct{          // specific struct for 4D array
   uint32_t esize ;
   uint32_t count ;
   dim_desc dim[4] ;
-  uint32_t w32[] ;       // usable only if created with create_array
+  uint8_t w32[] ;       // usable only if created with create_array
 } array_4d ;
 
 // ndim MUST be 5, rank MUST be <= 5
@@ -231,7 +231,7 @@ typedef struct{          // specific struct for 5D array
   uint32_t esize ;
   uint32_t count ;
   dim_desc dim[5] ;
-  uint32_t w32[] ;       // usable only if created with create_array
+  uint8_t w32[] ;       // usable only if created with create_array
 } array_5d ;
 
 // invalid array descriptors (ndim is the only element initialized to the proper value)
