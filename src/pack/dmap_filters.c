@@ -272,7 +272,7 @@ static ssize_t dmap_filter_bad(array_nd *a, block_properties *bp, dmap_filter_li
 }
 
 // this null filter terminates the filter chain (place holder)
-// the FILTER_CHAIN_END marker will be inserted into the bit stream by dmap_filter_fwd (head of chain)
+// the FILTER_CHAIN_END marker will be inserted into the bit stream by dmap_filter_enc (head of chain)
 // a, bp, dpfl, stream : unused arguments, for compatibility with all other dmap filter arguments
 static ssize_t dmap_filter_last(array_nd *a, block_properties *bp, dmap_filter_list dpfl, bitstream *stream, dmap_command command){
   (void) (a) ;
@@ -344,6 +344,8 @@ static filter_properties filters[MAX_DP_FILTERS+3] = {
   { dmap_filter_last, "filter_last"                , sizeof(dmap_filter_arg_000) }
 } ;
 
+dmap_filter_arg_000 dmap_args_null = DMAP_FILTER_000() ;
+
 // dpfl [IN] : pointer to argument list for a filter
 // id   [IN] : id of requesting filter
 // return 1 if argument list matches requested id, 0 if not
@@ -360,6 +362,7 @@ int dmap_filter_valid(dmap_filter_list dpfl, uint32_t id){
 // dpfl [IN] : filter list
 int dmap_filter_is_last(dmap_filter_list dpfl){
   if(dpfl == NULL) return 0 ;
+  // TODO // also true if next list entry is dmap_filter_last
   return (dpfl[1] == NULL) ;    // true if next list entry is NULL (no next filter)
 }
 
@@ -428,6 +431,26 @@ dmap_filter_ptr dmap_filter_next(dmap_filter_list dpfl){
   return dmap_filter_get(next_filter) ;
 }
 
+// head of forward filter chain, calls dmap_filter_000 with command = DMAP_FILTER
+// TODO: process 8/16/64 bits -> 32 bits conversion and tuple unshuffling here
+//       filter list may be the same of different for tuple components
+ssize_t dmap_filter_enc(array_nd *a, block_properties *bp, dmap_filter_list dpfl, bitstream *stream){
+  // evaluate needed 32 bit block size for encoding
+  uint64_t esize = a->esize * 8L ;   // size in bits
+  int tuple = esize*8 / size_of_type[a->type] ;
+  int elements = subarray_dimension_nd(a) ;
+  ssize_t status ;
+fprintf(stderr,">>> esize = %ld, type = %d(%s), size of type = %d, tuple = %d\n", esize, a->type, printable_type[a->type], size_of_type[a->type], tuple) ;
+  status = dmap_filter_000(a, bp, dpfl, stream, DMAP_FILTER) ;
+  return status ;
+}
+
+// head of decode chain, calls dmap_filter_inv
+// TODO: process 32 bits -> 8/16/64 bits conversion and tuple shuffling here
+ssize_t dmap_filter_dec(array_nd *a, bitstream *stream){
+  // evaluate needed 32 bit block size for decoding
+  return dmap_filter_inv(a, stream) ;
+}
 // call next inverse dmap filter
 // a      [INOUT] : pointer to array descriptor
 // stream [INOUT] : pointer to bit stream

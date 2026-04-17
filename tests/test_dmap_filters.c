@@ -129,8 +129,8 @@ process:
   new_array(&b2d, (void *)&zo, sizeof(float), raw_data,   NI, NJ) ;
 
   char *test_nam0[4] = { "LIN 00", "LINo16", "LINo00", "FLOG16" } ;
-//   for(test_no = 0 ; test_no < 4 ; test_no++){
-  for(test_no = 0 ; test_no < 1 ; test_no++){
+  for(test_no = 0 ; test_no < 4 ; test_no++){
+//   for(test_no = 0 ; test_no < 1 ; test_no++){
     fprintf(stderr, "============================== float quantize test %d start ==============================\n", test_no) ;
     float abs_err = 07.5f ;
     STREAM_INIT(str000, NULL, 0, 0) ;               // full RW stream reset (keep buffer, size, and mode)
@@ -166,15 +166,15 @@ process:
     dpfl[5] = (dmap_filter_args_ptr)&arg_002 ;    // pass through with flag
     dpfl[6] = (dmap_filter_args_ptr)&arg_006 ;    // tile encoder
     dpfl[7] = (dmap_filter_args_ptr)&arg_007 ;    // pass through
-    dpfl[7] = NULL ;      // comment to test error return propagation
-    dpfl[8] = NULL ;
+    dpfl[7] = FILTER_LIST_END ;                   // comment to test error return propagation
+    dpfl[8] = FILTER_BLOCK_END ;
     dmap_print_parameters(dpfl) ;
 
     fprintf(stderr, "filter test : available space in str000 %ld bits, available bits = %ld bits\n", StreamAvailableSpace(str000), StreamAvailableBits(str000)) ;
     if((NI * NJ) != copy_array_data(&f2d, &a2d)) goto fail ;
     a2d.type = float_data ;
 
-    status = dmap_filter_fwd((array_nd *)&a2d, NULL, dpfl, str000) ;      // forward filter
+    status = dmap_filter_enc((array_nd *)&a2d, NULL, dpfl, str000) ;      // forward filter
     estream = str000 ;
     errmsg = "forward filter failed" ;
     if(status < 0){
@@ -188,7 +188,7 @@ process:
 
     set_array_value(&g2d, 0x0F, ARRAY_BYTES) ;                            // set output to nonsense
     array_set_empty(&g2d) ;
-    tot_status = dmap_filter_inv((array_nd *)&g2d, str000) ;              // inverse filter
+    tot_status = dmap_filter_dec((array_nd *)&g2d, str000) ;              // inverse filter
     errmsg = "inverse filter failed" ;
     if(tot_status < 0){
       fprintf(stderr, "filter test : status = %5.5lo\n", -tot_status) ;
@@ -232,7 +232,7 @@ if(argc < 1000) goto end ;     // suppress unreachable code warning
     dpfl[0] = (dmap_filter_args_ptr)&arg_005 ;      // wavelet transform
     dpfl[1] = (dmap_filter_args_ptr)&arg_004 ;      // Lorenzo predictor
     dpfl[2] = (dmap_filter_args_ptr)&arg_006 ;      // integer encoder
-    dpfl[3] = NULL ;                                // end of filter list
+    dpfl[3] = FILTER_LIST_END ;                     // end of filter list
 
     fprintf(stderr, "filter test : available space in str000 %ld bits, available bits = %ld bits\n", StreamAvailableSpace(str000), StreamAvailableBits(str000)) ;
 
@@ -240,7 +240,7 @@ if(argc < 1000) goto end ;     // suppress unreachable code warning
     i2d.type = int_data ;
 
     array_set_used(&i2d) ;
-    status = dmap_filter_fwd((array_nd *)&i2d, NULL, dpfl, str000) ;      // forward filter
+    status = dmap_filter_enc((array_nd *)&i2d, NULL, dpfl, str000) ;      // forward filter
     estream = str000 ;
     errmsg = "forward filter failed" ;
     if(status < 0) goto fail ;
@@ -251,7 +251,7 @@ if(argc < 1000) goto end ;     // suppress unreachable code warning
 
     set_array_value(&o2d, 0x0F, ARRAY_BYTES) ;                            // set output to nonsense
     array_set_empty(&o2d) ;
-    tot_status = dmap_filter_inv((array_nd *)&o2d, str000) ;              // inverse filter
+    tot_status = dmap_filter_dec((array_nd *)&o2d, str000) ;              // inverse filter
     errmsg = "inverse filter failed" ;
     if(tot_status < 0) goto fail ;
 //     fprintf(stderr, "filter test : '%s' ,  bits extracted = %ld\n", test_nam1[test_no], tot_status) ;
@@ -286,14 +286,14 @@ if(argc < 1000) goto end ;     // suppress unreachable code warning
       default : goto fail ;                                   // invalid test number
     }
     dpfl[0] = (dmap_filter_args_ptr)&arg_006 ;
-    dpfl[1] = NULL ;                                // end of filter list
+    dpfl[1] = FILTER_LIST_END ;                               // end of filter list
 
     fprintf(stderr, "filter test : available space in str000 %ld bits, available bits = %ld bits\n", StreamAvailableSpace(str000), StreamAvailableBits(str000)) ;
 
     if((NI * NJ) != copy_array_data(&r1d, &i1d)) goto fail ;              // set input data (copy ur into ui), check sizes
     i1d.type = int_data ;
 
-    status = dmap_filter_fwd((array_nd *)&i1d, NULL, dpfl, str000) ;      // forward filter
+    status = dmap_filter_enc((array_nd *)&i1d, NULL, dpfl, str000) ;      // forward filter
 
     estream = str000 ;
     errmsg = "forward filter failed" ;
@@ -309,7 +309,7 @@ if(argc < 1000) goto end ;     // suppress unreachable code warning
     array_set_empty(&o1d) ;
     fprintf(stderr, "rank of o1d : syntactic = %d/%d/%d, effective = %d, data at %p\n",
                     ARRAY_ALLOC_RANK(o1d), ARRAY_ALLOC_RANK(*o1d_p), o1d.ndim, ARRAY_RANK(o1d), ARRAY_DATA(o1d)) ;
-    tot_status = dmap_filter_inv((array_nd *)&o1d, str000) ;              // inverse filter
+    tot_status = dmap_filter_dec((array_nd *)&o1d, str000) ;              // inverse filter
     fprintf(stderr, "rank of o1d : syntactic = %d/%d/%d, effective = %d, data at %p->%p, flags = %d\n",
                     ARRAY_ALLOC_RANK( o1d ), ARRAY_ALLOC_RANK( *(array_nd *)o1d_p ), o1d.ndim,
                     ARRAY_RANK( *o1d_p ), ARRAY_DATA( *o1d_p ), ARRAY_LIMIT( *o1d_p ), o1d.flags) ;
@@ -360,7 +360,7 @@ if(argc < 1000) goto end ;     // suppress unreachable code warning
   dpfl[7] = (dmap_filter_args_ptr) &arg_177 ;      // invalid filter 0177 (127)
   dpfl[8] = (dmap_filter_args_ptr) &arg_007 ;      // filter 003
   dpfl[9] = (dmap_filter_args_ptr) &arg_006a ;     // filter 006
-  dpfl[10] = NULL ;                                // end of filter list
+  dpfl[10] = FILTER_LIST_END ;                     // end of filter list
 
   dmap_print_parameters(dpfl) ;
   STREAM_INIT(str000, NULL, 0, 0) ;               // full RW stream reset (keep buffer, size, and mode)
@@ -387,7 +387,7 @@ if(argc < 1000) goto end ;     // suppress unreachable code warning
   dpfl[1] = (dmap_filter_args_ptr)&arg_005 ;     // integer wavelet
   dpfl[1] = (dmap_filter_args_ptr)&arg_004 ;     // Lorenzo predictor
   dpfl[2] = (dmap_filter_args_ptr)&arg_006 ;     // 32 bit raw encoding
-  dpfl[3] = NULL ;                               // end of filter list
+  dpfl[3] = FILTER_LIST_END ;                    // end of filter list
 // goto array_test ;
   STREAM_CREATE(stream, buffer, sizeof(buffer), 0) ;
   STREAM_INSERT_BEGIN(*stream) ;
@@ -396,9 +396,9 @@ if(argc < 1000) goto end ;     // suppress unreachable code warning
   debug_mode = dmap_debug_mode(1) ;
   strict_mode = dmap_strict_mode(1) ;
 //   bp2d = NULL_BLOCK_PROPERTIES ; // data properties are not valid
-//   status = dmap_filter_fwd((array_nd *)&a2d, &bp2d, dpfl, stream) ;   // activate forward filter chain
+//   status = dmap_filter_enc((array_nd *)&a2d, &bp2d, dpfl, stream) ;   // activate forward filter chain
   // no data properties available, pass NULL
-  status = dmap_filter_fwd((array_nd *)&a2d, NULL, dpfl, stream) ;   // activate forward filter chain
+  status = dmap_filter_enc((array_nd *)&a2d, NULL, dpfl, stream) ;   // activate forward filter chain
   if(status < 0) goto fail ;
   debug_mode = dmap_debug_mode(1)   ; dmap_debug_mode(debug_mode) ;
   strict_mode = dmap_strict_mode(0) ; dmap_strict_mode(strict_mode) ;
@@ -414,7 +414,7 @@ if(argc < 1000) goto end ;     // suppress unreachable code warning
 
   fprintf(stderr, "filter test : old b2d address = %p\n", (void *)b2d.data) ;
   b2d.data = NULL ;
-  tot_status = dmap_filter_inv((array_nd *)&b2d, stream) ;
+  tot_status = dmap_filter_dec((array_nd *)&b2d, stream) ;
   fprintf(stderr, "filter test : new b2d address = %p\n", (void *)b2d.data) ;
   fprintf(stderr, "filter test : bits extracted = %ld\n", tot_status) ;
   fprintf(stderr, "filter test : available data in stream %ld bits\n", StreamAvailableBits(stream)) ;
@@ -457,7 +457,7 @@ if(argc < 1000) goto end ;     // suppress unreachable code warning
 
   dpfl[0] = (dmap_filter_args_ptr)&quantize ;     // filter 003, linear float quantizer
   dpfl[1] = (dmap_filter_args_ptr)&encode ;       // filter 006, bit encoder
-  dpfl[1] = NULL ;                                // end of filter list
+  dpfl[1] = FILTER_LIST_END ;                     // end of filter list
 
   STREAM_CREATE(stream, buf2, sizeof(buf2), 0) ;
   STREAM_INSERT_BEGIN(*stream) ;
@@ -507,7 +507,7 @@ if(argc < 1000) goto end ;     // suppress unreachable code warning
         goto fail ;
       }
       // process subarray
-      status = dmap_filter_fwd((array_nd *)&b2d, &bp, dpfl, stream) ;   // activate forward filter chain
+      status = dmap_filter_enc((array_nd *)&b2d, &bp, dpfl, stream) ;   // activate forward filter chain
       if(status < 0) goto fail ;
       debug_mode = dmap_debug_mode(1)   ; dmap_debug_mode(debug_mode) ;
 

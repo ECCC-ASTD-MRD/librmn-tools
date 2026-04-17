@@ -20,7 +20,7 @@
 #define MAX_ARG_NUM         8
 #define MAX_FILTER_ARG_SIZE ((MAX_ARG_NUM+1) * sizeof(uint32_t))
 
-// end of filter chain marker
+// ID for end of filter chain marker
 #define FILTER_CHAIN_END 0377
 
 // array functions
@@ -102,6 +102,13 @@ int32_t dmap_print_parameters(dmap_filter_list dpfl) ;
 #include <rmn/dmap_filters_020_027.h>
 #include <rmn/dmap_filters_030_037.h>
 
+// end of filter list
+#define FILTER_LIST_END NULL
+
+extern dmap_filter_arg_000 dmap_args_null ;
+// last filter in block (tuples)
+#define FILTER_BLOCK_END ((dmap_filter_args_ptr) &dmap_args_null)
+
 // alternative bit stream encoding format for filter metadata
 // first element of metadata for ALL filters (MUST be present and be the FIRST element)
 // id    : filter ID (000 -> 255)
@@ -160,10 +167,11 @@ int dmap_filter_valid(dmap_filter_list dpfl, uint32_t id);
 // is this filter the last filter in the list
 int dmap_filter_is_last(dmap_filter_list dpfl);
 
-// forward chain of data map pipe filters (array to bitstream)
-ssize_t dmap_filter_fwd(array_nd *a, block_properties *bp, dmap_filter_list dpfl, bitstream *stream);
-// restore chain of data map pipe filters (restore array from bit stream)
-ssize_t dmap_filter_inv(array_nd *a, bitstream *stream);
+// forward chain of data map pipe filters (encode array into bitstream)
+ssize_t dmap_filter_enc(array_nd *a, block_properties *bp, dmap_filter_list dpfl, bitstream *stream);
+// restore chain of data map pipe filters (restore/decode array from bit stream)
+ssize_t dmap_filter_dec(array_nd *a, bitstream *stream);     // full decode (8/16/32/64 bits + tuples)
+ssize_t dmap_filter_inv(array_nd *a, bitstream *stream);     // single 32 bits block decode (next inverse filter)
 
 // put array information into bit stream
 int32_t dmap_filter_put_array_info(array_nd *a, bitstream *stream);

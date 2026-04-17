@@ -20,11 +20,7 @@
 #include <rmn/misc_operators.h>
 
 // ======================================= filter 000 =======================================
-// head of forward filter chain, calls dmap_filter_000 with command = DMAP_FILTER
 // the filter template is not used for this special filter
-ssize_t dmap_filter_fwd(array_nd *a, block_properties *bp, dmap_filter_list dpfl, bitstream *stream){
-  return dmap_filter_000(a, bp, dpfl, stream, DMAP_FILTER) ;
-}
 #define FILTER_ID 000
 #define FILTER_NAME CAT(dmap_filter_,FILTER_ID)
 // #define FILTER_ARGS CAT(dmap_filter_arg_,FILTER_ID)
@@ -82,6 +78,7 @@ forward:
 
   {
     // TODO : add 8/16/64 bits -> 32 bit conversion
+    // will actually end up in dmap_filter_enc
     uint32_t size = 1 ;
     block_properties bp0 ;
     for(int i = 0 ; i < a->rank ; i++) { size *= a->dim[i].lnn ; } ;
@@ -99,7 +96,7 @@ for(int i = 0 ; i < a->rank ; i++) { fprintf(stderr, " %d(%d) ", a->dim[i].lnn, 
 fprintf(stderr, "], block_a[%d,%d]\n", block_a->lni, block_a->lnj);
 
     // call next filter in list
-    // DO NOT USE dpfl++, dmap_filter_fwd is a filter implicitely at the head of the list
+    // DO NOT USE dpfl++, dmap_filter_enc is a filter implicitely at the head of the list
     dmap_filter_ptr next_filter = dmap_filter_next(dpfl) ;
     status = (*next_filter)(a, bp, dpfl, &s, command) ;
     errmsg = "\006filter chain failed" ;
@@ -1617,6 +1614,7 @@ print:
   return 0 ;
 }
 #else
+// =================== OLD VERSION, kept for reference until further notice ===================
 ssize_t FILTER_NAME(array_nd *a, block_properties *bp, dmap_filter_list dpfl, bitstream *stream, dmap_command command){
   ssize_t status = 0 ;
   uint32_t self = FILTER_ID, rank, type ;

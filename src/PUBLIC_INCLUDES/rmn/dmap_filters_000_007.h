@@ -30,7 +30,7 @@ typedef struct{
   uint32_t arg[] ;
 } dmap_filter_arg_000 ;
 CT_ASSERT(sizeof(dmap_filter_arg_000) <= MAX_FILTER_ARG_SIZE, "sizeof(dmap_filter_arg_000) too large") ;
-#define DMAP_FILTER_000(...) (dmap_filter_arg_000) { .filter = 001 }
+#define DMAP_FILTER_000(...) (dmap_filter_arg_000) { .filter = 000 }
 
 // filter 001, integer/float demo/saxpy filter
 // upper 9 bits used to differentiate floats from ints (all 1s or all 0s for ints)
