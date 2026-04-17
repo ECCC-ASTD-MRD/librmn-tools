@@ -250,7 +250,7 @@ static ssize_t dmap_filter_none(array_nd *a, block_properties *bp, dmap_filter_l
   if(debug_mode) fprintf(stderr, "UNDEFINED FILTER (%d)\n", dpfl[0]->filter) ;
   dpfl++ ;                              // next filter
   dmap_filter_ptr next_filter = dmap_filter_next(dpfl) ;
-  if(next_filter != NULL) return (*next_filter)(a, bp, dpfl, stream, command) ;
+  if(next_filter != FILTER_LIST_END) return (*next_filter)(a, bp, dpfl, stream, command) ;
   return 0 ;
 }
 
@@ -267,7 +267,7 @@ static ssize_t dmap_filter_bad(array_nd *a, block_properties *bp, dmap_filter_li
   if(debug_mode) fprintf(stderr, "INVALID FILTER (%d)\n", dpfl[0]->filter) ;
   dpfl++ ;                              // next filter
   dmap_filter_ptr next_filter = dmap_filter_next(dpfl) ;
-  if(next_filter != NULL) return (*next_filter)(a, bp, dpfl, stream, command) ;
+  if(next_filter != FILTER_LIST_END) return (*next_filter)(a, bp, dpfl, stream, command) ;
   return 0 ;
 }
 
@@ -344,7 +344,7 @@ static filter_properties filters[MAX_DP_FILTERS+3] = {
   { dmap_filter_last, "filter_last"                , sizeof(dmap_filter_arg_000) }
 } ;
 
-dmap_filter_arg_000 dmap_args_null = DMAP_FILTER_000() ;
+dmap_filter_arg_000 dmap_args_null = (dmap_filter_arg_000) { .filter = 077 } ;
 
 // dpfl [IN] : pointer to argument list for a filter
 // id   [IN] : id of requesting filter
@@ -363,7 +363,7 @@ int dmap_filter_valid(dmap_filter_list dpfl, uint32_t id){
 int dmap_filter_is_last(dmap_filter_list dpfl){
   if(dpfl == NULL) return 0 ;
   // TODO // also true if next list entry is dmap_filter_last
-  if(dpfl[1] == NULL) return 1 ;                // true if next list entry is NULL (no next filter)
+  if(dpfl[1] == FILTER_LIST_END) return 1 ;     // true if next list entry is NULL (no next filter)
   if(dpfl[1] == FILTER_BLOCK_END) return 1 ;    // true if next list entry is end of block
   return 0 ;
 //   return (dpfl[1] == NULL) ;    // true if next list entry is NULL (no next filter)
@@ -427,9 +427,12 @@ int dmap_filter_set(dmap_filter_ptr filter, int ordinal, const char *name, size_
 // return address of next filter in list
 // dpfl [IN] : filter list
 dmap_filter_ptr dmap_filter_next(dmap_filter_list dpfl){
-  if(*dpfl == NULL){
+  if(*dpfl == FILTER_BLOCK_END || *dpfl == FILTER_LIST_END){
     return dmap_filter_last ;   // end of filter chain
   }
+//   if(*dpfl == NULL){
+//     return dmap_filter_last ;   // end of filter chain
+//   }
   int next_filter = dpfl[000]->filter ;
   return dmap_filter_get(next_filter) ;
 }
@@ -580,8 +583,10 @@ int32_t dmap_print_parameters(dmap_filter_list dpfl){
   dmap_filter_args_ptr ptr = *dpfl ;
   int nfilters = 0 ;
 
-  while(ptr != NULL){
-    if(filters[ptr->filter].ptr == NULL && ptr->filter < MAX_DP_FILTERS){
+  while(ptr != FILTER_LIST_END){
+    if(ptr == FILTER_BLOCK_END){
+      fprintf(stderr, "[   ] FILTER_BLOCK_END\n") ;
+    }else if(filters[ptr->filter].ptr == NULL && ptr->filter < MAX_DP_FILTERS){
       fprintf(stderr, "dmap_print_parameters : undefined filter = %d\n", ptr->filter) ;
     }else if(ptr->filter > MAX_DP_FILTERS){
       fprintf(stderr, "dmap_print_parameters : invalid filter = %d\n", ptr->filter) ;
@@ -595,7 +600,7 @@ int32_t dmap_print_parameters(dmap_filter_list dpfl){
     dpfl++ ;
     ptr = *dpfl ;
   }
-
+  fprintf(stderr, "[   ] FILTER_LIST_END\n") ;
   return nfilters ;
 fail:
   return -1 ;

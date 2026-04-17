@@ -167,7 +167,9 @@ process:
     dpfl[6] = (dmap_filter_args_ptr)&arg_006 ;    // tile encoder
     dpfl[7] = (dmap_filter_args_ptr)&arg_007 ;    // pass through
     dpfl[7] = FILTER_LIST_END ;                   // comment to test error return propagation
-    dpfl[8] = FILTER_BLOCK_END ;
+    dpfl[7] = FILTER_BLOCK_END ;
+    dpfl[8] = (dmap_filter_args_ptr)&arg_007 ;    // pass through
+    dpfl[9] = FILTER_LIST_END ;
     dmap_print_parameters(dpfl) ;
 
     fprintf(stderr, "filter test : available space in str000 %ld bits, available bits = %ld bits\n", StreamAvailableSpace(str000), StreamAvailableBits(str000)) ;
