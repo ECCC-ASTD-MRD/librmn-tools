@@ -363,7 +363,10 @@ int dmap_filter_valid(dmap_filter_list dpfl, uint32_t id){
 int dmap_filter_is_last(dmap_filter_list dpfl){
   if(dpfl == NULL) return 0 ;
   // TODO // also true if next list entry is dmap_filter_last
-  return (dpfl[1] == NULL) ;    // true if next list entry is NULL (no next filter)
+  if(dpfl[1] == NULL) return 1 ;                // true if next list entry is NULL (no next filter)
+  if(dpfl[1] == FILTER_BLOCK_END) return 1 ;    // true if next list entry is end of block
+  return 0 ;
+//   return (dpfl[1] == NULL) ;    // true if next list entry is NULL (no next filter)
 }
 
 // ordinal [IN] : filter id
