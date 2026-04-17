@@ -545,6 +545,10 @@ fprintf(stderr, ", quant = %G\n", quant) ;
 //           }
           STREAM_REWIND(*ps, 1) ;
           decoded_bits = decode_tile(ps, restr8, i8n*j8n) ;
+          if(decoded_bits == -1){
+            fprintf(stderr, "ERROR in decode_tile, result is -1\n") ;
+            exit(1) ;
+          }
 //           fprintf(stderr, "nbi = %d, encoded_bits = %d, decoded_bits = %d, diff = %d\n", nbi, encoded_bits, decoded_bits, block_diff(block8,restr8, i8n*j8n)) ;
         }
       }
