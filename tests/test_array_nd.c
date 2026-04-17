@@ -102,7 +102,7 @@ void array_lbounds_check(int low, int high){
   fprintf(stderr,"sizeof(array_5d) = %ld, ", sizeof(array_5d)) ;
   fprintf(stderr,"sizeof(array_nd) = %ld\n", sizeof(array_nd)) ;
   for(uint32_t i=0 ; i<sizeof(printable_type)/sizeof(printable_type[0]) ; i++){
-    fprintf(stderr,"data_code : %2d '%-7s', bit size = %2d\n", i, printable_type[i], size_of_type[i]) ;
+    fprintf(stderr,"data_code : %2d '%-7s', bit size = %3d\n", i, printable_type[i], size_of_type[i]) ;
   }
   print_meta((void *) ap0, " : ap0 meta\n") ;
   print_meta((void *) ap1, " : ap1 meta\n") ;
@@ -547,7 +547,7 @@ int main(int argc, char **argv){
   new_array(ap2, ref, sizeof(int32_t), 1, GNI, GNJ) ;
   set_array_lbounds(ap2, 1, 2, 3) ;
   set_array_lbounds(ap2, 0, GNI, 0, GNJ) ;
-return 0 ;
+// return 0 ;
   fprintf(stderr, "=============== block copy test ===============\n") ;
   block_copy_check(9, 8, 7, 6, 5) ;
 // goto end ;

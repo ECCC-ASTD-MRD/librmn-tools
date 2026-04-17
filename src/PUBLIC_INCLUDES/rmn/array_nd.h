@@ -68,8 +68,8 @@ typedef struct{
   uint32_t end ;         // size of array in 32 bit units
   uint32_t lni ;         // first dimension
   uint32_t lnj ;         // second dimension (1 if block is 1D)
-  uint32_t zero :23 ,    // reserved for future use
-           type : 4 ,    // block type (see rmn/data_kind.h) (bad/int/uint/float/any)
+  uint32_t zero :22 ,    // reserved for future use
+           type : 5 ,    // block type (see rmn/data_kind.h) (bad/int/uint/float/any/...)
            flags: 5 ;    // flags and extra information
   uint32_t w[] ;         // start of data if monolithic
 } block_2d ;             // 2D block, (end - u32) may me larger than (lni * lnj)
@@ -132,7 +132,7 @@ typedef struct{          // generic struct for array with n dimensions
   uint32_t signature ;   // MUST be 0xBEBEFADA or 0xFADABEBE
 #if defined(SMALL_ARRAY_STRUCT)
   // 16 | 5 | 3 | 5 | 3    esize, type, ndim, flags, rank
-  uint32_t esize:16 ,    // size of array elements in bytes (1, 2, 4, 8, ..., )
+  uint32_t esize:16 ,    // size of array components in bytes (1, 2, 4, 8, ..., )
            type : 5 ,    // element type, see rmn/data_kind.h
            ndim : 3 ,    // number of dimensions at creation time
            flags: 5,     // flags
@@ -156,7 +156,7 @@ typedef struct{          // specific struct for 0D (rank 0) array
   uint32_t signature ;
 #if defined(SMALL_ARRAY_STRUCT)
   // 16 | 5 | 3 | 5 | 3    esize, type, ndim, flags, rank
-  uint32_t esize:16 ,    // size of array elements in bytes (1, 2, 4, 8, ..., )
+  uint32_t esize:16 ,    // size of array components in bytes (1, 2, 4, 8, ..., )
            type : 5 ,    // element type, see rmn/data_kind.h
            ndim : 3 ,    // number of dimensions at creation time
            flags: 5,     // flags
@@ -181,7 +181,7 @@ typedef struct{          // specific struct for 1D array
   uint32_t signature ;
 #if defined(SMALL_ARRAY_STRUCT)
   // 16 | 5 | 3 | 5 | 3    esize, type, ndim, flags, rank
-  uint32_t esize:16 ,    // size of array elements in bytes (1, 2, 4, 8, ..., )
+  uint32_t esize:16 ,    // size of array components in bytes (1, 2, 4, 8, ..., )
            type : 5 ,    // element type, see rmn/data_kind.h
            ndim : 3 ,    // number of dimensions at creation time
            flags: 5,     // flags
@@ -206,7 +206,7 @@ typedef struct{          // specific struct for 2D array
   uint32_t signature ;
 #if defined(SMALL_ARRAY_STRUCT)
   // 16 | 5 | 3 | 5 | 3    esize, type, ndim, flags, rank
-  uint32_t esize:16 ,    // size of array elements in bytes (1, 2, 4, 8, ..., )
+  uint32_t esize:16 ,    // size of array components in bytes (1, 2, 4, 8, ..., )
            type : 5 ,    // element type, see rmn/data_kind.h
            ndim : 3 ,    // number of dimensions at creation time
            flags: 5,     // flags
@@ -231,7 +231,7 @@ typedef struct{          // specific struct for 3D array
   uint32_t signature ;
 #if defined(SMALL_ARRAY_STRUCT)
   // 16 | 5 | 3 | 5 | 3    esize, type, ndim, flags, rank
-  uint32_t esize:16 ,    // size of array elements in bytes (1, 2, 4, 8, ..., )
+  uint32_t esize:16 ,    // size of array components in bytes (1, 2, 4, 8, ..., )
            type : 5 ,    // element type, see rmn/data_kind.h
            ndim : 3 ,    // number of dimensions at creation time
            flags: 5,     // flags
@@ -256,7 +256,7 @@ typedef struct{          // specific struct for 4D array
   uint32_t signature ;
 #if defined(SMALL_ARRAY_STRUCT)
   // 16 | 5 | 3 | 5 | 3    esize, type, ndim, flags, rank
-  uint32_t esize:16 ,    // size of array elements in bytes (1, 2, 4, 8, ..., )
+  uint32_t esize:16 ,    // size of array components in bytes (1, 2, 4, 8, ..., )
            type : 5 ,    // element type, see rmn/data_kind.h
            ndim : 3 ,    // number of dimensions at creation time
            flags: 5,     // flags
@@ -281,7 +281,7 @@ typedef struct{          // specific struct for 5D array
   uint32_t signature ;
 #if defined(SMALL_ARRAY_STRUCT)
   // 16 | 5 | 3 | 5 | 3    esize, type, ndim, flags, rank
-  uint32_t esize:16 ,    // size of array elements in bytes (1, 2, 4, 8, ..., )
+  uint32_t esize:16 ,    // size of array components in bytes (1, 2, 4, 8, ..., )
            type : 5 ,    // element type, see rmn/data_kind.h
            ndim : 3 ,    // number of dimensions at creation time
            flags: 5,     // flags

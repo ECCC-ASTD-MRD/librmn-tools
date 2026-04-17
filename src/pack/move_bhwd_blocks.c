@@ -55,12 +55,19 @@ int element_bytes(int code){
       return 2 ;
     case fp16_data:
       return 2 ;
+    case quad_data:
+      return 16 ;
+    case cfloat_data:
+      return 8 ;
+    case cdouble_data:
+      return 16 ;
     default:
       return -1 ;
   }
 }
 
 // array to block copy functions table indexed by type code
+// quad float, complex, double complex ignored for now
 bhwd_fn fn_into_block(int code){
   switch(code){
     case byte_data:
@@ -95,6 +102,7 @@ bhwd_fn fn_into_block(int code){
 }
 
 // block to array copy functions table indexed by type code
+// quad float, complex, double complex ignored for now
 bhwd_fn fn_from_block(int code){
   switch(code){
     case byte_data:
