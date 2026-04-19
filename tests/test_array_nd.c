@@ -21,7 +21,7 @@
 #include <rmn/array_nd.h>
 
 void print_dims(void *a_, char *msg){
-  array_nd *a = (array_nd *) a_ ;
+  array_5d *a = (array_5d *) a_ ;    // max dim size
   int i ;
   fprintf(stderr, valid_array(a) ? "[" : "<") ;
   for(i=0 ; i<a->rank ; i++){
@@ -275,7 +275,8 @@ void  print_strides(char *msg, __i32__5__ strides){
   fprintf(stderr, "\n") ;
 }
 
-void print_bounds(array_nd *a1, char *msg){
+void print_bounds(array_nd *a1_, char *msg){
+  array_5d *a1 = (array_5d *) a1_ ;     // type with largest dim
   int i ;
   fprintf(stderr, "%s bounds : ", msg) ;
   for(i=0 ; i<a1->rank ; i++){
