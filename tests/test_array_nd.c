@@ -101,6 +101,7 @@ void array_lbounds_check(int low, int high){
   fprintf(stderr,"sizeof(array_4d) = %ld, ", sizeof(array_4d)) ;
   fprintf(stderr,"sizeof(array_5d) = %ld, ", sizeof(array_5d)) ;
   fprintf(stderr,"sizeof(array_nd) = %ld\n", sizeof(array_nd)) ;
+
   for(uint32_t i=0 ; i<sizeof(printable_type)/sizeof(printable_type[0]) ; i++){
     fprintf(stderr,"data_code : %2d '%-7s', bit size = %3d\n", i, printable_type[i], size_of_type[i]) ;
   }
@@ -112,6 +113,14 @@ void array_lbounds_check(int low, int high){
   print_meta((void *) ap5, " : ap5 meta\n") ;
 
   // make new arrays using caller supplied storage, set bounds
+  new_array(ap0, NULL, 100*sizeof(int32_t), large_data) ;
+  print_array_description((array_nd *)ap0, "a0_0") ;
+  errmsg = "free_array(ap0) != 1" ;
+  if(free_array(ap0) != 1) goto fail ;
+  create_array(ap0, ARRAY_MONOLITHIC, 200*sizeof(int32_t), large_data) ;
+  print_array_description((array_nd *)ap0, "a0_1") ;
+  if(free_array(ap0) != 2) goto fail ;
+
   new_array(&a1, NULL, sizeof(int32_t), int_data, 8) ;
   print_flags("a1 flags : ", &a1) ;
   set_array_lbounds(&a1 , low, high) ;
@@ -524,30 +533,53 @@ fail:
 
 int main(int argc, char **argv){
   int32_t ref[GNK][GNJ][GNI], cpy[GNK][GNJ][GNI] ;
-  int i, j, k, l, errors, errsub ;
+  int i, j, k, l, errors = 0, errsub ;
   block_properties bp ;
 
   if(argc > 1 && argv[0] == NULL) return 1 ;  // useless code to get rid of compiler warning
 
-  fprintf(stderr, "=============== errors test ===============\n") ;
+  fprintf(stderr, "=============== error messages test ===============\n") ;
   array_1d a1 = array_1d_null, *ap1 = &a1 ;
-  array_2d a2 = array_2d_null, *ap2 = &a2 ; ;
-  new_array(&a2, ref, sizeof(int32_t), 1, GNI, GNJ, GNK) ;
+  array_2d a2 = array_2d_null, *ap2 = &a2 ;
+  fprintf(stdout, "expecting: %40s", "2D array, 3 dimensions ") ;
+  if(NULL != new_array(&a2, ref, sizeof(int32_t), int_data, GNI, GNJ, GNK)) goto fail ;   // 2D array, 3 dimensions
+  fprintf(stdout, "expecting: %40s", "1D array, 3 dimensions ") ;
   create_array(ap1, DATA_IS_INTERNAL, 4, int_data, GNI, GNJ, GNK) ;
-  fix_array_nd(NULL) ;
-  create_array(ap1, DATA_IS_INTERNAL, 4, int_data, 10 ) ;
+  if(ap1 != NULL) goto fail ;                                    // 1D array, 3 dimensions
+  fprintf(stdout, "expecting: %40s", "NULL array pointer ") ;
+  if(0 != fix_array_nd(NULL)) goto fail ;                        // NULL array pointer
+  create_array(ap1, DATA_IS_INTERNAL, 4, int_data, 10 ) ;        // create valid array[10]
+  if(ap1 == NULL) goto fail ;
   ap1->esize = 8 ;
-  fix_array(ap1) ;
+  fprintf(stdout, "expecting: %40s", "not enough available space ") ;
+  if(0 != fix_array(ap1)) goto fail ;                            // not enough available space to accomodate request
+  ap1->esize = 4 ;
+  if(NULL == new_array(ap2, ref, sizeof(int32_t), 1, GNI, GNJ)) goto fail ;   // create valid array[GNI:GNJ]
+  ap2->dim[0].gnn = 0 ;                                          // set first dimension to 0
+  fprintf(stdout, "expecting: %40s", "a dimension is 0 ") ;
+  if(0 != fix_array(ap2)) goto fail ;                            // a dimension is 0
+  ap2->dim[0].gnn = GNI ;                                        // reset dimension to correct value
   ap1->dim[0].gnn = 0 ;
-  fix_array(ap1) ;
-  set_array_lbounds(ap1, 1, 100) ;
+  fprintf(stdout, "expecting: %40s", "a dimension == 0 ") ;
+  if(0 != set_array_lbounds(ap1, 1, 100)) goto fail ;            // a dimension == 0
   ap1->dim[0].gnn = 10 ;
-  set_array_lbounds(ap1, 1, 100) ;
+  fprintf(stdout, "expecting: %40s", "upper bound beyond limits ") ;
+  if(0 != set_array_lbounds(ap1, 1, 100)) goto fail ;            // local upper bound beyond limits
+  if(0 == set_array_gbounds(ap1, -10)) goto fail ;               // lower global bound set to -10
+  if(0 == set_array_lbounds(ap1, -10, -1)) goto fail ;           // valid range now
   ap1->data = NULL ;
-  set_array_lbounds(ap1, 1, 100) ;
-  new_array(ap2, ref, sizeof(int32_t), 1, GNI, GNJ) ;
-  set_array_lbounds(ap2, 1, 2, 3) ;
-  set_array_lbounds(ap2, 0, GNI, 0, GNJ) ;
+  fprintf(stdout, "expecting: %40s", "NO data in array ") ;
+  if(0 != set_array_lbounds(ap1, 10, 18)) goto fail ;            // invalid array[NO data in array]
+  fprintf(stdout, "expecting: %40s", "number of bounds is odd, MUST be EVEN ") ;
+  if(0 != set_array_lbounds(ap2, 1, 2, 3)) goto fail ;           // number of bounds is odd, MUST be EVEN
+  fprintf(stdout, "expecting: %40s", "upper bound beyond limits ") ;
+  if(0 != set_array_lbounds(ap2, 0, GNI, 0, GNJ)) goto fail ;    // upper bound beyond limits
+  ap2->dim[0].lnn = ap2->dim[0].gnn + 1 ;
+  fprintf(stdout, "expecting: %40s", "local dimension > global dimension ") ;
+  i = invalid_array(ap2) ;
+  fprintf(stdout, "[  ERROR] invalid_array(ap2) = %s\n", invalid_array_msg[i]);
+  if(i == 0) goto fail ;
+  fprintf(stderr, "SUCCESS\n") ;
 // return 0 ;
   fprintf(stderr, "=============== block copy test ===============\n") ;
   block_copy_check(9, 8, 7, 6, 5) ;

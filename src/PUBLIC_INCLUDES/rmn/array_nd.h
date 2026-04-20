@@ -42,8 +42,9 @@ typedef struct{
 
 // flags description
 
-// DATA_IS_INTERNAL set means that the array_nd struct contains both data and control information
+// DATA_IS_INTERNAL/ARRAY_MONOLITHIC set means that the array_nd struct contains both data and control information
 #define DATA_IS_INTERNAL   1
+#define ARRAY_MONOLITHIC   1
 
 // DATA_MAY_REALLOC set means that the data pointer may be freed/reallocated
 #define DATA_MAY_REALLOC   2
@@ -132,6 +133,7 @@ static const dim_desc  dim_zero = DIM_ZERO ;
 // w32[]         // usable only if created with create_array
 // 8 | 8 | 8 | 8 | 32 | 32  type, flags, rank, ndim, esize, ref_count
 // replace ref_count with count:24, etype:8  ?
+#undef STRUCT_ARRAY_INSTANCE
 #define STRUCT_ARRAY_INSTANCE(N, NAME, ...) \
 typedef struct{ \
   uint8_t *data  ; \
@@ -228,7 +230,8 @@ array_nd *new_array_nd(array_nd *a, void *mem, int32_t esize, int8_t type, int32
     array_4d *: new_array_nd((array_nd *)ARRAY_PTR,MEM,ESIZE,TYP,                       4,VA_ARGS_NUM(__VA_ARGS__),(__i32__5__){{ __VA_ARGS__ }}), \
     array_3d *: new_array_nd((array_nd *)ARRAY_PTR,MEM,ESIZE,TYP,                       3,VA_ARGS_NUM(__VA_ARGS__),(__i32__5__){{ __VA_ARGS__ }}), \
     array_2d *: new_array_nd((array_nd *)ARRAY_PTR,MEM,ESIZE,TYP,                       2,VA_ARGS_NUM(__VA_ARGS__),(__i32__5__){{ __VA_ARGS__ }}), \
-    array_1d *: new_array_nd((array_nd *)ARRAY_PTR,MEM,ESIZE,TYP,                       1,VA_ARGS_NUM(__VA_ARGS__),(__i32__5__){{ __VA_ARGS__ }})  \
+    array_1d *: new_array_nd((array_nd *)ARRAY_PTR,MEM,ESIZE,TYP,                       1,VA_ARGS_NUM(__VA_ARGS__),(__i32__5__){{ __VA_ARGS__ }}), \
+    array_0d *: new_array_nd((array_nd *)ARRAY_PTR,MEM,ESIZE,TYP,                       0,                       0,(__i32__5__){{ 0           }})  \
   )
 
 // create a pointer to a n dimensional null array
@@ -247,7 +250,8 @@ array_nd *create_array_nd(uint32_t flags, int32_t esize, int8_t type, int32_t ra
     array_4d *: (array_4d *) create_array_nd(FLAGS,ESIZE,TYP,                       4,VA_ARGS_NUM(__VA_ARGS__),(__i32__5__){{ __VA_ARGS__ }}), \
     array_3d *: (array_3d *) create_array_nd(FLAGS,ESIZE,TYP,                       3,VA_ARGS_NUM(__VA_ARGS__),(__i32__5__){{ __VA_ARGS__ }}), \
     array_2d *: (array_2d *) create_array_nd(FLAGS,ESIZE,TYP,                       2,VA_ARGS_NUM(__VA_ARGS__),(__i32__5__){{ __VA_ARGS__ }}), \
-    array_1d *: (array_1d *) create_array_nd(FLAGS,ESIZE,TYP,                       1,VA_ARGS_NUM(__VA_ARGS__),(__i32__5__){{ __VA_ARGS__ }})  \
+    array_1d *: (array_1d *) create_array_nd(FLAGS,ESIZE,TYP,                       1,VA_ARGS_NUM(__VA_ARGS__),(__i32__5__){{ __VA_ARGS__ }}), \
+    array_0d *: (array_0d *) create_array_nd(FLAGS,ESIZE,TYP,                       0,                       0,(__i32__5__){{ 0           }})  \
   )
 
 // users should call the generic function array_gbounds rather than array_gbounds_nd
@@ -350,7 +354,8 @@ int invalid_array_nd(array_nd *a);
     array_4d *: invalid_array_nd((array_nd *)ARRAY_PTR), \
     array_3d *: invalid_array_nd((array_nd *)ARRAY_PTR), \
     array_2d *: invalid_array_nd((array_nd *)ARRAY_PTR), \
-    array_1d *: invalid_array_nd((array_nd *)ARRAY_PTR)  \
+    array_1d *: invalid_array_nd((array_nd *)ARRAY_PTR), \
+    array_0d *: invalid_array_nd((array_nd *)ARRAY_PTR)  \
     )
 
 int valid_array_nd(array_nd *a);
@@ -453,7 +458,7 @@ int       array_dimension_nd(array_nd *a);
 // users should call the generic function array_kind rather than array_kind_nd
 static inline char *array_kind_nd(array_nd *a){
   int kind = a->type ;
-  if(kind >= bad_data && kind <= fp16_data) return (char *) printable_type[kind] ;
+  if(kind >= bad_data && kind <= cdouble_data) return (char *) printable_type[kind] ;
   return "ERROR" ;
 }
 #define array_kind(ARRAY_PTR) \
@@ -463,7 +468,8 @@ static inline char *array_kind_nd(array_nd *a){
     array_4d *: array_kind_nd((array_nd *)ARRAY_PTR), \
     array_3d *: array_kind_nd((array_nd *)ARRAY_PTR), \
     array_2d *: array_kind_nd((array_nd *)ARRAY_PTR), \
-    array_1d *: array_kind_nd((array_nd *)ARRAY_PTR)  \
+    array_1d *: array_kind_nd((array_nd *)ARRAY_PTR), \
+    array_0d *: array_kind_nd((array_nd *)ARRAY_PTR)  \
   )
 
 size_t fix_array_nd(array_nd *a);
@@ -486,7 +492,21 @@ int32_t free_array_nd(array_nd *a);
     array_4d *: free_array_nd((array_nd *)ARRAY_PTR), \
     array_3d *: free_array_nd((array_nd *)ARRAY_PTR), \
     array_2d *: free_array_nd((array_nd *)ARRAY_PTR), \
-    array_1d *: free_array_nd((array_nd *)ARRAY_PTR)  \
+    array_1d *: free_array_nd((array_nd *)ARRAY_PTR), \
+    array_0d *: free_array_nd((array_nd *)ARRAY_PTR)  \
+  )
+
+// users should call the generic function print_array_description rather than print_array_description_nd
+void print_array_description_nd(array_nd *a, char *msg);
+#define print_array_description(ARRAY_PTR, MSG) \
+  _Generic((ARRAY_PTR), \
+    array_nd *: print_array_description_nd((array_nd *)ARRAY_PTR, MSG), \
+    array_5d *: print_array_description_nd((array_nd *)ARRAY_PTR, MSG), \
+    array_4d *: print_array_description_nd((array_nd *)ARRAY_PTR, MSG), \
+    array_3d *: print_array_description_nd((array_nd *)ARRAY_PTR, MSG), \
+    array_2d *: print_array_description_nd((array_nd *)ARRAY_PTR, MSG), \
+    array_1d *: print_array_description_nd((array_nd *)ARRAY_PTR, MSG), \
+    array_0d *: print_array_description_nd((array_nd *)ARRAY_PTR, MSG)  \
   )
 
 #define ARRAY_BYTES  sizeof(int8_t)
@@ -501,13 +521,15 @@ size_t set_array_value_nd(array_nd *a, int32_t v, uint32_t vlen);
     array_4d *: set_array_value_nd((array_nd *)ARRAY_PTR, V, VLEN), \
     array_3d *: set_array_value_nd((array_nd *)ARRAY_PTR, V, VLEN), \
     array_2d *: set_array_value_nd((array_nd *)ARRAY_PTR, V, VLEN), \
-    array_1d *: set_array_value_nd((array_nd *)ARRAY_PTR, V, VLEN)  \
+    array_1d *: set_array_value_nd((array_nd *)ARRAY_PTR, V, VLEN), \
+    array_0d *: set_array_value_nd((array_nd *)ARRAY_PTR, V, VLEN)  \
   )
 
 size_t array_copy_data_nd(array_nd *src, array_nd *dst);
 // users should use copy_array_data rather than array_copy_data_nd
 #define copy_array_data(SRC, DST) array_copy_data_nd((array_nd *)SRC, (array_nd *)DST)
 
-void print_array_description(array_nd *a, char *msg);
+
+extern char *invalid_array_msg[] ;
 
 #endif

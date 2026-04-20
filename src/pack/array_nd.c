@@ -21,17 +21,18 @@
 #define ARRAY_PKG 0177
 // TODO : add a function to get the "effective rank" (ignore upper dimensions == 1)
 
-static char *invalid_msg[] = { 
+char *invalid_array_msg[] = { 
   "", 
   "NULL array pointer", 
   "invalid array signature", 
   "NO data in array", 
   "data limit MUST be > start of data", 
   "array rank > max dimensions", 
-  "a dimension is <= 0" , 
+  "a dimension == 0" , 
   "lower local bound < lower global bound" ,
   "upper local bound > upper global bound" ,
-  "array storage too small for dimensions"
+  "array storage too small for dimensions" ,
+  "local dimension > global dimension"
 };
 
 // is this array_nd invalid ?
@@ -46,9 +47,10 @@ int invalid_array_nd(array_nd *a){
   if(a->rank > a->ndim)        return 5 ;   // rank larger than max dimensions
   ssize_t size = a->esize ;                 // size of a single array element
   for(i = 0 ; i < a->rank ; i++){
-    if(a->dim[i].lnn <= 0 || a->dim[i].gnn <= 0)                      return 6 ; // invalid dimension
-    if(a->dim[i].ln0 < a->dim[i].gn0)                                 return 7 ; // lower local bound < lower global bound
-    if(a->dim[i].ln0 + a->dim[i].lnn > a->dim[i].gn0 + a->dim[i].gnn) return 8 ; // upper local bound > upper global bound
+    if(a->dim[i].lnn == 0 || a->dim[i].gnn == 0)                      return  6 ; // invalid dimension
+    if(a->dim[i].lnn > a->dim[i].gnn)                                 return 10 ; // local dimension > global dimension
+    if(a->dim[i].ln0 < a->dim[i].gn0)                                 return  7 ; // lower local bound < lower global bound
+    if(a->dim[i].ln0 + a->dim[i].lnn > a->dim[i].gn0 + a->dim[i].gnn) return  8 ; // upper local bound > upper global bound
     size *= a->dim[i].gnn ;                                                      // size * storage size of this dimension
   }
   if(a->limit - a->data < size) return 9 ;  // not enough memory to accomodate array
@@ -129,6 +131,7 @@ array_nd *create_subarray(array_nd *a, array_nd *b){
 // if ap is invalid, return -1
 int32_t free_array_nd(array_nd *ap){
   int32_t status = 0 ;
+
   if(invalid_array_nd(ap)) return -1 ;
   if(ap->flags & DATA_MAY_REALLOC){
     if(ap->data) free(ap->data) ;
@@ -165,8 +168,8 @@ array_nd *create_array_nd(uint32_t flags, int32_t esize, int8_t type, int32_t ra
   uint8_t *data, local_flags = 0 ;
 // TODO : adjust esize according to type if necessary : size_of_type[type] / 8 if 1/2/4/8
 //        if tuples (check for appropriate multiple)
-  if(rank != ndm5){
-    TEE_PKG_MSG(TEE_ERROR, "make_array_nd", ARRAY_PKG, "\001 %dD array, %d dimensions", rank, ndm5) ;
+  if(rank != ndm5 && rank != 0){
+    TEE_PKG_MSG(TEE_ERROR, "create_array_nd", ARRAY_PKG, "\001%dD array, %d dimensions", rank, ndm5) ;
 //     fprintf(stderr, "make_array_nd ERROR: %d dimensions, %d sizes\n", rank, ndm5) ;
     return NULL ;
   }
@@ -283,9 +286,9 @@ size_t set_array_value_nd(array_nd *a, int32_t v, uint32_t vlen){
   int32_t *w32 = (int32_t *) address ;
   uint32_t i ;
   switch(vlen){
-    case 1  : memset(address, v, size) ; break ;
-    case 2  : for(i = 0 ; i < vlen/2 ; i++) w16[i] = v ; break ;
-    case 4  : for(i = 0 ; i < vlen/4 ; i++) w32[i] = v ; break ;
+    case 1  : memset(address, v&0xFF, size) ; break ;                       // byte fill
+    case 2  : for(i = 0 ; i < size/2 ; i++) w16[i] = v & 0xFFFF ; break ;   // double_byte fill (16 bits)
+    case 4  : for(i = 0 ; i < size/4 ; i++) w32[i] = v ; break ;            // quad_byte fill (32 bits)
     default : return 0 ;      // invalid value, no fill
   }
   return size ;
@@ -304,11 +307,12 @@ size_t fix_array_nd(array_nd *a){
   a->signature = NO_DATA ;
   a->flags     = 0 ;                      // reset flags
   ssize_t sz = 1 ;
+  msg = "\004 a dimension is 0" ;
   for(i = 0 ; i < rank ; i++){            // compute number of elements in array
-    msg = "\004 invalid dimension" ;
-    if(a->dim[i].gnn <= 0) goto fail ;    // invalid dimension
+    if(a->dim[i].gnn == 0) goto fail ;    // invalid dimension
     sz *= a->dim[i].gnn ;
   }
+  if(sz == 0) goto fail ;
   sz *= a->esize ;                        // multiply number of elements by element size
 
   if(a->data == NULL){                    // allocate memory if data pointer is NULL
@@ -340,18 +344,24 @@ fail:
 // normally called via generic macro  set_array_gbounds
 int set_array_gbounds_nd(array_nd *a, int32_t rank, __i32__5__ lb5){
   int32_t i ;
+  char *msg = "\001invalid array", buf[1024] ;
 
   if(invalid_array(a)) goto fail ;
+  msg = "\002rank mismatch" ;
   if(rank != a->rank) goto fail ;    // wrong number of dimensions
 
   for(i = 0 ; i < rank ; i++){
-    if(lb5.i32[i] <= 0) goto fail ;    // invalid bound
+//     if(lb5.i32[i] <= 0){
+//       snprintf(buf, sizeof(buf), "\003invalid bound %d, array rank = %d\n", 1, a->rank) ;
+//       goto fail ;    // invalid bound
+//     }
     a->dim[i].gn0 = lb5.i32[i] ;
     a->dim[i].ln0 = a->dim[i].gn0 ;   // reset subarray bounds to cover full range
     a->dim[i].lnn = a->dim[i].gnn ;
   }
   return rank ;
 fail:
+    TEE_PKG_MSG(TEE_ERROR, "set_array_gbounds_nd", ARRAY_PKG, "%s", msg) ;
   return 0 ;
 }
 
@@ -367,7 +377,7 @@ int set_array_lbounds_nd(array_nd *a, int32_t narg, __i32__5x2__ lb5){
 
 //   msg = "\010invalid array" ; if(invalid_array(a)) goto fail ;
   if((i = invalid_array(a))){
-    snprintf(buf, sizeof(buf), "\010 invalid array[%s]", invalid_msg[i]) ;
+    snprintf(buf, sizeof(buf), "\010invalid array[%s]", invalid_array_msg[i]) ;
     msg = buf ;
     goto fail ;
   }
@@ -379,9 +389,9 @@ int set_array_lbounds_nd(array_nd *a, int32_t narg, __i32__5x2__ lb5){
   }
 
   for(i=j=0 ; i < narg ; i+=2, j++){
-    msg = "\013upper bound < lower bound" ;
+    msg = "\013local upper bound < lower bound" ;
     if(lb5.i32[i+1] < lb5.i32[i])                        goto fail ;  // upper bound < lower bound
-    msg = "\014upper bound beyond limits" ;
+    msg = "\014local upper bound beyond limits" ;
     int32_t limit = a->dim[j].gn0 + a->dim[j].gnn - 1 ;
     if(lb5.i32[i+1] > limit) goto fail ;                              // upper bound beyond limits
 // fprintf(stderr, "[%d] gbounds = %d %d, lbounds= %d %d\n", j, a->dim[j].gn0, a->dim[j].gnn - 1, lb5.i32[i], lb5.i32[i+1]) ;
@@ -712,26 +722,26 @@ fail:
 }
 
 static void print_dims(void *a_, char *msg){
-  array_nd *a = (array_nd *) a_ ;
+  array_5d *a = (array_5d *) a_ ;
   int i ;
-  fprintf(stderr, valid_array(a) ? "[" : "<") ;
+  fprintf(stdout, valid_array(a) ? "[" : "<") ;
   for(i=0 ; i<a->rank ; i++){
-    fprintf(stderr, "%3d(%d:%d)", a->dim[i].gnn, a->dim[i].ln0, a->dim[i].ln0+a->dim[i].lnn-1) ;
+    fprintf(stdout, "%3d(%3d:%3d)", a->dim[i].gnn, a->dim[i].ln0, a->dim[i].ln0+a->dim[i].lnn-1) ;
   }
-  fprintf(stderr, "%s%s", valid_array(a) ? "]" : ">", msg) ;
+  fprintf(stdout, "%s%s{%18p}", valid_array(a) ? "]" : ">", msg, a->data) ;
 }
 
 static void print_meta(void *a_, char *msg){
-  array_nd *a = (array_nd *) a_ ;
-  fprintf(stderr, ", ndim = %d, rank = %d, flags = %d, type = %d, esize = %lu, s = %8.8x %s",
-          a->ndim, a->rank, a->flags, a->type, (uint64_t)a->esize, a->signature, msg) ;
+  array_5d *a = (array_5d *) a_ ;
+  fprintf(stdout, ", ndim = %d, rank = %d, flags = %d, type = %d[%s], esize = %lu, s = %8.8x %s",
+          a->ndim, a->rank, a->flags, a->type, printable_type[a->type],(uint64_t)a->esize, a->signature, msg) ;
 }
 
 static void print_flags(void *a, char *msg){
-  array_nd *ap = (array_nd *) a ;
+  array_5d *ap = (array_5d *) a ;
   uint8_t flags = ap->flags ;
-  fprintf(stderr, "%s flags = %2.2x,  %s%s%s%s%s%s\n",msg, flags,
-                  (flags & DATA_IS_INTERNAL) ?  " MONOLITHIC" : "SPLIT_STRUCT" ,
+  fprintf(stdout, "%s flags = %2.2x, %s%s%s%s%s%s\n",msg, flags,
+                  (flags & DATA_IS_INTERNAL) ?  " MONOLITHIC" : " SPLIT_STRUCT" ,
                   (flags & DATA_MAY_REALLOC) ?  " MAY_REALLOC_DATA    " : " MAY_NOT_REALLOC_DATA" ,
                   (flags & STRUCT_CAN_FREE)  ?  " STRUCT_CAN_BE_FREED" : "",
                   array_is_signed(ap)        ?  " SIGNATURE_FOUND" : "",
@@ -740,8 +750,8 @@ static void print_flags(void *a, char *msg){
          ) ;
 }
 
-void print_array_description(array_nd *a, char *msg){
-  fprintf(stderr, "%s", msg) ;
+void print_array_description_nd(array_nd *a, char *msg){
+  fprintf(stdout, "%s", msg) ;
    print_dims(a, "") ;
    print_meta(a, "") ;
    print_flags(a, "") ;
