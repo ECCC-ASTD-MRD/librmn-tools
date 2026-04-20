@@ -123,8 +123,8 @@ static const dim_desc  dim_zero = DIM_ZERO ;
 #define array_is_signed(ARRAY_PTR) ( ((ARRAY_PTR)->signature == NO_DATA) || ((ARRAY_PTR)->signature == HAS_DATA) )
 #define array_signature(ARRAY_PTR) ((ARRAY_PTR)->signature)
 
-// the following macro defines the array_Xd type, a pointer to this type,
-// as well as array_Xd_null and array_Xd_invalid constants
+// the following macro defines the array_Xd type (X = 0/1/2/3/4/5),
+// a pointer to this type, as well as the array_Xd_null and array_Xd_invalid constants
 // array_xd structures are 64 bit aligned, size is always a multiple of 64 bits
 // data          // starting address of array (byte pointer)
 // limit         // pointer to byte beyond array (byte pointer)
@@ -132,7 +132,7 @@ static const dim_desc  dim_zero = DIM_ZERO ;
 // w32[]         // usable only if created with create_array
 // 8 | 8 | 8 | 8 | 32 | 32  type, flags, rank, ndim, esize, ref_count
 // replace ref_count with count:24, etype:8  ?
-#define STRUCT_ARRAY_INTERNALS(N, NAME, ...) \
+#define STRUCT_ARRAY_INSTANCE(N, NAME, ...) \
 typedef struct{ \
   uint8_t *data  ; \
   uint8_t *limit ; \
@@ -150,44 +150,14 @@ typedef NAME *NAME##_p ; \
 static const NAME NAME##_invalid = {.data=NULL, .limit=NULL, .signature=0, .type=0, .flags=0, .rank=0 , .ndim=N, .esize=0, __VA_ARGS__ } ; \
 static const NAME NAME##_null = {.data=NULL, .limit=NULL, .signature=NO_DATA, .type=any_data, .flags=0, .rank=0 ,  .ndim=N, .esize=0, __VA_ARGS__ } ;
 
-STRUCT_ARRAY_INTERNALS(0, array_nd, .count=0) ;  // generic struct, used for argument types (NO dim)
-STRUCT_ARRAY_INTERNALS(0, array_0d, .count=0) ;  // ndim MUST be 0, rank MUST be 0 (NO dim)
-STRUCT_ARRAY_INTERNALS(1, array_1d, .count=0, .dim = {DIM_ZERO}) ;  // ndim MUST be 1, rank MUST be <= 1
-STRUCT_ARRAY_INTERNALS(2, array_2d, .count=0, .dim = {DIM_ZERO, DIM_ZERO}) ;  // ndim MUST be 2, rank MUST be <= 2
-STRUCT_ARRAY_INTERNALS(3, array_3d, .count=0, .dim = {DIM_ZERO, DIM_ZERO, DIM_ZERO}) ;  // ndim MUST be 3, rank MUST be <= 3
-STRUCT_ARRAY_INTERNALS(4, array_4d, .count=0, .dim = {DIM_ZERO, DIM_ZERO, DIM_ZERO, DIM_ZERO}) ;  // ndim MUST be 4, rank MUST be <= 4
-STRUCT_ARRAY_INTERNALS(5, array_5d, .count=0, .dim = {DIM_ZERO, DIM_ZERO, DIM_ZERO, DIM_ZERO, DIM_ZERO}) ;  // ndim MUST be 5, rank MUST be <= 5
-
-#if 0
-// FULL initialization
-// invalid array descriptors (ndim is the only element initialized to the proper value)
-static const array_nd array_nd_invalid = {.data=NULL, .limit=NULL, .signature=0, .esize=0, .type=0, .flags=0 , .count=0, .ndim=0, .rank=0 } ;
-static const array_0d array_0d_invalid = {.data=NULL, .limit=NULL, .signature=0, .esize=0, .type=0, .flags=0 , .count=0, .ndim=0, .rank=0 } ;
-static const array_1d array_1d_invalid = {.data=NULL, .limit=NULL, .signature=0, .esize=0, .type=0, .flags=0 , .count=0, .ndim=1, .rank=0,
-                                          .dim = {DIM_ZERO} } ;
-static const array_2d array_2d_invalid = {.data=NULL, .limit=NULL, .signature=0, .esize=0, .type=0, .flags=0 , .count=0, .ndim=2, .rank=0,
-                                          .dim = {DIM_ZERO, DIM_ZERO} } ;
-static const array_3d array_3d_invalid = {.data=NULL, .limit=NULL, .signature=0, .esize=0, .type=0, .flags=0 , .count=0, .ndim=3, .rank=0,
-                                          .dim = {DIM_ZERO, DIM_ZERO, DIM_ZERO} } ;
-static const array_4d array_4d_invalid = {.data=NULL, .limit=NULL, .signature=0, .esize=0, .type=0, .flags=0 , .count=0, .ndim=4, .rank=0,
-                                          .dim = {DIM_ZERO, DIM_ZERO, DIM_ZERO, DIM_ZERO} } ;
-static const array_5d array_5d_invalid = {.data=NULL, .limit=NULL, .signature=0, .esize=0, .type=0, .flags=0 , .count=0, .ndim=5, .rank=0,
-                                          .dim = {DIM_ZERO, DIM_ZERO, DIM_ZERO, DIM_ZERO, DIM_ZERO} } ;
-
-// blank array descriptors (almost valid, but with NULL data start and limit pointers, 0 element size, all dimensions 0)
-static const array_nd array_nd_null = {.data=NULL, .limit=NULL, .esize=0, .signature=NO_DATA, .type=any_data, .rank=0 , .count=0,  .ndim=0, .flags=0 } ;
-static const array_0d array_0d_null = {.data=NULL, .limit=NULL, .esize=0, .signature=NO_DATA, .type=any_data, .rank=0 , .count=0,  .ndim=0, .flags=0 } ;
-static const array_1d array_1d_null = {.data=NULL, .limit=NULL, .esize=0, .signature=NO_DATA, .type=any_data, .rank=1 , .count=0,  .ndim=1, .flags=0,
-                                       .dim = {DIM_ZERO} } ;
-static const array_2d array_2d_null = {.data=NULL, .limit=NULL, .esize=0, .signature=NO_DATA, .type=any_data, .rank=2 , .count=0,  .ndim=2, .flags=0,
-                                       .dim = {DIM_ZERO, DIM_ZERO} } ;
-static const array_3d array_3d_null = {.data=NULL, .limit=NULL, .esize=0, .signature=NO_DATA, .type=any_data, .rank=3 , .count=0,  .ndim=3, .flags=0,
-                                       .dim = {DIM_ZERO, DIM_ZERO, DIM_ZERO} } ;
-static const array_4d array_4d_null = {.data=NULL, .limit=NULL, .esize=0, .signature=NO_DATA, .type=any_data, .rank=4 , .count=0,  .ndim=4, .flags=0,
-                                       .dim = {DIM_ZERO, DIM_ZERO, DIM_ZERO, DIM_ZERO} } ;
-static const array_5d array_5d_null = {.data=NULL, .limit=NULL, .esize=0, .signature=NO_DATA, .type=any_data, .rank=5 , .count=0,  .ndim=5, .flags=0,
-                                       .dim = {DIM_ZERO, DIM_ZERO, DIM_ZERO, DIM_ZERO, DIM_ZERO} } ;
-#endif
+STRUCT_ARRAY_INSTANCE(0, array_nd, .count=0) ;  // generic struct, used for argument types (NO dim)
+STRUCT_ARRAY_INSTANCE(0, array_0d, .count=0) ;  // ndim MUST be 0, rank MUST be 0 (NO dim)
+STRUCT_ARRAY_INSTANCE(1, array_1d, .count=0, .dim = {DIM_ZERO}) ;  // ndim MUST be 1, rank MUST be <= 1
+STRUCT_ARRAY_INSTANCE(2, array_2d, .count=0, .dim = {DIM_ZERO, DIM_ZERO}) ;  // ndim MUST be 2, rank MUST be <= 2
+STRUCT_ARRAY_INSTANCE(3, array_3d, .count=0, .dim = {DIM_ZERO, DIM_ZERO, DIM_ZERO}) ;  // ndim MUST be 3, rank MUST be <= 3
+STRUCT_ARRAY_INSTANCE(4, array_4d, .count=0, .dim = {DIM_ZERO, DIM_ZERO, DIM_ZERO, DIM_ZERO}) ;  // ndim MUST be 4, rank MUST be <= 4
+STRUCT_ARRAY_INSTANCE(5, array_5d, .count=0, .dim = {DIM_ZERO, DIM_ZERO, DIM_ZERO, DIM_ZERO, DIM_ZERO}) ;  // ndim MUST be 5, rank MUST be <= 5
+#undef STRUCT_ARRAY_INSTANCE
 
 typedef struct{   // struct containing 2 integers (array)
   int32_t i32[2] ;
