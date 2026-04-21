@@ -338,7 +338,7 @@ int main(int argc, char **argv){
   fprintf(stderr, "\n");
 
   fprintf(stderr, "=============== split array according to map ===============\n") ;
-  array_2d a2d = array_2d_null ;
+  array_2d a2d = array_2d_zero ;
 //   new_array(&a2d, NULL, 4, 'U', map->fhead.gni, map->fhead.gnj) ;  // create 2D array, map->fhead.gni x map->fhead.gnj
   new_array(&a2d, NULL, 4, uint_data, map->fhead.gni, map->fhead.gnj) ;  // create 2D array, map->fhead.gni x map->fhead.gnj
   fill_array(&a2d) ;

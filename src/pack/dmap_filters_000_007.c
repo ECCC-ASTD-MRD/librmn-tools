@@ -86,7 +86,7 @@ forward:
     if(a->rank == 2) { block_a->lni  = a->dim[0].lnn ; block_a->lnj  = a->dim[1].lnn ; }
     array_to_block((array_2d *)a, block_a, &bp0) ;
 print_block_properties(bp0) ;
-    array_2d a_new = array_2d_null ;
+    array_2d a_new = array_2d_zero ;
     array_from_block(&a_new, block_a) ;
     print_array_description((array_nd *)(&a_new), "a_new :") ;
 

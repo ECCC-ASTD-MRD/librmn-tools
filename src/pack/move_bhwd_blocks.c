@@ -1003,7 +1003,7 @@ end :
 // 2D array representing a 2D block
 // return array_2d structure with data poinint to block
 array_2d block_as_array(block_2d *blk){
-  array_2d r = array_2d_invalid ;
+  array_2d r = array_2d_null ;
 
   if(blk == NULL) goto end ;
 

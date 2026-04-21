@@ -133,8 +133,9 @@ static const dim_desc  dim_zero = DIM_ZERO ;
 // w32[]         // usable only if created with create_array
 // 8 | 8 | 8 | 8 | 32 | 32  type, flags, rank, ndim, esize, ref_count
 // replace ref_count with count:24, etype:8  ?
-#undef STRUCT_ARRAY_INSTANCE
-#define STRUCT_ARRAY_INSTANCE(N, NAME, ...) \
+
+#undef ARRAY_INSTANCE
+#define ARRAY_INSTANCE(N, NAME, ...) \
 typedef struct{ \
   uint8_t *data  ; \
   uint8_t *limit ; \
@@ -149,17 +150,20 @@ typedef struct{ \
   uint8_t  w32[] ; \
 } NAME ; \
 typedef NAME *NAME##_p ; \
-static const NAME NAME##_invalid = {.data=NULL, .limit=NULL, .signature=0, .type=0, .flags=0, .rank=0 , .ndim=N, .esize=0, __VA_ARGS__ } ; \
-static const NAME NAME##_null = {.data=NULL, .limit=NULL, .signature=NO_DATA, .type=any_data, .flags=0, .rank=0 ,  .ndim=N, .esize=0, __VA_ARGS__ } ;
+static const NAME NAME##_null = {.data=NULL, .limit=NULL, .signature=0,       .type=0,        .flags=0, .rank=0 , .ndim=N, .esize=0, __VA_ARGS__ } ; \
+static const NAME NAME##_zero = {.data=NULL, .limit=NULL, .signature=NO_DATA, .type=any_data, .flags=0, .rank=0 ,  .ndim=N, .esize=0, __VA_ARGS__ } ;
 
-STRUCT_ARRAY_INSTANCE(0, array_nd, .count=0) ;  // generic struct, used for argument types (NO dim)
-STRUCT_ARRAY_INSTANCE(0, array_0d, .count=0) ;  // ndim MUST be 0, rank MUST be 0 (NO dim)
-STRUCT_ARRAY_INSTANCE(1, array_1d, .count=0, .dim = {DIM_ZERO}) ;  // ndim MUST be 1, rank MUST be <= 1
-STRUCT_ARRAY_INSTANCE(2, array_2d, .count=0, .dim = {DIM_ZERO, DIM_ZERO}) ;  // ndim MUST be 2, rank MUST be <= 2
-STRUCT_ARRAY_INSTANCE(3, array_3d, .count=0, .dim = {DIM_ZERO, DIM_ZERO, DIM_ZERO}) ;  // ndim MUST be 3, rank MUST be <= 3
-STRUCT_ARRAY_INSTANCE(4, array_4d, .count=0, .dim = {DIM_ZERO, DIM_ZERO, DIM_ZERO, DIM_ZERO}) ;  // ndim MUST be 4, rank MUST be <= 4
-STRUCT_ARRAY_INSTANCE(5, array_5d, .count=0, .dim = {DIM_ZERO, DIM_ZERO, DIM_ZERO, DIM_ZERO, DIM_ZERO}) ;  // ndim MUST be 5, rank MUST be <= 5
-#undef STRUCT_ARRAY_INSTANCE
+#define ARRAY_NULL { .data=NULL, .limit=NULL, .signature=0,       .type=0,        .flags=0, .rank=0 , .ndim=0, .esize=0 }
+#define ARRAY_ZERO { .data=NULL, .limit=NULL, .signature=NO_DATA, .type=any_data, .flags=0, .rank=0 , .ndim=0, .esize=0 }
+
+ARRAY_INSTANCE(0, array_nd, .count=0) ;  // generic struct, used for argument types (NO dim)
+ARRAY_INSTANCE(0, array_0d, .count=0) ;  // ndim MUST be 0, rank MUST be 0 (NO dim)
+ARRAY_INSTANCE(1, array_1d, .count=0, .dim = {DIM_ZERO}) ;  // ndim MUST be 1, rank MUST be <= 1
+ARRAY_INSTANCE(2, array_2d, .count=0, .dim = {DIM_ZERO, DIM_ZERO}) ;  // ndim MUST be 2, rank MUST be <= 2
+ARRAY_INSTANCE(3, array_3d, .count=0, .dim = {DIM_ZERO, DIM_ZERO, DIM_ZERO}) ;  // ndim MUST be 3, rank MUST be <= 3
+ARRAY_INSTANCE(4, array_4d, .count=0, .dim = {DIM_ZERO, DIM_ZERO, DIM_ZERO, DIM_ZERO}) ;  // ndim MUST be 4, rank MUST be <= 4
+ARRAY_INSTANCE(5, array_5d, .count=0, .dim = {DIM_ZERO, DIM_ZERO, DIM_ZERO, DIM_ZERO, DIM_ZERO}) ;  // ndim MUST be 5, rank MUST be <= 5
+#undef ARRAY_INSTANCE
 
 typedef struct{   // struct containing 2 integers (array)
   int32_t i32[2] ;
@@ -185,35 +189,41 @@ typedef struct{   // struct containing up to 5 pairs of integers (array)
 // rank of array at allocation time
 #define ARRAY_SYNTAX_RANK(A) \
   _Generic((A), \
+  array_nd:-1, array_nd *:-1, \
   array_5d: 5, array_5d *: 5, \
   array_4d: 4, array_4d *: 4, \
   array_3d: 3, array_3d *: 3, \
   array_2d: 2, array_2d *: 2, \
   array_1d: 1, array_1d *: 1, \
-  array_0d: 0, array_0d *: 0, \
-  array_nd:-1, array_nd *:-1  \
+  array_0d: 0, array_0d *: 0  \
   )
 
 // rank of array at allocation time
 #define ARRAY_ALLOC_RANK(A) \
   _Generic((A), \
+  array_nd:(*(array_nd *)(&A)).ndim, array_nd *:( **( (array_nd **)(&A) ) ).ndim, \
   array_5d:(*(array_5d *)(&A)).ndim, array_5d *:( **( (array_5d **)(&A) ) ).ndim, \
   array_4d:(*(array_4d *)(&A)).ndim, array_4d *:( **( (array_4d **)(&A) ) ).ndim, \
   array_3d:(*(array_3d *)(&A)).ndim, array_3d *:( **( (array_3d **)(&A) ) ).ndim, \
   array_2d:(*(array_2d *)(&A)).ndim, array_2d *:( **( (array_2d **)(&A) ) ).ndim, \
   array_1d:(*(array_1d *)(&A)).ndim, array_1d *:( **( (array_1d **)(&A) ) ).ndim, \
-  array_0d:(*(array_0d *)(&A)).ndim, array_0d *:( **( (array_0d **)(&A) ) ).ndim, \
-  array_nd:(*(array_nd *)(&A)).ndim, array_nd *:( **( (array_nd **)(&A) ) ).ndim  \
+  array_0d:(*(array_0d *)(&A)).ndim, array_0d *:( **( (array_0d **)(&A) ) ).ndim  \
   )
 
 // effective rank of array ( <= ARRAY_ALLOC_RANK(ARRAY) )
-#define ARRAY_RANK(A) _Generic((A), array_nd:(A).rank, array_5d:(A).rank, array_4d:(A).rank, array_3d:(A).rank, array_2d:(A).rank, array_1d:(A).rank )
+#define ARRAY_RANK(A) \
+  _Generic((A), array_nd:(A).rank, array_5d:(A).rank, array_4d:(A).rank, array_3d:(A).rank, array_2d:(A).rank, array_1d:(A).rank, array_0d:(A).rank )
 
 // bottom of array in memory
-#define ARRAY_DATA(A)  _Generic((A), array_nd:(A).data, array_5d:(A).data, array_4d:(A).data, array_3d:(A).data, array_2d:(A).data, array_1d:(A).data )
+#define ARRAY_DATA(A) \
+  _Generic((A), array_nd:(A).data, array_5d:(A).data, array_4d:(A).data, array_3d:(A).data, array_2d:(A).data, array_1d:(A).data, array_0d:(A).data )
 
 // top of array in memory + 1
-#define ARRAY_LIMIT(A) _Generic((A), array_nd:(A).limit, array_5d:(A).limit, array_4d:(A).limit, array_3d:(A).limit, array_2d:(A).limit, array_1d:(A).limit )
+#define ARRAY_LIMIT(A) \
+  _Generic((A), array_nd:(A).limit, array_5d:(A).limit, array_4d:(A).limit, array_3d:(A).limit, array_2d:(A).limit, array_1d:(A).limit, array_0d:(A).limit )
+
+// size of array in bytes
+#define ARRAY_SIZE(A) (ARRAY_LIMIT(A) - ARRAY_DATA(A))
 
 #define reshape_array(ARRAY_PTR, ...) new_array((ARRAY_PTR), (ARRAY_PTR)->data, __VA_ARGS__)
 
@@ -225,17 +235,17 @@ array_nd *new_array_nd(array_nd *a, void *mem, int32_t esize, int8_t type, int32
 // array_5d a5 ; new_array(a5, mem, esize, type, ni, nj, nk, nl, nm) ;
 #define new_array(ARRAY_PTR, MEM, ESIZE, TYP, ...) \
   _Generic((ARRAY_PTR), \
-    array_nd *: new_array_nd((array_nd *)ARRAY_PTR,MEM,ESIZE,TYP,VA_ARGS_NUM(__VA_ARGS__),VA_ARGS_NUM(__VA_ARGS__),(__i32__5__){{ __VA_ARGS__ }}), \
-    array_5d *: new_array_nd((array_nd *)ARRAY_PTR,MEM,ESIZE,TYP,                       5,VA_ARGS_NUM(__VA_ARGS__),(__i32__5__){{ __VA_ARGS__ }}), \
-    array_4d *: new_array_nd((array_nd *)ARRAY_PTR,MEM,ESIZE,TYP,                       4,VA_ARGS_NUM(__VA_ARGS__),(__i32__5__){{ __VA_ARGS__ }}), \
-    array_3d *: new_array_nd((array_nd *)ARRAY_PTR,MEM,ESIZE,TYP,                       3,VA_ARGS_NUM(__VA_ARGS__),(__i32__5__){{ __VA_ARGS__ }}), \
-    array_2d *: new_array_nd((array_nd *)ARRAY_PTR,MEM,ESIZE,TYP,                       2,VA_ARGS_NUM(__VA_ARGS__),(__i32__5__){{ __VA_ARGS__ }}), \
-    array_1d *: new_array_nd((array_nd *)ARRAY_PTR,MEM,ESIZE,TYP,                       1,VA_ARGS_NUM(__VA_ARGS__),(__i32__5__){{ __VA_ARGS__ }}), \
-    array_0d *: new_array_nd((array_nd *)ARRAY_PTR,MEM,ESIZE,TYP,                       0,                       0,(__i32__5__){{ 0           }})  \
+    array_nd *: (array_nd *) new_array_nd((array_nd *)ARRAY_PTR,MEM,ESIZE,TYP,VA_ARGS_NUM(__VA_ARGS__),VA_ARGS_NUM(__VA_ARGS__),(__i32__5__){{ __VA_ARGS__ }}), \
+    array_5d *: (array_5d *) new_array_nd((array_nd *)ARRAY_PTR,MEM,ESIZE,TYP,                       5,VA_ARGS_NUM(__VA_ARGS__),(__i32__5__){{ __VA_ARGS__ }}), \
+    array_4d *: (array_4d *) new_array_nd((array_nd *)ARRAY_PTR,MEM,ESIZE,TYP,                       4,VA_ARGS_NUM(__VA_ARGS__),(__i32__5__){{ __VA_ARGS__ }}), \
+    array_3d *: (array_3d *) new_array_nd((array_nd *)ARRAY_PTR,MEM,ESIZE,TYP,                       3,VA_ARGS_NUM(__VA_ARGS__),(__i32__5__){{ __VA_ARGS__ }}), \
+    array_2d *: (array_2d *) new_array_nd((array_nd *)ARRAY_PTR,MEM,ESIZE,TYP,                       2,VA_ARGS_NUM(__VA_ARGS__),(__i32__5__){{ __VA_ARGS__ }}), \
+    array_1d *: (array_1d *) new_array_nd((array_nd *)ARRAY_PTR,MEM,ESIZE,TYP,                       1,VA_ARGS_NUM(__VA_ARGS__),(__i32__5__){{ __VA_ARGS__ }}), \
+    array_0d *: (array_0d *) new_array_nd((array_nd *)ARRAY_PTR,MEM,ESIZE,TYP,                       0,                       0,(__i32__5__){{ 0           }})  \
   )
 
-// create a pointer to a n dimensional null array
-array_nd *alloc_array_nd(int32_t ndim) ;
+// create a pointer to a n dimensional null array descriptor
+array_nd *allocate_array_nd(int32_t ndim) ;
 
 // users should call the generic function new_array rather than create_array_nd
 array_nd *create_array_nd(uint32_t flags, int32_t esize, int8_t type, int32_t rank, int32_t ndm5, __i32__5__ dm5) ;
@@ -507,6 +517,45 @@ void print_array_description_nd(array_nd *a, char *msg);
     array_2d *: print_array_description_nd((array_nd *)ARRAY_PTR, MSG), \
     array_1d *: print_array_description_nd((array_nd *)ARRAY_PTR, MSG), \
     array_0d *: print_array_description_nd((array_nd *)ARRAY_PTR, MSG)  \
+  )
+
+// users should call the generic function print_dims rather than print_dims_nd
+void print_dims_nd(array_nd *a, char *msg);
+#define print_dims(ARRAY_PTR, MSG) \
+  _Generic((ARRAY_PTR), \
+    array_nd *: print_dims_nd((array_nd *)ARRAY_PTR, MSG), \
+    array_5d *: print_dims_nd((array_nd *)ARRAY_PTR, MSG), \
+    array_4d *: print_dims_nd((array_nd *)ARRAY_PTR, MSG), \
+    array_3d *: print_dims_nd((array_nd *)ARRAY_PTR, MSG), \
+    array_2d *: print_dims_nd((array_nd *)ARRAY_PTR, MSG), \
+    array_1d *: print_dims_nd((array_nd *)ARRAY_PTR, MSG), \
+    array_0d *: print_dims_nd((array_nd *)ARRAY_PTR, MSG)  \
+  )
+
+// users should call the generic function print_meta rather than print_meta_nd
+void print_meta_nd(array_nd *a, char *msg);
+#define print_meta(ARRAY_PTR, MSG) \
+  _Generic((ARRAY_PTR), \
+    array_nd *: print_meta_nd((array_nd *)ARRAY_PTR, MSG), \
+    array_5d *: print_meta_nd((array_nd *)ARRAY_PTR, MSG), \
+    array_4d *: print_meta_nd((array_nd *)ARRAY_PTR, MSG), \
+    array_3d *: print_meta_nd((array_nd *)ARRAY_PTR, MSG), \
+    array_2d *: print_meta_nd((array_nd *)ARRAY_PTR, MSG), \
+    array_1d *: print_meta_nd((array_nd *)ARRAY_PTR, MSG), \
+    array_0d *: print_meta_nd((array_nd *)ARRAY_PTR, MSG)  \
+  )
+
+// users should call the generic function print_flags rather than print_flags_nd
+void print_flags_nd(array_nd *a, char *msg);
+#define print_flags(ARRAY_PTR, MSG) \
+  _Generic((ARRAY_PTR), \
+    array_nd *: print_flags_nd((array_nd *)ARRAY_PTR, MSG), \
+    array_5d *: print_flags_nd((array_nd *)ARRAY_PTR, MSG), \
+    array_4d *: print_flags_nd((array_nd *)ARRAY_PTR, MSG), \
+    array_3d *: print_flags_nd((array_nd *)ARRAY_PTR, MSG), \
+    array_2d *: print_flags_nd((array_nd *)ARRAY_PTR, MSG), \
+    array_1d *: print_flags_nd((array_nd *)ARRAY_PTR, MSG), \
+    array_0d *: print_flags_nd((array_nd *)ARRAY_PTR, MSG)  \
   )
 
 #define ARRAY_BYTES  sizeof(int8_t)

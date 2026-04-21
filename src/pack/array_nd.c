@@ -38,7 +38,8 @@ char *invalid_array_msg[] = {
 // is this array_nd invalid ?
 // a  [IN] : pointer to array_nd struct
 // return > 0 if invalid, 0 otherwise
-int invalid_array_nd(array_nd *a){
+int invalid_array_nd(array_nd *a_){
+  array_5d *a = (array_5d *) a_ ;     // enable dim[] indexing, array_nd has 0 dimension dim[]
   int i ;
   if(a == NULL)                return 1 ;   // NULL array pointer
   if(a->signature != HAS_DATA && a->signature != NO_DATA) return 2 ;   // invalid signature
@@ -67,8 +68,9 @@ int valid_array_nd(array_nd *a){
 // get address of the first element of a sub array of array a
 // a  [IN] : pointer to array_nd struct
 // return address of first element of sub array (NULL if error)
-uint8_t *subarray_address_nd(array_nd *a){
-  if(a == NULL) return NULL ;
+uint8_t *subarray_address_nd(array_nd *a_){
+  if(a_ == NULL) return NULL ;
+  array_5d *a = (array_5d *) a_ ;     // enable dim[] indexing, array_nd has 0 dimension dim[]
   uint32_t i, esize = a->esize ;
   uint8_t *ptr = a->data ;                            // base address of array
   int32_t stride = 1 ;
@@ -97,9 +99,11 @@ void *array_address_nd(array_nd *a){
 // return pointer to array_nd struct of result (b or new allocated array_nd struct)
 // return NULL in case of error
 // TODO copy data from a to b
-array_nd *create_subarray(array_nd *a, array_nd *b){
+array_nd *create_subarray(array_nd *a_, array_nd *b_){
+  array_5d *a = (array_5d *) a_ ;     // enable dim[] indexing, array_nd has 0 dimension dim[]
+  array_5d *b = (array_5d *) b_ ;     // enable dim[] indexing, array_nd has 0 dimension dim[]
   if(b == NULL){
-    b = (array_nd *) malloc(sizeof(array_nd) + a->rank * sizeof(dim_desc)) ;
+    b = (array_5d *) malloc(sizeof(array_nd) + a->rank * sizeof(dim_desc)) ;
     b->rank  = a->rank ;
     b->ndim  = a->rank ;
     b->flags = 0 ;
@@ -120,7 +124,7 @@ array_nd *create_subarray(array_nd *a, array_nd *b){
   b->data = malloc(b->esize * size) ;        // allocate data array
   b->limit = b->data + (b->esize * size) ;   // set array limit
   // copy relevant data from a into b
-  return b ;
+  return (array_nd *) b ;
 }
 
 // free array
@@ -141,13 +145,13 @@ int32_t free_array_nd(array_nd *ap){
   if(ap->flags & STRUCT_CAN_FREE){ free(ap) ; status |= 2 ; }
   return status ;
 }
-// create a pointer to a n dimensional null array
-// return pointer to a null array descriptor with ndim dimensions
-array_nd *alloc_array_nd(int32_t ndim){
+// create a pointer to a n dimensional basic array descriptor
+// return pointer to a basic array descriptor with ndim dimensions
+array_nd *allocate_array_nd(int32_t ndim){
   array_nd *a = (array_nd *)malloc(sizeof(array_nd) + ndim * sizeof(dim_desc)) ;
   if(a != NULL){
-    *a = array_nd_null ;
-    a->rank = ndim ;
+    *a = (array_nd) ARRAY_ZERO ;   // signature is the only valid field
+    a->rank = ndim ;               // set rank and ndim fields to proper value
     a->ndim = ndim ;
   }
   return a ;
@@ -185,7 +189,7 @@ array_nd *create_array_nd(uint32_t flags, int32_t esize, int8_t type, int32_t ra
     data += sizea ;                                 // address following dimensional descriptors
     local_flags |= DATA_IS_INTERNAL ;               // flag whole struct + data as being malloc(ed) in one piece
   }else{                                            // 2 calls to malloc, 1 for struct, 1 for data
-    r = alloc_array_nd(rank) ;                      // allocate descriptor struct
+    r = allocate_array_nd(rank) ;                      // allocate descriptor struct
     if(r == NULL) return NULL ;                     // malloc failed
     data = (uint8_t *)malloc(sizem) ;               // allocate data
     if(data == NULL){                               // malloc failed
@@ -223,9 +227,9 @@ array_nd *new_array_nd(array_nd *a, void *mem, int32_t esize, int8_t type, int32
     return  NULL ;
   }
   if(a == NULL){
-    a  = alloc_array_nd(rank) ;                           // allocate array descriptor
+    a  = allocate_array_nd(rank) ;                        // allocate an array descriptor
     if(a == NULL) return NULL ;                           // failed to allocate
-    *a = (array_nd) array_nd_invalid ;                    // initialize to invalid values (n0 reshape possible)
+    *a = (array_nd) array_nd_null ;                    // initialize to invalid values (n0 reshape possible)
   }
 
   reshape = 0 ;
@@ -239,7 +243,7 @@ array_nd *new_array_nd(array_nd *a, void *mem, int32_t esize, int8_t type, int32
   size *= nelem ;                                         // data array size in bytes
 
   if( ! reshape ){
-    *a = (array_nd) array_nd_invalid ;                    // precondition to fail, invalidate metadata
+    *a = (array_nd) array_nd_null ;                    // precondition to fail, invalidate metadata
     a->ndim = rank ;                                      // set max number of dimensions
   }else{
     if(rank > a->ndim) return NULL ;                      // cannot reshape, rank > available dimensions
@@ -249,29 +253,30 @@ array_nd *new_array_nd(array_nd *a, void *mem, int32_t esize, int8_t type, int32
       return  NULL ;
     }
   }
+  array_5d *b = (array_5d *) a ;     // enable dim[] indexing, array_nd has 0 dimension dim[]
 
   if(mem == NULL){
     mem = malloc(size) ;             // allocate data
     if(mem == NULL) return  NULL ;   // error allocating memory for data array
-    a->flags |= DATA_MAY_REALLOC ;   // data may be reallocated if need be
+    b->flags |= DATA_MAY_REALLOC ;   // data may be reallocated if need be
   }
 
-  a->signature = NO_DATA ;           // there is no valid data in valid array
-  a->type      = type ;              // (re)set type
-  a->esize     = esize ;             // (re)set esize
-  a->rank      = rank ;              // (re)set rank
+  b->signature = NO_DATA ;           // there is no valid data in valid array
+  b->type      = type ;              // (re)set type
+  b->esize     = esize ;             // (re)set esize
+  b->rank      = rank ;              // (re)set rank
   for(i = 0 ; i < rank ; i++){
     int32_t n = (dm5.i32[i] <= 0) ? 1 : dm5.i32[i] ;
-    a->dim[i].gnn = n ;      // number of elements stored along this dimension
-    a->dim[i].gn0 = 0 ;      // default lower bound for indexing
-    a->dim[i].lnn = n ;      // number of elements used along this dimension
-    a->dim[i].ln0 = 0 ;      // default lower bound for indexing ( >= a->dim[i].gn0)
+    b->dim[i].gnn = n ;      // number of elements stored along this dimension
+    b->dim[i].gn0 = 0 ;      // default lower bound for indexing
+    b->dim[i].lnn = n ;      // number of elements used along this dimension
+    b->dim[i].ln0 = 0 ;      // default lower bound for indexing ( >= b->dim[i].gn0)
   }
-  a->data = mem ;
+  b->data = mem ;
   // if it was a reshape operation, leave limit as it was
-  if( ! reshape ) a->limit = a->data + size ;
+  if( ! reshape ) b->limit = b->data + size ;
 
-  return a ;
+  return (array_nd *)b ;
 }
 
 // fill array with value
@@ -299,7 +304,8 @@ size_t set_array_value_nd(array_nd *a, int32_t v, uint32_t vlen){
 // return array size in bytes, 0 in case of error
 // if data pointer of a is NULL, alllocate memory as needed
 // if available memory is too small and data pointer is not NULL, fail
-size_t fix_array_nd(array_nd *a){
+size_t fix_array_nd(array_nd *a_){
+  array_5d *a = (array_5d *) a_ ;     // enable dim[] indexing, array_nd has 0 dimension dim[]
   char *msg = "\003 NULL array pointer" ;
   if(a == NULL) goto fail ;
   uint32_t i, rank = a->rank ;
@@ -342,9 +348,10 @@ fail:
 // lb5[nd] [IN] : lower bounds for dimensions
 // return number of dimensions if O.K., 0 if ERROR
 // normally called via generic macro  set_array_gbounds
-int set_array_gbounds_nd(array_nd *a, int32_t rank, __i32__5__ lb5){
+int set_array_gbounds_nd(array_nd *a_, int32_t rank, __i32__5__ lb5){
+  array_5d *a = (array_5d *) a_ ;     // enable dim[] indexing, array_nd has 0 dimension dim[]
   int32_t i ;
-  char *msg = "\001invalid array", buf[1024] ;
+  char *msg = "\001invalid array" ;
 
   if(invalid_array(a)) goto fail ;
   msg = "\002rank mismatch" ;
@@ -371,7 +378,8 @@ fail:
 // lb5[narg] [IN] : bound pairs for all dimensions (lower_bound_0 upper_bound_0 ... lower_bound_n upper_bound_n)
 // return number of dimensions if O.K., 0 if ERROR
 // normally called via generic macro  set_array_lbounds
-int set_array_lbounds_nd(array_nd *a, int32_t narg, __i32__5x2__ lb5){
+int set_array_lbounds_nd(array_nd *a_, int32_t narg, __i32__5x2__ lb5){
+  array_5d *a = (array_5d *) a_ ;     // enable dim[] indexing, array_nd has 0 dimension dim[]
   int32_t i, j, rank = narg/2 ;
   char *msg = "", buf[1024] ;
 
@@ -412,7 +420,8 @@ fail:
 // get size of sub array from array a
 // a   [IN] : pointer to nD array descriptor
 // return size in bytes of sub array
-size_t subarray_bytes_nd(array_nd *a){
+size_t subarray_bytes_nd(array_nd *a_){
+  array_5d *a = (array_5d *) a_ ;     // enable dim[] indexing, array_nd has 0 dimension dim[]
   int i ;
   size_t size = 0 ;
 
@@ -428,7 +437,8 @@ fail:
 // get size of array a
 // a   [IN] : pointer to nD array descriptor
 // return size in bytes of array
-size_t array_bytes_nd(array_nd *a){
+size_t array_bytes_nd(array_nd *a_){
+  array_5d *a = (array_5d *) a_ ;     // enable dim[] indexing, array_nd has 0 dimension dim[]
   int i ;
   size_t size = 0 ;
 
@@ -445,7 +455,8 @@ fail:
 // get number of elements of sub array from array a
 // a   [IN] : pointer to nD array descriptor
 // return number of elements in sub array
-int subarray_dimension_nd(array_nd *a){
+int subarray_dimension_nd(array_nd *a_){
+  array_5d *a = (array_5d *) a_ ;     // enable dim[] indexing, array_nd has 0 dimension dim[]
   int i ;
   int nelem = 0 ;
 
@@ -461,7 +472,8 @@ fail:
 // get number of elements in array a
 // a   [IN] : pointer to nD array descriptor
 // return number of elements in array
-int array_dimension_nd(array_nd *a){
+int array_dimension_nd(array_nd *a_){
+  array_5d *a = (array_5d *) a_ ;     // enable dim[] indexing, array_nd has 0 dimension dim[]
   int i ;
   int nelem = 0 ;
 
@@ -475,7 +487,8 @@ fail:
   return 0 ;
 }
 
-void array_strides_nd(array_nd *a, __i32__5__ *strides){
+void array_strides_nd(array_nd *a_, __i32__5__ *strides){
+  array_5d *a = (array_5d *) a_ ;     // enable dim[] indexing, array_nd has 0 dimension dim[]
   int i ;
   for(i=0 ; i<5 ; i++){ strides->i32[i] = 0 ; }
   if(invalid_array(a)) goto fail ;
@@ -553,7 +566,8 @@ static size_t subarray_set_5d(int gni, int gnj, int gnk, int gnl, int lni, int l
 // dest_size     [IN] : size in bytes of block
 // returns number of elements transferred
 // dest_size MUST be large enough to receive data
-ssize_t subarray_get_nd(array_nd *a, void *dest_address, size_t dest_size, block_properties *bp){
+ssize_t subarray_get_nd(array_nd *a_, void *dest_address, size_t dest_size, block_properties *bp){
+  array_5d *a = (array_5d *) a_ ;     // enable dim[] indexing, array_nd has 0 dimension dim[]
   size_t    data_size    = subarray_bytes(a) ;
   int lni, lnj, lnk, lnl, lnm, gni, gnj, gnk, gnl ;
   uint32_t esize ;
@@ -628,7 +642,8 @@ fail:
 // src_size      [IN] : size in bytes of block
 // returns number of elements transferred, <= 0 error code if error
 // src_size MUST be the same size as the subarray size
-ssize_t subarray_set_nd(array_nd *a, void *src_address, size_t src_size){
+ssize_t subarray_set_nd(array_nd *a_, void *src_address, size_t src_size){
+  array_5d *a = (array_5d *) a_ ;     // enable dim[] indexing, array_nd has 0 dimension dim[]
   size_t    data_size    = subarray_bytes(a) ;
   int lni, lnj, lnk, lnl, lnm, gni, gnj, gnk, gnl, error = 0 ;
   uint32_t esize ;
@@ -721,38 +736,48 @@ fail:
   return 0 ;
 }
 
-static void print_dims(void *a_, char *msg){
-  array_5d *a = (array_5d *) a_ ;
+// print array dimensions from array descriptor
+// a_    [IN] : pointer to existing array_nd struct
+// msg   [IN] : diagnostic message
+void print_dims_nd(array_nd *a_, char *msg){
+  array_5d *a = (array_5d *) a_ ;     // enable dim[] indexing, array_nd has 0 dimension dim[]
   int i ;
   fprintf(stdout, valid_array(a) ? "[" : "<") ;
   for(i=0 ; i<a->rank ; i++){
     fprintf(stdout, "%3d(%3d:%3d)", a->dim[i].gnn, a->dim[i].ln0, a->dim[i].ln0+a->dim[i].lnn-1) ;
   }
-  fprintf(stdout, "%s%s{%18p}", valid_array(a) ? "]" : ">", msg, a->data) ;
+  fprintf(stdout, "%s{%18p}(%ld)%s", valid_array(a) ? "]" : ">", a->data, ARRAY_SIZE(*a), msg) ;
 }
 
-static void print_meta(void *a_, char *msg){
-  array_5d *a = (array_5d *) a_ ;
-  fprintf(stdout, ", ndim = %d, rank = %d, flags = %d, type = %d[%s], esize = %lu, s = %8.8x %s",
+// print meta information from array descriptor
+// a_    [IN] : pointer to existing array_nd struct
+// msg   [IN] : diagnostic message
+void print_meta_nd(array_nd *a, char *msg){
+  fprintf(stdout, "ndim = %d, rank = %d, flags = %d, type = %d[%s], esize = %lu, s = %8.8x %s",
           a->ndim, a->rank, a->flags, a->type, printable_type[a->type],(uint64_t)a->esize, a->signature, msg) ;
 }
 
-static void print_flags(void *a, char *msg){
-  array_5d *ap = (array_5d *) a ;
-  uint8_t flags = ap->flags ;
+// print flags from array descriptor
+// a_    [IN] : pointer to existing array_nd struct
+// msg   [IN] : diagnostic message
+void print_flags_nd(array_nd *a, char *msg){
+  uint8_t flags = a->flags ;
   fprintf(stdout, "%s flags = %2.2x, %s%s%s%s%s%s\n",msg, flags,
                   (flags & DATA_IS_INTERNAL) ?  " MONOLITHIC" : " SPLIT_STRUCT" ,
                   (flags & DATA_MAY_REALLOC) ?  " MAY_REALLOC_DATA    " : " MAY_NOT_REALLOC_DATA" ,
                   (flags & STRUCT_CAN_FREE)  ?  " STRUCT_CAN_BE_FREED" : "",
-                  array_is_signed(ap)        ?  " SIGNATURE_FOUND" : "",
-                  array_no_data(ap)          ?  " EMPTY" : "" ,
-                  array_has_data(ap)         ?  " VALID_DATA" : ""
+                  array_is_signed(a)        ?  " SIGNATURE_FOUND" : "",
+                  array_no_data(a)          ?  " EMPTY" : "" ,
+                  array_has_data(a)         ?  " VALID_DATA" : ""
          ) ;
 }
 
+// print extended description from array descriptor
+// a     [IN] : pointer to existing array_nd struct
+// msg   [IN] : diagnostic message
 void print_array_description_nd(array_nd *a, char *msg){
   fprintf(stdout, "%s", msg) ;
-   print_dims(a, "") ;
+   print_dims(a, ", ") ;
    print_meta(a, "") ;
-   print_flags(a, "") ;
+   print_flags(a, "\n  ") ;
 }

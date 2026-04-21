@@ -758,8 +758,8 @@ for(i=0 ; i<2 ; i++) fprintf(stderr, " i = %d, src_i64[i] = %ld, src_i32[i] = %d
 
   fprintf(stderr, "\n===================== test with array_nd, all types =====================\n\n") ;
 
-  array_2d a1 = array_2d_null, *ap1 = &a1 ;  // data arrays
-  array_2d a2 = array_2d_null, *ap2 = &a2 ;
+  array_2d a1 = array_2d_zero, *ap1 = &a1 ;  // data arrays
+  array_2d a2 = array_2d_zero, *ap2 = &a2 ;
   block_2d b1 = block_2d_null, *bp1 = &b1 ;  // block arrays
   block_2d b2 = block_2d_null, *bp2 = &b2 ;
 

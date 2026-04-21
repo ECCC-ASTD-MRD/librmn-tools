@@ -276,7 +276,7 @@ if(argc < 1000) goto end ;     // suppress unreachable code warning
   char *test_nam2[4] = { "RAW-32", "ZIGZAG", "BHW   ", "TILE  " } ;
   for(test_no = 0 ; test_no < 4 ; test_no++){
     fprintf(stderr, "============================== 1D integer encode test %d start ==============================\n", test_no) ;
-    array_2d o1d = array_2d_invalid ;
+    array_2d o1d = array_2d_null ;
     array_2d *o1d_p = &o1d ;
     STREAM_INIT(str000, NULL, 0, 0) ;               // full RW stream reset (keep buffer, size, and mode)
     dmap_encode_arg  arg_006 ;
@@ -305,7 +305,7 @@ if(argc < 1000) goto end ;     // suppress unreachable code warning
     STREAM_REWIND(*str000, 1) ;
     fprintf(stderr, "filter test : available space in str000 %ld bits, available bits = %ld bits\n", StreamAvailableSpace(str000), StreamAvailableBits(str000)) ;
 
-    o1d = array_2d_null ;
+    o1d = array_2d_zero ;
     errmsg = "set_array_value returned a non 0 value" ;
     if(set_array_value(&o1d, 0x0F, ARRAY_BYTES) != 0) goto fail ;
     array_set_empty(&o1d) ;
