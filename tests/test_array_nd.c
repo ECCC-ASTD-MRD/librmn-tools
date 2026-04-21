@@ -85,11 +85,15 @@ void array_lbounds_check(int low, int high){
 
   // make new arrays using caller supplied storage, set bounds
   new_array(ap0, NULL, 100*sizeof(int32_t), large_data) ;
-  print_array_description((array_nd *)ap0, "a0_0") ;
+  fprintf(stdout, "a0_0 : dimension(%d), size(%ld), invalid = %d, address = %p\n",
+          array_dimension(ap0), array_bytes(ap0), invalid_array(ap0), array_address(ap0));
+  print_array_description((array_nd *)ap0, "   ") ;
   errmsg = "free_array(ap0) != 1" ;
   if(free_array(ap0) != 1) goto fail ;
   create_array(ap0, ARRAY_MONOLITHIC, 200*sizeof(int32_t), large_data) ;
-  print_array_description((array_nd *)ap0, "a0_1") ;
+  fprintf(stdout, "a0_1 : dimension(%d), size(%ld), invalid = %d,, address = %p\n",
+          array_dimension(ap0), array_bytes(ap0), invalid_array(ap0), array_address(ap0));
+  print_array_description((array_nd *)ap0, "   ") ;
   if(free_array(ap0) != 2) goto fail ;
 
   new_array(&a1, NULL, sizeof(int32_t), int_data, 8) ;

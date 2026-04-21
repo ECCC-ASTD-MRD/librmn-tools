@@ -376,7 +376,8 @@ int valid_array_nd(array_nd *a);
     array_4d *: valid_array_nd((array_nd *)ARRAY_PTR), \
     array_3d *: valid_array_nd((array_nd *)ARRAY_PTR), \
     array_2d *: valid_array_nd((array_nd *)ARRAY_PTR), \
-    array_1d *: valid_array_nd((array_nd *)ARRAY_PTR)  \
+    array_1d *: valid_array_nd((array_nd *)ARRAY_PTR), \
+    array_0d *: valid_array_nd((array_nd *)ARRAY_PTR)  \
     )
 
 array_nd *create_subarray(array_nd *a, array_nd *b);
@@ -402,7 +403,8 @@ void  *array_address_nd(array_nd *a);
     array_4d *: array_address_nd((array_nd *)ARRAY_PTR), \
     array_3d *: array_address_nd((array_nd *)ARRAY_PTR), \
     array_2d *: array_address_nd((array_nd *)ARRAY_PTR), \
-    array_1d *: array_address_nd((array_nd *)ARRAY_PTR)  \
+    array_1d *: array_address_nd((array_nd *)ARRAY_PTR), \
+    array_0d *: array_address_nd((array_nd *)ARRAY_PTR)  \
     )
 
 // users should call the generic function subarray_bytes rather than subarray_bytes_nd
@@ -438,7 +440,8 @@ size_t array_bytes_nd(array_nd *a);
     array_4d *: array_bytes_nd((array_nd *)ARRAY_PTR), \
     array_3d *: array_bytes_nd((array_nd *)ARRAY_PTR), \
     array_2d *: array_bytes_nd((array_nd *)ARRAY_PTR), \
-    array_1d *: array_bytes_nd((array_nd *)ARRAY_PTR)  \
+    array_1d *: array_bytes_nd((array_nd *)ARRAY_PTR), \
+    array_0d *: array_bytes_nd((array_nd *)ARRAY_PTR)  \
     )
 
 // users should call the generic function subarray_dimension rather than subarray_dimension_nd
@@ -462,7 +465,8 @@ int       array_dimension_nd(array_nd *a);
     array_4d *: array_dimension_nd((array_nd *)ARRAY_PTR), \
     array_3d *: array_dimension_nd((array_nd *)ARRAY_PTR), \
     array_2d *: array_dimension_nd((array_nd *)ARRAY_PTR), \
-    array_1d *: array_dimension_nd((array_nd *)ARRAY_PTR)  \
+    array_1d *: array_dimension_nd((array_nd *)ARRAY_PTR), \
+    array_0d *: array_dimension_nd((array_nd *)ARRAY_PTR)  \
     )
 
 // users should call the generic function array_kind rather than array_kind_nd
