@@ -131,7 +131,7 @@ static const dim_desc  dim_zero = DIM_ZERO ;
 // limit         // pointer to byte beyond array (byte pointer)
 // signature     // MUST be 0xBEBEFADA (valid data) or 0xFADABEBE (no valid data)
 // w32[]         // usable only if created with create_array
-// 8 | 8 | 8 | 8 | 32 | 32  type, flags, rank, ndim, esize, ref_count
+// 8 | 8 | 8 | 8 | 32 | 24 | 8  type, flags, rank, ndim, esize, ref_count, etype
 // replace ref_count with count:24, etype:8  ?
 
 #undef ARRAY_INSTANCE
@@ -145,18 +145,18 @@ typedef struct{ \
   uint8_t  rank  ; \
   uint8_t  ndim  ; \
   uint32_t esize ; \
-  uint32_t count ; \
+  uint32_t count:24 , etype:8 ; \
   dim_desc dim[N] ; \
   uint8_t  w32[] ; \
 } NAME ; \
 typedef NAME *NAME##_p ; \
-static const NAME NAME##_null = {.data=NULL, .limit=NULL, .signature=0,       .type=0,        .flags=0, .rank=0 , .ndim=N, .esize=0, __VA_ARGS__ } ; \
-static const NAME NAME##_zero = {.data=NULL, .limit=NULL, .signature=NO_DATA, .type=any_data, .flags=0, .rank=0 ,  .ndim=N, .esize=0, __VA_ARGS__ } ;
+static const NAME NAME##_null = {.data=NULL, .limit=NULL, .signature=0,       .type=0,        .flags=0, .rank=0 , .ndim=N, .esize=0, .etype=0,        __VA_ARGS__ } ; \
+static const NAME NAME##_zero = {.data=NULL, .limit=NULL, .signature=NO_DATA, .type=any_data, .flags=0, .rank=0 , .ndim=N, .esize=0, .etype=any_data, __VA_ARGS__ } ;
 
-#define ARRAY_NULL { .data=NULL, .limit=NULL, .signature=0,       .type=0,        .flags=0, .rank=0 , .ndim=0, .esize=0 }
-#define ARRAY_ZERO { .data=NULL, .limit=NULL, .signature=NO_DATA, .type=any_data, .flags=0, .rank=0 , .ndim=0, .esize=0 }
+#define ARRAY_NULL { .data=NULL, .limit=NULL, .signature=0,       .type=0, .flags=0, .rank=0 , .ndim=0, .esize=0 }
+#define ARRAY_ZERO { .data=NULL, .limit=NULL, .signature=NO_DATA, .type=0, .flags=0, .rank=0 , .ndim=0, .esize=0 }
 
-ARRAY_INSTANCE(0, array_nd, .count=0) ;  // generic struct, used for argument types (NO dim)
+ARRAY_INSTANCE(0, array_nd, .count=0) ;  // generic struct, used for argument casting only (NO dim)
 ARRAY_INSTANCE(0, array_0d, .count=0) ;  // ndim MUST be 0, rank MUST be 0 (NO dim)
 ARRAY_INSTANCE(1, array_1d, .count=0, .dim = {DIM_ZERO}) ;  // ndim MUST be 1, rank MUST be <= 1
 ARRAY_INSTANCE(2, array_2d, .count=0, .dim = {DIM_ZERO, DIM_ZERO}) ;  // ndim MUST be 2, rank MUST be <= 2

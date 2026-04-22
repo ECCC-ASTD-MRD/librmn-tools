@@ -111,6 +111,7 @@ array_nd *create_subarray(array_nd *a_, array_nd *b_){
   if(a->rank != b->rank) return NULL ;
   b->esize = a->esize ;
   b->type  = a->type ;
+  b->etype = a->etype ;
   b->flags = 0 ;
   int i ;
   ssize_t size = 1 ;
@@ -263,6 +264,7 @@ array_nd *new_array_nd(array_nd *a, void *mem, int32_t esize, int8_t type, int32
 
   b->signature = NO_DATA ;           // there is no valid data in valid array
   b->type      = type ;              // (re)set type
+  b->etype     = type ;              // (re)set type
   b->esize     = esize ;             // (re)set esize
   b->rank      = rank ;              // (re)set rank
   for(i = 0 ; i < rank ; i++){
@@ -753,8 +755,8 @@ void print_dims_nd(array_nd *a_, char *msg){
 // a_    [IN] : pointer to existing array_nd struct
 // msg   [IN] : diagnostic message
 void print_meta_nd(array_nd *a, char *msg){
-  fprintf(stdout, "ndim = %d, rank = %d, flags = %d, type = %d[%s], esize = %lu, s = %8.8x %s",
-          a->ndim, a->rank, a->flags, a->type, printable_type[a->type],(uint64_t)a->esize, a->signature, msg) ;
+  fprintf(stdout, "ndim = %d, rank = %d, flags = %d, type = %d/%d[%s], esize = %lu, s = %8.8x %s",
+          a->ndim, a->rank, a->flags, a->type, a->etype, printable_type[a->type],(uint64_t)a->esize, a->signature, msg) ;
 }
 
 // print flags from array descriptor
