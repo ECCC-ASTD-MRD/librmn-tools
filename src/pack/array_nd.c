@@ -755,8 +755,11 @@ void print_dims_nd(array_nd *a_, char *msg){
 // a_    [IN] : pointer to existing array_nd struct
 // msg   [IN] : diagnostic message
 void print_meta_nd(array_nd *a, char *msg){
-  fprintf(stdout, "ndim = %d, rank = %d, flags = %d, type = %d/%d[%s], esize = %lu, s = %8.8x %s",
-          a->ndim, a->rank, a->flags, a->type, a->etype, printable_type[a->type],(uint64_t)a->esize, a->signature, msg) ;
+  char *d = "(invalid)" ;
+  if(a->signature == NO_DATA) d = "( empty )" ;
+  if(a->signature == HAS_DATA) d = "( data  )" ;
+  fprintf(stdout, "ndim = %d, rank = %d, flags = 0X%2.2x, type = %2.2d/%2.2d[%s], esize = %lu, s = %8.8x%s %s",
+          a->ndim, a->rank, a->flags, a->type, a->etype, printable_type[a->type],(uint64_t)a->esize, a->signature, d, msg) ;
 }
 
 // print flags from array descriptor

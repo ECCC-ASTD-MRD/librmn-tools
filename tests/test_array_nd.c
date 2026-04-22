@@ -21,7 +21,7 @@
 #include <rmn/array_nd.h>
 
 void array_lbounds_check(int low, int high){
-  array_0d a0 = array_0d_zero, *ap0 = &a0 ;
+  array_0d a0 = array_0d_null, *ap0 = &a0 ;
   array_1d a1 = array_1d_zero, *ap1 = &a1 ;
   array_2d a2 = array_2d_zero, *ap2 = &a2 ;
   array_3d a3 = array_3d_zero, *ap3 = &a3 ;
@@ -117,14 +117,14 @@ void array_lbounds_check(int low, int high){
   print_flags(&a5, "a5 flags : ") ;
 
   array_signature(&a5) = NO_DATA ;
-  fprintf(stdout, "before reshape , signature = %8.8x(%s), ", array_signature(&a5), array_no_data(&a5) ? "is empty" : "has data" ) ;
+  fprintf(stdout, "before reshape , signature = %8.8x(%s), ", array_signature(&a5), array_no_data(&a5) ? " empty " : " data  " ) ;
   print_dims(&a5, "\n") ;
 
   errmsg = "reshaped array is not valid" ;
   reshape_array(&a5, sizeof(int32_t), int_data, 8, 7, 6, 5, 4) ;
   array_set_used(&a5) ;
 //   new_array(&a5, array_address(&a5), sizeof(int32_t), int_data, 8, 7, 6, 5, 4) ;
-  fprintf(stdout, "after reshape 1, signature = %8.8x(%s), ", array_signature(&a5), array_no_data(&a5) ? "is empty" : "has data" ) ;
+  fprintf(stdout, "after reshape 1, signature = %8.8x(%s), ", array_signature(&a5), array_no_data(&a5) ? " empty " : " data  " ) ;
   print_dims(&a5, "\n") ;
   if(invalid_array(&a5)) goto fail ;
 
@@ -132,7 +132,7 @@ void array_lbounds_check(int low, int high){
   reshape_array(&a5, sizeof(int32_t), int_data, 9, 7, 6, 5, 4) ;    // reshape is deliberately oversized
   status = valid_array(&a5) ; 
 //   new_array(&a5, array_address(&a5), sizeof(int32_t), int_data, 9, 7, 6, 5, 4) ;
-  fprintf(stdout, "after reshape 2, signature = %8.8x(%s), ", array_signature(&a5), status ? "valid   " : "invalid " ) ;
+  fprintf(stdout, "after reshape 2, signature = %8.8x(%s), ", array_signature(&a5), status ? " valid  " : "invalid" ) ;
   print_dims(&a5, "\n") ;
 print_meta(&a5, " |metadata|\n") ;
   if(status) goto fail ;
@@ -141,7 +141,7 @@ print_meta(&a5, " |metadata|\n") ;
   reshape_array(&a5, sizeof(int32_t), int_data, 7, 6, 5, 4, 3) ;
   array_set_empty(&a5) ;
 //   new_array(&a5, array_address(&a5), sizeof(int32_t), int_data, 7, 6, 5, 4, 3) ;
-  fprintf(stdout, "after reshape 3, signature = %8.8x(%s), ", array_signature(&a5), array_no_data(&a5) ? "is empty" : "has data" ) ;
+  fprintf(stdout, "after reshape 3, signature = %8.8x(%s), ", array_signature(&a5), array_no_data(&a5) ? " empty " : " data  " ) ;
   print_dims(&a5, "\n") ;
   if(invalid_array(&a5)) goto fail ;
 
