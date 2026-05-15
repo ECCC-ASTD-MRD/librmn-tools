@@ -68,8 +68,8 @@ typedef struct{
   uint32_t nbits ;    // maximum number of significant bits kept in quantized values (1 -> 24)
   float    maxerr ;   // maximum absolute or relative error
   int32_t  offset ;   // use this offset if non zero (use minimum quantized value if 0x7FFFFFFF) (linear quantizer)
-  float    minabs ;   // values below minabs are considered NOT SIGNIFICANT (not for linear quantizer)
-  float    zval ;     // |value| < minabs gets replaced with zval (not for linear quantizer)
+  float    minabs ;   // values below minabs are considered NOT SIGNIFICANT (N/A for linear quantizer)
+  float    zval ;     // |value| < minabs gets replaced with zval (N/A for linear quantizer)
 } dmap_filter_arg_003 ;
 CT_ASSERT(sizeof(dmap_filter_arg_003) <= MAX_FILTER_ARG_SIZE, "sizeof(dmap_filter_arg_003) too large") ;
 typedef dmap_filter_arg_003 dmap_fp_quantize ;
