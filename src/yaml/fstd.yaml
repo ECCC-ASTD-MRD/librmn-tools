@@ -1,0 +1,60 @@
+---
+- defaults: Whatever            # linear_defaults
+  compress: &wind_compress
+    quantize: &quantize_default
+      ordinal: !n 0
+      mode: !s linear   # linear|log|block
+      # bits: 12
+      error: !f .01
+      # offset: 0
+      # minabs: 0.0
+      # zval: 0.0
+    predict: &predict_default
+      ordinal: !n 1
+      type: !s Lorenzo
+    encode: &encode_default
+      ordinal: !n 3
+      type: !s full
+#       split: false
+- field: !s UU
+  compress:
+    <<: *wind_compress
+    quantize:
+      <<: *quantize_default
+      error: !f .02
+#     predict: *predict_default
+#     encode:
+#       type: full
+#       split: false
+- field: VV
+  compress:
+    <<: *wind_compress
+    predict:
+      type: !s DWT
+    encode:
+      type: !s part
+      split: !!bool true
+- field: WW
+  compress:
+    <<: *wind_compress
+    quantize:
+      <<: *quantize_default
+    predict:
+      <<: *predict_default
+    encode:
+      <<: *encode_default
+- field: ZZ
+  compress: # *wind_compress
+    <<: *wind_compress
+- field: YY
+  compress: *wind_compress
+- field: XX
+  key0: &def_key0 !s value0
+  keya: &def_keya [!s value1, !s value2]
+  keyb: &def_keyb
+    - value-1
+    - value-2
+  keyA: *def_keya
+  keyB: *def_keyb
+  key3: *def_key0
+...

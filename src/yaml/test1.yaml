@@ -1,0 +1,15 @@
+---
+- defaults: Whatever            # linear_defaults
+  compress: &wind_compress
+    quantize: &quantize_default
+      ordinal: !n 0
+      mode: !s linear   # linear|log|block
+      error: !f .01
+- field: ZZ
+  compress:
+    <<: *wind_compress
+- field: YY
+  compress: *wind_compress
+- field: XX
+  key0: &def_key0 !s value0
+  key3: *def_key0
