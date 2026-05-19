@@ -13,3 +13,4 @@
 - field: XX
   key0: &def_key0 !s value0
   key3: *def_key0
+- element: [!s1 a, b, !s3 c, d]

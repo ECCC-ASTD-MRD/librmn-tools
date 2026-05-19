@@ -5,8 +5,6 @@
  * the libyaml parser events.
  *
  */
-#include <yaml.h>
-void yaml_free(void *) ;
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -14,54 +12,61 @@ void yaml_free(void *) ;
 #include <sys/stat.h>
 #include <fcntl.h>
 
+#include <yaml.h>
+// #define YAML_STRMOV(DST,SRC) { DST = SRC ; SRC = NULL ; }
+YAML_DECLARE(yaml_char_t *) yaml_strdup(const yaml_char_t *);
+// YAML_DECLARE(void) yaml_free(void *ptr);
+// YAML_DECLARE(void *) yaml_malloc(size_t size);
+
 #define STRVAL(x) ((x) ? (char*)(x) : "")
 
 #define YAML_KEY_VALUE_EVENT 32
 
+// NO-EVENT populated event type
 static yaml_event_t null_event = {.type        = YAML_NO_EVENT,
                                   .data.scalar = {NULL, NULL, NULL, 0L, 0, 0, 0},
                                   .start_mark  = {0L, 0L, 0L},
                                   .end_mark    = {0L, 0L, 0L} } ;
 
+// parser/analyzer stack
 #define YAML_STACK_SIZE 128
-typedef struct{                           // parser/analyzer stack
+typedef struct{
   yaml_char_t *anchor[YAML_STACK_SIZE] ;  // anchor name
   yaml_char_t *symbol[YAML_STACK_SIZE] ;  // part of data element name associated with this level
   yaml_char_t *value[YAML_STACK_SIZE] ;   // value of data element at this level
   yaml_char_t *tag[YAML_STACK_SIZE] ;     // tag of data element at this level
   int level ;                             // stack pointer, identation level
   int event_no[YAML_STACK_SIZE] ;         // event number in event list (only useful if anchor)
-  char mode[YAML_STACK_SIZE] ;            // M if in mapping mode, S if in sequence mode
+  char mode[YAML_STACK_SIZE] ;            // M if in mapping mode, S if in sequence mode ( can also be '(', ')', '{',  or '}' )
 } yaml_stack_t ;
 
+// table for aliases (anchor definitions)
 #define YAML_MAX_ALIASES 1024
 typedef struct{
-  int   na ;                              // number of aliases in table
-  int   head[YAML_MAX_ALIASES] ;          // first event in this alias
-  int   tail[YAML_MAX_ALIASES] ;          // last event in this alias
+  int   na ;                              // number of used aliases in table
+  int   head[YAML_MAX_ALIASES] ;          // index in event list of first event for this alias
+  int   tail[YAML_MAX_ALIASES] ;          // index in event list of last event for this alias
   yaml_char_t *name[YAML_MAX_ALIASES] ;   // anchor (name of this alias)
-  yaml_char_t *value[YAML_MAX_ALIASES] ;  // value if scalar alias
-  yaml_char_t *tag[YAML_MAX_ALIASES] ;    // tag if scalar alias
+  yaml_char_t *value[YAML_MAX_ALIASES] ;  // value if scalar alias (NULL otherwise)
+  yaml_char_t *tag[YAML_MAX_ALIASES] ;    // tag if scalar alias (NULL otherwise)
 } yaml_alias_t ;
 
 // information used for parsing
 typedef struct{
-  yaml_stack_t stack ;                    // mode stack
+  yaml_stack_t stack ;                    // parsing stack
   yaml_alias_t aliases ;                  // aliases table (anchor values)
 }yaml_context_t ;
 
-yaml_char_t *yaml_alias_range(int *index, int *head, int *tail, yaml_alias_t *yaml_aliases, yaml_char_t *anchor){
-  yaml_char_t *target = anchor ;
-  *head = *tail = *index = -1 ;
-  for(int i = 0 ; i < yaml_aliases->na ; i++){
-    if( 0 == strncmp((char *)target, (char *)yaml_aliases->name[i], 1024) ){
-      *head = yaml_aliases->head[i] ;
-      *tail = yaml_aliases->tail[i] ;
-      *index = i ;
-      return yaml_aliases->value[i] ;
-    }
+// initialize aliases table
+void yaml_aliases_init(yaml_alias_t *table){
+  table->na = 0 ;                              // no valid aliases
+  for(int i=0 ; i<YAML_MAX_ALIASES ; i++){
+    table->head[i]  = 0 ;                      // no start of anchor
+    table->tail[i]  = 0 ;                      // no end of anchor
+    table->name[i]  = NULL ;                   // no name
+    table->value[i] = NULL ;                   // no value
+    table->tag[i]   = NULL ;                   // no tag
   }
-  return NULL ;  // not found or no scalar value associated with alias
 }
 
 // initialize parsing stack
@@ -77,36 +82,62 @@ void yaml_stack_init(yaml_stack_t *stack){
   }
 }
 
+// initialize global control struct for parsing
+void yaml_context_init(yaml_context_t *context){
+  yaml_stack_init(&(context->stack)) ;               // initialize the stack
+  yaml_aliases_init(&(context->aliases)) ;           // initialize the aliases table
+}
+
+// push mode token onto parsing stack
 // value should be 'M', 'S', '{', or '(' for now
 // '{', or '(' is cosmetic
 void yaml_stack_push(yaml_stack_t *stack, char value){
   stack->level = stack->level + 1 ;
   stack->mode[stack->level] = value ;
 }
+// pop parsing stack, return value at top of stack
 char yaml_stack_pop(yaml_stack_t *stack){
   char r = stack->mode[stack->level] ;
   stack->level = stack->level - 1 ;
   return r ;
 }
+// get value at the top of the parsing stack
 char yaml_get_stack_top(yaml_stack_t *stack){
   return stack->mode[stack->level] ;
 }
+// replace the value at the top of the parsing stack
 // used to force stack top ot '}' or ')'  (cosmetic)
 void yaml_set_stack_top(yaml_stack_t *stack, char value){
   stack->mode[stack->level] = value ;
 }
 
-#define YAML_STRMOV(DST,SRC) { DST = SRC ; SRC = NULL ; }
-
-YAML_DECLARE(yaml_char_t *) yaml_strdup(const yaml_char_t *);
-YAML_DECLARE(void) yaml_free(void *ptr);
-YAML_DECLARE(void *) yaml_malloc(size_t size);
+// index  [OUT] : index (position) in aliases table
+// head   [OUT] : index in list of first event for this alias/anchor
+// tail   [OUT] : index in list of last event for this alias/anchor
+// aliases [IN] : aliases table (normally from context struct)
+// anchor  [IN] : anchor to be substituted
+// return associated value if any, index/head/tail set to -1 in case of error
+yaml_char_t *yaml_alias_range(int *index, int *head, int *tail, yaml_alias_t *aliases, yaml_char_t *anchor){
+  yaml_char_t *target = anchor ;
+  *head = *tail = *index = -1 ;
+  for(int i = 0 ; i < aliases->na ; i++){
+    if( 0 == strncmp((char *)target, (char *)aliases->name[i], 1024) ){
+      *head = aliases->head[i] ;
+      *tail = aliases->tail[i] ;
+      *index = i ;
+      return aliases->value[i] ;
+    }
+  }
+  return NULL ;  // not found or no scalar value associated with alias
+}
 
 static FILE *parsed_out = NULL ;
 
-static char _spaces[] = "                                                 " ;
+static char _spaces[] = "                                                                      " ;
+// return pointer to a string of n spaces ( n < sizeof(_spaces) )
 char *spaces(int n){
   if(n <= 0) return "" ;
+  if(n >= sizeof(_spaces)) return _spaces ;
   return  _spaces + (sizeof(_spaces) - n - 1) ;
 }
 
@@ -146,64 +177,57 @@ void print_parsed(yaml_stack_t *stack, FILE *f, int depth, char *key, char *valu
   }
 }
 
-void print_symbol_stack(yaml_stack_t *stack, FILE *f){
-  int i ;
-  char *has_no_value = ".key_only=1" ;
-  char dot = ' ' ;
-  char printed = 0 ;
-
-  // NO-OP if any token is "<<"
-  for(i = 0 ; i <= stack->level ; i++){
-    char *symbol = (char *)stack->symbol[i] ;
-    if(symbol == NULL) continue ;
-    if(symbol[0] == 0) continue ;
-    if( strncmp(symbol, "<<", 2) == 0 ) return ;
-  }
-
-  for(i = 0 ; i <= stack->level ; i++){
-    has_no_value = "key_only=1" ;
-    has_no_value = "" ;
-    char *symbol = (char *)stack->symbol[i] ;
-
-    if(symbol == NULL) continue ;
-    if(symbol[0] == 0) continue ;
-
-    if(! printed) fprintf(f, "#      ") ;
-    printed = 1 ;
-    if(stack->value[i] != NULL){
-      char *value = (char *)stack->value[i] ;
-      char *tag = stack->tag[i] ? (char *)stack->tag[i] : "" ;
-      if( value[0] == '\0' ) value = "' '" ;
-      fprintf(f, "%c%s = %s %s", dot, symbol, tag, value) ;
-//       fprintf(f, "") ;
-      has_no_value = "" ;
+// print symbol/tag/value trio
+void print_stv(FILE *f, char *symbol, char *tag, char *value){
+  if(value){
+    if( value[0] == '\0' ) value = "' '" ;
+    if(tag != NULL){
+      fprintf(f, "%s = (%s %s)", symbol, tag, value) ;
     }else{
-      fprintf(f, "%c%s", dot, symbol) ;
+      fprintf(f, "%s = %s", symbol,value) ;
     }
-    dot = '.' ;
-  }
-//   if(! printed) has_no_value = "#" ;
-  if(printed)fprintf(f, "%s\n", has_no_value) ;
-}
-
-// initialize aliases table
-void yaml_aliases_init(yaml_alias_t *table){
-  table->na = 0 ;                              // no valid aliases
-  for(int i=0 ; i<YAML_MAX_ALIASES ; i++){
-    table->head[i]  = 0 ;                      // no start of anchor
-    table->tail[i]  = 0 ;                      // no end of anchor
-    table->name[i]  = NULL ;                   // no name
-    table->value[i] = NULL ;                   // no value
-    table->tag[i]   = NULL ;                   // no tag
+  }else{
+    if(tag != NULL){
+      fprintf(f, "(%s %s)", tag, symbol) ;
+    }else{
+      fprintf(f, "%s", symbol) ;
+    }
   }
 }
+#define MAX_DEPTH 128
+// process symbols on stack
+void process_symbol_stack(yaml_stack_t *stack, FILE *f){
+  int i ;
+  char *symbols[MAX_DEPTH], *tags[MAX_DEPTH], *values[MAX_DEPTH] ;
+  int depth = 0 ;
 
-void yaml_context_init(yaml_context_t *context){
-  yaml_stack_init(&(context->stack)) ;               // initialize the stack
-  yaml_aliases_init(&(context->aliases)) ;           // initialize the aliases table
+  // do nothing if "<<" is found at any level
+  for(i = 0 ; i <= stack->level ; i++){
+    char *symbol = (char *)stack->symbol[i] ;
+    if(symbol == NULL) continue ;                  // no symbol string
+    if(symbol[0] == 0) continue ;                  // symbol is null string
+    if( strncmp(symbol, "<<", 2) == 0 ) return ;   // <<: present
+
+    symbols[depth] = (char *)stack->symbol[i] ;    // collect symbols, tags, and values
+    tags[depth]    = (char *)stack->tag[i] ;
+    values[depth]  = (char *)stack->value[i] ;
+    depth++ ;
+  }
+  // process collected symbol, tag, and value trios
+  for(i = 0 ; i < depth ; i++){
+    fprintf(f, "%s", (i == 0) ? "#      " : "." ) ;    // "#      " first time around. "." afterwards
+    print_stv(f, symbols[i], tags[i], values[i]) ;     // process symbol/tag/value trio
+  }
+  fprintf(f, "\n") ;
 }
 
+#define DEBUG
+#if defined(DEBUG)
 #define CHECK_YAML_STACK if(level != stack->level) exit(1)
+#else
+#define CHECK_YAML_STACK
+#endif
+
 #define PRINT_INDENT(SPACES) print_header(stack, tos, SPACES, event_id)
 // context [INOUT] : information used for parsing
 // event_no   [IN] : index in list of event being processed
@@ -218,53 +242,45 @@ int process_event(yaml_context_t *context, int event_no, int event_id, yaml_even
     yaml_event_t *next_event = event + 1 ;                                       // following event
     yaml_event_t *prev_event = (event_no == 0) ? (&null_event) : (event - 1) ;   // preceding event
     int level = stack->level ;                      // current level in mode stack
-    int print_symbols = 0 ;
+    int process_symbols = 0 ;
     int head = -1, tail = -1, index = -1 ;
 
     CHECK_YAML_STACK ;
     switch ((int)event->type) {
     case YAML_NO_EVENT:
-//         PRINT_INDENT(level);
-//         printf("NO-OP (%d)\n", event->type);
-        CHECK_YAML_STACK ;
+#if defined(FULL_DEBUG)
+        PRINT_INDENT(level);
+        printf("NO-OP (%d)\n", event->type);
+#endif
         break;
 
     case YAML_STREAM_START_EVENT:
-        CHECK_YAML_STACK ;
         yaml_stack_push(stack, '{') ; level++ ;
         PRINT_INDENT(level - 1);
         printf("STREAM_START (%d)\n", event->type);
         yaml_set_stack_top(stack, '}') ;
-        CHECK_YAML_STACK ;
         break;
 
     case YAML_STREAM_END_EVENT:
-        CHECK_YAML_STACK ;
         yaml_stack_pop(stack); level-- ;
         PRINT_INDENT(level);
         printf("STREAM_END (%d)\n", event->type);
-        CHECK_YAML_STACK ;
         break;
 
     case YAML_DOCUMENT_START_EVENT:
-        CHECK_YAML_STACK ;
         yaml_stack_push(stack, '(') ; level++ ;
         PRINT_INDENT(level - 1);
         printf("DOC_START (%d)\n", event->type);
         yaml_set_stack_top(stack, ')') ;
-        CHECK_YAML_STACK ;
         break;
 
     case YAML_DOCUMENT_END_EVENT:
-        CHECK_YAML_STACK ;
         yaml_stack_pop(stack); level-- ;
         PRINT_INDENT(level);
         printf("DOC_END (%d)\n", event->type);
-        CHECK_YAML_STACK ;
         break;
 
     case YAML_ALIAS_EVENT:
-        CHECK_YAML_STACK ;
         PRINT_INDENT(level);
         yaml_alias_range(&index, &head, &tail, aliases, event->data.alias.anchor) ;
         printf("ALIAS[%d] (%d), {anchor=\"%s\"}, events[%4.4d:%4.4d]\n",
@@ -273,28 +289,26 @@ int process_event(yaml_context_t *context, int event_no, int event_id, yaml_even
                STRVAL(event->data.alias.anchor),
                head, tail
               );
-        // if alias was a scalar alias (head == tail), alias event has been replaced with key/value event
+        // if alias was a scalar alias (head == tail), alias event should have already been replaced with key/value event
         // key from previous event, value from alias table
         if(tail == head){
           PRINT_INDENT(level);
           printf("ERROR: SCALAR alias encountered\n");
         }else{
-          // if preceded by <<:, eliminate first and last event in what anchor points to
+          // if anchor name is preceded by <<:, eliminate first and last event in what anchor points to
           if(prev_event->type == YAML_SCALAR_EVENT){
             if( strncmp((char *)prev_event->data.scalar.value, "<<", 2) == 0 ){
               head++ ;
               tail-- ;
             }
           }
-          for(int i = head ; i <= tail ; i++){    // inject what anchor points to
+          for(int i = head ; i <= tail ; i++){    // inject event sequence pointed to by anchor
             process_event(context, i, -i, list) ; // head <= event number <= tail
           }
         }
-        CHECK_YAML_STACK ;
         break;
 
     case YAML_KEY_VALUE_EVENT:
-        CHECK_YAML_STACK ;
         PRINT_INDENT(level);
         printf("KEY_VALUE[%d] (%d) = {key=\"%s\", value=\"%s\", length=%d}, tag=\"%s\"\n",
               event_id,
@@ -312,14 +326,12 @@ int process_event(yaml_context_t *context, int event_no, int event_id, yaml_even
         stack->value[level] = yaml_strdup( event->data.scalar.value ) ;
         stack->tag[level] = yaml_strdup( event->data.scalar.tag ) ;
         stack->symbol[level+1] = stack->value[level+1] = stack->tag[level+1] = NULL ;
-        print_symbols = 1 ;
-        CHECK_YAML_STACK ;
+        process_symbols = 1 ;
         break;
 
     case YAML_SCALAR_EVENT:
-        CHECK_YAML_STACK ;
-        // if next event is a scalar ALIAS
-        // next event becomes a scalar event, value from alias table
+        // ====================================================================================================
+        // if next event is a scalar ALIAS, next event will become a SCALAR event, value taken from alias table
         if(next_event->type == YAML_ALIAS_EVENT)
         {
           PRINT_INDENT(level);
@@ -341,9 +353,9 @@ int process_event(yaml_context_t *context, int event_no, int event_id, yaml_even
             *next_event = et ;  // alias -> scalar, value coming from alias table
           }
         }
-        // SCALAR followed by event with ANCHOR, insert anchor into aliases table
-        if(next_event->type == YAML_SCALAR_EVENT &&
-           next_event->data.scalar.anchor != NULL)
+        // ====================================================================================================
+        // SCALAR event followed by event with ANCHOR, insert anchor into aliases table
+        if(next_event->type == YAML_SCALAR_EVENT && next_event->data.scalar.anchor != NULL)
         {
           aliases->name[aliases->na] = next_event->data.scalar.anchor ;
           aliases->value[aliases->na] = yaml_strdup(next_event->data.scalar.value) ;
@@ -359,7 +371,8 @@ int process_event(yaml_context_t *context, int event_no, int event_id, yaml_even
                  event_no + 1) ;
           aliases->na = aliases->na + 1 ;
         }
-        // should next event be transformed into key = value ?
+        // ====================================================================================================
+        // should next event be transformed into key = value event (YAML_KEY_VALUE_EVENT) ?
         if(next_event->type == YAML_SCALAR_EVENT   &&     // next event is SCALAR
            yaml_get_stack_top(stack) == 'M' &&            // we are in mapping mode
            next_event->data.scalar.anchor == NULL)        // next event is not an anchor
@@ -368,9 +381,24 @@ int process_event(yaml_context_t *context, int event_no, int event_id, yaml_even
           event->data.scalar.value = NULL ;           // make sure value string does not get freed when disposing of event
           next_event->type = YAML_KEY_VALUE_EVENT ;   // next event is key = value type (fudged YAML event type)
           event->type = YAML_NO_EVENT ;               // make current event a NO-OP
-          CHECK_YAML_STACK ;
           break;                                      // do not print nor parse, we are done
         }
+        // ====================================================================================================
+        // SCALAR event  not followed by MAPPING or ALIAS
+        if(next_event->type != YAML_MAPPING_START_EVENT &&  next_event->type != YAML_ALIAS_EVENT)
+        {
+          print_parsed(stack, parsed_out, level,
+                       STRVAL(event->data.scalar.value),
+                       "",
+                       STRVAL(event->data.scalar.tag)) ;  // single value
+          // insert value into stack symbol[level]
+          stack->symbol[level] = yaml_strdup( event->data.scalar.value ) ;
+          stack->tag[level]    = yaml_strdup( event->data.scalar.tag ) ;
+          stack->value[level]  = NULL ;
+          stack->symbol[level+1] = stack->value[level+1] = stack->tag[level+1] = NULL ;  // nullify next level
+          process_symbols = 1 ;
+        }
+        // ====================================================================================================
         PRINT_INDENT(level);
         printf("SCALAR[%d] (%d) = {value=\"%s\", length=%d}, anchor=\"%s\", tag=\"%s\"\n",
               event_id,
@@ -379,24 +407,10 @@ int process_event(yaml_context_t *context, int event_no, int event_id, yaml_even
               (int)event->data.scalar.length,
               STRVAL(event->data.scalar.anchor),
               STRVAL(event->data.scalar.tag)  );
-        if(next_event->type != YAML_MAPPING_START_EVENT &&
-           next_event->type != YAML_ALIAS_EVENT)
-        {  // scalar not followed by mapping or alias
-          print_parsed(stack, parsed_out, level,
-                       STRVAL(event->data.scalar.value),
-                       "",
-                       STRVAL(event->data.scalar.tag)) ;  // single value
-          // insert value as symbol[level]
-          stack->symbol[level] = yaml_strdup( event->data.scalar.value ) ;
-          stack->value[level] = stack->tag[level] = NULL ;
-          stack->symbol[level+1] = stack->value[level+1] = stack->tag[level+1] = NULL ;
-          print_symbols = 1 ;
-        }
-        CHECK_YAML_STACK ;
+        // ====================================================================================================
         break;
 
     case YAML_SEQUENCE_START_EVENT:
-        CHECK_YAML_STACK ;
         yaml_stack_push(stack, 'S') ; level++ ;
         PRINT_INDENT(level - 1);
         if(event->data.sequence_start.anchor){
@@ -413,11 +427,9 @@ int process_event(yaml_context_t *context, int event_no, int event_id, yaml_even
                 event->type,
                 STRVAL(event->data.sequence_start.tag));
         }
-        CHECK_YAML_STACK ;
         break;
 
     case YAML_SEQUENCE_END_EVENT:
-        CHECK_YAML_STACK ;
         PRINT_INDENT(level - 1);
         if( stack->anchor[level] ){
           printf("SEQUENCE_ANCHOR_END(%d) : '%s', events %d to %d\n",
@@ -435,11 +447,9 @@ int process_event(yaml_context_t *context, int event_no, int event_id, yaml_even
                 event->type);
         }
         yaml_stack_pop(stack); level-- ;
-        CHECK_YAML_STACK ;
         break;
 
     case YAML_MAPPING_START_EVENT:
-        CHECK_YAML_STACK ;
         PRINT_INDENT(level);
         char *name="" ;
         // if previous event was SCALAR, mapping name comes from its value
@@ -472,12 +482,10 @@ int process_event(yaml_context_t *context, int event_no, int event_id, yaml_even
           stack->symbol[level+1] = stack->value[level+1] = stack->tag[level+1] = NULL ;
           yaml_stack_push(stack, 'M') ; level++ ;
         }
-        print_symbols = 1 ;
-        CHECK_YAML_STACK ;
+        process_symbols = 1 ;
         break;
 
     case YAML_MAPPING_END_EVENT:
-        CHECK_YAML_STACK ;
         PRINT_INDENT(level - 1);
         if( stack->anchor[level] ){
           printf("MAPPING_ANCHOR_END(%d) : '%s', events %d to %d\n",
@@ -499,20 +507,19 @@ int process_event(yaml_context_t *context, int event_no, int event_id, yaml_even
                 event->type);
         }
         yaml_stack_pop(stack); level-- ;
-        CHECK_YAML_STACK ;
         break;
 
     default:
         printf("OTHER (%d)\n", event->type);
-        CHECK_YAML_STACK ;
         break;
     }
+    CHECK_YAML_STACK ;
 
     if (level < 0) {
         printf("ERROR: indentation underflow!\n");
         return 1 ;
     }
-    if(print_symbols) print_symbol_stack(stack, parsed_out) ;
+    if(process_symbols) process_symbol_stack(stack, parsed_out) ;
     return 0 ;
 }
 

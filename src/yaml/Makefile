@@ -1,5 +1,6 @@
 
-all: emit scan parse scan2
+# all: emit scan parse scan2
+all: scan2
 
 fruit.o: fruit.c fruit.h
 	$(CC) -c -g -O2 -Wall fruit.c
