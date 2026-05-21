@@ -1,0 +1,94 @@
+  0000  ->{|01|:[ 0]STREAM_START (1)
+  0001 }->(|02|:[ 1] DOC_START (3)
+  0002 )->S|03|:[ 2]  SEQUENCE_START[2] (7), tag=""
+  0003 S->S|03|:[ 3]   MAPPING_ANCHOR_START(4) : name='', anchor='default_var' at event 3
+  0004 M->M|04|:[ 4]    SCALAR[4] (6) = {value="compress", length=8}, anchor="", tag=""
+  0005 M->M|04|:[ 4]    MAPPING_ANCHOR_START(5) : name='compress', anchor='wind_compress' at event 5
+  0006 M->M|05|:[ 5]     SCALAR[6] (6) = {value="quantize", length=8}, anchor="", tag=""
+  0007 M->M|05|:[ 5]     MAPPING_ANCHOR_START(6) : name='quantize', anchor='quantize_default' at event 7
+  0009 M->M|06|:[ 6]      KEY_VALUE[9] (32) = {key="error", value=".01", length=3}, tag="!float"
+  0011 M->M|06|:[ 6]      KEY_VALUE[11] (32) = {key="mode", value="linear", length=6}, tag=""
+  0013 M->M|06|:[ 6]      KEY_VALUE[13] (32) = {key="bits", value="12", length=2}, tag="!int"
+  0014 M->M|06|:[ 5]     MAPPING_ANCHOR_END(6) : 'quantize_default', events 7 to 13
+  0015 M->M|05|:[ 5]     SCALAR[15] (6) = {value="predict", length=7}, anchor="", tag=""
+  0016 M->M|05|:[ 5]     MAPPING_ANCHOR_START(6) : name='predict', anchor='predict_default' at event 16
+  0018 M->M|06|:[ 6]      KEY_VALUE[18] (32) = {key="type", value="Lorenzo", length=7}, tag=""
+  0019 M->M|06|:[ 5]     MAPPING_ANCHOR_END(6) : 'predict_default', events 16 to 18
+  0020 M->M|05|:[ 5]     SCALAR[20] (6) = {value="encode", length=6}, anchor="", tag=""
+  0021 M->M|05|:[ 5]     MAPPING_ANCHOR_START(6) : name='encode', anchor='encode_default' at event 21
+  0023 M->M|06|:[ 6]      KEY_VALUE[23] (32) = {key="type", value="full", length=4}, tag=""
+  0025 M->M|06|:[ 6]      KEY_VALUE[25] (32) = {key="split", value="false", length=5}, tag="!bool"
+  0026 M->M|06|:[ 5]     MAPPING_ANCHOR_END(6) : 'encode_default', events 21 to 25
+  0027 M->M|05|:[ 4]    MAPPING_ANCHOR_END(5) : 'wind_compress', events 5 to 26
+  0028 M->M|04|:[ 3]   MAPPING_ANCHOR_END(4) : 'default_var', events 3 to 27
+  0029 S->S|03|:[ 3]   MAPPING_START[29] (9), name='', anchor="", tag=""
+  0031 M->M|04|:[ 4]    KEY_VALUE[31] (32) = {key="name", value="VV", length=2}, tag=""
+  0032 M->M|04|:[ 4]    SCALAR_ALIAS '|default_var|NoNe|' FOLLOWS, head,tail = 3,28, entry = '|default_var|(null)|(null)|'
+  0032 M->M|04|:[ 4]    SCALAR[32] (6) = {value="<<", length=2}, anchor="", tag=""
+  0033 M->M|04|:[ 4]    ALIAS[33] (5), {anchor="default_var"}, events[0003:0028]
+->0004 M->M|04|:[ 4]    SCALAR[-4] (6) = {value="compress", length=8}, anchor="", tag=""
+->0005 M->M|04|:[ 4]    MAPPING_START[-5] (9), name='compress', anchor="", tag=""
+->0006 M->M|05|:[ 5]     SCALAR[-6] (6) = {value="quantize", length=8}, anchor="", tag=""
+->0007 M->M|05|:[ 5]     MAPPING_START[-7] (9), name='quantize', anchor="", tag=""
+->0009 M->M|06|:[ 6]      KEY_VALUE[-9] (32) = {key="error", value=".01", length=3}, tag="!float"
+->0011 M->M|06|:[ 6]      KEY_VALUE[-11] (32) = {key="mode", value="linear", length=6}, tag=""
+->0013 M->M|06|:[ 6]      KEY_VALUE[-13] (32) = {key="bits", value="12", length=2}, tag="!int"
+->0014 M->M|06|:[ 5]     MAPPING_END[-14] (10)
+->0015 M->M|05|:[ 5]     SCALAR[-15] (6) = {value="predict", length=7}, anchor="", tag=""
+->0016 M->M|05|:[ 5]     MAPPING_START[-16] (9), name='predict', anchor="", tag=""
+->0018 M->M|06|:[ 6]      KEY_VALUE[-18] (32) = {key="type", value="Lorenzo", length=7}, tag=""
+->0019 M->M|06|:[ 5]     MAPPING_END[-19] (10)
+->0020 M->M|05|:[ 5]     SCALAR[-20] (6) = {value="encode", length=6}, anchor="", tag=""
+->0021 M->M|05|:[ 5]     MAPPING_START[-21] (9), name='encode', anchor="", tag=""
+->0023 M->M|06|:[ 6]      KEY_VALUE[-23] (32) = {key="type", value="full", length=4}, tag=""
+->0025 M->M|06|:[ 6]      KEY_VALUE[-25] (32) = {key="split", value="false", length=5}, tag="!bool"
+->0026 M->M|06|:[ 5]     MAPPING_END[-26] (10)
+->0027 M->M|05|:[ 4]    MAPPING_END[-27] (10)
+  0034 M->M|04|:[ 4]    SCALAR[34] (6) = {value="compress", length=8}, anchor="", tag=""
+  0035 M->M|04|:[ 4]    MAPPING_START[35] (9), name='compress', anchor="", tag=""
+  0036 M->M|05|:[ 5]     SCALAR_ALIAS '|wind_compress|NoNe|' FOLLOWS, head,tail = 5,27, entry = '|wind_compress|(null)|(null)|'
+  0036 M->M|05|:[ 5]     SCALAR[36] (6) = {value="<<", length=2}, anchor="", tag=""
+  0037 M->M|05|:[ 5]     ALIAS[37] (5), {anchor="wind_compress"}, events[0005:0027]
+->0006 M->M|05|:[ 5]     SCALAR[-6] (6) = {value="quantize", length=8}, anchor="", tag=""
+->0007 M->M|05|:[ 5]     MAPPING_START[-7] (9), name='quantize', anchor="", tag=""
+->0009 M->M|06|:[ 6]      KEY_VALUE[-9] (32) = {key="error", value=".01", length=3}, tag="!float"
+->0011 M->M|06|:[ 6]      KEY_VALUE[-11] (32) = {key="mode", value="linear", length=6}, tag=""
+->0013 M->M|06|:[ 6]      KEY_VALUE[-13] (32) = {key="bits", value="12", length=2}, tag="!int"
+->0014 M->M|06|:[ 5]     MAPPING_END[-14] (10)
+->0015 M->M|05|:[ 5]     SCALAR[-15] (6) = {value="predict", length=7}, anchor="", tag=""
+->0016 M->M|05|:[ 5]     MAPPING_START[-16] (9), name='predict', anchor="", tag=""
+->0018 M->M|06|:[ 6]      KEY_VALUE[-18] (32) = {key="type", value="Lorenzo", length=7}, tag=""
+->0019 M->M|06|:[ 5]     MAPPING_END[-19] (10)
+->0020 M->M|05|:[ 5]     SCALAR[-20] (6) = {value="encode", length=6}, anchor="", tag=""
+->0021 M->M|05|:[ 5]     MAPPING_START[-21] (9), name='encode', anchor="", tag=""
+->0023 M->M|06|:[ 6]      KEY_VALUE[-23] (32) = {key="type", value="full", length=4}, tag=""
+->0025 M->M|06|:[ 6]      KEY_VALUE[-25] (32) = {key="split", value="false", length=5}, tag="!bool"
+->0026 M->M|06|:[ 5]     MAPPING_END[-26] (10)
+  0038 M->M|05|:[ 5]     SCALAR[38] (6) = {value="quantize", length=8}, anchor="", tag=""
+  0039 M->M|05|:[ 5]     MAPPING_START[39] (9), name='quantize', anchor="", tag=""
+  0041 M->M|06|:[ 6]      KEY_VALUE[41] (32) = {key="error", value=".02", length=3}, tag=""
+  0042 M->M|06|:[ 5]     MAPPING_END[42] (10)
+  0044 M->M|05|:[ 5]     KEY_VALUE[44] (32) = {key="predict", value="DWT", length=3}, tag=""
+  0045 M->M|05|:[ 5]     SCALAR[45] (6) = {value="encode", length=6}, anchor="", tag=""
+  0046 M->M|05|:[ 5]     MAPPING_START[46] (9), name='encode', anchor="", tag=""
+  0047 M->M|06|:[ 6]      SCALAR[47] (6) = {value="type", length=4}, anchor="", tag=""
+  0048 M->S|07|:[ 6]      SEQUENCE_START[48] (7), tag=""
+  0049 S->S|07|:[ 7]       SCALAR[49] (6) = {value="part1", length=5}, anchor="", tag=""
+  0050 S->S|07|:[ 7]       SCALAR[50] (6) = {value="part2", length=5}, anchor="", tag=""
+  0051 S->S|07|:[ 6]      SEQUENCE_END[51] (8)
+  0053 M->M|06|:[ 6]      KEY_VALUE[53] (32) = {key="split", value="true", length=4}, tag="!bool"
+  0054 M->M|06|:[ 5]     MAPPING_END[54] (10)
+  0055 M->M|05|:[ 4]    MAPPING_END[55] (10)
+  0056 M->M|04|:[ 3]   MAPPING_END[56] (10)
+  0057 S->S|03|:[ 2]  SEQUENCE_END[57] (8)
+  0058 )->}|01|:[ 1] DOC_END (4)
+  0059 }-> |00|:[ 0]STREAM_END (2)
+'./fstd2.output.yaml' used for parsed YAML output
+number of events = 60
+sizeof(yaml_event_t) = 104
+alias table
+  0 : [0007:0014] anchor='    quantize_default', value='              (null)', tag='              (null)'
+  1 : [0016:0019] anchor='     predict_default', value='              (null)', tag='              (null)'
+  2 : [0021:0026] anchor='      encode_default', value='              (null)', tag='              (null)'
+  3 : [0005:0027] anchor='       wind_compress', value='              (null)', tag='              (null)'
+  4 : [0003:0028] anchor='         default_var', value='              (null)', tag='              (null)'

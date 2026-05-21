@@ -1,0 +1,84 @@
+---
+-
+
+  compress:
+#       compress
+    quantize:
+#       compress.quantize
+      error: !float .01
+#       compress.quantize.error = (float).01
+      mode: linear
+#       compress.quantize.mode = linear
+      bits: !int 12
+#       compress.quantize.bits = (int)12
+    predict:
+#       compress.predict
+      type: Lorenzo
+#       compress.predict.type = Lorenzo
+    encode:
+#       compress.encode
+      type: full
+#       compress.encode.type = full
+      split: !bool false
+#       compress.encode.split = (bool)false
+-
+
+  name: VV
+#       name = VV
+  compress:
+#       compress
+    quantize:
+#       compress.quantize
+      error: !float .01
+#       compress.quantize.error = (float).01
+      mode: linear
+#       compress.quantize.mode = linear
+      bits: !int 12
+#       compress.quantize.bits = (int)12
+    predict:
+#       compress.predict
+      type: Lorenzo
+#       compress.predict.type = Lorenzo
+    encode:
+#       compress.encode
+      type: full
+#       compress.encode.type = full
+      split: !bool false
+#       compress.encode.split = (bool)false
+  compress:
+#       compress
+    quantize:
+#       compress.quantize
+      error: !float .01
+#       compress.quantize.error = (float).01
+      mode: linear
+#       compress.quantize.mode = linear
+      bits: !int 12
+#       compress.quantize.bits = (int)12
+    predict:
+#       compress.predict
+      type: Lorenzo
+#       compress.predict.type = Lorenzo
+    encode:
+#       compress.encode
+      type: full
+#       compress.encode.type = full
+      split: !bool false
+#       compress.encode.split = (bool)false
+    quantize:
+#       compress.quantize
+      error: .02
+#       compress.quantize.error = .02
+    predict: DWT
+#       compress.predict = DWT
+    encode:
+#       compress.encode
+      type:
+#       compress.encode.type
+        - part1
+#       compress.encode.type.part1
+        - part2
+#       compress.encode.type.part2
+      split: !bool true
+#       compress.encode.split = (bool)true
+...

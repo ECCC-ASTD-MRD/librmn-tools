@@ -2,14 +2,14 @@
 - &default_var
   compress: &wind_compress
     quantize: &quantize_default
-      error: .01
+      error: !float .01
       mode: linear
-      bits: 12
+      bits: !int 12
     predict: &predict_default
       type: Lorenzo
     encode: &encode_default
       type: full
-      split: false
+      split: !bool false
 
 - name: VV
   <<: *default_var
@@ -20,5 +20,5 @@
     predict: DWT
     encode:
       type: [part1, part2]
-      split: !!bool true
+      split: !bool true
 ...
