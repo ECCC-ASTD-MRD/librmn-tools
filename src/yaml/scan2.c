@@ -4,6 +4,7 @@
  * This is a simple libyaml parser example which scans and prints
  * the libyaml parser events.
  *
+ * inspired by https://github.com/meffie/libyaml-examples.git
  */
 // make && yamllint fstd2.yaml && ./scan2 ./fstd2.output.yaml  <fstd2.yaml | tee fstd2.listing.txt  && yamllint --no-warnings ./fstd2.output.yaml
 // 
