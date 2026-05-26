@@ -158,21 +158,21 @@
 typedef uint32_t *zblocks ;   // zblocks[zi] is address of block[ zindex(i,j) ]
 
 // global metadata, in the data map
-typedef struct{
-  union{
-    float    f ;
-    int32_t  i ;
-    uint32_t u ;
-  } m[4] ;
-} zmeta ;
-#define zmeta_null (zmeta) { .m = { {0}, {0}, {0}, {0} } }
+// typedef struct{
+//   union{
+//     float    f ;
+//     int32_t  i ;
+//     uint32_t u ;
+//   } m[4] ;
+// } zmeta ;
+// #define zmeta_null (zmeta) { .m = { {0}, {0}, {0}, {0} } }
 
 // TODO: add flags for 3D storage ni/nj/nk vs nk/ni/nj vs ... and compression(2D/3D)
 // TODO: add flags for Z ordering algorithm kind (Morton order, stripes, ...)
 // TODO: finalize what is needed and what is not needed
 // NOTE : signature, version, stripe, ztype, flags can probably be moved out of fmap.
 //        leaving in fmap only the spatial decomposition
-typedef struct{            // file header
+typedef struct{            // in file part of data map (also present in memory)
     uint32_t signature ;   // should be 0xBEBEFADA, target for & operator to get address of header
     uint16_t version ;     // version marker (MUST BE the same as in memory header)
     uint16_t  flags ;      // reserved for global flags
@@ -193,19 +193,24 @@ typedef struct{            // file header
 //              lkx: 8 ;      // third dimension of data blocks in the first(bottom) plane
 //     zmeta    meta ;        // global metadata (applies to all blocks)
 } fmap ;
+static const fmap null_fmap = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0} ;
 
-typedef struct{            // in memory header
+CT_ASSERT(sizeof(fmap) == (sizeof(fmap) / sizeof(int32_t)) * sizeof(int32_t) , "fmap struc size not a multiple of 32 bits")
+
+typedef struct{            // in memory only part of data map
     uint32_t signature ;   // should be 0x1AD0FADA, target for & operator to get address of header
     uint16_t version ;     // version marker (MUST BE the same as in file header)
     uint16_t  flags ;      // reserved for internal use flags
     zblocks  *mem ;        // table[zni*znj] : memory addresses of encoded blocks in memory
-//     uint8_t  *options ;    // same dimension as size, options associated with each encoded block (may be NULL)
     uint32_t *first ;      // start of bit stream
     uint32_t *last ;       // one past the end of bit stream
     uint8_t  *limit ;      // one past the end of the allocated space for the bit stream
     uint32_t *extra ;      // points to extra information
     uint32_t *mapend ;     // one past end of zmap struct ( (map->mapend - &map) = struct size )
 } mmap ;
+static const mmap null_mmap = { 0, 0, 0, NULL, NULL, NULL, NULL, NULL, NULL } ;
+
+CT_ASSERT(sizeof(mmap) == (sizeof(mmap) / sizeof(int32_t)) * sizeof(int32_t) , "mmap struc size not a multiple of 32 bits")
 
 // in memory data map struct
 // the first part (mhead) is only present in memory
@@ -222,8 +227,7 @@ typedef struct{
   // if mextra is not 0, mextra uint32_t items are added after the size table
   // ---------------- end of data map ----------------
 }zmap ;
-//                        mhead              fhead - zmta         zmeta
-// CT_ASSERT(sizeof(zmap) == 8*sizeof(void *) + 10*sizeof(int32_t) + sizeof(zmeta), "unexpected size of zmap structure")
+
 CT_ASSERT(sizeof(zmap) == (sizeof(zmap) / sizeof(int32_t)) * sizeof(int32_t) , "zmap struc size not a multiple of 32 bits")
 
 static inline int invalid_zmap(zmap *map){
@@ -278,6 +282,14 @@ int32_t  Z_map_index(zmap *map, int32_t i, int32_t j);
 index_pair  block_index(zmap *map, int32_t i, int32_t j);
 ij_range map_block_limits(zmap *map, int32_t i, int32_t j);
 
+zmap *new_file_zmap(uint32_t nwords);
+void *filemap_address(zmap *map);
+uint32_t filemap_words(zmap *map);
+uint32_t filemap_blocks(int32_t gni, int32_t gnj, int32_t gnk, int32_t bsize, int32_t aspect);
+size_t filemap_needed_words(int32_t gni, int32_t gnj, int32_t gnk, int32_t bsize, int32_t aspect);
+size_t filemap_needed_size(int32_t gni, int32_t gnj, int32_t gnk, int32_t bsize, int32_t aspect);
+size_t zmap_needed_size(int32_t gni, int32_t gnj, int32_t gnk, int32_t bsize, int32_t aspect);
+
 zmap    *new_zmap(int32_t gni, int32_t gnj, int32_t gnk, int32_t bsize, int32_t aspect, size_t esize, int32_t extra);
 zblocks *mem_zmap(zmap *map, uint32_t *data, size_t size);
 int bsize_zmap(zmap *map, size_t esize);
@@ -291,6 +303,7 @@ static inline int zmap_index_invalid(zmap *map, int index){
   return (index < 0 || index >= map->fhead.zni * map->fhead.znj) ;
 }
 
+// need block_properties definition
 #include <rmn/data_properties.h>
 
 // generic argument list

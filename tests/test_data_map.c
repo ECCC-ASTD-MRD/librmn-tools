@@ -156,14 +156,46 @@ static zmap *array_to_zmap(zmap *map, array_2d *a_in, sfn_ptr fn, sfn_args *fnar
 // #define SF0  2
 
 int main(int argc, char **argv){
+  (void)(main) ; (void)(argv) ;  //  suppress unused argument warning
   int i, j, x[NTI], y[NTI], znij ;
   index_pair ijp ;
   index_range irange ;
   ij_range ijr ;
   char *msg = "" ;
+  int32_t gni, gnj, gnk, bsize, aspect ;
 
-  if(argc > 1 && argv[0] == NULL) return 1 ;  // useless code to get rid of compiler warning
+  goto test ;
+success:
+  fprintf(stderr, "SUCCESS\n") ;
+  return 0 ;
+fail:
+  fprintf(stderr, "FAIL : %s\n", msg) ;
+  return 1 ;
+test:
+
 //   if(argc > 0) return 0 ;
+
+  fprintf(stderr, "=============== base test ===============\n") ;
+
+  gni = 129 ; gnj = 97 ; gnk = 1 ; bsize = 64 ;
+  fprintf(stderr, "base size of fmap = %ld (%ld words)\n", sizeof(fmap), sizeof(fmap)/sizeof(uint32_t));
+  fprintf(stderr, "base size of mmap = %ld (%ld words)\n", sizeof(mmap), sizeof(mmap)/sizeof(uint32_t));
+  fprintf(stderr, "base size of zmap = %ld (%ld words)\n", sizeof(zmap), sizeof(zmap)/sizeof(uint32_t));
+  for(aspect = 1 ; aspect < 4 ; aspect++ , bsize = 32){
+    uint32_t blocks = filemap_blocks(gni, gnj, gnk, bsize, aspect);
+    fprintf(stderr, "array[%d,%d,%d], block size = %d, aspect ratio = %d, nblocks = %d", gni, gnj, gnk, bsize, aspect, blocks) ;
+    fprintf(stderr, ", file map size = %ld\n", filemap_needed_size(gni, gnj, gnk, bsize, aspect)/sizeof(uint32_t)) ;
+    uint32_t nwords = filemap_needed_size(gni, gnj, gnk, bsize, aspect)/sizeof(uint32_t) ;
+    if(filemap_needed_words(gni, gnj, gnk, bsize, aspect) != nwords) {
+      fprintf(stderr, "ERROR: filemap_needed_words | filemap_needed_size mismatch\n");
+      goto fail ;
+    }
+    zmap *zp = new_file_zmap(nwords);
+    fprintf(stderr, "    filemap words = %d, zmap at %p, fmap at %p\n", filemap_words(zp), &(zp->mhead.signature), &(zp->fhead.signature)) ;
+    free(zp) ;
+  }
+
+  goto success ;
 
   fprintf(stderr, "=============== syntax test ===============\n") ;
 
@@ -246,7 +278,7 @@ int main(int argc, char **argv){
   fprintf(stderr, "SUCCESS\n") ;
 
   fprintf(stderr, "=============== data map creation ===============\n") ;
-  int gni = 128+65, gnj = 256+33, aspect = 2 ;
+  gni = 128+65 ; gnj = 256+33 ; aspect = 2 ;
   size_t esize = sizeof(uint32_t) ;
   zmap *map = new_zmap(gni, gnj, 1, 64, aspect, esize, 0);
   msg = "map == NULL" ;
@@ -344,10 +376,6 @@ int main(int argc, char **argv){
   fill_array(&a2d) ;
   zmap *result = array_to_zmap(map, &a2d, NULL, NULL) ;
   if(result == NULL) goto fail ;
-  fprintf(stderr, "SUCCESS\n") ;
-  return 0 ;
 
-fail:
-  fprintf(stderr, "FAIL : %s\n", msg) ;
-  return 1 ;
+  goto success ;
 }
