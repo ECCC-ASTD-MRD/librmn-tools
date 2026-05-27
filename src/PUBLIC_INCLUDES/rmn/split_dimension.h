@@ -189,24 +189,23 @@ end:
 // gnj    [IN] : global second dimension
 // gnk    [IN] : global third dimension
 // bszi   [IN] : desired block size along first dimension
-// aspect [IN] : aspecct ratio (desired block size along second dimension = aspect*bszi)
+// bszj   [IN] : desired block size along second dimension
 // aspect ratio would normally expected to be <= 4
-// block size < 16 not supported
+// block sizes < 16 not supported
 // no splitting will be performed along thirdx dimension
-static inline array_axis_3d split_axis_3d(int gni, int gnj, int gnk, int bszi, int aspect){
+static inline array_axis_3d split_axis_3d(int gni, int gnj, int gnk, int bszi, int bszj){
   array_axis_3d r = { NULL_ARRAY_AXIS, NULL_ARRAY_AXIS, NULL_ARRAY_AXIS} ;
   if(gni > 0 && gnj > 0 && gnk > 0){
     bszi = (bszi < 16) ? 64 : bszi ;   // default blocksize of 64 (recommended)
-    aspect = (aspect <= 0) ? 1 : aspect ;
     r.x = split_axis(gni, bszi)  ;                      // split along x
-    r.y = split_axis_min(gnj, bszi*aspect, bszi/2)  ;   // split along y with aspect ration
-    r.z.nbk = gnk ; r.z.ln0 = r.z.ln1 = 1 ;             // no blocking along z, 1 element per block
+    r.y = split_axis(gnj, bszj)  ;                      // split along y
+    r.z.nbk = gnk ; r.z.ln0 = r.z.ln1 = 1 ;             // no splitting along z, 1 element per block
   }
   return r ;
 }
 
-static inline array_axis_3d split_axis_2d(int gni, int gnj, int bszi, int aspect){
-  return split_axis_3d(gni, gnj, 1, bszi, aspect) ;
+static inline array_axis_3d split_axis_2d(int gni, int gnj, int bszi, int bszj){
+  return split_axis_3d(gni, gnj, 1, bszi, bszj) ;
 }
 
 #endif

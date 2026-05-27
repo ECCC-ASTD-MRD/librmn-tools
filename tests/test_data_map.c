@@ -111,7 +111,7 @@ static zmap *array_to_zmap(zmap *map, array_2d *a_in, sfn_ptr fn, sfn_args *fnar
     uint32_t bsize = map->size[zx] ;
     fprintf(stderr, "array_to_zmap : zblock %3d [%3d,%3d] (%3d:%3d,%3d:%3d), gni = %3d, i0 = %3d, j0 = %3d, bsize = %d\n",
                      zx, ijp.i, ijp.j, i0, in, j0, jn, gni, i0, j0, bsize) ;
-    if( ( ni == map->fhead.lix || ni == map->fhead.lni) && ( nj == map->fhead.ljx || nj == map->fhead.lnj) ){
+    if( ( ni == map->fhead.li0 || ni == map->fhead.lni) && ( nj == map->fhead.lj0 || nj == map->fhead.lnj) ){
       a.dim[0].ln0 = i0 ;  // set subarray limits
       a.dim[1].ln0 = j0 ;
       a.dim[0].lnn = ni ;
@@ -135,7 +135,7 @@ static zmap *array_to_zmap(zmap *map, array_2d *a_in, sfn_ptr fn, sfn_args *fnar
 //       if(errors > 0) return NULL ;
     }else{
       fprintf(stderr, "array_to_zmap : ERROR, wrong block dimensions, ni = %3d, must be %d or %d, nj = %3d, must be %3d or %3d\n",
-                       ni, map->fhead.lix, map->fhead.lni, nj, map->fhead.ljx, map->fhead.lnj) ;
+                       ni, map->fhead.li0, map->fhead.lni, nj, map->fhead.lj0, map->fhead.lnj) ;
       return NULL ;
     }
     // check compressed stream size in map for this block
@@ -162,7 +162,7 @@ int main(int argc, char **argv){
   index_range irange ;
   ij_range ijr ;
   char *msg = "" ;
-  int32_t gni, gnj, gnk, bsize, aspect ;
+  int32_t gni, gnj, gnk, bsize, aspect, bsizej ;
 
   goto test ;
 success:
@@ -181,17 +181,28 @@ test:
   fprintf(stderr, "base size of fmap = %ld (%ld words)\n", sizeof(fmap), sizeof(fmap)/sizeof(uint32_t));
   fprintf(stderr, "base size of mmap = %ld (%ld words)\n", sizeof(mmap), sizeof(mmap)/sizeof(uint32_t));
   fprintf(stderr, "base size of zmap = %ld (%ld words)\n", sizeof(zmap), sizeof(zmap)/sizeof(uint32_t));
-  for(aspect = 1 ; aspect < 4 ; aspect++ , bsize = 32){
-    uint32_t blocks = filemap_blocks(gni, gnj, gnk, bsize, aspect);
-    fprintf(stderr, "array[%d,%d,%d], block size = %d, aspect ratio = %d, nblocks = %d", gni, gnj, gnk, bsize, aspect, blocks) ;
-    fprintf(stderr, ", file map size = %ld\n", filemap_needed_size(gni, gnj, gnk, bsize, aspect)/sizeof(uint32_t)) ;
-    uint32_t nwords = filemap_needed_size(gni, gnj, gnk, bsize, aspect)/sizeof(uint32_t) ;
-    if(filemap_needed_words(gni, gnj, gnk, bsize, aspect) != nwords) {
+
+  for(aspect = 1 ; aspect < 4 ; aspect++){
+    if(aspect == 2) bsize = 48 ;
+    if(aspect == 3) bsize = 32 ;
+    bsizej = aspect * bsize ;
+    uint32_t blocks = filemap_blocks(gni, gnj, gnk, bsize, bsizej);
+    fprintf(stderr, "array[%d,%d,%d], block size = [%d:%d], nblocks = %d", gni, gnj, gnk, bsize, bsizej, blocks) ;
+    fprintf(stderr, ", file map size = %ld\n", filemap_needed_size(gni, gnj, gnk, bsize, bsizej)/sizeof(uint32_t)) ;
+    uint32_t nwords = filemap_needed_size(gni, gnj, gnk, bsize, bsizej)/sizeof(uint32_t) ;
+    if(filemap_needed_words(gni, gnj, gnk, bsize, bsizej) != nwords) {
       fprintf(stderr, "ERROR: filemap_needed_words | filemap_needed_size mismatch\n");
       goto fail ;
     }
-    zmap *zp = new_file_zmap(nwords);
-    fprintf(stderr, "    filemap words = %d, zmap at %p, fmap at %p\n", filemap_words(zp), &(zp->mhead.signature), &(zp->fhead.signature)) ;
+    zmap *zp = new_file_zmap(nwords, nwords+25) ;           // rec_words is 0, only allocate the data map part
+    if(fmap_invalid(zp) == 0) goto fail ;           // fmap is invalid at this point
+    fmap_init(zp, gni, gnj, gnk, bsize, bsizej);    // initialize fmap part
+    if(fmap_invalid(zp) != 0) goto fail ;           // fmap must be valid at this point
+    fprintf(stderr, "    filemap words = %d, zmap at %p, fmap at %p, blocks[%d:%d]\n",
+            filemap_words(zp), &(zp->mhead.signature), &(zp->fhead.signature), zp->fhead.zni, zp->fhead.znj) ;
+    zmap_print(zp) ;
+    fmap_print(zp) ;
+    fprintf(stderr, "\n");
     free(zp) ;
   }
 
@@ -350,8 +361,8 @@ test:
 
   fprintf(stderr, "=============== block limits ===============\n") ;
   fprintf(stderr, "blocks[%d,%d] => data[%4d,%4d]", map->fhead.zni, map->fhead.znj, map->fhead.gni, map->fhead.gnj) ;
-  fprintf(stderr, ", first block along i is  %s"  , map->fhead.lix > map->fhead.lni ? "longer" : "shorter") ;
-  fprintf(stderr, ", first block along j is  %s\n", map->fhead.ljx > map->fhead.lnj ? "longer" : "shorter") ;
+  fprintf(stderr, ", first block along i is  %s"  , map->fhead.li0 > map->fhead.lni ? "longer" : "shorter") ;
+  fprintf(stderr, ", first block along j is  %s\n", map->fhead.lj0 > map->fhead.lnj ? "longer" : "shorter") ;
   int32_t zx ;
   for(j = (int)map->fhead.znj ; j > 0 ; j--){
     ijr = map_block_limits(map, 0, 0) ;       // no more warning about possibility of ijr.j0 to be uninitialized

@@ -93,8 +93,8 @@ end:
 index_pair block_index(zmap *map, int32_t i, int32_t j){
   index_pair ij = {.i = -1, .j = -1 } ;  // precondition for failure
   if(map->fhead.gni > i && map->fhead.gnj > j){
-    ij.i = b_index(i, map->fhead.lni, map->fhead.lix) ;
-    ij.j = b_index(j, map->fhead.lnj, map->fhead.ljx) ;
+    ij.i = b_index(i, map->fhead.lni, map->fhead.li0) ;
+    ij.j = b_index(j, map->fhead.lnj, map->fhead.lj0) ;
   }
   return ij ;
 }
@@ -121,12 +121,12 @@ ij_range map_block_limits(zmap *map, int32_t bi, int32_t bj){
   if(bi < map->fhead.zni && bj < map->fhead.znj && bi >= 0 && bj >= 0){  // inside map limits ?
 //     index_pair p ;
     index_range r ;
-//     p = b_limits(bi, map->fhead.lni, map->fhead.lix) ;                   // get block limits along first dimension (row)
-    r = r_limits(bi, map->fhead.lni, map->fhead.lix) ;                   // get block limits along first dimension (row)
+//     p = b_limits(bi, map->fhead.lni, map->fhead.li0) ;                   // get block limits along first dimension (row)
+    r = r_limits(bi, map->fhead.lni, map->fhead.li0) ;                   // get block limits along first dimension (row)
 //     ij.i0 = p.i ; ij.in = p.j ;
     ij.i0 = r.ix0 ; ij.in = r.ixn ;
-//     p = b_limits(bj, map->fhead.lnj, map->fhead.ljx) ;                   // get block limits along second dimension (column)
-    r = r_limits(bj, map->fhead.lnj, map->fhead.ljx) ;                   // get block limits along second dimension (column)
+//     p = b_limits(bj, map->fhead.lnj, map->fhead.lj0) ;                   // get block limits along second dimension (column)
+    r = r_limits(bj, map->fhead.lnj, map->fhead.lj0) ;                   // get block limits along second dimension (column)
 //     ij.j0 = p.i ; ij.jn = p.j ;
     ij.j0 = r.ix0 ; ij.jn = r.ixn ;
   }
@@ -135,19 +135,77 @@ ij_range map_block_limits(zmap *map, int32_t bi, int32_t bj){
 
 
 // allocate a new data map in memory, using size from file (meta[1] in record)
-// nwords [IN] : size in 23 bit units of data map in rsf file
+// map_words [IN] : size in 32 bit units of data map in rsf file ( 0 if no data map in record )
+// rec_words [IN] : size in 32 bit units of data record in rsf file
 // return address of zmap
-// zmap will be nullified except for memory signature
-zmap *new_file_zmap(uint32_t nwords){
-  size_t mapsize = sizeof(mmap) + nwords * sizeof(uint32_t) ;
-  zmap *r = (zmap *) malloc(mapsize) ;
+// zmap will be nullified except for mmap signature, version, zmapend, and fmapend
+// data record size includes data map size
+// a record without a data map will have map_words == 0
+// rec_words < map_words is the same as map_words == 0
+zmap *new_file_zmap(uint32_t map_words, uint32_t rec_words){
+  size_t mapsize = map_words * sizeof(uint32_t) + sizeof(mmap) ;
+  size_t recsize = rec_words * sizeof(uint32_t) + sizeof(mmap) ;
+  recsize = (recsize < mapsize) ? mapsize : recsize ;
+  if(recsize <= sizeof(mmap)) return NULL ;    // zero size record
+
+  zmap *r = (zmap *) malloc(recsize) ;
   if(r != NULL){
     r->mhead = null_mmap ;
-    r->mhead.signature = 0xBEBEFADA ;
-    r->mhead.mapend = (uint32_t *)( (char *)r + mapsize ) ;
+    r->mhead.signature = 0x1AD0FADA ;
+    r->mhead.version   = Z_DATA_MAP_VERSION ;
+    r->mhead.zmapend = (uint32_t *)( (char *)r + recsize ) ;
+    r->mhead.fmapend = (uint32_t *)( (char *)r + mapsize ) ;
     r->fhead = null_fmap ;
   }
   return r ;
+}
+
+void zmap_print(zmap *map){
+  fprintf(stderr, "zmap : address = %p, mmap size = %ld, fmap size = %ld, zmap size = %ld\n",
+          (void *)map,
+          (char *)&(map->fhead.signature) - (char *)map,
+          (char *)map->mhead.fmapend - (char *)&(map->fhead.signature),
+          (char *)map->mhead.zmapend - (char *)map ) ;
+}
+
+int fmap_invalid(zmap *map){
+  if(map->fhead.signature != 0xBEBEFADA)       return 1 ;
+  if(map->fhead.version != Z_DATA_MAP_VERSION) return 2 ;
+  if(map->fhead.gni <= 0 || map->fhead.gnj <= 0 || map->fhead.gnk <= 0) return 3 ;
+  if(map->fhead.zni <= 0 || map->fhead.znj <= 0) return 4 ;
+  if(map->fhead.li0 <= 0 || map->fhead.lj0 <= 0) return 5 ;   // first block dimension may not be <= 0
+  if(map->fhead.lni <  0 || map->fhead.lnj <  0) return 6 ;   // next blocks dimension may be 0 but not < 0
+  return 0 ;
+}
+
+void fmap_init(zmap *map, int32_t gni, int32_t gnj, int32_t gnk, int32_t bsizex, int32_t bsizey){
+  array_axis_3d r = split_axis_3d(gni, gnj, gnk, bsizex, bsizey) ;
+  map->fhead.signature = 0xBEBEFADA ;
+  map->fhead.version   = Z_DATA_MAP_VERSION ;
+  map->fhead.flags = 0 ;
+  map->fhead.gni = gni ;
+  map->fhead.gnj = gnj ;
+  map->fhead.gnk = gnk ;
+  map->fhead.zni = r.x.nbk ;
+  map->fhead.li0 = r.x.ln0 ;
+  map->fhead.lni = r.x.ln1 ;
+  map->fhead.znj = r.y.nbk ;
+  map->fhead.lj0 = r.y.ln0 ;
+  map->fhead.lnj = r.y.ln1 ;
+}
+
+void fmap_print(zmap *map){
+  int code = fmap_invalid(map) ;
+  if(code != 0) fprintf(stderr, "ERROR: (%d) invalid map\n", code) ;
+  if(map->fhead.signature != 0xBEBEFADA){
+    fprintf(stderr, "3D fmap : INVALID signature, expecting 0xBEBEFADA, got %8.8x\n", map->fhead.signature) ;
+  }else{
+    fprintf(stderr, "3D fmap : version %4.4x, flags(%4.4x), data[%d:%d:%d], blocks[%d:%d:%d], (%d,%d : %d,%d : %d)\n",
+            map->fhead.version, map->fhead.flags,
+            map->fhead.gni, map->fhead.gnj, map->fhead.gnk,
+            map->fhead.zni, map->fhead.znj, map->fhead.gnk,
+            map->fhead.li0, map->fhead.lni, map->fhead.lj0, map->fhead.lnj, map->fhead.gnk ) ;
+  }
 }
 
 // address of file data map in zmap memory structure
@@ -157,27 +215,27 @@ void *filemap_address(zmap *map){
 
 // size of file data map in 32 bit units
 uint32_t filemap_words(zmap *map){
-  return ( (char *)map->mhead.mapend - (char *)(&(map->fhead.signature)) ) / sizeof(uint32_t);
+  return ( (char *)map->mhead.fmapend - (char *)(&(map->fhead.signature)) ) / sizeof(uint32_t);
 }
 
-uint32_t filemap_blocks(int32_t gni, int32_t gnj, int32_t gnk, int32_t bsize, int32_t aspect){
-  array_axis_3d r = split_axis_3d(gni, gnj, gnk, bsize, aspect) ;
+uint32_t filemap_blocks(int32_t gni, int32_t gnj, int32_t gnk, int32_t bsizex, int32_t bsizey){
+  array_axis_3d r = split_axis_3d(gni, gnj, gnk, bsizex, bsizey) ;
 // fprintf(stderr, "\n   x axis 1 x %d, %d x %d, y axis 1 x %d, %d x %d\n", r.x.ln0, r.x.nbk-1, r.x.ln1, r.y.ln0, r.y.nbk-1, r.y.ln1);
   return (r.x.nbk * r.y.nbk * r.z.nbk) ;
 }
 
 // needed size in bytes of file data map
-size_t filemap_needed_size(int32_t gni, int32_t gnj, int32_t gnk, int32_t bsize, int32_t aspect){
-  return filemap_blocks(gni, gnj, gnk, bsize, aspect)*sizeof(uint32_t) + sizeof(fmap) ;
+size_t filemap_needed_size(int32_t gni, int32_t gnj, int32_t gnk, int32_t bsizex, int32_t bsizey){
+  return filemap_blocks(gni, gnj, gnk, bsizex, bsizey)*sizeof(uint32_t) + sizeof(fmap) ;
 }
 
 // needed size in 32 bit units of file data map
-size_t filemap_needed_words(int32_t gni, int32_t gnj, int32_t gnk, int32_t bsize, int32_t aspect){
-  return filemap_needed_size(gni, gnj, gnk, bsize, aspect)/sizeof(uint32_t) ;
+size_t filemap_needed_words(int32_t gni, int32_t gnj, int32_t gnk, int32_t bsizex, int32_t bsizey){
+  return filemap_needed_size(gni, gnj, gnk, bsizex, bsizey)/sizeof(uint32_t) ;
 }
 
-size_t zmap_needed_size(int32_t gni, int32_t gnj, int32_t gnk, int32_t bsize, int32_t aspect){
-  return filemap_needed_size(gni, gnj, gnk, bsize, aspect) + sizeof(mmap) ;
+size_t zmap_needed_size(int32_t gni, int32_t gnj, int32_t gnk, int32_t bsizex, int32_t bsizey){
+  return filemap_needed_size(gni, gnj, gnk, bsizex, bsizey) + sizeof(mmap) ;
 }
 
 // TODO:
@@ -204,12 +262,12 @@ zmap *new_zmap(int32_t gni, int32_t gnj, int32_t gnk, int32_t bsize, int32_t asp
   p = split_axis(gni, bsize) ;
   int32_t zni = p.nbk ;               // number of blocks along i
   int32_t lni = p.ln1 ;               // bsize
-  int32_t lix = p.ln0 ;               // size of first block along i
+  int32_t li0 = p.ln0 ;               // size of first block along i
   // split second dimension of array
   p = split_axis_min(gnj, bsize*aspect, bsize/2)  ;
   int32_t znj = p.nbk ;               // number of blocks along j
   int32_t lnj = p.ln1 ;               // bsize
-  int32_t ljx = p.ln0 ;               // size of first block along j
+  int32_t lj0 = p.ln0 ;               // size of first block along j
   // no split along third dimension  TODO : add gnk to argument list ?
 //   int32_t znk = 1 ;
 
@@ -262,8 +320,8 @@ zmap *new_zmap(int32_t gni, int32_t gnj, int32_t gnk, int32_t bsize, int32_t asp
     map->fhead.znj       = znj ;
     map->fhead.lni       = lni ;
     map->fhead.lnj       = lnj ;
-    map->fhead.lix       = lix ;
-    map->fhead.ljx       = ljx ;
+    map->fhead.li0       = li0 ;
+    map->fhead.lj0       = lj0 ;
     map->mhead.signature = 0x1AD0FADA ;
 //     map->mhead.options   = NULL ;
     map->mhead.mem = (zblocks *)malloc( (znij + 1) * sizeof(uint32_t *) ) ;
@@ -303,10 +361,10 @@ end:
 
 void print_zmap(zmap *map, char *msg){
   fprintf(stderr, "================= %s =================\n", msg) ;
-  int bszi = map->fhead.lni ; bszi = (bszi == 0) ? map->fhead.lix : bszi ;
-  int bszj = map->fhead.lnj ; bszj = (bszj == 0) ? map->fhead.ljx : bszj ;
+  int bszi = map->fhead.lni ; bszi = (bszi == 0) ? map->fhead.li0 : bszi ;
+  int bszj = map->fhead.lnj ; bszj = (bszj == 0) ? map->fhead.lj0 : bszj ;
   fprintf(stderr, "array[%d,%d,%d]", map->fhead.gni, map->fhead.gnj, map->fhead.gnk) ;
-  fprintf(stderr, ", map[%d,%d], sizes = [%d(%d) , %d(%d)]", map->fhead.zni, map->fhead.znj, bszi, map->fhead.lix, bszj, map->fhead.ljx) ;
+  fprintf(stderr, ", map[%d,%d], sizes = [%d(%d) , %d(%d)]", map->fhead.zni, map->fhead.znj, bszi, map->fhead.li0, bszj, map->fhead.lj0) ;
   fprintf(stderr, "\n");
   fprintf(stderr, "================= end of map =================\n") ;
 }
@@ -330,10 +388,10 @@ int bsize_zmap(zmap *map, size_t esize){
   if(map == NULL) return 0 ;
   int i, j, lni, lnj, ij ;
   ssize_t lsize ;
-  lnj = map->fhead.ljx ;
+  lnj = map->fhead.lj0 ;
   ij = 0 ;
   for(j=0 ; j<map->fhead.znj ; j++, lnj=map->fhead.lnj){
-    lni = map->fhead.lix ;
+    lni = map->fhead.li0 ;
     for(i=0 ; i<map->fhead.zni ; i++, lni=map->fhead.lni ){
       lsize = esize ;
       lsize *= (lni * lnj) ;
