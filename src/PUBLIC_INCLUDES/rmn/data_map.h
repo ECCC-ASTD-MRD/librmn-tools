@@ -259,11 +259,11 @@ typedef struct{
   mapdim   dim[3] ;     // dimensions of block map
 } bmap3 ;               // 3D block map
 CT_ASSERT(sizeof(bmap3) == 16, "unexpected size of bmap3 structure")
-
+#if 0
 int32_t Zindex_from_ij(int32_t i, int32_t j, int32_t nti, int32_t ntj, int32_t sf0);
 index_pair Zindex_to_ij(int32_t zij, int32_t nti, int32_t ntj, int32_t sf0);
-
 int32_t  Z_map_index(zmap *map, int32_t i, int32_t j);
+#endif
 index_pair  block_index(zmap *map, int32_t i, int32_t j);
 ij_range map_block_limits(zmap *map, int32_t i, int32_t j);
 

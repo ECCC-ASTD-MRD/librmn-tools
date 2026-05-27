@@ -83,7 +83,7 @@ static int process_2d_block(array_2d *a_in, sfn_ptr fn, sfn_args *fnargs){
 
   return nelem ;
 }
-
+#if 0
 // process array and store it into zmap
 static zmap *array_to_zmap(zmap *map, array_2d *a_in, sfn_ptr fn, sfn_args *fnargs){
   int zx ;
@@ -146,6 +146,7 @@ static zmap *array_to_zmap(zmap *map, array_2d *a_in, sfn_ptr fn, sfn_args *fnar
   }
   return map ;
 }
+#endif
 
 #define NTI 10
 #define NTJ 11
@@ -362,7 +363,7 @@ fprintf(stderr, " new_zmap will change \n") ;
   for(i=0 ; i<znij ; i++) map->size[i] += 2 ;
   newsize = resize_map(map) ;
   if(newsize == oldsize) fprintf(stderr, "SUCCESS\n") ;
-
+#if 0
   fprintf(stderr, "=============== block limits ===============\n") ;
   fprintf(stderr, "blocks[%d,%d] => data[%4d,%4d]", map->fhead.zni, map->fhead.znj, map->fhead.gni, map->fhead.gnj) ;
   fprintf(stderr, ", first block along i is  %s"  , map->fhead.li0 > map->fhead.lni ? "longer" : "shorter") ;
@@ -383,7 +384,8 @@ fprintf(stderr, " new_zmap will change \n") ;
     fprintf(stderr, "i_range : %4d                   ", ijr.in - ijr.i0 + 1);
   }
   fprintf(stderr, "\n");
-
+#endif
+#if 0
   fprintf(stderr, "=============== split array according to map ===============\n") ;
   array_2d a2d = array_2d_zero ;
 //   new_array(&a2d, NULL, 4, 'U', map->fhead.gni, map->fhead.gnj) ;  // create 2D array, map->fhead.gni x map->fhead.gnj
@@ -391,6 +393,6 @@ fprintf(stderr, " new_zmap will change \n") ;
   fill_array(&a2d) ;
   zmap *result = array_to_zmap(map, &a2d, NULL, NULL) ;
   if(result == NULL) goto fail ;
-
+#endif
   goto success ;
 }

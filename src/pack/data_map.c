@@ -98,6 +98,7 @@ int32_t Z_map_index(zmap *map, int32_t i, int32_t j){
   return Zindex_from_ij(i, j, map->fhead.zni, map->fhead.znj, 1) ;
 }
 #endif
+
 // block position from grid index, using data map
 // map    [IN] : data map
 // i      [IN] : i (column) position in 2D grid
@@ -121,20 +122,14 @@ ij_range map_block_limits(zmap *map, int32_t bi, int32_t bj){
   ij_range ij = {.i0 = -1, .in = -2, .j0 = -1, .jn = -2 } ;  // precondition for failure
 
   if(bi < map->fhead.zni && bj < map->fhead.znj && bi >= 0 && bj >= 0){  // inside map limits ?
-//     index_pair p ;
     index_range r ;
-//     p = b_limits(bi, map->fhead.lni, map->fhead.li0) ;                   // get block limits along first dimension (row)
     r = r_limits(bi, map->fhead.lni, map->fhead.li0) ;                   // get block limits along first dimension (row)
-//     ij.i0 = p.i ; ij.in = p.j ;
     ij.i0 = r.ix0 ; ij.in = r.ixn ;
-//     p = b_limits(bj, map->fhead.lnj, map->fhead.lj0) ;                   // get block limits along second dimension (column)
     r = r_limits(bj, map->fhead.lnj, map->fhead.lj0) ;                   // get block limits along second dimension (column)
-//     ij.j0 = p.i ; ij.jn = p.j ;
     ij.j0 = r.ix0 ; ij.jn = r.ixn ;
   }
   return ij ;
 }
-
 
 // allocate a new data map in memory, using size from file (meta[1] in record)
 // map_words [IN] : size in 32 bit units of data map in rsf file ( 0 if no data map in record )
