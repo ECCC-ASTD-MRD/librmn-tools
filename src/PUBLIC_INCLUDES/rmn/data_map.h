@@ -156,7 +156,8 @@
 // - all blocks have the same dimension 
 //   block[i,j] : ( li, lj)
 //
-typedef uint32_t *zblocks ;   // zblocks[zi] is address of encoded data block[ zindex(i,j) ]
+typedef uint32_t *zblocks ;         // zblocks[zi] is address of encoded data block[ zindex(i,j) ]
+typedef uint16_t fmap_block_size ;  // size needed for fmap block sizes
 
 // NOTE: first, last, limit, extra are not NULL only when needed/used
 typedef struct{            // in memory only part of data map
@@ -207,7 +208,7 @@ typedef struct{
   // ---------------- start of in file header ----------------
   fmap fhead ;
   // ---------------- sizes table ----------------
-  uint16_t size[] ;        // size (in 32 bit units) of encoded blocks ( size[znj*zni] )
+  fmap_block_size size[] ;        // size (in 32 bit units) of encoded blocks ( size[znj*zni] )
   // if znj*zni is odd, there is a supplementary uint16_t (padding to multiple of uint32_t length)
   // ---------------- end of data map ----------------
 }zmap ;

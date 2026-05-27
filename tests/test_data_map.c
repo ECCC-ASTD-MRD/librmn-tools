@@ -188,7 +188,7 @@ test:
     bsizej = aspect * bsize ;
     uint32_t blocks = filemap_blocks(gni, gnj, gnk, bsize, bsizej);
     fprintf(stderr, "array[%d,%d,%d], block size = [%d:%d], nblocks = %d", gni, gnj, gnk, bsize, bsizej, blocks) ;
-    fprintf(stderr, ", file map size = %ld\n", filemap_needed_size(gni, gnj, gnk, bsize, bsizej)/sizeof(uint32_t)) ;
+    fprintf(stderr, ", file map size = %ld words\n", filemap_needed_size(gni, gnj, gnk, bsize, bsizej)/sizeof(uint32_t)) ;
     uint32_t nwords = filemap_needed_size(gni, gnj, gnk, bsize, bsizej)/sizeof(uint32_t) ;
     if(filemap_needed_words(gni, gnj, gnk, bsize, bsizej) != nwords) {
       fprintf(stderr, "ERROR: filemap_needed_words | filemap_needed_size mismatch\n");

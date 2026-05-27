@@ -161,11 +161,11 @@ zmap *new_file_zmap(uint32_t map_words, uint32_t rec_words){
 }
 
 void zmap_print(zmap *map){
-  fprintf(stderr, "zmap : address = %p, mmap size = %ld, fmap size = %ld, zmap size = %ld\n",
-          (void *)map,
-          (char *)&(map->fhead.signature) - (char *)map,
-          (char *)map->mhead.fmapend - (char *)&(map->fhead.signature),
-          (char *)map->mhead.zmapend - (char *)map ) ;
+  size_t mmap_size = (char *)&(map->fhead.signature) - (char *)map ;
+  size_t fmap_size = (char *)map->mhead.fmapend - (char *)&(map->fhead.signature) ;
+  size_t zmap_size = (char *)map->mhead.zmapend - (char *)map ;
+  fprintf(stderr, "zmap_print : zmap @ %p, mmap size = %ld, fmap size = %ld, data size = %ld, zmap size = %ld\n",
+          (void *)map, mmap_size, fmap_size, zmap_size - fmap_size - mmap_size, zmap_size ) ;
 }
 
 int fmap_invalid(zmap *map){
@@ -226,12 +226,14 @@ uint32_t filemap_blocks(int32_t gni, int32_t gnj, int32_t gnk, int32_t bsizex, i
 
 // needed size in bytes of file data map
 size_t filemap_needed_size(int32_t gni, int32_t gnj, int32_t gnk, int32_t bsizex, int32_t bsizey){
-  return filemap_blocks(gni, gnj, gnk, bsizex, bsizey)*sizeof(uint32_t) + sizeof(fmap) ;
+  uint32_t blocks = filemap_blocks(gni, gnj, gnk, bsizex, bsizey) ;
+  blocks = (blocks + 1) & 0xFFFFFFFE ;  // force number of blocks to even number >= number of blocks
+  return ( blocks *sizeof(fmap_block_size) + sizeof(fmap) ) ;
 }
 
 // needed size in 32 bit units of file data map
 size_t filemap_needed_words(int32_t gni, int32_t gnj, int32_t gnk, int32_t bsizex, int32_t bsizey){
-  return filemap_needed_size(gni, gnj, gnk, bsizex, bsizey)/sizeof(uint32_t) ;
+  return filemap_needed_size(gni, gnj, gnk, bsizex, bsizey) / sizeof(uint32_t) ;
 }
 
 size_t zmap_needed_size(int32_t gni, int32_t gnj, int32_t gnk, int32_t bsizex, int32_t bsizey){
