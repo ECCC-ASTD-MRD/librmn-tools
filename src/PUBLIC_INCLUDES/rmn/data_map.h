@@ -280,7 +280,7 @@ size_t filemap_needed_words(int32_t gni, int32_t gnj, int32_t gnk, int32_t bsize
 size_t filemap_needed_size(int32_t gni, int32_t gnj, int32_t gnk, int32_t bsize, int32_t aspect);
 size_t zmap_needed_size(int32_t gni, int32_t gnj, int32_t gnk, int32_t bsize, int32_t aspect);
 
-zmap    *new_zmap(int32_t gni, int32_t gnj, int32_t gnk, int32_t bsize, int32_t aspect, size_t esize, int32_t extra);
+// zmap    *new_zmap(int32_t gni, int32_t gnj, int32_t gnk, int32_t bsize, int32_t aspect, size_t esize, int32_t extra);
 zblocks *mem_zmap(zmap *map, uint32_t *data, size_t size);
 int bsize_zmap(zmap *map, size_t esize);
 int fillmem_zmap(zmap *map);

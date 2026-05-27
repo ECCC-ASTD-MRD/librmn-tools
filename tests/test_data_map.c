@@ -255,6 +255,7 @@ test:
   }
   fprintf(stderr, "SUCCESS\n") ;
 
+#if 0
   fprintf(stderr, "=============== zigzag block indexing ===============\n") ;
   for(j=NTJ-1 ; j>=0 ; j--){ 
     for(i=0 ; i<NTI ; i++) { 
@@ -287,11 +288,14 @@ test:
     for(i=0 ; i<NTI ; i++) { fprintf(stderr, "+------"        ) ; } fprintf(stderr, "+\n") ;
   }
   fprintf(stderr, "SUCCESS\n") ;
-
+#endif
   fprintf(stderr, "=============== data map creation ===============\n") ;
   gni = 128+65 ; gnj = 256+33 ; aspect = 2 ;
   size_t esize = sizeof(uint32_t) ;
-  zmap *map = new_zmap(gni, gnj, 1, 64, aspect, esize, 0);
+fprintf(stderr, " new_zmap will change \n") ;
+  goto fail ;     // new_zmap will change
+  zmap *map ;
+//   map = new_zmap(gni, gnj, 1, 64, aspect, esize, 0);
   msg = "map == NULL" ;
   if(map == NULL) goto fail ;
 

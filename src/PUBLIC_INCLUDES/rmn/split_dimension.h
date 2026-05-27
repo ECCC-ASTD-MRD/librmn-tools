@@ -135,6 +135,7 @@ static inline index_range block_limits(int32_t ordinal, array_axis axis){
 // if size is even, pieces will be >= bsize/2 or <  bsize + bsize/2
 // if size is odd,  pieces will be >  bsize/2 or <= bsize + bsize/2
 // pieces will be smaller than the minimum size if n is smaller than the minimum size
+// TODO ? force bsize to default size (64 ?) if <= 0
 static inline array_axis split_axis(int n, int bsize){
   array_axis r ;
   if(n > 0 && bsize > 0){

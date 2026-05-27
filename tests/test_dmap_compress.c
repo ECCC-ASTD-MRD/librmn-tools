@@ -99,7 +99,9 @@ int main(int argc, char **argv){
     fprintf(stderr, " [%2d blocks %2d,%2d] [%2d blocks %2d,%2d]\n", i_axis.nbk, i_axis.ln0, i_axis.ln1, j_axis.nbk, j_axis.ln0, j_axis.ln1) ;
 
     // create data map (mextra = 16 bytes)
-    map = new_zmap(dims[0], dims[1], 1, 64, aspect = 1, sizeof(int32_t), mextra = 16) ;
+fprintf(stderr, " new_zmap will change \n") ;
+    goto fail ;     // new_zmap will change
+//     map = new_zmap(dims[0], dims[1], 1, 64, aspect = 1, sizeof(int32_t), mextra = 16) ;
     free_zmap(map, 1) ;
 //     nw32 = map_compress_2d(buf, dims, map, filters, bitstream) ;
 

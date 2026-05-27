@@ -22,6 +22,8 @@
 
 #define DEBUG 1
 
+// NOTE: Zindex_to_ij, Zindex_from_ij, Z_map_index  may become irrelevant 
+#if 0
 // translate block Z (zigzag) index into block (i,j) coordinates
 // zij    [IN] : Z (zigzag) index
 // nti    [IN] : row size
@@ -85,6 +87,17 @@ end:
   return zi ;
 }
 
+// Z (zigzag) block index from block indexes, using data map
+// map    [IN] : data map
+// i      [IN] : i (column) position in 2D block grid
+// j      [IN] : j (row) position in 2D block grid
+// return [ij] Z block index
+int32_t Z_map_index(zmap *map, int32_t i, int32_t j){
+//   index_pair ij = block_index(map, i, j) ;
+//   return Zindex_from_ij(i, j, map->fhead.zni, map->fhead.znj, map->fhead.stripe) ;
+  return Zindex_from_ij(i, j, map->fhead.zni, map->fhead.znj, 1) ;
+}
+#endif
 // block position from grid index, using data map
 // map    [IN] : data map
 // i      [IN] : i (column) position in 2D grid
@@ -97,17 +110,6 @@ index_pair block_index(zmap *map, int32_t i, int32_t j){
     ij.j = b_index(j, map->fhead.lnj, map->fhead.lj0) ;
   }
   return ij ;
-}
-
-// Z (zigzag) block index from block indexes, using data map
-// map    [IN] : data map
-// i      [IN] : i (column) position in 2D block grid
-// j      [IN] : j (row) position in 2D block grid
-// return [ij] Z block index
-int32_t Z_map_index(zmap *map, int32_t i, int32_t j){
-//   index_pair ij = block_index(map, i, j) ;
-//   return Zindex_from_ij(i, j, map->fhead.zni, map->fhead.znj, map->fhead.stripe) ;
-  return Zindex_from_ij(i, j, map->fhead.zni, map->fhead.znj, 1) ;
 }
 
 // area covered by block[j][i]
@@ -255,20 +257,20 @@ size_t zmap_needed_size(int32_t gni, int32_t gnj, int32_t gnk, int32_t bsizex, i
 //
 // zmap    *new_zmap(int32_t gni, int32_t gnj, int32_t aspect, size_t esize, int32_t extra,
 //                   int32_t blocksize, int32_t *data, int32_t *mem);
-zmap *new_zmap(int32_t gni, int32_t gnj, int32_t gnk, int32_t bsize, int32_t aspect, size_t esize, int32_t mextra){
+zmap *new_zmap(int32_t gni, int32_t gnj, int32_t gnk, int32_t bx_size, int32_t aspect, size_t esize, int32_t mextra){
   mextra = (mextra + sizeof(uint32_t) - 1) / sizeof(uint32_t) ; // round up to multiple of uint32_t size
   mextra = mextra * sizeof(uint32_t) ;
-  if(bsize == 0) bsize = 64 ;         // default block size of 64 x 64
+  if(bx_size == 0) bx_size = 64 ;         // default block size of 64 x 64
   array_axis p ;
   // split first dimension of array
-  p = split_axis(gni, bsize) ;
+  p = split_axis(gni, bx_size) ;
   int32_t zni = p.nbk ;               // number of blocks along i
-  int32_t lni = p.ln1 ;               // bsize
+  int32_t lni = p.ln1 ;               // bx_size
   int32_t li0 = p.ln0 ;               // size of first block along i
   // split second dimension of array
-  p = split_axis_min(gnj, bsize*aspect, bsize/2)  ;
+  p = split_axis_min(gnj, bx_size*aspect, bx_size/2)  ;
   int32_t znj = p.nbk ;               // number of blocks along j
-  int32_t lnj = p.ln1 ;               // bsize
+  int32_t lnj = p.ln1 ;               // bx_size
   int32_t lj0 = p.ln0 ;               // size of first block along j
   // no split along third dimension  TODO : add gnk to argument list ?
 //   int32_t znk = 1 ;
@@ -288,6 +290,7 @@ zmap *new_zmap(int32_t gni, int32_t gnj, int32_t gnk, int32_t bsize, int32_t asp
 
   // compute worst case size needed to encode data (esize bytes per element)
   // worst case = gni * gnj * ( esize * 8 + 1) bits  (assume 1 overhead bit per element)
+  // worst case = gni * gnj * esize + zni * znj * (4 + 4)  (4 bytes round up + 4 bytes overhead per block)
   ssize_t nbytes = esize * 8 + 1 ; nbytes *= gni ; nbytes *= gnj ;
   nbytes = ((nbytes + 3) / 4) * 4 ;  // bump to next multiple of 4 bytes
   size += nbytes ;
@@ -295,7 +298,7 @@ zmap *new_zmap(int32_t gni, int32_t gnj, int32_t gnk, int32_t bsize, int32_t asp
   if(DEBUG)
     fprintf(stderr, "sizeof(mhead) = %ld, sizeof(fhead) = %ld, sizeof(zmap) = %ld\n", sizeof(map->mhead), sizeof(map->fhead), sizeof(zmap)) ;
   if(DEBUG)
-    fprintf(stderr, "bsize = %d, gni = %d, gnj = %d, zni = %d, znj = %d\n", bsize, gni, gnj, zni, znj);
+    fprintf(stderr, "bx_size = %d, gni = %d, gnj = %d, zni = %d, znj = %d\n", bx_size, gni, gnj, zni, znj);
 
   // allocate map with enough space for worst case
   map = (zmap *) malloc(size) ;     // hsize + sum of lsize(s)
