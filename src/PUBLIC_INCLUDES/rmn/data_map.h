@@ -14,6 +14,8 @@
 // Author:
 //     M. Valin,   Recherche en Prevision Numerique, 2024-2026
 //
+// =========== NO LONGER VALID, KEPT TO PRESERVE HISTORY ===========
+//
 // data zblocks layout example (2D example)
 //
 // zblocks along i (x) : 10   (ZNI)
@@ -103,6 +105,9 @@
 // mem and size have dimensions zni x znj x znk
 // there is no striping along z
 //  compression may be 2D (lnk blocks lni x lnj) or 3D (1 block lni x lnj x lnk)
+//
+// =================================================================
+//
 #if ! defined(Z_DATA_MAP_VERSION)
 
 // version 1.0.0
@@ -113,31 +118,35 @@
 
 #include <rmn/ct_assert.h>
 #include <rmn/split_dimension.h>
+#include <rmn/mem_range.h>
+#include <rmn/be_stream.h>
 
 // packed data representation (as in buffer read from file or in memory)
 //
 //   <----------------------------------- in memory ----------------------------------->
 //   <----------- sizeof(zmap) ---------->              <-mextra ->
-//   <- sizeof(mhead) ->                 <- 2*zni*znj ->
-//                     <- sizeof(fhead) ->             /pad (0/2 bytes)/ (2 bytes pad if zni*znj is odd)
+//   <- sizeof(mhead) ->                 <-- 2*zijk --->
+//                     <- sizeof(fhead) ->             <>pad (0 or 2 bytes) (2 bytes pad if zijk is odd)
 //   +-----------------+-----------------+-------------++---------+--------------------+
 //   |                 |                 |   size      ||  extra  |                    |
 //   |  memory header  |  file header    |   table     ||  global | encoded bit stream |
-//   |signature        |                 |   [znij]    ||  info   |                    |
+//   |                 |                 |   [zijk]    ||  info   |                    |
 //   +-----------------+-----------------+-------------++---------+--------------------+
-//                     |                 |             ||
-//                     |signature, ......|size[]       || data bit stream
+//   |                 |                 |             ||
+//   |signature , .....|signature, ......|size[zijk]   || data bit stream
+//                     <------ data map in file -------->
 //                     <-------------------------- in file ---------------------------->
 //
-// data map can be mapped directly to the beginning of the packed data representation
-// uint8_t buffer[buffer_size]
-// zmap *data_map = (zmap *) buffer ;
-// read(fd, buffer, buffer_size)
-// zij = zmap->zni * zmap->znj : number of blocks
-// znij = zij rounded up to even number
+// the data map can be mapped directly to the beginning of the packed data representation if necessary
+// zmap *map
+// void *pointer = &(map->fhead)
+// read(fd, pointer, stream_size)
+// write(fd, pointer, stream_size)
+// zijk = zmap->zni * zmap->znj * zmap->gnk : number of blocks
+// zijk will be rounded up to next even number
 // extra : size of extra global info in 32 bit words (may be 0)
-// zmap->size[zi]        : size of block with zigzag index zi
-// zmap->mem = malloc(zij * sizeof(void *))
+// zmap->size[zi]        : size of block with index zi
+// zmap->mem = malloc(zijk * sizeof(void *))
 //    table of data block addresses, starting at data_ptr
 //    data_ptr = data_map + sizeof(zmap) + zmap->zni * zmap->znj * sizeof(int16_t)
 //               zmap->zni * zmap->znj rounded to multiple of 32 bits
@@ -148,7 +157,7 @@
 //   li/2 <= li0 < li + li/2
 //   lj/2 <= lj0 < lj + lj/2
 // either
-// - the first block along a dimension is larger or smaller
+// - the first block along a dimension may be larger or smaller
 //   block[0,0] : (li0,lj0)          (first block of first row)
 //   block[i,0] : ( li,lj0)  (i > 0) (first row)
 //   block[0,j] : (li0, lj)  (j > 0) (first column)
@@ -158,28 +167,32 @@
 //
 typedef uint32_t *zblocks ;         // zblocks[zi] is address of encoded data block[ zindex(i,j) ]
 typedef uint16_t fmap_block_size ;  // size needed for fmap block sizes
+CT_ASSERT(sizeof(fmap_block_size) == (sizeof(fmap_block_size) / sizeof(int16_t)) * sizeof(int16_t) , "fmap_block_size not a multiple of 16 bits")
 
-// NOTE: first, last, limit, extra are not NULL only when needed/used
+// NOTE: mem, stream, fmap, zmap, extra are nullified if not needed/used
 typedef struct{            // in memory only part of data map
     uint32_t signature ;   // should be 0x1AD0FADA, target for & operator to get address of header
     uint16_t version ;     // version marker (MUST BE the same as in file header)
     uint16_t  flags ;      // reserved for internal use flags
     zblocks  *mem ;        // table[zni*znj] : memory addresses of encoded blocks in memory
-    uint32_t *first ;      // start of the encoded bit stream
-    uint32_t *last ;       // one past the end of the encoded bit stream
-    uint8_t  *limit ;      // one past the end of the allocated space for the encoded bit stream
-    uint32_t *extra ;      // reserved, points to extra information
-    uint32_t *fmapend ;    // one past end of fmap struct part ( ( map->fmapend - &(map->fhead) ) = fmap struct size )
-    uint32_t *zmapend ;    // one past end of zmap struct ( (map->zmapend - &map) = zmap struct size )
+    bitstream *stream ;    // encoded bit stream  (see rmn/be_stream.h, rmn/bitstream.h)
+    uint32_range extra ;   // reserved, may point to extra information
+    uint32_range fmap ;    // address range for the file portion of the data map
+    uint32_range zmap ;    // address range for the entire data map
+//     uint32_t *first ;      // start of the encoded bit stream
+//     uint32_t *last ;       // one past the end of the encoded bit stream
+//     uint8_t  *limit ;      // one past the end of the allocated space for the encoded bit stream
 } mmap ;
-static const mmap null_mmap = { 0, 0, 0, NULL, NULL, NULL, NULL, NULL, NULL, NULL } ;
+static const mmap null_mmap = {          0,                  0, 0, NULL, NULL,
+                               (uint32_range)RANGE_NULL, (uint32_range)RANGE_NULL, (uint32_range)RANGE_NULL } ;
+static const mmap base_mmap = { 0x1AD0FADA, Z_DATA_MAP_VERSION, 0, NULL, NULL,
+                               (uint32_range)RANGE_NULL, (uint32_range)RANGE_NULL, (uint32_range)RANGE_NULL } ;
 
-CT_ASSERT(sizeof(mmap) == (sizeof(mmap) / sizeof(int32_t)) * sizeof(int32_t) , "mmap struc size not a multiple of 32 bits")
+CT_ASSERT(sizeof(mmap) == (sizeof(mmap) / sizeof(int64_t)) * sizeof(int64_t) , "mmap struc size not a multiple of 64 bits")
 
 // TODO: add flags for 3D storage ni/nj/nk vs nk/ni/nj vs ... and compression(2D/3D)
-// TODO: add flags for Z ordering algorithm kind (Morton order, stripes, ...)
 // TODO: finalize what is needed and what is not needed
-// NOTE : signature, version, stripe, ztype, flags can probably be moved out of fmap.
+// NOTE : signature, version, flags can probably be moved out of fmap.
 //        leaving in fmap only the spatial decomposition
 typedef struct{            // in file part of data map (also present in memory, after mmap)
     uint32_t signature ;   // should be 0xBEBEFADA, target for & operator to get address of header
@@ -195,7 +208,8 @@ typedef struct{            // in file part of data map (also present in memory, 
     int16_t  lj0 ;         // second dimension of block(s) in the first (bottom) row
     int16_t  lnj ;         // second dimension of all but first (bottom) block in column(s) (number of values)
 } fmap ;
-static const fmap null_fmap = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0} ;
+static const fmap null_fmap = {          0,                  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0} ;
+static const fmap base_fmap = { 0xBEBEFADA, Z_DATA_MAP_VERSION, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0} ;
 
 CT_ASSERT(sizeof(fmap) == (sizeof(fmap) / sizeof(int32_t)) * sizeof(int32_t) , "fmap struc size not a multiple of 32 bits")
 
@@ -203,14 +217,15 @@ CT_ASSERT(sizeof(fmap) == (sizeof(fmap) / sizeof(int32_t)) * sizeof(int32_t) , "
 // the first part (mhead) is only present in memory
 // the second part (fhead) is the file data map
 typedef struct{
-  // ---------------- start of in memory header ----------------
+  // ----------------   memory header    ----------------
   mmap mhead ;
-  // ---------------- start of in file header ----------------
+  // ---------------- start of data map  ----------------
+  // ---------------- file record header ----------------
   fmap fhead ;
-  // ---------------- sizes table ----------------
+  // ----------------    sizes table     ----------------
   fmap_block_size size[] ;        // size (in 32 bit units) of encoded blocks ( size[znj*zni] )
-  // if znj*zni is odd, there is a supplementary uint16_t (padding to multiple of uint32_t length)
-  // ---------------- end of data map ----------------
+  // if znj*zni is odd, there is a supplementary element (padding to multiple of uint32_t length)
+  // ----------------  end of data map   ----------------
 }zmap ;
 
 CT_ASSERT(sizeof(zmap) == (sizeof(zmap) / sizeof(int32_t)) * sizeof(int32_t) , "zmap struc size not a multiple of 32 bits")

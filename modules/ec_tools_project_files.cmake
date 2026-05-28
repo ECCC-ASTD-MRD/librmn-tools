@@ -123,6 +123,7 @@ set(PROJECT_H_FILES
   src/PUBLIC_INCLUDES/rmn/le_stream.h
 #   src/PUBLIC_INCLUDES/rmn/lorenzo.h
 #   src/PUBLIC_INCLUDES/rmn/lorenzo.hf
+  src/PUBLIC_INCLUDES/rmn/mem_range.h
   src/PUBLIC_INCLUDES/rmn/misc_analyze.h
   src/PUBLIC_INCLUDES/rmn/misc_pack.h
   src/PUBLIC_INCLUDES/rmn/misc_pack.hf

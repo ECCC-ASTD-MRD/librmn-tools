@@ -26,6 +26,7 @@
 #include <rmn/array_nd.h>
 #include <rmn/move_blocks.h>
 
+#if 0
 static void fill_2d_array(int32_t ni, int32_t nj, int32_t z[nj][ni]){
   int i, j ;
   for(j=0 ; j<nj ; j++){
@@ -35,7 +36,8 @@ static void fill_2d_array(int32_t ni, int32_t nj, int32_t z[nj][ni]){
   }
 fprintf(stderr, "z[0][0] = %8.8x, z[%3d][%3d] = %8.8x (%3d %3d)\n", z[0][0], ni-1, nj-1, z[nj-1][ni-1], ni-1, nj-1) ;
 }
-
+#endif
+#if 0
 static void  fill_array(array_2d *a){
   fill_2d_array(a->dim[0].gnn, a->dim[1].gnn, ( int32_t (*)[] )a->data) ;
 }
@@ -56,7 +58,8 @@ static int32_t check_2d_block(int32_t ni, int32_t nj, int32_t block[nj][ni], int
 // int zmap_to_array(zmap *map, array_2d *a_in, sfn_ptr fn, sfn_args *fnargs){
 //   return 0 ;
 // }
-
+#endif
+#if 0
 static int process_2d_block(array_2d *a_in, sfn_ptr fn, sfn_args *fnargs){
   (void) (fn) ; (void) (fnargs) ;      // unused for now
   if(a_in == NULL) return -1 ;
@@ -83,6 +86,7 @@ static int process_2d_block(array_2d *a_in, sfn_ptr fn, sfn_args *fnargs){
 
   return nelem ;
 }
+#endif
 #if 0
 // process array and store it into zmap
 static zmap *array_to_zmap(zmap *map, array_2d *a_in, sfn_ptr fn, sfn_args *fnargs){
@@ -157,13 +161,15 @@ static zmap *array_to_zmap(zmap *map, array_2d *a_in, sfn_ptr fn, sfn_args *fnar
 // #define SF0  2
 
 int main(int argc, char **argv){
-  (void)(main) ; (void)(argv) ;  //  suppress unused argument warning
-  int i, j, x[NTI], y[NTI], znij ;
-  index_pair ijp ;
+  (void)(argc) ; (void)(argv) ;  //  suppress unused argument warning
+  int i, j, znij ;
+//   int x[NTI], y[NTI] ;
+//   index_pair ijp ;
   index_range irange ;
-  ij_range ijr ;
+//   ij_range ijr ;
   char *msg = "" ;
   int32_t gni, gnj, gnk, bsize, aspect, bsizej ;
+  zmap *map = NULL ;
 
   goto test ;
 success:
@@ -179,8 +185,8 @@ test:
   fprintf(stderr, "=============== base test ===============\n") ;
 
   gni = 129 ; gnj = 97 ; gnk = 1 ; bsize = 64 ;
-  fprintf(stderr, "base size of fmap = %ld (%ld words)\n", sizeof(fmap), sizeof(fmap)/sizeof(uint32_t));
   fprintf(stderr, "base size of mmap = %ld (%ld words)\n", sizeof(mmap), sizeof(mmap)/sizeof(uint32_t));
+  fprintf(stderr, "base size of fmap = %ld (%ld words)\n", sizeof(fmap), sizeof(fmap)/sizeof(uint32_t));
   fprintf(stderr, "base size of zmap = %ld (%ld words)\n", sizeof(zmap), sizeof(zmap)/sizeof(uint32_t));
 
   for(aspect = 1 ; aspect < 4 ; aspect++){
@@ -295,7 +301,6 @@ test:
   size_t esize = sizeof(uint32_t) ;
 fprintf(stderr, " new_zmap will change \n") ;
   goto fail ;     // new_zmap will change
-  zmap *map ;
 //   map = new_zmap(gni, gnj, 1, 64, aspect, esize, 0);
   msg = "map == NULL" ;
   if(map == NULL) goto fail ;

@@ -52,7 +52,8 @@ static void minmax(float *f, int32_t n, float *fmin, float *fmax){
 int main(int argc, char **argv){
   char *filename = NULL, *msg = "" ;
   float quant = 0.0, minsig = 0.0, min, max, zval = 0.0 ;
-  int32_t nij, dims[10], ndim = 0, fd = 0, ndata, ncases = 0, j, nbits = 16, aspect = 1, mextra = 0 ;
+  int32_t nij, dims[10], ndim = 0, fd = 0, ndata, ncases = 0, j, nbits = 16 ;
+//   int32_t aspect = 1, mextra = 0 ;
   void *buf ;
   array_axis i_axis, j_axis ;
   zmap *map ;
