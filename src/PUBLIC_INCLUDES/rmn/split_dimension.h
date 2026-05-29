@@ -44,6 +44,12 @@ typedef struct{
 typedef struct{
   int32_t i  ;
   int32_t j  ;
+}size_pair ;             // 2D block size pair
+
+// index pair for 2D array
+typedef struct{
+  int32_t i  ;
+  int32_t j  ;
 }index_pair ;            // 2D coordinate pair
 
 // index trio for 3D array

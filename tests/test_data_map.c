@@ -203,8 +203,9 @@ test:
     }
     zmap *zp = new_file_zmap(nwords, nwords+25) ;           // rec_words is 0, only allocate the data map part
     if(fmap_invalid(zp) == 0) goto fail ;           // fmap is invalid at this point
-    fmap_init(zp, gni, gnj, gnk, bsize, bsizej);    // initialize fmap part
+    fmap_init(zp, gni, gnj, gnk, bsize, bsizej, NULL);    // initialize fmap part
     if(fmap_invalid(zp) != 0) goto fail ;           // fmap must be valid at this point
+    fprintf(stderr, "    fmap element size = %ld\n", ELEMENT_SIZE(zp->mhead.frng)) ;
     fprintf(stderr, "    filemap words = %d, zmap at %p, fmap at %p, blocks[%d:%d]\n",
             filemap_words(zp), &(zp->mhead.signature), &(zp->fhead.signature), zp->fhead.zni, zp->fhead.znj) ;
     zmap_print(zp) ;

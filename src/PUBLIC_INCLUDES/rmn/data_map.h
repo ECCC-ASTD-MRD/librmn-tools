@@ -171,22 +171,21 @@ CT_ASSERT(sizeof(fmap_block_size) == (sizeof(fmap_block_size) / sizeof(int16_t))
 
 // NOTE: mem, stream, fmap, zmap, extra are nullified if not needed/used
 typedef struct{            // in memory only part of data map
-    uint32_t signature ;   // should be 0x1AD0FADA, target for & operator to get address of header
-    uint16_t version ;     // version marker (MUST BE the same as in file header)
-    uint16_t  flags ;      // reserved for internal use flags
-    zblocks  *mem ;        // table[zni*znj] : memory addresses of encoded blocks in memory
-    bitstream *stream ;    // encoded bit stream  (see rmn/be_stream.h, rmn/bitstream.h)
-    uint32_range extra ;   // reserved, may point to extra information
-    uint32_range fmap ;    // address range for the file portion of the data map
-    uint32_range zmap ;    // address range for the entire data map
-//     uint32_t *first ;      // start of the encoded bit stream
-//     uint32_t *last ;       // one past the end of the encoded bit stream
-//     uint8_t  *limit ;      // one past the end of the allocated space for the encoded bit stream
+  uint32_t signature ;     // should be 0x1AD0FADA, target for & operator to get address of header
+  uint16_t version ;       // version marker (MUST BE the same as in file header)
+  uint16_t  flags ;        // reserved for internal use flags
+  zblocks  *mem ;          // table[zni*znj] : memory addresses of encoded blocks in memory
+// TODO : what to do with bitstream ?
+//   bitstream *stream ;      // encoded bit stream  (see rmn/be_stream.h, rmn/bitstream.h)
+  RANGE(uint32_t) xrng ;   // address range for extra information
+  RANGE(uint32_t) frng ;   // address range for the file portion of the data map
+  RANGE(uint32_t) drng ;   // address range for the data portion of the data map (above file part)
+  RANGE(uint32_t) zrng ;   // address range for the entire data map
 } mmap ;
-static const mmap null_mmap = {          0,                  0, 0, NULL, NULL,
-                               (uint32_range)RANGE_NULL, (uint32_range)RANGE_NULL, (uint32_range)RANGE_NULL } ;
-static const mmap base_mmap = { 0x1AD0FADA, Z_DATA_MAP_VERSION, 0, NULL, NULL,
-                               (uint32_range)RANGE_NULL, (uint32_range)RANGE_NULL, (uint32_range)RANGE_NULL } ;
+static const mmap null_mmap = {          0,                  0, 0, NULL, /*NULL,*/
+                               (uint32_t_range)NULL_RANGE, (uint32_t_range)NULL_RANGE, (uint32_t_range)NULL_RANGE, (uint32_t_range)NULL_RANGE } ;
+static const mmap base_mmap = { 0x1AD0FADA, Z_DATA_MAP_VERSION, 0, NULL,/* NULL,*/
+                               (uint32_t_range)NULL_RANGE, (uint32_t_range)NULL_RANGE, (uint32_t_range)NULL_RANGE, (uint32_t_range)NULL_RANGE } ;
 
 CT_ASSERT(sizeof(mmap) == (sizeof(mmap) / sizeof(int64_t)) * sizeof(int64_t) , "mmap struc size not a multiple of 64 bits")
 
@@ -284,7 +283,7 @@ ij_range map_block_limits(zmap *map, int32_t i, int32_t j);
 
 zmap *new_file_zmap(uint32_t map_words, uint32_t rec_words);
 int fmap_invalid(zmap *map);
-void fmap_init(zmap *map, int32_t gni, int32_t gnj, int32_t gnk, int32_t bsizex, int32_t bsizey);
+void fmap_init(zmap *map, int32_t gni, int32_t gnj, int32_t gnk, int32_t bsizex, int32_t bsizey, array_axis_3d *a3);
 void fmap_print(zmap *map);
 void zmap_print(zmap *map);
 
