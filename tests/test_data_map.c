@@ -202,7 +202,7 @@ test:
       fprintf(stderr, "ERROR: filemap_needed_words | filemap_needed_size mismatch\n");
       goto fail ;
     }
-    zmap *zp = new_file_zmap(nwords, nwords+16) ;           // rec_words is 0, only allocate the data map part
+    zmap *zp = create_file_zmap(nwords, nwords+16) ;           // rec_words is 0, only allocate the data map part
     if(fmap_invalid(zp) == 0) goto fail ;           // fmap is invalid at this point
     fmap_init(zp, gni, gnj, gnk, bsize, bsizej, NULL, 0);    // initialize fmap part
     if(fmap_invalid(zp) != 0) goto fail ;           // fmap must be valid at this point

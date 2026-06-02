@@ -287,7 +287,11 @@ int32_t  Z_map_index(zmap *map, int32_t i, int32_t j);
 index_pair  block_index(zmap *map, int32_t i, int32_t j);
 ij_range map_block_limits(zmap *map, int32_t i, int32_t j);
 
-zmap *new_file_zmap(uint32_t map_words, uint32_t rec_words);
+zmap *create_file_zmap(uint32_t map_words, uint32_t rec_words);
+zmap *create_zmap(int32_t gni, int32_t gnj, int32_t gnk,
+                  int32_t bi_size, int32_t aspect, int32_t esize,
+                  int32_t mextra, int32_t zextra, int32_t zsize);
+
 int fmap_invalid(zmap *map);
 void fmap_init(zmap *map, int32_t gni, int32_t gnj, int32_t gnk, int32_t bsizex, int32_t bsizey, array_axis_3d *a3, int32_t extra);
 void fmap_print(zmap *map, char *msg);
@@ -299,9 +303,6 @@ uint32_t filemap_blocks(int32_t gni, int32_t gnj, int32_t gnk, int32_t bsize, in
 size_t filemap_needed_words(int32_t gni, int32_t gnj, int32_t gnk, int32_t bsize, int32_t aspect);
 size_t filemap_needed_size(int32_t gni, int32_t gnj, int32_t gnk, int32_t bsize, int32_t aspect);
 size_t zmap_needed_size(int32_t gni, int32_t gnj, int32_t gnk, int32_t bsize, int32_t aspect);
-
-zmap *create_zmap(int32_t gni, int32_t gnj, int32_t gnk, int32_t bi_size, int32_t aspect, int32_t esize,
-                  int32_t mextra, int32_t zextra, int32_t zsize);
 
 zblocks *mem_zmap(zmap *map, uint32_t *data, size_t size);
 int bsize_zmap(zmap *map, size_t esize);
