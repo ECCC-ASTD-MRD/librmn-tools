@@ -151,28 +151,90 @@ zmap *create_file_zmap(uint32_t map_words, uint32_t rec_words){
   zmap *r = (zmap *) malloc(recsize) ;               // attempt to allocate
   if(r != NULL){
     r->mhead = base_mmap ;                           // set signature and version
+    // entire zmap struct (with or without space for data stream)
     SET_RANGE_BYTES(r->mhead.zrng, r, recsize) ;
-    SET_RANGE_BYTES(r->mhead.frng, &(r->fhead.signature), mapsize - sizeof(mmap))
-    r->mhead.xrng.bot = r->mhead.frng.top ; r->mhead.xrng.top = r->mhead.frng.top ;
-    r->mhead.drng.bot = r->mhead.frng.top ; r->mhead.drng.top = r->mhead.frng.top ;
+    // fmap : base size + sizes table + mextra == data map size from record metadata
+    SET_RANGE_BYTES(r->mhead.frng, &(r->fhead.signature), mapsize) ;
+    // "extra region" size and address will be known once the data map has been read from file
+    r->mhead.xrng.top = r->mhead.xrng.bot = NULL ;
+    // "data region" not including "extra"
+    if(recsize == mapsize){
+      r->mhead.drng.bot =  r->mhead.drng.top = NULL ;          // map only, no data
+    }else{
+      r->mhead.drng.top = r->mhead.zrng.top ;                  // address of top known
+      r->mhead.drng.bot = r->mhead.frng.top ;                  // address of bottom may be "extra" off
+    }
+    // sizes[] table (address known , size unknown yet)
     SET_RANGE_BYTES(r->mhead.srng, &(r->size), 0) ;
-    SET_RANGE_BYTES(r->mhead.prng, r->mhead.zrng.top, 0) ;
-    r->fhead = null_fmap ;                           // zeroed out, ready to be read from file
+    // mem[] table, no address, no space for it in zmpa
+    r->mhead.prng.top = r->mhead.prng.bot = NULL ;
+
+    r->fhead = null_fmap ;                           // fmap part zeroed out, ready to be read from file
   }
   return r ;
+}
+
+// update contents of mmap after fmap part has been read from file
+int update_file_zmap(zmap *map, uint32_t rec_words, int fix_data, int fix_mem){
+  int status = fmap_invalid(map) ;
+  if(status != 0) return status ;      // is fmap portion valid ?
+  void *data = NULL ;
+  void *mem = NULL ;
+
+  // "extra" region size and position can now be determined
+  map->mhead.xrng.top = map->mhead.frng.top ;                       // top of "extra" at top of fmap
+  map->mhead.xrng.bot = map->mhead.frng.top - map->fhead.extra ;    // extra is in 32 bit units, top and bot are pointers to 32 bit integers
+
+  // fix bottom address of data  (has to include "extra") if there is room for data (bottom pointer not NULL)
+  if(map->mhead.drng.bot != NULL){
+    map->mhead.drng.bot = map->mhead.xrng.bot ;
+  }else{
+    // allocate space for data ? if so, record size (rec_words) is needed
+    if(fix_data){
+      size_t map_words = RANGE_ELEMENTS(map->mhead.frng) ;                 // size of map part
+      size_t alloc_size = (rec_words - map_words) * sizeof(uint32_t) ;     // size of data part
+      data = malloc(alloc_size) ;
+      if(data == NULL) return 1 ;                                          // failed to allocate
+      SET_RANGE_BYTES(map->mhead.drng, data, alloc_size) ;
+      map->mhead.drng.bot = (uint32_t *)data ;
+    }
+  }
+  // update sizes table range
+  SET_RANGE_BYTES(map->mhead.srng, &(map->size), map->fhead.zijk) ;
+
+  // allocate mem[] table ?
+  if(fix_mem){
+    size_t alloc_size = sizeof(void *) * (map->fhead.zijk + 1) ;
+    mem = malloc(alloc_size) ;
+    if(mem == NULL){
+      if(data != NULL) free(data) ;
+      return 2 ;
+    }
+    SET_RANGE_BYTES(map->mhead.prng, mem, alloc_size );
+    // fill mem table using data pointers and sizes table
+  }
+  return 0 ;
 }
 
 // typedef struct{            // in memory only part of data map
 //   uint32_t signature ;     // should be 0x1AD0FADA, target for & operator to get address of header
 //   uint16_t version ;       // version marker (MUST BE the same as in file header)
-//   uint16_t  flags ;        // reserved for internal use flags
+//   uint16_t  options ;      // reserved for internal use options
 //   zblocks  *mem ;          // table[zni*znj] : memory addresses of encoded blocks in memory
 //   RANGE(uint32_t) xrng ;   // address range for "extra" information
 //   RANGE(uint32_t) frng ;   // address range for the file portion of the data map (includes "extra" information)
 //   RANGE(uint32_t) drng ;   // address range for the data portion of the data map (above file part, includes "extra" information)
 //   RANGE(uint32_t) zrng ;   // address range for the entire data map
 // } mmap ;
+
+// print contents of memory header from zmap
+// map  [IN] : pointer to valid zmap struct
+// msg  [IN] : map name (cosmetic)
 void zmap_print(zmap *map, char *msg){
+  if(map->mhead.signature != 0x1AD0FADA){
+    fprintf(stderr, "zmap %s : INVALID signature, expected 0x1AD0FADA, got %8.8x\n", msg, map->fhead.signature) ;
+    return ;
+  }
   char *f1 = "   %s :  %16p -> %16p [+%6d] (%ld bytes)\n" ;
   size_t fmap_size = RANGE_BYTES(map->mhead.frng) ;
   size_t smap_size = RANGE_BYTES(map->mhead.srng) ;
@@ -180,8 +242,8 @@ void zmap_print(zmap *map, char *msg){
   size_t dmap_size = RANGE_BYTES(map->mhead.drng) ;
   size_t pmap_size = RANGE_BYTES(map->mhead.prng) ;
   size_t zmap_size = RANGE_BYTES(map->mhead.zrng) ;
-  fprintf(stderr, "zmap %s : version %4.4x, '%4.4x', flags = %8.8x, bit stream at %p \n",
-          msg, map->fhead.version, map->fhead.signature, map->fhead.flags, map->mhead.stream) ;
+  fprintf(stderr, "zmap %s : version %4.4x, '%4.4x', options = %8.8x, bit stream at %p \n",
+          msg, map->mhead.version, map->mhead.signature, map->mhead.options, map->mhead.stream) ;
   fprintf(stderr, f1, "FULL", map->mhead.zrng.bot, map->mhead.zrng.top, ADDRESS_DIFF(map,map->mhead.zrng.bot), zmap_size) ;
   fprintf(stderr, f1, "File", map->mhead.frng.bot, map->mhead.frng.top, ADDRESS_DIFF(map,map->mhead.frng.bot), fmap_size) ;
   fprintf(stderr, f1, "Smem", map->mhead.srng.bot, map->mhead.srng.top, ADDRESS_DIFF(map,map->mhead.srng.bot), smap_size) ;
@@ -221,7 +283,7 @@ void fmap_init(zmap *map, int32_t gni, int32_t gnj, int32_t gnk, int32_t bsizex,
   if(extra < 0) extra = 0 ;
   map->fhead.signature = 0xBEBEFADA ;
   map->fhead.version   = Z_DATA_MAP_VERSION ;
-  map->fhead.flags = 0 ;
+  map->fhead.options = 0 ;
   map->fhead.gni = gni ;
   map->fhead.gnj = gnj ;
   map->fhead.gnk = gnk ;
@@ -240,8 +302,8 @@ void fmap_print(zmap *map, char *msg){
   if(map->fhead.signature != 0xBEBEFADA){
     fprintf(stderr, "fmap %s : INVALID signature, expecting 0xBEBEFADA, got %8.8x\n", msg, map->fhead.signature) ;
   }else{
-    fprintf(stderr, "fmap %s : version %4.4x, flags(%8.8x), data[%d:%d:%d], blocks[%d:%d:%d]+[%d], (%d,%d : %d,%d : %d)\n",
-            msg, map->fhead.version, map->fhead.flags,
+    fprintf(stderr, "fmap %s : version %4.4x, options(%8.8x), data[%d:%d:%d], blocks[%d:%d:%d]+[%d], (%d,%d : %d,%d : %d)\n",
+            msg, map->fhead.version, map->fhead.options,
             map->fhead.gni, map->fhead.gnj, map->fhead.gnk,
             map->fhead.zni, map->fhead.znj, map->fhead.gnk, map->fhead.zijk - (map->fhead.zni * map->fhead.znj * map->fhead.gnk), 
             map->fhead.li0, map->fhead.lni, map->fhead.lj0, map->fhead.lnj, map->fhead.gnk ) ;
@@ -497,10 +559,12 @@ zblocks *mem_zmap(zmap *map, uint32_t *data, size_t size){
 // full    [IN] : if zero, only deallocate pointer table to packed blocks
 int free_zmap(zmap *map, int full){
   if(map == NULL) return -1 ;
-  if(map->mhead.mem){
-    if(DEBUG) fprintf(stderr, "freeing map->mhead.mem at %p\n", map->mhead.mem) ;
-    free(map->mhead.mem) ;
-  }
+  // free mem if not inside zmap struct
+//   if(map->mhead.mem){
+//     if(DEBUG) fprintf(stderr, "freeing map->mhead.mem at %p\n", map->mhead.mem) ;
+//     free(map->mhead.mem) ;
+//   }
+  // free data  if not inside zmap struct
   map->mhead.mem = NULL ;
 //   if(map->mhead.options){
 //     if(DEBUG) fprintf(stderr, "freeing map->mhead.options at %p\n", map->mhead.options) ;

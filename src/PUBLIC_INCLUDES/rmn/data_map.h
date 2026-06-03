@@ -175,7 +175,7 @@ CT_ASSERT(sizeof(fmap_block_size) == (sizeof(fmap_block_size) / sizeof(int16_t))
 typedef struct{            // in memory only part of data map
   uint32_t signature ;     // should be 0x1AD0FADA, target for & operator to get address of header
   uint16_t version ;       // version marker (MUST BE the same as in file header)
-  uint16_t  flags ;        // reserved for internal use flags
+  uint16_t  options ;      // reserved for internal use options
   zblocks  *mem ;          // table[zni*znj] : memory addresses of encoded blocks in memory
   bitstream *stream ;      // encoded bit stream  (see rmn/be_stream.h, rmn/bitstream.h)
   RANGE(uint32_t) xrng ;   // address range for "extra" information
@@ -193,16 +193,16 @@ static const mmap base_mmap = { 0x1AD0FADA, Z_DATA_MAP_VERSION, 0, NULL, NULL,
 
 CT_ASSERT(sizeof(mmap) == (sizeof(mmap) / sizeof(int64_t)) * sizeof(int64_t) , "mmap struc size not a multiple of 64 bits")
 
-// TODO: add flags for 3D storage ni/nj/nk vs nk/ni/nj vs ... and compression(2D/3D)
+// TODO: add options for 3D storage ni/nj/nk vs nk/ni/nj vs ... and compression(2D/3D)
 // TODO: finalize what is needed and what is not needed
-// NOTE : signature, version, flags can probably be moved out of fmap.
+// NOTE : signature, version, options can probably be moved out of fmap.
 //        leaving in fmap only the spatial decomposition
 typedef struct{            // in file part of data map (also present in memory, after mmap)
     uint32_t signature ;   // should be 0xBEBEFADA, target for & operator to get address of header
     uint16_t version ;     // version marker (MUST BE the same as in memory header)
     uint16_t extra ;       // extra metadata size after block sizes table in 32 bit units (often 0)
     int32_t  zijk ;        // total number of blocks (may == 0 if no map, or >= zni * znj * gnk if there are extra blocks)
-    uint32_t flags ;       // reserved
+    uint32_t options ;     // reserved
     int32_t  gni ;         // first dimension of data array   = li0 + (zni - 1) * lni (row size)
     int32_t  gnj ;         // second dimension of data array  = lj0 + (znj - 1) * lnj (column size)
     int32_t  gnk ;         // third dimension of data array ( 1 for 2D data) (number of data planes)
