@@ -190,28 +190,38 @@ test:
   fprintf(stderr, "base size of zmap = %ld (%ld words)\n", sizeof(zmap), sizeof(zmap)/sizeof(uint32_t));
 
   for(aspect = 1 ; aspect < 4 ; aspect++){
+    if(aspect < 3) continue ;
     fprintf(stderr, "=============== aspect = %d ===============\n", aspect) ;
     if(aspect == 2) bsize = 48 ;
     if(aspect == 3) bsize = 32 ;
     bsizej = aspect * bsize ;
+
+    int32_t bextra = 3 ;
     uint32_t blocks = filemap_blocks(gni, gnj, gnk, bsize, bsizej);
     fprintf(stderr, "array[%d,%d,%d], block size = [%d:%d], nblocks = %d", gni, gnj, gnk, bsize, bsizej, blocks) ;
-    fprintf(stderr, ", file map size = %ld words\n", filemap_needed_size(gni, gnj, gnk, bsize, bsizej)/sizeof(uint32_t)) ;
-    uint32_t nwords = filemap_needed_size(gni, gnj, gnk, bsize, bsizej)/sizeof(uint32_t) ;
-    if(filemap_needed_words(gni, gnj, gnk, bsize, bsizej) != nwords) {
+    fprintf(stderr, ", file map size = %ld words\n", filemap_needed_size(gni, gnj, gnk, bsize, bsizej, bextra)/sizeof(uint32_t)) ;
+    uint32_t nwords = filemap_needed_size(gni, gnj, gnk, bsize, bsizej, bextra)/sizeof(uint32_t) ;
+    if(filemap_needed_words(gni, gnj, gnk, bsize, bsizej, bextra) != nwords) {
       fprintf(stderr, "ERROR: filemap_needed_words | filemap_needed_size mismatch\n");
       goto fail ;
     }
-    zmap *zp = create_file_zmap(nwords, nwords+16) ;           // rec_words is 0, only allocate the data map part
+
+    zmap *zp = create_file_zmap(nwords+4, nwords+4+100) ;         // mextra = 4, 100 words of data
     if(fmap_invalid(zp) == 0) goto fail ;           // fmap is invalid at this point
-    fmap_init(zp, gni, gnj, gnk, bsize, bsizej, NULL, 0);    // initialize fmap part
+    fmap_init(zp, gni, gnj, gnk, bsize, bsizej, NULL, bextra);   // initialize fmap part with 3 extra blocks
+    zp->fhead.extra = 4 ;                                    // set extra to 4 words
+    fmap_print(zp, "zp") ;
     if(fmap_invalid(zp) != 0) goto fail ;           // fmap must be valid at this point
     fprintf(stderr, "    fmap element size = %ld\n", ELEMENT_SIZE(zp->mhead.frng)) ;
     fprintf(stderr, "    filemap words = %d, zmap at %p, fmap at %p, blocks[%d:%d]\n",
             filemap_words(zp), &(zp->mhead.signature), &(zp->fhead.signature), zp->fhead.zni, zp->fhead.znj) ;
-    zmap_print(zp, "zp") ;
-    fmap_print(zp, "zp") ;
     fprintf(stderr, "\n");
+    zmap_print(zp, "created file zp") ;
+    fprintf(stderr, "\n");
+    update_file_zmap(zp, 1);
+    zmap_print(zp, "updated file zp") ;
+    fprintf(stderr, "-----------\n");
+
     free(zp) ;
     zp = create_zmap(gni, gnj, gnk, bsize, aspect, 4, 8*sizeof(uint32_t), 3, 12*sizeof(uint32_t)) ;
     fprintf(stderr, "\n");

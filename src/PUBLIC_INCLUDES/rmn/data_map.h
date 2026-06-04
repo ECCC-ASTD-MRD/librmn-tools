@@ -206,7 +206,7 @@ typedef struct{            // in file part of data map (also present in memory, 
     uint16_t version ;     // version marker (MUST BE the same as in memory header)
     uint16_t extra ;       // extra metadata size after block sizes table in 32 bit units (often 0)
     int32_t  zijk ;        // total number of blocks (may == 0 if no map, or >= zni * znj * gnk if there are extra blocks)
-    uint32_t reserved ;    // provision for future expansion
+    uint32_t reserved ;    // provision for future expansion (MUST BE 0 FOR NOW)
     int32_t  gni ;         // first dimension of data array   = li0 + (zni - 1) * lni (row size)
     int32_t  gnj ;         // second dimension of data array  = lj0 + (znj - 1) * lnj (column size)
     int32_t  gnk ;         // third dimension of data array ( 1 for 2D data) (number of data planes)
@@ -297,6 +297,8 @@ index_pair  block_index(zmap *map, int32_t i, int32_t j);
 ij_range map_block_limits(zmap *map, int32_t i, int32_t j);
 
 zmap *create_file_zmap(uint32_t map_words, uint32_t rec_words);
+int update_file_zmap(zmap *map, int fix_mem);
+
 zmap *create_zmap(int32_t gni, int32_t gnj, int32_t gnk,
                   int32_t bi_size, int32_t aspect, int32_t esize,
                   int32_t mextra, int32_t zextra, int32_t zsize);
@@ -308,10 +310,12 @@ void zmap_print(zmap *map, char *msg);
 
 void *filemap_address(zmap *map);
 uint32_t filemap_words(zmap *map);
-uint32_t filemap_blocks(int32_t gni, int32_t gnj, int32_t gnk, int32_t bsize, int32_t aspect);
-size_t filemap_needed_words(int32_t gni, int32_t gnj, int32_t gnk, int32_t bsize, int32_t aspect);
-size_t filemap_needed_size(int32_t gni, int32_t gnj, int32_t gnk, int32_t bsize, int32_t aspect);
-size_t zmap_needed_size(int32_t gni, int32_t gnj, int32_t gnk, int32_t bsize, int32_t aspect);
+
+uint32_t filemap_blocks(int32_t gni, int32_t gnj, int32_t gnk, int32_t bsizex, int32_t bsizey);
+
+size_t filemap_needed_words(int32_t gni, int32_t gnj, int32_t gnk, int32_t bsizex, int32_t bsizey, int32_t bextra);
+size_t filemap_needed_size(int32_t gni, int32_t gnj, int32_t gnk, int32_t bsizex, int32_t bsizey, int32_t bextra);
+size_t zmap_needed_size(int32_t gni, int32_t gnj, int32_t gnk, int32_t bsizex, int32_t bsizey, int32_t bextra);
 
 zblocks *mem_zmap(zmap *map, uint32_t *data, size_t size);
 int bsize_zmap(zmap *map, size_t esize);
