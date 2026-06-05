@@ -153,10 +153,10 @@ fprintf(stderr, "create_file_zmap : map_words = %d, rec_words = %d, recsize = %l
   if(r != NULL){
     r->mhead = base_mmap ;                           // set signature and version
     // entire zmap struct (with or without space for data stream)
-    SET_RANGE_BYTES(r->mhead.zrng, r, recsize) ;
+    SET_RANGE(r->mhead.zrng, r, recsize) ;
 
     // fmap : base size + sizes table + mextra == data map size from record metadata
-    SET_RANGE_BYTES(r->mhead.frng, &(r->fhead.signature), map_words * sizeof(uint32_t)) ;
+    SET_RANGE(r->mhead.frng, &(r->fhead.signature), map_words * sizeof(uint32_t)) ;
 
     // "extra region" size and address will be known once the data map has been read from file
     r->mhead.xrng.top = r->mhead.xrng.bot = NULL ;
@@ -170,10 +170,11 @@ fprintf(stderr, "create_file_zmap : map_words = %d, rec_words = %d, recsize = %l
     }
 
     // sizes[] table (address known , size unknown yet)
-    SET_RANGE_BYTES(r->mhead.srng, &(r->size), 0) ;
+    SET_RANGE(r->mhead.srng, &(r->size), 0) ;
 
-    // mem[] table, no address, no space for it in zmpa
-    r->mhead.prng.top = r->mhead.prng.bot = NULL ;
+    // TODO: worst case estimate of number of blocks : map_words * 2
+    // offset[] table, no address, no space for it in zmpa
+    r->mhead.orng.top = r->mhead.orng.bot = NULL ;
 
     r->fhead = null_fmap ;                           // fmap part zeroed out, ready to be read from file
   }
@@ -186,7 +187,7 @@ fprintf(stderr, "create_file_zmap : map_words = %d, rec_words = %d, recsize = %l
 int update_file_zmap(zmap *map, int fix_mem){
   int status = fmap_invalid(map) ;
   if(status != 0) return status ;      // is fmap portion valid ?
-  void *mem = NULL ;
+  void *offset = NULL ;
 
   // "extra" region size and position can now be determined
   map->mhead.xrng.top = map->mhead.frng.top ;                       // top of "extra" at top of fmap
@@ -197,15 +198,16 @@ int update_file_zmap(zmap *map, int fix_mem){
     map->mhead.drng.bot = map->mhead.xrng.top ;
   }
   // update sizes table range
-  SET_RANGE_BYTES(map->mhead.srng, &(map->size), sizeof(fmap_block_size) * map->fhead.zijk) ;
+  SET_RANGE(map->mhead.srng, &(map->size), sizeof(fmap_block_size) * map->fhead.zijk) ;
+  // update offsets/offset range orng
 
-  // allocate mem[] table ?
+  // allocate offset[] table ?
   if(fix_mem){
     size_t alloc_size = sizeof(void *) * (map->fhead.zijk + 1) ;
-    mem = malloc(alloc_size) ;
-    if(mem == NULL) return 2 ;               // allocation failed
-    SET_RANGE_BYTES(map->mhead.prng, mem, alloc_size );
-    // fill mem table using data pointers and sizes table
+    offset = malloc(alloc_size) ;
+    if(offset == NULL) return 2 ;               // allocation failed
+    SET_RANGE(map->mhead.orng, offset, alloc_size );
+    // fill offset table using data pointers and sizes table
   }
   return 0 ;
 }
@@ -214,7 +216,7 @@ int update_file_zmap(zmap *map, int fix_mem){
 //   uint32_t signature ;     // should be 0x1AD0FADA, target for & operator to get address of header
 //   uint16_t version ;       // version marker (MUST BE the same as in file header)
 //   uint16_t  options ;      // reserved for internal use options
-//   zblocks  *mem ;          // table[zni*znj] : memory addresses of encoded blocks in memory
+//   zblocks  *offset ;          // table[zni*znj] : memory addresses of encoded blocks in memory
 //   RANGE(uint32_t) xrng ;   // address range for "extra" information
 //   RANGE(uint32_t) frng ;   // address range for the file portion of the data map (includes "extra" information)
 //   RANGE(uint32_t) drng ;   // address range for the data portion of the data map (above file part, includes "extra" information)
@@ -231,12 +233,12 @@ void zmap_print(zmap *map, char *msg){
   }
   char *f1 = "   %s :  %16p -> %16p [+%6d] (%ld bytes)\n" ;
   char *f2 = "   %s :  %16p -> %16p           (%ld bytes)\n" ;
-  size_t fmap_size = RANGE_BYTES(map->mhead.frng) ;
-  size_t smap_size = RANGE_BYTES(map->mhead.srng) ;
-  size_t xmap_size = RANGE_BYTES(map->mhead.xrng) ;
-  size_t dmap_size = RANGE_BYTES(map->mhead.drng) ;
-  size_t pmap_size = RANGE_BYTES(map->mhead.prng) ;
-  size_t zmap_size = RANGE_BYTES(map->mhead.zrng) ;
+  size_t fmap_size = RANGE_SIZE(map->mhead.frng) ;
+  size_t smap_size = RANGE_SIZE(map->mhead.srng) ;
+  size_t xmap_size = RANGE_SIZE(map->mhead.xrng) ;
+  size_t dmap_size = RANGE_SIZE(map->mhead.drng) ;
+  size_t pmap_size = RANGE_SIZE(map->mhead.orng) ;
+  size_t zmap_size = RANGE_SIZE(map->mhead.zrng) ;
   fprintf(stderr, "zmap %s : version %4.4x, '%4.4x', options = %8.8x, bit stream at %p \n",
           msg, map->mhead.version, map->mhead.signature, map->mhead.options, &(map->mhead.stream)) ;
   fprintf(stderr, f1, "FULL", map->mhead.zrng.bot, map->mhead.zrng.top, ADDRESS_DIFF(map,map->mhead.zrng.bot), zmap_size) ;
@@ -247,13 +249,13 @@ void zmap_print(zmap *map, char *msg){
   else
     fprintf(stderr, f2, "Xtra", map->mhead.xrng.bot, map->mhead.xrng.top, xmap_size) ;
   fprintf(stderr, f1, "Data", map->mhead.drng.bot, map->mhead.drng.top, ADDRESS_DIFF(map,map->mhead.drng.bot), dmap_size) ;
-  if(map->mhead.prng.bot)
-    if(map->mhead.prng.bot > map->mhead.zrng.bot && map->mhead.prng.bot < map->mhead.zrng.top)
-      fprintf(stderr, f1, "Pmem", map->mhead.prng.bot, map->mhead.prng.top, ADDRESS_DIFF(map,map->mhead.prng.bot), pmap_size) ;
+  if(map->mhead.orng.bot)
+    if((uint8_t *)(map->mhead.orng.bot) > (uint8_t *)(map->mhead.zrng.bot) && (uint8_t *)(map->mhead.orng.bot) < (uint8_t *)(map->mhead.zrng.top))
+      fprintf(stderr, f1, "Pmem", map->mhead.orng.bot, map->mhead.orng.top, ADDRESS_DIFF(map,map->mhead.orng.bot), pmap_size) ;
     else
-      fprintf(stderr, f2, "Pmem", map->mhead.prng.bot, map->mhead.prng.top, pmap_size) ;
+      fprintf(stderr, f2, "Pmem", map->mhead.orng.bot, map->mhead.orng.top, pmap_size) ;
   else
-    fprintf(stderr, f2, "Pmem", map->mhead.prng.bot, map->mhead.prng.top, pmap_size) ;
+    fprintf(stderr, f2, "Pmem", map->mhead.orng.bot, map->mhead.orng.top, pmap_size) ;
 }
 
 // basic validity check on data map
@@ -417,7 +419,7 @@ zmap *create_zmap(int32_t gni, int32_t gnj, int32_t gnk, int32_t bi_size, int32_
   dsize = ((dsize + 3) >> 2) << 2 ;                             // bump to next multiple of 4 bytes
   size = size + dsize ;                                         // + size needed to encode data
   size = size + zsize ;                                         // + size needed for extra blocks
-  msize = ( sizeof(uint32_t *) * (zijk + 1) ) ;                 // size for  mem[] pointer array
+  msize = ( sizeof(uint32_t *) * (zijk + 1) ) ;                 // size for  offset[] pointer array
   size = size + msize ;                                         // + size needed for memory pointers
 
   map = (zmap *) malloc(size) ;     // allocate map with enough space for worst case data compression
@@ -425,25 +427,25 @@ zmap *create_zmap(int32_t gni, int32_t gnj, int32_t gnk, int32_t bi_size, int32_
 
   map->mhead = base_mmap ;                                      // initialize mmap portion
   // data map "read from file" / "written into file" address range
-  SET_RANGE_BYTES(map->mhead.frng, &(map->fhead.signature), fsize + mextra) ;
+  SET_RANGE(map->mhead.frng, &(map->fhead.signature), fsize + mextra) ;
   // sizes table range
-  SET_RANGE_BYTES(map->mhead.srng, map->size, zijk * sizeof(fmap_block_size)) ;
+  SET_RANGE(map->mhead.srng, map->size, zijk * sizeof(fmap_block_size)) ;
   // extra range starts just after sizes table
-  SET_RANGE_BYTES(map->mhead.xrng, (uint8_t *)map + bsize, mextra) ;
+  SET_RANGE(map->mhead.xrng, (uint8_t *)map + bsize, mextra) ;
   // encoded data address range starts just after extra
-  SET_RANGE_BYTES(map->mhead.drng, (uint8_t *)map + bsize + mextra, dsize + zsize) ;
+  SET_RANGE(map->mhead.drng, (uint8_t *)map + bsize + mextra, dsize + zsize) ;
   // memory pointers range
-  map->mhead.mem = ADDRESS_OFFSET(map, size - msize) ;          // address of memory pointers table [zijk+1]
-  SET_RANGE_BYTES(map->mhead.prng, map->mhead.mem, (zijk+1) * sizeof(void *)) ;
+  map->mhead.offset = PTR_OFFSET(map, size - msize) ;          // address of memory pointers table [zijk+1]
+  SET_RANGE(map->mhead.orng, map->mhead.offset, (zijk+1) * sizeof(void *)) ;
   // entire zmap struct address range
-  SET_RANGE_BYTES(map->mhead.zrng, map, size) ;
+  SET_RANGE(map->mhead.zrng, map, size) ;
 // TODO : what to do with bitstream ?
 
   for(uint32_t ui=0 ; ui<zijk ; ui++){                          // initialize memory pointers and sizes table
-    map->mhead.mem[ui] = NULL ;                                 // no valid address
+    map->mhead.offset[ui] = 0 ;                                    // no valid offset
     map->size[ui] = 0 ;                                         // size = 0
   }
-  map->mhead.mem[0] = (void *)( (uint8_t *)map + hsize ) ;      // start of data, after extra info
+  map->mhead.offset[0] = 0 ;                                       // start of data, after extra info
   fmap_init(map, gni, gnj, gnk, bij.i, bij.j, &a3, zextra) ;    // initialize fmap fixed portion, accounting for extra blocks
 
   if(DEBUG){
@@ -465,7 +467,7 @@ zmap *create_zmap(int32_t gni, int32_t gnj, int32_t gnk, int32_t bi_size, int32_
 //     fprintf(stderr, ", data  at %p\n", data) ;
 //   }
 //   if(DEBUG){
-//     fprintf(stderr, "mem[0] = %p,  at offset : %ld", map->mhead.mem[0], ADDRESS_DIFF(map->mhead.mem[0], map)) ;
+//     fprintf(stderr, "offset[0] = %p,  at offset : %ld", map->mhead.offset[0], ADDRESS_DIFF(map->mhead.offset[0], map)) ;
 //     fprintf(stderr, "\n") ;
 //   }
 
@@ -478,16 +480,16 @@ fail :          // free what was allocated internally
   return NULL ;
 }
 
-// adjust mem contents according to sizes
+// adjust offset contents according to sizes
 int fillmem_zmap(zmap *map){
   if(map == NULL) return 0 ;
   int ij, nij ;
-  uint32_t *t ;
+  uint64_t t ;
   nij = map->fhead.zni * map->fhead.znj ;
   for(ij=0 ; ij<nij ; ij++){
-    t = map->mhead.mem[ij] + map->size[ij] ;
+    t = map->mhead.offset[ij] + map->size[ij] ;
 //     if((uint8_t *)t >= map->mhead.limit) return 0 ;
-    map->mhead.mem[ij+1] = t ;
+    map->mhead.offset[ij+1] = t ;
   }
   return nij ;
 }
@@ -515,7 +517,7 @@ int bsize_zmap(zmap *map, size_t esize){
 // data    [IN] : pointer to start of packed data (if NULL, packed data follows map in memory)
 // size    [IN] : size of memory block at data in bytes
 // return address of table of pointers to packed blocks, NULL if there was any error
-zblocks *mem_zmap(zmap *map, uint32_t *data, size_t size){
+uint64_t *mem_zmap(zmap *map, uint32_t *data, size_t size){
   int32_t zijk = map->fhead.zni * map->fhead.znj, i ;
   size_t needed = 0 ;
 
@@ -529,25 +531,25 @@ zblocks *mem_zmap(zmap *map, uint32_t *data, size_t size){
 //     if(DEBUG)
 //       fprintf(stderr, "DEBUG mem_zmap, switching stream buffer to %16p -> %16p\n", (void *)map->mhead.first, (void *)map->mhead.limit) ;
   }
-  // allocate mem table
-  zblocks *mem = (zblocks *)malloc((zijk+1) * sizeof(uint32_t *)) ;  // zijk + 1 entries needed
+  // allocate offset table
+  uint64_t *offset = (uint64_t *)malloc((zijk+1) * sizeof(uint64_t)) ;  // zijk + 1 entries needed
 #if 0
-  if(mem){          // allocation was successful
-    if(map->mhead.mem) free(map->mhead.mem) ;  // free old table if there was one
-    map->mhead.mem = mem ;
-    mem[0] = map->mhead.first ;
+  if(offset){          // allocation was successful
+    if(map->mhead.offset) free(map->mhead.offset) ;  // free old table if there was one
+    map->mhead.offset = offset ;
+    offset[0] = map->mhead.first ;
     for(i=1 ; i<zijk+1 ; i++){
-      mem[i] = mem[i-1] + map->size[i-1] ;   // recalculate mem[] using block sizes
+      offset[i] = offset[i-1] + map->size[i-1] ;   // recalculate offset[] using block sizes
     }
-    if((uint8_t *)mem[zijk] > map->mhead.limit){   // OOPS, not enough space in data
-      free(mem) ;
-      mem = NULL ;
+    if((uint8_t *)offset[zijk] > map->mhead.limit){   // OOPS, not enough space in data
+      free(offset) ;
+      offset = NULL ;
     }else{
-      map->mhead.last = mem[zijk] ;                      // update last
+      map->mhead.last = offset[zijk] ;                      // update last
     }
   }
 #endif
-  return mem ;
+  return offset ;
 }
 
 // fill map data buffer with data from address src
@@ -562,13 +564,13 @@ zblocks *mem_zmap(zmap *map, uint32_t *data, size_t size){
 // full    [IN] : if zero, only deallocate pointer table to packed blocks
 int free_zmap(zmap *map, int full){
   if(map == NULL) return -1 ;
-  // free mem if not inside zmap struct
-//   if(map->mhead.mem){
-//     if(DEBUG) fprintf(stderr, "freeing map->mhead.mem at %p\n", map->mhead.mem) ;
-//     free(map->mhead.mem) ;
+  // free offset if not inside zmap struct
+//   if(map->mhead.offset){
+//     if(DEBUG) fprintf(stderr, "freeing map->mhead.offset at %p\n", map->mhead.offset) ;
+//     free(map->mhead.offset) ;
 //   }
   // free data  if not inside zmap struct
-  map->mhead.mem = NULL ;
+  map->mhead.offset = NULL ;
 //   if(map->mhead.options){
 //     if(DEBUG) fprintf(stderr, "freeing map->mhead.options at %p\n", map->mhead.options) ;
 //     free(map->mhead.options) ;
@@ -587,21 +589,21 @@ ssize_t resize_map(zmap *map){
   int k ;
   uint32_t *current ;
 
-  current = map->mhead.mem[0] ;          // initial position
+  current = map->mhead.offset[0] ;          // initial position
   if(current != map->mhead.first){
     int32_t *data = (int32_t *)&(map->size[map->fhead.zni*map->fhead.znj]) ;
     fprintf(stderr, "ERROR resize_map : first map entry not pointing to start of stream\n") ;
     fprintf(stderr, "      first = %16p, start = %16p, data = %16p\n", (void *)map->mhead.first, (void *)current, (void *)data) ;
   }
   for(k=0 ; k < map->fhead.zni * map->fhead.znj ; k++){
-    map->mhead.mem[k] = current ;
+    map->mhead.offset[k] = current ;
     current += map->size[k] ;
     if(current > map->mhead.last){
       fprintf(stderr, "ERROR: cannot resize map, not enough space occording to size table\n") ;
       return -1 ;
     }
   }
-  return current - map->mhead.mem[0] ;
+  return current - map->mhead.offset[0] ;
 }
 #endif
 #if 0
@@ -611,27 +613,27 @@ ssize_t repack_map(zmap *map){
   uint32_t *current, *stream ;
 
   if(map == NULL)      return -1 ;
-  if(map->mhead.mem == NULL) return -1 ;
+  if(map->mhead.offset == NULL) return -1 ;
 
-  current = map->mhead.mem[0] ;          // initial target position
+  current = map->mhead.offset[0] ;          // initial target position
   if(current != map->mhead.first){
     int32_t *data = (int32_t *)&(map->size[map->fhead.zni*map->fhead.znj]) ;
     fprintf(stderr, "ERROR resize_map : first map entry not pointing to start of stream\n") ;
     fprintf(stderr, "current = %p, first = %16p, start = %16p, data = %16p\n", (void *)current, (void *)map->mhead.first, (void *)current, (void *)data) ;
   }
   for(k=0 ; k < map->fhead.zni * map->fhead.znj ; k++){
-    stream = map->mhead.mem[k] ;         // copy from this position in memory
-    map->mhead.mem[k] = current ;        // update mem pointer to new position in memory
-    if(current < stream || map->size[k] != map->mhead.mem[k+1] - map->mhead.mem[k]) {  // need to copy ?
-      if(DEBUG) fprintf(stderr, "copying from %6ld", current - map->mhead.mem[0]) ;
+    stream = map->mhead.offset[k] ;         // copy from this position in memory
+    map->mhead.offset[k] = current ;        // update offset pointer to new position in memory
+    if(current < stream || map->size[k] != map->mhead.offset[k+1] - map->mhead.offset[k]) {  // need to copy ?
+      if(DEBUG) fprintf(stderr, "copying from %6ld", current - map->mhead.offset[0]) ;
       memmove(current, stream, map->size[k] * sizeof(uint32_t)) ;    // PGI/Nvidia compile problems with DEBUG =0 and copy loop
 //       int i ;
 //       for(i=0 ; i < map->size[k] ; i++){ current[i] = stream[i] ; }
-      if(DEBUG) fprintf(stderr, " to %6ld [%6d]\n", current + map->size[k] - map->mhead.mem[0] -1, map->size[k]) ;
+      if(DEBUG) fprintf(stderr, " to %6ld [%6d]\n", current + map->size[k] - map->mhead.offset[0] -1, map->size[k]) ;
     }
     current += map->size[k] ;      // update target position
   }
-  map->mhead.mem[k] = current ;
-  return current - map->mhead.mem[0] ;
+  map->mhead.offset[k] = current ;
+  return current - map->mhead.offset[0] ;
 }
 #endif

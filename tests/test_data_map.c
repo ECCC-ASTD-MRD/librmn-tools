@@ -197,6 +197,7 @@ test:
     bsizej = aspect * bsize ;
 
     int32_t bextra = 3 ;
+    int32_t mextra = 4 ;
     uint32_t blocks = filemap_blocks(gni, gnj, gnk, bsize, bsizej);
     fprintf(stderr, "array[%d,%d,%d], block size = [%d:%d], nblocks = %d", gni, gnj, gnk, bsize, bsizej, blocks) ;
     fprintf(stderr, ", file map size = %ld words\n", filemap_needed_size(gni, gnj, gnk, bsize, bsizej, bextra)/sizeof(uint32_t)) ;
@@ -206,10 +207,10 @@ test:
       goto fail ;
     }
 
-    zmap *zp = create_file_zmap(nwords+4, nwords+4+100) ;         // mextra = 4, 100 words of data
+    zmap *zp = create_file_zmap(nwords+mextra, nwords+mextra+100) ;         // mextra, 100 words of data
     if(fmap_invalid(zp) == 0) goto fail ;           // fmap is invalid at this point
-    fmap_init(zp, gni, gnj, gnk, bsize, bsizej, NULL, bextra);   // initialize fmap part with 3 extra blocks
-    zp->fhead.extra = 4 ;                                    // set extra to 4 words
+    fmap_init(zp, gni, gnj, gnk, bsize, bsizej, NULL, bextra);   // initialize fmap part with bextra extra blocks
+    zp->fhead.extra = mextra ;                                    // set extra to mextra words
     fmap_print(zp, "zp") ;
     if(fmap_invalid(zp) != 0) goto fail ;           // fmap must be valid at this point
     fprintf(stderr, "    fmap element size = %ld\n", ELEMENT_SIZE(zp->mhead.frng)) ;
@@ -223,12 +224,12 @@ test:
     fprintf(stderr, "-----------\n");
 
     free(zp) ;
-    zp = create_zmap(gni, gnj, gnk, bsize, aspect, 4, 8*sizeof(uint32_t), 3, 12*sizeof(uint32_t)) ;
+    zp = create_zmap(gni, gnj, gnk, bsize, aspect, mextra, 8*sizeof(uint32_t), 3, 12*sizeof(uint32_t)) ;
     fprintf(stderr, "\n");
     free(zp) ;
-    zp = create_zmap(gni, gnj, gnk, bsize, aspect, 4, 8*sizeof(uint32_t), 0, 12*sizeof(uint32_t)) ;
+    zp = create_zmap(gni, gnj, gnk, bsize, aspect, mextra, 8*sizeof(uint32_t), 0, 12*sizeof(uint32_t)) ;
     fprintf(stderr, "\n");
-    zp = create_zmap(gni, gnj, gnk, bsize, aspect, 4, 8*sizeof(uint32_t), 0, 0) ;
+    zp = create_zmap(gni, gnj, gnk, bsize, aspect, mextra, 8*sizeof(uint32_t), 0, 0) ;
     fprintf(stderr, "\n");
     free(zp) ;
   }
@@ -342,7 +343,7 @@ fprintf(stderr, " new_zmap will change \n") ;
   if(znij != bsize_zmap(map, esize)) goto fail ;    // create sizes
   msg = "fillmem_zmap failed" ;
   if(znij != fillmem_zmap(map)) goto fail ;          // adjust map->mem
-  zblocks *mem = map->mhead.mem ;
+  uint64_t *mem = map->mhead.offset ;
   znij = map->fhead.zni * map->fhead.znj ;
   fprintf(stderr, "size from old pointer table[%d] :", znij);
   for(i=0 ; i < znij ; i++) fprintf(stderr, "%6ld", mem[i+1] - mem[i]) ;
@@ -367,7 +368,7 @@ fprintf(stderr, " new_zmap will change \n") ;
   fprintf(stderr, "SUCCESS\n") ;
 
   fprintf(stderr, "=============== data map sizes reduce ===============\n") ;
-  uint32_t oldsize = map->mhead.mem[znij] - map->mhead.mem[0] ;
+  uint32_t oldsize = map->mhead.offset[znij] - map->mhead.offset[0] ;
   fprintf(stderr, "initial data size = %6d\n", oldsize) ;
   for(i=0 ; i<znij ; i++) map->size[i] -= 2 ;
   uint32_t newsize = repack_map(map) ;
