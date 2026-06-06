@@ -23,7 +23,7 @@
 #define PTR_OFFSET(BASE, OFFSET) ( (void *)( PTR(BASE) + (OFFSET) ) )
 
 // difference between addresses (in BYTES)
-#define ADDRESS_DIFF(ADDR1, ADDR2) ( PTR(ADDR2) - PTR(ADDR1) )
+#define PTR_DIFF(ADDR1, ADDR2) ( PTR(ADDR2) - PTR(ADDR1) )
 
 // the type for an address range for data type xxx will be xxx_range
 // e.g. for a float it would be float_range as in : float_range some_name
@@ -64,7 +64,7 @@ typedef struct{
 #define RANGE_TOP(R) ( PTR((R).top) )
 
 // return number of bytes in a range
-#define RANGE_SIZE(R) ( ADDRESS_DIFF( (R).bot ,  (R).top ) )
+#define RANGE_SIZE(R) ( PTR_DIFF( (R).bot ,  (R).top ) )
 
 // return number of elements in a range
 #define RANGE_ELEMENTS(R) ((R).top - (R).bot)

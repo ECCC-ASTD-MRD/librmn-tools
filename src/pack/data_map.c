@@ -241,24 +241,24 @@ void zmap_print(zmap *map, char *msg){
   size_t zmap_size = RANGE_SIZE(map->mhead.zrng) ;
   fprintf(stderr, "zmap %s : version %4.4x, '%4.4x', options = %8.8x, bit stream at %p \n",
           msg, map->mhead.version, map->mhead.signature, map->mhead.options, &(map->mhead.stream)) ;
-//   fprintf(stderr, f1, "FULL", map->mhead.zrng.bot, map->mhead.zrng.top, ADDRESS_DIFF(map,map->mhead.zrng.bot), zmap_size) ;
-  fprintf(stderr, f1, "FULL", map->mhead.zrng.bot, RANGE_LIMIT(map->mhead.zrng), ADDRESS_DIFF(map,map->mhead.zrng.bot), zmap_size) ;
-//   fprintf(stderr, f1, "File", map->mhead.frng.bot, map->mhead.frng.top, ADDRESS_DIFF(map,map->mhead.frng.bot), fmap_size) ;
-  fprintf(stderr, f1, "File", map->mhead.frng.bot, RANGE_LIMIT(map->mhead.frng), ADDRESS_DIFF(map,map->mhead.frng.bot), fmap_size) ;
-//   fprintf(stderr, f1, "Smem", map->mhead.srng.bot, map->mhead.srng.top, ADDRESS_DIFF(map,map->mhead.srng.bot), smap_size) ;
-  fprintf(stderr, f1, "Smem", map->mhead.srng.bot, RANGE_LIMIT(map->mhead.srng), ADDRESS_DIFF(map,map->mhead.srng.bot), smap_size) ;
+//   fprintf(stderr, f1, "FULL", map->mhead.zrng.bot, map->mhead.zrng.top, PTR_DIFF(map,map->mhead.zrng.bot), zmap_size) ;
+  fprintf(stderr, f1, "FULL", map->mhead.zrng.bot, RANGE_LIMIT(map->mhead.zrng), PTR_DIFF(map,map->mhead.zrng.bot), zmap_size) ;
+//   fprintf(stderr, f1, "File", map->mhead.frng.bot, map->mhead.frng.top, PTR_DIFF(map,map->mhead.frng.bot), fmap_size) ;
+  fprintf(stderr, f1, "File", map->mhead.frng.bot, RANGE_LIMIT(map->mhead.frng), PTR_DIFF(map,map->mhead.frng.bot), fmap_size) ;
+//   fprintf(stderr, f1, "Smem", map->mhead.srng.bot, map->mhead.srng.top, PTR_DIFF(map,map->mhead.srng.bot), smap_size) ;
+  fprintf(stderr, f1, "Smem", map->mhead.srng.bot, RANGE_LIMIT(map->mhead.srng), PTR_DIFF(map,map->mhead.srng.bot), smap_size) ;
   if(map->mhead.xrng.bot)
-//     fprintf(stderr, f1, "Xtra", map->mhead.xrng.bot, map->mhead.xrng.top, ADDRESS_DIFF(map,map->mhead.xrng.bot), xmap_size) ;
-    fprintf(stderr, f1, "Xtra", map->mhead.xrng.bot, RANGE_LIMIT(map->mhead.xrng), ADDRESS_DIFF(map,map->mhead.xrng.bot), xmap_size) ;
+//     fprintf(stderr, f1, "Xtra", map->mhead.xrng.bot, map->mhead.xrng.top, PTR_DIFF(map,map->mhead.xrng.bot), xmap_size) ;
+    fprintf(stderr, f1, "Xtra", map->mhead.xrng.bot, RANGE_LIMIT(map->mhead.xrng), PTR_DIFF(map,map->mhead.xrng.bot), xmap_size) ;
   else
 //     fprintf(stderr, f2, "Xtra", map->mhead.xrng.bot, map->mhead.xrng.top, xmap_size) ;
     fprintf(stderr, f2, "Xtra", map->mhead.xrng.bot, RANGE_LIMIT(map->mhead.xrng), xmap_size) ;
-//   fprintf(stderr, f1, "Data", map->mhead.drng.bot, map->mhead.drng.top, ADDRESS_DIFF(map,map->mhead.drng.bot), dmap_size) ;
-  fprintf(stderr, f1, "Data", map->mhead.drng.bot, RANGE_LIMIT(map->mhead.drng), ADDRESS_DIFF(map,map->mhead.drng.bot), dmap_size) ;
+//   fprintf(stderr, f1, "Data", map->mhead.drng.bot, map->mhead.drng.top, PTR_DIFF(map,map->mhead.drng.bot), dmap_size) ;
+  fprintf(stderr, f1, "Data", map->mhead.drng.bot, RANGE_LIMIT(map->mhead.drng), PTR_DIFF(map,map->mhead.drng.bot), dmap_size) ;
   if(map->mhead.orng.bot)
     if((uint8_t *)(map->mhead.orng.bot) > (uint8_t *)(map->mhead.zrng.bot) && (uint8_t *)(map->mhead.orng.bot) < (uint8_t *)(map->mhead.zrng.top))
-//       fprintf(stderr, f1, "Pmem", map->mhead.orng.bot, map->mhead.orng.top, ADDRESS_DIFF(map,map->mhead.orng.bot), pmap_size) ;
-      fprintf(stderr, f1, "Pmem", map->mhead.orng.bot, RANGE_LIMIT(map->mhead.orng), ADDRESS_DIFF(map,map->mhead.orng.bot), pmap_size) ;
+//       fprintf(stderr, f1, "Pmem", map->mhead.orng.bot, map->mhead.orng.top, PTR_DIFF(map,map->mhead.orng.bot), pmap_size) ;
+      fprintf(stderr, f1, "Pmem", map->mhead.orng.bot, RANGE_LIMIT(map->mhead.orng), PTR_DIFF(map,map->mhead.orng.bot), pmap_size) ;
     else
 //       fprintf(stderr, f2, "Pmem", map->mhead.orng.bot, map->mhead.orng.top, pmap_size) ;
       fprintf(stderr, f2, "Pmem", map->mhead.orng.bot, RANGE_LIMIT(map->mhead.orng), pmap_size) ;
@@ -476,7 +476,7 @@ zmap *create_zmap(int32_t gni, int32_t gnj, int32_t gnk, int32_t bi_size, int32_
 //     fprintf(stderr, ", data  at %p\n", data) ;
 //   }
 //   if(DEBUG){
-//     fprintf(stderr, "offset[0] = %p,  at offset : %ld", map->mhead.offset[0], ADDRESS_DIFF(map->mhead.offset[0], map)) ;
+//     fprintf(stderr, "offset[0] = %p,  at offset : %ld", map->mhead.offset[0], PTR_DIFF(map->mhead.offset[0], map)) ;
 //     fprintf(stderr, "\n") ;
 //   }
 
