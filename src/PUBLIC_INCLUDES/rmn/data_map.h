@@ -180,28 +180,24 @@ typedef struct{            // in memory only part of data map
   uint32_t signature ;     // should be 0x1AD0FADA, target for & operator to get address of header
   uint16_t version ;       // version marker (MUST BE the same as in file header)
   uint16_t  options ;      // reserved for internal use options (MUST BE 0 FOR NOW)
-  // TODO : instead of addresses, store offsets with respect to drng.bot (uint32_t units)
-  uint64_t *offset ;       // offset[zijk] : offset into data blocks for encoded data blocks (optional)
   bitstream stream ;       // encoding/decoding bit stream  (see rmn/be_stream.h, rmn/bitstream.h)
   void *fn ;               // pointer to encoding function
   void *args ;             // pointer to argument(s) for encoding function
   RANGE(uint32_t) xrng ;   // address range for "extra" information
   RANGE(uint32_t) frng ;   // address range for the file portion of the data map (includes "extra" information)
-  RANGE(uint16_t) srng ;   // address range for the sizes table
+  RANGE(uint16_t) srng ;   // address range for the sizes table (uint16_t items)
   RANGE(uint32_t) drng ;   // address range for the data blocks portion of the record (above "extra")
-  RANGE(uint64_t) orng ;   // address range for the memory offsets
+  //                          orng.bot[zijk] : offset into data for encoded data blocks (optional)
+  RANGE(uint64_t) orng ;   // address range for the memory offsets (uint64_t items)
   RANGE(uint32_t) zrng ;   // address range for the entire data map
 } mmap ;
-static const mmap base_mmap = { 0x1AD0FADA, Z_DATA_MAP_VERSION, 0, NULL, NULL_BITSTREAM, NULL, NULL,
+static const mmap base_mmap = { 0x1AD0FADA, Z_DATA_MAP_VERSION, 0  /*, NULL*/  , NULL_BITSTREAM, NULL, NULL,
                                (uint32_t_range)RANGE_NULL, (uint32_t_range)RANGE_NULL, (uint16_t_range)RANGE_NULL,
                                (uint32_t_range)RANGE_NULL, (uint64_t_range)RANGE_NULL, (uint32_t_range)RANGE_NULL } ;
 
 CT_ASSERT(sizeof(mmap) == (sizeof(mmap) / sizeof(int64_t)) * sizeof(int64_t) , "mmap struc size not a multiple of 64 bits")
 
-// TODO: add options for 3D storage ni/nj/nk vs nk/ni/nj vs ... and compression(2D/3D)
-// TODO: finalize what is needed and what is not needed
-// NOTE : signature, version, options can probably be moved out of fmap.
-//        leaving in fmap only the spatial decomposition
+// TODO: add options for 3D storage ni/nj/nk vs nk/ni/nj vs ... and compression(2D/3D) ?
 typedef struct{            // in file part of data map (also present in memory, after mmap)
     uint32_t signature ;   // should be 0xBEBEFADA, target for & operator to get address of header
     uint16_t version ;     // version marker (MUST BE the same as in memory header)

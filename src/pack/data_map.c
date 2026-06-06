@@ -207,21 +207,10 @@ int update_file_zmap(zmap *map, int fix_mem){
     offset = malloc(alloc_size) ;
     if(offset == NULL) return 2 ;               // allocation failed
     SET_RANGE(map->mhead.orng, offset, alloc_size );
-    // fill offset table using data pointers and sizes table
   }
+  // TODO : fill offset table using sizes table
   return 0 ;
 }
-
-// typedef struct{            // in memory only part of data map
-//   uint32_t signature ;     // should be 0x1AD0FADA, target for & operator to get address of header
-//   uint16_t version ;       // version marker (MUST BE the same as in file header)
-//   uint16_t  options ;      // reserved for internal use options
-//   zblocks  *offset ;          // table[zni*znj] : memory addresses of encoded blocks in memory
-//   RANGE(uint32_t) xrng ;   // address range for "extra" information
-//   RANGE(uint32_t) frng ;   // address range for the file portion of the data map (includes "extra" information)
-//   RANGE(uint32_t) drng ;   // address range for the data portion of the data map (above file part, includes "extra" information)
-//   RANGE(uint32_t) zrng ;   // address range for the entire data map
-// } mmap ;
 
 // print contents of memory header from zmap
 // map  [IN] : pointer to valid zmap struct
@@ -444,17 +433,16 @@ zmap *create_zmap(int32_t gni, int32_t gnj, int32_t gnk, int32_t bi_size, int32_
   // encoded data address range starts just after extra
   SET_RANGE(map->mhead.drng, (uint8_t *)map + bsize + mextra, dsize + zsize) ;
   // memory pointers range
-  map->mhead.offset = PTR_OFFSET(map, size - msize) ;          // address of memory pointers table [zijk+1]
-  SET_RANGE(map->mhead.orng, map->mhead.offset, (zijk+1) * sizeof(void *)) ;
+  uint64_t *offset = PTR_OFFSET(map, size - msize) ;            // base address of memory pointers table [zijk+1]
+  SET_RANGE(map->mhead.orng, offset, (zijk+1) * sizeof(void *)) ;
   // entire zmap struct address range
   SET_RANGE(map->mhead.zrng, map, size) ;
 // TODO : what to do with bitstream ?
 
   for(uint32_t ui=0 ; ui<zijk ; ui++){                          // initialize memory pointers and sizes table
-    map->mhead.offset[ui] = 0 ;                                    // no valid offset
-    map->size[ui] = 0 ;                                         // size = 0
+    map->mhead.orng.bot[ui] = 0 ;                               // no valid offset
+    map->size[ui] = 0 ;                                         // size unknown
   }
-  map->mhead.offset[0] = 0 ;                                       // start of data, after extra info
   fmap_init(map, gni, gnj, gnk, bij.i, bij.j, &a3, zextra) ;    // initialize fmap fixed portion, accounting for extra blocks
 
   if(DEBUG){
@@ -496,9 +484,9 @@ int fillmem_zmap(zmap *map){
   uint64_t t ;
   nij = map->fhead.zni * map->fhead.znj ;
   for(ij=0 ; ij<nij ; ij++){
-    t = map->mhead.offset[ij] + map->size[ij] ;
+    t = map->mhead.orng.bot[ij] + map->size[ij] ;
 //     if((uint8_t *)t >= map->mhead.limit) return 0 ;
-    map->mhead.offset[ij+1] = t ;
+    map->mhead.orng.bot[ij+1] = t ;
   }
   return nij ;
 }
@@ -521,6 +509,8 @@ int bsize_zmap(zmap *map, size_t esize){
   return ij ;
 }
 
+// TODO : redo the whole function
+#if 0
 // (re)allocate table of pointers to packed blocks, fill it using map->size
 // map  [INOUT] : pointer to data map
 // data    [IN] : pointer to start of packed data (if NULL, packed data follows map in memory)
@@ -560,7 +550,7 @@ uint64_t *mem_zmap(zmap *map, uint32_t *data, size_t size){
 #endif
   return offset ;
 }
-
+#endif
 // fill map data buffer with data from address src
 // data element size and dimensions will be taken from map
 // void fill_zmap(zmap *map, void *src){
@@ -579,13 +569,16 @@ int free_zmap(zmap *map, int full){
 //     free(map->mhead.offset) ;
 //   }
   // free data  if not inside zmap struct
-  map->mhead.offset = NULL ;
+//   map->mhead.offset = NULL ;
 //   if(map->mhead.options){
 //     if(DEBUG) fprintf(stderr, "freeing map->mhead.options at %p\n", map->mhead.options) ;
 //     free(map->mhead.options) ;
 //   }
 //   map->mhead.options = NULL ;
   if(full) {
+    // NULLIFY map to prevent accidents in case of memory reuse
+    map->mhead = base_mmap ;
+    map->mhead.signature = 0 ;
     free(map) ;
 if(DEBUG) fprintf(stderr, "FULL map free\n") ;
   }else{
@@ -593,6 +586,7 @@ if(DEBUG) fprintf(stderr, "PART map free\n") ;
   }
   return 0 ;
 }
+// TODO : redo the whole function
 #if 0
 ssize_t resize_map(zmap *map){
   int k ;
@@ -615,6 +609,7 @@ ssize_t resize_map(zmap *map){
   return current - map->mhead.offset[0] ;
 }
 #endif
+// TODO : redo the whole function
 #if 0
 // remove holes from data buffer, update list of memory addresses using updated sizes
 ssize_t repack_map(zmap *map){

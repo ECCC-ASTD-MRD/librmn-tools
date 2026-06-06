@@ -343,7 +343,7 @@ fprintf(stderr, " new_zmap will change \n") ;
   if(znij != bsize_zmap(map, esize)) goto fail ;    // create sizes
   msg = "fillmem_zmap failed" ;
   if(znij != fillmem_zmap(map)) goto fail ;          // adjust map->mem
-  uint64_t *mem = map->mhead.offset ;
+  uint64_t *mem = map->mhead.orng.bot ;
   znij = map->fhead.zni * map->fhead.znj ;
   fprintf(stderr, "size from old pointer table[%d] :", znij);
   for(i=0 ; i < znij ; i++) fprintf(stderr, "%6ld", mem[i+1] - mem[i]) ;
@@ -368,7 +368,7 @@ fprintf(stderr, " new_zmap will change \n") ;
   fprintf(stderr, "SUCCESS\n") ;
 
   fprintf(stderr, "=============== data map sizes reduce ===============\n") ;
-  uint32_t oldsize = map->mhead.offset[znij] - map->mhead.offset[0] ;
+  uint32_t oldsize = map->mhead.orng.bot[znij] - map->mhead.orng.bot[0] ;
   fprintf(stderr, "initial data size = %6d\n", oldsize) ;
   for(i=0 ; i<znij ; i++) map->size[i] -= 2 ;
   uint32_t newsize = repack_map(map) ;
