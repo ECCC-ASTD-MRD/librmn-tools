@@ -27,10 +27,10 @@
 
 // the type for an address range for data type xxx will be xxx_range
 // e.g. for a float it would be float_range as in : float_range some_name
-#define NULL_RANGE {NULL, 0L}
+#define RANGE_NULL {NULL, 0L}
 // a xxx_range struct contains 2 pointers, bot and top
 // bot points to the beginning of the memory arena, top points 1 element past the last element in the arena
-#define RANGE_TYPEDEF(KIND) typedef struct{ KIND *bot, *top ; } KIND##_range ; static const KIND##_range KIND##_range_null = NULL_RANGE ;
+#define RANGE_TYPEDEF(KIND) typedef struct{ KIND *bot, *top ; } KIND##_range ; static const KIND##_range KIND##_range_null = RANGE_NULL ;
 
 // some predefined address ranges
 // unsigned integers

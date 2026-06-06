@@ -193,8 +193,8 @@ typedef struct{            // in memory only part of data map
   RANGE(uint32_t) zrng ;   // address range for the entire data map
 } mmap ;
 static const mmap base_mmap = { 0x1AD0FADA, Z_DATA_MAP_VERSION, 0, NULL, NULL_BITSTREAM, NULL, NULL,
-                               (uint32_t_range)NULL_RANGE, (uint32_t_range)NULL_RANGE, (uint16_t_range)NULL_RANGE,
-                               (uint32_t_range)NULL_RANGE, (uint64_t_range)NULL_RANGE, (uint32_t_range)NULL_RANGE } ;
+                               (uint32_t_range)RANGE_NULL, (uint32_t_range)RANGE_NULL, (uint16_t_range)RANGE_NULL,
+                               (uint32_t_range)RANGE_NULL, (uint64_t_range)RANGE_NULL, (uint32_t_range)RANGE_NULL } ;
 
 CT_ASSERT(sizeof(mmap) == (sizeof(mmap) / sizeof(int64_t)) * sizeof(int64_t) , "mmap struc size not a multiple of 64 bits")
 
