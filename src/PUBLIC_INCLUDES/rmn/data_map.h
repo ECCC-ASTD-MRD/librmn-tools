@@ -119,7 +119,7 @@
 #include <rmn/ct_assert.h>
 #include <rmn/split_dimension.h>
 #include <rmn/mem_range.h>
-
+// use big endian bit stream
 #include <rmn/be_stream.h>
 
 //   packed data representation (in record from file and in memory)
@@ -130,7 +130,7 @@
 //   +-----------------+-----------------+-------------++---------+-------//-----------+//+-----//-----------+
 //   |                 |                 |   block     ||  extra  |                    |  |     offsets      |
 //   |  memory header  |  file header    |   sizes     ||  global |    data blocks     |  |     to blocks    |
-//   |signature , .....|signature, ......|   [zijk]    ||  info   |   (zijk blocks)    |  |     [zijk]       |
+//   |signature , .....|signature, ......|   [zijk]    ||  info   |   (zijk blocks)    |  |     [zijk + 1]   |
 //   +-----------------+-----------------+-------------++---------+-------//-----------+//+-----//-----------+
 //   |-------------------------------------------- ZRNG -----------------------------------------------------|
 //                     |--------------- FRNG ---------------------|------- DRNG -------|  |----- ORNG -------|
@@ -180,7 +180,7 @@ typedef struct{            // in memory only part of data map
   uint32_t signature ;     // should be 0x1AD0FADA, target for & operator to get address of header
   uint16_t version ;       // version marker (MUST BE the same as in file header)
   uint16_t  options ;      // reserved for internal use options (MUST BE 0 FOR NOW)
-  bitstream stream ;       // encoding/decoding bit stream  (see rmn/be_stream.h, rmn/bitstream.h)
+  bitstream stream ;       // encoding/decoding bit stream  (see rmn/be_stream.h, rmn/bitstream.h) (should be 64 bytes)
   void *fn ;               // pointer to encoding function
   void *args ;             // pointer to argument(s) for encoding function
   RANGE(uint32_t) xrng ;   // address range for "extra" information
