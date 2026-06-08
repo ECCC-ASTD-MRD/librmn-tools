@@ -191,7 +191,7 @@ typedef struct{            // in memory only part of data map
   RANGE(uint64_t) orng ;   // address range for the memory offsets (uint64_t items)
   RANGE(uint32_t) zrng ;   // address range for the entire data map
 } mmap ;
-static const mmap base_mmap = { 0x1AD0FADA, Z_DATA_MAP_VERSION, 0  /*, NULL*/  , NULL_BITSTREAM, NULL, NULL,
+static const mmap base_mmap = { 0x1AD0FADA, Z_DATA_MAP_VERSION, 0 , NULL_BITSTREAM, NULL, NULL,
                                (uint32_t_range)RANGE_NULL, (uint32_t_range)RANGE_NULL, (uint16_t_range)RANGE_NULL,
                                (uint32_t_range)RANGE_NULL, (uint64_t_range)RANGE_NULL, (uint32_t_range)RANGE_NULL } ;
 
@@ -202,7 +202,7 @@ typedef struct{            // in file part of data map (also present in memory, 
     uint32_t signature ;   // should be 0xBEBEFADA, target for & operator to get address of header
     uint16_t version ;     // version marker (MUST BE the same as in memory header)
     uint16_t extra ;       // extra metadata size after block sizes table in 32 bit units (often 0)
-    int32_t  zijk ;        // total number of blocks (may be 0 if no map, or >= zni * znj * gnk if there are extra blocks)
+    uint32_t zijk ;        // total number of blocks (may be 0 if no map, or >= zni * znj * gnk if there are extra blocks)
     uint32_t reserved ;    // provision for future expansion (MUST BE 0 FOR NOW)
     int32_t  gni ;         // first dimension of data array   = li0 + (zni - 1) * lni (row size)
     int32_t  gnj ;         // second dimension of data array  = lj0 + (znj - 1) * lnj (column size)
@@ -240,6 +240,10 @@ typedef struct{
 }zmap ;
 
 CT_ASSERT(sizeof(zmap) == (sizeof(zmap) / sizeof(int32_t)) * sizeof(int32_t) , "zmap struc size not a multiple of 32 bits")
+
+#define ZMAP_WORDS(MAP) RANGE_ELEMENTS((MAP).mhead.zrng)
+#define FILEMAP_WORDS(MAP) RANGE_ELEMENTS((MAP).mhead.frng)
+#define RECORD_WORDS(MAP) RANGE_ELEMENTS((MAP).mhead.drng)
 
 static inline int invalid_zmap(zmap *map){
   if(map->mhead.signature != 0x1AD0FADA || map->fhead.signature != 0xBEBEFADA) return 1 ;
@@ -294,14 +298,14 @@ index_pair  block_index(zmap *map, int32_t i, int32_t j);
 ij_range map_block_limits(zmap *map, int32_t i, int32_t j);
 
 zmap *create_file_zmap(uint32_t map_words, uint32_t rec_words);
-int update_file_zmap(zmap *map, int fix_mem);
+int update_file_zmap(zmap *map);
 
 zmap *create_zmap(int32_t gni, int32_t gnj, int32_t gnk,
                   int32_t bi_size, int32_t aspect, int32_t esize,
                   int32_t mextra, int32_t zextra, int32_t zsize);
 
 int fmap_invalid(zmap *map);
-void fmap_init(zmap *map, int32_t gni, int32_t gnj, int32_t gnk, int32_t bsizex, int32_t bsizey, array_axis_3d *a3, int32_t extra);
+void fmap_init(zmap *map, int32_t gni, int32_t gnj, int32_t gnk, int32_t bsizex, int32_t bsizey, array_axis_3d *a3, int32_t mextra, int32_t bextra);
 void fmap_print(zmap *map, char *msg);
 void zmap_print(zmap *map, char *msg);
 
