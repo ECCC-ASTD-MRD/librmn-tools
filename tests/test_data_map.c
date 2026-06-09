@@ -160,6 +160,31 @@ static zmap *array_to_zmap(zmap *map, array_2d *a_in, sfn_ptr fn, sfn_args *fnar
 // #define NTI  4
 // #define NTJ  3
 // #define SF0  2
+void  test_fill_offset(zmap *map){
+  for(uint32_t i=map->fhead.zni * map->fhead.znj ; i<map->fhead.zijk ; i++) map->size[i] = map->fhead.zijk - i ;
+  map->mhead.orng.bot[0] = 0 ;
+  for(uint32_t i=1 ; i<(map->fhead.zijk)+1 ; i++){
+    map->mhead.orng.bot[i] = map->mhead.orng.bot[i-1] + map->size[i-1] ;
+  }
+}
+
+void  test_fill_size(int zni, int znj, fmap_block_size size[znj][zni], zmap *map){
+  int li0 = map->fhead.li0, lni = map->fhead.lni, lj0 = map->fhead.lj0, lnj = map->fhead.lnj ;
+  int i, j, sizei, sizej ;
+  for(j=0, sizej=lj0 ; j<znj ; j++, sizej=lnj){
+    for(i=0, sizei=li0 ; i<zni ; i++, sizei=lni){
+      size[j][i] = sizei*sizej ;
+    }
+  }
+}
+
+void test_fill_data(int gni, int gnj, uint32_t data[gnj][gni]){
+  for(int j=0 ; j<gnj ; j++){
+    for(int i=0 ; i<gni ; i++){
+      data[j][i] = (i<<16) | (j) ;
+    }
+  }
+}
 
 int main(int argc, char **argv){
   (void)(argc) ; (void)(argv) ;  //  suppress unused argument warning
@@ -226,12 +251,12 @@ test:
     fprintf(stderr, "-----------\n");
 
     free(zp) ;
-    zp = create_zmap(gni, gnj, gnk, bsize, aspect, 2*sizeof(uint32_t), mextra, bextra, 12*sizeof(uint32_t)) ;
-    fprintf(stderr, "data map length = %ld words, record length = %ld words\n", FILEMAP_WORDS(*zp), RECORD_WORDS(*zp)) ;
+    zp = create_zmap(gni, gnj, gnk, bsize, aspect, 2*sizeof(uint32_t), mextra, bextra, 3*bextra*sizeof(uint32_t)) ;
+    fprintf(stderr, "data map length = %ld words, record length = %ld words\n", FILEMAP_WORDS(zp), RECORD_WORDS(zp)) ;
     fprintf(stderr, "\n");
     free(zp) ;
-    zp = create_zmap(gni, gnj, gnk, bsize, aspect, 2*sizeof(uint32_t), mextra, 0, 12*sizeof(uint32_t)) ;
-    fprintf(stderr, "data map length = %ld words, record length = %ld words\n", FILEMAP_WORDS(*zp), RECORD_WORDS(*zp)) ;
+    zp = create_zmap(gni, gnj, gnk, bsize, aspect, 2*sizeof(uint32_t), mextra, 0, 3*bextra*sizeof(uint32_t)) ;
+    fprintf(stderr, "data map length = %ld words, record length = %ld words\n", FILEMAP_WORDS(zp), RECORD_WORDS(zp)) ;
     fprintf(stderr, "\n");
     free(zp) ;
     zp = create_zmap(gni, gnj, gnk, bsize, aspect, 2*sizeof(uint32_t), mextra, 0, 0) ;
@@ -240,21 +265,34 @@ test:
   }
 
   fprintf(stderr, "=============== simulated file test ===============\n") ;
-  zmap *zp0, *zp1, *zp2 ;
+  zmap *zp0, *zp1 ;
   int status ;
   uint32_t map_words, rec_words, zmap_words ; 
   gni = 129 ; gnj = 97 ; gnk = 1 ; bsize = 64 ; aspect = 1 ; mextra = 2 ; bextra = 3 ;
-  zp0 = create_zmap(gni, gnj, gnk, bsize, aspect, 2*sizeof(uint32_t), mextra, bextra, 12*sizeof(uint32_t)) ;
-  map_words = FILEMAP_WORDS(*zp0) ; rec_words = RECORD_WORDS(*zp0) ; zmap_words = ZMAP_WORDS(*zp0) ;
+
+  zp0 = create_zmap(gni, gnj, gnk, bsize, aspect, 2*sizeof(uint32_t), mextra, bextra, 3*bextra*sizeof(uint32_t)) ;
+  test_fill_size(zp0->fhead.zni, zp0->fhead.znj, (void *)zp0->size, zp0) ;
+  test_fill_offset(zp0) ;
+  test_fill_data(gni, gnj, (void *)zp0->mhead.drng.bot) ;
+
+  map_words = FILEMAP_WORDS(zp0) ; rec_words = RECORD_WORDS(zp0) ; zmap_words = ZMAP_WORDS(zp0) ;
   fprintf(stderr, "zp0 data map length = %d words, record length = %d words, zmap length = %d words\n", map_words, rec_words, zmap_words) ;
+  fprintf(stderr, "zp0 data map ZMAP_TOTAL_BLOCKS = %d, ZMAP_ARRAY_BLOCKS = %d\n", ZMAP_TOTAL_BLOCKS(zp0), ZMAP_ARRAY_BLOCKS(zp0)) ;
+  fprintf(stderr, "zp0 data map block sizes and offsets\n") ;
+  for(uint32_t i=0 ; i<ZMAP_TOTAL_BLOCKS(zp0) ; i++){ fprintf(stderr, "%6d ", BLOCK_WORDS(zp0,i)) ; } ;
+  fprintf(stderr, "\n");
+  for(uint32_t i=0 ; i<ZMAP_TOTAL_BLOCKS(zp0)+1 ; i++){ fprintf(stderr, "%6ld ", BLOCK_OFFSET(zp0,i)) ; } ;
+  fprintf(stderr, "\n");
+  for(uint32_t i=0 ; i<ZMAP_TOTAL_BLOCKS(zp0) ; i++){ fprintf(stderr, "%6ld ", BLOCK_OFFSET(zp0,i+1) - BLOCK_OFFSET(zp0,i) ) ; } ;
+  fprintf(stderr, "\n");
   fprintf(stderr, "\n");
 
-  map_words = FILEMAP_WORDS(*zp0) ; rec_words = RECORD_WORDS(*zp0) ; zmap_words = ZMAP_WORDS(*zp0) ;
+  map_words = FILEMAP_WORDS(zp0) ; rec_words = RECORD_WORDS(zp0) ; zmap_words = ZMAP_WORDS(zp0) ;
   zp1 = create_file_zmap(map_words, rec_words) ;
   zmap_print(zp1, "zp1") ;
-  map_words = FILEMAP_WORDS(*zp1) ;
-  rec_words = RECORD_WORDS(*zp1) ;
-  zmap_words = ZMAP_WORDS(*zp1) ;
+  map_words = FILEMAP_WORDS(zp1) ;
+  rec_words = RECORD_WORDS(zp1) ;
+  zmap_words = ZMAP_WORDS(zp1) ;
   fprintf(stderr, "zp1 data map length = %d words, record length = %d words, zmap length = %d words\n", map_words, rec_words, zmap_words) ;
   fprintf(stderr, "\n") ;
   memcpy(&(zp1->fhead), &(zp0->fhead), map_words * sizeof(uint32_t)) ;   // simulate read from file
@@ -264,16 +302,16 @@ test:
   fmap_print(zp1, "zp1+") ;
   fprintf(stderr, "\n") ;
 
-//   map_words = FILEMAP_WORDS(*zp0) ; rec_words = RECORD_WORDS(*zp0) ; zmap_words = ZMAP_WORDS(*zp0) ;
+//   map_words = FILEMAP_WORDS(zp0) ; rec_words = RECORD_WORDS(zp0) ; zmap_words = ZMAP_WORDS(zp0) ;
 //   zp2 = create_file_zmap(map_words, rec_words) ;
 //   zmap_print(zp2, "zp2") ;
-//   map_words = FILEMAP_WORDS(*zp2) ;
-//   rec_words = RECORD_WORDS(*zp2) ;
-//    zmap_words = ZMAP_WORDS(*zp2) ;
+//   map_words = FILEMAP_WORDS(zp2) ;
+//   rec_words = RECORD_WORDS(zp2) ;
+//    zmap_words = ZMAP_WORDS(zp2) ;
 //   fprintf(stderr, "zp2 data map length = %d words, record length = %d words, zmap length = %d words\n", map_words, rec_words, zmap_words) ;
 // //   fmap_print(zp2, "zp2") ;
 
-  goto success ;
+goto success ;
 
   fprintf(stderr, "=============== syntax test ===============\n") ;
 

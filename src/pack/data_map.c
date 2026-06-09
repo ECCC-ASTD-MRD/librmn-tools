@@ -199,7 +199,7 @@ fprintf(stderr, "map and data\n");
 int update_file_zmap(zmap *map){
   int status = fmap_invalid(map) ;
   if(status != 0) return status ;      // are the fmap struct contents valid ?
-  void *offset = NULL ;
+//   void *offset = NULL ;
 
   // "extra" region size and position can now be determined
   map->mhead.xrng.top = map->mhead.frng.top ;                       // top of "extra" at top of fmap
@@ -221,8 +221,8 @@ int update_file_zmap(zmap *map){
   map->mhead.orng.bot = map->mhead.orng.top - zijkmax ;        // there is room for up to zijkmax entries
   // fill offset table using sizes table
   map->mhead.orng.bot[0] = 0 ;
-  for(int i = 0 ; i < zijkmax ; i++){
-    map->mhead.orng.bot[i] = map->mhead.orng.bot[i-1] + map->size[i] ;
+  for(int i = 1 ; i < zijkmax ; i++){
+    map->mhead.orng.bot[i] = map->mhead.orng.bot[i-1] + map->size[i-1] ;
   }
   return 0 ;
 }
@@ -416,12 +416,12 @@ zmap *create_zmap(int32_t gni, int32_t gnj, int32_t gnk, int32_t bi_size, int32_
     fprintf(stderr, "gni = %d, gnj = %d, gnk = %d, b_size = (%d,%d), zni = %d, znj = %d, zijk1 = %d\n", gni, gnj, gnk, bij.i, bij.j, zni, znj, zijk1);
   }
 
-  size_t size, bsize, hsize, dsize, osize, fsize ;
+  size_t size, /*bsize,*/ /*hsize,*/ dsize, osize, fsize ;
   fsize = sizeof(fmap) + sizeof(fmap_block_size) * zijk1 ;      // size of data map part that gets written into file
   size  = sizeof(zmap) + sizeof(fmap_block_size) * zijk1 ;      // base size of data map + table of sizes
-  bsize = size ;                                                // size without data and without extra information
+//   bsize = size ;                                                // size without data and without extra information
   size  = size + mextra * sizeof(uint32_t) ;                    // size += size of extra information
-  hsize = size ;                                                // size without data but including extra information
+//   hsize = size ;                                                // size without data but including extra information
 
   // worst case : esize * nb_of_values + number_of_blocks * (4 + 4)  (4 bytes round up + 4 bytes overhead per block)
   dsize = gni * gnj * gnk * esize + zni * znj * znk * 8 ;       // worst case size needed to encode data
