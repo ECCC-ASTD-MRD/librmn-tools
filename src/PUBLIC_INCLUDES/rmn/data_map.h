@@ -193,7 +193,7 @@ typedef struct{            // in memory only part of data map
   uint16_t  options ;      // reserved for internal use options (MUST BE 0 FOR NOW)
   bitstream stream ;       // encoding/decoding bit stream  (see rmn/be_stream.h, rmn/bitstream.h) (should be 64 bytes)
 // TODO ? replace fn and args with pointer to function and blind argument packet of type m_args
-  void *get_fn ;           // pointer to gert a block function
+  void *get_block ;        // pointer to get a block function
   arg128 get_args ;        // arguments to iofn (or arg128)
   void *codec ;            // pointer to encode/decode function
   arg128 codec_args ;      // arguments to edfn (or arg128)
