@@ -157,6 +157,83 @@ static zmap *array_to_zmap(zmap *map, array_2d *a_in, sfn_ptr fn, sfn_args *fnar
 #define NTJ 11
 #define SF0  4
 
+// copy block(s) of 32 bit elements from memory pointed to by data map into user space
+// demo function for tests purposes
+// map      [IN] : pointer to valid zmap struct
+// block0   [IN] : first block to copy
+// block_nb [IN] : number of blocks to copy
+// out_    [OUT] : pointer to reception area
+// size_out [IN] : size of reception area (in 32 bit units)
+// return number of words copied of negative error codes
+//
+block_fn get_mapped_blocks ;    // make sure we have the right types in the function prototype
+int32_t get_mapped_blocks(zmap *map, int block0, int block_nb, void *out_, size_t size_out){
+  if(map == NULL) return -1 ;                            // no map ;
+  if(out_ == NULL) return -4 ;                           // invalid destination
+  if(block0 < 0) return -1 ;                             // invalid block number
+  if(block_nb <= 0) return -1 ;                          // invalid number of blocks
+  int max_blocks = map->fhead.zijk ;
+  if(block0+block_nb > max_blocks) return -2 ;           // last block number exceeds available blocks
+  struct{
+    uint32_t *ptr ;
+    uint64_t dummy ;
+  } *local = (void *)&(map->mhead.get_args) ;            // point local arguments into proper place in zmap
+  CT_ASSERT( sizeof(*local) == sizeof(map->mhead.get_args) , "bad getblock arguments struc size" )
+
+  uint32_t *base = local->ptr ;                          // get base address for memory copy from zmap
+  if(base == NULL) return -5 ;
+  uint32_t size = 0 ;
+  uint64_t offset = map->mhead.orng.bot[block0] ;        // block offset of first relative to base address (in 32 bit units)
+  // consecutive blocks in tables are assumed to be consecutive in storage
+  while(block_nb > 0){
+    size = size + map->size[block0] ;                    // size of block to copy (in 32 bit units)
+    block_nb-- ;
+    block0++ ;
+  }
+  if(size_out < size) return -3 ;                        // not enough space for copy
+  uint32_t *out = out_ ;                                 // destination address
+  uint32_t *src = base + offset ;                        // source address
+  for(uint32_t i=0 ; i<size ; i++){ out[i] = src[i] ; }
+
+  return size ;                                          // number of 32 bit words copied
+}
+
+// pack unsigned 32 ->16 ;
+codec_fn test_pack_block_3216 ;
+int test_pack_block_16(zmap *map, void *out_, void *in_, int ninj){
+  if(map == NULL || ninj <= 0) return -1 ;
+  uint32_t *in = in_ ;
+  uint16_t *out = out_ ;
+  if(out == NULL || in == NULL) return -1 ;
+  struct{
+    uint32_t src ;
+    uint32_t out ;
+    uint64_t dummy ;
+  } *local = (void *)&(map->mhead.codec_args) ;            // point local arguments into proper place in zmap
+  CT_ASSERT( sizeof(*local) == sizeof(map->mhead.codec_args) , "bad codec arguments struc size" )
+  if(local->src != 32 || local->out != 16) return -1 ;
+  for(int i=0 ; i<ninj ; i++){ out[i] = in[i] & 0xFFFF ; } ;
+  return ninj ;
+}
+
+// unpack unsigned 32 ->16 ;
+codec_fn test_unpack_block_1632 ;
+int test_unpack_block_1632(zmap *map, void *out_, void *in_, int ninj){
+  if(map == NULL || ninj <= 0) return -1 ;
+  uint16_t *in = in_ ;
+  uint32_t *out = out_ ;
+  if(out == NULL || in == NULL) return -1 ;
+  struct{
+    uint32_t src ;
+    uint32_t out ;
+    uint64_t dummy ;
+  } *local = (void *)&(map->mhead.codec_args) ;            // point local arguments into proper place in zmap
+  CT_ASSERT( sizeof(*local) == sizeof(map->mhead.codec_args) , "bad codec arguments struc size" )
+  if(local->src != 16 || local->out != 32) return -1 ;
+  for(int i=0 ; i<ninj ; i++){ out[i] = in[i] & 0xFFFF ; } ;
+  return ninj ;
+}
+
 // #define NTI  4
 // #define NTJ  3
 // #define SF0  2
@@ -181,7 +258,7 @@ void  test_fill_size(int zni, int znj, fmap_block_size size[znj][zni], zmap *map
 void test_fill_data(int gni, int gnj, uint32_t data[gnj][gni]){
   for(int j=0 ; j<gnj ; j++){
     for(int i=0 ; i<gni ; i++){
-      data[j][i] = (i<<16) | (j) ;
+      data[j][i] = (i<<8) | (j) ;
     }
   }
 }
@@ -265,9 +342,9 @@ test:
   }
 
   fprintf(stderr, "=============== simulated file test ===============\n") ;
-  zmap *zp0, *zp1 ;
+  zmap *zp0, *zp1, *zp2 ;
   int status ;
-  uint32_t map_words, rec_words, zmap_words ; 
+  uint32_t map_words, rec_words, zmap_words, data_words ; 
   gni = 129 ; gnj = 97 ; gnk = 1 ; bsize = 64 ; aspect = 1 ; mextra = 2 ; bextra = 3 ;
 
   zp0 = create_zmap(gni, gnj, gnk, bsize, aspect, 2*sizeof(uint32_t), mextra, bextra, 3*bextra*sizeof(uint32_t)) ;
@@ -275,10 +352,10 @@ test:
   test_fill_offset(zp0) ;
   test_fill_data(gni, gnj, (void *)zp0->mhead.drng.bot) ;
 
-  map_words = FILEMAP_WORDS(zp0) ; rec_words = RECORD_WORDS(zp0) ; zmap_words = ZMAP_WORDS(zp0) ;
-  fprintf(stderr, "zp0 data map length = %d words, record length = %d words, zmap length = %d words\n", map_words, rec_words, zmap_words) ;
-  fprintf(stderr, "zp0 data map ZMAP_TOTAL_BLOCKS = %d, ZMAP_ARRAY_BLOCKS = %d\n", ZMAP_TOTAL_BLOCKS(zp0), ZMAP_ARRAY_BLOCKS(zp0)) ;
-  fprintf(stderr, "zp0 data map block sizes and offsets\n") ;
+  map_words = FILEMAP_WORDS(zp0) ; rec_words = RECORD_WORDS(zp0) ; zmap_words = ZMAP_WORDS(zp0) ; data_words = DATA_WORDS(zp0) ;
+  fprintf(stderr, "zp0 data map length = %d , data length = %d , record length = %d , zmap length = %d \n", map_words, data_words, rec_words, zmap_words) ;
+  fprintf(stderr, "zp0 reference : ARRAY_BLOCKS = %d, TOTAL_BLOCKS = %d\n", ZMAP_ARRAY_BLOCKS(zp0), ZMAP_TOTAL_BLOCKS(zp0)) ;
+  fprintf(stderr, "    data map block sizes and offsets\n") ;
   for(uint32_t i=0 ; i<ZMAP_TOTAL_BLOCKS(zp0) ; i++){ fprintf(stderr, "%6d ", BLOCK_WORDS(zp0,i)) ; } ;
   fprintf(stderr, "\n");
   for(uint32_t i=0 ; i<ZMAP_TOTAL_BLOCKS(zp0)+1 ; i++){ fprintf(stderr, "%6ld ", BLOCK_OFFSET(zp0,i)) ; } ;
@@ -287,28 +364,32 @@ test:
   fprintf(stderr, "\n");
   fprintf(stderr, "\n");
 
-  map_words = FILEMAP_WORDS(zp0) ; rec_words = RECORD_WORDS(zp0) ; zmap_words = ZMAP_WORDS(zp0) ;
+  map_words = FILEMAP_WORDS(zp0) ; rec_words = RECORD_WORDS(zp0) ; zmap_words = ZMAP_WORDS(zp0) ; data_words = DATA_WORDS(zp0) ;
   zp1 = create_file_zmap(map_words, rec_words) ;
   zmap_print(zp1, "zp1") ;
-  map_words = FILEMAP_WORDS(zp1) ;
-  rec_words = RECORD_WORDS(zp1) ;
+  map_words  = FILEMAP_WORDS(zp1) ;
+  data_words = DATA_WORDS(zp1) ;
+  rec_words  = RECORD_WORDS(zp1) ;
   zmap_words = ZMAP_WORDS(zp1) ;
-  fprintf(stderr, "zp1 data map length = %d words, record length = %d words, zmap length = %d words\n", map_words, rec_words, zmap_words) ;
+  fprintf(stderr, "zp1 data map length = %d , data length = %d , record length = %d , zmap length = %d \n", map_words, data_words, rec_words, zmap_words) ;
   fprintf(stderr, "\n") ;
   memcpy(&(zp1->fhead), &(zp0->fhead), map_words * sizeof(uint32_t)) ;   // simulate read from file
   status = update_file_zmap(zp1) ;
   if(status) fprintf(stderr, "ERROR: update_file_zmap %d\n", status) ;
+  zp1->mhead.codec = test_unpack_block_1632 ;
+  zp1->mhead.get_blocks = get_mapped_blocks ;
   zmap_print(zp1, "zp1+") ;
   fmap_print(zp1, "zp1+") ;
   fprintf(stderr, "\n") ;
 
-//   map_words = FILEMAP_WORDS(zp0) ; rec_words = RECORD_WORDS(zp0) ; zmap_words = ZMAP_WORDS(zp0) ;
-//   zp2 = create_file_zmap(map_words, rec_words) ;
-//   zmap_print(zp2, "zp2") ;
-//   map_words = FILEMAP_WORDS(zp2) ;
-//   rec_words = RECORD_WORDS(zp2) ;
-//    zmap_words = ZMAP_WORDS(zp2) ;
-//   fprintf(stderr, "zp2 data map length = %d words, record length = %d words, zmap length = %d words\n", map_words, rec_words, zmap_words) ;
+  map_words = FILEMAP_WORDS(zp0) ; rec_words = RECORD_WORDS(zp0) ; zmap_words = ZMAP_WORDS(zp0) ; data_words = DATA_WORDS(zp0) ;
+  zp2 = create_file_zmap(map_words, 0) ;     // map only, no data
+  zmap_print(zp2, "zp2") ;
+  map_words  = FILEMAP_WORDS(zp2) ;
+  data_words = DATA_WORDS(zp2) ;
+  rec_words  = RECORD_WORDS(zp2) ;
+  zmap_words = ZMAP_WORDS(zp2) ;
+  fprintf(stderr, "zp2 data map length = %d , data length = %d , record length = %d , zmap length = %d \n", map_words, data_words, rec_words, zmap_words) ;
 // //   fmap_print(zp2, "zp2") ;
 
 goto success ;

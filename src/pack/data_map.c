@@ -153,17 +153,17 @@ zmap *create_file_zmap(uint32_t map_words, uint32_t rec_words){
   zijkmax = ((zijkmax + 1) >> 1) << 1 ;                     // round up to multiple of 2
   zijkmax = zijkmax - (sizeof(fmap) / 2) ;                  // base size of data map in 16 bit units
   recsize = frecsize + (zijkmax + 1) * sizeof(uint64_t) ;   // add size of estimated offsets table
-  recsize = recsize + sizeof(mmap) ;
-  recsize = ((recsize + 7) >> 3) << 3 ;                     // round up to multiple of 8
+  recsize = recsize + sizeof(mmap) ;                        // add mmap struct size
+  recsize = ((recsize + 7) >> 3) << 3 ;                     // round up to multiple of 8 (offsets at top must be 64 bit aligned)
 
 fprintf(stderr, "create_file_zmap : map_words = %d, rec_words = %d, zmap size = %ld, est max blocks + 1 = %d, frecsize = %ld words\n",
         map_words, rec_words, recsize/sizeof(uint32_t), zijkmax, frecsize/sizeof(uint32_t)) ;
   zmap *map = (zmap *) malloc(recsize) ;     // attempt to allocate
 
   if(map != NULL){
-    map->mhead = base_mmap ;                           // set signature and version
+    map->mhead = base_mmap ;                                // set signature and version
     // entire zmap struct (with or without space for data stream)
-    SET_RANGE(map->mhead.zrng, map, recsize) ;
+    SET_RANGE(map->mhead.zrng, map, recsize) ;              // sizeof(mmap) + file record size + offsets table
 
     // fmap : base size + sizes table + mextra == data map size from record metadata
     SET_RANGE(map->mhead.frng, &(map->fhead.signature), map_words * sizeof(uint32_t)) ;
@@ -179,7 +179,7 @@ fprintf(stderr, "map only, no data\n");
     }else{
 fprintf(stderr, "map and data\n");
       map->mhead.drng.bot = map->mhead.frng.top ;                // address of data is just above data map
-      SET_RANGE_SIZE(map->mhead.drng, frecsize) ;
+      SET_RANGE_SIZE(map->mhead.drng, frecsize - mapsize) ;      // file record size = map size + data size
     }
 
     // sizes[] table (address known , size unknown yet)
@@ -235,8 +235,8 @@ void zmap_print(zmap *map, char *msg){
     fprintf(stderr, "zmap %s : INVALID signature, expected 0x1AD0FADA, got %8.8x\n", msg, map->fhead.signature) ;
     return ;
   }
-  char *f1 = "   %s :  %16p -> %16p [+%6d] (%ld bytes)\n" ;
-  char *f2 = "   %s :  %16p -> %16p           (%ld bytes)\n" ;
+  char *f1 = "   %s   %16p -> %16p [+%6d] (%ld bytes)\n" ;
+  char *f2 = "   %s   %16p -> %16p           (%ld bytes)\n" ;
   size_t fmap_size = RANGE_SIZE(map->mhead.frng) ;
   size_t smap_size = RANGE_SIZE(map->mhead.srng) ;
   size_t xmap_size = RANGE_SIZE(map->mhead.xrng) ;
@@ -245,7 +245,8 @@ void zmap_print(zmap *map, char *msg){
   size_t zmap_size = RANGE_SIZE(map->mhead.zrng) ;
   fprintf(stderr, "zmap %s : version %4.4x, '%4.4x', options = %8.8x, bit stream at %p \n",
           msg, map->mhead.version, map->mhead.signature, map->mhead.options, &(map->mhead.stream)) ;
-  fprintf(stderr, f1, "FULL", map->mhead.zrng.bot, RANGE_LIMIT(map->mhead.zrng), PTR_DIFF(map,map->mhead.zrng.bot), zmap_size) ;
+  fprintf(stderr, "   COPY   %16p\n   CODEC  %16p\n", map->mhead.get_blocks, map->mhead.codec) ;
+  fprintf(stderr, f1, "ZMAP", map->mhead.zrng.bot, RANGE_LIMIT(map->mhead.zrng), PTR_DIFF(map,map->mhead.zrng.bot), zmap_size) ;
   fprintf(stderr, f1, "File", map->mhead.frng.bot, RANGE_LIMIT(map->mhead.frng), PTR_DIFF(map,map->mhead.frng.bot), fmap_size) ;
   fprintf(stderr, f1, "Smem", map->mhead.srng.bot, RANGE_LIMIT(map->mhead.srng), PTR_DIFF(map,map->mhead.srng.bot), smap_size) ;
   if(map->mhead.xrng.bot)

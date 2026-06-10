@@ -182,23 +182,29 @@ typedef struct{ arg128 arg[2] ; } arg256 ;    // 256 bit memory block
 #define ZERO256 {{ZERO128, ZERO128}}
 static const arg256 zero_256 = ZERO256 ;
 
+typedef struct zmap zmap ;
+typedef struct mmap mmap ;
+typedef struct fmap fmap ;
+
+typedef int32_t block_fn(zmap *, int, int, void *, size_t) ;  // map, first_block, number_of_blocks, destination, destination_size
+typedef block_fn *block_fn_p ;
+typedef int32_t codec_fn(zmap *, void *, void *, int) ;       // map, out, in, number_of_values
+typedef codec_fn *codec_fn_p ;
+
 // NOTE: components not needed/used are nullified
 // TODO ? add file descriptor and file offset to beginning of record/data in file ?
 //        for RSF : READ function and pointer to record struct as argument + offset, size ?
 //        pointer to IO-READ function, blind args array for this function, (*fn)(args, file, offset, size) ?
 //        define a read(map, file, offset, size) function ?
-typedef struct{            // in memory only part of data map
+struct mmap{            // in memory only part of data map
   uint32_t signature ;     // should be 0x1AD0FADA, target for & operator to get address of header
   uint16_t version ;       // version marker (MUST BE the same as in file header)
   uint16_t  options ;      // reserved for internal use options (MUST BE 0 FOR NOW)
   bitstream stream ;       // encoding/decoding bit stream  (see rmn/be_stream.h, rmn/bitstream.h) (should be 64 bytes)
-// TODO ? replace fn and args with pointer to function and blind argument packet of type m_args
-  void *get_block ;        // pointer to get a block function
-  arg128 get_args ;        // arguments to iofn (or arg128)
-  void *codec ;            // pointer to encode/decode function
-  arg128 codec_args ;      // arguments to edfn (or arg128)
-//   void *fn ;               // pointer to encoding function
-//   void *args ;             // pointer to argument(s) for encoding function
+  block_fn *get_blocks ;   // pointer to get block(s) function (*get_block)(zmap *map, int block0, int blockn, void *dest, size_t size_dest)
+  arg128 get_args ;        // for use by block_fn
+  codec_fn *codec ;        // pointer to encode/decode function (*codec)(zmap *map, void *block, void *dest, size_t size_dest)
+  arg128 codec_args ;      // for use by codec_fn
   RANGE(uint32_t) xrng ;   // address range for "extra" information
   RANGE(uint32_t) frng ;   // address range for the file portion of the data map (includes "extra" information)
   RANGE(uint16_t) srng ;   // address range for the sizes table (uint16_t items)
@@ -206,7 +212,7 @@ typedef struct{            // in memory only part of data map
   //                          orng.bot[zijk] : offset into data for encoded data blocks (optional)
   RANGE(uint64_t) orng ;   // address range for the memory offsets (uint64_t items)
   RANGE(uint32_t) zrng ;   // address range for the entire data map
-} mmap ;
+} ;
 static const mmap base_mmap = { 0x1AD0FADA, Z_DATA_MAP_VERSION, 0 , NULL_BITSTREAM, NULL, ZERO128, NULL, ZERO128, /*NULL, NULL,*/
                                (uint32_t_range)RANGE_NULL, (uint32_t_range)RANGE_NULL, (uint16_t_range)RANGE_NULL,
                                (uint32_t_range)RANGE_NULL, (uint64_t_range)RANGE_NULL, (uint32_t_range)RANGE_NULL } ;
@@ -214,7 +220,7 @@ static const mmap base_mmap = { 0x1AD0FADA, Z_DATA_MAP_VERSION, 0 , NULL_BITSTRE
 CT_ASSERT(sizeof(mmap) == (sizeof(mmap) / sizeof(int64_t)) * sizeof(int64_t) , "mmap struc size not a multiple of 64 bits")
 
 // TODO: add options for 3D storage ni/nj/nk vs nk/ni/nj vs ... and compression(2D/3D) ?
-typedef struct{            // in file part of data map (also present in memory, after mmap)
+struct fmap{       // in file part of data map (also present in memory, after mmap)
     uint32_t signature ;   // should be 0xBEBEFADA, target for & operator to get address of header
     uint16_t version ;     // version marker (MUST BE the same as in memory header)
     uint16_t extra ;       // extra metadata size after block sizes table in 32 bit units (often 0)
@@ -229,7 +235,7 @@ typedef struct{            // in file part of data map (also present in memory, 
     int16_t  znj ;         // number of block rows
     int16_t  lj0 ;         // second dimension of block(s) in the first (bottom) row
     int16_t  lnj ;         // second dimension of all but first (bottom) block in column(s) (number of values)
-} fmap ;
+} ;
 static const fmap null_fmap = {          0,                  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0} ;
 static const fmap base_fmap = { 0xBEBEFADA, Z_DATA_MAP_VERSION, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0} ;
 
@@ -238,7 +244,7 @@ CT_ASSERT(sizeof(fmap) == (sizeof(fmap) / sizeof(int32_t)) * sizeof(int32_t) , "
 // in memory data map struct
 // the first part (mhead) is only present in memory
 // the second part (fhead) is the file data map
-typedef struct{
+struct zmap{
   // ----------------   memory header    ----------------
   mmap mhead ;
   // ---------------- start of file record  -------------
@@ -253,13 +259,13 @@ typedef struct{
 // "data stream" (encoded bit stream)
     // ---------------  end of file record --------------
 // "pointer table" (never written into file)
-}zmap ;
-
+} ;
 CT_ASSERT(sizeof(zmap) == (sizeof(zmap) / sizeof(int32_t)) * sizeof(int32_t) , "zmap struc size not a multiple of 32 bits")
 
 #define ZMAP_WORDS(MAP) RANGE_ELEMENTS((MAP)->mhead.zrng)
 #define FILEMAP_WORDS(MAP) RANGE_ELEMENTS((MAP)->mhead.frng)
-#define RECORD_WORDS(MAP) RANGE_ELEMENTS((MAP)->mhead.drng)
+#define DATA_WORDS(MAP) RANGE_ELEMENTS((MAP)->mhead.drng)
+#define RECORD_WORDS(MAP) (FILEMAP_WORDS(MAP) + DATA_WORDS(MAP))
 #define BLOCK_OFFSET(MAP, BLOCK) ((MAP)->mhead.orng.bot[(BLOCK)])
 #define BLOCK_WORDS(MAP, BLOCK) ((MAP)->size[(BLOCK)])
 #define ZMAP_TOTAL_BLOCKS(MAP) ((MAP)->fhead.zijk)
