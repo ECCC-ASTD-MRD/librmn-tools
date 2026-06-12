@@ -320,7 +320,7 @@ int32_t Zindex_from_ij(int32_t i, int32_t j, int32_t nti, int32_t ntj, int32_t s
 index_pair Zindex_to_ij(int32_t zij, int32_t nti, int32_t ntj, int32_t sf0);
 int32_t  Z_map_index(zmap *map, int32_t i, int32_t j);
 #endif
-index_pair  block_index(zmap *map, int32_t i, int32_t j);
+index_pair  map_block_position(zmap *map, int32_t i, int32_t j);
 ij_range map_block_limits(zmap *map, int32_t i, int32_t j);
 
 zmap *create_file_zmap(uint32_t map_words, uint32_t rec_words);
@@ -329,6 +329,7 @@ int update_file_zmap(zmap *map);
 zmap *create_zmap(int32_t gni, int32_t gnj, int32_t gnk,
                   int32_t bi_size, int32_t aspect, int32_t esize,
                   int32_t mextra, int32_t zextra, int32_t zsize);
+int free_zmap(zmap *map);
 
 int fmap_invalid(zmap *map);
 void fmap_init(zmap *map, int32_t gni, int32_t gnj, int32_t gnk, int32_t bsizex, int32_t bsizey, array_axis_3d *a3, int32_t mextra, int32_t bextra);
@@ -341,19 +342,19 @@ uint32_t filemap_words(zmap *map);
 uint32_t filemap_blocks(int32_t gni, int32_t gnj, int32_t gnk, int32_t bsizex, int32_t bsizey);
 
 size_t filemap_needed_words(int32_t gni, int32_t gnj, int32_t gnk, int32_t bsizex, int32_t bsizey, int32_t bextra);
-size_t filemap_needed_size(int32_t gni, int32_t gnj, int32_t gnk, int32_t bsizex, int32_t bsizey, int32_t bextra);
-size_t zmap_needed_size(int32_t gni, int32_t gnj, int32_t gnk, int32_t bsizex, int32_t bsizey, int32_t bextra);
+size_t filemap_needed_bytes(int32_t gni, int32_t gnj, int32_t gnk, int32_t bsizex, int32_t bsizey, int32_t bextra);
+size_t zmap_needed_bytes(int32_t gni, int32_t gnj, int32_t gnk, int32_t bsizex, int32_t bsizey, int32_t bextra);
 
-uint64_t *mem_zmap(zmap *map, uint32_t *data, size_t size);
-int bsize_zmap(zmap *map, size_t esize);
-int fillmem_zmap(zmap *map);
-ssize_t repack_map(zmap *map);
-ssize_t resize_map(zmap *map);
-int     free_zmap(zmap *map, int full);
-void print_zmap(zmap *map, char *msg);
+// uint64_t *mem_zmap(zmap *map, uint32_t *data, size_t size);
+// int bsize_zmap(zmap *map, size_t esize);
+// int fillmem_zmap(zmap *map);
+// ssize_t repack_map(zmap *map);
+// ssize_t resize_map(zmap *map);
+// void print_zmap(zmap *map, char *msg);
 
 static inline int zmap_index_invalid(zmap *map, int index){
-  return (index < 0 || index >= map->fhead.zni * map->fhead.znj) ;
+  int zijk = map->fhead.zijk ;
+  return (index < 0 || index >= zijk) ;
 }
 
 // need block_properties definition

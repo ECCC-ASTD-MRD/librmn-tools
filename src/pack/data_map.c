@@ -104,11 +104,11 @@ int32_t Z_map_index(zmap *map, int32_t i, int32_t j){
 // i      [IN] : i (column) position in 2D grid
 // j      [IN] : j (row) position in 2D grid
 // return [i,j] block coordinates (different from z index)
-index_pair block_index(zmap *map, int32_t i, int32_t j){
+index_pair map_block_position(zmap *map, int32_t i, int32_t j){
   index_pair ij = {.i = -1, .j = -1 } ;  // precondition for failure
   if(map->fhead.gni > i && map->fhead.gnj > j){
-    ij.i = b_index(i, map->fhead.lni, map->fhead.li0) ;
-    ij.j = b_index(j, map->fhead.lnj, map->fhead.lj0) ;
+    ij.i = block_index(i, map->fhead.lni, map->fhead.li0) ;
+    ij.j = block_index(j, map->fhead.lnj, map->fhead.lj0) ;
   }
   return ij ;
 }
@@ -123,17 +123,17 @@ ij_range map_block_limits(zmap *map, int32_t bi, int32_t bj){
 
   if(bi < map->fhead.zni && bj < map->fhead.znj && bi >= 0 && bj >= 0){  // inside map limits ?
     index_range r ;
-    r = r_limits(bi, map->fhead.lni, map->fhead.li0) ;                   // get block limits along first dimension (row)
+    r = index_limits(bi, map->fhead.lni, map->fhead.li0) ;                   // get block limits along first dimension (row)
     ij.i0 = r.ix0 ; ij.in = r.ixn ;
-    r = r_limits(bj, map->fhead.lnj, map->fhead.lj0) ;                   // get block limits along second dimension (column)
+    r = index_limits(bj, map->fhead.lnj, map->fhead.lj0) ;                   // get block limits along second dimension (column)
     ij.j0 = r.ix0 ; ij.jn = r.ixn ;
   }
   return ij ;
 }
 
-// allocate a new zmap struct in memory, using sizes from file (meta[1] and record size in record)
+// allocate a new zmap struct in memory, using data map size (meta[1]) and record size from file directory)
 // map_words [IN] : size in 32 bit units of data map from rsf file ( 0 if no data map in record )
-// rec_words [IN] : size in 32 bit units of data record from rsf file (0 if no data portion to be allocated)
+// rec_words [IN] : size in 32 bit units of data record from rsf file (0 if no data component to allocate)
 // return address of zmap (space for data stream is optional)
 //
 // zmap will be nullified except for mmap signature, version, and the address ranges
@@ -142,6 +142,7 @@ ij_range map_block_limits(zmap *map, int32_t bi, int32_t bj){
 // rec_words < map_words is the same as rec_words == 0
 // in intending to only read the data map, set rec_words to 0
 // if rec_words > map_words, map_words is ignored and rec_words is used
+// rec_words will be zero if data is expected to be read by block(s) at a later time
 zmap *create_file_zmap(uint32_t map_words, uint32_t rec_words){
   size_t mapsize = map_words * sizeof(uint32_t) ;           // data map only
   size_t recsize = rec_words * sizeof(uint32_t) ;           // data map and data stream
@@ -169,7 +170,7 @@ fprintf(stderr, "create_file_zmap : map_words = %d, rec_words = %d, zmap size = 
     SET_RANGE(map->mhead.frng, &(map->fhead.signature), map_words * sizeof(uint32_t)) ;
 
     // "extra region" size and bottom address will be known once the data map has been read from file
-    // top is at top of data map
+    // top is at top of fmap
     map->mhead.xrng.top = map->mhead.xrng.bot = map->mhead.frng.top ;
 
     // "data region" not including "extra"
@@ -182,10 +183,10 @@ fprintf(stderr, "map and data\n");
       SET_RANGE_SIZE(map->mhead.drng, frecsize - mapsize) ;      // file record size = map size + data size
     }
 
-    // sizes[] table (address known , size unknown yet)
-    SET_RANGE(map->mhead.srng, &(map->size), 0) ;
+    // sizes[] table (bottom address known , size unknown yet)
+    SET_RANGE(map->mhead.srng, &(map->size), 0) ;                // set size to 0 for now
 
-    // worst case estimate of number of blocks : zijkmax, will know correct value after data map is read
+    // worst case estimate of number of blocks : zijkmax, the correct value will be known after the data map is read
     map->mhead.orng.top = (void *)(map->mhead.zrng.top) ;        // offset table top at top of zmap
     map->mhead.orng.bot = map->mhead.orng.top - zijkmax ;        // there is room for up to zijkmax entries
 
@@ -194,37 +195,44 @@ fprintf(stderr, "map and data\n");
   return map ;
 }
 
+#undef FAIL
+#define FAIL(ERR,MSG) { status = ERR ; fprintf(stderr, "ERROR (%d) : %s\n", ERR, MSG); goto fail ; }
+
 // update contents of mmap after fmap part has been read from file
 // map   [INOUT] : pointer to valid zmap struct
+// value of mextra and number of blocks (zijk) are now known
 int update_file_zmap(zmap *map){
   int status = fmap_invalid(map) ;
   if(status != 0) return status ;      // are the fmap struct contents valid ?
 //   void *offset = NULL ;
 
-  // "extra" region size and position can now be determined
-  map->mhead.xrng.top = map->mhead.frng.top ;                       // top of "extra" at top of fmap
+  // "extra" region size and bottom position can now be determined, top of "extra" should be at top of fmap
+  if(PTR(map->mhead.xrng.top) != PTR(map->mhead.frng.top)) FAIL(1, "xrng.top != frng.top") ;
   map->mhead.xrng.bot = map->mhead.frng.top - map->fhead.extra ;    // extra is in 32 bit units, top and bot are pointers to 32 bit integers
 
-  // fix bottom address of data  (must include "extra") if there is room for data (data bottom pointer not NULL)
-  if(map->mhead.drng.bot != NULL){
-    map->mhead.drng.bot = map->mhead.xrng.top ;
+  // check bottom address of data if there is data (data bottom pointer not NULL), data should be just above "extra"
+  if(map->mhead.drng.bot != NULL){                                  // there is data
+    if(PTR(map->mhead.drng.bot) != PTR(map->mhead.xrng.top)) FAIL(2, "drng.bot != xrng.top") ;
   }
   // update sizes table range
   SET_RANGE(map->mhead.srng, &(map->size), sizeof(fmap_block_size) * map->fhead.zijk) ;
   // update offsets/offset range orng
-  if(PTR(map->mhead.zrng.top) != PTR(map->mhead.orng.top)){    // offset table top should be at top of zmap
-    fprintf(stderr, "ERROR : zrng.top != orng.top\n");
-    return 1 ;
+  if(PTR(map->mhead.zrng.top) != PTR(map->mhead.orng.top)){         // offset table top should be at top of zmap
+    FAIL(3, "zrng.top != orng.top");
   }
   map->mhead.orng.top = (void *)(map->mhead.zrng.top) ;
   int32_t zijkmax = 1 + map->fhead.zijk ;
-  map->mhead.orng.bot = map->mhead.orng.top - zijkmax ;        // there is room for up to zijkmax entries
-  // fill offset table using sizes table
+  map->mhead.orng.bot = map->mhead.orng.top - zijkmax ;             // there is room for up to zijkmax entries
+
   map->mhead.orng.bot[0] = 0 ;
-  for(int i = 1 ; i < zijkmax ; i++){
+  for(int i = 1 ; i < zijkmax ; i++){                               // fill offsets table using sizes table
     map->mhead.orng.bot[i] = map->mhead.orng.bot[i-1] + map->size[i-1] ;
   }
-  return 0 ;
+
+  return status ;
+
+fail:
+  return status ;
 }
 
 // print contents of memory header from zmap
@@ -283,16 +291,16 @@ int fmap_invalid(zmap *map){
 // gni     [IN] : first dimension of array (row size)
 // gnj     [IN] : second dimension of array (number of rows)
 // gnk     [IN] : third dimension of array (number of planes)
-// bsizex  [IN] : blocking size along the first dimension (i)
-// bsizey  [IN] : blocking size along the second dimension (i)
+// bsizei  [IN] : blocking size along the first dimension (i)
+// bsizej  [IN] : blocking size along the second dimension (i)
 // a3      [IN] : optional pointer to array axis struct, if NULL, split_axis_3d will be called
 // mextra  [IN] : length of extra metadata (in 32 bit units)
 // bextra  [IN] : extra number of blocks to add to decomposition
-// bsizex and bsizey are used only when a3 == NULL
-void fmap_init(zmap *map, int32_t gni, int32_t gnj, int32_t gnk, int32_t bsizex, int32_t bsizey, array_axis_3d *a3, int mextra, int bextra){
+// bsizei and bsizej are used only when a3 == NULL
+void fmap_init(zmap *map, int32_t gni, int32_t gnj, int32_t gnk, int32_t bsizei, int32_t bsizej, array_axis_3d *a3, int mextra, int bextra){
   array_axis_3d r ;
   if(a3 == NULL){
-    r = split_axis_3d(gni, gnj, gnk, bsizex, bsizey) ;    // 3D decomposition not supplied, compute it
+    r = split_axis_3d(gni, gnj, gnk, bsizei, bsizej) ;    // 3D decomposition not supplied, compute it
     a3 = &r ;
   }
   if(bextra < 0) bextra = 0 ;
@@ -311,6 +319,9 @@ void fmap_init(zmap *map, int32_t gni, int32_t gnj, int32_t gnk, int32_t bsizex,
   map->fhead.extra = mextra ;
 }
 
+// print description of the fixed part of the fmap component of a data map
+// map [IN] : pointer to zmap (mmap/fmap/sizes/...) struct
+// msg [IN] : extra text for message
 void fmap_print(zmap *map, char *msg){
   int code = fmap_invalid(map) ;
   if(code != 0) fprintf(stderr, "ERROR: %s (%d) invalid map\n", msg, code) ;
@@ -326,74 +337,88 @@ void fmap_print(zmap *map, char *msg){
 }
 
 // address of file data map in zmap memory structure
+// map [IN] : pointer to zmap (mmap/fmap/sizes/...) struct
+// return a pointer to the fmap component of a data map
 void *filemap_address(zmap *map){
   return &(map->fhead.signature) ;
 }
 
 // size of file data map in 32 bit units
+// map [IN] : pointer to zmap (mmap/fmap/sizes/...) struct
+// return the size of the data map in the file (in 32 bit words)
 uint32_t filemap_words(zmap *map){
   return ( RANGE_ELEMENTS(map->mhead.frng) );
 }
 
-uint32_t filemap_blocks(int32_t gni, int32_t gnj, int32_t gnk, int32_t bsizex, int32_t bsizey){
-  array_axis_3d r = split_axis_3d(gni, gnj, gnk, bsizex, bsizey) ;
+// compute the number of data blocks in the data map
+// gni    [IN] : first dimension of array
+// gnj    [IN] : second dimension of array
+// gnk    [IN] : third dimension of array
+// bsizei [IN] : blocking size along the first dimension
+// bsizej [IN] : blocking size along the second dimension
+uint32_t filemap_blocks(int32_t gni, int32_t gnj, int32_t gnk, int32_t bsizei, int32_t bsizej){
+  array_axis_3d r = split_axis_3d(gni, gnj, gnk, bsizei, bsizej) ;
 // fprintf(stderr, "\n   x axis 1 x %d, %d x %d, y axis 1 x %d, %d x %d\n", r.x.ln0, r.x.nbk-1, r.x.ln1, r.y.ln0, r.y.nbk-1, r.y.ln1);
   return (r.x.nbk * r.y.nbk * r.z.nbk) ;
 }
 
-// needed size in bytes of file data map
-size_t filemap_needed_size(int32_t gni, int32_t gnj, int32_t gnk, int32_t bsizex, int32_t bsizey, int32_t bextra){
-  uint32_t blocks = filemap_blocks(gni, gnj, gnk, bsizex, bsizey) + bextra ;
+// needed size in bytes for the file component of the data map
+// gni    [IN] : first dimension of array
+// gnj    [IN] : second dimension of array
+// gnk    [IN] : third dimension of array
+// bsizei [IN] : blocking size along the first dimension
+// bsizej [IN] : blocking size along the second dimension
+// bextra [IN] : number of "extra" blocks (usually 0)
+size_t filemap_needed_bytes(int32_t gni, int32_t gnj, int32_t gnk, int32_t bsizei, int32_t bsizej, int32_t bextra){
+  uint32_t blocks = filemap_blocks(gni, gnj, gnk, bsizei, bsizej) + bextra ;
   blocks = (blocks + 1) & 0xFFFFFFFE ;  // force number of blocks to even number >= number of blocks
   return ( blocks * sizeof(fmap_block_size) + sizeof(fmap) ) ;
 }
 
-// needed size in 32 bit units of file data map
-size_t filemap_needed_words(int32_t gni, int32_t gnj, int32_t gnk, int32_t bsizex, int32_t bsizey, int32_t bextra){
-  return filemap_needed_size(gni, gnj, gnk, bsizex, bsizey, bextra) / sizeof(uint32_t) ;
+// needed size in 32 bit units to accomodate the file component of the data map
+// see filemap_needed_bytes for argument description
+size_t filemap_needed_words(int32_t gni, int32_t gnj, int32_t gnk, int32_t bsizei, int32_t bsizej, int32_t bextra){
+  return filemap_needed_bytes(gni, gnj, gnk, bsizei, bsizej, bextra) / sizeof(uint32_t) ;
 }
 
-size_t zmap_needed_size(int32_t gni, int32_t gnj, int32_t gnk, int32_t bsizex, int32_t bsizey, int32_t bextra){
-  return filemap_needed_size(gni, gnj, gnk, bsizex, bsizey, bextra) + sizeof(mmap) ;
+// needed size in bytes for the entire zmap struct
+// see filemap_needed_bytes for argument description
+size_t zmap_needed_bytes(int32_t gni, int32_t gnj, int32_t gnk, int32_t bsizei, int32_t bsizej, int32_t bextra){
+  return filemap_needed_bytes(gni, gnj, gnk, bsizei, bsizej, bextra) + sizeof(mmap) ;   // add size of mmap component
 }
 
 // b_size [IN] : blocking size along first dimension (i)
-// aspect [IN] : 2D aspect ratio (size along j = aspect * size along i) (1/2/3/4 supported, other values ignored)
-// return a pair of adequate block sizes
+// aspect [IN] : 2D aspect ratio (size along j = aspect * size along i) (1/2/3/4 supported, other values same as 1)
+// return a pair of adequate blocking sizes
 static size_pair adjust_bsize(int32_t b_size, int32_t aspect){
-  int32_t bi_size = b_size, bj_size ;
+  int32_t bi_size, bj_size ;
 
-  if(bi_size <= 0) bi_size = 64 ;                                                          // default block size, 64 x 64
-  bj_size = bi_size ;                                                                      // aspect ratio of 1 by default
+  bi_size = (b_size <= 0) ? 64 : b_size ;                                                  // default block size, 64 x 64
+  bj_size = bi_size ;                                                                      // aspect ratio is 1 by default
   if(aspect == 2) { bi_size = bi_size * 3 / 4 ; bj_size = bi_size * 2 ; }                  // 48 x  96 if default size
   if(aspect == 3) { bi_size = bi_size * 5 / 8 ; bj_size = bi_size * 3 ; }                  // 40 x 120 if default size
   if(aspect == 4) { bi_size = bi_size / 2     ; bj_size = bi_size * 4 ; }                  // 32 x 128 if default size
-  bi_size = (bi_size + 15) & 0xFFFFF0         ; bj_size = (bj_size + 15) & 0xEFFFFFF0 ;    // round to upper multiple of 16
+  bi_size = (bi_size + 15) & 0xEFFFFFF0       ; bj_size = (bj_size + 15) & 0xEFFFFFF0 ;    // round to >= multiple of 16
   bi_size = (bi_size < 32) ? 32 : bi_size     ; bj_size = (bj_size < 32) ? 32 : bj_size ;  // block size at least 32 x 32
 
   return (size_pair) { bi_size, bj_size } ;
 }
 
-// TODO:
-// separate zmap create from zmap populate ?
-// function to calculate worst case data size from block_sizes[]
-//
-// create a data map with a worst case buffer for map, packed data, and all tables
+// create a data map large enough to accomodate map, buffer for worst case packed data, and all tables
 // gni     [IN] : first dimension of array (row size)
 // gnj     [IN] : second dimension of array (number of rows)
 // gnk     [IN] : third dimension of array (number of planes)
 // bi_size [IN] : blocking size along first dimension (i)
 // aspect  [IN] : 2D aspect ratio (size along j = aspect * size along i) (1/2/3/4 supported, other values ignored)
 // esize   [IN] : size in bytes of array elements (supported : 1/2/4/8/16)
-// mextra  [IN] : size of extra global information for data decoding (in 32 bit units)
+// mextra  [IN] : max size of extra global information for data decoding (in 32 bit units)
 // zextra  [IN] : number of extra blocks (usually 0)
 // zsize   [IN] : size needed (in bytes) for extra blocks (0 if zextra == 0)
 // return pointer to initialized zmap struct, NULL if error
-//               mextra will be rounded to a multiple of sizeof(uint32_t) >= mextra
 // NOTE: array dimensions are Fortran ordered (i index varying first)
-// esize > 16 is not supported
+// esize > 16 is not supported for now
 // mextra may get updated later, provided that the new value is < value at zmap creation time
-// in that case, frng and xrng would need to be updated
+// in that case, frng, xrng, drng will need to be updated too
 zmap *create_zmap(int32_t gni, int32_t gnj, int32_t gnk, int32_t bi_size, int32_t aspect, int32_t esize,
                   int32_t mextra, int32_t zextra, int32_t zsize){
 
@@ -417,12 +442,10 @@ zmap *create_zmap(int32_t gni, int32_t gnj, int32_t gnk, int32_t bi_size, int32_
     fprintf(stderr, "gni = %d, gnj = %d, gnk = %d, b_size = (%d,%d), zni = %d, znj = %d, zijk1 = %d\n", gni, gnj, gnk, bij.i, bij.j, zni, znj, zijk1);
   }
 
-  size_t size, /*bsize,*/ /*hsize,*/ dsize, osize, fsize ;
+  size_t size, dsize, osize, fsize ;
   fsize = sizeof(fmap) + sizeof(fmap_block_size) * zijk1 ;      // size of data map part that gets written into file
   size  = sizeof(zmap) + sizeof(fmap_block_size) * zijk1 ;      // base size of data map + table of sizes
-//   bsize = size ;                                                // size without data and without extra information
   size  = size + mextra * sizeof(uint32_t) ;                    // size += size of extra information
-//   hsize = size ;                                                // size without data but including extra information
 
   // worst case : esize * nb_of_values + number_of_blocks * (4 + 4)  (4 bytes round up + 4 bytes overhead per block)
   dsize = gni * gnj * gnk * esize + zni * znj * znk * 8 ;       // worst case size needed to encode data
@@ -453,8 +476,6 @@ zmap *create_zmap(int32_t gni, int32_t gnj, int32_t gnk, int32_t bi_size, int32_
   // block offsets address range
   map->mhead.orng.top = (void *)map->mhead.zrng.top ;           // top of offsets table is top of zmap
   map->mhead.orng.bot = map->mhead.orng.top - (zijk + 1) ;      // base address of offsets table [zijk+1]
-//   uint64_t *offset = PTR_OFFSET(map, size - osize) ;
-//   SET_RANGE(map->mhead.orng, offset, (zijk+1) * sizeof(void *)) ;
   // initialize offsets and sizes table
   for(uint32_t ui=0 ; ui<zijk ; ui++){
     map->mhead.orng.bot[ui] = 0 ;                               // no valid offset
@@ -473,26 +494,27 @@ zmap *create_zmap(int32_t gni, int32_t gnj, int32_t gnk, int32_t bi_size, int32_
   return map ;
 
 fail :          // free what was allocated internally
-  if(map){
-    free(map) ;
-  }
+  if(map){ free(map) ; }
   return NULL ;
 }
 
-// adjust offset contents according to sizes
-int fillmem_zmap(zmap *map){
+// adjust offset table using the sizes table
+// map [INOUT] : pointer to zmap (mmap/fmap/sizes/...) struct
+// return number of entries in tables if successful, 0 otherwise
+int adjust_map_offsets(zmap *map){
   if(map == NULL) return 0 ;
-  int ij, nij ;
+  uint32_t nijk = map->fhead.zijk ;
   uint64_t t ;
-  nij = map->fhead.zni * map->fhead.znj ;
-  for(ij=0 ; ij<nij ; ij++){
-    t = map->mhead.orng.bot[ij] + map->size[ij] ;
-//     if((uint8_t *)t >= map->mhead.limit) return 0 ;
-    map->mhead.orng.bot[ij+1] = t ;
+  uint64_t limit = RANGE_SIZE(map->mhead.drng) ;    // max number of data elements that can be accomodated
+  map->mhead.orng.bot[0] = 0 ;
+  for(uint32_t i=0 ; i<nijk ; i++){
+    t = map->mhead.orng.bot[i] + map->size[i] ;
+    if(t > limit) return 0 ;                        // data size exceeded
+    map->mhead.orng.bot[i+1] = t ;
   }
-  return nij ;
+  return nijk ;
 }
-
+#if 0
 // create sizes from block dimensions
 int bsize_zmap(zmap *map, size_t esize){
   if(map == NULL) return 0 ;
@@ -512,7 +534,7 @@ int bsize_zmap(zmap *map, size_t esize){
 }
 
 // TODO : redo the whole function
-#if 0
+
 // (re)allocate table of pointers to packed blocks, fill it using map->size
 // map  [INOUT] : pointer to data map
 // data    [IN] : pointer to start of packed data (if NULL, packed data follows map in memory)
@@ -560,11 +582,16 @@ uint64_t *mem_zmap(zmap *map, uint32_t *data, size_t size){
 
 // NOTE if first/last/limit out of map we have an external bit stream buffer
 
-// full/partial deallocation of data map and its components
+// deallocation of data map
 // map  [INOUT] : pointer to data map
 // full    [IN] : if zero, only deallocate pointer table to packed blocks
-int free_zmap(zmap *map, int full){
-  if(map == NULL) return -1 ;
+int free_zmap(zmap *map){
+  if(map == NULL) return 1 ;
+  // INVALIDATE map to prevent accidents in case of memory reuse
+  map->mhead = base_mmap ;
+  map->mhead.signature = 0 ;
+  free(map) ;
+  return 0 ; // success
   // free offset if not inside zmap struct
 //   if(map->mhead.offset){
 //     if(DEBUG) fprintf(stderr, "freeing map->mhead.offset at %p\n", map->mhead.offset) ;
@@ -577,16 +604,16 @@ int free_zmap(zmap *map, int full){
 //     free(map->mhead.options) ;
 //   }
 //   map->mhead.options = NULL ;
-  if(full) {
-    // NULLIFY map to prevent accidents in case of memory reuse
-    map->mhead = base_mmap ;
-    map->mhead.signature = 0 ;
-    free(map) ;
-if(DEBUG) fprintf(stderr, "FULL map free\n") ;
-  }else{
-if(DEBUG) fprintf(stderr, "PART map free\n") ;
-  }
-  return 0 ;
+//   if(full) {
+//     // NULLIFY map to prevent accidents in case of memory reuse
+//     map->mhead = base_mmap ;
+//     map->mhead.signature = 0 ;
+//     free(map) ;
+// if(DEBUG) fprintf(stderr, "FULL map free\n") ;
+//   }else{
+// if(DEBUG) fprintf(stderr, "PART map free\n") ;
+//   }
+//   return 0 ;
 }
 // TODO : redo the whole function
 #if 0

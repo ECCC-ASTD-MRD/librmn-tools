@@ -103,7 +103,7 @@ int main(int argc, char **argv){
 fprintf(stderr, " new_zmap will change \n") ;
     goto fail ;     // new_zmap will change
 //     map = new_zmap(dims[0], dims[1], 1, 64, aspect = 1, sizeof(int32_t), mextra = 16) ;
-    free_zmap(map, 1) ;
+    free_zmap(map) ;
 //     nw32 = map_compress_2d(buf, dims, map, filters, bitstream) ;
 
     fprintf(stderr, "\n");

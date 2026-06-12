@@ -256,23 +256,30 @@ void  test_fill_size(int zni, int znj, fmap_block_size size[znj][zni], zmap *map
 }
 
 void test_fill_data(int gni, int gnj, uint32_t data[gnj][gni]){
-  for(int j=0 ; j<gnj ; j++){
-    for(int i=0 ; i<gni ; i++){
-      data[j][i] = (i<<8) | (j) ;
+  if(gni < 256 && gnj < 256){
+    for(int j=0 ; j<gnj ; j++){
+      for(int i=0 ; i<gni ; i++){
+        data[j][i] = (i<<8) | (j) ;
+      }
+    }
+  }else{
+    for(int j=0 ; j<gnj ; j++){
+      for(int i=0 ; i<gni ; i++){
+        data[j][i] = (i<<16) | (j) ;
+      }
     }
   }
 }
 
 int main(int argc, char **argv){
   (void)(argc) ; (void)(argv) ;  //  suppress unused argument warning
-  int i, j, znij ;
+  int i, j ;
 //   int x[NTI], y[NTI] ;
 //   index_pair ijp ;
   index_range irange ;
 //   ij_range ijr ;
   char *msg = "" ;
   int32_t gni, gnj, gnk, bsize, aspect, bsizej ;
-  zmap *map = NULL ;
   int32_t bextra = 3 ;
   int32_t mextra = 4 ;
 
@@ -304,10 +311,10 @@ test:
 
     uint32_t blocks = filemap_blocks(gni, gnj, gnk, bsize, bsizej);
     fprintf(stderr, "array[%d,%d,%d], block size = [%d:%d], nblocks = %d", gni, gnj, gnk, bsize, bsizej, blocks) ;
-    fprintf(stderr, ", file map size = %ld words\n", filemap_needed_size(gni, gnj, gnk, bsize, bsizej, bextra)/sizeof(uint32_t)) ;
-    uint32_t nwords = filemap_needed_size(gni, gnj, gnk, bsize, bsizej, bextra)/sizeof(uint32_t) ;
+    fprintf(stderr, ", file map size = %ld words\n", filemap_needed_bytes(gni, gnj, gnk, bsize, bsizej, bextra)/sizeof(uint32_t)) ;
+    uint32_t nwords = filemap_needed_bytes(gni, gnj, gnk, bsize, bsizej, bextra)/sizeof(uint32_t) ;
     if(filemap_needed_words(gni, gnj, gnk, bsize, bsizej, bextra) != nwords) {
-      fprintf(stderr, "ERROR: filemap_needed_words | filemap_needed_size mismatch\n");
+      fprintf(stderr, "ERROR: filemap_needed_words | filemap_needed_bytes mismatch\n");
       goto fail ;
     }
 
@@ -415,12 +422,12 @@ goto success ;
     if(ln0==ln/2 || ln0==ln || ln0==2*ln-1) {
       fprintf(stderr, "ln0 = %3d, ln = %3d, %4d values,", ln0, ln, ln0 + (NTI-1)*ln) ;
 //       ijp = b_limits(0, ln, ln0) ;
-      irange = r_limits(0, ln, ln0) ;
+      irange = index_limits(0, ln, ln0) ;
       fprintf(stderr, " first block [%4d,%4d] (size = %3d),", irange.ix0, irange.ixn, irange.ixn-irange.ix0+1) ;
     }
     for(j=0 ; j<NTI ; j++, lb=ln){   // loop over blocks
 //       ijp = b_limits(j, ln, ln0) ;
-      irange = r_limits(j, ln, ln0) ;
+      irange = index_limits(j, ln, ln0) ;
 //       if(ijp.i != i0+1 || ijp.j != i0+lb){
       if(irange.ix0 != i0+1 || irange.ixn != i0+lb){
         fprintf(stderr, "ERROR: block %d limits, expected [%d,%d], got [%d,%d]\n", j, i0+1, i0+lb, irange.ix0, irange.ixn) ;
@@ -428,7 +435,7 @@ goto success ;
       }
       for(i=0 ; i<lb ; i++){
         i0++ ;
-        l = b_index(i0, ln, ln0) ;
+        l = block_index(i0, ln, ln0) ;
         if(l != j){
           fprintf(stderr, "ERROR: index = %d, ln0 = %d, ln = %d, expecting block %d, got %d\n", i0, ln0, ln, j, l) ;
           goto fail ;
@@ -475,6 +482,7 @@ goto success ;
   }
   fprintf(stderr, "SUCCESS\n") ;
 #endif
+#if 0
   fprintf(stderr, "=============== data map creation ===============\n") ;
   gni = 128+65 ; gnj = 256+33 ; aspect = 2 ;
   size_t esize = sizeof(uint32_t) ;
@@ -547,6 +555,7 @@ fprintf(stderr, " new_zmap will change \n") ;
   for(i=0 ; i<znij ; i++) map->size[i] += 2 ;
   newsize = resize_map(map) ;
   if(newsize == oldsize) fprintf(stderr, "SUCCESS\n") ;
+#endif
 #if 0
   fprintf(stderr, "=============== block limits ===============\n") ;
   fprintf(stderr, "blocks[%d,%d] => data[%4d,%4d]", map->fhead.zni, map->fhead.znj, map->fhead.gni, map->fhead.gnj) ;

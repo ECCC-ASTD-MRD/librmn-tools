@@ -16,7 +16,7 @@
 //
 #if ! defined(NULL_ARRAY_AXIS)
 
-// array descriptor split along a dimension (axis)
+// split array along a dimension (axis)
 typedef struct{
   int32_t nbk ;   // number of blocks along a dimension
   int16_t ln0 ;   // size of first block along a dimension
@@ -40,11 +40,18 @@ typedef struct{
   array_axis z ;
 } array_axis_3d ;
 
-// index pair for 2D array
+// size pair for 2D array
 typedef struct{
   int32_t i  ;
   int32_t j  ;
-}size_pair ;             // 2D block size pair
+}size_pair ;
+
+// size trio for 3D array
+typedef struct{
+  int32_t i  ;
+  int32_t j  ;
+  int32_t k  ;
+}size_trio ;
 
 // index pair for 2D array
 typedef struct{
@@ -65,15 +72,16 @@ typedef struct{
   int32_t ixn ;   // index of last element in block along a dimension
 } index_range ;
 // invalid range
-#define INDEX_RANGE_INVALID (index_range) { .ix0=0, .ixn=-1 }
+#define BAD_INDEX_RANGE (index_range) { .ix0=0, .ixn=-1 }
 
+// 2D index range of coordinates
 typedef struct{
   int32_t i0  ;   // index of first point along the first dimension
   int32_t in  ;   // index of last point along the first dimension
   int32_t j0  ;   // index of first point along the second dimension
   int32_t jn  ;   // index of last point along the second dimension
-}ij_range ;       // 2D index range of coordinates
-
+}ij_range ;
+// 3D index range of coordinates
 typedef struct{
   int32_t i0  ;   // index of first point along the first dimension
   int32_t in  ;   // index of last point along the first dimension
@@ -81,29 +89,31 @@ typedef struct{
   int32_t jn  ;   // index of last point along the second dimension
   int32_t k0  ;   // index of first point along the third dimension
   int32_t kn  ;   // index of last point along the third dimension
-}ijk_range ;      // 3D index range of coordinates
+}ijk_range ;
 
 // ==================== ordinal of a block along an axis ====================
 
-// compute block ordinal (along a dimension) from element index and sizes (unsafe)
+// compute block position (along a dimension) using element index and sizes (unsafe)
 // used by axis_b_index
 // l   [IN] : index of array element along an array dimension (origin 0)
 // ln1 [IN] : size of all blocks but first one along a dimension
 // ln0 [IN] : size of first block along a dimension
 // return block ordinal along that dimension (-1 if l < 0)
-static inline int32_t b_index(int32_t l, int32_t ln1, int32_t ln0){
+// no "in range" check is performed on l
+static inline int32_t block_index(int32_t l, int32_t ln1, int32_t ln0){
   if(l < 0) return -1 ;                           // invalid index
   return (l < ln0) ? 0 : ((l + ln1 - ln0)/ln1) ;
 }
 
-// compute ordinal of block that contains element with position index along a dimension
+// compute ordinal of block that contains element at position index along a dimension (unsafe)
 // uses axis_b_index
 // axis  [IN] : axis descriptor
 // index [IN] : position of array element along a dimension (origin 0)
 // return block ordinal containing requested element (-1 if error)
+// no "in range" check is performed on index
 static inline int32_t block_ordinal(int32_t index, array_axis axis){
   if(index < 0) return -1 ;                           // invalid index
-  int ordinal = b_index(index, axis.ln1, axis.ln0) ;
+  int ordinal = block_index(index, axis.ln1, axis.ln0) ;
   return (ordinal >= axis.nbk) ? -1 : ordinal ;       // check for ordinal out of range (beyond last block)
 }
 
@@ -115,10 +125,27 @@ static inline int32_t block_ordinal(int32_t index, array_axis axis){
 // ln1 [IN] : size of all but first block along a dimension
 // ln0 [IN] : size of first block along a dimension (most of the time : ln1/2 <= ln0 < 2*ln1)
 // return index limits along a dimension for this block
-// INDEX_RANGE_INVALID is returned in case of errror
-static inline index_range r_limits(int32_t bl, int32_t ln1, int32_t ln0){
-  if(bl < 0) return INDEX_RANGE_INVALID ;  // return invalid range
+// BAD_INDEX_RANGE is returned in case of errror
+// no "in range" check is performed on bl
+static inline index_range index_limits(int32_t bl, int32_t ln1, int32_t ln0){
+  if(bl < 0) return BAD_INDEX_RANGE ;  // return invalid range
   return (bl == 0) ? (index_range){.ix0 = 0 , .ixn = ln0-1} : (index_range){.ix0 = (bl-1)*ln1 + ln0, .ixn = bl*ln1 + ln0 -1 } ;
+}
+
+// is ordinal "out of range" according to axis description
+// ordinal [IN] : block ordinal(position) along axis
+// axis    [IN] : axis description
+// return 1 if invalid, 0 if valid
+static inline int invalid_index(int32_t ordinal, array_axis axis){
+  return (ordinal >= axis.nbk) || (ordinal < 0) ;
+}
+
+// is ordinal "in range" according to axis description
+// ordinal [IN] : block ordinal(position) along axis
+// axis    [IN] : axis description
+// return 0 if invalid, 1 if valid
+static inline int valid_index(int32_t ordinal, array_axis axis){
+  return (ordinal < axis.nbk) || (ordinal >= 0) ;
 }
 
 // compute index limits given block ordinal using axis descriptor
@@ -126,10 +153,10 @@ static inline index_range r_limits(int32_t bl, int32_t ln1, int32_t ln0){
 // ordinal [IN] : block ordinal(position) along axis
 // axis    [IN] : axis description
 // return indexes of first and last element for this block
-// INDEX_RANGE_INVALID is returned in case of errror
+// BAD_INDEX_RANGE is returned in case of error
 static inline index_range block_limits(int32_t ordinal, array_axis axis){
-  if((ordinal >= axis.nbk) || (ordinal < 0)) return INDEX_RANGE_INVALID ;
-  return r_limits(ordinal, axis.ln1, axis.ln0) ;
+  if(invalid_index(ordinal, axis)) return BAD_INDEX_RANGE ;
+  return index_limits(ordinal, axis.ln1, axis.ln0) ;
 }
 
 // ==================== split along an axis ====================
@@ -141,9 +168,10 @@ static inline index_range block_limits(int32_t ordinal, array_axis axis){
 // if size is even, pieces will be >= bsize/2 or <  bsize + bsize/2
 // if size is odd,  pieces will be >  bsize/2 or <= bsize + bsize/2
 // pieces will be smaller than the minimum size if n is smaller than the minimum size
-// TODO ? force bsize to default size (64 ?) if <= 0
+// set bsize to default size (64) if <= 0
 static inline array_axis split_axis(int n, int bsize){
   array_axis r ;
+  if(bsize <= 0) bsize = 64 ;
   if(n > 0 && bsize > 0){
     r.nbk = (n + bsize/2) / bsize ;      // number of pieces
     r.nbk = (r.nbk == 0) ? 1 : r.nbk ;   // cannot be less than 1
@@ -162,8 +190,10 @@ static inline array_axis split_axis(int n, int bsize){
 // the first piece may be smaller or larger than the requested size
 // pieces normally will be >= minsize and <=  bsize + minsize -1
 // pieces will be smaller than minsize if n is smaller than minsize
+// set bsize to default size (64) if <= 0
 static inline array_axis split_axis_min(int n, int bsize, int minsize){
   array_axis r ;
+  if(bsize <= 0) bsize = 64 ;
   if(n > 0 && bsize > 0){
     r.nbk = n / bsize ;                  // number of pieces (0 -> ...)
     r.ln1 = bsize ;                      // size of all but first piece
@@ -195,15 +225,18 @@ end:
 // gni    [IN] : global first dimension
 // gnj    [IN] : global second dimension
 // gnk    [IN] : global third dimension
-// bszi   [IN] : desired block size along first dimension
-// bszj   [IN] : desired block size along second dimension
-// aspect ratio would normally expected to be <= 4
-// block sizes < 16 not supported
-// no splitting will be performed along thirdx dimension
+// bszi   [IN] : desired blocking size along first dimension
+// bszj   [IN] : desired blocking size along second dimension
+// aspect ratio is expected to be 1/2/3/4
+// blocking sizes < 16 not supported
+// no splitting will be performed along third dimension
 static inline array_axis_3d split_axis_3d(int gni, int gnj, int gnk, int bszi, int bszj){
   array_axis_3d r = { NULL_ARRAY_AXIS, NULL_ARRAY_AXIS, NULL_ARRAY_AXIS} ;
+  bszi = (bszi <= 0) ? 64 : bszi ;                      // use default blocking size if <= 0
+  bszj = (bszj <= 0) ? 64 : bszj ;                      // use default blocking size if <= 0
+  bszi = (bszi < 16) ? 16 : bszi ;                      // blocking size < 16 not supported
+  bszj = (bszj < 16) ? 16 : bszj ;                      // blocking size < 16 not supported
   if(gni > 0 && gnj > 0 && gnk > 0){
-    bszi = (bszi < 16) ? 64 : bszi ;   // default blocksize of 64 (recommended)
     r.x = split_axis(gni, bszi)  ;                      // split along x
     r.y = split_axis(gnj, bszj)  ;                      // split along y
     r.z.nbk = gnk ; r.z.ln0 = r.z.ln1 = 1 ;             // no splitting along z, 1 element per block
