@@ -201,6 +201,8 @@ fprintf(stderr, "map and data\n");
 // update contents of mmap after fmap part has been read from file
 // map   [INOUT] : pointer to valid zmap struct
 // value of mextra and number of blocks (zijk) are now known
+// return 0 if O.K., error code otherwise
+// some consistency checks are performed
 int update_file_zmap(zmap *map){
   int status = fmap_invalid(map) ;
   if(status != 0) return status ;      // are the fmap struct contents valid ?

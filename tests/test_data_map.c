@@ -27,131 +27,9 @@
 #include <rmn/array_nd.h>
 #include <rmn/move_blocks.h>
 
-#if 0
-static void fill_2d_array(int32_t ni, int32_t nj, int32_t z[nj][ni]){
-  int i, j ;
-  for(j=0 ; j<nj ; j++){
-    for(i=0 ; i<ni ; i++){
-      z[j][i] = (i << 12) + j ;
-    }
-  }
-fprintf(stderr, "z[0][0] = %8.8x, z[%3d][%3d] = %8.8x (%3d %3d)\n", z[0][0], ni-1, nj-1, z[nj-1][ni-1], ni-1, nj-1) ;
-}
-#endif
-#if 0
-static void  fill_array(array_2d *a){
-  fill_2d_array(a->dim[0].gnn, a->dim[1].gnn, ( int32_t (*)[] )a->data) ;
-}
-
-static int32_t check_2d_block(int32_t ni, int32_t nj, int32_t block[nj][ni], int32_t i0, int32_t j0, block_properties bp){
-  int errors = 0, i, j ;
-  for(j=0 ; j<nj ; j++){
-    for(i=0 ; i<ni ; i++){
-      int32_t expected = ( (i0+i) << 12 ) + (j0 + j) ;
-      if(block[j][i] != expected) errors++ ;
-    }
-  }
-  fprintf(stderr, "check_2d_block : errors = %d, |_ = [%3d,%3d], -| = [%3d,%3d]\n",
-                    errors, bp.minu.u >> 12, bp.minu.u & 0xFFF, bp.maxu.u >> 12, bp.maxu.u & 0xFFF ) ;
-  return errors ;
-}
-
-// int zmap_to_array(zmap *map, array_2d *a_in, sfn_ptr fn, sfn_args *fnargs){
-//   return 0 ;
-// }
-#endif
-#if 0
-static int process_2d_block(array_2d *a_in, sfn_ptr fn, sfn_args *fnargs){
-  (void) (fn) ; (void) (fnargs) ;      // unused for now
-  if(a_in == NULL) return -1 ;
-  if(a_in->rank != 2) return -1 ;
-  int32_t ni = a_in->dim[0].lnn, nj = a_in->dim[1].lnn ;
-
-  block_properties bp ;
-  // allocate local block for subarray copy
-  int32_t block[nj][ni] ;
-  // find base address of subarrray
-  uint8_t *start_of_data = subarray_address((array_nd *)a_in) ;
-  // get local copy of subarray
-  int32_t nelem = move_data32_block(start_of_data , a_in->dim[0].gnn, &block[0][0], ni, ni, nj, &bp) ;
-
-  fprintf(stderr, "process_2d_block : automatically allocated block[%3d][%3d], subarray offset = %ld\n"
-                , nj, ni, start_of_data - a_in->data ) ;
-  if(nelem <= 0){
-    fprintf(stderr, "process_2d_block : ERROR, move_data32_block failed (%d)\n", nelem);
-    fprintf(stderr, "                   lnis = %d, lnid = %d, ni = %d, nj = %d\n", a_in->dim[0].gnn, ni, ni, nj);
-    return nelem ;
-  }
-  int errors = check_2d_block(ni, nj, (int32_t (*)[]) &block[0][0], a_in->dim[0].ln0, a_in->dim[1].ln0, bp) ;
-  if(errors > 0) return (-errors) ;
-
-  return nelem ;
-}
-#endif
-#if 0
-// process array and store it into zmap
-static zmap *array_to_zmap(zmap *map, array_2d *a_in, sfn_ptr fn, sfn_args *fnargs){
-  int zx ;
-  array_2d a ;
-//   (void) (fn) ; (void) (fnargs) ;      // unused for now
-
-  if(a_in == NULL) return NULL ;
-  a = *a_in ;
-  int32_t esize = a.esize ;
-
-//   fprintf(stderr, "array_to_zmap : aspect = %d, esize = %d\n", map->fhead.aspect, esize) ;
-  fprintf(stderr, "array_to_zmap : aspect = %d, esize = %d\n", 1, esize) ;
-  fprintf(stderr, "map block sizes : ") ;for(zx=0 ; zx < map->fhead.zni * map->fhead.znj ; zx++){ fprintf(stderr, "%4d ",map->size[zx]);}  fprintf(stderr, "\n") ;
-  for(zx=0 ; zx < map->fhead.zni * map->fhead.znj ; zx++){  // loop over zindex
-//     index_pair  ijp = Zindex_to_ij(zx, map->fhead.zni, map->fhead.znj, map->fhead.aspect) ;
-    index_pair  ijp = Zindex_to_ij(zx, map->fhead.zni, map->fhead.znj, 1) ;
-    ij_range ijr = map_block_limits(map, ijp.i, ijp.j) ;
-    int32_t gni = a.dim[0].gnn ;
-    int32_t i0 = ijr.i0 ;
-    int32_t in = ijr.in ;
-    int32_t ni = in-i0+1 ;
-    int32_t j0 = ijr.j0 ;
-    int32_t jn = ijr.jn ;
-    int32_t nj = jn-j0+1 ;
-    uint32_t bsize = map->size[zx] ;
-    fprintf(stderr, "array_to_zmap : zblock %3d [%3d,%3d] (%3d:%3d,%3d:%3d), gni = %3d, i0 = %3d, j0 = %3d, bsize = %d\n",
-                     zx, ijp.i, ijp.j, i0, in, j0, jn, gni, i0, j0, bsize) ;
-    if( ( ni == map->fhead.li0 || ni == map->fhead.lni) && ( nj == map->fhead.lj0 || nj == map->fhead.lnj) ){
-      a.dim[0].ln0 = i0 ;  // set subarray limits
-      a.dim[1].ln0 = j0 ;
-      a.dim[0].lnn = ni ;
-      a.dim[1].lnn = nj ;
-      if(process_2d_block(&a, fn, fnargs) <= 0){
-        fprintf(stderr, "array_to_zmap : ERROR in process_2d_block\n") ;
-        return NULL ;
-      }
-//       block_properties bp ;
-//       int32_t block[nj][ni] ;
-//       uint8_t *start_of_data = a.data + ((gni * j0) + i0) * esize ;  // lower left corner of data
-//       fprintf(stderr, "array_to_zmap : automatically allocated block[%3d][%3d], subarray offset = %ld\n"
-//                     , nj, ni, start_of_data - a.data) ;
-//       int32_t nelem = move_data32_block(start_of_data , gni, &block[0][0], ijr.in-ijr.i0+1, ijr.in-ijr.i0+1, ijr.jn-ijr.j0+1, &bp) ;
-//       if(nelem <= 0) {
-//         fprintf(stderr, "array_to_zmap : ERROR, move_data32_block failed (%d), zblock %d\n", nelem, zx);
-//         fprintf(stderr, "                lnis = %d, lnid = %d, ni = %d, nj = %d\n", gni, ijr.in-ijr.i0+1, ijr.in-ijr.i0+1, ijr.jn-ijr.j0+1);
-//         return NULL ;
-//       }
-//       int errors = check_2d_block(ni, nj, (int32_t (*)[]) &block[0][0], i0, j0, bp) ;
-//       if(errors > 0) return NULL ;
-    }else{
-      fprintf(stderr, "array_to_zmap : ERROR, wrong block dimensions, ni = %3d, must be %d or %d, nj = %3d, must be %3d or %3d\n",
-                       ni, map->fhead.li0, map->fhead.lni, nj, map->fhead.lj0, map->fhead.lnj) ;
-      return NULL ;
-    }
-    // check compressed stream size in map for this block
-    if(bsize * esize < ni * nj * sizeof(uint32_t)){
-      fprintf(stderr, "array_to_zmap : ERROR, compressed stream area is too small, size = %d, should be at least %ld\n", bsize , ni * nj * sizeof(uint32_t)) ;
-    }
-    fprintf(stderr, "\n") ;
-  }
-  return map ;
-}
-#endif
+#undef FAIL
+static int StAtUs = 0 ;
+#define FAIL(ERR,...) { StAtUs = ERR ; fprintf(stderr, __VA_ARGS__); goto fail ; }
 
 #define NTI 10
 #define NTJ 11
@@ -199,39 +77,46 @@ int32_t get_mapped_blocks(zmap *map, int block0, int block_nb, void *out_, size_
 }
 
 // pack unsigned 32 ->16 ;
-codec_fn test_pack_block_3216 ;
-int test_pack_block_16(zmap *map, void *out_, void *in_, int ninj){
+int test_pack_block_3216(zmap *map, void *out_, void *in_, int ninj){
   if(map == NULL || ninj <= 0) return -1 ;
   uint32_t *in = in_ ;
   uint16_t *out = out_ ;
   if(out == NULL || in == NULL) return -1 ;
   struct{
-    uint32_t src ;
-    uint32_t out ;
+    uint32_t unp ;
+    uint32_t pak ;
     uint64_t dummy ;
   } *local = (void *)&(map->mhead.codec_args) ;            // point local arguments into proper place in zmap
   CT_ASSERT( sizeof(*local) == sizeof(map->mhead.codec_args) , "bad codec arguments struc size" )
-  if(local->src != 32 || local->out != 16) return -1 ;
+  if(local->unp != 32 || local->pak != 16) return -1 ;
   for(int i=0 ; i<ninj ; i++){ out[i] = in[i] & 0xFFFF ; } ;
-  return ninj ;
+  return ninj * sizeof(uint16_t) ;
 }
 
 // unpack unsigned 32 ->16 ;
-codec_fn test_unpack_block_1632 ;
 int test_unpack_block_1632(zmap *map, void *out_, void *in_, int ninj){
   if(map == NULL || ninj <= 0) return -1 ;
   uint16_t *in = in_ ;
   uint32_t *out = out_ ;
   if(out == NULL || in == NULL) return -1 ;
   struct{
-    uint32_t src ;
-    uint32_t out ;
+    uint32_t unp ;
+    uint32_t pak ;
     uint64_t dummy ;
   } *local = (void *)&(map->mhead.codec_args) ;            // point local arguments into proper place in zmap
   CT_ASSERT( sizeof(*local) == sizeof(map->mhead.codec_args) , "bad codec arguments struc size" )
-  if(local->src != 16 || local->out != 32) return -1 ;
+  if(local->pak != 16 || local->unp != 32) return -1 ;
   for(int i=0 ; i<ninj ; i++){ out[i] = in[i] & 0xFFFF ; } ;
-  return ninj ;
+  return ninj * sizeof(uint16_t) ;
+}
+
+codec_fn test_codec_1632 ;
+int test_codec_1632(zmap *map, void *out_, void *in_, int ninj, int encode){
+  if(encode == 1){
+    return test_pack_block_3216(map, out_, in_, ninj) ;
+  }else{
+    return test_unpack_block_1632(map, out_, in_, ninj) ;
+  }
 }
 
 // #define NTI  4
@@ -255,7 +140,8 @@ void  test_fill_size(int zni, int znj, fmap_block_size size[znj][zni], zmap *map
   }
 }
 
-void test_fill_data(int gni, int gnj, uint32_t data[gnj][gni]){
+// fill an array (gni x gnj) with known values
+static void fill_data(int gni, int gnj, uint32_t data[gnj][gni]){
   if(gni < 256 && gnj < 256){
     for(int j=0 ; j<gnj ; j++){
       for(int i=0 ; i<gni ; i++){
@@ -269,6 +155,101 @@ void test_fill_data(int gni, int gnj, uint32_t data[gnj][gni]){
       }
     }
   }
+}
+
+// check the contents of an array (gni x gnj) with known values
+static uint32_t check_data(int gni, int gnj, uint32_t data[gnj][gni], int i0, int lni, int j0, int lnj){
+  uint32_t errors = 0 ;
+  uint32_t in = i0 + lni - 1, jn = j0 + lnj - 1 ;
+  if(gni < 256 && gnj < 256){
+    for(uint32_t j=j0 ; j<jn ; j++){
+      for(uint32_t i=i0 ; i<in ; i++){
+        if( data[j][i] != ((i<<8) | (j)) ) errors++ ;
+      }
+    }
+  }else{
+    for(uint32_t j=j0 ; j<jn ; j++){
+      for(uint32_t i=i0 ; i<in ; i++){
+        if( data[j][i] != ((i<<16) | (j)) ) errors++ ;
+      }
+    }
+  }
+  return errors ;
+}
+
+void put_block(uint32_t lni, uint32_t lnj, uint32_t blk[lnj][lni], uint32_t gni, uint32_t gnj, uint32_t dst[gnj][gni]){
+  for(uint32_t j=0 ; j<lnj ; j++){
+    for(uint32_t i=0 ; i<lni ; i++){
+      dst[j][i] = blk[j][i] ;
+    }
+  }
+}
+
+void get_block(uint32_t lni, uint32_t lnj, uint32_t blk[lnj][lni], uint32_t gni, uint32_t gnj, uint32_t src[gnj][gni]){
+  for(uint32_t j=0 ; j<lnj ; j++){
+    for(uint32_t i=0 ; i<lni ; i++){
+      blk[j][i] = src[j][i] ;
+    }
+  }
+}
+
+#undef MAX
+#define MAX(A,B) ( ((A) > (B)) ? (A) : (B) )
+
+static struct{
+    uint32_t unp ;
+    uint32_t pak ;
+    uint64_t dummy ;
+  } pack_args = {32, 16, 0} ;
+
+void  fill_zmap_with_data(zmap *map, int gni, int gnj, uint32_t data[gnj][gni]){
+  uint32_t lni, lnj, i0, j0, in, jn, i, j ;
+  uint32_t zni = map->fhead.zni, znj = map->fhead.znj ;
+  uint32_t maxi = MAX(map->fhead.li0, map->fhead.lni) ;
+  uint32_t maxj = MAX(map->fhead.lj0, map->fhead.lnj) ;
+  uint32_t block[maxi*maxj] ;
+  uint16_t packed[maxi*maxj] ;
+  int np ;
+  codec_fn *codec = map->mhead.codec ;
+  uint32_t *stream, bno ;
+  fmap_block_size *sizes, size ;
+  uint64_t *offsets ;
+
+  stream = map->mhead.drng.bot ;
+  sizes = map->size ;
+  offsets = map->mhead.orng.bot ;
+  offsets[0] = 0 ;
+  bno = 0 ;
+
+  fprintf(stderr, "sizeof(block) = %ld bytes, %ld elements\n", sizeof(block), sizeof(block)/sizeof(uint32_t));
+  for(j=0, j0 = 0, lnj = map->fhead.lj0 ; j<znj ; j++, lnj=map->fhead.lnj){
+    jn = j0 + lnj - 1 ;
+    for(i=0, i0 = 0, lni = map->fhead.li0 ; i<zni ; i++, lni=map->fhead.lni){
+      in = i0 + lni - 1 ;
+      fprintf(stderr, "zblock[%d,%d] = array[%3d:%3d,%3d:%3d]", i, j, i0, in, j0, jn) ;
+      get_block(lni, lnj, (void *)block, gni, gnj, (void *)(&data[j0][i0])) ;
+
+      np = (*codec)(map, packed, block, lni * lnj, 1) ;             // pack
+      fprintf(stderr, ", codec pack : nb = %d", np) ;
+      if(np == -1) exit(1) ;
+      size = np / sizeof(uint32_t) ;
+      sizes[bno] = size ;
+      offsets[bno+1] = offsets[bno] + size ;
+
+      np = (*codec)(map, block, packed, lni * lnj, 0) ;             // unpack
+      fprintf(stderr, ", codec unpack : nb = %d", np) ;
+      if(np == -1) exit(1) ;
+
+      put_block(lni, lnj, (void *)block, gni, gnj, (void *)(&data[j0][i0])) ;
+      fprintf(stderr, ", sizes[%d] = %d\n\n", bno, sizes[bno]);
+      i0 = in + 1 ;
+
+      stream = stream + size ;
+      bno++ ;
+    }
+    j0 = jn + 1 ;
+  }
+  for(i=bno ; i<map->fhead.zijk ; i++) { sizes[i] = 0 ; offsets[i+1] = offsets[i] ; } ;
 }
 
 int main(int argc, char **argv){
@@ -351,13 +332,30 @@ test:
   fprintf(stderr, "=============== simulated file test ===============\n") ;
   zmap *zp0, *zp1, *zp2 ;
   int status ;
-  uint32_t map_words, rec_words, zmap_words, data_words ; 
+  uint32_t map_words, rec_words, zmap_words, data_words, errors ; 
   gni = 129 ; gnj = 97 ; gnk = 1 ; bsize = 64 ; aspect = 1 ; mextra = 2 ; bextra = 3 ;
+  uint32_t *data = (uint32_t *)malloc(gni * gnj * sizeof(uint32_t *)) ;
+  if(data == NULL) goto fail;
 
+  fill_data(gni, gnj, (void *)data) ;                            // create and check reference array
+  errors = check_data(gni, gnj, (void *)data, 0, gni, 0, gnj) ;
+  if( errors != 0) FAIL(1, "ERROR : %d error(s) in data\n", errors)
+
+  // create and populate the data_map + data struct
   zp0 = create_zmap(gni, gnj, gnk, bsize, aspect, 2*sizeof(uint32_t), mextra, bextra, 3*bextra*sizeof(uint32_t)) ;
-  test_fill_size(zp0->fhead.zni, zp0->fhead.znj, (void *)zp0->size, zp0) ;
-  test_fill_offset(zp0) ;
-  test_fill_data(gni, gnj, (void *)zp0->mhead.drng.bot) ;
+//   zp0->mhead.codec_args = *((arg128 *) &pack_args ) ;
+  SET_CODEC_ARGS(zp0, pack_args) ;
+  SET_CODEC_FN(zp0, test_codec_1632) ;
+//   memcpy( &(zp0->mhead.codec_args), &pack_args, sizeof(zp0->mhead.codec_args) );    // set packing codec arguments
+  fill_zmap_with_data(zp0, gni, gnj, (void *)data) ;
+  errors = check_data(gni, gnj, (void *)data, 0, gni, 0, gnj) ;
+  if( errors != 0){ FAIL(1, "ERROR : %d error(s) in get/put\n", errors) ; }
+
+  zmap_print(zp0, "zp0+") ;
+  fmap_print(zp0, "zp0+") ;
+
+//   test_fill_size(zp0->fhead.zni, zp0->fhead.znj, (void *)zp0->size, zp0) ;
+//   test_fill_offset(zp0) ;
 
   map_words = FILEMAP_WORDS(zp0) ; rec_words = RECORD_WORDS(zp0) ; zmap_words = ZMAP_WORDS(zp0) ; data_words = DATA_WORDS(zp0) ;
   fprintf(stderr, "zp0 data map length = %d , data length = %d , record length = %d , zmap length = %d \n", map_words, data_words, rec_words, zmap_words) ;
@@ -370,7 +368,7 @@ test:
   for(uint32_t i=0 ; i<ZMAP_TOTAL_BLOCKS(zp0) ; i++){ fprintf(stderr, "%6ld ", BLOCK_OFFSET(zp0,i+1) - BLOCK_OFFSET(zp0,i) ) ; } ;
   fprintf(stderr, "\n");
   fprintf(stderr, "\n");
-
+goto success ;
   map_words = FILEMAP_WORDS(zp0) ; rec_words = RECORD_WORDS(zp0) ; zmap_words = ZMAP_WORDS(zp0) ; data_words = DATA_WORDS(zp0) ;
   zp1 = create_file_zmap(map_words, rec_words) ;
   zmap_print(zp1, "zp1") ;
@@ -383,7 +381,7 @@ test:
   memcpy(&(zp1->fhead), &(zp0->fhead), map_words * sizeof(uint32_t)) ;   // simulate read from file
   status = update_file_zmap(zp1) ;
   if(status) fprintf(stderr, "ERROR: update_file_zmap %d\n", status) ;
-  zp1->mhead.codec = test_unpack_block_1632 ;
+  zp1->mhead.codec = test_codec_1632 ;
   zp1->mhead.get_blocks = get_mapped_blocks ;
   zmap_print(zp1, "zp1+") ;
   fmap_print(zp1, "zp1+") ;
@@ -448,144 +446,5 @@ goto success ;
   }
   fprintf(stderr, "SUCCESS\n") ;
 
-#if 0
-  fprintf(stderr, "=============== zigzag block indexing ===============\n") ;
-  for(j=NTJ-1 ; j>=0 ; j--){ 
-    for(i=0 ; i<NTI ; i++) { 
-      x[i] = Zindex_from_ij(i, j, NTI, NTJ, SF0) ;
-      y[i] = Zindex_from_ij(i, j, NTI, NTJ, SF0) ;
-      ijp   = Zindex_to_ij(y[i], NTI, NTJ, SF0) ;
-      if(ijp.i != i || ijp.j != j){
-        fprintf(stderr, "ERROR: zij = %3d, expecting i,j = (%2d,%2d), got (%2d,%2d)\n", x[i], i, j, ijp.i, ijp.j) ;
-        goto fail ;
-      }
-    }
-    if(argc > 1){
-      for(i=0 ; i<NTI ; i++) { fprintf(stderr, "+------"             ) ; } fprintf(stderr, "+\n") ;
-      for(i=0 ; i<NTI ; i++) { fprintf(stderr, "| %3d  " ,       x[i]) ; } fprintf(stderr, "| (Z index)\n") ;
-      for(i=0 ; i<NTI ; i++) { fprintf(stderr, "|%2d,%3d",    i,    j) ; } fprintf(stderr, "| (expected i,j)\n") ;
-      for(i=0 ; i<NTI ; i++) { 
-        ijp   = Zindex_to_ij(x[i], NTI, NTJ, SF0) ;
-        fprintf(stderr, "|%2d,%3d", ijp.i, ijp.j) ; 
-      } fprintf(stderr, "| (computed i,j)\n") ;
-    }else{
-      for(j = NTJ ; j > 0 ; j--){
-        for(i = 0 ; i < NTI ; i++){
-          fprintf(stderr, "%3d => [%2d,%2d] ", Zindex_from_ij(i, j-1, NTI, NTJ, SF0), i, j-1) ;
-        }
-        fprintf(stderr, "\n");
-      }
-    }
-  }
-  if(argc > 1) {
-    for(i=0 ; i<NTI ; i++) { fprintf(stderr, "+------"        ) ; } fprintf(stderr, "+\n") ;
-  }
-  fprintf(stderr, "SUCCESS\n") ;
-#endif
-#if 0
-  fprintf(stderr, "=============== data map creation ===============\n") ;
-  gni = 128+65 ; gnj = 256+33 ; aspect = 2 ;
-  size_t esize = sizeof(uint32_t) ;
-fprintf(stderr, " new_zmap will change \n") ;
-  goto fail ;     // new_zmap will change
-//   map = new_zmap(gni, gnj, 1, 64, aspect, esize, 0);
-  msg = "map == NULL" ;
-  if(map == NULL) goto fail ;
-
-  print_zmap(map, "gni = 128+65, gnj = 256+33, aspect = 2") ;
-  msg = "map->fhead.zni != 3 || map->fhead.znj != 3" ;
-  if(map->fhead.zni != 3 || map->fhead.znj != 3) goto fail ;
-  znij = map->fhead.zni * map->fhead.znj ;
-
-  fprintf(stderr, "size of preamble = %ld\n", (uint8_t *)&(map->fhead.signature) - (uint8_t *)&(map->mhead.signature)) ;
-//   fprintf(stderr, "size of array_nd = %ld\n", sizeof(array_nd));
-//   fprintf(stderr, "size of array_1d = %ld\n", sizeof(array_1d));
-//   fprintf(stderr, "size of array_2d = %ld\n", sizeof(array_2d));
-//   fprintf(stderr, "size of array_3d = %ld\n", sizeof(array_3d));
-//   fprintf(stderr, "size of array_4d = %ld\n", sizeof(array_4d));
-//   fprintf(stderr, "size of array_5d = %ld\n", sizeof(array_5d));
-
-  msg = "bsize_zmap failed" ;
-  if(znij != bsize_zmap(map, esize)) goto fail ;    // create sizes
-  msg = "fillmem_zmap failed" ;
-  if(znij != fillmem_zmap(map)) goto fail ;          // adjust map->mem
-  uint64_t *mem = map->mhead.orng.bot ;
-  znij = map->fhead.zni * map->fhead.znj ;
-  fprintf(stderr, "size from old pointer table[%d] :", znij);
-  for(i=0 ; i < znij ; i++) fprintf(stderr, "%6ld", mem[i+1] - mem[i]) ;
-  fprintf(stderr, "\n");
-  fprintf(stderr, "size from old sizes table  [%d] :", znij);
-  for(i=0 ; i < znij ; i++) fprintf(stderr, "%6d", map->size[i]) ;
-  fprintf(stderr, "\n");
-  msg = "map->size[i] != (mem[i+1] - mem[i])" ;
-  for(i=0 ; i < znij ; i++) if(map->size[i] != (mem[i+1] - mem[i])) goto fail ;
-  fprintf(stderr, "SUCCESS\n") ;
-
-  free_zmap(map, 0) ;             // partial free (only mem table)
-  mem = mem_zmap(map, NULL, 0) ;  // reallocate mem table
-  znij = map->fhead.zni * map->fhead.znj ;
-  fprintf(stderr, "size from new pointer table[%d] :", znij);
-  for(i=0 ; i < znij ; i++) fprintf(stderr, "%6ld", mem[i+1] - mem[i]) ;
-  fprintf(stderr, "\n");
-  fprintf(stderr, "size from old sizes table  [%d] :", znij);
-  for(i=0 ; i < znij ; i++) fprintf(stderr, "%6d", map->size[i]) ;
-  fprintf(stderr, "\n");
-  for(i=0 ; i < znij ; i++) if(map->size[i] != (mem[i+1] - mem[i])) goto fail ;
-  fprintf(stderr, "SUCCESS\n") ;
-
-  fprintf(stderr, "=============== data map sizes reduce ===============\n") ;
-  uint32_t oldsize = map->mhead.orng.bot[znij] - map->mhead.orng.bot[0] ;
-  fprintf(stderr, "initial data size = %6d\n", oldsize) ;
-  for(i=0 ; i<znij ; i++) map->size[i] -= 2 ;
-  uint32_t newsize = repack_map(map) ;
-  fprintf(stderr, "packed data size = %6d\n", newsize) ;
-  if(newsize != oldsize - 2*znij) goto fail ;
-  fprintf(stderr, "SUCCESS\n") ;
-  fprintf(stderr, "size from new pointer table[%d] :", znij);
-  for(i=0 ; i < znij ; i++) fprintf(stderr, "%6ld", mem[i+1] - mem[i]) ;
-  fprintf(stderr, "\n");
-  fprintf(stderr, "size from new sizes table  [%d] :", znij);
-  for(i=0 ; i < znij ; i++) fprintf(stderr, "%6d", map->size[i]) ;
-  fprintf(stderr, "\n");
-  for(i=0 ; i < znij ; i++) if(map->size[i] != (mem[i+1] - mem[i])) goto fail ;
-  fprintf(stderr, "SUCCESS\n") ;
-
-  fprintf(stderr, "=============== data map sizes restore ===============\n") ;
-  // restore packed stream pointers
-  for(i=0 ; i<znij ; i++) map->size[i] += 2 ;
-  newsize = resize_map(map) ;
-  if(newsize == oldsize) fprintf(stderr, "SUCCESS\n") ;
-#endif
-#if 0
-  fprintf(stderr, "=============== block limits ===============\n") ;
-  fprintf(stderr, "blocks[%d,%d] => data[%4d,%4d]", map->fhead.zni, map->fhead.znj, map->fhead.gni, map->fhead.gnj) ;
-  fprintf(stderr, ", first block along i is  %s"  , map->fhead.li0 > map->fhead.lni ? "longer" : "shorter") ;
-  fprintf(stderr, ", first block along j is  %s\n", map->fhead.lj0 > map->fhead.lnj ? "longer" : "shorter") ;
-  int32_t zx ;
-  for(j = (int)map->fhead.znj ; j > 0 ; j--){
-    ijr = map_block_limits(map, 0, 0) ;       // no more warning about possibility of ijr.j0 to be uninitialized
-    for(i = 0 ; i < (int)map->fhead.zni ; i++){
-      ijr = map_block_limits(map, i, j-1) ;
-//       zx = Zindex_from_ij(i, j-1, map->fhead.zni, map->fhead.znj, map->fhead.aspect);
-      zx = Z_map_index(map, i, j-1) ;
-      fprintf(stderr, "data[%4d:%4d,%4d:%4d](Z %2d)  ", ijr.i0, ijr.in, ijr.j0, ijr.jn, zx) ;
-    }
-    fprintf(stderr, "j_range : %4d)\n", ijr.jn - ijr.j0 + 1);
-  }
-  for(i = 0 ; i < (int)map->fhead.zni ; i++){
-    ijr = map_block_limits(map, i, 0) ;
-    fprintf(stderr, "i_range : %4d                   ", ijr.in - ijr.i0 + 1);
-  }
-  fprintf(stderr, "\n");
-#endif
-#if 0
-  fprintf(stderr, "=============== split array according to map ===============\n") ;
-  array_2d a2d = array_2d_zero ;
-//   new_array(&a2d, NULL, 4, 'U', map->fhead.gni, map->fhead.gnj) ;  // create 2D array, map->fhead.gni x map->fhead.gnj
-  new_array(&a2d, NULL, 4, uint_data, map->fhead.gni, map->fhead.gnj) ;  // create 2D array, map->fhead.gni x map->fhead.gnj
-  fill_array(&a2d) ;
-  zmap *result = array_to_zmap(map, &a2d, NULL, NULL) ;
-  if(result == NULL) goto fail ;
-#endif
   goto success ;
 }

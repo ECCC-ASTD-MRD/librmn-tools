@@ -188,7 +188,7 @@ typedef struct fmap fmap ;
 
 typedef int32_t block_fn(zmap *, int, int, void *, size_t) ;  // map, first_block, number_of_blocks, destination, destination_size
 typedef block_fn *block_fn_p ;
-typedef int32_t codec_fn(zmap *, void *, void *, int) ;       // map, out, in, number_of_values
+typedef int32_t codec_fn(zmap *, void *, void *, int, int) ;       // map, out, in, number_of_values, encode(1)/decode(0) 
 typedef codec_fn *codec_fn_p ;
 
 // NOTE: components not needed/used are nullified
@@ -218,6 +218,9 @@ static const mmap base_mmap = { 0x1AD0FADA, Z_DATA_MAP_VERSION, 0 , NULL_BITSTRE
                                (uint32_t_range)RANGE_NULL, (uint64_t_range)RANGE_NULL, (uint32_t_range)RANGE_NULL } ;
 
 CT_ASSERT(sizeof(mmap) == (sizeof(mmap) / sizeof(int64_t)) * sizeof(int64_t) , "mmap struc size not a multiple of 64 bits")
+
+#define SET_CODEC_ARGS(MAP, ARGS) (MAP)->mhead.codec_args = *(arg128 *)(&(ARGS))
+#define SET_CODEC_FN(MAP, FN) (MAP)->mhead.codec = (codec_fn *)(FN)
 
 // TODO: add options for 3D storage ni/nj/nk vs nk/ni/nj vs ... and compression(2D/3D) ?
 struct fmap{       // in file part of data map (also present in memory, after mmap)
