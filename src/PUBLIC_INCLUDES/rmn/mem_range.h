@@ -14,72 +14,90 @@
 // Author:
 //     M. Valin,   Recherche en Prevision Numerique, 2026
 //
+
+// macros to help manipulate "memory address ranges" with elements of varied types
+
 #if ! defined(RANGE_TYPEDEF)
 
-// memory address
+// memory address (unsigned byte pointer)
 #define PTR(what) ((uint8_t *)(what))
 
 // apply byte offset to base address, result is a typeless pointer
-#define PTR_OFFSET(BASE, OFFSET) ( (void *)( PTR(BASE) + (OFFSET) ) )
+#define SET_PTR_OFFSET(BASE, OFFSET) ( (void *)( PTR(BASE) + (OFFSET) ) )
 
 // difference between addresses (in BYTES)
-#define PTR_DIFF(ADDR1, ADDR2) ( PTR(ADDR2) - PTR(ADDR1) )
+#define PTR_OFFSET(ADDR1, ADDR2) ( PTR(ADDR2) - PTR(ADDR1) )
+
+// difference between addresses (in "element" units) (both arguments MUST be pointers to the same type)
+#define PTR_ELEMENTS(ADDR1, ADDR2) ( (ADDR2) - (ADDR1) )
 
 // the type for an address range for data type xxx will be xxx_range
 // e.g. for a float it would be float_range as in : float_range some_name
-#define RANGE_NULL {NULL, 0L}
-// a xxx_range struct contains 2 pointers, bot and top
+// the xxx_range struct contains 2 pointers, bot and top
 // bot points to the beginning of the memory arena, top points 1 element past the last element in the arena
+// type KIND_range and static constant KIND_range_null are defined
+#define RANGE_NULL {NULL, NULL}
 #define RANGE_TYPEDEF(KIND) typedef struct{ KIND *bot, *top ; } KIND##_range ; static const KIND##_range KIND##_range_null = RANGE_NULL ;
 
-// some predefined address ranges
-// unsigned integers
-RANGE_TYPEDEF(uint8_t) ;    // creates type  uint8_t_range
-RANGE_TYPEDEF(uint16_t) ;
-RANGE_TYPEDEF(uint32_t) ;
-RANGE_TYPEDEF(uint64_t) ;
-// signed integers
-RANGE_TYPEDEF(int8_t) ;
-RANGE_TYPEDEF(int16_t) ;
-RANGE_TYPEDEF(int32_t) ;
-RANGE_TYPEDEF(int64_t) ;
-// typeless
-RANGE_TYPEDEF(void) ;
-// generic range
-typedef struct{
-  void *bot ;     // start of the memory range
-  void *top ;     // address of element just above the memory range
-}address_range ;
-
-// declare a range struct with elements of type KIND
+// declare a range struct with elements of type KIND with a name, e.g. RANGE(some_type) some_name ;
 #define RANGE(KIND) KIND##_range
 
-// return base address of range
-#define RANGE_BASE(R) ( PTR((R).bot) )
+// some predefined/generic address ranges, using unsigned integers
+RANGE_TYPEDEF(uint8_t) ;                 // uint8_t_range
+typedef uint8_t_range RANGE(byte) ;      // byte range
+RANGE_TYPEDEF(uint16_t) ;
+typedef uint16_t RANGE(hword) ;          // halfword range
+RANGE_TYPEDEF(uint32_t) ;
+typedef uint32_t RANGE(word) ;           // word range
+RANGE_TYPEDEF(uint64_t) ;
+typedef uint64_t RANGE(dword) ;          // doubleword range
 
-// return last address still in the range
-#define RANGE_LIMIT(R) ( PTR((R).top) - 1 )
+RANGE_TYPEDEF(void) ;                    // typeless
+typedef void_range RANGE(address) ;      // generic address range, synonym of void_range
 
-// return address just above last address in range
+// get address of the first (bottom) element in the range
+#define RANGE_BOT(R) ( PTR((R).bot) )
+
+// get address of last element still within the range
+#define RANGE_LIMIT(R) ( PTR((R).top) - sizeof((R).bot[0]) )
+
+// get address of element just above the range
 #define RANGE_TOP(R) ( PTR((R).top) )
 
-// return number of bytes in a range
-#define RANGE_SIZE(R) ( PTR_DIFF( (R).bot ,  (R).top ) )
+// offset of address in range in bytes
+#define RANGE_OFFSET(R,ADR) (PTR(ADR) - RANGE_BOT(R))
 
-// return number of elements in a range
-#define RANGE_ELEMENTS(R) ((R).top - (R).bot)
+// space available above address in range (in bytes)
+#define RANGE_AVAIL(R,ADR) (RANGE_TOP(R) - PTR((ADR)+1))
 
-// return the size of a range element in bytes
+// get number of bytes in a range
+#define RANGE_BYTES(R) ( PTR_OFFSET( (R).bot ,  (R).top ) )
+
+// get number of elements in a range (element type tells element size)
+#define RANGE_ELEMENTS(R) PTR_ELEMENTS((R).bot , (R).top)
+
+// is address range BOT -> TOP entirely within range R0 (accounts for element size of TOP)
+#define IN_RANGE(R0,BOT,TOP) ( (PTR(BOT) >= RANGE_BOT(R0)) && (PTR((TOP)+1) <= RANGE_TOP(R0)) )
+
+// is range R2 entirely within range R0 (a subrange of R0)
+#define SUB_RANGE(R0, R2) ( (RANGE_BOT(R0) <= RANGE_BOT(R2)) && (RANGE_top(R0) >= RANGE_TOP(R2)) )
+
+// get the size of a range element in bytes
 #define ELEMENT_SIZE(R) (sizeof((R).bot[0]) / sizeof(uint8_t))
 
-// set base address of range
-#define SET_RANGE_BASE(R, BASE)  { (R).bot = (void *)(BASE) ; }
+// set address of the first (bottom) element of a range
+#define SET_RANGE_BOT(R, BOT)  { (R).bot = (void *)(BOT) ; }
 
-// set top address of range to base address + size in bytes
-#define SET_RANGE_SIZE(R, BYTES) { (R).top = PTR_OFFSET( (R).bot, (BYTES) ) ; }
+// set address of the last (top) element of a range to a specific address
+#define SET_RANGE_TOP(R, TOP)  { (R).top = PTR(TOP) + sizeof((R).bot[0]) ; }
 
-// set base address and size in bytes of address range
-#define SET_RANGE(R, BASE, BYTES) { SET_RANGE_BASE(R, BASE) ; SET_RANGE_SIZE(R, BYTES) ; }
+// set top address of range to base address + space to accomodate N elements
+#define SET_RANGE_ELEMENTS(R, N)  { (R).top = (R).bot + N) ; }
 
+// set top address of range to base address + size bytes
+#define SET_RANGE_BYTES(R, BYTES) { (R).top = SET_PTR_OFFSET( (R).bot, (BYTES) ) ; }
+
+// set bottom address and top addresses of a range (accomodate BYTES bytes)
+#define SET_RANGE(R, BOT, BYTES) { SET_RANGE_BOT(R, BOT) ; SET_RANGE_BYTES(R, BYTES) ; }
 
 #endif

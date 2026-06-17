@@ -35,19 +35,35 @@ static int StAtUs = 0 ;
 #define NTJ 11
 #define SF0  4
 
+// return size if contiguous, -size if not
+int contiguous_mapped_blocks(zmap *map, int block0, int block_n){
+  // NOTE: the orng range is used to check if blocks are contiguous
+  //       if prng rather than orng is valid, it does not affect the contiguity check
+  //       addresses are 64 bit wide pointers to 32 bit items and can be used as offsets
+  uint64_t *offsets = map->mhead.orng.bot ;              // offsets table
+  uint32_t size = 0 ;
+  int contiguous = 1 ;
+  size = map->size[block0] ;
+  for(int i = block0 + 1 ; i <= block_n ; i++){
+    size = size + map->size[i] ;                  // cumulative size of blocks to copy (in 32 bit units)
+    contiguous = contiguous && ( offsets[i-1]+map->size[i-1] == offsets[i] ) ;
+  }
+  return contiguous ? size : (-size) ;
+}
+
 // copy block(s) of 32 bit elements from memory pointed to by data map into user space
 // demo function for tests purposes
 // map      [IN] : pointer to valid zmap struct
 // block0   [IN] : first block to copy
 // block_nb [IN] : number of blocks to copy
-// out_    [OUT] : pointer to reception area
-// size_out [IN] : size of reception area (in 32 bit units)
+// drng  [INOUT] : address range describing destination
+// // // // out_    [OUT] : pointer to reception area
+// // // // size_out [IN] : size of reception area (in 32 bit units)
 // return number of words copied of negative error codes
 //
-block_fn get_mapped_blocks ;    // make sure we have the right types in the function prototype
-int32_t get_mapped_blocks(zmap *map, int block0, int block_nb, void *out_, size_t size_out){
+int32_t get_mapped_blocks(zmap *map, int block0, int block_nb, uint32_t_range drng){
   if(map == NULL) return -1 ;                            // no map ;
-  if(out_ == NULL) return -4 ;                           // invalid destination
+  if(drng.bot == NULL || drng.top == NULL) return -4 ;   // invalid destination range
   if(block0 < 0) return -1 ;                             // invalid block number
   if(block_nb <= 0) return -1 ;                          // invalid number of blocks
   int max_blocks = map->fhead.zijk ;
@@ -57,23 +73,75 @@ int32_t get_mapped_blocks(zmap *map, int block0, int block_nb, void *out_, size_
     uint64_t dummy ;
   } *local = (void *)&(map->mhead.get_args) ;            // point local arguments into proper place in zmap
   CT_ASSERT( sizeof(*local) == sizeof(map->mhead.get_args) , "bad getblock arguments struc size" )
+  uint32_t *base = local->ptr ;                          // get base address for memory copy from zmap (usually data area)
+  if(base == NULL) return -5 ;
 
+  uint32_t *out = drng.bot ;
+  uint32_t size_out = RANGE_ELEMENTS(drng) ;
+
+  // consecutive blocks in tables are assumed to be consecutive in storage
+  // check that this is the case. if not, transfer block by block
+  uint32_t size = contiguous_mapped_blocks(map, block0, block0+block_nb-1) ;
+  int contiguous = (size > 0) ;
+  size = (size < 0) ? (-size) : size ;
+  if(size_out < size) return -3 ;                        // not enough space for copy
+
+  uint64_t offset = map->mhead.orng.bot[block0] ;        // block offset of first block relative to base address (in 32 bit units)
+  uint32_t *src = base + offset ;                        // source address
+  if(contiguous){
+    for(uint32_t i=0 ; i<size ; i++){ out[i] = src[i] ; }
+  }else{
+    // OUCH for now
+  }
+
+  return size ;                                          // number of 32 bit words copied
+}
+int32_t put_mapped_blocks(zmap *map, int block0, int block_nb, uint32_t_range drng){
+  if(map == NULL) return -1 ;                            // no map ;
+  if(drng.bot == NULL || drng.top == NULL) return -4 ;   // invalid source range
+  if(block0 < 0) return -1 ;                             // invalid block number
+  if(block_nb <= 0) return -1 ;                          // invalid number of blocks
+  int max_blocks = map->fhead.zijk ;
+  if(block0+block_nb > max_blocks) return -2 ;           // last block number exceeds available blocks
+  struct{
+    uint32_t *ptr ;
+    uint64_t dummy ;
+  } *local = (void *)&(map->mhead.get_args) ;            // point local arguments into proper place in zmap
+  CT_ASSERT( sizeof(*local) == sizeof(map->mhead.get_args) , "bad getblock arguments struc size" )
   uint32_t *base = local->ptr ;                          // get base address for memory copy from zmap
   if(base == NULL) return -5 ;
+
+  uint32_t *src = drng.bot ;                             // source of data to copy
+  uint32_t size_in = RANGE_ELEMENTS(drng) ;              // number of elements to copy
+
   uint32_t size = 0 ;
-  uint64_t offset = map->mhead.orng.bot[block0] ;        // block offset of first relative to base address (in 32 bit units)
+  uint64_t offset = map->mhead.orng.bot[block0] ;        // block offset of first block relative to base address (in 32 bit units)
   // consecutive blocks in tables are assumed to be consecutive in storage
   while(block_nb > 0){
-    size = size + map->size[block0] ;                    // size of block to copy (in 32 bit units)
+    size = size + map->size[block0] ;                    // size of block to copy into (in 32 bit units)
     block_nb-- ;
     block0++ ;
   }
-  if(size_out < size) return -3 ;                        // not enough space for copy
-  uint32_t *out = out_ ;                                 // destination address
-  uint32_t *src = base + offset ;                        // source address
+  if(size_in != size) return -3 ;                        // sizes do not match
+  uint32_t *out = base + offset ;                        // source address
   for(uint32_t i=0 ; i<size ; i++){ out[i] = src[i] ; }
 
   return size ;                                          // number of 32 bit words copied
+}
+
+// map      [IN] : pointer to valid zmap struct
+// block0   [IN] : first block to copy
+// block_nb [IN] : number of blocks to copy
+// drng  [INOUT] : address range describing destination
+// get      [IN] : 1 => get one or more block(s), 0 => put one or more block(s)
+block_fn move_mapped_blocks ;    // make sure we have the right types in the function prototype
+int32_t move_mapped_blocks(zmap *map, int block0, int block_nb, uint32_t_range drng, int get){
+  if(get){
+    return get_mapped_blocks(map, block0, block_nb, drng) ;
+  }else{
+//     return put_mapped_blocks(map, block0, block_nb, drng) ;
+  }
+  return 0 ;
 }
 
 // pack unsigned 32 ->16 ;
@@ -252,6 +320,30 @@ void  fill_zmap_with_data(zmap *map, int gni, int gnj, uint32_t data[gnj][gni]){
   for(i=bno ; i<map->fhead.zijk ; i++) { sizes[i] = 0 ; offsets[i+1] = offsets[i] ; } ;
 }
 
+// print blocks size/offset/limit
+int print_zmap_blocks(zmap *map, uint32_t maxblocks){
+  int oor = 0 ;  // number of "out of range" blocks
+  uint32_t hole = 0 ;
+  uint32_t total_blocks = ZMAP_TOTAL_BLOCKS(map) ;
+  if(maxblocks > total_blocks) maxblocks = total_blocks ;
+  for(uint32_t i=0 ; i<maxblocks ; i++){
+    uint32_t *bk0 = map->mhead.drng.bot + BLOCK_OFFSET(map,i) ;
+    uint32_t *bkn = bk0 + map->size[i] - 1 ;
+    hole = (map->mhead.drng.bot[i+1]) - (map->mhead.drng.bot[i]) ;
+    fprintf(stderr, "block %2d(%5d), %p <= %p[%8ld][%8ld] <= %p ? (%s:%s), %s [%6d] <%6d>\n",
+            i, map->size[i], RANGE_BOT(map->mhead.drng), bk0,
+            RANGE_OFFSET(map->mhead.drng, bk0), RANGE_AVAIL(map->mhead.drng, bk0),
+            RANGE_LIMIT(map->mhead.drng),
+            IN_RANGE(map->mhead.drng, bk0, bk0) ? "IN RANGE" : "OUT OF RANGE",
+            IN_RANGE(map->mhead.drng, bkn, bkn) ? "IN RANGE" : "OUT OF RANGE",
+            (hole == 0) ? "contiguous" : "  disjoint", hole,
+            contiguous_mapped_blocks(map, 0, i)  ) ;
+
+    if( ! IN_RANGE(map->mhead.drng,bk0,bkn) ) oor++ ;
+  }
+  return oor ;
+}
+
 int main(int argc, char **argv){
   (void)(argc) ; (void)(argv) ;  //  suppress unused argument warning
   int i, j ;
@@ -263,6 +355,7 @@ int main(int argc, char **argv){
   int32_t gni, gnj, gnk, bsize, aspect, bsizej ;
   int32_t bextra = 3 ;
   int32_t mextra = 4 ;
+  uint32_t total_blocks ;
 
   goto test ;
 success:
@@ -333,7 +426,7 @@ test:
   zmap *zp0, *zp1, *zp2 ;
   int status ;
   uint32_t map_words, rec_words, zmap_words, data_words, errors ; 
-  gni = 129 ; gnj = 97 ; gnk = 1 ; bsize = 64 ; aspect = 1 ; mextra = 2 ; bextra = 3 ;
+  gni = 129 ; gnj = 97 ; gnk = 1 ; bsize = 64 ; aspect = 1 ; mextra = 2 ; bextra = 4 ;
   uint32_t *data = (uint32_t *)malloc(gni * gnj * sizeof(uint32_t *)) ;
   if(data == NULL) goto fail;
 
@@ -341,21 +434,37 @@ test:
   errors = check_data(gni, gnj, (void *)data, 0, gni, 0, gnj) ;
   if( errors != 0) FAIL(1, "ERROR : %d error(s) in data\n", errors)
 
-  // create and populate the data_map + data struct
+  // create and populate the data_map + data struct (bextra supplementary blocks)
   zp0 = create_zmap(gni, gnj, gnk, bsize, aspect, 2*sizeof(uint32_t), mextra, bextra, 3*bextra*sizeof(uint32_t)) ;
 //   zp0->mhead.codec_args = *((arg128 *) &pack_args ) ;
-  SET_CODEC_ARGS(zp0, pack_args) ;
-  SET_CODEC_FN(zp0, test_codec_1632) ;
-//   memcpy( &(zp0->mhead.codec_args), &pack_args, sizeof(zp0->mhead.codec_args) );    // set packing codec arguments
-  fill_zmap_with_data(zp0, gni, gnj, (void *)data) ;
-  errors = check_data(gni, gnj, (void *)data, 0, gni, 0, gnj) ;
+  SET_CODEC_ARGS(zp0, pack_args) ;                                   // set pack/restore codec arguments
+  SET_CODEC_FN(zp0, test_codec_1632) ;                               // set pack/restore codec function address
+  fill_zmap_with_data(zp0, gni, gnj, (void *)data) ;                 // fill zmap with data
+  errors = check_data(gni, gnj, (void *)data, 0, gni, 0, gnj) ;      // check that data is as expected
+  for(uint32_t i = (zp0->fhead.zni * zp0->fhead.znj * zp0->fhead.gnk) ; i < zp0->fhead.zijk ; i++){
+    zp0->size[i] = zp0->fhead.zijk - i ;                                  // fix supplementary block size
+    zp0->mhead.orng.bot[i+1] = zp0->mhead.orng.bot[i] + zp0->size[i] ;    // fix supplementary block offset
+  }
   if( errors != 0){ FAIL(1, "ERROR : %d error(s) in get/put\n", errors) ; }
 
   zmap_print(zp0, "zp0+") ;
   fmap_print(zp0, "zp0+") ;
+  fprintf(stderr, "\n");
 
-//   test_fill_size(zp0->fhead.zni, zp0->fhead.znj, (void *)zp0->size, zp0) ;
-//   test_fill_offset(zp0) ;
+  total_blocks = ZMAP_TOTAL_BLOCKS(zp0) ;
+  uint64_t saved_offset = zp0->mhead.orng.bot[total_blocks-1] ;
+  uint16_t saved_size = zp0->size[total_blocks-1] ;
+  int oor ;
+  zp0->mhead.orng.bot[total_blocks-1] = 9999 ;    // excessive offset+size for last block
+  zp0->size[total_blocks-1] = 65000 ;
+  oor = print_zmap_blocks(zp0, 99) ;
+  if(oor != 1) FAIL(1, "block not in range count = %d, expecting 1\n", oor) ;
+  fprintf(stderr, "\n");
+  zp0->mhead.orng.bot[total_blocks-1] = saved_offset ;   // restore correct offset and size fot last block
+  zp0->size[total_blocks-1] = saved_size ;
+  oor = print_zmap_blocks(zp0, 99) ;
+  if(oor != 0) FAIL(1, "block not in range count = %d, expecting 0\n", oor) ;
+  fprintf(stderr, "\n");
 
   map_words = FILEMAP_WORDS(zp0) ; rec_words = RECORD_WORDS(zp0) ; zmap_words = ZMAP_WORDS(zp0) ; data_words = DATA_WORDS(zp0) ;
   fprintf(stderr, "zp0 data map length = %d , data length = %d , record length = %d , zmap length = %d \n", map_words, data_words, rec_words, zmap_words) ;
@@ -382,7 +491,7 @@ goto success ;
   status = update_file_zmap(zp1) ;
   if(status) fprintf(stderr, "ERROR: update_file_zmap %d\n", status) ;
   zp1->mhead.codec = test_codec_1632 ;
-  zp1->mhead.get_blocks = get_mapped_blocks ;
+  zp1->mhead.get_blocks = move_mapped_blocks ;
   zmap_print(zp1, "zp1+") ;
   fmap_print(zp1, "zp1+") ;
   fprintf(stderr, "\n") ;

@@ -180,7 +180,7 @@ fprintf(stderr, "map only, no data\n");
     }else{
 fprintf(stderr, "map and data\n");
       map->mhead.drng.bot = map->mhead.frng.top ;                // address of data is just above data map
-      SET_RANGE_SIZE(map->mhead.drng, frecsize - mapsize) ;      // file record size = map size + data size
+      SET_RANGE_BYTES(map->mhead.drng, frecsize - mapsize) ;      // file record size = map size + data size
     }
 
     // sizes[] table (bottom address known , size unknown yet)
@@ -247,29 +247,31 @@ void zmap_print(zmap *map, char *msg){
   }
   char *f1 = "   %s   %16p -> %16p [+%6d] (%ld bytes)\n" ;
   char *f2 = "   %s   %16p -> %16p           (%ld bytes)\n" ;
-  size_t fmap_size = RANGE_SIZE(map->mhead.frng) ;
-  size_t smap_size = RANGE_SIZE(map->mhead.srng) ;
-  size_t xmap_size = RANGE_SIZE(map->mhead.xrng) ;
-  size_t dmap_size = RANGE_SIZE(map->mhead.drng) ;
-  size_t pmap_size = RANGE_SIZE(map->mhead.orng) ;
-  size_t zmap_size = RANGE_SIZE(map->mhead.zrng) ;
-  fprintf(stderr, "zmap %s : version %4.4x, '%4.4x', options = %8.8x, bit stream at %p \n",
-          msg, map->mhead.version, map->mhead.signature, map->mhead.options, &(map->mhead.stream)) ;
+  size_t fmap_size = RANGE_BYTES(map->mhead.frng) ;
+  size_t smap_size = RANGE_BYTES(map->mhead.srng) ;
+  size_t xmap_size = RANGE_BYTES(map->mhead.xrng) ;
+  size_t dmap_size = RANGE_BYTES(map->mhead.drng) ;
+  size_t pmap_size = RANGE_BYTES(map->mhead.orng) ;
+  size_t zmap_size = RANGE_BYTES(map->mhead.zrng) ;
+//   fprintf(stderr, "zmap %s : version %4.4x, '%4.4x', options = %8.8x, bit stream at %p \n",
+//           msg, map->mhead.version, map->mhead.signature, map->mhead.options, &(map->mhead.stream)) ;
+  fprintf(stderr, "zmap %s : version %4.4x, '%4.4x', options = %8.8x, no bitstream in map\n",
+          msg, map->mhead.version, map->mhead.signature, map->mhead.options) ;
   fprintf(stderr, "   COPY   %16p\n   CODEC  %16p\n", map->mhead.get_blocks, map->mhead.codec) ;
-  fprintf(stderr, f1, "ZMAP", map->mhead.zrng.bot, RANGE_LIMIT(map->mhead.zrng), PTR_DIFF(map,map->mhead.zrng.bot), zmap_size) ;
-  fprintf(stderr, f1, "File", map->mhead.frng.bot, RANGE_LIMIT(map->mhead.frng), PTR_DIFF(map,map->mhead.frng.bot), fmap_size) ;
-  fprintf(stderr, f1, "Smem", map->mhead.srng.bot, RANGE_LIMIT(map->mhead.srng), PTR_DIFF(map,map->mhead.srng.bot), smap_size) ;
+  fprintf(stderr, f1, "ZMAP", map->mhead.zrng.bot, RANGE_LIMIT(map->mhead.zrng), PTR_OFFSET(map,map->mhead.zrng.bot), zmap_size) ;
+  fprintf(stderr, f1, "File", map->mhead.frng.bot, RANGE_LIMIT(map->mhead.frng), PTR_OFFSET(map,map->mhead.frng.bot), fmap_size) ;
+  fprintf(stderr, f1, "Smem", map->mhead.srng.bot, RANGE_LIMIT(map->mhead.srng), PTR_OFFSET(map,map->mhead.srng.bot), smap_size) ;
   if(map->mhead.xrng.bot)
-    fprintf(stderr, f1, "Xtra", map->mhead.xrng.bot, RANGE_LIMIT(map->mhead.xrng), PTR_DIFF(map,map->mhead.xrng.bot), xmap_size) ;
+    fprintf(stderr, f1, "Xtra", map->mhead.xrng.bot, RANGE_LIMIT(map->mhead.xrng), PTR_OFFSET(map,map->mhead.xrng.bot), xmap_size) ;
   else
     fprintf(stderr, f2, "Xtra", map->mhead.xrng.bot, RANGE_LIMIT(map->mhead.xrng), xmap_size) ;
   if(map->mhead.drng.bot)
-    fprintf(stderr, f1, "Data", map->mhead.drng.bot, RANGE_LIMIT(map->mhead.drng), PTR_DIFF(map,map->mhead.drng.bot), dmap_size) ;
+    fprintf(stderr, f1, "Data", map->mhead.drng.bot, RANGE_LIMIT(map->mhead.drng), PTR_OFFSET(map,map->mhead.drng.bot), dmap_size) ;
   else
     fprintf(stderr, f2, "Data", map->mhead.drng.bot, map->mhead.drng.top, dmap_size) ;
   if(map->mhead.orng.bot)
     if((uint8_t *)(map->mhead.orng.bot) > (uint8_t *)(map->mhead.zrng.bot) && (uint8_t *)(map->mhead.orng.bot) < (uint8_t *)(map->mhead.zrng.top))
-      fprintf(stderr, f1, "Pmem", map->mhead.orng.bot, RANGE_LIMIT(map->mhead.orng), PTR_DIFF(map,map->mhead.orng.bot), pmap_size) ;
+      fprintf(stderr, f1, "Pmem", map->mhead.orng.bot, RANGE_LIMIT(map->mhead.orng), PTR_OFFSET(map,map->mhead.orng.bot), pmap_size) ;
     else
       fprintf(stderr, f2, "Pmem", map->mhead.orng.bot, RANGE_LIMIT(map->mhead.orng), pmap_size) ;
   else
@@ -421,6 +423,7 @@ static size_pair adjust_bsize(int32_t b_size, int32_t aspect){
 // esize > 16 is not supported for now
 // mextra may get updated later, provided that the new value is < value at zmap creation time
 // in that case, frng, xrng, drng will need to be updated too
+// TODO: need a "no data" option (dsize == 0) for external data. user supplied range ?
 zmap *create_zmap(int32_t gni, int32_t gnj, int32_t gnk, int32_t bi_size, int32_t aspect, int32_t esize,
                   int32_t mextra, int32_t zextra, int32_t zsize){
 
@@ -462,8 +465,8 @@ zmap *create_zmap(int32_t gni, int32_t gnj, int32_t gnk, int32_t bi_size, int32_
   if(map == NULL) goto fail ;       // zmap allocation failed
 
   map->mhead = base_mmap ;          // initialize signature, version, options, stream, fn, args
-  // nullify bitstream
-  SET_NULL_BITSTREAM(map->mhead.stream) ;
+//   // nullify bitstream
+//   SET_NULL_BITSTREAM(map->mhead.stream) ;
   // initialize memory address ranges
   // entire zmap struct address range
   SET_RANGE(map->mhead.zrng, map, size) ;
@@ -499,7 +502,7 @@ fail :          // free what was allocated internally
   if(map){ free(map) ; }
   return NULL ;
 }
-
+#if 0
 // adjust offset table using the sizes table
 // map [INOUT] : pointer to zmap (mmap/fmap/sizes/...) struct
 // return number of entries in tables if successful, 0 otherwise
@@ -507,16 +510,16 @@ int adjust_map_offsets(zmap *map){
   if(map == NULL) return 0 ;
   uint32_t nijk = map->fhead.zijk ;
   uint64_t t ;
-  uint64_t limit = RANGE_SIZE(map->mhead.drng) ;    // max number of data elements that can be accomodated
+  uint64_t limit = RANGE_ELEMENTS(map->mhead.drng) ;    // max number of elements that can be accomodated
   map->mhead.orng.bot[0] = 0 ;
   for(uint32_t i=0 ; i<nijk ; i++){
     t = map->mhead.orng.bot[i] + map->size[i] ;
-    if(t > limit) return 0 ;                        // data size exceeded
+    if(t > limit) return 0 ;                            // element number exceeded
     map->mhead.orng.bot[i+1] = t ;
   }
   return nijk ;
 }
-#if 0
+
 // create sizes from block dimensions
 int bsize_zmap(zmap *map, size_t esize){
   if(map == NULL) return 0 ;

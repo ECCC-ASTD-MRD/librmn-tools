@@ -128,24 +128,26 @@
 //   |----------- sizeof(zmap) ----------|              |-mextra -|
 //   |- sizeof(mhead) -|- sizeof(fhead) -|-- 2*zijk ---||pad (0 or 2 bytes) (2 bytes pad if zijk is odd)
 //   +-----------------+-----------------+-------------++---------+-------//-----------+//+-----//-----------+
-//   |                 |                 |   block     ||  extra  |                    |  |     offsets      |
+//   |                 |                 |   block     ||  extra  |                    |  | offsets|pointers |
 //   |  memory header  |  file header    |   sizes     ||  global |    data blocks     |  |     to blocks    |
 //   |signature , .....|signature, ......|   [zijk]    ||  info   |   (zijk blocks)    |  |     [zijk + 1]   |
 //   +-----------------+-----------------+-------------++---------+-------//-----------+//+-----//-----------+
 //   |-------------------------------------------- ZRNG -----------------------------------------------------|
 //                     |--------------- FRNG ---------------------|------- DRNG -------|  |----- ORNG -------|
-//                                       |---- SRNG ---||--XRNG --|
+//                                       |---- SRNG ---||--XRNG --|                       |----- PRNG -------|
 //                     |---------------------- in file record -------------------------|
 //                     |---------------- data map ----------------|--- encoded data ---|
 //                                                      |---------- bitstream ---------|
 //
 // ZRNG : entire memory arena (mhead, FRNG, DRNG, optional ORNG
 // FRNG : data map (includes table of block sizes and "extras")
-// DRNG : encoded data blocks
-// SRNG : table of block sizes
-// XRNG : optional "extras" (null range if extra == 0)
-// ORNG : optional table of offsets (null range if not present)
-// NOTE: there is a possible overlap between the bit stream and the data map (mextra 32 bit items)
+// DRNG : encoded data blocks (32 bit elements)
+// SRNG : table of block sizes (16 bit elements)
+// XRNG : optional "extras" (null range if extra == 0) (32 bit elements)
+// ORNG : optional table of offsets (null range if not present) (64 bit elements)
+// PRNG : optional table of pointers (null range if not present) (64 bit elements)
+// NOTE: there is a possible overlap between the bit stream and the data map (mextra 32 bit elements)
+// NOTE: either ORNG or PRNG is present, they are mutually exclusive
 //
 // the data map can be mapped directly to the beginning of the packed data representation if necessary
 // zmap *map
@@ -186,36 +188,42 @@ typedef struct zmap zmap ;
 typedef struct mmap mmap ;
 typedef struct fmap fmap ;
 
-typedef int32_t block_fn(zmap *, int, int, void *, size_t) ;  // map, first_block, number_of_blocks, destination, destination_size
+typedef int32_t block_fn(zmap *map, int block0, int block_nb, uint32_t_range drng, int get) ;
 typedef block_fn *block_fn_p ;
-typedef int32_t codec_fn(zmap *, void *, void *, int, int) ;       // map, out, in, number_of_values, encode(1)/decode(0) 
+typedef int32_t codec_fn(zmap *map, void *out, void *in, int ninj, int encode) ;
 typedef codec_fn *codec_fn_p ;
+
+typedef uint32_t *uint32_p ;
+RANGE_TYPEDEF(uint32_p) ;
 
 // NOTE: components not needed/used are nullified
 // TODO ? add file descriptor and file offset to beginning of record/data in file ?
 //        for RSF : READ function and pointer to record struct as argument + offset, size ?
 //        pointer to IO-READ function, blind args array for this function, (*fn)(args, file, offset, size) ?
 //        define a read(map, file, offset, size) function ?
+// orng.bot[0] == 0 : offsets,  orng.bot[0] != 0 : use prng.bot[] pointers
+// prng.bot[zijk] == NULL : pointers, prng.bot[zijk] != NULL : use orng.bot[] offsets
+// the base address for offsets is drng.bot[0] (start of data range)
 struct mmap{            // in memory only part of data map
   uint32_t signature ;     // should be 0x1AD0FADA, target for & operator to get address of header
   uint16_t version ;       // version marker (MUST BE the same as in file header)
   uint16_t  options ;      // reserved for internal use options (MUST BE 0 FOR NOW)
-  bitstream stream ;       // encoding/decoding bit stream  (see rmn/be_stream.h, rmn/bitstream.h) (should be 64 bytes)
-  block_fn *get_blocks ;   // pointer to get block(s) function (*get_block)(zmap *map, int block0, int blockn, void *dest, size_t size_dest)
+//   bitstream stream ;       // encoding/decoding bit stream  (see rmn/be_stream.h, rmn/bitstream.h) (should be 64 bytes)
+  block_fn *get_blocks ;   // pointer to get block(s) function (*get_block)(zmap *map, int block0, int block_nb, uint32_t_range drng, int get)
   arg128 get_args ;        // for use by block_fn
-  codec_fn *codec ;        // pointer to encode/decode function (*codec)(zmap *map, void *block, void *dest, size_t size_dest)
+  codec_fn *codec ;        // pointer to encode/decode function (*codec)(zmap *map, void *out, void *in, int ninj, int encode)
   arg128 codec_args ;      // for use by codec_fn
   RANGE(uint32_t) xrng ;   // address range for "extra" information
   RANGE(uint32_t) frng ;   // address range for the file portion of the data map (includes "extra" information)
   RANGE(uint16_t) srng ;   // address range for the sizes table (uint16_t items)
   RANGE(uint32_t) drng ;   // address range for the data blocks portion of the record (above "extra")
-  //                          orng.bot[zijk] : offset into data for encoded data blocks (optional)
-  RANGE(uint64_t) orng ;   // address range for the memory offsets (uint64_t items)
+  RANGE(uint64_t) orng ;   // orng.bot[zijk] : uint64_t block offset (in 32 bit units) relative to drng.bot[] (optional)
+  RANGE(uint32_p) prng ;   // prng.bot[index] : pointer to block[index]  (32 bit items) (optional)
   RANGE(uint32_t) zrng ;   // address range for the entire data map
 } ;
-static const mmap base_mmap = { 0x1AD0FADA, Z_DATA_MAP_VERSION, 0 , NULL_BITSTREAM, NULL, ZERO128, NULL, ZERO128, /*NULL, NULL,*/
+static const mmap base_mmap = { 0x1AD0FADA, Z_DATA_MAP_VERSION, 0 , /*NULL_BITSTREAM,*/ NULL, ZERO128, NULL, ZERO128, /*NULL, NULL,*/
                                (uint32_t_range)RANGE_NULL, (uint32_t_range)RANGE_NULL, (uint16_t_range)RANGE_NULL,
-                               (uint32_t_range)RANGE_NULL, (uint64_t_range)RANGE_NULL, (uint32_t_range)RANGE_NULL } ;
+                               (uint32_t_range)RANGE_NULL, (uint64_t_range)RANGE_NULL, (uint32_p_range)RANGE_NULL, (uint32_t_range)RANGE_NULL } ;
 
 CT_ASSERT(sizeof(mmap) == (sizeof(mmap) / sizeof(int64_t)) * sizeof(int64_t) , "mmap struc size not a multiple of 64 bits")
 
