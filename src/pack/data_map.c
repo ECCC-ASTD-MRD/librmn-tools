@@ -278,6 +278,52 @@ void zmap_print(zmap *map, char *msg){
     fprintf(stderr, f2, "Pmem", map->mhead.orng.bot, RANGE_LIMIT(map->mhead.orng), pmap_size) ;
 }
 
+// print blocks size/offset/limit
+// map       [IN] : pointer to valid zmap struct
+// maxblocks [IN] : only print up to block maxblocks-1
+// return number of "out of range" blocks (not fully within map data range)
+int print_zmap_blocks(zmap *map, uint32_t maxblocks){
+  int oor = 0 ;  // number of "out of range" blocks
+  uint32_t hole = 0 ;
+  uint32_t total_blocks = ZMAP_TOTAL_BLOCKS(map) ;
+  if(maxblocks > total_blocks) maxblocks = total_blocks ;
+  for(uint32_t i=0 ; i<maxblocks ; i++){
+    uint32_t *bk0 = map->mhead.drng.bot + BLOCK_OFFSET(map,i) ;
+    uint32_t *bkn = bk0 + map->size[i] - 1 ;
+    hole = (map->mhead.drng.bot[i+1]) - (map->mhead.drng.bot[i]) ;
+    fprintf(stderr, "block %2d(%5d), %p <= %p[%8ld][%8ld] <= %p ? (%s:%s), %s [%6d] <%6d>\n",
+            i, map->size[i], RANGE_BOT(map->mhead.drng), bk0,
+            RANGE_OFFSET(map->mhead.drng, bk0), RANGE_AVAIL(map->mhead.drng, bk0),
+            RANGE_LIMIT(map->mhead.drng),
+            IN_RANGE(map->mhead.drng, bk0, bk0) ? "IN RANGE" : "OUT OF RANGE",
+            IN_RANGE(map->mhead.drng, bkn, bkn) ? "IN RANGE" : "OUT OF RANGE",
+            (hole == 0) ? "contiguous" : "  disjoint", hole,
+            contiguous_zmap_blocks(map, 0, i)  ) ;
+
+    if( ! IN_RANGE(map->mhead.drng,bk0,bkn) ) oor++ ;
+  }
+  return oor ;
+}
+
+// map    [IN] : pointer to valid zmap struct
+// block0 [IN] : first block to check
+// blockn [IN] : last block to check
+// return cumulative size if blocks are contiguous, -size if not
+int contiguous_zmap_blocks(zmap *map, int block0, int block_n){
+  // NOTE: the orng range is used to check if blocks are contiguous
+  //       if prng rather than orng is valid, it does not affect the contiguity check
+  //       addresses are 64 bit wide pointers to 32 bit items and can be used as offsets
+  uint64_t *offsets = map->mhead.orng.bot ;              // offsets table
+  uint32_t size = 0 ;
+  int contiguous = 1 ;
+  size = map->size[block0] ;
+  for(int i = block0 + 1 ; i <= block_n ; i++){
+    size = size + map->size[i] ;                  // cumulative size of blocks to copy (in 32 bit units)
+    contiguous = contiguous && ( offsets[i-1]+map->size[i-1] == offsets[i] ) ;
+  }
+  return contiguous ? size : (-size) ;
+}
+
 // basic validity check on data map
 // return 0 if valid, non zero error code if not
 int fmap_invalid(zmap *map){

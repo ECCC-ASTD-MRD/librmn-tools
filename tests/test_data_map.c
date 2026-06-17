@@ -35,22 +35,6 @@ static int StAtUs = 0 ;
 #define NTJ 11
 #define SF0  4
 
-// return size if contiguous, -size if not
-int contiguous_mapped_blocks(zmap *map, int block0, int block_n){
-  // NOTE: the orng range is used to check if blocks are contiguous
-  //       if prng rather than orng is valid, it does not affect the contiguity check
-  //       addresses are 64 bit wide pointers to 32 bit items and can be used as offsets
-  uint64_t *offsets = map->mhead.orng.bot ;              // offsets table
-  uint32_t size = 0 ;
-  int contiguous = 1 ;
-  size = map->size[block0] ;
-  for(int i = block0 + 1 ; i <= block_n ; i++){
-    size = size + map->size[i] ;                  // cumulative size of blocks to copy (in 32 bit units)
-    contiguous = contiguous && ( offsets[i-1]+map->size[i-1] == offsets[i] ) ;
-  }
-  return contiguous ? size : (-size) ;
-}
-
 // copy block(s) of 32 bit elements from memory pointed to by data map into user space
 // demo function for tests purposes
 // map      [IN] : pointer to valid zmap struct
@@ -81,7 +65,7 @@ int32_t get_mapped_blocks(zmap *map, int block0, int block_nb, uint32_t_range dr
 
   // consecutive blocks in tables are assumed to be consecutive in storage
   // check that this is the case. if not, transfer block by block
-  uint32_t size = contiguous_mapped_blocks(map, block0, block0+block_nb-1) ;
+  uint32_t size = contiguous_zmap_blocks(map, block0, block0+block_nb-1) ;
   int contiguous = (size > 0) ;
   size = (size < 0) ? (-size) : size ;
   if(size_out < size) return -3 ;                        // not enough space for copy
@@ -318,30 +302,6 @@ void  fill_zmap_with_data(zmap *map, int gni, int gnj, uint32_t data[gnj][gni]){
     j0 = jn + 1 ;
   }
   for(i=bno ; i<map->fhead.zijk ; i++) { sizes[i] = 0 ; offsets[i+1] = offsets[i] ; } ;
-}
-
-// print blocks size/offset/limit
-int print_zmap_blocks(zmap *map, uint32_t maxblocks){
-  int oor = 0 ;  // number of "out of range" blocks
-  uint32_t hole = 0 ;
-  uint32_t total_blocks = ZMAP_TOTAL_BLOCKS(map) ;
-  if(maxblocks > total_blocks) maxblocks = total_blocks ;
-  for(uint32_t i=0 ; i<maxblocks ; i++){
-    uint32_t *bk0 = map->mhead.drng.bot + BLOCK_OFFSET(map,i) ;
-    uint32_t *bkn = bk0 + map->size[i] - 1 ;
-    hole = (map->mhead.drng.bot[i+1]) - (map->mhead.drng.bot[i]) ;
-    fprintf(stderr, "block %2d(%5d), %p <= %p[%8ld][%8ld] <= %p ? (%s:%s), %s [%6d] <%6d>\n",
-            i, map->size[i], RANGE_BOT(map->mhead.drng), bk0,
-            RANGE_OFFSET(map->mhead.drng, bk0), RANGE_AVAIL(map->mhead.drng, bk0),
-            RANGE_LIMIT(map->mhead.drng),
-            IN_RANGE(map->mhead.drng, bk0, bk0) ? "IN RANGE" : "OUT OF RANGE",
-            IN_RANGE(map->mhead.drng, bkn, bkn) ? "IN RANGE" : "OUT OF RANGE",
-            (hole == 0) ? "contiguous" : "  disjoint", hole,
-            contiguous_mapped_blocks(map, 0, i)  ) ;
-
-    if( ! IN_RANGE(map->mhead.drng,bk0,bkn) ) oor++ ;
-  }
-  return oor ;
 }
 
 int main(int argc, char **argv){

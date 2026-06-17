@@ -346,11 +346,13 @@ int fmap_invalid(zmap *map);
 void fmap_init(zmap *map, int32_t gni, int32_t gnj, int32_t gnk, int32_t bsizex, int32_t bsizey, array_axis_3d *a3, int32_t mextra, int32_t bextra);
 void fmap_print(zmap *map, char *msg);
 void zmap_print(zmap *map, char *msg);
+int print_zmap_blocks(zmap *map, uint32_t maxblocks);
 
 void *filemap_address(zmap *map);
 uint32_t filemap_words(zmap *map);
 
 uint32_t filemap_blocks(int32_t gni, int32_t gnj, int32_t gnk, int32_t bsizex, int32_t bsizey);
+int contiguous_zmap_blocks(zmap *map, int block0, int block_n);
 
 size_t filemap_needed_words(int32_t gni, int32_t gnj, int32_t gnk, int32_t bsizex, int32_t bsizey, int32_t bextra);
 size_t filemap_needed_bytes(int32_t gni, int32_t gnj, int32_t gnk, int32_t bsizex, int32_t bsizey, int32_t bextra);
