@@ -217,7 +217,7 @@ struct mmap{            // in memory only part of data map
   RANGE(uint32_t) frng ;   // address range for the file portion of the data map (includes "extra" information)
   RANGE(uint16_t) srng ;   // address range for the sizes table (uint16_t items)
   RANGE(uint32_t) drng ;   // address range for the data blocks portion of the record (above "extra")
-  RANGE(uint64_t) orng ;   // orng.bot[zijk] : uint64_t block offset (in 32 bit units) relative to drng.bot[] (optional)
+  RANGE(uint64_t) orng ;   // orng.bot[zijk] : uint64_t block offset (in bytes) (relative to drng.bot or other) (optional)
   RANGE(uint32_p) prng ;   // prng.bot[index] : pointer to block[index]  (32 bit items) (optional)
   RANGE(uint32_t) zrng ;   // address range for the entire data map
 } ;

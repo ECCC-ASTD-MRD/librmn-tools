@@ -226,9 +226,10 @@ int update_file_zmap(zmap *map){
   int32_t zijkmax = 1 + map->fhead.zijk ;
   map->mhead.orng.bot = map->mhead.orng.top - zijkmax ;             // there is room for up to zijkmax entries
 
+// TODO : adjust for offsets in bytes
   map->mhead.orng.bot[0] = 0 ;
   for(int i = 1 ; i < zijkmax ; i++){                               // fill offsets table using sizes table
-    map->mhead.orng.bot[i] = map->mhead.orng.bot[i-1] + map->size[i-1] ;
+    map->mhead.orng.bot[i] = map->mhead.orng.bot[i-1] + (map->size[i-1] * sizeof(uint32_t)) ;
   }
 
   return status ;
@@ -265,6 +266,7 @@ void zmap_print(zmap *map, char *msg){
     fprintf(stderr, f1, "Xtra", map->mhead.xrng.bot, RANGE_LIMIT(map->mhead.xrng), PTR_OFFSET(map,map->mhead.xrng.bot), xmap_size) ;
   else
     fprintf(stderr, f2, "Xtra", map->mhead.xrng.bot, RANGE_LIMIT(map->mhead.xrng), xmap_size) ;
+  dmap_size /= sizeof(uint32_t) ;
   if(map->mhead.drng.bot)
     fprintf(stderr, f1, "Data", map->mhead.drng.bot, RANGE_LIMIT(map->mhead.drng), PTR_OFFSET(map,map->mhead.drng.bot), dmap_size) ;
   else
@@ -282,13 +284,14 @@ void zmap_print(zmap *map, char *msg){
 // map       [IN] : pointer to valid zmap struct
 // maxblocks [IN] : only print up to block maxblocks-1
 // return number of "out of range" blocks (not fully within map data range)
+// TODO : adjust for offsets in bytes
 int print_zmap_blocks(zmap *map, uint32_t maxblocks){
   int oor = 0 ;  // number of "out of range" blocks
   uint32_t hole = 0 ;
   uint32_t total_blocks = ZMAP_TOTAL_BLOCKS(map) ;
   if(maxblocks > total_blocks) maxblocks = total_blocks ;
   for(uint32_t i=0 ; i<maxblocks ; i++){
-    uint32_t *bk0 = map->mhead.drng.bot + BLOCK_OFFSET(map,i) ;
+    uint32_t *bk0 = map->mhead.drng.bot + (BLOCK_OFFSET(map,i)/sizeof(uint32_t)) ;
     uint32_t *bkn = bk0 + map->size[i] - 1 ;
     hole = (map->mhead.drng.bot[i+1]) - (map->mhead.drng.bot[i]) ;
     fprintf(stderr, "block %2d(%5d), %p <= %p[%8ld][%8ld] <= %p ? (%s:%s), %s [%6d] <%6d>\n",
@@ -309,6 +312,7 @@ int print_zmap_blocks(zmap *map, uint32_t maxblocks){
 // block0 [IN] : first block to check
 // blockn [IN] : last block to check
 // return cumulative size if blocks are contiguous, -size if not
+// TODO : adjust for offsets in bytes
 int contiguous_zmap_blocks(zmap *map, int block0, int block_n){
   // NOTE: the orng range is used to check if blocks are contiguous
   //       if prng rather than orng is valid, it does not affect the contiguity check
@@ -319,7 +323,7 @@ int contiguous_zmap_blocks(zmap *map, int block0, int block_n){
   size = map->size[block0] ;
   for(int i = block0 + 1 ; i <= block_n ; i++){
     size = size + map->size[i] ;                  // cumulative size of blocks to copy (in 32 bit units)
-    contiguous = contiguous && ( offsets[i-1]+map->size[i-1] == offsets[i] ) ;
+    contiguous = contiguous && ( offsets[i-1] + (map->size[i-1]*sizeof(uint32_t)) == offsets[i] ) ;
   }
   return contiguous ? size : (-size) ;
 }
