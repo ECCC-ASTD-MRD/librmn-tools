@@ -138,6 +138,7 @@ int32_t move_mapped_blocks(zmap *map, int block0, int block_nb, uint32_t_range d
 }
 
 // pack unsigned 32 ->16 ;
+// return number of bytes written into out_
 int test_pack_block_3216(zmap *map, void *out_, void *in_, int ninj){
   if(map == NULL || ninj <= 0) return -1 ;
   uint32_t *in = in_ ;
@@ -155,6 +156,7 @@ int test_pack_block_3216(zmap *map, void *out_, void *in_, int ninj){
 }
 
 // unpack unsigned 32 ->16 ;
+// return number of bytes read from in_
 int test_unpack_block_1632(zmap *map, void *out_, void *in_, int ninj){
   if(map == NULL || ninj <= 0) return -1 ;
   uint16_t *in = in_ ;
@@ -263,53 +265,97 @@ static struct{
     uint64_t dummy ;
   } pack_args = {32, 16, 0} ;
 
-void  fill_zmap_with_data(zmap *map, int gni, int gnj, uint32_t data[gnj][gni]){
+// extract data from full zmap, store into array
+void  get_data_from_zmap(zmap *map, int gni, int gnj, uint32_t array[gnj][gni]){
   uint32_t lni, lnj, i0, j0, in, jn, i, j ;
   uint32_t zni = map->fhead.zni, znj = map->fhead.znj ;
   uint32_t maxi = MAX(map->fhead.li0, map->fhead.lni) ;
   uint32_t maxj = MAX(map->fhead.lj0, map->fhead.lnj) ;
   uint32_t block[maxi*maxj] ;
-  uint16_t packed[maxi*maxj] ;
-  int np ;
+  uint32_t *packed, bno ;
+  fmap_block_size *sizes, size, siz0 ;
+  int nbytes ;
   codec_fn *codec = map->mhead.codec ;
-  uint32_t *stream, bno ;
-  fmap_block_size *sizes, size ;
+
+  bno = 0 ;
+  sizes = map->size ;
+  packed = PTR_CAST(map->mhead.drng.bot, uint32_t) ;
+  for(j=0, j0 = 0, lnj = map->fhead.lj0 ; j<znj ; j++, lnj=map->fhead.lnj){
+    jn = j0 + lnj - 1 ;      // top row
+    for(i=0, i0 = 0, lni = map->fhead.li0 ; i<zni ; i++, lni=map->fhead.lni){
+      in = i0 + lni - 1 ;    // last column
+      fprintf(stderr, "zblock[%d,%d] = array[%3d:%3d,%3d:%3d]", i, j, i0, in, j0, jn) ;
+
+      nbytes = (*codec)(map, block, (uint16_t *)packed, lni * lnj, 0) ;                            // decode
+      siz0 = nbytes / sizeof(uint32_t) ;
+      size = (nbytes + sizeof(uint32_t) - 1) / sizeof(uint32_t) ;                                  // round size up to multiple of sizeof(uint32_t)
+      fprintf(stderr, ", codec unpack : nb = %d", nbytes) ;
+      if(nbytes == -1) exit(1) ;
+      if(size != sizes[bno]) exit(1) ;
+      fprintf(stderr, ", sizes[%d] = %d(%d)\n", bno, sizes[bno], siz0);
+
+      put_block(lni, lnj, (void *)block, gni, gnj, (void *)(&array[j0][i0])) ;                      // insert into array
+
+      packed += size ;
+      bno++ ;
+    }
+  }
+  fprintf(stderr, "words extracted = %ld\n\n", PTR_ELEMENTS(map->mhead.drng.bot, packed)) ;
+}
+
+void  fill_zmap_with_data(zmap *map, int gni, int gnj, uint32_t array[gnj][gni]){
+  uint32_t lni, lnj, i0, j0, in, jn, i, j ;
+  uint32_t zni = map->fhead.zni, znj = map->fhead.znj ;
+  uint32_t maxi = MAX(map->fhead.li0, map->fhead.lni) ;
+  uint32_t maxj = MAX(map->fhead.lj0, map->fhead.lnj) ;
+  uint32_t block[maxi*maxj] ;
+//   uint16_t packed[maxi*maxj] ;
+  uint32_t *packed, bno ;
+  int nbytes ;
+  codec_fn *codec = map->mhead.codec ;
+//   uint32_t *stream ;
+  fmap_block_size *sizes, size, siz0 ;
   uint64_t *offsets ;
 
-  stream = map->mhead.drng.bot ;
+//   stream = map->mhead.drng.bot ;
   sizes = map->size ;
   offsets = map->mhead.orng.bot ;
   offsets[0] = 0 ;
   bno = 0 ;
 
   fprintf(stderr, "sizeof(block) = %ld bytes, %ld elements\n", sizeof(block), sizeof(block)/sizeof(uint32_t));
+  packed = PTR_CAST(map->mhead.drng.bot, uint32_t) ;
   for(j=0, j0 = 0, lnj = map->fhead.lj0 ; j<znj ; j++, lnj=map->fhead.lnj){
-    jn = j0 + lnj - 1 ;
+    jn = j0 + lnj - 1 ;      // top row
     for(i=0, i0 = 0, lni = map->fhead.li0 ; i<zni ; i++, lni=map->fhead.lni){
-      in = i0 + lni - 1 ;
+      in = i0 + lni - 1 ;    // last column
       fprintf(stderr, "zblock[%d,%d] = array[%3d:%3d,%3d:%3d]", i, j, i0, in, j0, jn) ;
-      get_block(lni, lnj, (void *)block, gni, gnj, (void *)(&data[j0][i0])) ;
+      get_block(lni, lnj, (void *)block, gni, lnj, (void *)(&array[j0][i0])) ;          // get block of data
 
-      np = (*codec)(map, packed, block, lni * lnj, 1) ;             // pack
-      fprintf(stderr, ", codec pack : nb = %d", np) ;
-      if(np == -1) exit(1) ;
-      size = np / sizeof(uint32_t) ;
+      nbytes = (*codec)(map, (uint16_t *)packed, block, lni * lnj, 1) ;                            // encode
+      fprintf(stderr, ", codec pack : nb = %d", nbytes) ;
+      if(nbytes == -1) exit(1) ;
+      siz0 = nbytes / sizeof(uint32_t) ;
+      size = (nbytes + sizeof(uint32_t) - 1) / sizeof(uint32_t) ;                      // round size up to multiple of sizeof(uint32_t)
       sizes[bno] = size ;
       offsets[bno+1] = offsets[bno] + (size * sizeof(uint32_t)) ;
 
-      np = (*codec)(map, block, packed, lni * lnj, 0) ;             // unpack
-      fprintf(stderr, ", codec unpack : nb = %d", np) ;
-      if(np == -1) exit(1) ;
+      nbytes = (*codec)(map, block, (uint16_t *)packed, lni * lnj, 0) ;                            // decode
+      fprintf(stderr, ", codec unpack : nb = %d", nbytes) ;
+      if(nbytes == -1) exit(1) ;
 
-      put_block(lni, lnj, (void *)block, gni, gnj, (void *)(&data[j0][i0])) ;
-      fprintf(stderr, ", sizes[%d] = %d\n\n", bno, sizes[bno]);
+      put_block(lni, lnj, (void *)block, gni, gnj, (void *)(&array[j0][i0])) ;
+      fprintf(stderr, ", sizes[%d] = %d(%d)\n", bno, sizes[bno], siz0);
       i0 = in + 1 ;
 
-      stream = stream + size ;
+//       stream = stream + size ;
+      packed += size ;
       bno++ ;
     }
     j0 = jn + 1 ;
   }
+  fprintf(stderr, "words inserted = %ld\n\n", PTR_ELEMENTS(map->mhead.drng.bot, packed)) ;
+  // supplementary blocks size set to 0
   for(i=bno ; i<map->fhead.zijk ; i++) { sizes[i] = 0 ; offsets[i+1] = offsets[i] ; } ;
 }
 
@@ -398,6 +444,8 @@ test:
   gni = 129 ; gnj = 97 ; gnk = 1 ; bsize = 64 ; aspect = 1 ; mextra = 2 ; bextra = 4 ;
   uint32_t *data = (uint32_t *)malloc(gni * gnj * sizeof(uint32_t *)) ;
   if(data == NULL) goto fail;
+  uint32_t *restored = (uint32_t *)malloc(gni * gnj * sizeof(uint32_t *)) ;
+  if(restored == NULL) goto fail;
 
   fill_data(gni, gnj, (void *)data) ;                            // create and check reference array
   errors = check_data(gni, gnj, (void *)data, 0, gni, 0, gnj) ;
@@ -405,11 +453,18 @@ test:
 
   // create and populate the data_map + data struct (bextra supplementary blocks)
   zp0 = create_zmap(gni, gnj, gnk, bsize, aspect, 2*sizeof(uint32_t), mextra, bextra, 8*bextra*sizeof(uint32_t)) ;
-//   zp0->mhead.codec_args = *((arg128 *) &pack_args ) ;
+
   SET_CODEC_ARGS(zp0, pack_args) ;                                   // set pack/restore codec arguments
   SET_CODEC_FN(zp0, test_codec_1632) ;                               // set pack/restore codec function address
+
   fill_zmap_with_data(zp0, gni, gnj, (void *)data) ;                 // fill zmap with data
   errors = check_data(gni, gnj, (void *)data, 0, gni, 0, gnj) ;      // check that data is as expected
+  if( errors != 0){ FAIL(1, "ERROR : %d error(s) in put\n", errors) ; }
+
+  get_data_from_zmap(zp0, gni, gnj, (void *)restored) ;
+  errors = check_data(gni, gnj, (void *)restored, 0, gni, 0, gnj) ;
+  if( errors != 0){ FAIL(1, "ERROR : %d error(s) in get\n", errors) ; }
+goto success ;
   for(uint32_t i = (zp0->fhead.zni * zp0->fhead.znj * zp0->fhead.gnk) ; i < zp0->fhead.zijk ; i++){
     zp0->size[i] = zp0->fhead.zijk - i ;                                  // fix supplementary block size
     zp0->mhead.orng.bot[i+1] = zp0->mhead.orng.bot[i] + (zp0->size[i] * sizeof(uint32_t)) ;    // fix supplementary block offset

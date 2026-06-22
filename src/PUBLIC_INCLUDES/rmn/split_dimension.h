@@ -14,6 +14,8 @@
 // Author:
 //     M. Valin,   Recherche en Prevision Numerique, 2025, 2026
 //
+// set of inline functions and macros (no .c associated)
+//
 #if ! defined(NULL_ARRAY_AXIS)
 
 // split array along a dimension (axis)
@@ -72,7 +74,7 @@ typedef struct{
   int32_t ixn ;   // index of last element in block along a dimension
 } index_range ;
 // invalid range
-#define BAD_INDEX_RANGE (index_range) { .ix0=0, .ixn=-1 }
+#define INVALID_INDEX_RANGE (index_range) { .ix0=0, .ixn=-1 }
 
 // 2D index range of coordinates
 typedef struct{
@@ -125,10 +127,10 @@ static inline int32_t block_ordinal(int32_t index, array_axis axis){
 // ln1 [IN] : size of all but first block along a dimension
 // ln0 [IN] : size of first block along a dimension (most of the time : ln1/2 <= ln0 < 2*ln1)
 // return index limits along a dimension for this block
-// BAD_INDEX_RANGE is returned in case of errror
+// INVALID_INDEX_RANGE is returned in case of errror
 // no "in range" check is performed on bl
 static inline index_range index_limits(int32_t bl, int32_t ln1, int32_t ln0){
-  if(bl < 0) return BAD_INDEX_RANGE ;  // return invalid range
+  if(bl < 0) return INVALID_INDEX_RANGE ;  // return invalid range
   return (bl == 0) ? (index_range){.ix0 = 0 , .ixn = ln0-1} : (index_range){.ix0 = (bl-1)*ln1 + ln0, .ixn = bl*ln1 + ln0 -1 } ;
 }
 
@@ -153,9 +155,9 @@ static inline int valid_index(int32_t ordinal, array_axis axis){
 // ordinal [IN] : block ordinal(position) along axis
 // axis    [IN] : axis description
 // return indexes of first and last element for this block
-// BAD_INDEX_RANGE is returned in case of error
+// INVALID_INDEX_RANGE is returned in case of error
 static inline index_range block_limits(int32_t ordinal, array_axis axis){
-  if(invalid_index(ordinal, axis)) return BAD_INDEX_RANGE ;
+  if(invalid_index(ordinal, axis)) return INVALID_INDEX_RANGE ;
   return index_limits(ordinal, axis.ln1, axis.ln0) ;
 }
 

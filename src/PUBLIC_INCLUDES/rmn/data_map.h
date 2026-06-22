@@ -263,22 +263,28 @@ struct zmap{
     // --------------- file record header ---------------
   fmap fhead ;
   // ----------------    sizes table     ----------------
-  fmap_block_size size[] ;        // size (in 32 bit units) of encoded data blocks ( size[znj*zni*gnk + zextra == zijk] )
-  // if zijk is odd, there will be a padding element (padding to multiple of uint32_t length)
-// "extra" (may have 0 size)
-    // ---------------  end of data map   ---------------
-// "data stream" (encoded bit stream)
-    // ---------------  end of file record --------------
+  fmap_block_size size[] ;        // size (in 32 bit word units) of encoded data blocks ( size[znj*zni*gnk + zextra == zijk] )
+    // if zijk is odd, there will be a padding element (padding to multiple of uint32_t length)
+    // "extra" (may have 0 size)
+  // ---------------  end of data map   ---------------
+  // "data stream" (encoded bit stream)
+  // ---------------  end of file record --------------
 // "pointer table" (never written into file)
 } ;
 CT_ASSERT(sizeof(zmap) == (sizeof(zmap) / sizeof(int32_t)) * sizeof(int32_t) , "zmap struc size not a multiple of 32 bits")
 
-#define ZMAP_WORDS(MAP) RANGE_ELEMENTS((MAP)->mhead.zrng)
+// WORDS refers to 32 bit words (4 bytes)
+#define ZMAP_WORDS(MAP)    RANGE_ELEMENTS((MAP)->mhead.zrng)
 #define FILEMAP_WORDS(MAP) RANGE_ELEMENTS((MAP)->mhead.frng)
-#define DATA_WORDS(MAP) RANGE_ELEMENTS((MAP)->mhead.drng)
-#define RECORD_WORDS(MAP) (FILEMAP_WORDS(MAP) + DATA_WORDS(MAP))
-#define BLOCK_OFFSET(MAP, BLOCK) ((MAP)->mhead.orng.bot[(BLOCK)])
+#define DATA_WORDS(MAP)    RANGE_ELEMENTS((MAP)->mhead.drng)
+#define RECORD_WORDS(MAP)  (FILEMAP_WORDS(MAP) + DATA_WORDS(MAP))
+// block offset
+#define BLOCK_OFFSET(MAP, BLOCK)   ((MAP)->mhead.orng.bot[(BLOCK)])
+#define BLOCK_OFFSET32(MAP, BLOCK) ( BLOCK_OFFSET(MAP, BLOCK) / sizeof(uint32_t) )
+// block size
 #define BLOCK_WORDS(MAP, BLOCK) ((MAP)->size[(BLOCK)])
+#define BLOCK_BYTES(MAP, BLOCK) ( BLOCK_WORDS(MAP, BLOCK) * sizeof(uint32_t) )
+
 #define ZMAP_TOTAL_BLOCKS(MAP) ((MAP)->fhead.zijk)
 #define ZMAP_ARRAY_BLOCKS(MAP) (((MAP)->fhead.zni) * ((MAP)->fhead.znj) * ((MAP)->fhead.gnk))
 

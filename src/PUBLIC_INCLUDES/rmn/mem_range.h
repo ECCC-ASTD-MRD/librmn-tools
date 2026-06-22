@@ -19,17 +19,20 @@
 
 #if ! defined(RANGE_TYPEDEF)
 
-// memory address (unsigned byte pointer)
+// memory address (pointer to unsigned bytes)
 #define PTR(what) ((uint8_t *)(what))
+
+// cast a pointer into a pointer to a specified type
+#define PTR_CAST(PTR, KIND) ((KIND *)(PTR))
 
 // apply byte offset to base address, result is a typeless pointer
 #define SET_PTR_OFFSET(BASE, OFFSET) ( (void *)( PTR(BASE) + (OFFSET) ) )
 
 // difference between addresses (in BYTES)
-#define PTR_OFFSET(ADDR1, ADDR2) ( PTR(ADDR2) - PTR(ADDR1) )
+#define PTR_OFFSET(BASE, ADDR2) ( PTR(ADDR2) - PTR(BASE) )
 
 // difference between addresses (in "element" units) (both arguments MUST be pointers to the same type)
-#define PTR_ELEMENTS(ADDR1, ADDR2) ( (ADDR2) - (ADDR1) )
+#define PTR_ELEMENTS(BASE, ADDR2) ( (ADDR2) - (BASE) )
 
 // the type for an address range for data type xxx will be xxx_range
 // e.g. for a float it would be float_range as in : float_range some_name
@@ -77,7 +80,7 @@ typedef void_range RANGE(address) ;      // generic address range, synonym of vo
 #define RANGE_ELEMENTS(R) PTR_ELEMENTS((R).bot , (R).top)
 
 // is address range BOT -> TOP entirely within range R0 (accounts for element size of TOP)
-#define IN_RANGE(R0,BOT,TOP) ( (PTR(BOT) >= RANGE_BOT(R0)) && (PTR((TOP)+1) <= RANGE_TOP(R0)) )
+#define IN_RANGE(R0, BOT, TOP) ( (PTR(BOT) >= RANGE_BOT(R0)) && (PTR((TOP)+1) <= RANGE_TOP(R0)) )
 
 // is range R2 entirely within range R0 (a subrange of R0)
 #define SUB_RANGE(R0, R2) ( (RANGE_BOT(R0) <= RANGE_BOT(R2)) && (RANGE_top(R0) >= RANGE_TOP(R2)) )

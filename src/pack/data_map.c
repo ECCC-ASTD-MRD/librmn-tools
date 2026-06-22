@@ -22,83 +22,6 @@
 
 #define DEBUG 1
 
-// NOTE: Zindex_to_ij, Zindex_from_ij, Z_map_index  may become irrelevant (zigzag indexing no longer contemplated)
-#if 0
-// translate block Z (zigzag) index into block (i,j) coordinates
-// zij    [IN] : Z (zigzag) index
-// nti    [IN] : row size
-// ntj    [IN] : number of rows
-// sf0    [IN] : stripe width, last (top) stripe may be narrower
-// the function returns the i and j coordinates in struct ij_range
-index_pair Zindex_to_ij(int32_t zij, int32_t nti, int32_t ntj, int32_t sf0){
-  index_pair ij ;
-  int32_t sf1, i, j, st0, sz0, sti, stn, j0 ;
-
-  ij.i = -1 ;                               // precondition for miserable failure
-  ij.j = -1 ;
-  // a negative value for zij would translate into a huge unsigned number
-  if(zij < 0) goto end ;
-  if(zij >= nti * ntj) goto end ;           // zij is out of bounds
-
-  stn = (ntj - 1) / sf0 ;                   // stripe number for last (top) row
-  j0  = stn * sf0 ;                         // j index of lowest row in last stripe
-  sz0 = stn * nti * sf0 ;                   // z index of first point in last stripe
-  sf1 = ntj - j0 ;                          // current width = width of last stripe
-  if(zij < sz0) sf1 = sf0 ;                 // not in last stripe, current width = sf0
-
-  st0 = zij / (sf0 * nti) ;                 // current stripe number
-  sz0 = st0 * (sf0 * nti) ;                 // first z index in stripe
-  sti = (zij - sz0) ;                       // z index offset in stripe
-  i   = sti / sf1 ;                         // position along i
-  j   = sti - (i * sf1) ;                   // modulo(sti, sf1) (j position in current stripe)
-  j  += st0 * sf0 ;                         // position along j (add stripe j start position)
-  ij.i = i ;                                // i coordinate of block
-  ij.j = j ;                                // j coordinate of block
-end:
-  return ij ;                               // return pair of coordinates
-}
-
-// translate block i, j coordinates into block Z (zigzag) index
-// i      [IN] : index in row
-// j      [IN] : index of row
-// nti    [IN] : row size
-// ntj    [IN] : number of rows
-// sf0    [IN] : stripe width (last stripe may be narrower)
-// the function returns the Z (zigzag) index associated with block(i,j)
-int32_t Zindex_from_ij(int32_t i, int32_t j, int32_t nti, int32_t ntj, int32_t sf0){
-  int32_t zi, sf1, j0, stj, stn ;
-
-  zi = -1 ;                                 // precondition for miserable failure
-  // a negative value for i or j would translate into a huge unsigned number
-  if(i < 0 || j < 0) goto end ;
-  if( i >= nti || j >= ntj) goto end ;      // i or j is out of bounds
-
-  stn = (ntj - 1) / sf0 ;                   // stripe number for last row
-  j0  = stn * sf0 ;                         // j index of lowest row in last stripe
-  stj = j / sf0 ;                           // stripe number for this row
-  sf1 = ntj - j0 ;                          // current width = width of last stripe
-  if(j < j0) sf1 = sf0 ;                    // not in last stripe, current width = sf0
-
-  j0 = stj * sf0 ;                          // j index of lowest row in current stripe
-  zi = (j0 * nti) +                         // lower left corner of stripe
-       (j - j0) +                           // number of rows above bottom of stripe
-       (i * sf1) ;                          // i * current stripe width
-end:
-  return zi ;
-}
-
-// Z (zigzag) block index from block indexes, using data map
-// map    [IN] : data map
-// i      [IN] : i (column) position in 2D block grid
-// j      [IN] : j (row) position in 2D block grid
-// return [ij] Z block index
-int32_t Z_map_index(zmap *map, int32_t i, int32_t j){
-//   index_pair ij = block_index(map, i, j) ;
-//   return Zindex_from_ij(i, j, map->fhead.zni, map->fhead.znj, map->fhead.stripe) ;
-  return Zindex_from_ij(i, j, map->fhead.zni, map->fhead.znj, 1) ;
-}
-#endif
-
 // block position from grid index, using data map
 // map    [IN] : data map
 // i      [IN] : i (column) position in 2D grid
@@ -121,7 +44,7 @@ index_pair map_block_position(zmap *map, int32_t i, int32_t j){
 ij_range map_block_limits(zmap *map, int32_t bi, int32_t bj){
   ij_range ij = {.i0 = -1, .in = -2, .j0 = -1, .jn = -2 } ;  // precondition for failure
 
-  if(bi < map->fhead.zni && bj < map->fhead.znj && bi >= 0 && bj >= 0){  // inside map limits ?
+  if(bi < map->fhead.zni && bj < map->fhead.znj && bi >= 0 && bj >= 0){      // within block map limits ?
     index_range r ;
     r = index_limits(bi, map->fhead.lni, map->fhead.li0) ;                   // get block limits along first dimension (row)
     ij.i0 = r.ix0 ; ij.in = r.ixn ;
@@ -308,6 +231,12 @@ int print_zmap_blocks(zmap *map, uint32_t maxblocks){
   return oor ;
 }
 
+// are these blocks in ascending memory order ?
+// return cumulative space if blocks are in ascending memory order, -size if not
+int ordered_zmap_blocks(zmap *map, int block0, int block_n){
+  return 0 ;
+}
+
 // map    [IN] : pointer to valid zmap struct
 // block0 [IN] : first block to check
 // blockn [IN] : last block to check
@@ -317,6 +246,8 @@ int contiguous_zmap_blocks(zmap *map, int block0, int block_n){
   // NOTE: the orng range is used to check if blocks are contiguous
   //       if prng rather than orng is valid, it does not affect the contiguity check
   //       addresses are 64 bit wide pointers to 32 bit items and can be used as offsets
+  // TODO : if blockn >= number of blocks, set to maxblock ?
+  // TODO : check if we have offsets or pointers (orng vs prng) and ac t accordingly
   uint64_t *offsets = map->mhead.orng.bot ;              // offsets table
   uint32_t size = 0 ;
   int contiguous = 1 ;
@@ -552,6 +483,8 @@ fail :          // free what was allocated internally
   if(map){ free(map) ; }
   return NULL ;
 }
+
+// old code has been moved to ATTIC/data_map_old.c
 #if 0
 // adjust offset table using the sizes table
 // map [INOUT] : pointer to zmap (mmap/fmap/sizes/...) struct
@@ -647,28 +580,6 @@ int free_zmap(zmap *map){
   map->mhead.signature = 0 ;
   free(map) ;
   return 0 ; // success
-  // free offset if not inside zmap struct
-//   if(map->mhead.offset){
-//     if(DEBUG) fprintf(stderr, "freeing map->mhead.offset at %p\n", map->mhead.offset) ;
-//     free(map->mhead.offset) ;
-//   }
-  // free data  if not inside zmap struct
-//   map->mhead.offset = NULL ;
-//   if(map->mhead.options){
-//     if(DEBUG) fprintf(stderr, "freeing map->mhead.options at %p\n", map->mhead.options) ;
-//     free(map->mhead.options) ;
-//   }
-//   map->mhead.options = NULL ;
-//   if(full) {
-//     // NULLIFY map to prevent accidents in case of memory reuse
-//     map->mhead = base_mmap ;
-//     map->mhead.signature = 0 ;
-//     free(map) ;
-// if(DEBUG) fprintf(stderr, "FULL map free\n") ;
-//   }else{
-// if(DEBUG) fprintf(stderr, "PART map free\n") ;
-//   }
-//   return 0 ;
 }
 // TODO : redo the whole function
 #if 0
