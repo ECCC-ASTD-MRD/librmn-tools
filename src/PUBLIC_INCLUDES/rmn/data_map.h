@@ -188,10 +188,12 @@ typedef struct zmap zmap ;
 typedef struct mmap mmap ;
 typedef struct fmap fmap ;
 
-typedef int32_t block_fn(zmap *map, int block0, int block_nb, uint32_t_range drng, int get) ;
-typedef block_fn *block_fn_p ;
+typedef uint32_t zdata ;
+typedef uint32_t_range RANGE(zdata) ;    // shorthand for data range
+typedef RANGE(zdata) block_fn(zmap *map, int block0, int block_nb, RANGE(zdata) drng) ;
+// typedef block_fn *block_fn_p ;
 typedef int32_t codec_fn(zmap *map, void *out, void *in, int ninj, int encode) ;
-typedef codec_fn *codec_fn_p ;
+// typedef codec_fn *codec_fn_p ;
 
 typedef uint32_t *uint32_p ;
 RANGE_TYPEDEF(uint32_p) ;
@@ -209,8 +211,12 @@ struct mmap{            // in memory only part of data map
   uint16_t version ;       // version marker (MUST BE the same as in file header)
   uint16_t  options ;      // reserved for internal use options (MUST BE 0 FOR NOW)
 //   bitstream stream ;       // encoding/decoding bit stream  (see rmn/be_stream.h, rmn/bitstream.h) (should be 64 bytes)
-  block_fn *get_blocks ;   // pointer to get block(s) function (*get_block)(zmap *map, int block0, int block_nb, uint32_t_range drng, int get)
-  arg128 get_args ;        // for use by block_fn
+  block_fn *get_blocks ;   // pointer to get block(s) function uint32_t_range (*get_block)(zmap *map, int block0, int block_nb, uint32_t_range drng)
+  block_fn *put_blocks ;   // pointer to put block(s) function uint32_t_range (*put_block)(zmap *map, int block0, int block_nb, uint32_t_range drng)
+  union{
+    arg128 get_args ;      // for use by block_fn function
+    arg128 put_args ;      // for use by block_fn function
+  } ;
   codec_fn *codec ;        // pointer to encode/decode function (*codec)(zmap *map, void *out, void *in, int ninj, int encode)
   arg128 codec_args ;      // for use by codec_fn
   RANGE(uint32_t) xrng ;   // address range for "extra" information
@@ -221,14 +227,19 @@ struct mmap{            // in memory only part of data map
   RANGE(uint32_p) prng ;   // prng.bot[index] : pointer to block[index]  (32 bit items) (optional)
   RANGE(uint32_t) zrng ;   // address range for the entire data map
 } ;
-static const mmap base_mmap = { 0x1AD0FADA, Z_DATA_MAP_VERSION, 0 , /*NULL_BITSTREAM,*/ NULL, ZERO128, NULL, ZERO128, /*NULL, NULL,*/
-                               (uint32_t_range)RANGE_NULL, (uint32_t_range)RANGE_NULL, (uint16_t_range)RANGE_NULL,
-                               (uint32_t_range)RANGE_NULL, (uint64_t_range)RANGE_NULL, (uint32_p_range)RANGE_NULL, (uint32_t_range)RANGE_NULL } ;
+static const mmap base_mmap = { 0x1AD0FADA, Z_DATA_MAP_VERSION, 0 , /*NULL_BITSTREAM,*/ NULL, NULL, {ZERO128}, NULL, ZERO128,
+                               RANGE_NULL(uint32_t), RANGE_NULL(uint32_t), RANGE_NULL(uint16_t),
+                               RANGE_NULL(uint32_t), RANGE_NULL(uint64_t), RANGE_NULL(uint32_p), RANGE_NULL(uint32_t) } ;
 
 CT_ASSERT(sizeof(mmap) == (sizeof(mmap) / sizeof(int64_t)) * sizeof(int64_t) , "mmap struc size not a multiple of 64 bits")
 
 #define SET_CODEC_ARGS(MAP, ARGS) (MAP)->mhead.codec_args = *(arg128 *)(&(ARGS))
 #define SET_CODEC_FN(MAP, FN) (MAP)->mhead.codec = (codec_fn *)(FN)
+
+#define SET_GET_FN(MAP, FN) (MAP)->mhead.get_blocks = (block_fn *)(FN)
+#define SET_PUT_FN(MAP, FN) (MAP)->mhead.put_blocks = (block_fn *)(FN)
+#define SET_GET_ARGS(MAP, ARGS) (MAP)->mhead.get_args = *(arg128 *)(&(ARGS))
+#define SET_PUT_ARGS(MAP, ARGS) (MAP)->mhead.put_args = *(arg128 *)(&(ARGS))
 
 // TODO: add options for 3D storage ni/nj/nk vs nk/ni/nj vs ... and compression(2D/3D) ?
 struct fmap{       // in file part of data map (also present in memory, after mmap)
@@ -287,6 +298,9 @@ CT_ASSERT(sizeof(zmap) == (sizeof(zmap) / sizeof(int32_t)) * sizeof(int32_t) , "
 
 #define ZMAP_TOTAL_BLOCKS(MAP) ((MAP)->fhead.zijk)
 #define ZMAP_ARRAY_BLOCKS(MAP) (((MAP)->fhead.zni) * ((MAP)->fhead.znj) * ((MAP)->fhead.gnk))
+
+// base address of encoded data blocks
+#define ZMAP_DATA(MAP) ((MAP)->mhead.drng.bot)
 
 static inline int invalid_zmap(zmap *map){
   if(map->mhead.signature != 0x1AD0FADA || map->fhead.signature != 0xBEBEFADA) return 1 ;

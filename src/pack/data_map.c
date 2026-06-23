@@ -234,6 +234,9 @@ int print_zmap_blocks(zmap *map, uint32_t maxblocks){
 // are these blocks in ascending memory order ?
 // return cumulative space if blocks are in ascending memory order, -size if not
 int ordered_zmap_blocks(zmap *map, int block0, int block_n){
+  (void) (map) ;
+  (void) (block0) ;
+  (void) (block_n) ;
   return 0 ;
 }
 
@@ -483,8 +486,6 @@ fail :          // free what was allocated internally
   if(map){ free(map) ; }
   return NULL ;
 }
-
-// old code has been moved to ATTIC/data_map_old.c
 #if 0
 // adjust offset table using the sizes table
 // map [INOUT] : pointer to zmap (mmap/fmap/sizes/...) struct
@@ -580,6 +581,28 @@ int free_zmap(zmap *map){
   map->mhead.signature = 0 ;
   free(map) ;
   return 0 ; // success
+  // free offset if not inside zmap struct
+//   if(map->mhead.offset){
+//     if(DEBUG) fprintf(stderr, "freeing map->mhead.offset at %p\n", map->mhead.offset) ;
+//     free(map->mhead.offset) ;
+//   }
+  // free data  if not inside zmap struct
+//   map->mhead.offset = NULL ;
+//   if(map->mhead.options){
+//     if(DEBUG) fprintf(stderr, "freeing map->mhead.options at %p\n", map->mhead.options) ;
+//     free(map->mhead.options) ;
+//   }
+//   map->mhead.options = NULL ;
+//   if(full) {
+//     // NULLIFY map to prevent accidents in case of memory reuse
+//     map->mhead = base_mmap ;
+//     map->mhead.signature = 0 ;
+//     free(map) ;
+// if(DEBUG) fprintf(stderr, "FULL map free\n") ;
+//   }else{
+// if(DEBUG) fprintf(stderr, "PART map free\n") ;
+//   }
+//   return 0 ;
 }
 // TODO : redo the whole function
 #if 0

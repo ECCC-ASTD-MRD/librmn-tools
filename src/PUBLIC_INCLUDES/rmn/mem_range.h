@@ -39,11 +39,11 @@
 // the xxx_range struct contains 2 pointers, bot and top
 // bot points to the beginning of the memory arena, top points 1 element past the last element in the arena
 // type KIND_range and static constant KIND_range_null are defined
-#define RANGE_NULL {NULL, NULL}
-#define RANGE_TYPEDEF(KIND) typedef struct{ KIND *bot, *top ; } KIND##_range ; static const KIND##_range KIND##_range_null = RANGE_NULL ;
 
 // declare a range struct with elements of type KIND with a name, e.g. RANGE(some_type) some_name ;
 #define RANGE(KIND) KIND##_range
+#define RANGE_NULL(KIND) ((RANGE(KIND)){NULL, NULL})
+#define RANGE_TYPEDEF(KIND) typedef struct{ KIND *bot, *top ; } RANGE(KIND) ; static const RANGE(KIND) KIND##_range_null = RANGE_NULL(KIND) ;
 
 // some predefined/generic address ranges, using unsigned integers
 RANGE_TYPEDEF(uint8_t) ;                 // uint8_t_range
@@ -66,6 +66,10 @@ typedef void_range RANGE(address) ;      // generic address range, synonym of vo
 
 // get address of element just above the range
 #define RANGE_TOP(R) ( PTR((R).top) )
+
+// range validity check
+#define VALID_RANGE(R)   ( (RANGE_BOT(R) != NULL) && (RANGE_TOP(R) != NULL) && (RANGE_TOP(R) >  RANGE_BOT(R)) )
+#define INVALID_RANGE(R) ( (RANGE_BOT(R) == NULL) || (RANGE_TOP(R) == NULL) || (RANGE_TOP(R) <= RANGE_BOT(R)) )
 
 // offset of address in range in bytes
 #define RANGE_OFFSET(R,ADR) (PTR(ADR) - RANGE_BOT(R))
@@ -95,7 +99,7 @@ typedef void_range RANGE(address) ;      // generic address range, synonym of vo
 #define SET_RANGE_TOP(R, TOP)  { (R).top = PTR(TOP) + sizeof((R).bot[0]) ; }
 
 // set top address of range to base address + space to accomodate N elements
-#define SET_RANGE_ELEMENTS(R, N)  { (R).top = (R).bot + N) ; }
+#define SET_RANGE_ELEMENTS(R, N)  { (R).top = ((R).bot + N) ; }
 
 // set top address of range to base address + size bytes
 #define SET_RANGE_BYTES(R, BYTES) { (R).top = SET_PTR_OFFSET( (R).bot, (BYTES) ) ; }
