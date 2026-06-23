@@ -104,7 +104,7 @@ typedef struct{
 // no "in range" check is performed on l
 static inline int32_t block_index(int32_t l, int32_t ln1, int32_t ln0){
   if(l < 0) return -1 ;                           // invalid index
-  return (l < ln0) ? 0 : ((l + ln1 - ln0)/ln1) ;
+  return (l < ln0) ? 0 : ((l - ln0 + ln1)/ln1) ;
 }
 
 // compute ordinal of block that contains element at position index along a dimension (unsafe)
@@ -114,7 +114,7 @@ static inline int32_t block_index(int32_t l, int32_t ln1, int32_t ln0){
 // return block ordinal containing requested element (-1 if error)
 // no "in range" check is performed on index
 static inline int32_t block_ordinal(int32_t index, array_axis axis){
-  if(index < 0) return -1 ;                           // invalid index
+//   if(index < 0) return -1 ;                           // redundant, block_index checks for negative values
   int ordinal = block_index(index, axis.ln1, axis.ln0) ;
   return (ordinal >= axis.nbk) ? -1 : ordinal ;       // check for ordinal out of range (beyond last block)
 }
@@ -147,7 +147,7 @@ static inline int invalid_index(int32_t ordinal, array_axis axis){
 // axis    [IN] : axis description
 // return 0 if invalid, 1 if valid
 static inline int valid_index(int32_t ordinal, array_axis axis){
-  return (ordinal < axis.nbk) || (ordinal >= 0) ;
+  return (ordinal < axis.nbk) && (ordinal >= 0) ;
 }
 
 // compute index limits given block ordinal using axis descriptor
