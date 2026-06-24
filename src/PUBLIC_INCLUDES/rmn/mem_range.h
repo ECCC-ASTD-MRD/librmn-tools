@@ -42,7 +42,8 @@
 
 // declare a range struct with elements of type KIND with a name, e.g. RANGE(some_type) some_name ;
 #define RANGE(KIND) KIND##_range
-#define RANGE_NULL(KIND) ((RANGE(KIND)){NULL, NULL})
+#define NO_RANGE {NULL, NULL}
+#define RANGE_NULL(KIND) ((RANGE(KIND))NO_RANGE)
 #define RANGE_TYPEDEF(KIND) typedef struct{ KIND *bot, *top ; } RANGE(KIND) ; static const RANGE(KIND) KIND##_range_null = RANGE_NULL(KIND) ;
 
 // some predefined/generic address ranges, using unsigned integers

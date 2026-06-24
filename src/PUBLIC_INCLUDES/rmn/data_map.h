@@ -184,27 +184,32 @@ typedef struct{ arg128 arg[2] ; } arg256 ;    // 256 bit memory block
 #define ZERO256 {{ZERO128, ZERO128}}
 static const arg256 zero_256 = ZERO256 ;
 
-typedef struct zmap zmap ;
-typedef struct mmap mmap ;
-typedef struct fmap fmap ;
+typedef struct zmap zmap ;     // mmap + fmap [+ optional data] + offsets table
+typedef struct mmap mmap ;     // in memory only preamble
+typedef struct fmap fmap ;     // data map from file record
 
-typedef uint32_t zdata ;
-typedef uint32_t_range RANGE(zdata) ;    // shorthand for data range
-typedef RANGE(zdata) block_fn(zmap *map, int block0, int block_nb, RANGE(zdata) drng) ;
+// zmap_t is the expected data type for encoded data blocks
+typedef uint32_t zmap_t ;
+typedef uint32_t_range RANGE(zmap_t) ;    // shorthand for data range
+typedef zmap_t *zmap_tp ;                 // pointer to zmap_t
+RANGE_TYPEDEF(zmap_tp) ;                  // associated range
+
+// function to get/put a block of encoded data
+typedef RANGE(zmap_t) block_fn(zmap *map, int block0, int block_nb, RANGE(zmap_t) drng) ;
 // typedef block_fn *block_fn_p ;
+
+// function to encode/decode data
 typedef int32_t codec_fn(zmap *map, void *out, void *in, int ninj, int encode) ;
 // typedef codec_fn *codec_fn_p ;
-
-typedef uint32_t *uint32_p ;
-RANGE_TYPEDEF(uint32_p) ;
 
 // NOTE: components not needed/used are nullified
 // TODO ? add file descriptor and file offset to beginning of record/data in file ?
 //        for RSF : READ function and pointer to record struct as argument + offset, size ?
 //        pointer to IO-READ function, blind args array for this function, (*fn)(args, file, offset, size) ?
 //        define a read(map, file, offset, size) function ?
-// orng.bot[0] == 0 : offsets,  orng.bot[0] != 0 : use prng.bot[] pointers
-// prng.bot[zijk] == NULL : pointers, prng.bot[zijk] != NULL : use orng.bot[] offsets
+// orng and prng ranges are mutually exclusive, they share memory storage
+// prng.bot[zijk] == NULL : use prng.bot[] pointers
+// prng.bot[zijk] != NULL : use orng.bot[] offsets
 // the base address for offsets is drng.bot[0] (start of data range)
 struct mmap{            // in memory only part of data map
   uint32_t signature ;     // should be 0x1AD0FADA, target for & operator to get address of header
@@ -212,34 +217,37 @@ struct mmap{            // in memory only part of data map
   uint16_t  options ;      // reserved for internal use options (MUST BE 0 FOR NOW)
 //   bitstream stream ;       // encoding/decoding bit stream  (see rmn/be_stream.h, rmn/bitstream.h) (should be 64 bytes)
   block_fn *get_blocks ;   // pointer to get block(s) function uint32_t_range (*get_block)(zmap *map, int block0, int block_nb, uint32_t_range drng)
+  arg128 get_args ;        // for use by get_blocks function
   block_fn *put_blocks ;   // pointer to put block(s) function uint32_t_range (*put_block)(zmap *map, int block0, int block_nb, uint32_t_range drng)
-  union{
-    arg128 get_args ;      // for use by block_fn function
-    arg128 put_args ;      // for use by block_fn function
-  } ;
+  arg128 put_args ;        // for use by put_blocks function
   codec_fn *codec ;        // pointer to encode/decode function (*codec)(zmap *map, void *out, void *in, int ninj, int encode)
   arg128 codec_args ;      // for use by codec_fn
   RANGE(uint32_t) xrng ;   // address range for "extra" information
   RANGE(uint32_t) frng ;   // address range for the file portion of the data map (includes "extra" information)
   RANGE(uint16_t) srng ;   // address range for the sizes table (uint16_t items)
-  RANGE(uint32_t) drng ;   // address range for the data blocks portion of the record (above "extra")
+  RANGE(zmap_t)   drng ;   // address range for the data blocks portion of the record (above "extra")
   RANGE(uint64_t) orng ;   // orng.bot[zijk] : uint64_t block offset (in bytes) (relative to drng.bot or other) (optional)
-  RANGE(uint32_p) prng ;   // prng.bot[index] : pointer to block[index]  (32 bit items) (optional)
+  RANGE(zmap_tp) prng ;   // prng.bot[index] : pointer to block[index]  (32 bit items) (optional)
   RANGE(uint32_t) zrng ;   // address range for the entire data map
 } ;
-static const mmap base_mmap = { 0x1AD0FADA, Z_DATA_MAP_VERSION, 0 , /*NULL_BITSTREAM,*/ NULL, NULL, {ZERO128}, NULL, ZERO128,
-                               RANGE_NULL(uint32_t), RANGE_NULL(uint32_t), RANGE_NULL(uint16_t),
-                               RANGE_NULL(uint32_t), RANGE_NULL(uint64_t), RANGE_NULL(uint32_p), RANGE_NULL(uint32_t) } ;
+static const mmap base_mmap = { 0x1AD0FADA, Z_DATA_MAP_VERSION, 0 , NULL, ZERO128, NULL, ZERO128, NULL, ZERO128,
+                               RANGE_NULL(uint32_t), RANGE_NULL(uint32_t), RANGE_NULL(uint16_t), RANGE_NULL(zmap_t),
+                               RANGE_NULL(uint64_t), RANGE_NULL(zmap_tp), RANGE_NULL(uint32_t) } ;
 
 CT_ASSERT(sizeof(mmap) == (sizeof(mmap) / sizeof(int64_t)) * sizeof(int64_t) , "mmap struc size not a multiple of 64 bits")
 
-#define SET_CODEC_ARGS(MAP, ARGS) (MAP)->mhead.codec_args = *(arg128 *)(&(ARGS))
-#define SET_CODEC_FN(MAP, FN) (MAP)->mhead.codec = (codec_fn *)(FN)
-
-#define SET_GET_FN(MAP, FN) (MAP)->mhead.get_blocks = (block_fn *)(FN)
-#define SET_PUT_FN(MAP, FN) (MAP)->mhead.put_blocks = (block_fn *)(FN)
-#define SET_GET_ARGS(MAP, ARGS) (MAP)->mhead.get_args = *(arg128 *)(&(ARGS))
+// codec function related macros
+#define SET_CODEC_ARGS(MAP, ARGS) { (MAP)->mhead.codec_args = *(arg128 *)(&(ARGS)) ; }
+#define SET_CODEC_FN(MAP, FN)     { (MAP)->mhead.codec = (codec_fn *)(FN) ; }
+#define ZMAP_CODEC(MAP, OUT, IN, NIJ, ENCODE) ( (*((MAP)->mhead.codec))(MAP, OUT, IN, NIJ, ENCODE) )
+// get block(s) related macros
+#define SET_GET_ARGS(MAP, ARGS) { (MAP)->mhead.get_args = *(arg128 *)(&(ARGS)) ; }
+#define SET_GET_FN(MAP, FN)     { (MAP)->mhead.get_blocks = (block_fn *)(FN) ; }
+#define ZMAP_GET(MAP, BLOCK0, NBLKS, DRNG) ( (*((MAP)->mhead.get_blocks))(MAP, BLOCK0, NBLKS, (RANGE(zmap_t))DRNG) )
+// put block(s) related macros
 #define SET_PUT_ARGS(MAP, ARGS) (MAP)->mhead.put_args = *(arg128 *)(&(ARGS))
+#define SET_PUT_FN(MAP, FN) (MAP)->mhead.put_blocks = (block_fn *)(FN)
+#define ZMAP_PUT(MAP, BLOCK0, NBLKS, DRNG) ( (*((MAP)->mhead.get_blocks))(MAP, BLOCK0, NBLKS, (RANGE(zmap_t))DRNG) )
 
 // TODO: add options for 3D storage ni/nj/nk vs nk/ni/nj vs ... and compression(2D/3D) ?
 struct fmap{       // in file part of data map (also present in memory, after mmap)
@@ -267,18 +275,18 @@ CT_ASSERT(sizeof(fmap) == (sizeof(fmap) / sizeof(int32_t)) * sizeof(int32_t) , "
 // the first part (mhead) is only present in memory
 // the second part (fhead) is the file data map
 struct zmap{
-  // ----------------   memory header    ----------------
+  // ---------------- in  memory header -----------------
   mmap mhead ;
-  // ---------------- start of file record  -------------
+  // ------------- start of in file record part ---------
     // --------------- start of data map  ---------------
-    // --------------- file record header ---------------
+    //               [ file record header ]
   fmap fhead ;
   // ----------------    sizes table     ----------------
   fmap_block_size size[] ;        // size (in 32 bit word units) of encoded data blocks ( size[znj*zni*gnk + zextra == zijk] )
     // if zijk is odd, there will be a padding element (padding to multiple of uint32_t length)
     // "extra" (may have 0 size)
   // ---------------  end of data map   ---------------
-  // "data stream" (encoded bit stream)
+  // "data stream" (encoded bit stream) (zmap_t elements)
   // ---------------  end of file record --------------
 // "pointer table" (never written into file)
 } ;
@@ -295,6 +303,8 @@ CT_ASSERT(sizeof(zmap) == (sizeof(zmap) / sizeof(int32_t)) * sizeof(int32_t) , "
 // block size
 #define BLOCK_WORDS(MAP, BLOCK) ((MAP)->size[(BLOCK)])
 #define BLOCK_BYTES(MAP, BLOCK) ( BLOCK_WORDS(MAP, BLOCK) * sizeof(uint32_t) )
+// 1D block index
+#define BLOCK_IJ(MAP, I, J) ( I + J * ((MAP)->fhead.zni) )
 
 #define ZMAP_TOTAL_BLOCKS(MAP) ((MAP)->fhead.zijk)
 #define ZMAP_ARRAY_BLOCKS(MAP) (((MAP)->fhead.zni) * ((MAP)->fhead.znj) * ((MAP)->fhead.gnk))

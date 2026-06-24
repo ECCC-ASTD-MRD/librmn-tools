@@ -157,8 +157,7 @@ static inline int valid_index(int32_t ordinal, array_axis axis){
 // return indexes of first and last element for this block
 // INVALID_INDEX_RANGE is returned in case of error
 static inline index_range block_limits(int32_t ordinal, array_axis axis){
-  if(invalid_index(ordinal, axis)) return INVALID_INDEX_RANGE ;
-  return index_limits(ordinal, axis.ln1, axis.ln0) ;
+  return invalid_index(ordinal, axis) ? INVALID_INDEX_RANGE : index_limits(ordinal, axis.ln1, axis.ln0) ;
 }
 
 // ==================== split along an axis ====================
@@ -185,37 +184,36 @@ static inline array_axis split_axis(int n, int bsize){
   return r ;
 }
 
-// split n into pieces preferably of size bsize (and a minimum size)
+// split n into pieces preferably of size bsize (and having minimum size)
 // n       [IN] : total number of items
 // bsize   [IN] : requested size of pieces
 // minsize [IN] : minimum size of pieces
 // the first piece may be smaller or larger than the requested size
 // pieces normally will be >= minsize and <=  bsize + minsize -1
-// pieces will be smaller than minsize if n is smaller than minsize
-// set bsize to default size (64) if <= 0
+// pieces will be smaller than minsize only if n is smaller than minsize
+// bsize is set to default size (64) if bsize <= 0
 static inline array_axis split_axis_min(int n, int bsize, int minsize){
   array_axis r ;
   if(bsize <= 0) bsize = 64 ;
-  if(n > 0 && bsize > 0){
+  if(n > 0){                             // bsize is always > 0
     r.nbk = n / bsize ;                  // number of pieces (0 -> ...)
     r.ln1 = bsize ;                      // size of all but first piece
-    r.ln0 = n - (bsize * r.nbk) ;        // residual
+    r.ln0 = n - (bsize * r.nbk) ;        // r.ln0 = remainder after division
 
     if(r.nbk == 0){                      // n < bsize
       r.nbk = 1 ;                        // number of pieces must be at least 1
-      r.ln1 = 0 ;                        // only 1 piece
+      r.ln1 = 0 ;                        // only 1 piece, of size r.ln0
       goto end ;                         // job done
     }
 
-    if(r.ln0 >= minsize) {               // residual >= minsize
+    if(r.ln0 >= minsize) {               // remainder >= minsize
       r.nbk++ ;                          // bump number of pieces
-
-    }else{                               // residual < minsize
-      r.ln0 += bsize;                    // size of first piece = residual + bsize
+    }else{                               // remainder < minsize
+      r.ln0 += bsize;                    // size of first piece = remainder + bsize
     }
     if(r.nbk == 1) r.ln1 = 0 ;           // only one piece, size of all but first piece = 0
 
-  }else{                                 // n or bsize <= 0
+  }else{                                 // n <= 0
     r = NULL_ARRAY_AXIS ;                // invalid description
   }
 end:
