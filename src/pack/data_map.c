@@ -80,8 +80,8 @@ zmap *create_file_zmap(uint32_t map_words, uint32_t rec_words){
   recsize = recsize + sizeof(mmap) ;                        // add mmap struct size
   recsize = ((recsize + 7) >> 3) << 3 ;                     // round up to multiple of 8 (offsets at top must be 64 bit aligned)
 
-fprintf(stderr, "create_file_zmap : map_words = %d, rec_words = %d, zmap size = %ld, est max blocks + 1 = %d, frecsize = %ld words\n",
-        map_words, rec_words, recsize/sizeof(uint32_t), zijkmax, frecsize/sizeof(uint32_t)) ;
+fprintf(stderr, "create_file_zmap : map_words = %d, rec_words = %d, zmap size = %ld, est max blocks = %d, frecsize = %ld words\n",
+        map_words, rec_words, recsize/sizeof(uint32_t), zijkmax - 1, frecsize/sizeof(uint32_t)) ;
   zmap *map = (zmap *) malloc(recsize) ;     // attempt to allocate
 
   if(map != NULL){
@@ -154,7 +154,7 @@ int update_file_zmap(zmap *map){
   for(int i = 1 ; i < zijkmax ; i++){                               // fill offsets table using sizes table
     map->mhead.orng.bot[i] = map->mhead.orng.bot[i-1] + (map->size[i-1] * sizeof(uint32_t)) ;
   }
-
+fprintf(stderr, "update_file_zmap : actual number of blocks = %d\n", map->fhead.zijk) ;
   return status ;
 
 fail:
@@ -169,38 +169,42 @@ void zmap_print(zmap *map, char *msg){
     fprintf(stderr, "zmap %s : INVALID signature, expected 0x1AD0FADA, got %8.8x\n", msg, map->fhead.signature) ;
     return ;
   }
-  char *f1 = "   %s   %16p -> %16p [+%6d] (%ld bytes)\n" ;
-  char *f2 = "   %s   %16p -> %16p           (%ld bytes)\n" ;
+  char *f1 = "   %s   %16p -> %16p [+%6d] (%6ld %s)\n" ;
+  char *f2 = "   %s   %16p -> %16p           (%6ld %s)\n" ;
   size_t fmap_size = RANGE_BYTES(map->mhead.frng) ;
   size_t smap_size = RANGE_BYTES(map->mhead.srng) ;
   size_t xmap_size = RANGE_BYTES(map->mhead.xrng) ;
   size_t dmap_size = RANGE_BYTES(map->mhead.drng) ;
   size_t pmap_size = RANGE_BYTES(map->mhead.orng) ;
   size_t zmap_size = RANGE_BYTES(map->mhead.zrng) ;
+  size_t hole_size = PTR(map->mhead.orng.bot) - PTR(map->mhead.drng.top) ;  // hole between top of data and bottom of offsets/pointers
 //   fprintf(stderr, "zmap %s : version %4.4x, '%4.4x', options = %8.8x, bit stream at %p \n",
 //           msg, map->mhead.version, map->mhead.signature, map->mhead.options, &(map->mhead.stream)) ;
   fprintf(stderr, "zmap %s : version %4.4x, '%4.4x', options = %8.8x, no bitstream in map\n",
           msg, map->mhead.version, map->mhead.signature, map->mhead.options) ;
   fprintf(stderr, "   COPY   %16p\n   CODEC  %16p\n", map->mhead.get_blocks, map->mhead.codec) ;
-  fprintf(stderr, f1, "ZMAP", map->mhead.zrng.bot, RANGE_LIMIT(map->mhead.zrng), PTR_OFFSET(map,map->mhead.zrng.bot), zmap_size) ;
-  fprintf(stderr, f1, "File", map->mhead.frng.bot, RANGE_LIMIT(map->mhead.frng), PTR_OFFSET(map,map->mhead.frng.bot), fmap_size) ;
-  fprintf(stderr, f1, "Smem", map->mhead.srng.bot, RANGE_LIMIT(map->mhead.srng), PTR_OFFSET(map,map->mhead.srng.bot), smap_size) ;
+  fprintf(stderr, f1, "ZMAP", map->mhead.zrng.bot, RANGE_LIMIT(map->mhead.zrng), PTR_OFFSET(map,map->mhead.zrng.bot), zmap_size, "bytes") ;
+  fprintf(stderr, f1, "File", map->mhead.frng.bot, RANGE_LIMIT(map->mhead.frng), PTR_OFFSET(map,map->mhead.frng.bot), fmap_size, "bytes") ;
+  fprintf(stderr, f1, "Smem", map->mhead.srng.bot, RANGE_LIMIT(map->mhead.srng), PTR_OFFSET(map,map->mhead.srng.bot), smap_size, "bytes") ;
   if(map->mhead.xrng.bot)
-    fprintf(stderr, f1, "Xtra", map->mhead.xrng.bot, RANGE_LIMIT(map->mhead.xrng), PTR_OFFSET(map,map->mhead.xrng.bot), xmap_size) ;
+    fprintf(stderr, f1, "Xtra", map->mhead.xrng.bot, RANGE_LIMIT(map->mhead.xrng), PTR_OFFSET(map,map->mhead.xrng.bot), xmap_size, "bytes") ;
   else
-    fprintf(stderr, f2, "Xtra", map->mhead.xrng.bot, RANGE_LIMIT(map->mhead.xrng), xmap_size) ;
+    fprintf(stderr, f2, "Xtra", map->mhead.xrng.bot, RANGE_LIMIT(map->mhead.xrng), xmap_size, "bytes") ;
   dmap_size /= sizeof(uint32_t) ;
   if(map->mhead.drng.bot)
-    fprintf(stderr, f1, "Data", map->mhead.drng.bot, RANGE_LIMIT(map->mhead.drng), PTR_OFFSET(map,map->mhead.drng.bot), dmap_size) ;
+    fprintf(stderr, f1, "Data", map->mhead.drng.bot, RANGE_LIMIT(map->mhead.drng), PTR_OFFSET(map,map->mhead.drng.bot), dmap_size, "words") ;
   else
-    fprintf(stderr, f2, "Data", map->mhead.drng.bot, map->mhead.drng.top, dmap_size) ;
+    fprintf(stderr, f2, "Data", map->mhead.drng.bot, map->mhead.drng.top, dmap_size, "words") ;
+  hole_size /= sizeof(uint32_t) ;
+  if(hole_size != 0)
+    fprintf(stderr, f1, "Gap ", map->mhead.drng.top, map->mhead.drng.top + hole_size - 1, PTR_OFFSET(map,map->mhead.drng.top), hole_size, "words") ;
   if(map->mhead.orng.bot)
     if((uint8_t *)(map->mhead.orng.bot) > (uint8_t *)(map->mhead.zrng.bot) && (uint8_t *)(map->mhead.orng.bot) < (uint8_t *)(map->mhead.zrng.top))
-      fprintf(stderr, f1, "Pmem", map->mhead.orng.bot, RANGE_LIMIT(map->mhead.orng), PTR_OFFSET(map,map->mhead.orng.bot), pmap_size) ;
+      fprintf(stderr, f1, "Pmem", map->mhead.orng.bot, RANGE_LIMIT(map->mhead.orng), PTR_OFFSET(map,map->mhead.orng.bot), pmap_size, "bytes") ;
     else
-      fprintf(stderr, f2, "Pmem", map->mhead.orng.bot, RANGE_LIMIT(map->mhead.orng), pmap_size) ;
+      fprintf(stderr, f2, "Pmem", map->mhead.orng.bot, RANGE_LIMIT(map->mhead.orng), pmap_size, "bytes") ;
   else
-    fprintf(stderr, f2, "Pmem", map->mhead.orng.bot, RANGE_LIMIT(map->mhead.orng), pmap_size) ;
+    fprintf(stderr, f2, "Pmem", map->mhead.orng.bot, RANGE_LIMIT(map->mhead.orng), pmap_size, "bytes") ;
 }
 
 // print blocks size/offset/limit
@@ -210,13 +214,15 @@ void zmap_print(zmap *map, char *msg){
 // TODO : adjust for offsets in bytes
 int print_zmap_blocks(zmap *map, uint32_t maxblocks){
   int oor = 0 ;  // number of "out of range" blocks
-  uint32_t hole = 0 ;
+  int32_t hole = 0 ;
   uint32_t total_blocks = ZMAP_TOTAL_BLOCKS(map) ;
   if(maxblocks > total_blocks) maxblocks = total_blocks ;
+  fprintf(stderr, "======== zmap blocks ========\n") ;
   for(uint32_t i=0 ; i<maxblocks ; i++){
     uint32_t *bk0 = map->mhead.drng.bot + (BLOCK_OFFSET(map,i)/sizeof(uint32_t)) ;
     uint32_t *bkn = bk0 + map->size[i] - 1 ;
-    hole = (map->mhead.drng.bot[i+1]) - (map->mhead.drng.bot[i]) ;
+    if(map->size[i] == 0) { bk0-- ; bkn = bk0 ; }    // 0 size block at top remains "in range"
+    hole = (map->mhead.orng.bot[i+1]) - (map->mhead.orng.bot[i]) - (map->size[i] * sizeof(uint32_t)) ;
     fprintf(stderr, "block %2d(%5d), %p <= %p[%8ld][%8ld] <= %p ? (%s:%s), %s [%6d] <%6d>\n",
             i, map->size[i], RANGE_BOT(map->mhead.drng), bk0,
             RANGE_OFFSET(map->mhead.drng, bk0), RANGE_AVAIL(map->mhead.drng, bk0),
@@ -228,6 +234,7 @@ int print_zmap_blocks(zmap *map, uint32_t maxblocks){
 
     if( ! IN_RANGE(map->mhead.drng,bk0,bkn) ) oor++ ;
   }
+  fprintf(stderr, "number of out of range blocks = %d\n", oor) ;
   return oor ;
 }
 
@@ -476,8 +483,8 @@ zmap *create_zmap(int32_t gni, int32_t gnj, int32_t gnk, int32_t bi_size, int32_
   if(zijk != map->fhead.zijk) goto fail ;                               // inconsistent values for number of blocks
 
   if(DEBUG){
-    zmap_print(map, "create") ;
-    fmap_print(map, "create") ;
+    zmap_print(map, "empty zmap") ;
+    fmap_print(map, "empty zmap") ;
   }
 
   return map ;
