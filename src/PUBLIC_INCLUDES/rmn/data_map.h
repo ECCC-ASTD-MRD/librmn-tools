@@ -233,8 +233,11 @@ struct mmap{            // in memory only part of data map
 static const mmap base_mmap = { 0x1AD0FADA, Z_DATA_MAP_VERSION, 0 , NULL, ZERO128, NULL, ZERO128, NULL, ZERO128,
                                RANGE_NULL(uint32_t), RANGE_NULL(uint32_t), RANGE_NULL(uint16_t), RANGE_NULL(zmap_t),
                                RANGE_NULL(uint64_t), RANGE_NULL(zmap_tp), RANGE_NULL(uint32_t) } ;
-
+static const mmap zero_mmap = { 0x00000000,                  0, 0 , NULL, ZERO128, NULL, ZERO128, NULL, ZERO128,
+                               RANGE_NULL(uint32_t), RANGE_NULL(uint32_t), RANGE_NULL(uint16_t), RANGE_NULL(zmap_t),
+                               RANGE_NULL(uint64_t), RANGE_NULL(zmap_tp), RANGE_NULL(uint32_t) } ;
 CT_ASSERT(sizeof(mmap) == (sizeof(mmap) / sizeof(int64_t)) * sizeof(int64_t) , "mmap struc size not a multiple of 64 bits")
+// #define NULLIFY_ZMAP(MAP) { (MAP)->mhead = base_mmap ; (MAP)->mhead.signature = 0 ; }
 
 // codec function related macros
 #define SET_CODEC_ARGS(MAP, ARGS) { (MAP)->mhead.codec_args = *(arg128 *)(&(ARGS)) ; }
@@ -374,8 +377,10 @@ int free_zmap(zmap *map);
 
 int fmap_invalid(zmap *map);
 void fmap_init(zmap *map, int32_t gni, int32_t gnj, int32_t gnk, int32_t bsizex, int32_t bsizey, array_axis_3d *a3, int32_t mextra, int32_t bextra);
-void fmap_print(zmap *map, char *msg);
 void zmap_print(zmap *map, char *msg);
+void mmap_print(zmap *map, char *msg);
+void fmap_print(zmap *map, char *msg);
+
 int print_zmap_blocks(zmap *map, uint32_t maxblocks);
 
 void *filemap_address(zmap *map);

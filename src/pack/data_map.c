@@ -161,16 +161,23 @@ fail:
   return status ;
 }
 
+void zmap_print(zmap *map, char *msg){
+  mmap_print(map, msg) ;
+  fmap_print(map, msg) ;
+}
+
+#undef VR
+#define VR(RANGE) VALID_RANGE(map->mhead.RANGE) ? "valid" : "invalid"
 // print contents of memory header from zmap
 // map  [IN] : pointer to valid zmap struct
 // msg  [IN] : map name (cosmetic)
-void zmap_print(zmap *map, char *msg){
+void mmap_print(zmap *map, char *msg){
   if(map->mhead.signature != 0x1AD0FADA){
-    fprintf(stderr, "zmap %s : INVALID signature, expected 0x1AD0FADA, got %8.8x\n", msg, map->fhead.signature) ;
-    return ;
+    fprintf(stderr, "mmap %s : INVALID signature, expected 0x1AD0FADA, got %8.8x\n", msg, map->mhead.signature) ;
+//     return ;
   }
-  char *f1 = "   %s   %16p -> %16p [+%6d] (%6ld %s)\n" ;
-  char *f2 = "   %s   %16p -> %16p           (%6ld %s)\n" ;
+  char *f1 = "   %s   %16p -> %16p [+%6d] (%6ld %s) %s\n" ;
+  char *f2 = "   %s   %16p -> %16p           (%6ld %s) %s\n" ;
   size_t fmap_size = RANGE_BYTES(map->mhead.frng) ;
   size_t smap_size = RANGE_BYTES(map->mhead.srng) ;
   size_t xmap_size = RANGE_BYTES(map->mhead.xrng) ;
@@ -180,32 +187,33 @@ void zmap_print(zmap *map, char *msg){
   size_t hole_size = PTR(map->mhead.orng.bot) - PTR(map->mhead.drng.top) ;  // hole between top of data and bottom of offsets/pointers
 //   fprintf(stderr, "zmap %s : version %4.4x, '%4.4x', options = %8.8x, bit stream at %p \n",
 //           msg, map->mhead.version, map->mhead.signature, map->mhead.options, &(map->mhead.stream)) ;
-  fprintf(stderr, "zmap %s : version %4.4x, '%4.4x', options = %8.8x, no bitstream in map\n",
+  fprintf(stderr, "zmap %s : version %4.4x, '%8.8x', options = %8.8x, no bitstream in map\n",
           msg, map->mhead.version, map->mhead.signature, map->mhead.options) ;
   fprintf(stderr, "   COPY   %16p\n   CODEC  %16p\n", map->mhead.get_blocks, map->mhead.codec) ;
-  fprintf(stderr, f1, "ZMAP", map->mhead.zrng.bot, RANGE_LIMIT(map->mhead.zrng), PTR_OFFSET(map,map->mhead.zrng.bot), zmap_size, "bytes") ;
-  fprintf(stderr, f1, "File", map->mhead.frng.bot, RANGE_LIMIT(map->mhead.frng), PTR_OFFSET(map,map->mhead.frng.bot), fmap_size, "bytes") ;
-  fprintf(stderr, f1, "Smem", map->mhead.srng.bot, RANGE_LIMIT(map->mhead.srng), PTR_OFFSET(map,map->mhead.srng.bot), smap_size, "bytes") ;
+  fprintf(stderr, f1, "ZMAP", map->mhead.zrng.bot, RANGE_LIMIT(map->mhead.zrng), PTR_OFFSET(map,map->mhead.zrng.bot), zmap_size, "bytes", VR(zrng)) ;
+  fprintf(stderr, f1, "File", map->mhead.frng.bot, RANGE_LIMIT(map->mhead.frng), PTR_OFFSET(map,map->mhead.frng.bot), fmap_size, "bytes", VR(frng)) ;
+  fprintf(stderr, f1, "Smem", map->mhead.srng.bot, RANGE_LIMIT(map->mhead.srng), PTR_OFFSET(map,map->mhead.srng.bot), smap_size, "bytes", VR(srng)) ;
   if(map->mhead.xrng.bot)
-    fprintf(stderr, f1, "Xtra", map->mhead.xrng.bot, RANGE_LIMIT(map->mhead.xrng), PTR_OFFSET(map,map->mhead.xrng.bot), xmap_size, "bytes") ;
+    fprintf(stderr, f1, "Xtra", map->mhead.xrng.bot, RANGE_LIMIT(map->mhead.xrng), PTR_OFFSET(map,map->mhead.xrng.bot), xmap_size, "bytes", VR(xrng)) ;
   else
-    fprintf(stderr, f2, "Xtra", map->mhead.xrng.bot, RANGE_LIMIT(map->mhead.xrng), xmap_size, "bytes") ;
+    fprintf(stderr, f2, "Xtra", map->mhead.xrng.bot, RANGE_LIMIT(map->mhead.xrng), xmap_size, "bytes", VR(xrng)) ;
   dmap_size /= sizeof(uint32_t) ;
   if(map->mhead.drng.bot)
-    fprintf(stderr, f1, "Data", map->mhead.drng.bot, RANGE_LIMIT(map->mhead.drng), PTR_OFFSET(map,map->mhead.drng.bot), dmap_size, "words") ;
+    fprintf(stderr, f1, "Data", map->mhead.drng.bot, RANGE_LIMIT(map->mhead.drng), PTR_OFFSET(map,map->mhead.drng.bot), dmap_size, "words", VR(drng)) ;
   else
-    fprintf(stderr, f2, "Data", map->mhead.drng.bot, map->mhead.drng.top, dmap_size, "words") ;
+    fprintf(stderr, f2, "Data", map->mhead.drng.bot, map->mhead.drng.top, dmap_size, "words", VR(drng)) ;
   hole_size /= sizeof(uint32_t) ;
   if(hole_size != 0)
-    fprintf(stderr, f1, "Gap ", map->mhead.drng.top, map->mhead.drng.top + hole_size - 1, PTR_OFFSET(map,map->mhead.drng.top), hole_size, "words") ;
+    fprintf(stderr, f1, "Gap ", map->mhead.drng.top, map->mhead.drng.top + hole_size - 1, PTR_OFFSET(map,map->mhead.drng.top), hole_size, "words", VR(drng)) ;
   if(map->mhead.orng.bot)
     if((uint8_t *)(map->mhead.orng.bot) > (uint8_t *)(map->mhead.zrng.bot) && (uint8_t *)(map->mhead.orng.bot) < (uint8_t *)(map->mhead.zrng.top))
-      fprintf(stderr, f1, "Pmem", map->mhead.orng.bot, RANGE_LIMIT(map->mhead.orng), PTR_OFFSET(map,map->mhead.orng.bot), pmap_size, "bytes") ;
+      fprintf(stderr, f1, "Pmem", map->mhead.orng.bot, RANGE_LIMIT(map->mhead.orng), PTR_OFFSET(map,map->mhead.orng.bot), pmap_size, "bytes", VR(orng)) ;
     else
-      fprintf(stderr, f2, "Pmem", map->mhead.orng.bot, RANGE_LIMIT(map->mhead.orng), pmap_size, "bytes") ;
+      fprintf(stderr, f2, "Pmem", map->mhead.orng.bot, RANGE_LIMIT(map->mhead.orng), pmap_size, "bytes", VR(orng)) ;
   else
-    fprintf(stderr, f2, "Pmem", map->mhead.orng.bot, RANGE_LIMIT(map->mhead.orng), pmap_size, "bytes") ;
+    fprintf(stderr, f2, "Pmem", map->mhead.orng.bot, RANGE_LIMIT(map->mhead.orng), pmap_size, "bytes", VR(orng)) ;
 }
+#undef VR
 
 // print blocks size/offset/limit
 // map       [IN] : pointer to valid zmap struct
@@ -323,7 +331,7 @@ void fmap_print(zmap *map, char *msg){
   if(map->fhead.signature != 0xBEBEFADA){
     fprintf(stderr, "fmap %s : INVALID signature, expecting 0xBEBEFADA, got %8.8x\n", msg, map->fhead.signature) ;
   }else{
-    fprintf(stderr, "fmap %s : version %4.4x, reserved(%8.8x), data[%d:%d:%d], %d blocks[%d:%d:%d]+[%d], (%d,%d : %d,%d : %d), extra = %d\n",
+    fprintf(stderr, "fmap %s : version %4.4x, reserved(%8.8x), data[%d:%d:%d], %d blocks[%d:%d:%d]+[%d], (%d,%d : %d,%d : %d), extra metadata = %d words\n",
             msg, map->fhead.version, map->fhead.reserved,
             map->fhead.gni, map->fhead.gnj, map->fhead.gnk,
             map->fhead.zijk, map->fhead.zni, map->fhead.znj, map->fhead.gnk, map->fhead.zijk - (map->fhead.zni * map->fhead.znj * map->fhead.gnk), 
@@ -483,7 +491,7 @@ zmap *create_zmap(int32_t gni, int32_t gnj, int32_t gnk, int32_t bi_size, int32_
   if(zijk != map->fhead.zijk) goto fail ;                               // inconsistent values for number of blocks
 
   if(DEBUG){
-    zmap_print(map, "empty zmap") ;
+    mmap_print(map, "empty zmap") ;
     fmap_print(map, "empty zmap") ;
   }
 
@@ -492,6 +500,18 @@ zmap *create_zmap(int32_t gni, int32_t gnj, int32_t gnk, int32_t bi_size, int32_
 fail :          // free what was allocated internally
   if(map){ free(map) ; }
   return NULL ;
+}
+
+// deallocation of a data map
+// map  [INOUT] : pointer to data map
+// full    [IN] : if zero, only deallocate pointer table to packed blocks
+// INVALIDATE map to prevent accidents in case of inadvertent memory reuse
+// return 0 if O.K., 1 if not
+int free_zmap(zmap *map){
+  if(map == NULL) return 1 ;                 // OUCH, map is NULL
+  memset(map, 0xEE, 5) ;                     // after this, version cannot be 0
+  if(map->mhead.version != 0) free(map) ;    // always free map
+  return 0 ;                                 // success
 }
 #if 0
 // adjust offset table using the sizes table
@@ -577,40 +597,6 @@ uint64_t *mem_zmap(zmap *map, uint32_t *data, size_t size){
 // }
 
 // NOTE if first/last/limit out of map we have an external bit stream buffer
-
-// deallocation of data map
-// map  [INOUT] : pointer to data map
-// full    [IN] : if zero, only deallocate pointer table to packed blocks
-int free_zmap(zmap *map){
-  if(map == NULL) return 1 ;
-  // INVALIDATE map to prevent accidents in case of memory reuse
-  map->mhead = base_mmap ;
-  map->mhead.signature = 0 ;
-  free(map) ;
-  return 0 ; // success
-  // free offset if not inside zmap struct
-//   if(map->mhead.offset){
-//     if(DEBUG) fprintf(stderr, "freeing map->mhead.offset at %p\n", map->mhead.offset) ;
-//     free(map->mhead.offset) ;
-//   }
-  // free data  if not inside zmap struct
-//   map->mhead.offset = NULL ;
-//   if(map->mhead.options){
-//     if(DEBUG) fprintf(stderr, "freeing map->mhead.options at %p\n", map->mhead.options) ;
-//     free(map->mhead.options) ;
-//   }
-//   map->mhead.options = NULL ;
-//   if(full) {
-//     // NULLIFY map to prevent accidents in case of memory reuse
-//     map->mhead = base_mmap ;
-//     map->mhead.signature = 0 ;
-//     free(map) ;
-// if(DEBUG) fprintf(stderr, "FULL map free\n") ;
-//   }else{
-// if(DEBUG) fprintf(stderr, "PART map free\n") ;
-//   }
-//   return 0 ;
-}
 // TODO : redo the whole function
 #if 0
 ssize_t resize_map(zmap *map){

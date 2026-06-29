@@ -28,11 +28,11 @@
 // apply byte offset to base address, result is a typeless pointer
 #define SET_PTR_OFFSET(BASE, OFFSET) ( (void *)( PTR(BASE) + (OFFSET) ) )
 
-// difference between addresses (in BYTES)
-#define PTR_OFFSET(BASE, ADDR2) ( PTR(ADDR2) - PTR(BASE) )
+// difference between addresses (in BYTES), 0 if any argument is NULL
+#define PTR_OFFSET(BASE, ADDR2)  ( ( (ADDR2) && (BASE) )  ? ( PTR(ADDR2) - PTR(BASE) ) : 0 )
 
-// difference between addresses (in "element" units) (both arguments MUST be pointers to the same type)
-#define PTR_ELEMENTS(BASE, ADDR2) ( (ADDR2) - (BASE) )
+// difference between addresses (in "element" units) (both arguments MUST be pointers to the same type), 0 if any argument is NULL
+#define PTR_ELEMENTS(BASE, ADDR2) ( ( (ADDR2) && (BASE) ) ? ( (ADDR2) - (BASE) ) : 0 )
 
 // the type for an address range for data type xxx will be xxx_range
 // e.g. for a float it would be float_range as in : float_range some_name
@@ -62,26 +62,26 @@ typedef void_range RANGE(address) ;      // generic address range, synonym of vo
 // get address of the first (bottom) element in the range
 #define RANGE_BOT(R) ( PTR((R).bot) )
 
-// get address of last element still within the range
-#define RANGE_LIMIT(R) ( PTR((R).top) - sizeof((R).bot[0]) )
+// get address of last element still within the range, NULL is top or bot is NULL
+#define RANGE_LIMIT(R) ( ((R).top && (R).bot) ? ( PTR((R).top) - sizeof((R).bot[0]) ) : NULL )
 
 // get address of element just above the range
 #define RANGE_TOP(R) ( PTR((R).top) )
 
 // range validity check
-#define VALID_RANGE(R)   ( (RANGE_BOT(R) != NULL) && (RANGE_TOP(R) != NULL) && (RANGE_TOP(R) >  RANGE_BOT(R)) )
-#define INVALID_RANGE(R) ( (RANGE_BOT(R) == NULL) || (RANGE_TOP(R) == NULL) || (RANGE_TOP(R) <= RANGE_BOT(R)) )
+#define VALID_RANGE(R)   ( ((R).bot != NULL) && ((R).top != NULL) && (RANGE_TOP(R) >  RANGE_BOT(R)) )
+#define INVALID_RANGE(R) ( ((R).bot == NULL) || ((R).top == NULL) || (RANGE_TOP(R) <= RANGE_BOT(R)) )
 
-// offset of address in range in bytes
-#define RANGE_OFFSET(R,ADR) (PTR(ADR) - RANGE_BOT(R))
+// offset of address in range in bytes, 0 if any argument is NULL
+#define RANGE_OFFSET(R,ADR) ( ( (ADR) && RANGE_BOT(R) ) ? (PTR(ADR) - RANGE_BOT(R)) : 0 )
 
-// space available above address in range (in bytes)
-#define RANGE_AVAIL(R,ADR) (RANGE_TOP(R) - PTR((ADR)+1))
+// space available above address in range (in bytes), 0 if any argument is NULL
+#define RANGE_AVAIL(R,ADR)  ( ( RANGE_TOP(R) && (ADR) ) ? (RANGE_TOP(R) - PTR((ADR)+1)) : 0 )
 
-// get number of bytes in a range
+// get number of bytes in a range, 0 if any argument is NULL
 #define RANGE_BYTES(R) ( PTR_OFFSET( (R).bot ,  (R).top ) )
 
-// get number of elements in a range (element type tells element size)
+// get number of elements in a range (element type tells element size), 0 if any argument is NULL
 #define RANGE_ELEMENTS(R) PTR_ELEMENTS((R).bot , (R).top)
 
 // is address range BOT -> TOP entirely within range R0 (accounts for element size of TOP)
@@ -90,22 +90,22 @@ typedef void_range RANGE(address) ;      // generic address range, synonym of vo
 // is range R2 entirely within range R0 (a subrange of R0)
 #define SUB_RANGE(R0, R2) ( (RANGE_BOT(R0) <= RANGE_BOT(R2)) && (RANGE_top(R0) >= RANGE_TOP(R2)) )
 
-// get the size of a range element in bytes
-#define ELEMENT_SIZE(R) (sizeof((R).bot[0]) / sizeof(uint8_t))
+// get the size of a range element in bytes, 0 if (R).bot is NULL
+#define ELEMENT_SIZE(R) ( (R).bot ? (sizeof((R).bot[0]) / sizeof(uint8_t)) : 0 )
 
 // set address of the first (bottom) element of a range
 #define SET_RANGE_BOT(R, BOT)  { (R).bot = (void *)(BOT) ; }
 
-// set address of the last (top) element of a range to a specific address
-#define SET_RANGE_TOP(R, TOP)  { (R).top = PTR(TOP) + sizeof((R).bot[0]) ; }
+// set address of the last (top) element of a range to a specific address, NULL if any argument is NULL
+#define SET_RANGE_TOP(R, TOP)  { (R).top = ( PTR(TOP) && (R).bot ) ? (PTR(TOP) + sizeof((R).bot[0])) : NULL ; }
 
-// set top address of range to base address + space to accomodate N elements
-#define SET_RANGE_ELEMENTS(R, N)  { (R).top = ((R).bot + N) ; }
+// set top address of range to base address + space to accomodate N elements, NULL if (R).bot is NULL
+#define SET_RANGE_ELEMENTS(R, N)  { (R).top = (R).bot ? ((R).bot + N) : NULL ; }
 
-// set top address of range to base address + size bytes
-#define SET_RANGE_BYTES(R, BYTES) { (R).top = SET_PTR_OFFSET( (R).bot, (BYTES) ) ; }
+// set top address of range to base address + size bytes, NULL if (R).bot is NULL
+#define SET_RANGE_BYTES(R, BYTES) { (R).top = (R).bot ? SET_PTR_OFFSET( (R).bot, (BYTES) ) : NULL ; }
 
-// set bottom address and top addresses of a range (accomodate BYTES bytes)
+// set bottom address and top addresses of a range (accomodate BYTES bytes), NULL if BOT is NULL
 #define SET_RANGE(R, BOT, BYTES) { SET_RANGE_BOT(R, BOT) ; SET_RANGE_BYTES(R, BYTES) ; }
 
 #endif
