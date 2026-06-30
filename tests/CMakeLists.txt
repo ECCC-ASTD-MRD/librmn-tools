@@ -204,7 +204,7 @@ add_project_test(test_endian_bitstream     test_endian_bitstream.c     LINK_LIBS
 # add_project_test(test_compress_expand test_compress_expand.c LINK_LIBS "rmn::rmn;libaec::aec" NODIAG)
 add_project_test(test_copy_swap            test_copy_swap.c            LINK_LIBS "rmn::rmn"        NODIAG)
 
-add_project_test(test_data_map             test_data_map.c             LINK_LIBS "rmn::rmn-shared" NODIAG)
+add_project_test(test_data_map             test_data_map.c             LINK_LIBS "rmn::rmn"        NODIAG)
 add_project_test(test_readlx               test_readlx.F90             LINK_LIBS "rmn::rmn-shared" NODIAG)
 
 add_project_test(test_sparse_concat        test_sparse_concat.c        LINK_LIBS "rmn::rmn"        NODIAG)

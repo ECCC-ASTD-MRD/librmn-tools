@@ -225,24 +225,39 @@ int print_zmap_blocks(zmap *map, uint32_t maxblocks){
   int32_t hole = 0 ;
   uint32_t total_blocks = ZMAP_TOTAL_BLOCKS(map) ;
   if(maxblocks > total_blocks) maxblocks = total_blocks ;
-  fprintf(stderr, "======== zmap blocks ========\n") ;
+  fprintf(stderr, "=============================================================== zmap blocks ===============================================================\n") ;
+  fprintf(stderr, "          size       drng.bot           start        offset    to gap         limit                                         hole   from bot\n") ;
   for(uint32_t i=0 ; i<maxblocks ; i++){
     uint32_t *bk0 = map->mhead.drng.bot + (BLOCK_OFFSET(map,i)/sizeof(uint32_t)) ;
     uint32_t *bkn = bk0 + map->size[i] - 1 ;
     if(map->size[i] == 0) { bk0-- ; bkn = bk0 ; }    // 0 size block at top remains "in range"
     hole = (map->mhead.orng.bot[i+1]) - (map->mhead.orng.bot[i]) - (map->size[i] * sizeof(uint32_t)) ;
-    fprintf(stderr, "block %2d(%5d), %p <= %p[%8ld][%8ld] <= %p ? (%s:%s), %s [%6d] <%6d>\n",
+    fprintf(stderr, "block %2d(%5d), %p <= %p[%8ld][%8ld] <= %p ? (%s:%s), %s [%6d] <%6ld>\n",
             i, map->size[i], RANGE_BOT(map->mhead.drng), bk0,
             RANGE_OFFSET(map->mhead.drng, bk0), RANGE_AVAIL(map->mhead.drng, bk0),
-            RANGE_LIMIT(map->mhead.drng),
+            /*RANGE_LIMIT(map->mhead.drng)*/ bkn,
             IN_RANGE(map->mhead.drng, bk0, bk0) ? "IN RANGE" : "OUT OF RANGE",
             IN_RANGE(map->mhead.drng, bkn, bkn) ? "IN RANGE" : "OUT OF RANGE",
             (hole == 0) ? "contiguous" : "  disjoint", hole,
-            contiguous_zmap_blocks(map, 0, i)  ) ;
+            contiguous_zmap_blocks(map, 0, i)*sizeof(uint32_t)  ) ;
 
     if( ! IN_RANGE(map->mhead.drng,bk0,bkn) ) oor++ ;
   }
-  fprintf(stderr, "number of out of range blocks = %d\n", oor) ;
+  fprintf(stderr, "%d block(s) not inside data range\n", oor) ;
+  return oor ;
+}
+
+// are all blocks within data range
+// map       [IN] : pointer to valid zmap struct
+// return number of out of range encoded data blocks
+int zmap_blocks_out_of_range(zmap *map){
+  uint32_t total_blocks = ZMAP_TOTAL_BLOCKS(map) ;
+  int oor = 0 ;                                  // number of "out of range" blocks
+  for(uint32_t i=0 ; i<total_blocks ; i++){
+    uint32_t *bk0 = map->mhead.drng.bot + (BLOCK_OFFSET(map,i)/sizeof(uint32_t)) ;
+    uint32_t *bkn = bk0 + map->size[i] - 1 ;
+    if( ! IN_RANGE(map->mhead.drng,bk0,bkn) ) oor++ ;
+  }
   return oor ;
 }
 
@@ -258,8 +273,7 @@ int ordered_zmap_blocks(zmap *map, int block0, int block_n){
 // map    [IN] : pointer to valid zmap struct
 // block0 [IN] : first block to check
 // blockn [IN] : last block to check
-// return cumulative size if blocks are contiguous, -size if not
-// TODO : adjust for offsets in bytes
+// return cumulative size in words if blocks are contiguous, -size if not
 int contiguous_zmap_blocks(zmap *map, int block0, int block_n){
   // NOTE: the orng range is used to check if blocks are contiguous
   //       if prng rather than orng is valid, it does not affect the contiguity check
@@ -491,8 +505,7 @@ zmap *create_zmap(int32_t gni, int32_t gnj, int32_t gnk, int32_t bi_size, int32_
   if(zijk != map->fhead.zijk) goto fail ;                               // inconsistent values for number of blocks
 
   if(DEBUG){
-    mmap_print(map, "empty zmap") ;
-    fmap_print(map, "empty zmap") ;
+    zmap_print(map, "empty zmap") ;
   }
 
   return map ;
@@ -500,6 +513,37 @@ zmap *create_zmap(int32_t gni, int32_t gnj, int32_t gnk, int32_t bi_size, int32_
 fail :          // free what was allocated internally
   if(map){ free(map) ; }
   return NULL ;
+}
+
+// update offsets using offsets[0] and sizes, check that data area does not overlap offsets/pointers table
+// update data range pointers
+// map  [INOUT] : pointer to valid zmap struct
+// return 0 if successsful, non zero otherwise
+int finalize_zmap(zmap *map){
+  uint64_t *offsets = map->mhead.orng.bot ;
+  fmap_block_size *size = map->size ;
+  uint64_t total_size = 0 ;
+
+// it is assumed that offsets[0] has been set properly before calling this function
+  for(uint32_t i = 0 ; i < map->fhead.zijk ; i++){              // loop over blocks
+    offsets[i+1] = offsets[i] + size[i] * sizeof(uint32_t) ;    // adjust offset for next block
+    total_size += size[i] ;                                     // cumulative size
+  }
+  // adjust top of data range according to cumulative data size
+  map->mhead.drng.top = map->mhead.drng.bot + total_size ;
+
+  uint32_t *packed = map->mhead.drng.top ;
+  if( PTR(packed) > PTR(offsets) ){
+    fprintf(stderr, "ERROR : data stream overlaps offsets/pointers table\n");
+    return -1 ;
+  }
+#if defined(DEBUG)
+  while(PTR(packed) < PTR(offsets)){
+    *packed = 0xF0F0F0F0 ;
+    packed++ ;
+  }
+#endif
+  return 0 ;
 }
 
 // deallocation of a data map

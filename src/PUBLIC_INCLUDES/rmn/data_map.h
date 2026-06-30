@@ -314,6 +314,8 @@ CT_ASSERT(sizeof(zmap) == (sizeof(zmap) / sizeof(int32_t)) * sizeof(int32_t) , "
 
 // base address of encoded data blocks
 #define ZMAP_DATA(MAP) ((MAP)->mhead.drng.bot)
+//
+#define ZMAP_OFFSETS(MAP) ((MAP)->mhead.orng.bot)
 
 static inline int invalid_zmap(zmap *map){
   if(map->mhead.signature != 0x1AD0FADA || map->fhead.signature != 0xBEBEFADA) return 1 ;
@@ -373,6 +375,7 @@ int update_file_zmap(zmap *map);
 zmap *create_zmap(int32_t gni, int32_t gnj, int32_t gnk,
                   int32_t bi_size, int32_t aspect, int32_t esize,
                   int32_t mextra, int32_t zextra, int32_t zsize);
+int finalize_zmap(zmap *map);
 int free_zmap(zmap *map);
 
 int fmap_invalid(zmap *map);
@@ -381,6 +384,7 @@ void zmap_print(zmap *map, char *msg);
 void mmap_print(zmap *map, char *msg);
 void fmap_print(zmap *map, char *msg);
 
+int zmap_blocks_out_of_range(zmap *map);
 int print_zmap_blocks(zmap *map, uint32_t maxblocks);
 
 void *filemap_address(zmap *map);
