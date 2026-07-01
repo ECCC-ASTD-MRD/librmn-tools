@@ -184,6 +184,7 @@ int demo_codec_16_32(zmap *map, void *out_, void *in_, int ninj, int encode){
 // return number of bytes written into out_
 int demo_pack_block_32_8(zmap *map, void *out_, void *in_, int ninj){
   if(map == NULL || ninj <= 0) return -1 ;
+  if(map->fhead.esize != 4) exit(1) ;    // unpacked element size MUST BE 4 BYTES
   uint32_t *in = in_ ;
   uint8_t *out = out_ ;
   if(out == NULL || in == NULL) return -1 ;
@@ -197,7 +198,8 @@ int demo_pack_block_32_8(zmap *map, void *out_, void *in_, int ninj){
 // unpack unsigned 8 -> 32 ;
 // return number of bytes read from in_
 int demo_unpack_block_8_32(zmap *map, void *out_, void *in_, int ninj){
-  if(map == NULL || ninj <= 0) return -1 ;
+  if(map == NULL || ninj <= 0) return -1 ;    // unpacked element size MUST BE 4 BYTES
+  if(map->fhead.esize != 4) exit(1) ;
   uint8_t *in = in_ ;
   uint32_t *out = out_ ;
   if(out == NULL || in == NULL) return -1 ;
@@ -416,18 +418,7 @@ void  test_fill_size(int zni, int znj, fmap_block_size size[znj][zni], zmap *map
 #undef MAX
 #define MAX(A,B) ( ((A) > (B)) ? (A) : (B) )
 
-// extract data from file using zmap, store into array
-// for test purposes, get blocks in reverse order
-// map    [IN] : pointer to valid zmap struct
-// gni    [IN] : row length of array
-// gnj    [IN] : number of rows in array
-// array [OUT] : data destination for decoded blocks
-void  get_data_from_file_zmap(zmap *map, int gni, int gnj, uint32_t array[gnj][gni]){
-  (void) (map) ;
-  (void) (gni) ;
-  (void) (gnj) ;
-  (void) (array) ;
-}
+static int64_t filewords = 0 ;
 
 // extract data from full zmap, store into array
 // for test purposes, get blocks in reverse order
@@ -440,8 +431,9 @@ void  get_data_from_zmap(zmap *map, int gni, int gnj, uint32_t array[gnj][gni]){
   int32_t zni = map->fhead.zni, znj = map->fhead.znj ;
   uint32_t maxi = MAX(map->fhead.li0, map->fhead.lni) ;
   uint32_t maxj = MAX(map->fhead.lj0, map->fhead.lnj) ;
-  uint32_t block[maxi*maxj] ;      // largest decoded block
-  uint32_t coded[maxi*maxj+1] ;    // largest encoded block
+  uint32_t esize = map->fhead.esize ;
+  uint8_t block[esize*maxi*maxj] ;                                // largest decoded block
+  uint8_t coded[sizeof(uint32_t)*maxi*maxj+sizeof(uint32_t)] ;    // largest encoded block
   RANGE(zmap_t) r_temp ;
   fmap_block_size *sizes, size, siz0 ;
   size_t total_size = 0 ;
@@ -451,7 +443,7 @@ void  get_data_from_zmap(zmap *map, int gni, int gnj, uint32_t array[gnj][gni]){
   SET_RANGE(r_temp, coded, sizeof(coded)) ;
   bno = 0 ;
   sizes = map->size ;
-  fprintf(stderr, "========== extracting %d array blocks from zmap ==========\n", zni*znj) ;
+  fprintf(stderr, "========== extracting %d array blocks (%d byte elements) from zmap ==========\n", zni*znj, esize) ;
   for(j=znj-1 ; j>=0 ; j--){
     index_range j_index = index_limits(j, map->fhead.lnj, map->fhead.lj0) ;
     j0 = j_index.ix0 ; jn = j_index.ixn ; lnj = jn - j0 + 1 ;
@@ -461,7 +453,7 @@ void  get_data_from_zmap(zmap *map, int gni, int gnj, uint32_t array[gnj][gni]){
       i0 = i_index.ix0 ; in = i_index.ixn ; lni = in - i0 + 1 ;
       bno = BLOCK_IJ(map,i,j) ;
 
-// TODO: replace NO_RANGE with a range large enough for the largest encoded block
+      // some get functions may not have a need for r_temp and will just ignore it
       RANGE(zmap_t) r_coded = ZMAP_GET(map, bno, 1, r_temp) ;                  // use get block function from zmap to get encoded range
       nbytes = (*codec)(map, block, r_coded.bot, lni * lnj, 0) ;               // decode block of packed data (lni * lnj values)
       put_block(lni, lnj, (void *)block, gni, gnj, (void *)(&array[j0][i0])) ; // insert decoded data into array
@@ -482,7 +474,7 @@ void  get_data_from_zmap(zmap *map, int gni, int gnj, uint32_t array[gnj][gni]){
 
     }
   }
-  fprintf(stderr, "words extracted = %ld\n\n", total_size) ;
+  fprintf(stderr, "words extracted = %ld, expected = %ld\n\n", total_size, filewords) ;
 }
 
 // map    [INOUT] : pointer to valid zmap struct
@@ -544,7 +536,7 @@ void fill_zmap_with_data(zmap *map, int gni, int gnj, uint32_t array[gnj][gni], 
       bno++ ;
     }
   }
-  inserted = PTR_ELEMENTS(map->mhead.drng.bot, packed) ;
+  filewords = inserted = PTR_ELEMENTS(map->mhead.drng.bot, packed) ;
   fprintf(stderr, "inserted %ld words (%ld bytes)\n", inserted, inserted*4) ;
   map->mhead.drng.top = packed ;                         // adjust top of data range
   if( PTR(packed) > PTR(offsets) ) exit(1) ;             // OUCH !! top of data range overlaps offset table
@@ -707,7 +699,10 @@ test:
   if( errors != 0){ FAIL(1, "ERROR : %d error(s) in restored data\n", errors) ; }
 
   close(fd) ;
+  if( unlink(file_name) ) { FAIL(1, "ERROR : failed to delete file '%s'\n", file_name) ; }
+  fprintf(stderr, "successfully closed file '%s'\n", file_name) ;
   free_zmap(zpf) ;
+  fprintf(stderr, "freed data map zpf\n") ;
 
 if(argc < 1000) goto success ;  // avoid warning about unreachable code
 

@@ -196,11 +196,9 @@ RANGE_TYPEDEF(zmap_tp) ;                  // associated range
 
 // function to get/put a block of encoded data
 typedef RANGE(zmap_t) block_fn(zmap *map, int block0, int block_nb, RANGE(zmap_t) drng) ;
-// typedef block_fn *block_fn_p ;
 
 // function to encode/decode data
 typedef int32_t codec_fn(zmap *map, void *out, void *in, int ninj, int encode) ;
-// typedef codec_fn *codec_fn_p ;
 
 // NOTE: components not needed/used are nullified
 // TODO ? add file descriptor and file offset to beginning of record/data in file ?
