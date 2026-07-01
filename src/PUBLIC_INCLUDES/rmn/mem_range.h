@@ -19,6 +19,9 @@
 
 #if ! defined(RANGE_TYPEDEF)
 
+// memory address (pointer to anything)
+#define PTR_VOID(what) ((void *)(what))
+
 // memory address (pointer to unsigned bytes)
 #define PTR(what) ((uint8_t *)(what))
 
@@ -48,13 +51,13 @@
 
 // some predefined/generic address ranges, using unsigned integers
 RANGE_TYPEDEF(uint8_t) ;                 // uint8_t_range
-typedef uint8_t_range RANGE(byte) ;      // byte range
+typedef RANGE(uint8_t) RANGE(byte) ;     // byte range
 RANGE_TYPEDEF(uint16_t) ;
-typedef uint16_t RANGE(hword) ;          // halfword range
+typedef RANGE(uint16_t) RANGE(hword) ;   // halfword range
 RANGE_TYPEDEF(uint32_t) ;
-typedef uint32_t RANGE(word) ;           // word range
+typedef RANGE(uint32_t) RANGE(word) ;    // word range
 RANGE_TYPEDEF(uint64_t) ;
-typedef uint64_t RANGE(dword) ;          // doubleword range
+typedef RANGE(uint64_t) RANGE(dword) ;   // doubleword range
 
 RANGE_TYPEDEF(void) ;                    // typeless
 typedef void_range RANGE(address) ;      // generic address range, synonym of void_range
