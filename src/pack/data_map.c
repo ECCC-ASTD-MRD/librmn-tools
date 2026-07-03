@@ -244,32 +244,40 @@ int print_zmap_blocks(zmap *map, uint32_t maxblocks){
   int32_t hole = 0 ;
   uint32_t total_blocks = ZMAP_TOTAL_BLOCKS(map) ;
   if(maxblocks > total_blocks) maxblocks = total_blocks ;
+  uint32_t modulo = (total_blocks+maxblocks-1) / maxblocks ;
+
   fprintf(stderr, "=============================================================== zmap blocks ===============================================================\n") ;
+// return 0 ;
   if(map->mhead.drng.bot){
     fprintf(stderr, "          size       drng.bot           start       offset   to hole          limit                                         hole   from bot\n") ;
-    for(uint32_t i=0 ; i<maxblocks ; i++){
+    for(uint32_t i=0 ; i<total_blocks ; i++){
       uint32_t *bk0 = map->mhead.drng.bot + (BLOCK_OFFSET(map,i)/sizeof(uint32_t)) ;
       uint32_t *bkn = bk0 + map->size[i] - 1 ;
       if(map->size[i] == 0) { bk0-- ; bkn = bk0 ; }    // 0 size block at top remains "in range"
       hole = (map->mhead.orng.bot[i+1]) - (map->mhead.orng.bot[i]) - (map->size[i] * sizeof(uint32_t)) ;
-      fprintf(stderr, "block %2d(%5d), %p <= %p[%8ld][%8ld] <= %p ? (%s:%s), %s [%6d] <%6ld>\n",
-              i, map->size[i], RANGE_BOT(map->mhead.drng), bk0,
-              RANGE_OFFSET(map->mhead.drng, bk0), RANGE_AVAIL(map->mhead.drng, bk0),
-              /*RANGE_LIMIT(map->mhead.drng)*/ bkn,
-              IN_RANGE(map->mhead.drng, bk0, bk0) ? "IN RANGE" : "OUT OF RANGE",
-              IN_RANGE(map->mhead.drng, bkn, bkn) ? "IN RANGE" : "OUT OF RANGE",
-              (hole == 0) ? "contiguous" : "  disjoint", hole,
-              contiguous_zmap_blocks(map, 0, i)*sizeof(uint32_t)  ) ;
+
+      if( ((i % modulo) == 0) || (i == (total_blocks - 1)) ){
+        fprintf(stderr, "block %4d(%5d), %p <= %p[%8ld][%8ld] <= %p ? (%s:%s), %s [%6d] <%6ld>\n",
+                i, map->size[i], RANGE_BOT(map->mhead.drng), bk0,
+                RANGE_OFFSET(map->mhead.drng, bk0), RANGE_AVAIL(map->mhead.drng, bk0),
+                /*RANGE_LIMIT(map->mhead.drng)*/ bkn,
+                IN_RANGE(map->mhead.drng, bk0, bk0) ? "IN RANGE" : "OUT OF RANGE",
+                IN_RANGE(map->mhead.drng, bkn, bkn) ? "IN RANGE" : "OUT OF RANGE",
+                (hole == 0) ? "contiguous" : "  disjoint", hole,
+                contiguous_zmap_blocks(map, 0, i)*sizeof(uint32_t)  ) ;
+      }
 
       if( ! IN_RANGE(map->mhead.drng,bk0,bkn) ) oor++ ;
     }
     fprintf(stderr, "%d block(s) not inside data range\n", oor) ;
   }else{
     fprintf(stderr, "          size     offset                hole  from bot\n") ;
-    for(uint32_t i=0 ; i<maxblocks ; i++){
-      hole = (map->mhead.orng.bot[i+1]) - (map->mhead.orng.bot[i]) - (map->size[i] * sizeof(uint32_t)) ;
-      fprintf(stderr, "block %2d(%5d) [%8ld] %s [%6d] <%6ld>\n",
-              i, map->size[i], map->mhead.orng.bot[i], (hole == 0) ? "contiguous" : "  disjoint", hole, contiguous_zmap_blocks(map, 0, i)*sizeof(uint32_t)) ;
+    for(uint32_t i=0 ; i<total_blocks ; i++){
+      if( ((i % modulo) == 0) || (i == (total_blocks - 1)) ){
+        hole = (map->mhead.orng.bot[i+1]) - (map->mhead.orng.bot[i]) - (map->size[i] * sizeof(uint32_t)) ;
+        fprintf(stderr, "block %4d(%5d) [%8ld] %s [%6d] <%6ld>\n",
+                i, map->size[i], map->mhead.orng.bot[i], (hole == 0) ? "contiguous" : "  disjoint", hole, contiguous_zmap_blocks(map, 0, i)*sizeof(uint32_t)) ;
+      }
     }
   }
   return oor ;
@@ -572,6 +580,7 @@ int finalize_zmap(zmap *map){
     return -1 ;
   }
 #if defined(DEBUG)
+// in DEBUG/TESTING mode, initialize memory gap between packed and the offsets table
   while(PTR(packed) < PTR(offsets)){
     *packed = 0xF0F0F0F0 ;
     packed++ ;

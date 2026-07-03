@@ -125,6 +125,7 @@ set(PROJECT_H_FILES
 #   src/PUBLIC_INCLUDES/rmn/lorenzo.hf
   src/PUBLIC_INCLUDES/rmn/mem_range.h
   src/PUBLIC_INCLUDES/rmn/misc_analyze.h
+  src/PUBLIC_INCLUDES/rmn/misc_helpers.h
   src/PUBLIC_INCLUDES/rmn/misc_pack.h
   src/PUBLIC_INCLUDES/rmn/misc_pack.hf
   src/PUBLIC_INCLUDES/rmn/misc_operators.h
