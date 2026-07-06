@@ -374,9 +374,8 @@ ij_range map_block_limits(zmap *map, int32_t i, int32_t j);
 zmap *create_file_zmap(uint32_t map_words, uint32_t rec_words);
 int update_file_zmap(zmap *map);
 
-zmap *create_zmap(int32_t gni, int32_t gnj, int32_t gnk,
-                  int32_t bi_size, int32_t aspect, int32_t esize,
-                  int32_t mextra, int32_t zextra, int32_t zsize, int nodata);
+zmap *create_zmap(int32_t gni, int32_t gnj, int32_t gnk, int32_t bi_size, int32_t aspect, int32_t esize,
+                  int32_t mextra, int32_t zextra, int32_t zsize, ssize_t d_bytes);
 int finalize_zmap(zmap *map);
 int free_zmap(zmap *map);
 

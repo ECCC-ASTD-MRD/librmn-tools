@@ -469,7 +469,8 @@ static size_pair adjust_bsize(int32_t b_size, int32_t aspect){
 // mextra  [IN] : max size of extra global information for data decoding (in 32 bit units)
 // zextra  [IN] : number of extra blocks (usually 0)
 // zsize   [IN] : size needed (in bytes) for extra blocks (0 if zextra == 0)
-// no_data [IN] : if non zero, do not allocate space for data
+// d_bytes [IN] : space to allocate for data (in bytes)
+//                -1 : no space allocation for data, 0 : automatic allocation
 // return pointer to partially initialized zmap struct, NULL if error
 // NOTE: array dimensions are Fortran ordered (i index varying first)
 // esize > 16 is not supported for now
@@ -477,7 +478,7 @@ static size_pair adjust_bsize(int32_t b_size, int32_t aspect){
 // in that case, frng, xrng, drng will need to be updated too
 // TODO: need a "no data" option (will force dsize = 0) for external data. user supplied range ?
 zmap *create_zmap(int32_t gni, int32_t gnj, int32_t gnk, int32_t bi_size, int32_t aspect, int32_t esize,
-                  int32_t mextra, int32_t zextra, int32_t zsize, int nodata){
+                  int32_t mextra, int32_t zextra, int32_t zsize, ssize_t d_bytes){
 
   if(zextra == 0) zsize = 0 ;           // ignored (forced to zero) if there are no extra blocks
   if(esize <= 0 || mextra < 0 || gni <= 0 || gnj <= 0 || gnk <= 0 || aspect < 0 || zextra < 0 || zsize < 0) return NULL ;
@@ -500,26 +501,29 @@ zmap *create_zmap(int32_t gni, int32_t gnj, int32_t gnk, int32_t bi_size, int32_
   }
 
   size_t size, dsize, osize, fsize ;
-  fsize = sizeof(fmap) + sizeof(fmap_block_size) * zijk1 ;      // size of data map part that gets written into file
+  fsize = sizeof(fmap) + sizeof(fmap_block_size) * zijk1 ;      // size of data map section that will get written into file
   size  = sizeof(zmap) + sizeof(fmap_block_size) * zijk1 ;      // base size of data map + table of sizes
   size  = size + mextra * sizeof(uint32_t) ;                    // size += size of extra information
 
   // worst case : esize * nb_of_values + number_of_blocks * (4 + 4)  (up to 4 bytes round up + 4 bytes overhead per block)
-  dsize = gni * gnj * gnk * esize + zni * znj * znk * 8 ;       // worst case size needed to encode data
+  dsize = gni * gnj * gnk * esize + zni * znj * znk * 8 ;       // estimate of worst case size needed to encode data
+  dsize = (d_bytes > 0) ? d_bytes : dsize ;                     // d_bytes > 0, force allocation for data blocks to d_bytes
   dsize = ((dsize + 3) >> 2) << 2 ;                             // bump to next multiple of 4 bytes
-  dsize = nodata ? 0 : dsize ;                                  // if no_data, set dsize and zsize to 0
+  dsize = (d_bytes == -1) ? 0 : dsize ;                         // if d_bytes == -1 , set dsize to 0 (no space allocated for data block)
   size = size + dsize ;                                         // size += size needed to encode data (worst case estimate)
-  zsize = nodata ? 0 : zsize ;
+
+  zsize = (d_bytes == -1) ? 0 : zsize ;                         // if d_bytes == -1 , set zsize to 0 (no space allocated for data block)
   size = size + zsize ;                                         // size += size needed for extra blocks
+
   osize = ( sizeof(uint32_t *) * (zijk + 1) ) ;                 // size of  offset[] pointer array
   size = size + osize ;                                         // size += size needed for offsets
-  size = ((size + 7) >> 3) << 3 ;                               // bump to multiple of 8
 
-  map = (zmap *) malloc(size) ;     // allocate map with enough room for worst case data compression
-  if(map == NULL) goto fail ;       // zmap allocation failed
+  size = ((size + 7) >> 3) << 3 ;                               // bump to multiple of 8 >= size
+  map = (zmap *) malloc(size) ;                                 // allocate map with enough room for worst case data encoding
+  if(map == NULL) goto fail ;                                   // zmap allocation failed
 
-  map->mhead = base_mmap ;          // initialize signature, version, options, stream, fn, args
-  map->mhead.esize = esize ;        // temporarily store in mhead, will be stored into fhead later
+  map->mhead = base_mmap ;                                      // initialize signature, version, options, stream, fn, args
+  map->mhead.esize = esize ;                                    // temporarily store esize in mhead, will be moved into fhead later
   // initialize memory address ranges
   // entire zmap struct address range
   SET_RANGE(map->mhead.zrng, map, size) ;
