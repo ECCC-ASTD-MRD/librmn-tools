@@ -187,14 +187,23 @@ int demo_unpack_block_16_32(zmap *map, void *out_, void *in_, int ninj){
 // out_ [OUT] : output (restored 16 -> 32)
 // in_   [IN] : input data (packed)
 // ninj  [IN] : number of values
-// encode[IN] : == 1 : encode(pack), != 1 : decode(unpack)
+// encode[IN] : != 0 : encode(pack), == 0 : decode(unpack)
 // return number of packed bytes
+// TODO : rework codec_fn interface to get more dimension/type info
 codec_fn demo_codec_16_32 ;
 int demo_codec_16_32(zmap *map, void *out_, void *in_, int ninj, int encode){
-  if(encode == 1){
+  if(encode){
     return demo_pack_block_32_16(map, out_, in_, ninj) ;
   }else{
     return demo_unpack_block_16_32(map, out_, in_, ninj) ;
+  }
+}
+codec_fn_new2 demo_codec_16_32_2 ;
+int demo_codec_16_32_2(zmap *map, zmap_tile tile, zmap_stream stream, int encode){
+  if(encode){
+    return demo_pack_block_32_16(map, stream, tile.w32, tile.ni * tile.nj) ;
+  }else{
+    return demo_unpack_block_16_32(map, tile.w32, stream, tile.ni * tile.nj) ;
   }
 }
 
@@ -245,14 +254,23 @@ int demo_unpack_block_8_32(zmap *map, void *out_, void *in_, int ninj){
 // out_ [OUT] : output (restored 8 -> 32)
 // in_   [IN] : input data (packed)
 // ninj  [IN] : number of values
-// encode[IN] : == 1 : encode(pack), != 1 : decode(unpack)
+// encode[IN] : != 0 : encode(pack), == 0 : decode(unpack)
 // return number of packed bytes
+// TODO : rework codec_fn interface to get more dimension/type info
 static codec_fn demo_codec_8_32 ;
 static int demo_codec_8_32(zmap *map, void *out_, void *in_, int ninj, int encode){
-  if(encode == 1){
+  if(encode){
     return demo_pack_block_32_8(map, out_, in_, ninj) ;
   }else{
     return demo_unpack_block_8_32(map, out_, in_, ninj) ;
+  }
+}
+codec_fn_new2 demo_codec_8_32_2 ;
+int demo_codec_8_32_2(zmap *map, zmap_tile tile, zmap_stream stream, int encode){
+  if(encode){
+    return demo_pack_block_32_8(map, stream, tile.w32, tile.ni * tile.nj) ;
+  }else{
+    return demo_unpack_block_8_32(map, tile.w32, stream, tile.ni * tile.nj) ;
   }
 }
 //
@@ -536,6 +554,7 @@ void fill_zmap_with_data(zmap *map, int gni, int gnj, uint32_t array[gnj][gni], 
   fmap_block_size *sizes, size /*, siz0*/ ;
   uint64_t *offsets, offset ;
   int64_t inserted ;
+  size_trio lnijk ;
 
   sizes = map->size ;
   offsets = map->mhead.orng.bot ;
@@ -555,6 +574,8 @@ void fill_zmap_with_data(zmap *map, int gni, int gnj, uint32_t array[gnj][gni], 
 
       if((top - encoded) < (lni * lnj + 1)) exit(1) ;                                    // worst case encoding would fail
 
+// typedef int32_t codec_fn_new(zmap *map, void *out, void *in, size_trio ninjnk, int encode) ;
+      lnijk = (size_trio) {lni, lnj, 1} ;
       nbytes = ZMAP_CODEC(map, encoded, block, lni * lnj, 1) ;                           // encode data
 //       fprintf(stderr, ", codec   pack : nb = %d bytes", nbytes) ;
       if(nbytes == -1) exit(1) ;
@@ -622,6 +643,7 @@ size_t fill_zmap_blocks(zmap *map, uint8_t *array){
   fmap_block_size *sizes ;
   uint64_t *offsets, offset, index_i, index_j, g_row_size, l_row_size ;
   int nbytes ;
+  size_trio lnijk ;
 
   if(gnk != 1) goto fail ;                     // gnk != 1 not supported initially
 
@@ -647,7 +669,9 @@ size_t fill_zmap_blocks(zmap *map, uint8_t *array){
 
       // get a block[lnj][lni][esize] from array[gnj][gni][esize]
       mov_byte_block((void *)block, l_row_size, (void *)(array + index_j + index_i), g_row_size, l_row_size, lnj) ;
-      // encode block -> encoded
+      // encode block -> encoded, arguments to codec function from zmap->mhead.codec_args
+// typedef int32_t codec_fn_new(zmap *map, void *out, void *in, size_trio ninjnk, int encode) ;
+      lnijk = (size_trio) {lni, lnj, 1} ;
       nbytes = ZMAP_CODEC(map, encoded, block, lni * lnj, 1) ;                          // encode block
       if(nbytes == -1) goto fail ;                                                      // encoding error(s)
 

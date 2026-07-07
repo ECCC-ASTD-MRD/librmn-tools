@@ -199,6 +199,25 @@ typedef RANGE(zmap_t) block_fn(zmap *map, int block0, int block_nb, RANGE(zmap_t
 
 // function to encode/decode data
 typedef int32_t codec_fn(zmap *map, void *out, void *in, int ninj, int encode) ;
+// TODO : replace ninj with something giving detailed dimension information
+//        alternative 1
+typedef int32_t codec_fn_new1(zmap *map, void *out, void *in, size_trio ninjnk, int encode) ;
+//        alternative 2
+typedef struct{
+  union{                            // starting address of block
+    void     *w32 ;                 // generic pointer
+    uint32_t *u32 ;                 // pointer to unsigned integer
+    int32_t  *i32 ;                 // pointer to signed integer
+    float    *f32 ;                 // pointer to float
+  } ;
+  uint16_t ni ;                     // first dimension
+  uint16_t nj ;                     // second dimension (1 if tile is 1D)
+  uint16_t nk ;                     // third dimension (1 if tile is 1D or 2D)
+  uint8_t  etype ;                  // data element type, see rmn/data_kind.h
+  uint8_t  esize ;                  // element size in bytes -1  (1 <= element size <= 256)
+}zmap_tile ;
+typedef uint32_t *zmap_stream ;     // pointer to a stream of 32 bit unsigned words
+typedef int32_t codec_fn_new2(zmap *map, zmap_tile tile, zmap_stream stream, int encode) ;
 
 // NOTE: components not needed/used are nullified
 // TODO ? add file descriptor and file offset to beginning of record/data in file ?
