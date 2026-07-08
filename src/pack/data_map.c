@@ -243,6 +243,7 @@ int print_zmap_blocks(zmap *map, uint32_t maxblocks){
   int oor = 0 ;  // number of "out of range" blocks
   int32_t hole = 0 ;
   uint32_t total_blocks = ZMAP_TOTAL_BLOCKS(map) ;
+  uint32_t array_blocks = ZMAP_ARRAY_BLOCKS(map) ;
   if(maxblocks > total_blocks) maxblocks = total_blocks ;
   uint32_t modulo = (total_blocks+maxblocks-1) / maxblocks ;
 
@@ -256,7 +257,7 @@ int print_zmap_blocks(zmap *map, uint32_t maxblocks){
       if(map->size[i] == 0) { bk0-- ; bkn = bk0 ; }    // 0 size block at top remains "in range"
       hole = (map->mhead.orng.bot[i+1]) - (map->mhead.orng.bot[i]) - (map->size[i] * sizeof(uint32_t)) ;
 
-      if( ((i % modulo) == 0) || (i == (total_blocks - 1)) ){
+      if( ((i % modulo) == 0) || (i == (total_blocks - 1) || (i >= array_blocks)) ){
         fprintf(stderr, "block %4d(%5d), %p <= %p[%8ld][%8ld] <= %p ? (%s:%s), %s [%6d] <%6ld>\n",
                 i, map->size[i], RANGE_BOT(map->mhead.drng), bk0,
                 RANGE_OFFSET(map->mhead.drng, bk0), RANGE_AVAIL(map->mhead.drng, bk0),

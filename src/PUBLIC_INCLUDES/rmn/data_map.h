@@ -117,6 +117,7 @@
 #include <stdlib.h>
 
 #include <rmn/ct_assert.h>
+#include <rmn/data_kind.h>
 #include <rmn/split_dimension.h>
 #include <rmn/mem_range.h>
 // use big endian bit stream
@@ -198,26 +199,19 @@ RANGE_TYPEDEF(zmap_tp) ;                  // associated range
 typedef RANGE(zmap_t) block_fn(zmap *map, int block0, int block_nb, RANGE(zmap_t) drng) ;
 
 // function to encode/decode data
-typedef int32_t codec_fn(zmap *map, void *out, void *in, int ninj, int encode) ;
-// TODO : replace ninj with something giving detailed dimension information
-//        alternative 1
-typedef int32_t codec_fn_new1(zmap *map, void *out, void *in, size_trio ninjnk, int encode) ;
-//        alternative 2
+typedef int32_t codec_fn_old(zmap *map, void *out, void *in, int ninj, int encode) ;
 typedef struct{
-  union{                            // starting address of block
-    void     *w32 ;                 // generic pointer
-    uint32_t *u32 ;                 // pointer to unsigned integer
-    int32_t  *i32 ;                 // pointer to signed integer
-    float    *f32 ;                 // pointer to float
-  } ;
+  uint8_t *mem ;                    // address of block (byte)
   uint16_t ni ;                     // first dimension
   uint16_t nj ;                     // second dimension (1 if tile is 1D)
   uint16_t nk ;                     // third dimension (1 if tile is 1D or 2D)
   uint8_t  etype ;                  // data element type, see rmn/data_kind.h
   uint8_t  esize ;                  // element size in bytes -1  (1 <= element size <= 256)
 }zmap_tile ;
+CT_ASSERT(sizeof(zmap_tile) == 2*sizeof(uint64_t), "zmap_tile struct not 128 bits")
+
 typedef uint32_t *zmap_stream ;     // pointer to a stream of 32 bit unsigned words
-typedef int32_t codec_fn_new2(zmap *map, zmap_tile tile, zmap_stream stream, int encode) ;
+typedef int32_t codec_fn(zmap *map, zmap_tile tile, zmap_stream stream, int encode) ;
 
 // NOTE: components not needed/used are nullified
 // TODO ? add file descriptor and file offset to beginning of record/data in file ?
@@ -232,7 +226,6 @@ struct mmap{            // in memory only part of data map
   uint32_t signature ;     // should be 0x1AD0FADA, target for & operator to get address of header
   uint16_t version ;       // version marker (MUST BE the same as in file header)
   uint16_t options ;       // reserved for internal use options (MUST BE 0 FOR NOW)
-//   bitstream stream ;       // encoding/decoding bit stream  (see rmn/be_stream.h, rmn/bitstream.h) (should be 64 bytes)
   block_fn *get_blocks ;   // pointer to get block(s) function uint32_t_range (*get_block)(zmap *map, int block0, int block_nb, uint32_t_range drng)
   arg128 get_args ;        // for use by get_blocks function
   block_fn *put_blocks ;   // pointer to put block(s) function uint32_t_range (*put_block)(zmap *map, int block0, int block_nb, uint32_t_range drng)
@@ -260,8 +253,11 @@ CT_ASSERT(sizeof(mmap) == (sizeof(mmap) / sizeof(int64_t)) * sizeof(int64_t) , "
 
 // codec function related macros
 #define SET_CODEC_ARGS(MAP, ARGS) { (MAP)->mhead.codec_args = *(arg128 *)(&(ARGS)) ; }
+#define CODEC_ARGS(ARGS) ( *(arg128 *)(&(ARGS)) )
 #define SET_CODEC_FN(MAP, FN)     { (MAP)->mhead.codec = (codec_fn *)(FN) ; }
-#define ZMAP_CODEC(MAP, OUT, IN, NIJ, ENCODE) ( (*((MAP)->mhead.codec))(MAP, OUT, IN, NIJ, ENCODE) )
+#define ZmAp_CoDeC(MAP, TILE, BLOCK, ENCODE) ( (*((MAP)->mhead.codec))(MAP, TILE, BLOCK, ENCODE) )
+#define ZMAP_ENCODE(MAP, TILE, BLOCK) ZmAp_CoDeC(MAP, TILE, BLOCK, 1)
+#define ZMAP_DECODE(MAP, TILE, BLOCK) ZmAp_CoDeC(MAP, TILE, BLOCK, 0)
 // get block(s) related macros
 #define SET_GET_ARGS(MAP, ARGS) { (MAP)->mhead.get_args = *(arg128 *)(&(ARGS)) ; }
 #define SET_GET_FN(MAP, FN)     { (MAP)->mhead.get_blocks = (block_fn *)(FN) ; }
@@ -272,7 +268,6 @@ CT_ASSERT(sizeof(mmap) == (sizeof(mmap) / sizeof(int64_t)) * sizeof(int64_t) , "
 #define ZMAP_PUT(MAP, BLOCK0, NBLKS, DRNG) ( (*((MAP)->mhead.get_blocks))(MAP, BLOCK0, NBLKS, (RANGE(zmap_t))DRNG) )
 
 // TODO: add options for 3D storage ni/nj/nk vs nk/ni/nj vs ... and compression(2D/3D) ?
-// TODO: store esize somewhere ? (reserved ?)
 struct fmap{       // in file part of data map (also present in memory, after mmap)
     uint32_t signature ;   // should be 0xBEBEFADA, target for & operator to get address of header
     uint16_t version ;     // version marker (MUST BE the same as in memory header)
