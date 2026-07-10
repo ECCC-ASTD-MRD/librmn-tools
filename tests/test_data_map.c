@@ -622,6 +622,7 @@ size_t fill_zmap_blocks(zmap *map, uint8_t *array){
   int nbytes ;
   zmap_tile tile ;
 
+  i = j = 0 ;
   if(gnk != 1) goto fail ;                     // gnk != 1 not supported initially
 
   sizes = map->size ;
@@ -690,17 +691,31 @@ fprintf(stderr,"ERROR: fill_zmap_blocks, i=%d, j=%d\n",i,j);
 zmap *create_and_fill_zmap(int32_t gni, int32_t gnj, int32_t gnk, int32_t esize, void *array,
                            int32_t bi_size, int32_t aspect, codec_fn *codec,arg128 c_args,
                            int32_t mextra, int32_t zextra, int32_t zsize, ssize_t d_bytes){
+  zmap *map = NULL, *map0 = NULL ;
 
-  if(esize != 4) return NULL ;                             // 4 byte items only for now
-  if(gnk != 1) return NULL ;                               // gnk != 1 not supported yet
-  // create zmap with enough space for data
-  zmap *map = create_zmap(gni, gnj, gnk, bi_size, aspect, esize, mextra, zextra, zsize, d_bytes) ;
-  if(map == NULL) goto end ;                               // failed to create zmap
+  if(esize != 4) FAIL(1, "ERROR : esize == %d not supported\n", esize) ;  // 4 byte items only for now
+  if(gnk != 1) FAIL(1, "ERROR :gnk == %d not supported\n", gnk) ;         // gnk != 1 not supported yet
+  // create map0 with enough space for data
+  map0 = create_zmap(NULL, gni, gnj, gnk, bi_size, aspect, esize, mextra, zextra, zsize, d_bytes) ;
+  // test reusable map feature
+  map = create_zmap(map0, gni, gnj, gnk, bi_size, aspect, esize, mextra, zextra, zsize, d_bytes) ;
+  if(map == NULL) FAIL(3, "ERROR : failed to allocate zmap struct\n") ;
+  if(map != map0) FAIL(4, "ERROR : failed to reuse existing zmap struct\n") ;
 
   SET_CODEC_FN(map, codec) ;                               // set encode/restore codec function address
   SET_CODEC_ARGS(map, c_args) ;                            // set encode/restore codec arguments
   fill_zmap_blocks(map, array) ;                           // fill zmap blocks with encoded data
-end:
+  for(uint32_t i = (map->fhead.zni * map->fhead.znj * map->fhead.gnk) ; i < map->fhead.zijk ; i++){
+    map->size[i] = map->fhead.zijk - i ;                   // fix supplementary blocks size
+  }
+  int status = finalize_zmap(map) ;                        // update offsets table
+  if(status){
+    free(map) ;
+    map = NULL ;
+    FAIL(4, "ERROR : finalize_zmap failed\n") ;
+  }
+
+fail:
   return map ;
 }
 
@@ -709,7 +724,7 @@ end:
 zmap *create_test_zmap_2d(int32_t gni, int32_t gnj, int32_t bsize, int32_t mextra, int32_t bextra){
   zmap *map ;
   int32_t aspect = 1, errors ;
-  uint32_t data[gnj][gni], restored[gnj][gni] ;
+  uint32_t data[gnj][gni] ;
 
   codec_args c_args = (codec_args){32, 8, 0} ;
   fill_data(gni, gnj, (void *)data) ;                                // fill and check reference array
@@ -719,15 +734,9 @@ zmap *create_test_zmap_2d(int32_t gni, int32_t gnj, int32_t bsize, int32_t mextr
   map = create_and_fill_zmap(gni, gnj, 1, sizeof(uint32_t), data,
                              bsize, aspect, demo_codec_8_32, CODEC_ARGS(c_args),
                              mextra, bextra, 8*bextra*sizeof(uint32_t), 0) ;
-  for(uint32_t i = (map->fhead.zni * map->fhead.znj * map->fhead.gnk) ; i < map->fhead.zijk ; i++){
-    map->size[i] = map->fhead.zijk - i ;                                                       // fix supplementary blocks size
-  }
-  goto end ;
-// zmap *create_and_fill_zmap(int32_t gni, int32_t gnj, int32_t gnk, int32_t esize, void *array,
-//                            int32_t bi_size, int32_t aspect, codec_fn *codec,arg128 c_args,
-//                            int32_t mextra, int32_t zextra, int32_t zsize, ssize_t d_bytes)
-
-
+  return map ;
+#if 0
+  uint32_t restored[gnj][gni] ;
   // create and populate the data_map + data struct (bextra supplementary blocks) 4 byte elements, allocate data
   map = create_zmap(gni, gnj, 1, bsize, aspect, 1*sizeof(uint32_t), mextra, bextra, 8*bextra*sizeof(uint32_t), 0) ;
   for(uint32_t i = (map->fhead.zni * map->fhead.znj * map->fhead.gnk) ; i < map->fhead.zijk ; i++){
@@ -745,12 +754,16 @@ zmap *create_test_zmap_2d(int32_t gni, int32_t gnj, int32_t bsize, int32_t mextr
   errors = check_data(gni, gnj, (void *)restored, 0, gni, 0, gnj) ;       // check that restored while filling data is as expected
   if( errors != 0){ FAIL(1, "ERROR : %d error(s) filling zmap\n", errors) ; }
   fprintf(stderr, "zmap data filled and checked, ") ;
+  for(uint32_t i = (map->fhead.zni * map->fhead.znj * map->fhead.gnk) ; i < map->fhead.zijk ; i++){
+    map->size[i] = map->fhead.zijk - i ;                                                       // fix supplementary blocks size
+  }
   ZMAP_OFFSETS(map)[0] = 0 ;                                              // offset for first block
 end:
   fprintf(stderr, "FINALIZING zmap\n") ;
   if(finalize_zmap(map) != 0) exit(1) ;                                   // update offsets table
 
   return map ;
+#endif
 fail:
   return NULL ;
 }
@@ -795,16 +808,25 @@ test:
   gni = 787 ; gnj = 1025 ; gnk = 1 ; bsize = 64 ; aspect = 1 ; mextra = 2 ; bextra = 4 ;
 
   zpw = create_test_zmap_2d(gni, gnj, bsize, mextra, bextra) ;
+  if(zpw == NULL) FAIL(1, "create_test_zmap_2d failed\n", oor) ;
   mmap_print(zpw, "zpw") ;
   print_zmap_blocks(zpw, MAX_PRINT_BLOCKS) ;
   oor = zmap_blocks_out_of_range(zpw) ;
-  if(oor != 0) FAIL(1, "%d blocks are out of range in zpw\n", oor) ;
+  if(oor != 0) FAIL(2, "%d blocks are out of range in zpw\n", oor) ;
 
   fprintf(stderr, "=============== zmap in memory read test ===============\n") ;
 
   map_words = FILEMAP_WORDS(zpw) ;
   rec_words = RECORD_WORDS(zpw) ;
-  zpr = create_file_zmap(map_words, rec_words) ;                                     // STEP 1
+  zpr = create_file_zmap(NULL, map_words, rec_words) ;                               // STEP 1
+  // test reusable map feature
+  zmap *zpr2 = create_file_zmap(zpr, map_words, rec_words) ;
+  if(zpr != zpr2){
+    free(zpr2) ;
+    FAIL(3, "create_file_zmap map reuse test failed\n") ;
+  }else{
+    fprintf(stderr, "SUCCESS: create_file_zmap map reuse test O.K.\n") ;
+  }
   // only copy data map part fom zp0
   memcpy(&(zpr->fhead), &(zpw->fhead), map_words * sizeof(uint32_t)) ;               // STEP 2a 
   // now copy data part
@@ -819,18 +841,18 @@ test:
 
   // extract data blocks
   restored = (uint32_t *)malloc(gni*gnj*sizeof(uint32_t)) ;
-  if(restored == NULL) FAIL(1, "ERROR : allocate restored array failed") ;
+  if(restored == NULL) FAIL(4, "ERROR : allocate restored array failed") ;
   bzero(restored, gni * gnj * sizeof(uint32_t)) ;                    // set restored to 0
   get_data_from_zmap(zpr, gni, gnj, (void *)restored) ;
   errors = check_data(gni, gnj, (void *)restored, 0, gni, 0, gnj) ;
-  if( errors != 0){ FAIL(1, "ERROR : %d error(s) in restored data\n", errors) ; }
+  if( errors != 0){ FAIL(5, "ERROR : %d error(s) in restored data\n", errors) ; }
   oor = zmap_blocks_out_of_range(zpr) ;
-  if(oor != 0) FAIL(1, "%d blocks are out of range in zpr\n", oor) ;
+  if(oor != 0) FAIL(6, "%d blocks are out of range in zpr\n", oor) ;
 
 //   free(restored) ;
   free_zmap(zpr) ;
 
-if(argc < 1000) goto success ;  // avoid warning about unreachable code
+// if(argc < 1000) goto success ;  // avoid warning about unreachable code
 
   fprintf(stderr, "=============== zmap file create ===============\n") ;
 
@@ -850,7 +872,7 @@ if(argc < 1000) goto success ;  // avoid warning about unreachable code
 
   fprintf(stderr, "=============== zmap from file read test ===============\n") ;
 
-  zpf = create_file_zmap(map_words, map_words) ;                                     // STEP 1
+  zpf = create_file_zmap(NULL, map_words, map_words) ;                                     // STEP 1
   mmap_print(zpf, "zpf") ;
   fd = open("/tmp/zmap_file", O_RDONLY) ;
   if(fd < 0) exit(1) ;
@@ -876,11 +898,11 @@ if(argc < 1000) goto success ;  // avoid warning about unreachable code
   bzero(restored, gni * gnj * sizeof(uint32_t)) ;                    // set restored to 0
   get_data_from_zmap(zpf, gni, gnj, (void *)restored) ;
   errors = check_data(gni, gnj, (void *)restored, 0, gni, 0, gnj) ;
-  if( errors != 0){ FAIL(1, "ERROR : %d error(s) in restored data\n", errors) ; }
+  if( errors != 0){ FAIL(7, "ERROR : %d error(s) in restored data\n", errors) ; }
 
   close(fd) ;
-  if( unlink(file_name) ) { FAIL(1, "ERROR : failed to delete file '%s'\n", file_name) ; }
-  fprintf(stderr, "successfully closed file '%s'\n", file_name) ;
+  if( unlink(file_name) ) { FAIL(8, "ERROR : failed to delete file '%s'\n", file_name) ; }
+  fprintf(stderr, "successfully removed file '%s'\n", file_name) ;
   free_zmap(zpf) ;
   fprintf(stderr, "freed data map zpf\n") ;
 
@@ -904,7 +926,7 @@ if(argc < 1000) goto success ;  // avoid warning about unreachable code
       goto fail ;
     }
 
-    zmap *zp = create_file_zmap(nwords+mextra, nwords+mextra+100) ;         // mextra, 100 words of data
+    zmap *zp = create_file_zmap(NULL, nwords+mextra, nwords+mextra+100) ;         // mextra, 100 words of data
     if(fmap_invalid(zp) == 0) goto fail ;           // fmap is invalid at this point
     fmap_init(zp, gni, gnj, gnk, bsize, bsizej, NULL, mextra, bextra);   // initialize fmap part with bextra extra blocks
     zp->fhead.extra = mextra ;                                    // set extra to mextra words
@@ -921,15 +943,15 @@ if(argc < 1000) goto success ;  // avoid warning about unreachable code
     fprintf(stderr, "-----------\n");
 
     free(zp) ;
-    zp = create_zmap(gni, gnj, gnk, bsize, aspect, 2*sizeof(uint32_t), mextra, bextra, 3*bextra*sizeof(uint32_t), 0) ;
+    zp = create_zmap(NULL, gni, gnj, gnk, bsize, aspect, 2*sizeof(uint32_t), mextra, bextra, 3*bextra*sizeof(uint32_t), 0) ;
     fprintf(stderr, "data map length = %ld words, record length = %ld words\n", FILEMAP_WORDS(zp), RECORD_WORDS(zp)) ;
     fprintf(stderr, "\n");
     free(zp) ;
-    zp = create_zmap(gni, gnj, gnk, bsize, aspect, 2*sizeof(uint32_t), mextra, 0, 3*bextra*sizeof(uint32_t), 0) ;
+    zp = create_zmap(NULL, gni, gnj, gnk, bsize, aspect, 2*sizeof(uint32_t), mextra, 0, 3*bextra*sizeof(uint32_t), 0) ;
     fprintf(stderr, "data map length = %ld words, record length = %ld words\n", FILEMAP_WORDS(zp), RECORD_WORDS(zp)) ;
     fprintf(stderr, "\n");
     free(zp) ;
-    zp = create_zmap(gni, gnj, gnk, bsize, aspect, 2*sizeof(uint32_t), mextra, 0, 0, 0) ;
+    zp = create_zmap(NULL, gni, gnj, gnk, bsize, aspect, 2*sizeof(uint32_t), mextra, 0, 0, 0) ;
     fprintf(stderr, "\n");
     free(zp) ;
   }
@@ -960,7 +982,7 @@ if(argc < 1000) goto success ;  // avoid warning about unreachable code
   if(restored == NULL) goto fail;
 
   // create and populate the data_map + data struct (bextra supplementary blocks), allocate space for data
-  zp0 = create_zmap(gni, gnj, gnk, bsize, aspect, 2*sizeof(uint32_t), mextra, bextra, 8*bextra*sizeof(uint32_t), 0) ;
+  zp0 = create_zmap(NULL, gni, gnj, gnk, bsize, aspect, 2*sizeof(uint32_t), mextra, bextra, 8*bextra*sizeof(uint32_t), 0) ;
   for(uint32_t i = (zp0->fhead.zni * zp0->fhead.znj * zp0->fhead.gnk) ; i < zp0->fhead.zijk ; i++){
     zp0->size[i] = zp0->fhead.zijk - i ;                                                       // fix supplementary blocks size
   }
@@ -988,7 +1010,7 @@ if(argc < 1000) goto success ;  // avoid warning about unreachable code
   rec_words = RECORD_WORDS(zp0) ;
   fprintf(stderr, "data map length = %d words, record length = %d words\n", map_words, rec_words) ;
 
-  zpf = create_file_zmap(map_words, rec_words) ;                                     // STEP 1
+  zpf = create_file_zmap(NULL, map_words, rec_words) ;                                     // STEP 1
   mmap_print(zpf, "zpf0") ;
   // only copy data map part fom zp0
   memcpy(&(zpf->fhead), &(zp0->fhead), map_words * sizeof(uint32_t)) ;               // STEP 2a 
@@ -1052,7 +1074,7 @@ if(argc < 1000) goto success ;  // avoid warning about unreachable code
   fprintf(stderr, "\n");
 if(argc < 1000) goto success ;  // avoid warning about unreachable code
   map_words = FILEMAP_WORDS(zp0) ; rec_words = RECORD_WORDS(zp0) ; zmap_words = ZMAP_WORDS(zp0) ; data_words = DATA_WORDS(zp0) ;
-  zp1 = create_file_zmap(map_words, rec_words) ;
+  zp1 = create_file_zmap(NULL, map_words, rec_words) ;
   mmap_print(zp1, "zp1") ;
   map_words  = FILEMAP_WORDS(zp1) ;
   data_words = DATA_WORDS(zp1) ;
@@ -1070,7 +1092,7 @@ if(argc < 1000) goto success ;  // avoid warning about unreachable code
   fprintf(stderr, "\n") ;
 
   map_words = FILEMAP_WORDS(zp0) ; rec_words = RECORD_WORDS(zp0) ; zmap_words = ZMAP_WORDS(zp0) ; data_words = DATA_WORDS(zp0) ;
-  zp2 = create_file_zmap(map_words, 0) ;     // map only, no data
+  zp2 = create_file_zmap(NULL, map_words, 0) ;     // map only, no data
   mmap_print(zp2, "zp2") ;
   map_words  = FILEMAP_WORDS(zp2) ;
   data_words = DATA_WORDS(zp2) ;

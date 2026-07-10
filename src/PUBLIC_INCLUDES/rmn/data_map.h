@@ -313,6 +313,7 @@ CT_ASSERT(sizeof(zmap) == (sizeof(zmap) / sizeof(int32_t)) * sizeof(int32_t) , "
 
 // WORDS refers to 32 bit words (4 bytes)
 #define ZMAP_WORDS(MAP)    RANGE_ELEMENTS((MAP)->mhead.zrng)
+#define ZMAP_BYTES(MAP)    RANGE_BYTES((MAP)->mhead.zrng)
 #define FILEMAP_WORDS(MAP) RANGE_ELEMENTS((MAP)->mhead.frng)
 #define DATA_WORDS(MAP)    RANGE_ELEMENTS((MAP)->mhead.drng)
 #define RECORD_WORDS(MAP)  (FILEMAP_WORDS(MAP) + DATA_WORDS(MAP))
@@ -385,16 +386,18 @@ int32_t  Z_map_index(zmap *map, int32_t i, int32_t j);
 index_pair  map_block_position(zmap *map, int32_t i, int32_t j);
 ij_range map_block_limits(zmap *map, int32_t i, int32_t j);
 
-zmap *create_file_zmap(uint32_t map_words, uint32_t rec_words);
+// TODO : implement reuseable map ?
+zmap *create_file_zmap(zmap *map, uint32_t map_words, uint32_t rec_words);
 int update_file_zmap(zmap *map);
 
-zmap *create_zmap(int32_t gni, int32_t gnj, int32_t gnk, int32_t bi_size, int32_t aspect, int32_t esize,
+// TODO : implement reuseable map ?
+zmap *create_zmap(zmap *map, int32_t gni, int32_t gnj, int32_t gnk, int32_t bi_size, int32_t aspect, int32_t esize,
                   int32_t mextra, int32_t zextra, int32_t zsize, ssize_t d_bytes);
 int finalize_zmap(zmap *map);
 int free_zmap(zmap *map);
 
 int fmap_invalid(zmap *map);
-void fmap_init(zmap *map, int32_t gni, int32_t gnj, int32_t gnk, int32_t bsizex, int32_t bsizey, array_axis_3d *a3, int32_t mextra, int32_t bextra);
+int fmap_init(zmap *map, int32_t gni, int32_t gnj, int32_t gnk, int32_t bsizex, int32_t bsizey, array_axis_3d *a3, int32_t mextra, int32_t bextra);
 void zmap_print(zmap *map, char *msg);
 void mmap_print(zmap *map, char *msg);
 void fmap_print(zmap *map, char *msg);
