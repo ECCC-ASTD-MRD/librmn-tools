@@ -140,11 +140,11 @@ typedef struct{
 // NOTE: this has to be made consistent with rmn/compress_data.h headers for field/chunk/blocks
 
 // return index of first point of a 4x4 block along a dimension
-static uint32_t block_2_indx_4x4(uint32_t block){
+static inline uint32_t block_2_indx_4x4(uint32_t block){
   return block * 4 ;
 }
 // return 4x4 block number containing index along a dimension
-static uint32_t indx_2_block_4x4(uint32_t indx){
+static inline uint32_t indx_2_block_4x4(uint32_t indx){
   return indx / 4 ;
 }
 
