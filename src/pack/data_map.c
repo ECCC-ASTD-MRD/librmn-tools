@@ -92,9 +92,9 @@ zmap *create_file_zmap(zmap *map0, uint32_t map_words, uint32_t rec_words){
     if(needed <= avail){                                        // map0 is large enough, use it
       map = map0 ;
       recsize = avail ;                                         // set size to reusable map size
-      fprintf(stderr, "need %ld bytes, REUSING map0 of size %ld at adddress %p\n", needed, avail, map0);
+      if(DEBUG) fprintf(stderr, "need %ld bytes, REUSING map0 of size %ld at adddress %p\n", needed, avail, map0);
     }else{
-      fprintf(stderr, "need %ld bytes, CANNOT reuse map0 of size %ld at adddress %p\n", needed, avail, map0);
+      if(DEBUG) fprintf(stderr, "need %ld bytes, CANNOT reuse map0 of size %ld at adddress %p\n", needed, avail, map0);
     }
   }
   if(map == NULL) map = (zmap *) malloc(recsize) ;          // try to allocate memory for map if necessary
@@ -113,10 +113,10 @@ zmap *create_file_zmap(zmap *map0, uint32_t map_words, uint32_t rec_words){
 
     // "data region" not including "extra"
     if(frecsize == mapsize){
-fprintf(stderr, "map only, no data\n");
+    if(DEBUG) fprintf(stderr, "map only, no data\n");
       map->mhead.drng.bot =  map->mhead.drng.top = NULL ;        // map only, no data
     }else{
-fprintf(stderr, "map and data\n");
+    if(DEBUG) fprintf(stderr, "map and data\n");
       map->mhead.drng.bot = map->mhead.frng.top ;                // address of data is just above data map
       SET_RANGE_BYTES(map->mhead.drng, frecsize - mapsize) ;      // file record size = map size + data size
     }
@@ -164,12 +164,11 @@ int update_file_zmap(zmap *map){
   int32_t zijkmax = 1 + map->fhead.zijk ;
   map->mhead.orng.bot = map->mhead.orng.top - zijkmax ;             // there is room for up to zijkmax entries
 
-// TODO : adjust for offsets in bytes
-  map->mhead.orng.bot[0] = 0 ;
+  map->mhead.orng.bot[0] = 0 ;                                      // adjust for offsets in bytes
   for(int i = 1 ; i < zijkmax ; i++){                               // fill offsets table using sizes table
     map->mhead.orng.bot[i] = map->mhead.orng.bot[i-1] + (map->size[i-1] * sizeof(uint32_t)) ;
   }
-fprintf(stderr, "update_file_zmap : actual number of blocks = %d\n", map->fhead.zijk) ;
+  if(DEBUG) fprintf(stderr, "update_file_zmap : actual number of blocks = %d\n", map->fhead.zijk) ;
   return status ;
 
 fail:
@@ -253,7 +252,7 @@ void mmap_print(zmap *map, char *msg){
 // map       [IN] : pointer to valid zmap struct
 // maxblocks [IN] : only print up to block maxblocks-1
 // return number of "out of range" blocks (not fully within map data range)
-// TODO : adjust for offsets in bytes
+// adjusted for offsets in bytes
 int print_zmap_blocks(zmap *map, uint32_t maxblocks){
   int oor = 0 ;  // number of "out of range" blocks
   int32_t hole = 0 ;

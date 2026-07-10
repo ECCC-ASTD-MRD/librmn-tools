@@ -715,8 +715,13 @@ zmap *create_and_fill_zmap(int32_t gni, int32_t gnj, int32_t gnk, int32_t esize,
     FAIL(4, "ERROR : finalize_zmap failed\n") ;
   }
 
-fail:
+end:
   return map ;
+
+fail:
+  if((map != NULL) && (map != map0)) free(map) ;
+  map = NULL ;
+  goto end ;
 }
 
 
