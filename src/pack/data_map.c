@@ -134,7 +134,7 @@ zmap *create_file_zmap(zmap *map0, uint32_t map_words, uint32_t rec_words){
 }
 
 #undef FAIL
-#define FAIL(ERR,MSG) { status = ERR ; fprintf(stderr, "ERROR (%d) : %s\n", ERR, MSG); goto fail ; }
+#define FAIL(ERR,MSG) { status = ERR ; fprintf(stderr, "ERROR (%d) : %s\n", status, MSG); goto fail ; }
 
 // update contents of mmap after fmap part has been read from file
 // map   [INOUT] : pointer to valid zmap struct
@@ -512,6 +512,7 @@ zmap *create_zmap(zmap *map0, int32_t gni, int32_t gnj, int32_t gnk, int32_t bi_
   array_axis_3d a3 = split_axis_3d(gni, gnj, gnk, bij.i, bij.j) ;                      // perform decomposition into blocks
   uint32_t zni = a3.x.nbk ;            // number of blocks along i
   uint32_t znj = a3.y.nbk ;            // number of blocks along j
+  // TODO : pencil mode with znk == 1 ?
   uint32_t znk = a3.z.nbk ;            // number of blocks along k
   uint32_t zijk = zni * znj * znk + zextra, zijk1 ;
   zijk1 = ((zijk + 1) >> 1) << 1 ;      // round number of blocks to upper multiple of 2 >= zijk
@@ -534,10 +535,10 @@ zmap *create_zmap(zmap *map0, int32_t gni, int32_t gnj, int32_t gnk, int32_t bi_
   dsize = (d_bytes == -1) ? 0 : dsize ;                         // if d_bytes == -1 , set dsize to 0 (no space allocated for data block)
   size = size + dsize ;                                         // size += size needed to encode data (worst case estimate)
 
-  zsize = (d_bytes == -1) ? 0 : zsize ;                         // if d_bytes == -1 , set zsize to 0 (no space allocated for data block)
+  zsize = (d_bytes == -1) ? 0 : zsize ;                         // if d_bytes == -1 , set zsize to 0 (no space allocated for extra blocks)
   size = size + zsize ;                                         // size += size needed for extra blocks
 
-  osize = ( sizeof(uint32_t *) * (zijk + 1) ) ;                 // size of  offset[] pointer array
+  osize = ( sizeof(uint64_t) * (zijk + 1) ) ;                   // size of  offset[]/pointer[] table (pointer size assumed to be 64 bits or less)
   size = size + osize ;                                         // size += size needed for offsets
   size = ((size + 7) >> 3) << 3 ;                               // bump to multiple of 8 >= size
 
@@ -579,6 +580,7 @@ zmap *create_zmap(zmap *map0, int32_t gni, int32_t gnj, int32_t gnk, int32_t bi_
     map->size[ui] = 0 ;                                         // sizes are unknown
   }
   map->mhead.orng.bot[zijk] = 0 ;                               // last value in offsets table is unknown
+  // block pointers remain NULL as set by base_mmap
 
   // initialize fmap sub structure, accounting for extra blocks
   fmap_init(map, gni, gnj, gnk, bij.i, bij.j, &a3, mextra, zextra) ;
