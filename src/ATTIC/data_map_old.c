@@ -1,4 +1,98 @@
-// old code kept for reference
+// old code and notes kept for reference
+// =========== NO LONGER VALID, KEPT FOR HISTORICAL REASONS ===========
+//
+// data zblocks layout example (2D example)
+//
+// zblocks along i (x) : 10   (ZNI)
+// zblocks along j (y) : 11   (ZNJ)
+// stripe factor : 4        (SF0)
+// top stripe factor        (SF1)  (may be smaller than SF0)
+//
+// the number (ZI) in the zblocks is the sequential position in the data map (Z index)
+//
+// SF1 = MODULO(ZNJ , SF0)
+// if(SF1 == 0) then SF1 = SF0
+// STJ = J / SF0                ( stripe number for row J )
+// J0  = STJ * SF0              ( J index of lower row in stripe )
+// if(J0 + SF0 > ZNJ) then SF = SF1 else SF = SF0    ( stripe factor for this row )
+// ZI = (J0 * ZNI) + (J - J0) + (SF1 * I)            ( Z index of tile[I,J] )
+//
+// row (J)                                                           stripe
+//     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
+//     |     |     |     |     |     |     |     |     |     |     |
+//  10 |  82 |  85 |  88 |  91 |  94 |  97 | 100 | 103 | 106 | 109 |
+//     |     |     |     |     |     |     |     |     |     |     |
+//     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
+//     |     |     |     |     |     |     |     |     |     |     |
+//   9 |  81 |  84 |  87 |  90 |  93 |  96 |  99 | 102 | 105 | 108 |
+//     |     |     |     |     |     |     |     |     |     |     |
+//     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
+//     |     |     |     |     |     |     |     |     |     |     |
+//   8 |  80 |  83 |  86 |  89 |  92 |  95 |  98 | 101 | 104 | 107 |
+//     |     |     |     |     |     |     |     |     |     |     |  [2]
+//     +=====+=====+=====+=====+=====+=====+=====+=====+=====+=====+=======
+//     |     |     |     |     |     |     |     |     |     |     |
+//   7 |  43 |  47 |  51 |  55 |  59 |  63 |  67 |  71 |  75 |  79 |
+//     |     |     |     |     |     |     |     |     |     |     |
+//     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
+//     |     |     |     |     |     |     |     |     |     |     |
+//   6 |  42 |  46 |  50 |  54 |  58 |  62 |  66 |  70 |  74 |  78 |
+//     |     |     |     |     |     |     |     |     |     |     |
+//     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
+//     | ****************|     |     |     |     |     |     |     |
+//   5 | *41 |  45 |  49*|  53 |  57 |  61 |  65 |  69 |  73 |  77 |
+//     | *   |     |    *|     |     |     |     |     |     |     |
+//     +-*---+-----+----*+-----+-----+-----+-----+-----+-----+-----+
+//     | *   |     |    *|     |     |     |     |     |     |     |
+//   4 | *40 |  44 |  48*|  52 |  56 |  60 |  64 |  68 |  72 |  76 |
+//     | *   |     |    *|     |     |     |     |     |     |     |  [1]
+//     +=*===+=====+====*+=====+=====+=====+=====+=====+=====+=====+=======
+//     | *   |     |    *|     |     |     |     | ##########|     |
+//   3 | * 3 |   7 |  11*|  15 |  19 |  23 |  27 | #31 |  35#|  39 |
+//     | *   |     |    *|     |     |     |     | #   |    #|     |
+//     +-*---+-----+----*+-----+-----+-----+-----+-#---+----#+-----+
+//     | *   |     |    *| %%%%%%%%%%%%%%%%|     | #   |    #|     |
+//   2 | * 2 |   6 |  10*| %14 |  18 |  22%|  26 | #30 |  34#|  38 |
+//     | ****************| %   |     |    %|     | #   |    #|     |
+//     +-----+-----+-----+-%---+-----+----%+-----+-#---+----#+-----+
+//     |     |     |     | %   |     |    %|     | #   |    #|     |
+//   1 |   1 |   5 |   9 | %13 |  17 |  21%|  25 | #29 |  33#|  37 |
+//     |     |     |     | %%%%%%%%%%%%%%%%|     | #   |    #|     |
+//     +-----+-----+-----+-----+-----+-----+-----+-#---+----#+-----+
+//     |     |     |     |     |     |     |     | #   |    #|     |
+//   0 |   0 |   4 |   8 |  12 |  16 |  20 |  24 | #28 |  32#|  36 |
+//     |     |     |     |     |     |     |     | ##########|     |  [0]
+//     +=====+=====+=====+=====+=====+=====+=====+=====+=====+=====+=======
+//        0     1     2     3     4     5     6     7     8     9    column (I)
+//
+// stripe delimiter : '='
+//
+// * delimited region, 12 zblocks
+// option 1 : ( probably slowest )
+//   read zblocks 2->3, 6->7, 10->11, 40->41, 44->45, 48->49 [ 12 zblocks read, 6 IO requests ]
+// option 2 :
+//   read zblocks 2->11 and 40->49 [ 20 zblocks read, 2 IO requests ]
+// option 3 : ( probably fastest)
+//   read zblocks 2->49 [ 48 zblocks read, 1 IO request ]
+//
+// % delimited region, 6 zblocks
+//  option 1 : ( probably slower )
+//    read zblocks 13->14, 17->18, 21->22 [ 6 zblocks read, 3 IO requests ]
+//  option 2 : ( probably fastest )
+//    read zblocks 13->22 [ 10 zblocks read, 1 IO request ]
+//
+// # delimited region, 8 zblocks
+//  option 1 : ( ideal case )
+//    read zblocks 28->35 [ 8 zblocks read, 1 IO request ]
+//
+// the 3D extension is simple
+// each block has dimensions lni|li0 x lnj|lj0 x lnk|lkx
+// offset and size have dimensions zni x znj x znk
+// there is no striping along z
+//  compression may be 2D (lnk blocks lni x lnj) or 3D (1 block lni x lnj x lnk)
+//
+// =================================================================
+//
 // NOTE: Zindex_to_ij, Zindex_from_ij, Z_map_index  may become irrelevant (zigzag indexing no longer contemplated)
 #if 0
 // translate block Z (zigzag) index into block (i,j) coordinates
