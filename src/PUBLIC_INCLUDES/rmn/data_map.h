@@ -14,100 +14,6 @@
 // Author:
 //     M. Valin,   Recherche en Prevision Numerique, 2024-2026
 //
-// =========== NO LONGER VALID, KEPT FOR HISTORICAL REASONS ===========
-//
-// data zblocks layout example (2D example)
-//
-// zblocks along i (x) : 10   (ZNI)
-// zblocks along j (y) : 11   (ZNJ)
-// stripe factor : 4        (SF0)
-// top stripe factor        (SF1)  (may be smaller than SF0)
-//
-// the number (ZI) in the zblocks is the sequential position in the data map (Z index)
-//
-// SF1 = MODULO(ZNJ , SF0)
-// if(SF1 == 0) then SF1 = SF0
-// STJ = J / SF0                ( stripe number for row J )
-// J0  = STJ * SF0              ( J index of lower row in stripe )
-// if(J0 + SF0 > ZNJ) then SF = SF1 else SF = SF0    ( stripe factor for this row )
-// ZI = (J0 * ZNI) + (J - J0) + (SF1 * I)            ( Z index of tile[I,J] )
-//
-// row (J)                                                           stripe
-//     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
-//     |     |     |     |     |     |     |     |     |     |     |
-//  10 |  82 |  85 |  88 |  91 |  94 |  97 | 100 | 103 | 106 | 109 |
-//     |     |     |     |     |     |     |     |     |     |     |
-//     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
-//     |     |     |     |     |     |     |     |     |     |     |
-//   9 |  81 |  84 |  87 |  90 |  93 |  96 |  99 | 102 | 105 | 108 |
-//     |     |     |     |     |     |     |     |     |     |     |
-//     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
-//     |     |     |     |     |     |     |     |     |     |     |
-//   8 |  80 |  83 |  86 |  89 |  92 |  95 |  98 | 101 | 104 | 107 |
-//     |     |     |     |     |     |     |     |     |     |     |  [2]
-//     +=====+=====+=====+=====+=====+=====+=====+=====+=====+=====+=======
-//     |     |     |     |     |     |     |     |     |     |     |
-//   7 |  43 |  47 |  51 |  55 |  59 |  63 |  67 |  71 |  75 |  79 |
-//     |     |     |     |     |     |     |     |     |     |     |
-//     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
-//     |     |     |     |     |     |     |     |     |     |     |
-//   6 |  42 |  46 |  50 |  54 |  58 |  62 |  66 |  70 |  74 |  78 |
-//     |     |     |     |     |     |     |     |     |     |     |
-//     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
-//     | ****************|     |     |     |     |     |     |     |
-//   5 | *41 |  45 |  49*|  53 |  57 |  61 |  65 |  69 |  73 |  77 |
-//     | *   |     |    *|     |     |     |     |     |     |     |
-//     +-*---+-----+----*+-----+-----+-----+-----+-----+-----+-----+
-//     | *   |     |    *|     |     |     |     |     |     |     |
-//   4 | *40 |  44 |  48*|  52 |  56 |  60 |  64 |  68 |  72 |  76 |
-//     | *   |     |    *|     |     |     |     |     |     |     |  [1]
-//     +=*===+=====+====*+=====+=====+=====+=====+=====+=====+=====+=======
-//     | *   |     |    *|     |     |     |     | ##########|     |
-//   3 | * 3 |   7 |  11*|  15 |  19 |  23 |  27 | #31 |  35#|  39 |
-//     | *   |     |    *|     |     |     |     | #   |    #|     |
-//     +-*---+-----+----*+-----+-----+-----+-----+-#---+----#+-----+
-//     | *   |     |    *| %%%%%%%%%%%%%%%%|     | #   |    #|     |
-//   2 | * 2 |   6 |  10*| %14 |  18 |  22%|  26 | #30 |  34#|  38 |
-//     | ****************| %   |     |    %|     | #   |    #|     |
-//     +-----+-----+-----+-%---+-----+----%+-----+-#---+----#+-----+
-//     |     |     |     | %   |     |    %|     | #   |    #|     |
-//   1 |   1 |   5 |   9 | %13 |  17 |  21%|  25 | #29 |  33#|  37 |
-//     |     |     |     | %%%%%%%%%%%%%%%%|     | #   |    #|     |
-//     +-----+-----+-----+-----+-----+-----+-----+-#---+----#+-----+
-//     |     |     |     |     |     |     |     | #   |    #|     |
-//   0 |   0 |   4 |   8 |  12 |  16 |  20 |  24 | #28 |  32#|  36 |
-//     |     |     |     |     |     |     |     | ##########|     |  [0]
-//     +=====+=====+=====+=====+=====+=====+=====+=====+=====+=====+=======
-//        0     1     2     3     4     5     6     7     8     9    column (I)
-//
-// stripe delimiter : '='
-//
-// * delimited region, 12 zblocks
-// option 1 : ( probably slowest )
-//   read zblocks 2->3, 6->7, 10->11, 40->41, 44->45, 48->49 [ 12 zblocks read, 6 IO requests ]
-// option 2 :
-//   read zblocks 2->11 and 40->49 [ 20 zblocks read, 2 IO requests ]
-// option 3 : ( probably fastest)
-//   read zblocks 2->49 [ 48 zblocks read, 1 IO request ]
-//
-// % delimited region, 6 zblocks
-//  option 1 : ( probably slower )
-//    read zblocks 13->14, 17->18, 21->22 [ 6 zblocks read, 3 IO requests ]
-//  option 2 : ( probably fastest )
-//    read zblocks 13->22 [ 10 zblocks read, 1 IO request ]
-//
-// # delimited region, 8 zblocks
-//  option 1 : ( ideal case )
-//    read zblocks 28->35 [ 8 zblocks read, 1 IO request ]
-//
-// the 3D extension is simple
-// each block has dimensions lni|li0 x lnj|lj0 x lnk|lkx
-// offset and size have dimensions zni x znj x znk
-// there is no striping along z
-//  compression may be 2D (lnk blocks lni x lnj) or 3D (1 block lni x lnj x lnk)
-//
-// =================================================================
-//
 #if ! defined(Z_DATA_MAP_VERSION)
 
 // version 1.0.0
@@ -120,18 +26,16 @@
 #include <rmn/data_kind.h>
 #include <rmn/split_dimension.h>
 #include <rmn/mem_range.h>
-// use big endian bit stream
-#include <rmn/be_stream.h>
-
-//   packed data representation (in record from file and in memory)
+//
+//   encoded data representation (in record from file and in memory)
 //
 //   |--------------------------- in memory (fully populated zmap struct) -----------------------------------|
 //   |----------- sizeof(zmap) ----------|              |-mextra -|
 //   |- sizeof(mhead) -|- sizeof(fhead) -|-- 2*zijk ---||pad (0 or 2 bytes) (2 bytes pad if zijk is odd)
 //   +-----------------+-----------------+-------------++---------+-------//-----------+//+-----//-----------+
-//   |                 |                 |   block     ||  extra  |                    |  | offsets|pointers |
-//   |  memory header  |  file header    |   sizes     ||  global |    data blocks     |  |     to blocks    |
-//   |signature , .....|signature, ......|   [zijk]    ||  info   |   (zijk blocks)    |  |     [zijk + 1]   |
+//   |                 |                 |   block     ||  extra  |      encoded       |  | offsets|pointers |
+//   |  memory header  |  file header    |   sizes     ||  global |    data blocks     |  |    to blocks     |
+//   |signature , .....|signature, ......|   [zijk]    ||  info   |   (zijk blocks)    |  |    [zijk + 1]    |
 //   +-----------------+-----------------+-------------++---------+-------//-----------+//+-----//-----------+
 //   |-------------------------------------------- ZRNG -----------------------------------------------------|
 //                     |--------------- FRNG ---------------------|------- DRNG -------|  |----- ORNG -------|
@@ -168,11 +72,11 @@
 // either
 // - the first block along a dimension is larger or smaller than the other blocks
 //   block[0,0] : (li0,lj0)          (first block of first row)
-//   block[i,0] : ( li,lj0)  (i > 0) (first row)
-//   block[0,j] : (li0, lj)  (j > 0) (first column)
-//   block[i,j] : ( li, lj)  (i > 0, j > 0)
+//   block[i,0] : (lni,lj0)  (i > 0) (first row)
+//   block[0,j] : (li0,lnj)  (j > 0) (first column)
+//   block[i,j] : (lni,lnj)  (i > 0, j > 0)
 // - all blocks have the same dimension 
-//   block[i,j] : ( li, lj)
+//   block[i,j] : (lni,lnj)
 //
 typedef uint32_t *zblocks ;         // zblocks[ix] is address of encoded data block[ix]
 typedef uint16_t fmap_block_size ;  // size needed for fmap block sizes (normally 16 bits)
@@ -181,6 +85,9 @@ CT_ASSERT(sizeof(fmap_block_size) == (sizeof(fmap_block_size) / sizeof(int16_t))
 #define ZERO128 {{0l, 0l}}
 typedef struct{ uint64_t arg[2] ; } arg128 ;    // 128 bit memory block
 static const arg128 zero_128 = ZERO128 ;
+#define CODEC_ARGS_NULL zero_128
+#define GET_ARGS_NULL zero_128
+#define PUT_ARGS_NULL zero_128
 
 // typedef struct{ arg128 arg[2] ; } arg256 ;      // 256 bit memory block
 // #define ZERO256 {{ZERO128, ZERO128}}
@@ -199,19 +106,23 @@ RANGE_TYPEDEF(zmap_tp) ;                  // associated range
 // function to get/put a block of encoded data
 typedef RANGE(zmap_t) block_fn(zmap *map, int block0, int block_nb, RANGE(zmap_t) drng) ;
 
-// compact tile[nk][nj][ni] containing data to encode
+// compact block[nk][nj][ni] containing data to encode
 typedef struct{
-  uint8_t *mem ;                    // address of tile (byte address)
+  union{
+    void    *ptr ;                  // generic pointer
+    uint8_t *mem ;                  // address of block (byte address)
+  } ;
   uint16_t ni ;                     // first dimension
-  uint16_t nj ;                     // second dimension (1 if tile is 1D)
-  uint16_t nk ;                     // third dimension (1 if tile is 1D or 2D)
+  uint16_t nj ;                     // second dimension (1 if block is 1D)
+  uint16_t nk ;                     // third dimension (1 if block is 1D or 2D)
   uint8_t  etype ;                  // data element type, see rmn/data_kind.h
   uint8_t  esize ;                  // element size in bytes -1  (1 <= element size <= 256)
-}zmap_tile ;
-CT_ASSERT(sizeof(zmap_tile) == 2*sizeof(uint64_t), "zmap_tile struct not 128 bits")
+}zmap_block ;
+CT_ASSERT(sizeof(zmap_block) == 2*sizeof(uint64_t), "zmap_block struct not 128 bits")
+#define ZMAP_BLOCK(PTR, NI, NJ, NK, ETYPE, ESIZE) (zmap_block){ { (void *)PTR }, NI, NJ, NK, ETYPE, ESIZE }
 
 typedef uint32_t *zmap_stream ;     // pointer to a stream of 32 bit unsigned words (encoded data)
-typedef int32_t codec_fn(zmap *map, zmap_tile tile, zmap_stream stream, int encode) ;
+typedef int32_t codec_fn(zmap *map, zmap_block block, zmap_stream stream, int encode) ;
 
 // NOTE: components not needed/used are nullified
 // NOTE: ordinary file : descriptor and offset to beginning of record/data in file ?
@@ -244,7 +155,7 @@ struct mmap{                  // in memory only part of data map
   RANGE(uint64_t) orng ;      // orng.bot[zijk] : uint64_t block offset (in bytes) (relative to drng.bot or other) (optional)
   RANGE(zmap_tp)  prng ;      // prng.bot[index] : pointer to block[index]  (32 bit items) (optional)
   RANGE(uint32_t) zrng ;      // address range for the entire data map
-  uint32_t esize ;            // original data element size (bytes)
+  uint32_t esize ;            // original data element size (bytes) (block esize is 8 bits wide)
   uint32_t reserved ;         // provision for future expansion (MUST BE 0 FOR NOW)
 } ;
 static const mmap base_mmap = { 0x1AD0FADA, Z_DATA_MAP_VERSION, 0 , NULL, ZERO128, NULL, ZERO128, NULL, ZERO128,
@@ -256,45 +167,98 @@ static const mmap zero_mmap = { 0x00000000,                  0, 0 , NULL, ZERO12
 CT_ASSERT(sizeof(mmap) == (sizeof(mmap) / sizeof(int64_t)) * sizeof(int64_t) , "mmap struc size not a multiple of 64 bits")
 // #define NULLIFY_ZMAP(MAP) { (MAP)->mhead = base_mmap ; (MAP)->mhead.signature = 0 ; }
 
-// codec function related macros/function(s)
+// ========== codec function related macros/function(s) ==========
 // size of codec arguments block
 #define CODEC_ARGS_SIZE sizeof(codec_args)
-// insert codec arguments into zmap
-#define SET_CODEC_ARGS(MAP, ARGS) { (MAP)->mhead.args_codec = *(codec_args *)(&(ARGS)) ; }
+
+// if ARGS has the right size, return its address, otherwise return NULL
+#define CODEC_ARGS_PTR(ARGS) ( (sizeof(ARGS) == CODEC_ARGS_SIZE) ? (&(ARGS)) : NULL )
+// is ARGS a potentially valid codec_args struct
+#define MAYBE_CODEC_ARGS(ARGS) ( CODEC_ARGS_PTR(ARGS) != NULL )
+
+// transform an address into a pointer to a codec_args struct
+static inline codec_args *codec_args_address(void *args){ codec_args *tmp = (codec_args *)args ; return tmp ; } ;
+#define CODEC_ARGS_ADDRESS(ARGS) codec_args_address( &(ARGS) )
+
 // get codec arguments struct as a 128 bit value from generic pointer
-static inline codec_args get_codec_args(void *args) { codec_args *tmp = (codec_args *)args ; return *tmp ; }
-#define CODEC_ARGS(ARGS) get_codec_args( &(ARGS) )
+static inline codec_args codec_args_value(void *args) { codec_args *tmp = (codec_args *)args ; return *tmp ; }
+// return ARGS as a codec_args struct if size is right, CODEC_ARGS_NULL otherwise
+#define CODEC_ARGS(ARGS) ( MAYBE_CODEC_ARGS(ARGS) ? codec_args_value( &(ARGS) ) : CODEC_ARGS_NULL )
+
+// insert codec arguments into zmap
+#define SET_CODEC_ARGS(MAP, ARGS) { (MAP)->mhead.args_codec = CODEC_ARGS(ARGS) ; }
+
 // insert codec funtion address into zmap
 #define SET_CODEC_FN(MAP, FN)     { (MAP)->mhead.codec = (codec_fn *)(FN) ; }
 
+// call codec from zmap
 #define ZMAP_CODEC(MAP, TILE, BLOCK, ENCODE) ( (*((MAP)->mhead.codec))(MAP, TILE, BLOCK, ENCODE) )
+// simpler encoder call
 #define ZMAP_ENCODE(MAP, TILE, BLOCK) ZMAP_CODEC(MAP, TILE, BLOCK, 1)
+// simpler decoder call
 #define ZMAP_DECODE(MAP, TILE, BLOCK) ZMAP_CODEC(MAP, TILE, BLOCK, 0)
-// get block(s) related macros
+
+// ========== get block(s) related macros/function(s) ==========
 // size of get function arguments block
 #define GET_ARGS_SIZE sizeof(get_args)
+
+// if ARGS has the right size, return its address, otherwise return NULL
+#define GET_ARGS_PTR(ARGS) ( (sizeof(ARGS) == GET_ARGS_SIZE) ? (&(ARGS)) : NULL )
+// is ARGS a potentially valid get_args struct
+#define MAYBE_GET_ARGS(ARGS) ( GET_ARGS_PTR(ARGS) != NULL )
+
+// transform an address into a pointer to a get_args struct
+static inline get_args *get_args_address(void *args){ get_args *tmp = (get_args *)args ; return tmp ; } ;
+#define GET_ARGS_ADDRESS(ARGS) get_args_address( &(ARGS) )
+
+// get get arguments struct as a 128 bit value from generic pointer
+static inline get_args get_args_value(void *args) { get_args *tmp = (get_args *)args ; return *tmp ; }
+// return ARGS as a get_args struct if size is right, GET_ARGS_NULL otherwise
+#define GET_ARGS(ARGS) ( MAYBE_GET_ARGS(ARGS) ? get_args_value( &(ARGS) ) : GET_ARGS_NULL )
+
 // insert get function arguments into zmap
 #define SET_GET_ARGS(MAP, ARGS) { (MAP)->mhead.args_get = *(get_args *)(&(ARGS)) ; }
+
 // insert address of get block function into zmap
 #define SET_GET_FN(MAP, FN)     { (MAP)->mhead.get_blocks = (block_fn *)(FN) ; }
+
 // get encoded data block(s) into range DRNG using zmap
 #define ZMAP_GET(MAP, BLOCK0, NBLKS, DRNG) ( (*((MAP)->mhead.get_blocks))(MAP, BLOCK0, NBLKS, (RANGE(zmap_t))DRNG) )
-// put block(s) related macros
+
+// ========== put block(s) related macros/function(s) ==========
 // size of put function arguments block
 #define PUT_ARGS_SIZE sizeof(put_args)
+
+// if ARGS has the right size, return its address, otherwise return NULL
+#define PUT_ARGS_PTR(ARGS) ( (sizeof(ARGS) == PUT_ARGS_SIZE) ? (&(ARGS)) : NULL )
+// is ARGS a potentially valid put_args struct
+#define MAYBE_PUT_ARGS(ARGS) ( PUT_ARGS_PTR(ARGS) != NULL )
+
+// transform an address into a pointer to a put_args struct
+static inline put_args *put_args_address(void *args){ put_args *tmp = (put_args *)args ; return tmp ; } ;
+#define PUT_ARGS_ADDRESS(ARGS) put_args_address( &(ARGS) )
+
+// get put arguments struct as a 128 bit value from generic pointer
+static inline put_args put_args_value(void *args) { put_args *tmp = (put_args *)args ; return *tmp ; }
+// return ARGS as a put_args struct if size is right, PUT_ARGS_NULL otherwise
+#define PUT_ARGS(ARGS) ( MAYBE_PUT_ARGS(ARGS) ? put_args_value( &(ARGS) ) : PUT_ARGS_NULL )
+
 // insert put function arguments into zmap
 #define SET_PUT_ARGS(MAP, ARGS) (MAP)->mhead.args_put = *(put_args *)(&(ARGS))
+
 // insert address of put block function into zmap (encoded blocks)
 #define SET_PUT_FN(MAP, FN) (MAP)->mhead.put_blocks = (block_fn *)(FN)
+
 // put encoded data block(s) from range DRNG using zmap
-#define ZMAP_PUT(MAP, BLOCK0, NBLKS, DRNG) ( (*((MAP)->mhead.get_blocks))(MAP, BLOCK0, NBLKS, (RANGE(zmap_t))DRNG) )
+#define ZMAP_PUT(MAP, BLOCK0, NBLKS, DRNG) ( (*((MAP)->mhead.put_blocks))(MAP, BLOCK0, NBLKS, (RANGE(zmap_t))DRNG) )
 
 // TODO: add options for 3D storage ni/nj/nk vs nk/ni/nj vs ... and compression(2D/3D) ?
 struct fmap{       // in file part of data map (also present in memory, after mmap)
     uint32_t signature ;   // should be 0xBEBEFADA, target for & operator to get address of header
     uint16_t version ;     // version marker (MUST BE the same as in memory header)
     uint16_t extra ;       // extra metadata size after block sizes table in 32 bit units (often 0)
-    uint16_t esize ;       // original data element size (bytes)
+    uint16_t esize ;       // original data element size (bytes) (block esize is 8 bits wide)
+    // TODO : add encoding type marker MISSING(S)/ENCODING_STYLE/... ?
     uint16_t reserved ;    // provision for future options (MUST BE 0 FOR NOW)
     uint32_t zijk ;        // total number of blocks (may be 0 if no map, or >= zni * znj * gnk if there are extra blocks)
     int32_t  gni ;         // first dimension of data array   = li0 + (zni - 1) * lni (row size)
