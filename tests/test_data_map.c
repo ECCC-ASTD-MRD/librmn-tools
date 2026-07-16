@@ -417,13 +417,12 @@ fail:
 //
 // =========================================================================================
 //
-// move a byte block of dimension [nj][ni] from src[nj][sni] into dst[nj][dni]
 uint8_t  _is_always_zerob_ = 0 ;                  // always 0, but the compiler cannot know that
-// uint32_t _is_always_zeroh_ = 0 ;                  // always 0, but the compiler cannot know that
-uint32_t _is_always_zerow_ = 0 ;                  // always 0, but the compiler cannot know that
-// move a memory block between sub arrays       source sub array -> destination sub array
-// src[nj][sni] -> dst[nj][dni]
-// ni MUST NOT BE > sni or > dni
+// move data between sub arrays       source sub array -> destination sub array
+//
+// copy a byte block of dimension [nj][ni] from src[nj][sni] into dst[nj][dni]
+// src[0:nj-1][0:sni-1] -> dst[0:nj-1][0:dni-1]
+// ni MUST BE <= sni and <= dni
 static inline void mov_byte_block(void * restrict dst_, uint32_t dni, void * restrict src_, uint32_t sni, uint32_t ni, uint32_t nj){
   uint8_t *src = (uint8_t *)src_, *dst = (uint8_t *)dst_ ;
   for(uint32_t j=0 ; j<nj ; j++){
@@ -434,59 +433,27 @@ static inline void mov_byte_block(void * restrict dst_, uint32_t dni, void * res
     src += sni ;
   }
 }
-// static inline void mov_hword_block(void * restrict dst_, uint32_t dni, void * restrict src_, uint32_t sni, uint32_t ni, uint32_t nj){
-//   uint16_t *src = (uint16_t *)src_, *dst = (uint16_t *)dst_ ;
-//   for(uint32_t j=0 ; j<nj ; j++){
-//     for(uint32_t i=0 ; i<ni ; i++){
-//       dst[i] = src[i] | _is_always_zerow_ ;    // prevents compiler from using memcpy function
-//     }
-//     dst += dni ;
-//     src += sni ;
-//   }
-// }
-static inline void mov_word_block(void * restrict dst_, uint32_t dni, void * restrict src_, uint32_t sni, uint32_t ni, uint32_t nj){
-  uint32_t *src = (uint32_t *)src_, *dst = (uint32_t *)dst_ ;
-  for(uint32_t j=0 ; j<nj ; j++){
-    for(uint32_t i=0 ; i<ni ; i++){
-      dst[i] = src[i] | _is_always_zerow_ ;    // prevents compiler from using memcpy function
-    }
-    dst += dni ;
-    src += sni ;
-  }
+static inline void mov_hword_block(void * restrict dst_, uint32_t dni, void * restrict src_, uint32_t sni, uint32_t ni, uint32_t nj){
+  mov_byte_block(dst_, 2*dni, src_, 2*sni, 2*ni, nj) ;
 }
-// copy blk[0:lnj-1][0:lni-1] into dst[0:lnj-1][0:lni-1], dst is dimensioned [gnj][gni]
+static inline void mov_word_block(void * restrict dst_, uint32_t dni, void * restrict src_, uint32_t sni, uint32_t ni, uint32_t nj){
+  mov_byte_block(dst_, 4*dni, src_, 4*sni, 4*ni, nj) ;
+}
+// copy block[0:lnj-1][0:lni-1] into dst[0:lnj-1][0:lni-1]
+// lni = block.ni, lnj = block.ni
+// dst is dimensioned [>=lnj][gni], block is dimensioned [>=lnj][lni]
 // array elements are 32 bit words
-// static inline void store_block(uint32_t lni, uint32_t lnj, uint32_t blk[lnj][lni], uint32_t gni, uint32_t gnj, uint32_t dst[gnj][gni]){
-//   (void)(gnj) ;
-//   for(uint32_t j=0 ; j<lnj ; j++){
-//     for(uint32_t i=0 ; i<lni ; i++){
-//       dst[j][i] = blk[j][i] ;
-//     }
-//   }
-// }
 void store_zblock(zmap_block block,  uint32_t gni, uint32_t gnj, void *dst){
   (void)(gnj) ;
   mov_word_block(dst, gni, block.ptr, block.ni, block.ni, block.nj) ;
-//   mov_hword_block(dst, 2*gni, block.ptr, 2*block.ni, 2*block.ni, 2*block.nj) ;
-//   mov_byte_block(dst, 4*gni, block.ptr, 4*block.ni, 4*block.ni, 4*block.nj) ;
-//   store_block(block.ni, block.nj, block.ptr, gni, gnj, dst) ;
 }
-// copy src[0:lnj-1][0:lni-1] into blk[0:lnj-1][0:lni-1], src is dimensioned [gnj][gni]
+// copy src[0:lnj-1][0:lni-1] into block[0:lnj-1][0:lni-1], src is dimensioned [][gni]
+// lni = block.ni, lnj = block.ni
+// dst is dimensioned [>=lnj][gni], block is dimensioned [>=lnj][lni]
 // array elements are 32 bit words
-// static inline void fetch_block(uint32_t lni, uint32_t lnj, uint32_t blk[lnj][lni], uint32_t gni, uint32_t gnj, uint32_t src[gnj][gni]){
-//   (void)(gnj) ;
-//   for(uint32_t j=0 ; j<lnj ; j++){
-//     for(uint32_t i=0 ; i<lni ; i++){
-//       blk[j][i] = src[j][i] ;
-//     }
-//   }
-// }
 void fetch_zblock(zmap_block block,  uint32_t gni, uint32_t gnj, void *src){
   (void)(gnj) ;
-//   mov_word_block(block.ptr, block.ni, src, gni, block.ni, block.nj) ;
-//   mov_hword_block(block.ptr, 2*block.ni, src, 2*gni, 2*block.ni, 2*block.nj) ;
   mov_byte_block(block.ptr, 4*block.ni, src, 4*gni, 4*block.ni, 4*block.nj) ;
-//   fetch_block(block.ni, block.nj, block.ptr, gni, gnj, src) ;
 }
 //
 // =========================================================================================
