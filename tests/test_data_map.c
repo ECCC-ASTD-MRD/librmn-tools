@@ -186,9 +186,9 @@ codec_fn demo_codec_16_32 ;
 int demo_codec_16_32(zmap *map, zmap_block block, zmap_stream stream, int encode){
   if(block.nk != 1 || block.esize != 4) return 0 ;
   if(encode){
-    return demo_pack_block_32_16(map, stream, block.mem, block.ni * block.nj) ;
+    return demo_pack_block_32_16(map, stream, block.byt, block.ni * block.nj) ;
   }else{
-    return demo_unpack_block_16_32(map, block.mem, stream, block.ni * block.nj) ;
+    return demo_unpack_block_16_32(map, block.byt, stream, block.ni * block.nj) ;
   }
 }
 
@@ -244,9 +244,9 @@ codec_fn demo_codec_8_32 ;
 int demo_codec_8_32(zmap *map, zmap_block block, zmap_stream stream, int encode){
   if(block.nk != 1 || block.esize != 4) return 0 ;
   if(encode){
-    return demo_pack_block_32_8(map, stream, block.mem, block.ni * block.nj) ;
+    return demo_pack_block_32_8(map, stream, block.byt, block.ni * block.nj) ;
   }else{
-    return demo_unpack_block_8_32(map, block.mem, stream, block.ni * block.nj) ;
+    return demo_unpack_block_8_32(map, block.byt, stream, block.ni * block.nj) ;
   }
 }
 //
@@ -393,7 +393,8 @@ fail:
 // block_nb [IN] : number of blocks to copy
 // drng     [IN] : address range describing source (32 bit elements)
 //TODO : UPDATE AND DEBUG THIS FUNCTION
-RANGE(zmap_t)  put_mapped_blocks(zmap *map, int block0, int block_nb, RANGE(zmap_t) drng){
+block_fn put_zmap_mem_blocks ;  // check that put_zmap_mem_blocks prototype is compatible with block_fn
+RANGE(zmap_t)  put_zmap_mem_blocks(zmap *map, int block0, int block_nb, RANGE(zmap_t) drng){
   int status ;
 
   if(map == NULL) XIT(-1) ;                              // no map ;
@@ -404,8 +405,14 @@ RANGE(zmap_t)  put_mapped_blocks(zmap *map, int block0, int block_nb, RANGE(zmap
   int max_blocks = map->fhead.zijk ;
   if(block0+block_nb > max_blocks) XIT(-5) ;             // last block number exceeds available blocks
 
-  if(block_nb == 1){                                     // special case : get 1 block
-//     return putt_zmap_mem_block(map, block0, RANGE_NULL(zmap_t)) ;
+  size_t size = sizeof(zmap_t) * map->size[block0] ;     // size of data to copy
+  uint8_t *stream = (uint8_t *)ZMAP_DATA(map) ;          // base address of map data
+  stream += ZMAP_OFFSETS(map)[block0] ;                  // offset for this block
+// fprintf(stderr, "put_zmap_mem_blocks, block %3d, %5ld words, size = %5d, offset = %6ld\n", block0, RANGE_ELEMENTS(drng), map->size[block0], ZMAP_OFFSETS(map)[block0]) ;
+  if(block_nb == 1){                                     // special case : put 1 block
+    memcpy(stream, drng.bot, size) ;                     // copy into data range of zmap
+    return drng ;
+//     return put_zmap_memory_block(map, block0, RANGE_NULL(zmap_t)) ;
     XIT(-10) ;                                           // NOT IMPLEMENTED YET
   }else{
     XIT(-10) ;                                           // block_nb > 1 not supported for the time being
@@ -433,9 +440,9 @@ static inline void mov_byte_block(void * restrict dst_, uint32_t dni, void * res
     src += sni ;
   }
 }
-static inline void mov_hword_block(void * restrict dst_, uint32_t dni, void * restrict src_, uint32_t sni, uint32_t ni, uint32_t nj){
-  mov_byte_block(dst_, 2*dni, src_, 2*sni, 2*ni, nj) ;
-}
+// static inline void mov_hword_block(void * restrict dst_, uint32_t dni, void * restrict src_, uint32_t sni, uint32_t ni, uint32_t nj){
+//   mov_byte_block(dst_, 2*dni, src_, 2*sni, 2*ni, nj) ;
+// }
 static inline void mov_word_block(void * restrict dst_, uint32_t dni, void * restrict src_, uint32_t sni, uint32_t ni, uint32_t nj){
   mov_byte_block(dst_, 4*dni, src_, 4*sni, 4*ni, nj) ;
 }
@@ -445,7 +452,7 @@ static inline void mov_word_block(void * restrict dst_, uint32_t dni, void * res
 // array elements are 32 bit words
 void store_zblock(zmap_block block,  uint32_t gni, uint32_t gnj, void *dst){
   (void)(gnj) ;
-  mov_word_block(dst, gni, block.ptr, block.ni, block.ni, block.nj) ;
+  mov_word_block(dst, gni, block.byt, block.ni, block.ni, block.nj) ;
 }
 // copy src[0:lnj-1][0:lni-1] into block[0:lnj-1][0:lni-1], src is dimensioned [][gni]
 // lni = block.ni, lnj = block.ni
@@ -453,7 +460,7 @@ void store_zblock(zmap_block block,  uint32_t gni, uint32_t gnj, void *dst){
 // array elements are 32 bit words
 void fetch_zblock(zmap_block block,  uint32_t gni, uint32_t gnj, void *src){
   (void)(gnj) ;
-  mov_byte_block(block.ptr, 4*block.ni, src, 4*gni, 4*block.ni, 4*block.nj) ;
+  mov_byte_block(block.byt, 4*block.ni, src, 4*gni, 4*block.ni, 4*block.nj) ;
 }
 //
 // =========================================================================================
@@ -501,7 +508,7 @@ void  get_data_from_zmap(zmap *map, int gni, int gnj, uint32_t array[gnj][gni]){
   size_t total_size = 0 ;
   int nbytes, errors = 0 ;
 
-  SET_RANGE(r_temp, coded, sizeof(coded)) ;
+  SET_BYTE_RANGE(r_temp, coded, sizeof(coded)) ;
   bno = 0 ;
   sizes = map->size ;
   fprintf(stderr, "========== extracting %d array blocks (%d byte elements) from zmap ==========\n", zni*znj, esize) ;
@@ -518,8 +525,7 @@ void  get_data_from_zmap(zmap *map, int gni, int gnj, uint32_t array[gnj][gni]){
       RANGE(zmap_t) r_coded = ZMAP_GET(map, bno, 1, r_temp) ;                          // use get block function from zmap to get encoded range
       zblk = ZMAP_BLOCK( block, lni, lnj, 1, uint_data, sizeof(uint32_t) ) ;           // describe 2D block to be decoded
       nbytes = ZMAP_DECODE(map, zblk, r_coded.bot) ;                                   // decode block of packed data (lni * lnj values)
-      store_zblock(zblk,  gni, gnj, &array[j0][i0]) ;                                // insert decoded data into array
-//       put_block_(lni, lnj, (void *)block, gni, gnj, (void *)(&array[j0][i0])) ;
+      store_zblock(zblk,  gni, gnj, &array[j0][i0]) ;                                  // insert decoded data into array
       errors = verify_hash(lni, (void *)block, i0, lni, j0, lnj) ;                     // does decoded data match expected values ?
 
       size = (nbytes + sizeof(uint32_t) - 1) / sizeof(uint32_t) ;                      // round size up to multiple of sizeof(uint32_t)
@@ -536,7 +542,7 @@ void  get_data_from_zmap(zmap *map, int gni, int gnj, uint32_t array[gnj][gni]){
 
     }
   }
-  fprintf(stderr, "words extracted = %ld, expected = %ld\n\n", total_size, filewords) ;
+  fprintf(stderr, "DEBUG : words extracted = %ld, expected = %ld\n\n", total_size, filewords) ;
 }
 
 // map    [INOUT] : pointer to valid zmap struct
@@ -620,18 +626,25 @@ size_t fill_zmap_blocks(zmap *map, uint8_t *array){
   uint32_t maxi = MAX(map->fhead.li0, map->fhead.lni) ;
   uint32_t maxj = MAX(map->fhead.lj0, map->fhead.lnj) ;
   uint8_t block[maxi*maxj*esize] ;
+  uint8_t temp[maxi*maxj*esize + 32] ;      // size needed for worst case encoding
+  zmap_stream estream = (zmap_stream)temp ;
   zmap_block zblk ;
   uint32_t *encoded, bno ;
   uint32_t *bot, *top ;
   fmap_block_size *sizes ;
   uint64_t *offsets, offset, index_i, index_j, g_row_size, l_row_size ;
   int nbytes ;
+  uint32_t size ;
+  RANGE(zmap_t) r_put ;
+  getput_memory_args put_args = { (uint32_t *)temp, 0, 0 } ;
+
+  SET_PUT_ARGS(map,put_args) ;
 
   i = j = 0 ;
-  if(gnk != 1) goto fail ;                     // gnk != 1 not supported initially
+  if(gnk != 1) goto fail ;                              // gnk != 1 not supported initially
 
-  sizes = map->size ;
-  offsets = map->mhead.orng.bot ;
+  sizes = map->size ;                                   // block size table
+  offsets = map->mhead.orng.bot ;                       // block offset table
   bno = 0 ;
   g_row_size = gni * esize ;
 
@@ -656,14 +669,21 @@ size_t fill_zmap_blocks(zmap *map, uint8_t *array){
       // encode block -> encoded, arguments to codec function from zmap->mhead.args_codec
       zblk = ZMAP_BLOCK( block, lni, lnj, 1, uint_data, sizeof(uint32_t) ) ;            // describe 2D block to be encoded
       nbytes = ZMAP_ENCODE(map, zblk, encoded) ;                                        // encode block
-      if(nbytes == -1) goto fail ;                                                      // encoding error(s)
+      nbytes = ZMAP_ENCODE(map, zblk, estream) ;
+      if(nbytes <= 0) goto fail ;                                                       // encoding error(s)
+      size = nbytes ;
+      size = (size + sizeof(zmap_t) - 1) / sizeof(zmap_t) ;                             // round size up to multiple of sizeof(zmap_t)
+      if(encoded + size > top) goto fail ;                                              // not enough space to accomodate encoded data
 
-      int size = (nbytes + sizeof(uint32_t) - 1) / sizeof(uint32_t) ;                   // round size up to multiple of sizeof(uint32_t)
       sizes[bno] = size ;                                                               // size in 32 bit units
-      offsets[bno+1] = offsets[bno] + (size * sizeof(uint32_t)) ;                       // offset in bytes for next block
+      offsets[bno+1] = offsets[bno] + (size * sizeof(zmap_t)) ;                         // offset in bytes for next block
+
+      // copy encoded block into data map
+      SET_BYTE_RANGE(r_put, estream, size * sizeof(zmap_t)) ;                           // buffer space used for encoding
+      ZMAP_PUT(map, bno, 1, r_put) ;                                                    // store into zmap data area
 
       encoded += size ;                                                                 // bump encoded pointer
-      offset = offsets[bno+1] / sizeof(uint32_t) ;                                      // offset in 32 bit units
+      offset = offsets[bno+1] / sizeof(zmap_t) ;                                        // offset in 32 bit units
       if(encoded != bot + offset) goto fail ;                                           // inconsistent offset
       bno++ ;                                                                           // bump block number
     }
@@ -709,6 +729,7 @@ zmap *create_and_fill_zmap(int32_t gni, int32_t gnj, int32_t gnk, int32_t esize,
 
   SET_CODEC_FN(map, codec) ;                               // set encode/restore codec function address
   SET_CODEC_ARGS(map, c_args) ;                            // set encode/restore codec arguments
+  SET_PUT_FN(map,put_zmap_mem_blocks) ;
   fill_zmap_blocks(map, array) ;                           // fill zmap blocks with encoded data
   for(uint32_t i = (map->fhead.zni * map->fhead.znj * map->fhead.gnk) ; i < map->fhead.zijk ; i++){
     map->size[i] = map->fhead.zijk - i ;                   // fix supplementary blocks size
@@ -824,6 +845,8 @@ test:
   oor = zmap_blocks_out_of_range(zpw) ;
   if(oor != 0) FAIL(2, "%d blocks are out of range in zpw\n", oor) ;
 
+// if(argc < 1000) goto success ;  // avoid warning about unreachable code
+
   fprintf(stderr, "=============== zmap in memory read test ===============\n") ;
 
   map_words = FILEMAP_WORDS(zpw) ;
@@ -882,6 +905,9 @@ test:
   put_args put_args_3 = PUT_ARGS(maybe_put_args) ;
   if (! bcmp( &put_args_2, &PUT_ARGS_NULL, sizeof(put_args) ) ) goto fail ;  // check that zero_128 was not returned
   if (  bcmp( &put_args_3, &PUT_ARGS_NULL, sizeof(put_args) ) ) goto fail ;
+
+  SET_PUT_ARGS(zpr, put_args_1) ;      // set put block function argument
+
   mmap_print(zpr, "zpr") ;
   print_zmap_blocks(zpr, MAX_PRINT_BLOCKS) ;
 
@@ -894,6 +920,7 @@ test:
   if( errors != 0){ FAIL(5, "ERROR : %d error(s) in restored data\n", errors) ; }
   oor = zmap_blocks_out_of_range(zpr) ;
   if(oor != 0) FAIL(6, "%d blocks are out of range in zpr\n", oor) ;
+  fprintf(stderr, "restored array with %d errors, and %d blocks out of range\n", errors, oor) ;
 
 //   free(restored) ;
   free_zmap(zpr) ;
@@ -945,10 +972,12 @@ test:
   get_data_from_zmap(zpf, gni, gnj, (void *)restored) ;
   errors = check_data(gni, gnj, (void *)restored, 0, gni, 0, gnj) ;
   if( errors != 0){ FAIL(7, "ERROR : %d error(s) in restored data\n", errors) ; }
+
   fprintf(stderr, "%d errors in  restored data\n", errors) ;
+  if(zmap_blocks_out_of_range(zpf) >= 0) { FAIL(8, "ERROR : out of range detection returned %d, expected -1 \n", oor) ; }
 
   close(fd) ;
-  if( unlink(file_name) ) { FAIL(8, "ERROR : failed to delete file '%s'\n", file_name) ; }
+  if( unlink(file_name) ) { FAIL(9, "ERROR : failed to delete file '%s'\n", file_name) ; }
   fprintf(stderr, "successfully removed file '%s'\n", file_name) ;
   free_zmap(zpf) ;
   fprintf(stderr, "freed data map zpf\n") ;

@@ -108,7 +108,7 @@ typedef void_range RANGE(address) ;      // generic address range, synonym of vo
 // set top address of range to base address + size bytes, NULL if (R).bot is NULL
 #define SET_RANGE_BYTES(R, BYTES) { (R).top = (R).bot ? SET_PTR_OFFSET( (R).bot, (BYTES) ) : NULL ; }
 
-// set bottom address and top addresses of a range (accomodate BYTES bytes), NULL if BOT is NULL
-#define SET_RANGE(R, BOT, BYTES) { SET_RANGE_BOT(R, BOT) ; SET_RANGE_BYTES(R, BYTES) ; }
+// set bottom address and top addresses of a range (accomodate up to BYTES bytes), { NULL, NULL } if BOT is NULL
+#define SET_BYTE_RANGE(R, BOT, BYTES) { SET_RANGE_BOT(R, BOT) ; SET_RANGE_BYTES(R, BYTES) ; }
 
 #endif

@@ -102,10 +102,10 @@ zmap *create_file_zmap(zmap *map0, uint32_t map_words, uint32_t rec_words){
   if(map != NULL){
     map->mhead = base_mmap ;                                // set signature and version
     // entire zmap struct (with or without space for data stream)
-    SET_RANGE(map->mhead.zrng, map, recsize) ;              // sizeof(mmap) + file record size + offsets table
+    SET_BYTE_RANGE(map->mhead.zrng, map, recsize) ;              // sizeof(mmap) + file record size + offsets table
 
     // fmap : base size + sizes table + mextra == data map size from record metadata
-    SET_RANGE(map->mhead.frng, &(map->fhead.signature), map_words * sizeof(uint32_t)) ;
+    SET_BYTE_RANGE(map->mhead.frng, &(map->fhead.signature), map_words * sizeof(uint32_t)) ;
 
     // "extra region" size and bottom address will be known once the data map has been read from file
     // top is at top of fmap
@@ -122,7 +122,7 @@ zmap *create_file_zmap(zmap *map0, uint32_t map_words, uint32_t rec_words){
     }
 
     // sizes[] table (bottom address known , size unknown yet)
-    SET_RANGE(map->mhead.srng, &(map->size), 0) ;                // set size to 0 for now
+    SET_BYTE_RANGE(map->mhead.srng, &(map->size), 0) ;                // set size to 0 for now
 
     // worst case estimate of number of blocks : zijkmax, the correct value will be known after the data map is read
     map->mhead.orng.top = (void *)(map->mhead.zrng.top) ;        // offset table top at top of zmap
@@ -155,7 +155,7 @@ int update_file_zmap(zmap *map){
     if(PTR(map->mhead.drng.bot) != PTR(map->mhead.xrng.top)) FAIL(2, "drng.bot != xrng.top") ;
   }
   // update sizes table range
-  SET_RANGE(map->mhead.srng, &(map->size), sizeof(fmap_block_size) * map->fhead.zijk) ;
+  SET_BYTE_RANGE(map->mhead.srng, &(map->size), sizeof(fmap_block_size) * map->fhead.zijk) ;
   // update offsets/offset range orng
   if(PTR(map->mhead.zrng.top) != PTR(map->mhead.orng.top)){         // offset table top should be at top of zmap
     FAIL(3, "zrng.top != orng.top");
@@ -304,6 +304,7 @@ int print_zmap_blocks(zmap *map, uint32_t maxblocks){
 int zmap_blocks_out_of_range(zmap *map){
   uint32_t total_blocks = ZMAP_TOTAL_BLOCKS(map) ;
   int oor = 0 ;                                  // number of "out of range" blocks
+  if(map->mhead.drng.bot == NULL) return -1 ;    // no valid data range
   for(uint32_t i=0 ; i<total_blocks ; i++){
     uint32_t *bk0 = map->mhead.drng.bot + (BLOCK_OFFSET(map,i)/sizeof(uint32_t)) ;
     uint32_t *bkn = bk0 + map->size[i] - 1 ;
@@ -562,15 +563,15 @@ zmap *create_zmap(zmap *map0, int32_t gni, int32_t gnj, int32_t gnk, int32_t bi_
   map->mhead.esize = esize ;                                    // temporarily store esize in mhead, will be moved into fhead later
   // initialize memory address ranges
   // entire zmap struct address range
-  SET_RANGE(map->mhead.zrng, map, size) ;
+  SET_BYTE_RANGE(map->mhead.zrng, map, size) ;
   // data map "read from" / "written into" file address range (fhead + sizes + extra)
-  SET_RANGE(map->mhead.frng, &(map->fhead.signature), fsize + mextra * sizeof(uint32_t)) ;
+  SET_BYTE_RANGE(map->mhead.frng, &(map->fhead.signature), fsize + mextra * sizeof(uint32_t)) ;
   // sizes table address range
-  SET_RANGE(map->mhead.srng, map->size, zijk * sizeof(fmap_block_size)) ;
+  SET_BYTE_RANGE(map->mhead.srng, map->size, zijk * sizeof(fmap_block_size)) ;
   // extra address range starts after sizes table (a 2 byte gap of is possible if the number of blocks zijk is odd)
-  SET_RANGE(map->mhead.xrng, (void *)(map->size + zijk1), mextra * sizeof(uint32_t)) ;
+  SET_BYTE_RANGE(map->mhead.xrng, (void *)(map->size + zijk1), mextra * sizeof(uint32_t)) ;
   // encoded data address range starts just after extra (encoded data + extra blocks)
-  SET_RANGE(map->mhead.drng, map->mhead.xrng.top, dsize + zsize) ;
+  SET_BYTE_RANGE(map->mhead.drng, map->mhead.xrng.top, dsize + zsize) ;
   // block offsets address range
   map->mhead.orng.top = (void *)map->mhead.zrng.top ;           // top of offsets table is top of zmap
   map->mhead.orng.bot = map->mhead.orng.top - (zijk + 1) ;      // base address of offsets table [zijk+1]

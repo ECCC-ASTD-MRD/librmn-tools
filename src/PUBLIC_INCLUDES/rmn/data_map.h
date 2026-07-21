@@ -109,8 +109,8 @@ typedef RANGE(zmap_t) block_fn(zmap *map, int block0, int block_nb, RANGE(zmap_t
 // compact block[nk][nj][ni] containing data to encode
 typedef struct{
   union{
-    void    *ptr ;                  // generic pointer
-    uint8_t *mem ;                  // address of block (byte address)
+    void    *mem ;                  // generic pointer
+    uint8_t *byt ;                  // address of block (byte address)
   } ;
   uint16_t ni ;                     // first dimension
   uint16_t nj ;                     // second dimension (1 if block is 1D)
@@ -204,25 +204,27 @@ static inline codec_args codec_args_value(void *args) { codec_args *tmp = (codec
 
 // if ARGS has the right size, return its address, otherwise return NULL
 #define GET_ARGS_PTR(ARGS) ( (sizeof(ARGS) == GET_ARGS_SIZE) ? (&(ARGS)) : NULL )
+
 // is ARGS a potentially valid get_args struct
 #define MAYBE_GET_ARGS(ARGS) ( GET_ARGS_PTR(ARGS) != NULL )
 
-// transform an address into a pointer to a get_args struct
-static inline get_args *get_args_address(void *args){ get_args *tmp = (get_args *)args ; return tmp ; } ;
-#define GET_ARGS_ADDRESS(ARGS) get_args_address( &(ARGS) )
+// return an address as a pointer to a get_args struct
+static inline get_args *get_args_address_(void *args){ get_args *tmp = (get_args *)args ; return tmp ; } ;
+#define GET_ARGS_ADDRESS(ARGS) get_args_address_( &(ARGS) )
 
-// get get arguments struct as a 128 bit value from generic pointer
+// return get arguments struct as a 128 bit value from generic pointer
 static inline get_args get_args_value(void *args) { get_args *tmp = (get_args *)args ; return *tmp ; }
+
 // return ARGS as a get_args struct if size is right, GET_ARGS_NULL otherwise
 #define GET_ARGS(ARGS) ( MAYBE_GET_ARGS(ARGS) ? get_args_value( &(ARGS) ) : GET_ARGS_NULL )
 
 // insert get function arguments into zmap
-#define SET_GET_ARGS(MAP, ARGS) { (MAP)->mhead.args_get = *(get_args *)(&(ARGS)) ; }
+#define SET_GET_ARGS(MAP, ARGS) { (MAP)->mhead.args_get = GET_ARGS(ARGS) ; }
 
 // insert address of get block function into zmap
 #define SET_GET_FN(MAP, FN)     { (MAP)->mhead.get_blocks = (block_fn *)(FN) ; }
 
-// get encoded data block(s) into range DRNG using zmap
+// store encoded data block(s) into range DRNG using zmap
 #define ZMAP_GET(MAP, BLOCK0, NBLKS, DRNG) ( (*((MAP)->mhead.get_blocks))(MAP, BLOCK0, NBLKS, (RANGE(zmap_t))DRNG) )
 
 // ========== put block(s) related macros/function(s) ==========
@@ -231,6 +233,7 @@ static inline get_args get_args_value(void *args) { get_args *tmp = (get_args *)
 
 // if ARGS has the right size, return its address, otherwise return NULL
 #define PUT_ARGS_PTR(ARGS) ( (sizeof(ARGS) == PUT_ARGS_SIZE) ? (&(ARGS)) : NULL )
+
 // is ARGS a potentially valid put_args struct
 #define MAYBE_PUT_ARGS(ARGS) ( PUT_ARGS_PTR(ARGS) != NULL )
 
@@ -238,18 +241,19 @@ static inline get_args get_args_value(void *args) { get_args *tmp = (get_args *)
 static inline put_args *put_args_address(void *args){ put_args *tmp = (put_args *)args ; return tmp ; } ;
 #define PUT_ARGS_ADDRESS(ARGS) put_args_address( &(ARGS) )
 
-// get put arguments struct as a 128 bit value from generic pointer
+// return put arguments struct as a 128 bit value from generic pointer
 static inline put_args put_args_value(void *args) { put_args *tmp = (put_args *)args ; return *tmp ; }
+
 // return ARGS as a put_args struct if size is right, PUT_ARGS_NULL otherwise
 #define PUT_ARGS(ARGS) ( MAYBE_PUT_ARGS(ARGS) ? put_args_value( &(ARGS) ) : PUT_ARGS_NULL )
 
 // insert put function arguments into zmap
-#define SET_PUT_ARGS(MAP, ARGS) (MAP)->mhead.args_put = *(put_args *)(&(ARGS))
+#define SET_PUT_ARGS(MAP, ARGS) (MAP)->mhead.args_put = PUT_ARGS(ARGS)
 
 // insert address of put block function into zmap (encoded blocks)
 #define SET_PUT_FN(MAP, FN) (MAP)->mhead.put_blocks = (block_fn *)(FN)
 
-// put encoded data block(s) from range DRNG using zmap
+// store encoded data block(s) from range DRNG according to zmap
 #define ZMAP_PUT(MAP, BLOCK0, NBLKS, DRNG) ( (*((MAP)->mhead.put_blocks))(MAP, BLOCK0, NBLKS, (RANGE(zmap_t))DRNG) )
 
 // TODO: add options for 3D storage ni/nj/nk vs nk/ni/nj vs ... and compression(2D/3D) ?
