@@ -82,7 +82,7 @@ RANGE(zmap_t) get_zmap_memory_block(zmap *map, int block0, RANGE(zmap_t) drng){
   if(map == NULL) goto fail ;
   int max_bno = map->fhead.zijk ;
   if(block0 < 0 || block0 >= max_bno) goto fail ;
-
+// TODO : use getput_memory_args to retrieve start address
   uint64_t offset = map->mhead.orng.bot[block0] ;
   offset /= sizeof(uint32_t) ;
   uint32_t size   = map->size[block0] ;
@@ -443,23 +443,22 @@ static inline void mov_byte_block(void * restrict dst_, uint32_t dni, void * res
 // static inline void mov_hword_block(void * restrict dst_, uint32_t dni, void * restrict src_, uint32_t sni, uint32_t ni, uint32_t nj){
 //   mov_byte_block(dst_, 2*dni, src_, 2*sni, 2*ni, nj) ;
 // }
-static inline void mov_word_block(void * restrict dst_, uint32_t dni, void * restrict src_, uint32_t sni, uint32_t ni, uint32_t nj){
-  mov_byte_block(dst_, 4*dni, src_, 4*sni, 4*ni, nj) ;
-}
+// static inline void mov_word_block(void * restrict dst_, uint32_t dni, void * restrict src_, uint32_t sni, uint32_t ni, uint32_t nj){
+//   mov_byte_block(dst_, 4*dni, src_, 4*sni, 4*ni, nj) ;
+// }
 // copy block[0:lnj-1][0:lni-1] into dst[0:lnj-1][0:lni-1]
 // lni = block.ni, lnj = block.ni
 // dst is dimensioned [>=lnj][gni], block is dimensioned [>=lnj][lni]
 // array elements are 32 bit words
-void store_zblock(zmap_block block,  uint32_t gni, uint32_t gnj, void *dst){
-  (void)(gnj) ;
-  mov_word_block(dst, gni, block.byt, block.ni, block.ni, block.nj) ;
+void store_zblock(zmap_block block,  uint32_t gni, void *dst){
+  mov_byte_block(dst, 4*gni, block.byt, 4*block.ni, 4*block.ni, block.nj) ;
+//   mov_word_block(dst, gni, block.byt, block.ni, block.ni, block.nj) ;
 }
 // copy src[0:lnj-1][0:lni-1] into block[0:lnj-1][0:lni-1], src is dimensioned [][gni]
 // lni = block.ni, lnj = block.ni
 // dst is dimensioned [>=lnj][gni], block is dimensioned [>=lnj][lni]
 // array elements are 32 bit words
-void fetch_zblock(zmap_block block,  uint32_t gni, uint32_t gnj, void *src){
-  (void)(gnj) ;
+void fetch_zblock(zmap_block block,  uint32_t gni, void *src){
   mov_byte_block(block.byt, 4*block.ni, src, 4*gni, 4*block.ni, 4*block.nj) ;
 }
 //
@@ -511,7 +510,7 @@ void  get_data_from_zmap(zmap *map, int gni, int gnj, uint32_t array[gnj][gni]){
   SET_BYTE_RANGE(r_temp, coded, sizeof(coded)) ;
   bno = 0 ;
   sizes = map->size ;
-  fprintf(stderr, "========== extracting %d array blocks (%d byte elements) from zmap ==========\n", zni*znj, esize) ;
+  fprintf(stderr, "DEBUG : ========== extracting %d array blocks (%d byte elements) from zmap ==========\n", zni*znj, esize) ;
   for(j=znj-1 ; j>=0 ; j--){
     index_range j_index = index_limits(j, map->fhead.lnj, map->fhead.lj0) ;
     j0 = j_index.ix0 ; jn = j_index.ixn ; lnj = jn - j0 + 1 ;
@@ -525,7 +524,7 @@ void  get_data_from_zmap(zmap *map, int gni, int gnj, uint32_t array[gnj][gni]){
       RANGE(zmap_t) r_coded = ZMAP_GET(map, bno, 1, r_temp) ;                          // use get block function from zmap to get encoded range
       zblk = ZMAP_BLOCK( block, lni, lnj, 1, uint_data, sizeof(uint32_t) ) ;           // describe 2D block to be decoded
       nbytes = ZMAP_DECODE(map, zblk, r_coded.bot) ;                                   // decode block of packed data (lni * lnj values)
-      store_zblock(zblk,  gni, gnj, &array[j0][i0]) ;                                  // insert decoded data into array
+      store_zblock(zblk,  gni, &array[j0][i0]) ;                                       // insert zblk[lnj][lni] into array[][gni]
       errors = verify_hash(lni, (void *)block, i0, lni, j0, lnj) ;                     // does decoded data match expected values ?
 
       size = (nbytes + sizeof(uint32_t) - 1) / sizeof(uint32_t) ;                      // round size up to multiple of sizeof(uint32_t)
@@ -576,7 +575,7 @@ void fill_zmap_with_data(zmap *map, int gni, int gnj, uint32_t array[gnj][gni], 
     for(i=0, i0 = 0, lni = map->fhead.li0 ; i<zni ; i++, i0+=lni, lni=map->fhead.lni){
 
       zblk = ZMAP_BLOCK( block, lni, lnj, 1, uint_data, sizeof(uint32_t) ) ;           // describe 2D block to be encoded
-      fetch_zblock(zblk, gni, lnj, &array[j0][i0]) ;                                 // get 2D block of data from the array
+      fetch_zblock(zblk, gni, &array[j0][i0]) ;                                        // extract zblk[lnj][lni] from array[][gni]
 
       if((top - encoded) < (lni * lnj + 1)) exit(1) ;                                  // worst case encoding would fail
 
@@ -592,7 +591,7 @@ void fill_zmap_with_data(zmap *map, int gni, int gnj, uint32_t array[gnj][gni], 
       nrestored = ZMAP_DECODE(map, zblk, encoded) ;                                    // decode block into  restored
       if(nrestored != nbytes) exit(1) ;                                                // size mismatch or decoding failed
       errors = verify_hash(lni, (void *)block, i0, lni, j0, lnj) ;                     // does decoded data match original data
-      store_zblock(zblk,  gni, gnj, &restored[j0][i0]) ;                             // move into restored array
+      store_zblock(zblk,  gni, &restored[j0][i0]) ;                                    // insert zblk[lnj][lni] into restored array[][gni]
 
 //       fprintf(stderr, ", sizes[%d] = %4d Bytes (%4d), offset = %6ld, block[0][0] = %8.8x, check %s\n",
 //               bno, sizes[bno]*4, nbytes, map->mhead.orng.bot[bno], block[0], errors ? "FAILED" : "O.K.");
@@ -961,10 +960,10 @@ test:
   displacement += (map_words * sizeof(uint32_t)) ;                                   // offset for data
   update_file_zmap(zpf) ;                                                            // STEP 2c
 
-  SET_CODEC_FN(zpf, demo_codec_8_32) ;                               // set pack/restore codec function address
-  SET_CODEC_ARGS(zpf, ((test_codec_args){32, 8, 0}) ) ;                   // set pack/restore codec arguments
-  SET_GET_FN(zpf, get_zmap_file_blocks) ;
-  SET_GET_ARGS(zpf, ((getput_file_args){ displacement, 1, fd }) ) ;
+  SET_CODEC_FN(zpf, demo_codec_8_32) ;                                               // set pack/restore codec function address
+  SET_CODEC_ARGS(zpf, ((test_codec_args){32, 8, 0}) ) ;                              // set pack/restore codec arguments
+  SET_GET_FN(zpf, get_zmap_file_blocks) ;                                            // set get block function
+  SET_GET_ARGS(zpf, ((getput_file_args){ displacement, 1, fd }) ) ;                  // and its arguments
   mmap_print(zpf, "zpf") ;
   print_zmap_blocks(zpf, MAX_PRINT_BLOCKS) ;
 
