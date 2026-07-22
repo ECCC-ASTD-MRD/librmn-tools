@@ -48,6 +48,7 @@
 #define NO_RANGE {NULL, NULL}
 #define RANGE_NULL(KIND) ((RANGE(KIND))NO_RANGE)
 #define RANGE_TYPEDEF(KIND) typedef struct{ KIND *bot, *top ; } RANGE(KIND) ; static const RANGE(KIND) KIND##_range_null = RANGE_NULL(KIND) ;
+#define RANGE_KIND(KIND,BOT,TOP) ( (RANGE(KIND)) { (void *)(BOT) , (void *)(TOP) } )
 
 // some predefined/generic address ranges, using unsigned integers
 RANGE_TYPEDEF(uint8_t) ;                 // uint8_t_range
@@ -91,7 +92,7 @@ typedef void_range RANGE(address) ;      // generic address range, synonym of vo
 #define IN_RANGE(R0, BOT, TOP) ( (PTR(BOT) >= RANGE_BOT(R0)) && (PTR((TOP)+1) <= RANGE_TOP(R0)) )
 
 // is range R2 entirely within range R0 (a subrange of R0)
-#define SUB_RANGE(R0, R2) ( (RANGE_BOT(R0) <= RANGE_BOT(R2)) && (RANGE_top(R0) >= RANGE_TOP(R2)) )
+#define IS_SUB_RANGE(R0, R2) ( (RANGE_BOT(R0) <= RANGE_BOT(R2)) && (RANGE_top(R0) >= RANGE_TOP(R2)) )
 
 // get the size of a range element in bytes, 0 if (R).bot is NULL
 #define ELEMENT_SIZE(R) ( (R).bot ? (sizeof((R).bot[0]) / sizeof(uint8_t)) : 0 )

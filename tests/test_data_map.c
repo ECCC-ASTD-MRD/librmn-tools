@@ -41,10 +41,7 @@ static int StAtUs = 0 ;
 #define MAX_PRINT_BLOCKS 16
 #define HASH_BITS 8
 
-static uint32_t dummy[32] ;
-static uint32_t *dummyp = &(dummy[32]) ;
-
-// arguments for test encoder/decoder
+// arguments for demo encoder/decoder
 typedef struct{
     uint32_t unp ;        // original element size
     uint32_t pak ;        // packed element size
@@ -54,53 +51,113 @@ CT_ASSERT(sizeof(test_codec_args) == CODEC_ARGS_SIZE, "sizeof(test_codec_args) !
 
 // arguments for get/put function with data in memory
 typedef struct{
-    uint32_t *data ;      // encoded data base memory address
+    uint32_t *data ;      // base memory address of encoded data
     uint32_t get_put ;    // 1 : get, 0 : put
     uint32_t dummy ;      // not used for now
 } getput_memory_args ;
 CT_ASSERT(sizeof(getput_memory_args) == GET_ARGS_SIZE, "sizeof(getput_memory_args) != GET_ARGS_SIZE") ;
+typedef getput_memory_args get_memory_args ;
+typedef getput_memory_args put_memory_args ;
 
 // arguments for get/put function with data in ordinary file
 typedef struct{
-    size_t offset ;       // encoded data base file address
+    size_t   offset ;     // base file address of encoded data
     uint32_t get_put ;    // 1 : get, 0 : put
     uint32_t fd ;         // file descriptor
 } getput_file_args ;
 CT_ASSERT(sizeof(getput_file_args) == PUT_ARGS_SIZE, "sizeof(getput_memory_args) != PUT_ARGS_SIZE") ;
+typedef getput_file_args get_file_args ;
+typedef getput_file_args put_file_args ;
 //
-// ================================= get zmap block(s) =================================
+// ================================= get zmap block(s) from memory =================================
 //
-// get address range of block[block0] from data stream (full data stream assumed to be in memory)
+// get contents of block[block0] from data stream (full data stream assumed to be in memory)
 // map      [IN] : pointer to valid zmap struct
 // block0   [IN] : block to copy
-// drng     [IN] : if valid, memory range to be copied into
-// transfer data into memory pointed to by drng if drng is valid
-// in that case an adjusted drng will be returned
-// return a range pointing to the requested data
-// an invalid range is returned in case of error
+// drng     [IN] : if valid, transfer data into memory pointed to by drng (an adjusted drng will be returned)
+//                 if not valid, a range pointing to the requested data will be returned
+// return  a range pointing to the requested data block
+// an invalid range will be returned in case of error
 RANGE(zmap_t) get_zmap_memory_block(zmap *map, int block0, RANGE(zmap_t) drng){
   if(map == NULL) goto fail ;
   int max_bno = map->fhead.zijk ;
   if(block0 < 0 || block0 >= max_bno) goto fail ;
-// TODO : use getput_memory_args to retrieve start address
-  uint64_t offset = map->mhead.orng.bot[block0] ;
-  offset /= sizeof(uint32_t) ;
-  uint32_t size   = map->size[block0] ;
-  uint32_t *base  = map->mhead.drng.bot ;
-  if(VALID_RANGE(drng)){
-    if(RANGE_ELEMENTS(drng) < size) goto fail ;                    // destination range is too small
-    memcpy(drng.bot, base + offset, size * sizeof(uint32_t)) ;     // copy into destination
-    SET_RANGE_ELEMENTS(drng, size) ;                               // adjust top of range
-  }else{
-    drng = (RANGE(zmap_t)){ base + offset,  base + offset + size } ;     // point to source with adjusted size
+
+  get_memory_args *args ;
+  uint64_t *offsets, offset ;
+  uint32_t *base, size ;
+  uint32_t dummy[1] ;
+
+  offsets = map->mhead.orng.bot ;                                  // offsets table
+  offset  = offsets[block0] ;                                      // block offset in bytes
+  if(offset & 3) goto fail ;                                       // offset MUST BE a multiple of 4
+  offset  = offset / sizeof(uint32_t) ;                            // block offset in 32 bit words
+  size    = map->size[block0] ;                                    // block size in 32 bit words
+
+  args = ZMAP_GET_ARGS(map) ;                                      // use get_args to retrieve base address of block
+  if(args->get_put != 1) goto fail ;                               // NOT a GET call
+  base = args->data ;                                              // base address of data
+  if(base == NULL) base = ZMAP_DATA(map) ;                         // if NULL, use zmap data range bottom as base address
+  base += offset ;                                                 // add data block offset
+
+  if(VALID_RANGE(drng)){                                           // a valid destination was supplied
+
+    if(RANGE_ELEMENTS(drng) < size) goto fail ;                    // OOPS, destination range is too small
+    memcpy(RANGE_BOT(drng), base, size * sizeof(uint32_t)) ;       // copy into destination range drng
+    SET_RANGE_ELEMENTS(drng, size) ;                               // adjust top of drng range
+
+  }else{                                                           // no destination supplied, point to where data block is in memory
+    drng = RANGE_KIND(zmap_t , base,  base+size) ;                 // range pointing to block data with correct size
   }
 
   return drng ;
 
 fail:
-  return (RANGE(zmap_t)){ dummyp, dummyp - 1 } ;
+  return (RANGE(zmap_t)){ dummy + 1, dummy } ;                       // invalid range, top < bot
 }
+//
+// copy block(s) of 32 bit elements from memory pointed to by data map into user space
+// demo function for tests purposes
+// map      [IN] : pointer to valid zmap struct
+// block0   [IN] : first block to copy
+// block_nb [IN] : number of blocks to copy
+// rng   [INOUT] : address range describing destination (32 bit elements)
+// return number of words copied or negative error codes
+//
+block_fn get_zmap_mem_blocks ;  // check that get_zmap_mem_blocks prototype is compatible with block_fn
+RANGE(zmap_t) get_zmap_mem_blocks(zmap *map, int block0, int block_nb, RANGE(zmap_t) rng){
+  int status ;
 
+  if(map == NULL) XIT(-1) ;                              // no map ;
+  if(block0 < 0) XIT(-3) ;                               // invalid block number
+  if(block_nb <= 0) XIT(-4) ;                            // invalid number of blocks
+  int max_blocks = map->fhead.zijk ;
+  if(block0+block_nb > max_blocks) XIT(-5) ;             // last block number exceeds available blocks
+
+  if(block_nb == 1){                                     // special case : get 1 block
+    rng = get_zmap_memory_block(map, block0, rng) ;      // get block from memory, rng does not need to be valid
+  }else{
+    if(! VALID_RANGE(rng)) goto fail ;                   // range must be valid if multiple blocks are requested
+    RANGE(zmap_t) rng0 = rng, rngt = rng ;
+    // loop over block numbers, adjusting temporary rng on the fly
+    for(int i = block0 ; i < block0+block_nb ; i++){
+      rngt = get_zmap_memory_block(map, block0, rngt) ;  // get block from memory
+      if(! VALID_RANGE(rngt)) goto fail ;
+      rngt.bot = rngt.top ;                              // bump bottom of temporary range to top of temporary
+      rngt.top = rng0.top ;                              // set top of temporary range to original top
+    }
+    rng.top = rngt.top ;                                 // set top of rng to top of temporary range
+    rng.bot = rng0.bot ;                                 // set bottom of rng to original value
+  }
+  return rng ;                                          // range of output data
+
+  zmap_t dummy[1] ;
+fail:
+  return (RANGE(zmap_t)){ dummy - status, dummy } ;
+}
+//
+// ================================= get zmap block(s) from file =================================
+//
 // read block[block0] from file  (data map does not have a valid data range)
 // map      [IN] : pointer to valid zmap struct
 // block0   [IN] : block to read
@@ -114,40 +171,80 @@ RANGE(zmap_t) get_zmap_file_block(zmap *map, int block0, RANGE(zmap_t) drng){
   int max_bno = map->fhead.zijk ;
   if(block0 < 0 || block0 >= max_bno) goto fail ;
 
-  getput_file_args *file_args ;
-  file_args = (getput_file_args *) &(map->mhead.args_get) ;
-  if(file_args->get_put != 1) goto fail ;
+  get_file_args *args ;
+  uint64_t *offsets, offset ;
+  ssize_t size ;
 
-  size_t offset = map->mhead.orng.bot[block0] ;                    // offset from beginning of data
-  offset += file_args->offset ;                                    // add block offset in file
-  ssize_t size   = map->size[block0] * sizeof(uint32_t) ;          // block size
-  int fd = file_args->fd ;                                         // file descriptor
+  args = ZMAP_GET_ARGS(map) ;
+  if(args->get_put != 1) goto fail ;                               // NOT a GET call
+
+  offsets = map->mhead.orng.bot ;                                  // offsets table
+  offset  = offsets[block0] ;                                      // block offset in bytes
+  offset += args->offset ;                                         // add base offset in file
+  size    = map->size[block0] * sizeof(uint32_t) ;                 // block size in bytes
+
+  int fd = args->fd ;                                              // file descriptor
   if(VALID_RANGE(drng)){
-    if(RANGE_ELEMENTS(drng) < size) goto fail ;                    // destination range is too small
-    lseek(fd, offset, SEEK_SET) ;
+    if(RANGE_BYTES(drng) < size) goto fail ;                       // OOPS, destination range is too small
+    lseek(fd, offset, SEEK_SET) ;                                  // set file position
     ssize_t nc = read(fd, drng.bot, size) ;                        // read from file
     if(nc != size) goto fail ;                                     // short/failed read
-    SET_RANGE_BYTES(drng, size) ;                                  // adjust top of range
+    SET_RANGE_BYTES(drng, size) ;                                  // adjust top of drng range
+  }else{
+    goto fail ;
   }
   return drng ;                                                    // return adjusted range
 
+  zmap_t dummy[1] ;
 fail:
-  return (RANGE(zmap_t)){ dummyp, dummyp - 1 } ;
+  return (RANGE(zmap_t)){ dummy + 1, dummy } ;
+}
+
+// get block(s) of 32 bit elements from a file
+// demo function for tests purposes
+// map      [IN] : pointer to valid zmap struct
+// block0   [IN] : first block to copy
+// block_nb [IN] : number of blocks to copy
+// rng   [INOUT] : address range describing destination (32 bit elements)
+// return number of words copied or negative error codes
+//
+block_fn get_zmap_file_blocks ;  // check that get_zmap_file_blocks prototype is compatible with block_fn
+RANGE(zmap_t) get_zmap_file_blocks(zmap *map, int block0, int block_nb, RANGE(zmap_t) rng){
+  int status ;
+
+  if(map == NULL) XIT(-1) ;                              // no map ;
+  if(block0 < 0) XIT(-3) ;                               // invalid block number
+  if(block_nb <= 0) XIT(-4) ;                            // invalid number of blocks
+  int max_blocks = map->fhead.zijk ;
+  if(block0+block_nb > max_blocks) XIT(-5) ;             // last block number exceeds available blocks
+
+  if(block_nb == 1){                                     // special case : get 1 block
+    return get_zmap_file_block(map, block0, rng) ;       // get block from file
+  }else{
+    XIT(-10) ;                                           // block_nb > 1 not supported yet
+  }
+// will have to allocate space
+  rng = RANGE_NULL(zmap_t) ;
+  return rng ;
+
+  zmap_t dummy[1] ;
+fail:
+  return (RANGE(zmap_t)){ dummy - status, dummy } ;
 }
 //
-// ================================= pack / unpack / codec =================================
+// ================================= pack / unpack / demo codec =================================
 // encode unsigned 32 -> 16 ;
 // map   [IN] : pointer to valid zmap struct
 // out_ [OUT] : output (packed 32 -> 16)
 // in_   [IN] : input data (unpacked)
 // ninj  [IN] : number of values
 // return number of bytes written into out_
-int demo_pack_block_32_16(zmap *map, void *out_, void *in_, int ninj){
+static int demo_pack_block_32_16(zmap *map, void *out_, void *in_, int ninj){
   if(map == NULL || ninj <= 0) return -1 ;
   uint32_t *in  = in_ ;
   uint16_t *out = out_ ;
   if(out == NULL || in == NULL) return -1 ;
-  test_codec_args *local = (void *)&(map->mhead.args_codec) ;            // point local arguments into proper place in zmap
+  test_codec_args *local = ZMAP_CODEC_ARGS(map) ;            // point local arguments into proper place in zmap
   CT_ASSERT( sizeof(*local) == sizeof(map->mhead.args_codec) , "bad codec arguments struc size" )
   if(local->unp != 32 || local->pak != 16) return -1 ;
   for(int i=0 ; i<ninj ; i++){ out[i] = in[i] & 0xFFFF ; } ;
@@ -160,7 +257,7 @@ int demo_pack_block_32_16(zmap *map, void *out_, void *in_, int ninj){
 // in_   [IN] : input data (packed)
 // ninj  [IN] : number of values
 // return number of bytes read from in_
-int demo_unpack_block_16_32(zmap *map, void *out_, void *in_, int ninj){
+static int demo_unpack_block_16_32(zmap *map, void *out_, void *in_, int ninj){
   if(map == NULL || ninj <= 0) return -1 ;
   uint16_t *in = in_ ;
   uint32_t *out = out_ ;
@@ -169,7 +266,7 @@ int demo_unpack_block_16_32(zmap *map, void *out_, void *in_, int ninj){
     uint32_t unp ;
     uint32_t pak ;
     uint64_t dummy ;
-  } *local = (void *)&(map->mhead.args_codec) ;            // point local arguments into proper place in zmap
+  } *local = ZMAP_CODEC_ARGS(map) ;            // point local arguments into proper place in zmap
   CT_ASSERT( sizeof(*local) == sizeof(map->mhead.args_codec) , "bad codec arguments struc size" )
   if(local->pak != 16 || local->unp != 32) return -1 ;
   for(int i=0 ; i<ninj ; i++){ out[i] = in[i] & 0xFFFF ; } ;
@@ -198,13 +295,13 @@ int demo_codec_16_32(zmap *map, zmap_block block, zmap_stream stream, int encode
 // in_   [IN] : input data (unpacked)
 // ninj  [IN] : number of values
 // return number of bytes written into out_
-int demo_pack_block_32_8(zmap *map, void *out_, void *in_, int ninj){
+static int demo_pack_block_32_8(zmap *map, void *out_, void *in_, int ninj){
   if(map == NULL || ninj <= 0) return -1 ;
   if(map->fhead.esize != 4) exit(1) ;    // unpacked element size MUST BE 4 BYTES
   uint32_t *in = in_ ;
   uint8_t *out = out_ ;
   if(out == NULL || in == NULL) return -1 ;
-  test_codec_args *local = (void *)&(map->mhead.args_codec) ;            // point local arguments into proper place in zmap
+  test_codec_args *local = ZMAP_CODEC_ARGS(map) ;            // point local arguments into proper place in zmap
   CT_ASSERT( sizeof(*local) == sizeof(map->mhead.args_codec) , "bad codec arguments struc size" )
   if(local->unp != 32 || local->pak != 8) return -1 ;
   for(int i=0 ; i<ninj ; i++){ out[i] = in[i] & 0xFF ; } ;
@@ -217,7 +314,7 @@ int demo_pack_block_32_8(zmap *map, void *out_, void *in_, int ninj){
 // in_   [IN] : input data (packed)
 // ninj  [IN] : number of values
 // return number of bytes read from in_
-int demo_unpack_block_8_32(zmap *map, void *out_, void *in_, int ninj){
+static int demo_unpack_block_8_32(zmap *map, void *out_, void *in_, int ninj){
   if(map == NULL || ninj <= 0) return -1 ;    // unpacked element size MUST BE 4 BYTES
   if(map->fhead.esize != 4) exit(1) ;
   uint8_t *in = in_ ;
@@ -227,7 +324,7 @@ int demo_unpack_block_8_32(zmap *map, void *out_, void *in_, int ninj){
     uint32_t unp ;
     uint32_t pak ;
     uint64_t dummy ;
-  } *local = (void *)&(map->mhead.args_codec) ;            // point local arguments into proper place in zmap
+  } *local = ZMAP_CODEC_ARGS(map) ;            // point local arguments into proper place in zmap
   CT_ASSERT( sizeof(*local) == sizeof(map->mhead.args_codec) , "bad codec arguments struc size" )
   if(local->pak != 8 || local->unp != 32) return -1 ;
   for(int i=0 ; i<ninj ; i++){ out[i] = in[i] & 0xFF ; } ;
@@ -299,93 +396,6 @@ static uint32_t check_data(int gni, int gnj, uint32_t data[gnj][gni], int i0, in
 //
 // =========================================================================================
 //
-// get block(s) of 32 bit elements from a file
-// demo function for tests purposes
-// map      [IN] : pointer to valid zmap struct
-// block0   [IN] : first block to copy
-// block_nb [IN] : number of blocks to copy
-// rng   [INOUT] : address range describing destination (32 bit elements)
-// return number of words copied or negative error codes
-//
-block_fn get_zmap_file_blocks ;  // check that get_zmap_file_blocks prototype is compatible with block_fn
-RANGE(zmap_t) get_zmap_file_blocks(zmap *map, int block0, int block_nb, RANGE(zmap_t) rng){
-  int status ;
-
-  if(map == NULL) XIT(-1) ;                              // no map ;
-  if(block0 < 0) XIT(-3) ;                               // invalid block number
-  if(block_nb <= 0) XIT(-4) ;                            // invalid number of blocks
-  int max_blocks = map->fhead.zijk ;
-  if(block0+block_nb > max_blocks) XIT(-5) ;             // last block number exceeds available blocks
-
-  if(block_nb == 1){                                     // special case : get 1 block
-    return get_zmap_file_block(map, block0, rng) ;       // get block from file
-  }else{
-    XIT(-10) ;                                           // block_nb > 1 not supported for the time being
-  }
-// will have to allocate space
-  rng = RANGE_NULL(zmap_t) ;
-  return rng ;
-
-fail:
-  return (RANGE(zmap_t)){ dummyp, dummyp + status } ;
-}
-//
-// copy block(s) of 32 bit elements from memory pointed to by data map into user space
-// demo function for tests purposes
-// map      [IN] : pointer to valid zmap struct
-// block0   [IN] : first block to copy
-// block_nb [IN] : number of blocks to copy
-// rng   [INOUT] : address range describing destination (32 bit elements)
-// return number of words copied or negative error codes
-//
-block_fn get_zmap_mem_blocks ;  // check that get_zmap_mem_blocks prototype is compatible with block_fn
-RANGE(zmap_t) get_zmap_mem_blocks(zmap *map, int block0, int block_nb, RANGE(zmap_t) rng){
-  int status ;
-
-  if(map == NULL) XIT(-1) ;                              // no map ;
-  if(block0 < 0) XIT(-3) ;                               // invalid block number
-  if(block_nb <= 0) XIT(-4) ;                            // invalid number of blocks
-  int max_blocks = map->fhead.zijk ;
-  if(block0+block_nb > max_blocks) XIT(-5) ;             // last block number exceeds available blocks
-
-  if(block_nb == 1){                                     // special case : get 1 block
-    return get_zmap_memory_block(map, block0, rng) ;     // get block from memory
-  }else{
-    XIT(-10) ;                                           // block_nb > 1 not supported for the time being
-// temporarily deactivate code to remove warnings
-#if 0
-  getput_memory_args *local = (getput_memory_args *)(&(map->mhead.args_get)) ;
-  CT_ASSERT( sizeof(*local) == sizeof(map->mhead.args_get) , "bad getblock arguments struc size" )
-  uint32_t *base = local->data ;                          // get base address for memory copy from zmap (usually data area)
-  if(base == NULL) XIT(-6) ;
-
-  if(INVALID_RANGE(drng)) XIT(-2) ;                       // invalid destination range
-  uint32_t *out = drng.bot ;
-  int32_t size_out = RANGE_ELEMENTS(drng) ;
-
-  // consecutive blocks in tables are assumed to be consecutive in storage
-  // check that this is the case. if not, transfer block by block
-  int32_t size = contiguous_zmap_blocks(map, block0, block0+block_nb-1) ;
-  int contiguous = (size > 0) ;
-  size = (size < 0) ? (-size) : size ;
-  if(size_out < size) XIT(-7) ;                          // not enough space for copy
-
-  uint64_t offset = map->mhead.orng.bot[block0] ;        // block offset of first block relative to base address (in bytes)
-  offset = offset / sizeof(uint32_t) ;                   // offset in 32 bit words
-  uint32_t *src = base + offset ;                        // source address
-  if(contiguous){
-    for(int32_t i=0 ; i<size ; i++){ out[i] = src[i] ; }
-  }else{
-    // OUCH for now
-  }
-#endif
-  }
-  return rng ;                                          // number of 32 bit words copied
-
-fail:
-  return (RANGE(zmap_t)){ dummyp, dummyp + status } ;
-}
-
 // copy block(s) of 32 bit elements from user space into memory pointed to by data map
 // demo function for tests purposes
 // map   [INOUT] : pointer to valid zmap struct
@@ -418,8 +428,9 @@ RANGE(zmap_t)  put_zmap_mem_blocks(zmap *map, int block0, int block_nb, RANGE(zm
     XIT(-10) ;                                           // block_nb > 1 not supported for the time being
   }
 
+  zmap_t dummy[1] ;
 fail:
-  return (RANGE(zmap_t)){ dummyp, dummyp + status } ;
+  return (RANGE(zmap_t)){ dummy - status, dummy } ;
 }
 //
 // =========================================================================================
@@ -880,7 +891,8 @@ test:
   SET_CODEC_FN(zpr, demo_codec_8_32) ;                                      // set pack/restore codec function address
   SET_CODEC_ARGS(zpr, codec_args_1) ;                                       // set pack/restore codec arguments
 
-  getput_memory_args get_args_1 = (getput_memory_args){ ZMAP_DATA(zpr), 1, 0 } ;
+  // base address will be start of drng(data)range in zmap zpr (NULL base address)
+  getput_memory_args get_args_1 = (getput_memory_args){ NULL, 1, 0 } ;      // zmap data address, get, dummy
   struct{ int dummy[6] ; } maybe_get_args ;
   if( ! MAYBE_GET_ARGS(get_args_1) ) goto fail ;
   fprintf(stderr, "SUCCESS : get_args_1 is %s as get argument\n", MAYBE_GET_ARGS(get_args_1) ? "VALID" : "INVALID") ;
@@ -894,7 +906,8 @@ test:
   SET_GET_FN(zpr, get_zmap_mem_blocks) ;                                    // set get block function address
   SET_GET_ARGS(zpr, get_args_1) ;      // set get block function argument
 
-  getput_memory_args put_args_1 = (getput_memory_args){ ZMAP_DATA(zpr), 0, 0 } ;
+  // base address will be start of drng(data)range in zmap zpr
+  getput_memory_args put_args_1 = (getput_memory_args){ ZMAP_DATA(zpr), 0, 0 } ;  // address, get, dummy
   struct{ int dummy[6] ; } maybe_put_args ;
   if( ! MAYBE_PUT_ARGS(put_args_1) ) goto fail ;
   fprintf(stderr, "SUCCESS : put_args_1 is %s as put argument\n", MAYBE_PUT_ARGS(put_args_1) ? "VALID" : "INVALID") ;

@@ -185,6 +185,9 @@ static inline codec_args codec_args_value(void *args) { codec_args *tmp = (codec
 // return ARGS as a codec_args struct if size is right, CODEC_ARGS_NULL otherwise
 #define CODEC_ARGS(ARGS) ( MAYBE_CODEC_ARGS(ARGS) ? codec_args_value( &(ARGS) ) : CODEC_ARGS_NULL )
 
+// return pointer to codec arguments from zmap
+#define ZMAP_CODEC_ARGS(MAP) ((void *)(&(MAP->mhead.args_codec)))
+
 // insert codec arguments into zmap
 #define SET_CODEC_ARGS(MAP, ARGS) { (MAP)->mhead.args_codec = CODEC_ARGS(ARGS) ; }
 
@@ -217,6 +220,9 @@ static inline get_args get_args_value(void *args) { get_args *tmp = (get_args *)
 
 // return ARGS as a get_args struct if size is right, GET_ARGS_NULL otherwise
 #define GET_ARGS(ARGS) ( MAYBE_GET_ARGS(ARGS) ? get_args_value( &(ARGS) ) : GET_ARGS_NULL )
+
+// return pointer to get arguments from zmap
+#define ZMAP_GET_ARGS(MAP) ((void *)(&(MAP->mhead.args_get)))
 
 // insert get function arguments into zmap
 #define SET_GET_ARGS(MAP, ARGS) { (MAP)->mhead.args_get = GET_ARGS(ARGS) ; }
