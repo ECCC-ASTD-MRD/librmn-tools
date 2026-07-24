@@ -126,7 +126,7 @@ fail:
 //
 block_fn get_zmap_mem_blocks ;  // check that get_zmap_mem_blocks prototype is compatible with block_fn
 RANGE(zmap_t) get_zmap_mem_blocks(zmap *map, int block0, int block_nb, RANGE(zmap_t) rng){
-  int status ;
+  int status = -10 ;
 
   if(map == NULL) XIT(-1) ;                              // no map ;
   if(block0 < 0) XIT(-3) ;                               // invalid block number
@@ -137,12 +137,12 @@ RANGE(zmap_t) get_zmap_mem_blocks(zmap *map, int block0, int block_nb, RANGE(zma
   if(block_nb == 1){                                     // special case : get 1 block
     rng = get_zmap_memory_block(map, block0, rng) ;      // get block from memory, rng does not need to be valid
   }else{
-    if(! VALID_RANGE(rng)) goto fail ;                   // range must be valid if multiple blocks are requested
+    if(! VALID_RANGE(rng)) XIT(-6) ;                   // range must be valid if multiple blocks are requested
     RANGE(zmap_t) rng0 = rng, rngt = rng ;
     // loop over block numbers, adjusting temporary rng on the fly
     for(int i = block0 ; i < block0+block_nb ; i++){
       rngt = get_zmap_memory_block(map, block0, rngt) ;  // get block from memory
-      if(! VALID_RANGE(rngt)) goto fail ;
+      if(! VALID_RANGE(rngt)) XIT(-7) ;
       rngt.bot = rngt.top ;                              // bump bottom of temporary range to top of temporary
       rngt.top = rng0.top ;                              // set top of temporary range to original top
     }

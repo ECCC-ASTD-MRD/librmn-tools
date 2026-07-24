@@ -165,6 +165,21 @@ static const mmap zero_mmap = { 0x00000000,                  0, 0 , NULL, ZERO12
                                RANGE_NULL(uint32_t), RANGE_NULL(uint32_t), RANGE_NULL(uint16_t), RANGE_NULL(zmap_t),
                                RANGE_NULL(uint64_t), RANGE_NULL(zmap_tp), RANGE_NULL(uint32_t), 0, 0 } ;
 CT_ASSERT(sizeof(mmap) == (sizeof(mmap) / sizeof(int64_t)) * sizeof(int64_t) , "mmap struc size not a multiple of 64 bits")
+
+// base address of extra information
+#define ZMAP_EXTRAS(MAP) ((MAP)->mhead.xrng.bot)
+
+// base address of encoded data blocks
+#define ZMAP_DATA(MAP) ((MAP)->mhead.drng.bot)
+
+// base address of block sizes table
+#define ZMAP_SIZES(MAP) ((MAP)->mhead.srng.bot)
+
+// base address of offsets table
+#define ZMAP_OFFSETS(MAP) ((MAP)->mhead.orng.bot)
+// base address of block pointers table
+#define ZMAP_POINTERS(MAP) ((MAP)->mhead.prng.bot)
+// NOTE: offsets and pointers CANNOT BOTH BE VALID
 // #define NULLIFY_ZMAP(MAP) { (MAP)->mhead = base_mmap ; (MAP)->mhead.signature = 0 ; }
 
 // ========== codec function related macros/function(s) ==========
@@ -334,14 +349,6 @@ CT_ASSERT(sizeof(zmap) == (sizeof(mmap) + sizeof(fmap)) , "zmap struc size not s
 #define ZMAP_TOTAL_BLOCKS(MAP) ((MAP)->fhead.zijk)
 // get number of array related blocks in zmap
 #define ZMAP_ARRAY_BLOCKS(MAP) (((MAP)->fhead.zni) * ((MAP)->fhead.znj) * ((MAP)->fhead.gnk))
-
-// base address of encoded data blocks
-#define ZMAP_DATA(MAP) ((MAP)->mhead.drng.bot)
-// base address of offsets table
-#define ZMAP_OFFSETS(MAP) ((MAP)->mhead.orng.bot)
-// base address of block pointers table
-#define ZMAP_POINTERS(MAP) ((MAP)->mhead.prng.bot)
-// NOTE: offsets and pointers CANNOT BOTH BE VALID
 
 static inline int invalid_zmap(zmap *map){
   if(map->mhead.signature != 0x1AD0FADA || map->fhead.signature != 0xBEBEFADA) return 1 ;
