@@ -39,18 +39,18 @@ static void memcpy_8_16(int16_t *p16, const int8_t *p8, int nb) {
 }
 
 // halfword to byte copy
-// static void memcpy_16_8(int8_t *p8, const int16_t *p16, int nb) {
-//     for (int i = 0; i < nb; i++) {
-//         *p8++ = *p16++;
-//     }
-// }
+static void memcpy_16_8(int8_t *p8, const int16_t *p16, int nb) {
+    for (int i = 0; i < nb; i++) {
+        *p8++ = *p16++;
+    }
+}
 
-// static void memcpy_16_32(int32_t *p32, const int16_t *p16, int nbits, int nb) {
-//     int16_t mask = ~ (0xffff << nbits);    // keep lower nbits bits
-//     for (int i = 0; i < nb; i++) {
-//         *p32++ = *p16++ & mask;
-//     }
-// }
+static void memcpy_16_32(int32_t *p32, const int16_t *p16, int nbits, int nb) {
+    int16_t mask = ~ (0xffff << nbits);    // keep lower nbits bits
+    for (int i = 0; i < nb; i++) {
+        *p32++ = *p16++ & mask;
+    }
+}
 
 static void memcpy_32_16(int16_t *p16, const int32_t * p32, int nbits, int nb) {
     int32_t mask = ~ (0xffffffff << nbits);    // keep lower nbits bits
@@ -61,20 +61,40 @@ static void memcpy_32_16(int16_t *p16, const int32_t * p32, int nbits, int nb) {
 
 // remain consistent with fstd98 code
 #define use_old_signed_pack_unpack_code
+// force Little endian for now
+#if ! defined(Little_Endian)
+#define Little_Endian YES
+#endif
 
 // borrow some function prototypes
 void c_float_packer_params(int32_t *header_size, int32_t *stream_size, int32_t *p1, int32_t *p2, int32_t npts);
 int32_t c_float_packer(float *source, int32_t nbits, int32_t *header, int32_t *stream, int32_t npts);
+int32_t c_float_unpacker(float *dest, int32_t *header, int32_t *stream, int32_t npts, int32_t *nbits );
 
 void f77name(ieeepak)(int32_t *IFLD, int32_t *IPK, const int32_t *NI, const int32_t *NJ, const int32_t *NPAK, const int32_t *serpas, const int32_t *mode);
 
 int c_armn_compress32(unsigned char *, float *, int, int, int, int);
+int  c_armn_uncompress32(float *fld, unsigned char *zstream, int ni, int nj, int nk, int nchiffres_sign);
 int armn_compress(unsigned char *fld, int ni, int nj, int nk, int nbits, int op_code, const int swap_stream);
 
 typedef void *(*PackFunctionPointer)(
     const void * const unpackedArrayOfFloat,
     void * const packedHeader,
     void * const packedArrayOfInt,
+    const int elementCount,
+    const int packedTokenBitSize,
+    const int offset,
+    const int stride,
+    const int hasMissing,
+    const void * const missingTag,
+    void * const min,
+    void * const max
+);
+
+typedef void *(*UnpackFunctionPointer)(
+    void * const unpackedArrayOfFloat,
+    const void * const packedHeader,
+    const void * const packedArrayOfInt,
     const int elementCount,
     const int packedTokenBitSize,
     const int offset,
@@ -95,10 +115,30 @@ int compact_p_char(
     const int stride
 );
 
+int compact_u_char(
+    void * const unpackedArrayOfBytes,
+    const void * const packedHeader,
+    const void * const packedArrayOfInt,
+    int intCount,
+    int bitSizeOfPackedToken,
+    const int offset,
+    const int stride
+);
+
 int compact_p_short(
     const void * const unpackedArray,
     void * const packedHeader,
     void * const packedArray,
+    int intCount,
+    const int bitSizeOfPackedToken,
+    const int offset,
+    const int stride
+);
+
+int compact_u_short(
+    void * const unpackedArray,
+    void * const packedHeader,
+    const void * const packedArray,
     int intCount,
     const int bitSizeOfPackedToken,
     const int offset,
@@ -116,10 +156,35 @@ int compact_p_integer(
     const int sign
 );
 
+int compact_u_integer(
+    void * const unpackedArrayOfInt,
+    const void * const packedHeader,
+    const void * const packedArrayOfInt,
+    int intCount,
+    int bitSizeOfPackedToken,
+    int offset,
+    int stride,
+    const int sign
+);
+
 void * compact_p_float(
     const void * const unpackedArrayOfFloat,
     void * const packedHeader,
     void * const packedArrayOfInt,
+    const int elementCount,
+    const int packedTokenBitSize,
+    const int offset,
+    const int stride,
+    const int hasMissing,
+    const void * const missingTag,
+    void * const min,
+    void * const max
+);
+
+void * compact_u_float(
+    void * const unpackedArrayOfFloat,
+    const void * const packedHeader,
+    const void * const packedArrayOfInt,
     const int elementCount,
     const int packedTokenBitSize,
     const int offset,
@@ -142,6 +207,36 @@ void * compact_p_double(
     const void * const missingTag,
     void * const min,
     void * const max
+);
+
+void * compact_u_double(
+    void * const unpackedArrayOfFloat,
+    const void * const packedHeader,
+    const void * const packedArrayOfInt,
+    const int elementCount,
+    const int packedTokenBitSize,
+    const int offset,
+    const int stride,
+    const int hasMissing,
+    const void * const missingTag,
+    void * const min,
+    void * const max
+);
+
+void resize_int(
+    void* restrict dest,        //!< Destination array
+    const int dest_size,        //!< Element size of destination array (in bits)
+    const void* restrict src,   //!< Source array
+    const int src_size,         //!< Element size of source array (in bits)
+    const int64_t num_elem      //!< Number of elements to convert
+);
+void upgrade_size(
+    void* dest,             //!< [out] Destination array, into which the items are copied
+    const int dest_size,    //!< [in] Size of items in destination array, in bits
+    void* src,              //!< [in] Source array, from which the items are copied
+    const int src_size,     //!< [in] Size of items in source array, in bits
+    const int64_t num_elem, //!< [in] Number of items to copy
+    const int is_integer    //!< [in] Whether we are copying integers (or float)
 );
 
 static int dejafait_xdf_1 = 0;
@@ -651,4 +746,253 @@ uint32_t *fst98_encode(
 fail :
    if(buffer) free(buffer) ;
    return NULL ;
+}
+
+//! XDF version
+int fst98_decode(
+  //! [out] Pointer to where the data read will be placed.  Must be already allocated!
+  void * const data_out,
+  //! [in] Pointer to the encoded data
+  void * const data_in,
+  //! [in] Dimension 1 of the data field
+  int ni,
+  //! [in] Dimension 2 of the data field
+  int nj,
+  //! [in] Dimension 3 of the data field
+  int nk,
+  int datyp,
+  int nbits_in,
+  int downgrade_32,
+  int xdf_double,
+  int xdf_short,
+  int xdf_byte,
+  int xdf_stride
+) {
+    uint32_t *field = data_out;
+    int ier = 0 ;
+
+//     stdf_dir_keys stdf_entry;
+//     // printf("Debug+ c_fstluk - &stdf_entry = %p\n", &stdf_entry);
+//     uint32_t * pkeys = stdf_entry.words;
+//     // printf("Debug+ c_fstluk - pkeys = %p\n", pkeys);
+//     pkeys += W64TOWD(1);
+//     // printf("Debug+ c_fstluk - pkeys = %p\n", pkeys);
+// 
+//     // printf("Debug+ c_fstluk - c_xdfprm(handle, &addr, &lng, &idtyp, pkeys, 16);\n");
+//     int addr, lng, idtyp;
+//     int ier = c_xdfprm(handle, &addr, &lng, &idtyp, pkeys, 16);
+//     if (ier < 0) return ier;
+
+//     ni = stdf_entry.ni_a; // Ignore larger bits for XDF
+//     nj = stdf_entry.nj_a; // Ignore larger bits for XDF
+//     nk = stdf_entry.nk;
+    // Get missing data flag
+    int has_missing = datyp & FSTD_MISSING_FLAG;
+    // Suppress missing data flag
+    datyp = datyp & ~FSTD_MISSING_FLAG;
+    int xdf_datatyp = datyp;
+
+    UnpackFunctionPointer packfunc = xdf_double ? &compact_u_double : &compact_u_float;
+    double dmin=0.0, dmax=0.0;
+
+    // Ignore larger ni and nj bits for XDF (so only ni_a, nj_a)
+    int nelm = ni * nj * nk ;
+    uint32_t *buf = (uint32_t *) data_in ;
+    if (datyp == 8) nelm *= 2;    // complex data, double number of values
+
+    const int bitmot = 32;
+    switch (datyp) {
+        case FST_TYPE_BINARY: {
+            // Raw binary
+            int lngw = ((nelm * nbits_in) + bitmot - 1) / bitmot;
+            for (int i = 0; i < lngw; i++) {
+                field[i] = buf[i];
+            }
+            break;
+        }
+
+        case FST_TYPE_REAL_OLD_QUANT:
+        case FST_TYPE_REAL_OLD_QUANT | FST_TYPE_TURBOPACK: {
+            // Floating Point
+            double tempfloat = 99999.0;
+            if (is_type_turbopack(datyp)) {
+                armn_compress((unsigned char *)(buf + 5), ni, nj, nk, nbits_in, 2, 1);
+                packfunc(field, buf + 1, buf + 5, nelm, nbits_in + 64 * Max(16, nbits_in),
+                          0, xdf_stride, 0, &tempfloat, &dmin, &dmax);
+            } else {
+                packfunc(field, buf, buf + 3, nelm, nbits_in, 24, xdf_stride, 0, &tempfloat, &dmin , &dmax);
+            }
+            break;
+        }
+
+        case FST_TYPE_UNSIGNED:
+        case FST_TYPE_UNSIGNED | FST_TYPE_TURBOPACK:
+            {
+                // Integer, short integer or byte stream
+                int offset = is_type_turbopack(datyp) ? 1 : 0;
+                if (xdf_short) {
+                    if (is_type_turbopack(datyp)) {
+                        int nbytes = armn_compress((unsigned char *)(buf + offset), ni, nj, nk, nbits_in, 2, 0);
+                        memcpy(field, buf + offset, nbytes);
+                    } else {
+                        ier = compact_u_short(field, (void *) NULL, buf + offset, nelm, nbits_in, 0, xdf_stride);
+                    }
+                }  else if (xdf_byte) {
+                    if (is_type_turbopack(datyp)) {
+                        armn_compress((unsigned char *)(buf + offset), ni, nj, nk, nbits_in, 2, 0);
+                        memcpy_16_8((int8_t *)field, (int16_t *)(buf + offset), nelm);
+                    } else {
+                        ier = compact_u_char(field, (void *) NULL, buf, nelm, nbits_in, 0, xdf_stride);
+                    }
+                } else {
+                    if (is_type_turbopack(datyp)) {
+                        armn_compress((unsigned char *)(buf + offset), ni, nj, nk, nbits_in, 2, 0);
+                        memcpy_16_32((int32_t *)field, (int16_t *)(buf + offset), nbits_in, nelm);
+                    } else {
+                        ier = compact_u_integer(field, (void *) NULL, buf + offset, nelm, nbits_in, 0, xdf_stride, 0);
+                    }
+                }
+                break;
+            }
+
+        case FST_TYPE_CHAR: {
+            // Character
+            int nc = (nelm + 3) / 4;
+            ier = compact_u_integer(field, (void *) NULL, buf, nc, 32, 0, xdf_stride, 0);
+            break;
+        }
+
+
+        case FST_TYPE_SIGNED: {
+            // Signed integer
+#ifdef use_old_signed_pack_unpack_code
+            int32_t *field_out;
+            short *s_field_out = (short *)field;
+            signed char *b_field_out = (signed char *)field;
+            if (xdf_short || xdf_byte) {
+                field_out = malloc(nelm * sizeof(int));
+            } else {
+                field_out = (int32_t *)field;
+            }
+            ier = compact_u_integer(field_out, (void *) NULL, buf, nelm, nbits_in, 0, xdf_stride, 1);
+            if (xdf_short) {
+                for (int i = 0; i < nelm; i++) {
+                    s_field_out[i] = field_out[i];
+                }
+            }
+            else if (xdf_byte) {
+                for (int i = 0; i < nelm; i++) {
+                    b_field_out[i] = field_out[i];
+                }
+            }
+            if (field_out != (int32_t*)field) free(field_out);
+#else
+            // fprintf(stderr, "NEW UNPACK CODE ======================================\n");
+            if (xdf_short) {
+                ier = compact_u_short(field, (void *) NULL, buf, nelm, nbits_in, 0, xdf_stride, 8);
+            } else if (xdf_byte) {
+                ier = compact_u_char(field, (void *) NULL, buf, nelm, nbits_in, 0, xdf_stride, 12);
+            } else {
+                ier = compact_u_integer(field, (void *) NULL, buf, nelm, nbits_in, 0, xdf_stride, 1);
+            }
+#endif
+            break;
+        }
+        case FST_TYPE_REAL_IEEE:
+        case FST_TYPE_COMPLEX: {
+            // IEEE representation
+            // printf("Debug+ fstluk - IEEE representation\n");
+            register int32_t temp32, *src, *dest;
+            if ((downgrade_32) && (nbits_in == 64)) {
+                // Downgrade 64 bit to 32 bit
+                float * ptr_real = (float *) field;
+                double * ptr_double = (double *) buf;
+#if defined(Little_Endian)
+                src = (int32_t *) buf;
+                dest = (int32_t *) buf;
+                for (int i = 0; i < nelm; i++) {
+                    temp32 = *src++;
+                    *dest++ = *src++;
+                    *dest++ = temp32;
+                }
+#endif
+                for (int i = 0; i < nelm; i++) {
+                    *ptr_real++ = *ptr_double++;
+                }
+            } else {
+                int32_t f_one = 1;
+                int32_t f_zero = 0;
+                int32_t f_mode = 2;
+                int npak = nbits_in;
+                f77name(ieeepak)((int32_t *)field, (int32_t *)buf, &nelm, &f_one, &npak, &f_zero, &f_mode);
+            }
+
+            break;
+        }
+
+        case FST_TYPE_REAL:
+        case FST_TYPE_REAL | FST_TYPE_TURBOPACK: {
+            // Floating point, new packers
+            // printf("Debug+ fstluk - Floating point, new packers (6, 134)\n");
+            int nbits, header_size, stream_size, p1out, p2out;
+            c_float_packer_params(&header_size, &stream_size, &p1out, &p2out, ni * nj * nk);
+            header_size /= sizeof(int32_t);
+            if (is_type_turbopack(datyp)) {
+                armn_compress((unsigned char *)(buf + 1 + header_size), ni, nj, nk, nbits_in, 2, 1);
+                // fprintf(stderr, "Debug+ buf+4+(nbytes/4)-1=%X buf+4+(nbytes/4)=%X \n",
+                //    *(buf+4+(nbytes/4)-1), *(buf+4+(nbytes/4)));
+
+                c_float_unpacker((float *)field, (int32_t *)(buf + 1), (int32_t *)(buf + 1 + header_size), nelm, &nbits);
+            } else {
+                c_float_unpacker((float *)field, (int32_t *)buf, (int32_t *)(buf + header_size), nelm, &nbits);
+            }
+            break;
+        }
+
+        case FST_TYPE_REAL_IEEE | FST_TYPE_TURBOPACK: {
+            // Floating point, new packers
+            // printf("Debug+ fstluk - Floating point, new packers (133)\n");
+            c_armn_uncompress32((float *)field, (unsigned char *)(buf + 1), ni, nj, nk, nbits_in);
+            break;
+        }
+
+        case FST_TYPE_STRING:
+            // Character string
+            // printf("Debug+ fstluk - Character string\n");
+            // printf("Debug fstluk compact_u_char xdf_stride=%d nelm =%d\n", xdf_stride, nelm);
+            ier = compact_u_char(field, (void *) NULL, buf, nelm, 8, 0, xdf_stride);
+            break;
+
+        default:
+            Lib_Log(APP_LIBFST, APP_ERROR, "%s: invalid datyp=%d\n", __func__, datyp);
+            ier = -1;
+            goto end ;
+    } // switch
+
+    if (has_missing) {
+        // Replace "missing" data points with the appropriate values given the type of data (int/float)
+        // if nbits = 64 and IEEE , set xdf_double
+        if ((datyp & 0xF) == 5 && nbits_in == 64 ) xdf_double = 1;
+        int sz=(xdf_double?64:(xdf_short?16:(xdf_byte?8:32)));
+        // printf("Debug+ fstluk - DecodeMissingValue\n");
+        DecodeMissingValue(field , (ni) * (nj) * (nk) , xdf_datatyp & 0x3F, sz);
+    }
+
+    // Upgrade size, if necessary
+//     if (xdf_double && (stdf_entry.dasiz < 64 && stdf_entry.dasiz > 0)) {
+    if (xdf_double) {
+        const int base_type = base_fst_type(datyp);
+        if (base_type == FST_TYPE_REAL_IEEE || base_type == FST_TYPE_REAL) {
+            float f[nelm];
+            memcpy(f, field, nelm * sizeof(float));
+            upgrade_size(field, 64, f, 32, nelm, 0);
+        }
+        else if (base_type == FST_TYPE_SIGNED || base_type == FST_TYPE_UNSIGNED) {
+            int32_t x[nelm];
+            memcpy(x, field, nelm * sizeof(int32_t));
+            resize_int(field, 64, x, 32, nelm);
+        }
+    }
+end:
+    return ier ;
 }
