@@ -174,9 +174,12 @@ CT_ASSERT(sizeof(mmap) == (sizeof(mmap) / sizeof(int64_t)) * sizeof(int64_t) , "
 
 // base address of block sizes table
 #define ZMAP_SIZES(MAP) ((MAP)->mhead.srng.bot)
+#define ZMAP_BLOCK_SIZE(MAP,BNO) ZMAP_SIZES(MAP)[BNO]
 
 // base address of offsets table
 #define ZMAP_OFFSETS(MAP) ((MAP)->mhead.orng.bot)
+#define ZMAP_BLOCK_OFFSET(MAP,BNO) ZMAP_OFFSETS(MAP)[BNO]
+
 // base address of block pointers table
 #define ZMAP_POINTERS(MAP) ((MAP)->mhead.prng.bot)
 // NOTE: offsets and pointers CANNOT BOTH BE VALID
