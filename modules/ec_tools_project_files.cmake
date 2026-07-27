@@ -32,6 +32,7 @@ set(PROJECT_C_FILES
 #   src/pred/dwt_i_lgt53.c
 #   src/pred/lorenzo_c.c
   src/diag/misc_analyze.c
+  src/pack/fst98_pack.c
   src/pack/misc_operators.c
   src/pack/misc_pack.c
 #   src/pack/move_blocks.c
