@@ -22,15 +22,9 @@
 
 #include <App.h>
 
-// #include <rmn/rpnmacros.h>
+// import the strict minimum from fst98
 #include <rmn/fst98.h>
 #include <rmn/fst_missing.h>
-
-// #include <armn_compress.h>
-// extern int xdf_double;
-// extern int xdf_short;
-// extern int xdf_byte;
-// extern int xdf_stride;
 
 extern int FTN_Bitmot;
 
@@ -68,6 +62,7 @@ static void memcpy_32_16(int16_t *p16, const int32_t * p32, int nbits, int nb) {
 // remain consistent with fstd98 code
 #define use_old_signed_pack_unpack_code
 
+// borrow some function prototypes
 void c_float_packer_params(int32_t *header_size, int32_t *stream_size, int32_t *p1, int32_t *p2, int32_t npts);
 int32_t c_float_packer(float *source, int32_t nbits, int32_t *header, int32_t *stream, int32_t npts);
 
@@ -304,6 +299,8 @@ uint32_t *fst98_encode(
     int header_size;
     int stream_size;
     int nw;  // number of 32 bit words
+    int p1out;
+    int p2out;
     switch (datyp) {
         case FST_TYPE_REAL: {
             int p1out;
@@ -330,8 +327,6 @@ uint32_t *fst98_encode(
             break;
 
         case FST_TYPE_REAL | FST_TYPE_TURBOPACK:
-            int p1out;
-            int p2out;
             c_float_packer_params(&header_size, &stream_size, &p1out, &p2out, ni * nj * _nk);
             nw = ((header_size + stream_size) * 8 + 32 + 31) / 32;
             stream_size /= sizeof(int32_t);
@@ -649,22 +644,9 @@ uint32_t *fst98_encode(
                 goto fail ;
         } // end switch
 
-    // write record to file and add entry to directory
-//     int ier = c_xdfput(iun, handle, buffer);
-//     if (Lib_LogLevel(APP_LIBFST, NULL) >= APP_INFO) {
-//         char string[14];
-//         snprintf(string, sizeof(string), "Write(%d)", iun);
-//         print_std_parms(stdf_entry, string, prnt_options, -1);
-//     }
-
     if (field_f != NULL) free(field_f);
     if (field_missing != NULL) free(field_missing);
-//     free(buffer);
 
-//     xdf_double = 0;
-//     xdf_short = 0;
-//     xdf_byte = 0;
-    int ier = 0 ;
     return buffer;
 fail :
    if(buffer) free(buffer) ;
