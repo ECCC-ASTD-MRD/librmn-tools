@@ -97,11 +97,14 @@ typedef void_range RANGE(address) ;      // generic address range, synonym of vo
 // get the size of a range element in bytes, 0 if (R).bot is NULL
 #define ELEMENT_SIZE(R) ( (R).bot ? (sizeof((R).bot[0]) / sizeof(uint8_t)) : 0 )
 
-// set address of the first (bottom) element of a range
+// set address of (bottom) in a range
 #define SET_RANGE_BOT(R, BOT)  { (R).bot = (void *)(BOT) ; }
 
-// set address of the last (top) element of a range to a specific address, NULL if any argument is NULL
-#define SET_RANGE_TOP(R, TOP)  { (R).top = ( PTR(TOP) && (R).bot ) ? (PTR(TOP) + sizeof((R).bot[0])) : NULL ; }
+// set address of (top) in a range , NULL if TOP or R.bot is NULL
+#define SET_RANGE_TOP(R, TOP)  { (R).top = (void *)( ( PTR(TOP) && (R).bot ) ? (PTR(TOP)) : NULL ) ; }
+
+// set top and bottom of range
+#define SET_RANGE(R, BOT, TOP) { SET_RANGE_BOT(R, (BOT)) ; SET_RANGE_TOP(R, (TOP)) ; }
 
 // set top address of range to base address + space to accomodate N elements, NULL if (R).bot is NULL
 #define SET_RANGE_ELEMENTS(R, N)  { (R).top = (R).bot ? ((R).bot + N) : NULL ; }
