@@ -114,6 +114,7 @@ set(PROJECT_H_FILES
   src/PUBLIC_INCLUDES/rmn/float_block_encoders.h
   src/PUBLIC_INCLUDES/rmn/fp_qflog.h
   src/PUBLIC_INCLUDES/rmn/fp_qlin.h
+  src/PUBLIC_INCLUDES/rmn/fst98_pack.h
   src/PUBLIC_INCLUDES/rmn/function_pointers.h
   src/PUBLIC_INCLUDES/rmn/identify_c_compiler.h
   src/PUBLIC_INCLUDES/rmn/identify_fortran_compiler.hf
