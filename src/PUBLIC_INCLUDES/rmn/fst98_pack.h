@@ -14,6 +14,9 @@
 // Author:
 //     M. Valin,   Environnement Canada, 2026
 //
+#if !defined(_FST98_PACK_)
+#define _FST98_PACK_
+//
 #include <stdint.h>
 //
 #include <rmn/mem_range.h>
@@ -194,11 +197,11 @@ void upgrade_size(
     const int is_integer    //!< [in] Whether we are copying integers (or float)
 );
 
-RANGE(uint32_t) fst98_encode(
+RANGE(int32_t) fst98_encode(
   //! [in] Field to encode
   const void * const field_in,
   //! [out] encoded field
-  RANGE(uint32_t) field_out,
+  RANGE(int32_t) field_out,
   //! [in] Number of bits kept for the elements of the field
   int npak,
   //! [in] First dimension of the data field
@@ -235,3 +238,5 @@ int fst98_decode(
   int xdf_byte,
   int xdf_stride
 ) ;
+
+#endif
