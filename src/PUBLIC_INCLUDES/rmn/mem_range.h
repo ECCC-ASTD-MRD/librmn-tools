@@ -50,13 +50,20 @@
 #define RANGE_TYPEDEF(KIND) typedef struct{ KIND *bot, *top ; } RANGE(KIND) ; static const RANGE(KIND) KIND##_range_null = RANGE_NULL(KIND) ;
 #define RANGE_KIND(KIND,BOT,TOP) ( (RANGE(KIND)) { (void *)(BOT) , (void *)(TOP) } )
 
-// some predefined/generic address ranges, using unsigned integers
+// some predefined/generic address ranges, using signed and unsigned integers
+RANGE_TYPEDEF(int8_t) ;
 RANGE_TYPEDEF(uint8_t) ;                 // uint8_t_range
 typedef RANGE(uint8_t) RANGE(byte) ;     // byte range
+
+RANGE_TYPEDEF(int16_t) ;
 RANGE_TYPEDEF(uint16_t) ;
 typedef RANGE(uint16_t) RANGE(hword) ;   // halfword range
+
+RANGE_TYPEDEF(int32_t) ;
 RANGE_TYPEDEF(uint32_t) ;
 typedef RANGE(uint32_t) RANGE(word) ;    // word range
+
+RANGE_TYPEDEF(int64_t) ;
 RANGE_TYPEDEF(uint64_t) ;
 typedef RANGE(uint64_t) RANGE(dword) ;   // doubleword range
 
