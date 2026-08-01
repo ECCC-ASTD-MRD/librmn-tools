@@ -53,7 +53,8 @@ void encode_decode_float(int ni, int nj, float f_in[nj][ni], float f_out[nj][ni]
   }
   maxrel = (maxrel < 1.0E-10) ? (1.0E-10) : maxrel ;
   int relpart = 1.0f/maxrel ;
-  fprintf(stderr, "maxabs = %10f, maxrel = 1 part in %d (expected 1 in %d)\n", maxabs, relpart, 1<<(nbits+1)) ;
+  int offset = (nbits <= 16) ? 1 : 0 ;   // less than 17 bits, expected relative error is halved
+  fprintf(stderr, "maxabs = %10f, maxrel = 1 part in %d (expected 1 in %d)\n", maxabs, relpart, 1<<(nbits+offset)) ;
 }
 
 int main(int argc, char **argv){
@@ -111,6 +112,18 @@ int main(int argc, char **argv){
   encode_decode_float(ni, nj, f_data, r_data, 15, FST_TYPE_REAL_OLD_QUANT) ;
 
   fprintf(stderr, "========== FST_TYPE_REAL_OLD_QUANT | FST_TYPE_TURBOPACK ==========\n") ;
-  encode_decode_float(ni, nj, f_data, r_data, 15, FST_TYPE_REAL_OLD_QUANT | FST_TYPE_TURBOPACK) ;
+  encode_decode_float(ni, nj, f_data, r_data, 15, FST_TYPE_REAL | FST_TYPE_TURBOPACK) ;
+
+  fprintf(stderr, "========== FST_TYPE_REAL (17 bits) ==========\n") ;
+  encode_decode_float(ni, nj, f_data, r_data, 17, FST_TYPE_REAL) ;
+
+  fprintf(stderr, "========== FST_TYPE_REAL | FST_TYPE_TURBOPACK (17 bits) ==========\n") ;
+  encode_decode_float(ni, nj, f_data, r_data, 17, FST_TYPE_REAL | FST_TYPE_TURBOPACK) ;
+
+  fprintf(stderr, "========== FST_TYPE_REAL_OLD_QUANT (17 bits) ==========\n") ;
+  encode_decode_float(ni, nj, f_data, r_data, 17, FST_TYPE_REAL_OLD_QUANT) ;
+
+  fprintf(stderr, "========== FST_TYPE_REAL_OLD_QUANT | FST_TYPE_TURBOPACK (17 bits) ==========\n") ;
+  encode_decode_float(ni, nj, f_data, r_data, 17, FST_TYPE_REAL_OLD_QUANT | FST_TYPE_TURBOPACK) ;
 
 }

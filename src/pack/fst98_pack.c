@@ -171,6 +171,10 @@ RANGE(int32_t) fst98_encode(
 
     // cancel turbo compression if nbits > 16 (except for IEEE reals)
     if ((nbits > 16) && (datyp != (FST_TYPE_REAL_IEEE | FST_TYPE_TURBOPACK))) datyp &= (~FST_TYPE_TURBOPACK);
+    // if nbits <= 16 and turbo compression is requested, use FST_TYPE_REAL instead
+    if( (nbits <= 16) && (base_fst_type(datyp) == FST_TYPE_REAL_OLD_QUANT) && (datyp & FST_TYPE_TURBOPACK) ){
+      datyp = ((datyp >> 6) << 6) | FST_TYPE_REAL ; // replace base type FST_TYPE_REAL_OLD_QUANT with FST_TYPE_REAL
+    }
 
     // handle double real / complex type
     if (is_type_real(datyp) || is_type_complex(datyp)) {
@@ -284,24 +288,24 @@ RANGE(int32_t) fst98_encode(
         case FST_TYPE_REAL_OLD_QUANT:            // floating point, old style packers
         case FST_TYPE_REAL_OLD_QUANT | FST_TYPE_TURBOPACK: {
             double tempfloat = 99999.0;
-            if (is_type_turbopack(datyp) && (nbits <= 16)) {      // can use turbo encoding scheme
-                // nbits > 64 flags a different encoding scheme, nbits >> 6 is the effective number of bits to use (minimum 16)
-                packfunc(field_u32, buffer, buffer+5, ni*nj*nk, nbits + 64 * Max(16, nbits), 0, xdf_stride, 0, &tempfloat, &dmin, &dmax);
-                int compressed_lng = armn_compress((byte *)(buffer+5), ni, nj, nk, nbits, 1, 1);
-                if (compressed_lng < 0) {                         // no gain from turbo, repack with offset 24 (120 bit header)
-                    datyp = FST_TYPE_REAL_OLD_QUANT;
-                    packfunc(field_u32,buffer, buffer+3, ni*nj*nk, nbits, 24, xdf_stride, 0, &tempfloat, &dmin, &dmax);
-                    nw = (ni*nj*nk * nbits + 96 + 24 + 31) / 32;  // data + old style header
-                } else {                                          // turbo is usable
-                    int nbytes = 16 + compressed_lng;
-                    nw = (nbytes * 8 + 31) / 32;
-                    buffer[0] = nw;
-                    nw ++ ;    // turbo used, bump nw ;
-                }
-            } else {    // straight quantifier, no turbo, pack with offset 24 (120 bit header)
+//             if (is_type_turbopack(datyp) && (nbits <= 16)) {      // can use turbo encoding scheme
+//                 // nbits > 64 flags a different encoding scheme, nbits >> 6 is the effective number of bits to use (minimum 16)
+//                 packfunc(field_u32, buffer, buffer+5, ni*nj*nk, nbits + 64 * Max(16, nbits), 0, xdf_stride, 0, &tempfloat, &dmin, &dmax);
+//                 int compressed_lng = armn_compress((byte *)(buffer+5), ni, nj, nk, nbits, 1, 1);
+//                 if (compressed_lng < 0) {                         // no gain from turbo, repack with offset 24 (120 bit header)
+//                     datyp = FST_TYPE_REAL_OLD_QUANT;
+//                     packfunc(field_u32,buffer, buffer+3, ni*nj*nk, nbits, 24, xdf_stride, 0, &tempfloat, &dmin, &dmax);
+//                     nw = (ni*nj*nk * nbits + 96 + 24 + 31) / 32;  // data + old style header
+//                 } else {                                          // turbo is usable
+//                     int nbytes = 16 + compressed_lng;
+//                     nw = (nbytes * 8 + 31) / 32;
+//                     buffer[0] = nw;
+//                     nw ++ ;    // turbo used, bump nw ;
+//                 }
+//             } else {    // straight quantifier, no turbo, pack with offset 24 (120 bit header)
                 packfunc(field_u32, buffer, buffer+3, ni*nj*nk, nbits, 24, xdf_stride, 0, &tempfloat, &dmin, &dmax);
                 nw = (ni*nj*nk * nbits + 96 + 24 + 31) / 32;
-            }
+//             }
             break;                      // nw = actual length of "encoded" stream
         }
 
@@ -501,6 +505,21 @@ int fst98_decode(
     int nelm = ni*nj*nk ;
     uint32_t *buf = (uint32_t *) data_in ;
     if (datyp == 8) nelm *= 2;    // complex data, double number of values
+
+    // nbits > 16, remove FST_TYPE_TURBOPACK, replace FST_TYPE_REAL with FST_TYPE_REAL_OLD_QUANT
+    if(nbits_in > 16){
+      datyp &+ (~FST_TYPE_TURBOPACK) ;
+      if(base_fst_type(datyp) == FST_TYPE_REAL){
+        datyp = ((datyp >> 6) << 6) | FST_TYPE_REAL_OLD_QUANT ;
+      }
+    }
+//   turbo mode not supported for FST_TYPE_REAL_OLD_QUANT
+    if( (nbits_in <= 16) && (base_fst_type(datyp) == FST_TYPE_REAL_OLD_QUANT) && (datyp & FST_TYPE_TURBOPACK) ){
+      datyp = ((datyp >> 6) << 6) | FST_TYPE_REAL ; // replace base type FST_TYPE_REAL_OLD_QUANT with FST_TYPE_REAL
+    }
+    if( (base_fst_type(datyp) == FST_TYPE_REAL_OLD_QUANT ) && (datyp & FST_TYPE_TURBOPACK) ){
+      datyp &= (~FST_TYPE_TURBOPACK) ;
+    }
 
     switch (datyp) {
         case FST_TYPE_BINARY: {            // Raw binary
