@@ -64,7 +64,6 @@ static void memcpy_32_16(int16_t *p16, const int32_t * p32, int nbits, int nb) {
 
 static int dejafait_xdf_1 = 0;
 static int dejafait_xdf_2 = 0;
-
 RANGE(int32_t) fst98_encode(
   //! [in] Field to encode
   const void * const field_in,
@@ -80,7 +79,7 @@ RANGE(int32_t) fst98_encode(
   int nk,
   //! [in] Data type of elements
   const int in_datyp_ori,
-  int *new_datyp,
+  int *data_kind,  // lower 16 bits : data type, upper 16 bits : nbits
   const int xdf_double,
   const int xdf_short,
   const int xdf_byte,
@@ -464,7 +463,7 @@ RANGE(int32_t) fst98_encode(
     if (field_f       != NULL) free(field_f);
     if (field_missing != NULL) free(field_missing);
 
-    *new_datyp = datyp ;
+    *data_kind = datyp | (nbits << 16) ;
     return (RANGE(int32_t)) { buffer, (buffer + nw) } ;
 fail :
    if(buffer && local_buffer) free(buffer) ;   // free buffer if it was allocated locally
@@ -483,8 +482,9 @@ int fst98_decode(
   int nj,
   //! [in] Dimension 3 of the data field
   int nk,
-  int datyp,
-  int nbits_in,
+  int data_kind,
+//   int datyp,
+//   int nbits_in,
   int downgrade_32,
   int xdf_double,
   int xdf_short,
@@ -493,6 +493,8 @@ int fst98_decode(
 ) {
     uint32_t *field = data_out;
     int ier = 0 ;
+    int datyp = data_kind & 0xFFFF ;
+    int nbits_in = data_kind >> 16 ;
 
     // Get missing data flag
     int has_missing = datyp & FSTD_MISSING_FLAG;
@@ -533,15 +535,15 @@ int fst98_decode(
             break;
         }
 
-        case FST_TYPE_REAL_OLD_QUANT:            // Floating Point, old style packers
-        case FST_TYPE_REAL_OLD_QUANT | FST_TYPE_TURBOPACK: {
+//         case FST_TYPE_REAL_OLD_QUANT | FST_TYPE_TURBOPACK: {
+//             double tempfloat = 99999.0;
+//             armn_compress((byte *)(buf + 5), ni, nj, nk, nbits_in, 2, 1);
+//             packfunc(field, buf + 1, buf + 5, nelm, nbits_in + 64 * Max(16, nbits_in), 0, xdf_stride, 0, &tempfloat, &dmin, &dmax);
+//             break;
+//     }
+        case FST_TYPE_REAL_OLD_QUANT: {          // Floating Point, old style packers
             double tempfloat = 99999.0;
-//             if (is_type_turbopack(datyp)) {
-//                 armn_compress((byte *)(buf + 5), ni, nj, nk, nbits_in, 2, 1);
-//                 packfunc(field, buf + 1, buf + 5, nelm, nbits_in + 64 * Max(16, nbits_in), 0, xdf_stride, 0, &tempfloat, &dmin, &dmax);
-//             } else {
-                packfunc(field, buf, buf + 3, nelm, nbits_in, 24, xdf_stride, 0, &tempfloat, &dmin , &dmax);
-//             }
+            packfunc(field, buf, buf + 3, nelm, nbits_in, 24, xdf_stride, 0, &tempfloat, &dmin , &dmax);
             break;
         }
 

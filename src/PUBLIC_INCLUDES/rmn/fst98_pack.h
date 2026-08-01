@@ -212,7 +212,7 @@ RANGE(int32_t) fst98_encode(
   int nk,
   //! [in] Data type of elements
   const int in_datyp_ori,
-  int *new_datyp,
+  int *data_kind,
   const int xdf_double,
   const int xdf_short,
   const int xdf_byte,
@@ -231,8 +231,9 @@ int fst98_decode(
   int nj,
   //! [in] Dimension 3 of the data field
   int nk,
-  int datyp,
-  int nbits_in,
+  int data_kind,
+//   int datyp,
+//   int nbits_in,
   int downgrade_32,
   int xdf_double,
   int xdf_short,
