@@ -80,6 +80,7 @@ RANGE(int32_t) fst98_encode(
   int nk,
   //! [in] Data type of elements
   const int in_datyp_ori,
+  int *new_datyp,
   const int xdf_double,
   const int xdf_short,
   const int xdf_byte,
@@ -463,6 +464,7 @@ RANGE(int32_t) fst98_encode(
     if (field_f       != NULL) free(field_f);
     if (field_missing != NULL) free(field_missing);
 
+    *new_datyp = datyp ;
     return (RANGE(int32_t)) { buffer, (buffer + nw) } ;
 fail :
    if(buffer && local_buffer) free(buffer) ;   // free buffer if it was allocated locally
@@ -496,7 +498,7 @@ int fst98_decode(
     int has_missing = datyp & FSTD_MISSING_FLAG;
     // Suppress missing data flag
     datyp = datyp & ~FSTD_MISSING_FLAG;
-    int xdf_datatyp = datyp;
+//     int xdf_datatyp = datyp;
 
     UnpackFunctionPointer packfunc = xdf_double ? &compact_u_double : &compact_u_float;
     double dmin=0.0, dmax=0.0;
@@ -505,11 +507,12 @@ int fst98_decode(
     int nelm = ni*nj*nk ;
     uint32_t *buf = (uint32_t *) data_in ;
     if (datyp == 8) nelm *= 2;    // complex data, double number of values
-
+#if 0
+    // TODO : take care of IEEE case, nbits > 16 O.K. with turbo
     // nbits > 16, remove FST_TYPE_TURBOPACK, replace FST_TYPE_REAL with FST_TYPE_REAL_OLD_QUANT
     if(nbits_in > 16){
-      datyp &+ (~FST_TYPE_TURBOPACK) ;
-      if(base_fst_type(datyp) == FST_TYPE_REAL){
+      if(base_fst_type(datyp) == FST_TYPE_REAL || base_fst_type(datyp) == FST_TYPE_REAL_OLD_QUANT){
+        datyp &+ (~FST_TYPE_TURBOPACK) ;
         datyp = ((datyp >> 6) << 6) | FST_TYPE_REAL_OLD_QUANT ;
       }
     }
@@ -520,7 +523,7 @@ int fst98_decode(
     if( (base_fst_type(datyp) == FST_TYPE_REAL_OLD_QUANT ) && (datyp & FST_TYPE_TURBOPACK) ){
       datyp &= (~FST_TYPE_TURBOPACK) ;
     }
-
+#endif
     switch (datyp) {
         case FST_TYPE_BINARY: {            // Raw binary
             int lngw = ((nelm * nbits_in) + 32 - 1) / 32;
@@ -533,19 +536,12 @@ int fst98_decode(
         case FST_TYPE_REAL_OLD_QUANT:            // Floating Point, old style packers
         case FST_TYPE_REAL_OLD_QUANT | FST_TYPE_TURBOPACK: {
             double tempfloat = 99999.0;
-            if (is_type_turbopack(datyp)) {
-fprintf(stderr,"step 1, ni=%d, nj=%d, nk=%d, nbits_in = %d\n", ni, nj, nk, nbits_in) ;
-//              armn_compress((unsigned char *)(buf->data + 5), *ni, *nj, *nk, stdf_entry.nbits, 2, 1);
-                armn_compress((byte *)(buf + 5), ni, nj, nk, nbits_in, 2, 1);
-fprintf(stderr,"step 2, nelm = %d, stride = %d, buf[0] = %d\n", nelm, xdf_stride, buf[0]) ;
-fprintf(stderr,"        packfunc = %s\n", (packfunc == compact_u_float) ? "compact_u_float" : "compact_u_double"); ;
-//              packfunc(field, buf->data + 1, buf->data + 5, nelm, stdf_entry.nbits + 64 * Max(16, stdf_entry.nbits),
-//                       0, xdf_stride, 0, &tempfloat, &dmin, &dmax);
-                packfunc(field, buf + 1, buf + 5, nelm, nbits_in + 64 * Max(16, nbits_in), 0, xdf_stride, 0, &tempfloat, &dmin, &dmax);
-fprintf(stderr,"step 3\n");
-            } else {
+//             if (is_type_turbopack(datyp)) {
+//                 armn_compress((byte *)(buf + 5), ni, nj, nk, nbits_in, 2, 1);
+//                 packfunc(field, buf + 1, buf + 5, nelm, nbits_in + 64 * Max(16, nbits_in), 0, xdf_stride, 0, &tempfloat, &dmin, &dmax);
+//             } else {
                 packfunc(field, buf, buf + 3, nelm, nbits_in, 24, xdf_stride, 0, &tempfloat, &dmin , &dmax);
-            }
+//             }
             break;
         }
 
@@ -697,7 +693,8 @@ fprintf(stderr,"step 3\n");
         if ((datyp & 0xF) == 5 && nbits_in == 64 ) xdf_double = 1;
         int sz=(xdf_double?64:(xdf_short?16:(xdf_byte?8:32)));
         // printf("Debug+ fstluk - DecodeMissingValue\n");
-        DecodeMissingValue(field , (ni) * (nj) * (nk) , xdf_datatyp & 0x3F, sz);
+//         DecodeMissingValue(field , (ni) * (nj) * (nk) , xdf_datatyp & 0x3F, sz);
+        DecodeMissingValue(field , (ni) * (nj) * (nk) , datyp & 0x3F, sz);
     }
 
     // Upgrade size, if necessary

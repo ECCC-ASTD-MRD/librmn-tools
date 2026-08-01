@@ -212,6 +212,7 @@ RANGE(int32_t) fst98_encode(
   int nk,
   //! [in] Data type of elements
   const int in_datyp_ori,
+  int *new_datyp,
   const int xdf_double,
   const int xdf_short,
   const int xdf_byte,

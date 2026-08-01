@@ -29,13 +29,14 @@ void encode_decode_float(int ni, int nj, float f_in[nj][ni], float f_out[nj][ni]
   int32_t stream[ni*nj+128] ;
   RANGE(int32_t) field_out = (RANGE(int32_t)) {stream, stream+ni*nj+128} ;
   RANGE(int32_t) encoded ;
+  int new_datyp ;
 
   fprintf(stderr, "F_in corners\n") ;
   fprintf(stderr, "  %10f %10f\n", f_in[GNJ-1][0], f_in[GNJ-1][GNI-1]) ;
   fprintf(stderr, "  %10f %10f\n", f_in[    0][0], f_in[    0][GNI-1]) ;
-  encoded = fst98_encode((void *)f_in, field_out, -nbits, ni, nj, 1, datyp, 0, 0, 0, 1) ;
+  encoded = fst98_encode((void *)f_in, field_out, -nbits, ni, nj, 1, datyp, &new_datyp, 0, 0, 0, 1) ;
   fprintf(stderr, "encoded size = %ld elements (%ld bytes)\n", RANGE_ELEMENTS(encoded), RANGE_BYTES(encoded));
-  fst98_decode(f_out,  encoded.bot, ni, nj, 1, datyp, nbits, 0, 0, 0, 0, 1) ;
+  fst98_decode(f_out,  encoded.bot, ni, nj, 1, new_datyp, nbits, 0, 0, 0, 0, 1) ;
   fprintf(stderr, "F_out corners\n") ;
   fprintf(stderr, "  %10f %10f\n", f_out[GNJ-1][0], f_out[GNJ-1][GNI-1]) ;
   fprintf(stderr, "  %10f %10f\n", f_out[    0][0], f_out[    0][GNI-1]) ;
