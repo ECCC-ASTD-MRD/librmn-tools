@@ -193,15 +193,33 @@ RANGE(int32_t) fst98_encode(
     int header_size, stream_size, p1out, p2out;
 
     switch (datyp) {
-        case FST_TYPE_REAL:
+        case FST_TYPE_BINARY:                                         // transparent 32 bit data
+        case FST_TYPE_BINARY | FST_TYPE_TURBOPACK:
+            nbits = 32 ;
+            datyp = FST_TYPE_BINARY ;
+            nw = ni*nj*nk ;                                           // (correct length)
+            break ;
+
+        case FST_TYPE_REAL:                                           // float
             c_float_packer_params(&header_size, &stream_size, &p1out, &p2out, ni*nj*nk);
             nw = ((header_size + stream_size) * 8 + 31) / 32;         // (correct length)
             header_size /= sizeof(int32_t);
             stream_size /= sizeof(int32_t);
             break;
 
+        case FST_TYPE_REAL | FST_TYPE_TURBOPACK:                      // float
+            c_float_packer_params(&header_size, &stream_size, &p1out, &p2out, ni*nj*nk);
+            nw = ((header_size + stream_size) * 8 + 32 + 31) / 32;    // (worst case length)
+            header_size /= sizeof(int32_t);
+            stream_size /= sizeof(int32_t);
+            break;
+
         case FST_TYPE_COMPLEX:                                        // IEEE 32/64 bits
             nw = 2 * ((ni*nj*nk * 64) / 32);                          // (worst case length)
+            break;
+
+        case FST_TYPE_REAL_OLD_QUANT:                                 // float (old style)
+            nw = (ni*nj*nk * nbits + 120 + 31) / 32;                  // (correct length)
             break;
 
         case FST_TYPE_REAL_OLD_QUANT | FST_TYPE_TURBOPACK:
@@ -214,15 +232,8 @@ RANGE(int32_t) fst98_encode(
             nw = ( 32 + (ni*nj*nk * Max(nbits, 16)) +31) / 32;
             break;
 
-        case FST_TYPE_REAL | FST_TYPE_TURBOPACK:
-            c_float_packer_params(&header_size, &stream_size, &p1out, &p2out, ni*nj*nk);
-            nw = ((header_size + stream_size) * 8 + 32 + 31) / 32;    //    (worst case length)
-            header_size /= sizeof(int32_t);
-            stream_size /= sizeof(int32_t);
-            break;
-
         default:                                                      //    (worst case length)
-            nw = (ni*nj*nk * nbits + 120 + 31) / 32;
+            nw = (ni*nj*nk * nbits + 120 + 32 + 31) / 32;
             break;
     }
 
@@ -504,8 +515,15 @@ int fst98_decode(
         case FST_TYPE_REAL_OLD_QUANT | FST_TYPE_TURBOPACK: {
             double tempfloat = 99999.0;
             if (is_type_turbopack(datyp)) {
+fprintf(stderr,"step 1, ni=%d, nj=%d, nk=%d, nbits_in = %d\n", ni, nj, nk, nbits_in) ;
+//              armn_compress((unsigned char *)(buf->data + 5), *ni, *nj, *nk, stdf_entry.nbits, 2, 1);
                 armn_compress((byte *)(buf + 5), ni, nj, nk, nbits_in, 2, 1);
+fprintf(stderr,"step 2, nelm = %d, stride = %d, buf[0] = %d\n", nelm, xdf_stride, buf[0]) ;
+fprintf(stderr,"        packfunc = %s\n", (packfunc == compact_u_float) ? "compact_u_float" : "compact_u_double"); ;
+//              packfunc(field, buf->data + 1, buf->data + 5, nelm, stdf_entry.nbits + 64 * Max(16, stdf_entry.nbits),
+//                       0, xdf_stride, 0, &tempfloat, &dmin, &dmax);
                 packfunc(field, buf + 1, buf + 5, nelm, nbits_in + 64 * Max(16, nbits_in), 0, xdf_stride, 0, &tempfloat, &dmin, &dmax);
+fprintf(stderr,"step 3\n");
             } else {
                 packfunc(field, buf, buf + 3, nelm, nbits_in, 24, xdf_stride, 0, &tempfloat, &dmin , &dmax);
             }
