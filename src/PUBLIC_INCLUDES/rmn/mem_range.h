@@ -47,7 +47,10 @@
 #define RANGE(KIND) KIND##_range
 #define NO_RANGE {NULL, NULL}
 #define RANGE_NULL(KIND) ((RANGE(KIND))NO_RANGE)
-#define RANGE_TYPEDEF(KIND) typedef struct{ KIND *bot, *top ; } RANGE(KIND) ; static const RANGE(KIND) KIND##_range_null = RANGE_NULL(KIND) ;
+#define RANGE_NULL_VAR(KIND) KIND##_range_null
+#define RANGE_NULL_CONST(KIND) static const RANGE(KIND) RANGE_NULL_VAR(KIND) = RANGE_NULL(KIND) ;
+// #define RANGE_TYPEDEF(KIND) typedef struct{ KIND *bot, *top ; } RANGE(KIND) ; static const RANGE(KIND) KIND##_range_null = RANGE_NULL(KIND) ;
+#define RANGE_TYPEDEF(KIND) typedef struct{ KIND *bot, *top ; } RANGE(KIND) ;
 #define RANGE_KIND(KIND,BOT,TOP) ( (RANGE(KIND)) { (void *)(BOT) , (void *)(TOP) } )
 
 #define RANGE_CAST(R,KIND) (RANGE(KIND)){(KIND *)(R.bot), (KIND *)(R.top) }

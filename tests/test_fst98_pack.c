@@ -32,7 +32,9 @@ void encode_decode_float(int ni, int nj, float f_in[nj][ni], float f_out[nj][ni]
   int data_kind ;
 
   RANGE_TYPEDEF(float) ;
-  RANGE(float) r_float = float_range_null ;
+  RANGE(float) r_float = RANGE_NULL(float) ;
+  RANGE_NULL_CONST(float) ;
+  if(RANGE_NULL_VAR(float).bot != RANGE_NULL_VAR(float).top) exit(1) ;
   r_float = RANGE_CAST(field_out, float) ;
   if(RANGE_ELEMENTS(r_float) < ni*nj) exit(1) ;
   fprintf(stderr, "downgrade_32, xdf_double, xdf_short, xdf_byte, xdf_stride = %d %d %d %d %d\n", downgrade_32, xdf_double, xdf_short, xdf_byte, xdf_stride) ;
