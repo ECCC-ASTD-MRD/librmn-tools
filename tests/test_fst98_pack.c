@@ -31,12 +31,18 @@ void encode_decode_float(int ni, int nj, float f_in[nj][ni], float f_out[nj][ni]
   RANGE(int32_t) encoded ;
   int data_kind ;
 
+  RANGE_TYPEDEF(float) ;
+  RANGE(float) r_float = float_range_null ;
+  r_float = RANGE_CAST(field_out, float) ;
+  if(RANGE_ELEMENTS(r_float) < ni*nj) exit(1) ;
+  fprintf(stderr, "downgrade_32, xdf_double, xdf_short, xdf_byte, xdf_stride = %d %d %d %d %d\n", downgrade_32, xdf_double, xdf_short, xdf_byte, xdf_stride) ;
+
   fprintf(stderr, "F_in corners\n") ;
   fprintf(stderr, "  %10f %10f\n", f_in[GNJ-1][0], f_in[GNJ-1][GNI-1]) ;
   fprintf(stderr, "  %10f %10f\n", f_in[    0][0], f_in[    0][GNI-1]) ;
-  encoded = fst98_encode((void *)f_in, field_out, -nbits, ni, nj, 1, datyp, &data_kind, 0, 0, 0, 1) ;
+  encoded = fst98_encode((void *)f_in, field_out, -nbits, ni, nj, 1, datyp, &data_kind) ;
   fprintf(stderr, "encoded size = %ld elements (%ld bytes)\n", RANGE_ELEMENTS(encoded), RANGE_BYTES(encoded));
-  fst98_decode(f_out,  encoded.bot, ni, nj, 1, data_kind, 0, 0, 0, 0, 1) ;
+  fst98_decode(f_out,  encoded.bot, ni, nj, 1, data_kind) ;
   fprintf(stderr, "F_out corners\n") ;
   fprintf(stderr, "  %10f %10f\n", f_out[GNJ-1][0], f_out[GNJ-1][GNI-1]) ;
   fprintf(stderr, "  %10f %10f\n", f_out[    0][0], f_out[    0][GNI-1]) ;

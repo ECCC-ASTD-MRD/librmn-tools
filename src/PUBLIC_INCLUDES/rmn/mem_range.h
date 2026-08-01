@@ -50,6 +50,8 @@
 #define RANGE_TYPEDEF(KIND) typedef struct{ KIND *bot, *top ; } RANGE(KIND) ; static const RANGE(KIND) KIND##_range_null = RANGE_NULL(KIND) ;
 #define RANGE_KIND(KIND,BOT,TOP) ( (RANGE(KIND)) { (void *)(BOT) , (void *)(TOP) } )
 
+#define RANGE_CAST(R,KIND) (RANGE(KIND)){(KIND *)(R.bot), (KIND *)(R.top) }
+
 // some predefined/generic address ranges, using signed and unsigned integers
 RANGE_TYPEDEF(int8_t) ;
 RANGE_TYPEDEF(uint8_t) ;                 // uint8_t_range

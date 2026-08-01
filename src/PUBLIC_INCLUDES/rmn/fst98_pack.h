@@ -23,6 +23,7 @@
 // import as little as possible from fstd 98 code
 #include <rmn/fst98.h>
 #include <rmn/fst_missing.h>
+extern  int downgrade_32, xdf_double, xdf_short, xdf_byte, xdf_stride ; 
 
 typedef void *(*PackFunctionPointer)(
     const void * const unpackedArrayOfFloat,
@@ -212,12 +213,7 @@ RANGE(int32_t) fst98_encode(
   int nk,
   //! [in] Data type of elements
   const int in_datyp_ori,
-  int *data_kind,
-  const int xdf_double,
-  const int xdf_short,
-  const int xdf_byte,
-  const int xdf_stride
-) ;
+  int *data_kind) ;
 
 //! XDF version
 int fst98_decode(
@@ -231,14 +227,6 @@ int fst98_decode(
   int nj,
   //! [in] Dimension 3 of the data field
   int nk,
-  int data_kind,
-//   int datyp,
-//   int nbits_in,
-  int downgrade_32,
-  int xdf_double,
-  int xdf_short,
-  int xdf_byte,
-  int xdf_stride
-) ;
+  int data_kind) ;
 
 #endif

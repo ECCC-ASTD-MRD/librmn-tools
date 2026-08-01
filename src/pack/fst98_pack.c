@@ -79,11 +79,11 @@ RANGE(int32_t) fst98_encode(
   int nk,
   //! [in] Data type of elements
   const int in_datyp_ori,
-  int *data_kind,  // lower 16 bits : data type, upper 16 bits : nbits
+  int *data_kind/*,  // lower 16 bits : data type, upper 16 bits : nbits
   const int xdf_double,
   const int xdf_short,
   const int xdf_byte,
-  const int xdf_stride
+  const int xdf_stride*/
 ) {
 
     float* field_f = NULL;          // float version of the data
@@ -482,14 +482,12 @@ int fst98_decode(
   int nj,
   //! [in] Dimension 3 of the data field
   int nk,
-  int data_kind,
-//   int datyp,
-//   int nbits_in,
+  int data_kind/*,
   int downgrade_32,
   int xdf_double,
   int xdf_short,
   int xdf_byte,
-  int xdf_stride
+  int xdf_stride*/
 ) {
     uint32_t *field = data_out;
     int ier = 0 ;
