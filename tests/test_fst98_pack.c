@@ -30,7 +30,13 @@ void encode_decode_float(int ni, int nj, float f_in[nj][ni], float f_out[nj][ni]
   RANGE(int32_t) field_out = (RANGE(int32_t)) {stream, stream+ni*nj+128} ;
   RANGE(int32_t) encoded ;
   int data_kind ;
+  union{
+    uint32_t u ;
+    float    f ;
+  }iuf ;
+  int ieee_data = 0 ;
 
+  ieee_data = ( (datyp & 0x3f) == 5) || ( (datyp & 0x3f) == 8) ;
   RANGE_TYPEDEF(float) ;
   RANGE(float) r_float = RANGE_NULL(float) ;
   RANGE_NULL_CONST(float) ;
@@ -39,31 +45,45 @@ void encode_decode_float(int ni, int nj, float f_in[nj][ni], float f_out[nj][ni]
   if(RANGE_ELEMENTS(r_float) < ni*nj) exit(1) ;
   fprintf(stderr, "downgrade_32, xdf_double, xdf_short, xdf_byte, xdf_stride = %d %d %d %d %d\n", downgrade_32, xdf_double, xdf_short, xdf_byte, xdf_stride) ;
 
-  fprintf(stderr, "F_in corners\n") ;
+  fprintf(stderr, "F_in corners, datyp = %d, nbits = %d\n", datyp, nbits) ;
   fprintf(stderr, "  %10f %10f\n", f_in[GNJ-1][0], f_in[GNJ-1][GNI-1]) ;
   fprintf(stderr, "  %10f %10f\n", f_in[    0][0], f_in[    0][GNI-1]) ;
+
   encoded = fst98_encode((void *)f_in, field_out, -nbits, ni, nj, 1, datyp, &data_kind) ;
+//   encoded = fst98_encode((void *)f_in, RANGE_NULL(int32_t), -nbits, ni, nj, 1, datyp, &data_kind) ;
   fprintf(stderr, "encoded size = %ld elements (%ld bytes)\n", RANGE_ELEMENTS(encoded), RANGE_BYTES(encoded));
+
   fst98_decode(f_out,  encoded.bot, ni, nj, 1, data_kind) ;
-  fprintf(stderr, "F_out corners\n") ;
+  fprintf(stderr, "F_out corners, datyp = %d, nbits = %d\n", data_kind&0xFFFF, data_kind>>16) ;
   fprintf(stderr, "  %10f %10f\n", f_out[GNJ-1][0], f_out[GNJ-1][GNI-1]) ;
   fprintf(stderr, "  %10f %10f\n", f_out[    0][0], f_out[    0][GNI-1]) ;
-
+// TODO: revoir criteres pour erreur relative => range / 2**nbits
   float maxabs = 0.0f , maxrel = 0.0f  ;
+  float fmax, fmin ;
+  fmax = fmin = f_in[0][0] ;
   for(int j=0 ; j<nj ; j++){
     for(int i=0 ; i<ni ; i++){
       float err = f_out[j][i] - f_in[j][i] ;
       float rel = (f_in[j][i] == 0.0f) ? 0.0f : (err / f_in[j][i]) ;
+      fmax = (f_in[j][i] > fmax) ? f_in[j][i] : fmax ;
+      fmin = (f_in[j][i] < fmin) ? f_in[j][i] : fmin ;
       err = (err < 0.0f) ? (-err) : err ;
       rel = (rel < 0.0f) ? (-rel) : rel ;
       maxabs = (err > maxabs) ? err : maxabs ;
-      maxrel = (rel > maxrel) ? rel : maxrel ;
+//       maxrel = (rel > maxrel) ? rel : maxrel ;
     }
   }
+  iuf.f = (fmax - fmin) ;       // float values range
+  iuf.u += 0x3FFFFFFF ;         // bump to power of 2 >= range
+  iuf.u &= (~0x3FFFFFFF) ;
+  maxrel = maxabs / iuf.f ;     // largest error / bumped range
   maxrel = (maxrel < 1.0E-10) ? (1.0E-10) : maxrel ;
   int relpart = 1.0f/maxrel ;
-  int offset = (nbits <= 16) ? 1 : 0 ;   // less than 17 bits, expected relative error is halved
-  fprintf(stderr, "maxabs = %10f, maxrel = 1 part in %d (expected 1 in %d)\n", maxabs, relpart, 1<<(nbits+offset)) ;
+  if(maxabs == 0.0f || ieee_data){
+    fprintf(stderr, "maxabs = %10f\n", maxabs) ;
+  }else{
+    fprintf(stderr, "maxabs = %10f, maxrel = 1 part in %d (expected 1 in %d)\n", maxabs, relpart, 1<<(nbits+1)) ;
+  }
 }
 
 int main(int argc, char **argv){
@@ -111,28 +131,34 @@ int main(int argc, char **argv){
 
 //   nbits = 16 ; datyp = FST_TYPE_REAL | FST_TYPE_TURBOPACK ;
 
-  fprintf(stderr, "========== FST_TYPE_REAL ==========\n") ;
-  encode_decode_float(ni, nj, f_data, r_data, 15, FST_TYPE_REAL) ;
+  fprintf(stderr, "========== FST_TYPE_REAL (16 bits) ==========\n") ;
+  encode_decode_float(ni, nj, f_data, r_data, 16, FST_TYPE_REAL) ;
 
-  fprintf(stderr, "========== FST_TYPE_REAL | FST_TYPE_TURBOPACK ==========\n") ;
-  encode_decode_float(ni, nj, f_data, r_data, 15, FST_TYPE_REAL | FST_TYPE_TURBOPACK) ;
+  fprintf(stderr, "========== FST_TYPE_REAL | FST_TYPE_TURBOPACK (16 bits) ==========\n") ;
+  encode_decode_float(ni, nj, f_data, r_data, 16, FST_TYPE_REAL | FST_TYPE_TURBOPACK) ;
+// 
+//   fprintf(stderr, "========== FST_TYPE_REAL_OLD_QUANT (15 bits) ==========\n") ;
+//   encode_decode_float(ni, nj, f_data, r_data, 15, FST_TYPE_REAL_OLD_QUANT) ;
+// 
+//   fprintf(stderr, "========== FST_TYPE_REAL_OLD_QUANT | FST_TYPE_TURBOPACK (15 bits) ==========\n") ;
+//   encode_decode_float(ni, nj, f_data, r_data, 15, FST_TYPE_REAL_OLD_QUANT | FST_TYPE_TURBOPACK) ;
 
-  fprintf(stderr, "========== FST_TYPE_REAL_OLD_QUANT ==========\n") ;
-  encode_decode_float(ni, nj, f_data, r_data, 15, FST_TYPE_REAL_OLD_QUANT) ;
+  fprintf(stderr, "========== FST_TYPE_REAL_IEEE (24 bits) ==========\n") ;
+  encode_decode_float(ni, nj, f_data, r_data, 24, FST_TYPE_REAL_IEEE) ;
 
-  fprintf(stderr, "========== FST_TYPE_REAL_OLD_QUANT | FST_TYPE_TURBOPACK ==========\n") ;
-  encode_decode_float(ni, nj, f_data, r_data, 15, FST_TYPE_REAL | FST_TYPE_TURBOPACK) ;
+  fprintf(stderr, "========== FST_TYPE_REAL_IEEE | FST_TYPE_TURBOPACK (24 bits) ==========\n") ;
+  encode_decode_float(ni, nj, f_data, r_data, 24, FST_TYPE_REAL_IEEE | FST_TYPE_TURBOPACK) ;
 
-  fprintf(stderr, "========== FST_TYPE_REAL (17 bits) ==========\n") ;
-  encode_decode_float(ni, nj, f_data, r_data, 17, FST_TYPE_REAL) ;
-
-  fprintf(stderr, "========== FST_TYPE_REAL | FST_TYPE_TURBOPACK (17 bits) ==========\n") ;
-  encode_decode_float(ni, nj, f_data, r_data, 17, FST_TYPE_REAL | FST_TYPE_TURBOPACK) ;
-
-  fprintf(stderr, "========== FST_TYPE_REAL_OLD_QUANT (17 bits) ==========\n") ;
-  encode_decode_float(ni, nj, f_data, r_data, 17, FST_TYPE_REAL_OLD_QUANT) ;
-
-  fprintf(stderr, "========== FST_TYPE_REAL_OLD_QUANT | FST_TYPE_TURBOPACK (17 bits) ==========\n") ;
-  encode_decode_float(ni, nj, f_data, r_data, 17, FST_TYPE_REAL_OLD_QUANT | FST_TYPE_TURBOPACK) ;
+//   fprintf(stderr, "========== FST_TYPE_REAL (20 bits) ==========\n") ;
+//   encode_decode_float(ni, nj, f_data, r_data, 20, FST_TYPE_REAL) ;
+// 
+//   fprintf(stderr, "========== FST_TYPE_REAL | FST_TYPE_TURBOPACK (20 bits) ==========\n") ;
+//   encode_decode_float(ni, nj, f_data, r_data, 20, FST_TYPE_REAL | FST_TYPE_TURBOPACK) ;
+// 
+//   fprintf(stderr, "========== FST_TYPE_REAL_OLD_QUANT (20 bits) ==========\n") ;
+//   encode_decode_float(ni, nj, f_data, r_data, 20, FST_TYPE_REAL_OLD_QUANT) ;
+// 
+//   fprintf(stderr, "========== FST_TYPE_REAL_OLD_QUANT | FST_TYPE_TURBOPACK (20 bits) ==========\n") ;
+//   encode_decode_float(ni, nj, f_data, r_data, 20, FST_TYPE_REAL_OLD_QUANT | FST_TYPE_TURBOPACK) ;
 
 }
