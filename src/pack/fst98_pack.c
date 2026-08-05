@@ -309,6 +309,7 @@ fprintf(stderr,"DEBUG : xdf_double reset to 0\n");
             }
             nw = ((ni*nj*nk * nbits) + 31) / 32;                 // recompute nw using possibly revised nbits
         }
+        xdf_short = xdf_byte = 0 ;
         break;                      // nw = actual length of "encoded" stream
 
     case FST_TYPE_SIGNED:            // integers, short integers or bytes (signed)
@@ -320,16 +321,22 @@ fprintf(stderr,"DEBUG : xdf_double reset to 0\n");
         if (xdf_short || xdf_byte) {
 //                 int32_t* field3 = (int *)malloc(ni*nj*nk*sizeof(int));
             int32_t field3[ni*nj*nk] ;
-            int16_t *s_field = (int16_t *)field_u32;
-            int8_t  *b_field = (int8_t  *)field_u32;
-            if (xdf_short) for (int i = 0; i < ni*nj*nk;i++) { field3[i] = s_field[i]; };    // expand to int32_t
-            if (xdf_byte)  for (int i = 0; i < ni*nj*nk;i++) { field3[i] = b_field[i]; };    // expand to int32_t
+            if (xdf_short){
+              int16_t *s_field = (int16_t *)field_u32;
+              for (int i = 0; i < ni*nj*nk;i++) { field3[i] = s_field[i]; };    // expand to int32_t
+              nbits = Min(16, nbits);    // at most 16 bits
+            }else if (xdf_byte){
+              int8_t  *b_field = (int8_t  *)field_u32;
+              for (int i = 0; i < ni*nj*nk;i++) { field3[i] = b_field[i]; };    // expand to int32_t
+              nbits = Min(8, nbits);     // at most 8 bits
+            }
             compact_p_integer(field3, (void *) NULL, buffer, ni*nj*nk, nbits, 0, xdf_stride, 1);
 //                 free(field3); 
         }else{
           compact_p_integer(field_u32, (void *) NULL, buffer, ni*nj*nk, nbits, 0, xdf_stride, 1);
         }
         nw = ((ni*nj*nk * nbits) + 31) / 32;
+        xdf_short = xdf_byte = 0 ;
 #else
 #error "use_old_signed_pack_unpack_code not defined"
 #endif

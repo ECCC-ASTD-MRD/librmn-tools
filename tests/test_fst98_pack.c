@@ -36,13 +36,8 @@ void encode_decode_int(int ni, int nj, int32_t f_in[nj][ni], int32_t f_out[nj][n
   r_int = RANGE_CAST(field_out, int32_t) ;
   if(RANGE_ELEMENTS(r_int) < ni*nj) exit(1) ;
   r_int = RANGE_NULL(int32_t) ;
-//   fprintf(stderr, "downgrade_32, xdf_double, xdf_short, xdf_byte, xdf_stride = %d %d %d %d %d\n", downgrade_32, xdf_double, xdf_short, xdf_byte, xdf_stride) ;
-
-//   if(! nodiag){
-//     fprintf(stderr, "F_in corners, datyp = %d, nbits = %d\n", datyp, nbits) ;
-//     fprintf(stderr, "  %10d %10d\n", f_in[GNJ-1][0], f_in[GNJ-1][GNI-1]) ;
-//     fprintf(stderr, "  %10d %10d\n", f_in[    0][0], f_in[    0][GNI-1]) ;
-//   }
+  int xdf_byte_ = xdf_byte ;
+  int xdf_short_ = xdf_short ;
 
 //   encoded = fst98_encode((void *)f_in, field_out, -nbits, ni, nj, 1, datyp, &data_kind) ;
   encoded = fst98_encode((void *)f_in, r_int, -nbits, ni, nj, 1, datyp, &data_kind) ;
@@ -53,17 +48,27 @@ void encode_decode_int(int ni, int nj, int32_t f_in[nj][ni], int32_t f_out[nj][n
 
   if(nodiag) return ;
 
-//   fprintf(stderr, "F_out corners\n") ;
-//   fprintf(stderr, "  %10d %10d\n", f_out[GNJ-1][0], f_out[GNJ-1][GNI-1]) ;
-//   fprintf(stderr, "  %10d %10d\n", f_out[    0][0], f_out[    0][GNI-1]) ;
-
   int errors = 0 ;
-  for(int j=0 ; j<nj ; j++){
-    for(int i=0 ; i<ni ; i++){
-      if(f_in[j][i] != f_out[j][i]) errors++ ;
+  int32_t *o32 = (int32_t *)f_out ;
+  if(xdf_byte_){
+    int8_t *t = (int8_t *)f_in ;
+    for(int i=0 ; i<ni*nj ; i++){
+      if(t[i] != o32[i]) errors++ ;
     }
   }
-  fprintf(stderr, "number of errors = %d\n", errors) ;
+  if(xdf_short_){
+    int16_t *t = (int16_t *)f_in ;
+    for(int i=0 ; i<ni*nj ; i++){
+      if(t[i] != o32[i]) errors++ ;
+    }
+  }
+  if((xdf_short_ == 0) && (xdf_byte_ == 0) ){
+    int32_t *t = (int32_t *)f_in ;
+    for(int i=0 ; i<ni*nj ; i++){
+      if(t[i] != o32[i]) errors++ ;
+    }
+  }
+  fprintf(stderr, "number of errors = %d [%s%s%s]\n", errors, xdf_byte_ ? "byte" : "", xdf_short_ ? "short" : "" , (xdf_byte_ || xdf_short_) ? "" : "int" ) ;
 }
 
 void encode_decode_double(int ni, int nj, double f_in[nj][ni], float f_out[nj][ni], int nbits, int datyp, int nodiag){
@@ -196,6 +201,10 @@ int main(int argc, char **argv){
   (void) (argv) ;
   int32_t u_data[GNJ][GNI] ;
   int32_t i_data[GNJ][GNI] ;
+  int16_t h_data[GNJ][GNI] ;
+  uint16_t hu_data[GNJ][GNI] ;
+  int8_t  b_data[GNJ][GNI] ;
+  uint8_t  bu_data[GNJ][GNI] ;
   double d_data[GNJ][GNI] ;
   float f_data[GNJ][GNI] ;
   float r_data[GNJ][GNI] ;
@@ -216,7 +225,11 @@ int main(int argc, char **argv){
       d_data[j][i] = f_data[j][i] ;
       r_data[j][i] = 999.999f ;
       u_data[j][i] = f_data[j][i] * 128 ;
+      hu_data[j][i] = u_data[j][i] ;
+      bu_data[j][i] = u_data[j][i]/2 ;
       i_data[j][i] = ((i+j)&1) ? u_data[j][i] : (-u_data[j][i]) ;
+      h_data[j][i] = i_data[j][i] ;
+      b_data[j][i] = i_data[j][i]/2 ;
     }
   }
 //   fprintf(stderr, "X %10f -> %10f\n", x[0], x[GNI-1]) ;
@@ -301,4 +314,24 @@ int main(int argc, char **argv){
   fprintf(stderr, "========== FST_TYPE_REAL | FST_TYPE_TURBOPACK (20 bits) ==========\n") ;
   memset(r_data,0,sizeof(r_data)) ;
   encode_decode_float(ni, nj, f_data, r_data, 20, FST_TYPE_REAL | FST_TYPE_TURBOPACK, 0) ;
+//
+  fprintf(stderr, "========== FST_TYPE_SIGNED(SHORT) | FST_TYPE_TURBOPACK (12 bits) ==========\n") ;
+  memset(r_data,0,sizeof(r_data)) ;
+  xdf_short = 1 ;
+  encode_decode_int(ni, nj, (void *)h_data, (void *)r_data, 12, FST_TYPE_SIGNED | FST_TYPE_TURBOPACK, 0) ;
+//
+  fprintf(stderr, "========== FST_TYPE_SIGNED(BYTE) | FST_TYPE_TURBOPACK (8 bits) ==========\n") ;
+  memset(r_data,0,sizeof(r_data)) ;
+  xdf_byte = 1 ;
+  encode_decode_int(ni, nj, (void *)b_data, (void *)r_data, 12, FST_TYPE_SIGNED | FST_TYPE_TURBOPACK, 0) ;
+//
+  fprintf(stderr, "========== FST_TYPE_UNSIGNED(SHORT) (12 bits) ==========\n") ;
+  memset(r_data,0,sizeof(r_data)) ;
+  xdf_short = 1 ;
+  encode_decode_int(ni, nj, (void *)hu_data, (void *)r_data, 12, FST_TYPE_UNSIGNED, 0) ;
+//
+  fprintf(stderr, "========== FST_TYPE_UNSIGNED(BYTE) (12 bits) ==========\n") ;
+  memset(r_data,0,sizeof(r_data)) ;
+  xdf_byte = 1 ;
+  encode_decode_int(ni, nj, (void *)bu_data, (void *)r_data, 12, FST_TYPE_UNSIGNED, 0) ;
 }
