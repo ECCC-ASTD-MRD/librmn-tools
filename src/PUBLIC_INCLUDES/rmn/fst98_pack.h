@@ -25,6 +25,19 @@
 #include <rmn/fst_missing.h>
 extern  int downgrade_32, xdf_double, xdf_short, xdf_byte, xdf_stride ; 
 
+// 3D block[nk][nj][ni] containing data to encode
+// typedef struct{
+//   union{
+//     uint8_t  *byte;                 // address of block (byte address)
+//     uint32_t *word ;                // address of block (word address)
+//   } ;
+//   uint16_t ni ;                     // first dimension
+//   uint16_t nj ;                     // second dimension (1 if block is 1D)
+//   uint16_t nk ;                     // third dimension (1 if block is 1D or 2D)
+//   uint8_t  etype ;                  // data element type, see rmn/data_kind.h
+//   uint8_t  esize ;                  // element size in bytes -1  (1 <= element size <= 256)
+// }block_3d ;
+
 typedef void *(*PackFunctionPointer)(
     const void * const unpackedArrayOfFloat,
     void * const packedHeader,
@@ -39,7 +52,63 @@ typedef void *(*PackFunctionPointer)(
     void * const max
 );
 
+void * compact_p_float(
+    const void * const unpackedArrayOfFloat,
+    void * const packedHeader,
+    void * const packedArrayOfInt,
+    const int elementCount,
+    const int packedTokenBitSize,
+    const int offset,
+    const int stride,
+    const int hasMissing,
+    const void * const missingTag,
+    void * const min,
+    void * const max
+);
+
+void * compact_p_double(
+    const void * const unpackedArrayOfFloat,
+    void * const packedHeader,
+    void * const packedArrayOfInt,
+    const int elementCount,
+    const int packedTokenBitSize,
+    const int offset,
+    const int stride,
+    const int hasMissing,
+    const void * const missingTag,
+    void * const min,
+    void * const max
+);
+
 typedef void *(*UnpackFunctionPointer)(
+    void * const unpackedArrayOfFloat,
+    const void * const packedHeader,
+    const void * const packedArrayOfInt,
+    const int elementCount,
+    const int packedTokenBitSize,
+    const int offset,
+    const int stride,
+    const int hasMissing,
+    const void * const missingTag,
+    void * const min,
+    void * const max
+);
+
+void * compact_u_float(
+    void * const unpackedArrayOfFloat,
+    const void * const packedHeader,
+    const void * const packedArrayOfInt,
+    const int elementCount,
+    const int packedTokenBitSize,
+    const int offset,
+    const int stride,
+    const int hasMissing,
+    const void * const missingTag,
+    void * const min,
+    void * const max
+);
+
+void * compact_u_double(
     void * const unpackedArrayOfFloat,
     const void * const packedHeader,
     const void * const packedArrayOfInt,
@@ -113,62 +182,6 @@ int compact_u_integer(
     int offset,
     int stride,
     const int sign
-);
-
-void * compact_p_float(
-    const void * const unpackedArrayOfFloat,
-    void * const packedHeader,
-    void * const packedArrayOfInt,
-    const int elementCount,
-    const int packedTokenBitSize,
-    const int offset,
-    const int stride,
-    const int hasMissing,
-    const void * const missingTag,
-    void * const min,
-    void * const max
-);
-
-void * compact_u_float(
-    void * const unpackedArrayOfFloat,
-    const void * const packedHeader,
-    const void * const packedArrayOfInt,
-    const int elementCount,
-    const int packedTokenBitSize,
-    const int offset,
-    const int stride,
-    const int hasMissing,
-    const void * const missingTag,
-    void * const min,
-    void * const max
-);
-
-void * compact_p_double(
-    const void * const unpackedArrayOfFloat,
-    void * const packedHeader,
-    void * const packedArrayOfInt,
-    const int elementCount,
-    const int packedTokenBitSize,
-    const int offset,
-    const int stride,
-    const int hasMissing,
-    const void * const missingTag,
-    void * const min,
-    void * const max
-);
-
-void * compact_u_double(
-    void * const unpackedArrayOfFloat,
-    const void * const packedHeader,
-    const void * const packedArrayOfInt,
-    const int elementCount,
-    const int packedTokenBitSize,
-    const int offset,
-    const int stride,
-    const int hasMissing,
-    const void * const missingTag,
-    void * const min,
-    void * const max
 );
 
 // borrow some function prototypes

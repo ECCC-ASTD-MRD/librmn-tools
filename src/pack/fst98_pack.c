@@ -100,7 +100,7 @@ RANGE(int32_t) fst98_encode(
   int header_size, stream_size, p1out, p2out;
   int IEEE_64 = 0;                            // 64 bit IEEE (type 5 or 8) flag
 
-  if (datyp == FST_TYPE_BINARY) { is_missing = is_turbo = 0 ; }
+  if (datyp == FST_TYPE_BINARY) { is_missing = is_turbo = 0 ; }  // cancel is_missing and is_turbo
 
   if (datyp == FST_TYPE_COMPLEX) {
       if (is_missing || is_turbo) {
@@ -123,8 +123,8 @@ RANGE(int32_t) fst98_encode(
       Lib_Log(APP_LIBFST, APP_WARNING, "%s: extra compression not supported for IEEE when nbits > 32, "
               "data type FST_TYPE_REAL_IEEE | FST_TYPE_TURBOPACK (%d) reset to FST_TYPE_REAL_IEEE (%d) (IEEE)\n", __func__,
               FST_TYPE_REAL_IEEE | FST_TYPE_TURBOPACK, FST_TYPE_REAL_IEEE);
-      // extra compression not supported
       datyp = FST_TYPE_REAL_IEEE;
+      is_turbo = 0 ;      // extra compression not supported
   }
 
   if (is_turbo && (nk > 1)) {
@@ -158,7 +158,7 @@ RANGE(int32_t) fst98_encode(
       } else {
           field_u32 = field_in;
           Lib_Log(APP_LIBFST, APP_INFO, "%s: NO missing value, data type to %d\n", __func__, datyp);
-          is_missing = 0;      // cancel missing data flag
+          is_missing = 0;      // no missing value detected, cancel missing data flag
       }
   }
 
@@ -180,6 +180,8 @@ RANGE(int32_t) fst98_encode(
           nbits = 64;
       }
     }
+    xdf_double = 0 ;
+fprintf(stderr,"DEBUG : xdf_double reset to 0\n");
   }
 
   if (is_type_real(datyp) && nbits > 32) {
@@ -227,17 +229,16 @@ RANGE(int32_t) fst98_encode(
         nw = (ni*nj*nk * nbits + 31) / 32 + 32;
         break;
   }
-  nw += 256 ;  // nw = estimate of worst case encoded length
+  nw += 32 ;  // nw = estimate of worst case encoded length
 
   buffer = NULL ;
-  if(VALID_RANGE(field_out)){      // is field_out valid and large enough for encoded stream
+  if(VALID_RANGE(field_out)){      // is field_out valid and large enough for encoded stream ?
     if( nw <= RANGE_ELEMENTS(field_out) ) buffer = (int32_t *) RANGE_BOT(field_out) ;    // large enough, use field_out
-    fprintf(stderr,"DEBUG : need %d words, have %ld\n", nw, RANGE_ELEMENTS(field_out));
   }
   local_buffer = (buffer == NULL) ;
-  if(local_buffer){ buffer = (int32_t *) malloc(nw * sizeof(int32_t)); }
+  if(local_buffer){ buffer = (int32_t *) malloc(nw * sizeof(int32_t)); }      // need to allocate buffer
   if(buffer == NULL) goto fail ;
-  if(local_buffer) fprintf(stderr,"DEBUG : allocated buffer with size %ld\n", nw * sizeof(int32_t));
+//   if(local_buffer) fprintf(stderr,"DEBUG : need %d words, have %ld, allocated buffer with size %d words\n", nw, RANGE_ELEMENTS(field_out), nw);
 
   switch (datyp) {
 
@@ -278,14 +279,14 @@ RANGE(int32_t) fst98_encode(
             const int offset = 1;
             if (xdf_short) {               // 16 bits to 16 bits copy
                 nbits = Min(16, nbits);    // at most 16 bits
-                memcpy((int16_t *)buffer + offset, field_u32, ni*nj*nk * 2);
+                memcpy((int16_t *)(buffer + offset), field_u32, ni*nj*nk * 2);
             } else if (xdf_byte) {         // 8 bits to 16 bits expansion
                 nbits = Min(8, nbits);     // at most 8 bits
-                memcpy_8_16((int16_t *)buffer + offset, (int8_t *)field_u32, ni*nj*nk);
+                memcpy_8_16((int16_t *)(buffer + offset), (int8_t *)field_u32, ni*nj*nk);
             } else {                       // 32 bits to 16 bits truncation
-                memcpy_32_16((int16_t *)buffer + offset, (const int32_t *)field_u32, nbits, ni*nj*nk);
+                memcpy_32_16((int16_t *)(buffer + offset), (const int32_t *)field_u32, nbits, ni*nj*nk);
             }
-            int compressed_lng = armn_compress((byte *)buffer + offset, ni, nj, nk, nbits, 1, 0);
+            int compressed_lng = armn_compress((byte *)(buffer + offset), ni, nj, nk, nbits, 1, 0);
             if (compressed_lng < 0) {     // no gain from turbo, repack
                 datyp = FST_TYPE_UNSIGNED;
                 is_turbo = 0 ;
@@ -496,7 +497,9 @@ int fst98_decode(
                     }
                 } else {
                     if (is_type_turbopack(datyp)) {
+//                       armn_compress((unsigned char *)(buf->data + offset), *ni, *nj, *nk, stdf_entry.nbits, 2, 0);
                         armn_compress((byte *)(buf + offset), ni, nj, nk, nbits_in, 2, 0);
+//                       memcpy_16_32((int32_t *)field, (int16_t *)(buf->data + offset), stdf_entry.nbits, nelm);
                         memcpy_16_32((int32_t *)field, (int16_t *)(buf + offset), nbits_in, nelm);
                     } else {
                         ier = compact_u_integer(field, (void *) NULL, buf + offset, nelm, nbits_in, 0, xdf_stride, 0);
@@ -505,16 +508,7 @@ int fst98_decode(
                 break;
             }
 
-        case FST_TYPE_CHAR: {
-            // Character
-            int nc = (nelm + 3) / 4;
-            ier = compact_u_integer(field, (void *) NULL, buf, nc, 32, 0, xdf_stride, 0);
-            break;
-        }
-
-
-        case FST_TYPE_SIGNED: {
-            // Signed integer
+        case FST_TYPE_SIGNED: {            // Signed integer
 #ifdef use_old_signed_pack_unpack_code
             int32_t *field_out;
             short *s_field_out = (short *)field;
@@ -537,17 +531,11 @@ int fst98_decode(
             }
             if (field_out != (int32_t*)field) free(field_out);
 #else
-            // fprintf(stderr, "NEW UNPACK CODE ======================================\n");
-            if (xdf_short) {
-                ier = compact_u_short(field, (void *) NULL, buf, nelm, nbits_in, 0, xdf_stride, 8);
-            } else if (xdf_byte) {
-                ier = compact_u_char(field, (void *) NULL, buf, nelm, nbits_in, 0, xdf_stride, 12);
-            } else {
-                ier = compact_u_integer(field, (void *) NULL, buf, nelm, nbits_in, 0, xdf_stride, 1);
-            }
+#error "use_old_signed_pack_unpack_code not defined"
 #endif
             break;
         }
+
         case FST_TYPE_REAL_IEEE:
         case FST_TYPE_COMPLEX: {
             // IEEE representation
@@ -603,6 +591,13 @@ int fst98_decode(
             } else {
                 c_float_unpacker((float *)field, (int32_t *)buf, (int32_t *)(buf + header_size), nelm, &nbits);
             }
+            break;
+        }
+
+        case FST_TYPE_CHAR: {
+            // Character
+            int nc = (nelm + 3) / 4;
+            ier = compact_u_integer(field, (void *) NULL, buf, nc, 32, 0, xdf_stride, 0);
             break;
         }
 
