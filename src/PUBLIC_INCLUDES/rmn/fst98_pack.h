@@ -22,6 +22,13 @@
 #include <rmn/mem_range.h>
 // import as little as possible from fstd 98 code
 #include <rmn/fst98.h>
+#define SRC_DOUBLE      1
+#define SRC_SHORT       2
+#define SRC_BYTE        4
+#define DST_DOUBLE      8
+#define DST_SHORT      16
+#define DST_BYTE       32
+
 #include <rmn/fst_missing.h>
 extern  int downgrade_32, xdf_double, xdf_short, xdf_byte, xdf_stride ; 
 
@@ -226,6 +233,9 @@ RANGE(int32_t) fst98_encode(
   int nk,
   //! [in] Data type of elements
   const int in_datyp_ori,
+  //! [in] used to control xdf_double/xdf_short/xdf_byte
+  int datasize,
+  //! [out] datyp + nbits
   int *data_kind) ;
 
 //! XDF version
@@ -240,6 +250,10 @@ int fst98_decode(
   int nj,
   //! [in] Dimension 3 of the data field
   int nk,
-  int data_kind) ;
+  //! [in] datyp + nbits
+  int data_kind,
+  //! [in] used to control xdf_double/xdf_short/xdf_byte
+  int datasize
+) ;
 
 #endif
