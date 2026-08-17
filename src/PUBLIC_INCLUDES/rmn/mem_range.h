@@ -35,7 +35,7 @@
 #define PTR_OFFSET(BASE, ADDR2)  ( ( (ADDR2) && (BASE) )  ? ( PTR(ADDR2) - PTR(BASE) ) : 0 )
 
 // difference between addresses (in "element" units) (both arguments MUST be pointers to the same type), 0 if any argument is NULL
-#define PTR_ELEMENTS(BASE, ADDR2) ( ( (ADDR2) && (BASE) ) ? ( (ADDR2) - (BASE) ) : 0 )
+#define PTR_ITEMS(BASE, ADDR2) ( ( (ADDR2) && (BASE) ) ? ( (ADDR2) - (BASE) ) : 0 )
 
 // the type for an address range for data type xxx will be xxx_range
 // e.g. for a float it would be float_range as in : float_range some_name
@@ -98,7 +98,7 @@ typedef void_range RANGE(address) ;      // generic address range, synonym of vo
 #define RANGE_BYTES(R) ( PTR_OFFSET( (R).bot ,  (R).top ) )
 
 // get number of elements in a range (element type tells element size), 0 if any argument is NULL
-#define RANGE_ELEMENTS(R) PTR_ELEMENTS((R).bot , (R).top)
+#define RANGE_ITEMS(R) PTR_ITEMS((R).bot , (R).top)
 
 // is address range BOT -> TOP entirely within range R0 (accounts for element size of TOP)
 #define IN_RANGE(R0, BOT, TOP) ( (PTR(BOT) >= RANGE_BOT(R0)) && (PTR((TOP)+1) <= RANGE_TOP(R0)) )
@@ -119,7 +119,7 @@ typedef void_range RANGE(address) ;      // generic address range, synonym of vo
 #define SET_RANGE(R, BOT, TOP) { SET_RANGE_BOT(R, (BOT)) ; SET_RANGE_TOP(R, (TOP)) ; }
 
 // set top address of range to base address + space to accomodate N elements, NULL if (R).bot is NULL
-#define SET_RANGE_ELEMENTS(R, N)  { (R).top = (R).bot ? ((R).bot + N) : NULL ; }
+#define SET_RANGE_ITEMS(R, N)  { (R).top = (R).bot ? ((R).bot + N) : NULL ; }
 
 // set top address of range to base address + size bytes, NULL if (R).bot is NULL
 #define SET_RANGE_BYTES(R, BYTES) { (R).top = (R).bot ? SET_PTR_OFFSET( (R).bot, (BYTES) ) : NULL ; }

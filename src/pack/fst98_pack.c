@@ -242,12 +242,12 @@ fprintf(stderr,"DEBUG : xdf_double reset to 0\n");
 
   buffer = NULL ;
   if(VALID_RANGE(field_out)){      // is field_out valid and large enough for encoded stream ?
-    if( nw <= RANGE_ELEMENTS(field_out) ) buffer = (int32_t *) RANGE_BOT(field_out) ;    // large enough, use field_out
+    if( nw <= RANGE_ITEMS(field_out) ) buffer = (int32_t *) RANGE_BOT(field_out) ;    // large enough, use field_out
   }
   local_buffer = (buffer == NULL) ;
   if(local_buffer){ buffer = (int32_t *) malloc(nw * sizeof(int32_t)); }      // need to allocate buffer
   if(buffer == NULL) goto fail ;
-//   if(local_buffer) fprintf(stderr,"DEBUG : need %d words, have %ld, allocated buffer with size %d words\n", nw, RANGE_ELEMENTS(field_out), nw);
+//   if(local_buffer) fprintf(stderr,"DEBUG : need %d words, have %ld, allocated buffer with size %d words\n", nw, RANGE_ITEMS(field_out), nw);
 
 // TODO : handle 64 bit straight IEEE (IEEE_64). add endian swap ?
   if(IEEE_64){

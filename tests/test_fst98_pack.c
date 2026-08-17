@@ -34,7 +34,7 @@ void encode_decode_int(int ni, int nj, int32_t f_in[nj][ni], int32_t f_out[nj][n
 
   RANGE(int32_t) r_int = RANGE_NULL(int32_t) ;
   r_int = RANGE_CAST(field_out, int32_t) ;
-  if(RANGE_ELEMENTS(r_int) < ni*nj) exit(1) ;
+  if(RANGE_ITEMS(r_int) < ni*nj) exit(1) ;
   r_int = RANGE_NULL(int32_t) ;
   int src_byte  = (data_control & SRC_BYTE) ;
   int src_short = (data_control & SRC_SHORT) ;
@@ -43,7 +43,7 @@ void encode_decode_int(int ni, int nj, int32_t f_in[nj][ni], int32_t f_out[nj][n
 
   // encode f_in
   encoded = fst98_encode((void *)f_in, r_int, -nbits, ni, nj, 1, datyp, data_control, &data_kind) ;
-  fprintf(stderr, "encoded size = %ld elements (%ld bytes), datyp = %d(%d), nbits = %d\n", RANGE_ELEMENTS(encoded), RANGE_BYTES(encoded), data_kind&0xFFFF, datyp, data_kind>>16);
+  fprintf(stderr, "encoded size = %ld elements (%ld bytes), datyp = %d(%d), nbits = %d\n", RANGE_ITEMS(encoded), RANGE_BYTES(encoded), data_kind&0xFFFF, datyp, data_kind>>16);
   // decode into f_out
   memset(f_out, 0, (ni*nj)*sizeof(int32_t)) ;
   fst98_decode(f_out,  encoded.bot, ni, nj, 1, data_kind, data_control) ;
@@ -91,13 +91,13 @@ void encode_decode_double(int ni, int nj, double f_in[nj][ni], float f_out[nj][n
   RANGE_NULL_CONST(float) ;
   if(RANGE_NULL_NAME(float).bot != RANGE_NULL_NAME(float).top) exit(1) ;
   r_float = RANGE_CAST(field_out, float) ;
-  if(RANGE_ELEMENTS(r_float) < ni*nj) exit(1) ;
+  if(RANGE_ITEMS(r_float) < ni*nj) exit(1) ;
 //   fprintf(stderr, "downgrade_32, xdf_double, xdf_short, xdf_byte, xdf_stride = %d %d %d %d %d\n", downgrade_32, xdf_double, xdf_short, xdf_byte, xdf_stride) ;
 
 //   xdf_double = 1 ;
   encoded = fst98_encode((void *)f_in, field_out, -nbits, ni, nj, 1, datyp, data_control, &data_kind) ;
 //   encoded = fst98_encode((void *)f_in, RANGE_NULL(int32_t), -nbits, ni, nj, 1, datyp, &data_kind) ;
-  fprintf(stderr, "encoded size = %ld elements (%ld bytes), datyp = %d(%d), nbits = %d\n", RANGE_ELEMENTS(encoded), RANGE_BYTES(encoded), data_kind&0xFFFF, datyp, data_kind>>16);
+  fprintf(stderr, "encoded size = %ld elements (%ld bytes), datyp = %d(%d), nbits = %d\n", RANGE_ITEMS(encoded), RANGE_BYTES(encoded), data_kind&0xFFFF, datyp, data_kind>>16);
 
   memset(f_out, 0, (ni*nj)*sizeof(float)) ;
   fst98_decode(f_out,  encoded.bot, ni, nj, 1, data_kind, data_control) ;
@@ -154,12 +154,12 @@ void encode_decode_float(int ni, int nj, float f_in[nj][ni], float f_out[nj][ni]
   RANGE_NULL_CONST(float) ;
   if(RANGE_NULL_NAME(float).bot != RANGE_NULL_NAME(float).top) exit(1) ;
   r_float = RANGE_CAST(field_out, float) ;
-  if(RANGE_ELEMENTS(r_float) < ni*nj) exit(1) ;
+  if(RANGE_ITEMS(r_float) < ni*nj) exit(1) ;
 //   fprintf(stderr, "downgrade_32, xdf_double, xdf_short, xdf_byte, xdf_stride = %d %d %d %d %d\n", downgrade_32, xdf_double, xdf_short, xdf_byte, xdf_stride) ;
 
   encoded = fst98_encode((void *)f_in, field_out, -nbits, ni, nj, 1, datyp, data_control, &data_kind) ;
 //   encoded = fst98_encode((void *)f_in, RANGE_NULL(int32_t), -nbits, ni, nj, 1, datyp, &data_kind) ;
-  fprintf(stderr, "encoded size = %ld elements (%ld bytes), datyp = %d(%d), nbits = %d\n", RANGE_ELEMENTS(encoded), RANGE_BYTES(encoded), data_kind&0xFFFF, datyp, data_kind>>16);
+  fprintf(stderr, "encoded size = %ld elements (%ld bytes), datyp = %d(%d), nbits = %d\n", RANGE_ITEMS(encoded), RANGE_BYTES(encoded), data_kind&0xFFFF, datyp, data_kind>>16);
 
   memset(f_out, 0, (ni*nj)*sizeof(float)) ;
   fst98_decode(f_out,  encoded.bot, ni, nj, 1, data_kind, data_control) ;

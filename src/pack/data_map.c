@@ -227,7 +227,7 @@ void mmap_print(zmap *map, char *msg){
     fprintf(stderr, f1, "Data", map->mhead.drng.bot, RANGE_LIMIT(map->mhead.drng), PTR_OFFSET(map,map->mhead.drng.bot), dmap_size, "words", VRM(drng)) ;
   else
     fprintf(stderr, f2, "Data", map->mhead.drng.bot, map->mhead.drng.top, dmap_size, "words", VRM(drng)) ;
-  size_t hole_size = RANGE_ELEMENTS(hrng) ;
+  size_t hole_size = RANGE_ITEMS(hrng) ;
   if(hole_size != 0)
     fprintf(stderr, f1, "Void", hrng.bot, RANGE_LIMIT(hrng), PTR_OFFSET(map,hrng.bot), hole_size, "words", VRR(hrng)) ;
   if(map->mhead.orng.bot)
@@ -423,7 +423,7 @@ void *filemap_address(zmap *map){
 // map [IN] : pointer to zmap (mmap/fmap/sizes/...) struct
 // return the size of the data map in the file (in 32 bit words)
 uint32_t filemap_words(zmap *map){
-  return ( RANGE_ELEMENTS(map->mhead.frng) );
+  return ( RANGE_ITEMS(map->mhead.frng) );
 }
 
 // compute the number of data blocks in the data map
@@ -651,7 +651,7 @@ int adjust_map_offsets(zmap *map){
   if(map == NULL) return 0 ;
   uint32_t nijk = map->fhead.zijk ;
   uint64_t t ;
-  uint64_t limit = RANGE_ELEMENTS(map->mhead.drng) ;    // max number of elements that can be accomodated
+  uint64_t limit = RANGE_ITEMS(map->mhead.drng) ;    // max number of elements that can be accomodated
   map->mhead.orng.bot[0] = 0 ;
   for(uint32_t i=0 ; i<nijk ; i++){
     t = map->mhead.orng.bot[i] + map->size[i] ;

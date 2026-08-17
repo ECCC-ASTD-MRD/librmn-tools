@@ -329,13 +329,13 @@ CT_ASSERT(sizeof(zmap) == (sizeof(mmap) + sizeof(fmap)) , "zmap struc size not s
 
 // WORDS refers to 32 bit words (4 bytes)
 // size in words of zmap
-#define ZMAP_WORDS(MAP)    RANGE_ELEMENTS((MAP)->mhead.zrng)
+#define ZMAP_WORDS(MAP)    RANGE_ITEMS((MAP)->mhead.zrng)
 // size in bytes of zmap
 #define ZMAP_BYTES(MAP)    RANGE_BYTES((MAP)->mhead.zrng)
 // size in words of data map in file
-#define FILEMAP_WORDS(MAP) RANGE_ELEMENTS((MAP)->mhead.frng)
+#define FILEMAP_WORDS(MAP) RANGE_ITEMS((MAP)->mhead.frng)
 // size in words of data portion
-#define DATA_WORDS(MAP)    RANGE_ELEMENTS((MAP)->mhead.drng)
+#define DATA_WORDS(MAP)    RANGE_ITEMS((MAP)->mhead.drng)
 // size in words of data map and data
 #define RECORD_WORDS(MAP)  (FILEMAP_WORDS(MAP) + DATA_WORDS(MAP))
 // get offset of data block (bytes)

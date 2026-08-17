@@ -102,9 +102,9 @@ RANGE(zmap_t) get_zmap_memory_block(zmap *map, int block0, RANGE(zmap_t) drng){
 
   if(VALID_RANGE(drng)){                                           // a valid destination was supplied
 
-    if(RANGE_ELEMENTS(drng) < size) goto fail ;                    // OOPS, destination range is too small
+    if(RANGE_ITEMS(drng) < size) goto fail ;                    // OOPS, destination range is too small
     memcpy(RANGE_BOT(drng), base, size * sizeof(uint32_t)) ;       // copy into destination range drng
-    SET_RANGE_ELEMENTS(drng, size) ;                               // adjust top of drng range
+    SET_RANGE_ITEMS(drng, size) ;                               // adjust top of drng range
 
   }else{                                                           // no destination supplied, point to where data block is in memory
     drng = RANGE_KIND(zmap_t , base,  base+size) ;                 // range pointing to block data with correct size
@@ -418,7 +418,7 @@ RANGE(zmap_t)  put_zmap_mem_blocks(zmap *map, int block0, int block_nb, RANGE(zm
   size_t size = sizeof(zmap_t) * map->size[block0] ;     // size of data to copy
   uint8_t *stream = (uint8_t *)ZMAP_DATA(map) ;          // base address of map data
   stream += ZMAP_OFFSETS(map)[block0] ;                  // offset for this block
-// fprintf(stderr, "put_zmap_mem_blocks, block %3d, %5ld words, size = %5d, offset = %6ld\n", block0, RANGE_ELEMENTS(drng), map->size[block0], ZMAP_OFFSETS(map)[block0]) ;
+// fprintf(stderr, "put_zmap_mem_blocks, block %3d, %5ld words, size = %5d, offset = %6ld\n", block0, RANGE_ITEMS(drng), map->size[block0], ZMAP_OFFSETS(map)[block0]) ;
   if(block_nb == 1){                                     // special case : put 1 block
     memcpy(stream, drng.bot, size) ;                     // copy into data range of zmap
     return drng ;
@@ -613,7 +613,7 @@ void fill_zmap_with_data(zmap *map, int gni, int gnj, uint32_t array[gnj][gni], 
       bno++ ;
     }
   }
-  filewords = inserted = PTR_ELEMENTS(map->mhead.drng.bot, encoded) ;
+  filewords = inserted = PTR_ITEMS(map->mhead.drng.bot, encoded) ;
   fprintf(stderr, "inserted %ld words (%ld bytes)\n", inserted, inserted*4) ;
   map->mhead.drng.top = encoded ;                         // adjust top of data range
   if( PTR(encoded) > PTR(offsets) ) exit(1) ;             // OUCH !! top of data range overlaps offset table
