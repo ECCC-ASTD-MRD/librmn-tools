@@ -22,12 +22,13 @@
 #include <rmn/mem_range.h>
 // import as little as possible from fstd 98 code
 #include <rmn/fst98.h>
-#define SRC_DOUBLE      1
-#define SRC_SHORT       2
-#define SRC_BYTE        4
-#define DST_DOUBLE      8
-#define DST_SHORT      16
-#define DST_BYTE       32
+// source / destination flags
+#define SRC_DOUBLE    ( 1 << 16)
+#define SRC_SHORT     ( 2 << 16)
+#define SRC_BYTE      ( 4 << 16)
+#define DST_DOUBLE    ( 8 << 16)
+#define DST_SHORT     (16 << 16)
+#define DST_BYTE      (32 << 16)
 
 #include <rmn/fst_missing.h>
 extern  int downgrade_32, xdf_double, xdf_short, xdf_byte, xdf_stride ; 
@@ -210,12 +211,12 @@ void resize_int(
     const int64_t num_elem      //!< Number of elements to convert
 );
 void upgrade_size(
-    void* dest,             //!< [out] Destination array, into which the items are copied
-    const int dest_size,    //!< [in] Size of items in destination array, in bits
-    void* src,              //!< [in] Source array, from which the items are copied
-    const int src_size,     //!< [in] Size of items in source array, in bits
-    const int64_t num_elem, //!< [in] Number of items to copy
-    const int is_integer    //!< [in] Whether we are copying integers (or float)
+    void* dest,                 //!< [out] Destination array, into which the items are copied
+    const int dest_size,        //!< [in] Size of items in destination array, in bits
+    void* src,                  //!< [in] Source array, from which the items are copied
+    const int src_size,         //!< [in] Size of items in source array, in bits
+    const int64_t num_elem,     //!< [in] Number of items to copy
+    const int is_integer        //!< [in] Whether we are copying integers (or float)
 );
 
 RANGE(int32_t) fst98_encode(
@@ -232,10 +233,10 @@ RANGE(int32_t) fst98_encode(
   //! [in] Third dimension of the data field
   int nk,
   //! [in] Data type of elements
-  const int in_datyp_ori,
+  const int datyp,
   //! [in] used to control xdf_double/xdf_short/xdf_byte
   int datasize,
-  //! [out] datyp + nbits
+  //! [out] effective datyp + nbits
   int *data_kind) ;
 
 //! XDF version
@@ -250,7 +251,7 @@ int fst98_decode(
   int nj,
   //! [in] Dimension 3 of the data field
   int nk,
-  //! [in] datyp + nbits
+  //! [in] effective datyp + nbits
   int data_kind,
   //! [in] used to control xdf_double/xdf_short/xdf_byte
   int datasize
