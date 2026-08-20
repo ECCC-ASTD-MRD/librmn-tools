@@ -79,8 +79,7 @@ static void memcpy_d_f(float * restrict f, const double *restrict d, int nb) {
 #endif
 
 // flags to avoid unnecessary warning messages
-static int dejafait_1 = 0;
-static int dejafait_2 = 0;
+static uint8_t dejavu[16] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 } ;
 
 RANGE(int32_t) fst98_encode(
   //! [in] Field to encode
@@ -131,10 +130,13 @@ RANGE(int32_t) fst98_encode(
 
   if (datyp == FST_TYPE_COMPLEX) {
       if (is_missing || is_turbo) {
-          Lib_Log(APP_LIBFST, APP_WARNING, "%s: compression and/or missing values not supported, data type %d reset to %d (complex)\n",
+        if (! dejavu[5]) {
+          Lib_Log(APP_LIBFST, APP_WARNING, "%s: compression and/or missing values not supported for complex data, type %d reset to %d (complex)\n",
               __func__, datyp_in, FST_TYPE_COMPLEX);
+          dejavu[5] = 1;
+        }
+        is_missing = is_turbo = 0;              // missing values and turbo compression not supported for complex type
       }
-      is_missing = is_turbo = 0;              // missing values and turbo compression not supported for complex type
   }
 
   // is_magic means source array is double
@@ -147,15 +149,21 @@ RANGE(int32_t) fst98_encode(
   }
 
   if ( (datyp_in == (FST_TYPE_REAL_IEEE | FST_TYPE_TURBOPACK)) && (nbits > 32) ) {
-      Lib_Log(APP_LIBFST, APP_WARNING, "%s: extra compression not supported for IEEE when nbits > 32, "
-              "data type FST_TYPE_REAL_IEEE | FST_TYPE_TURBOPACK (%d) reset to FST_TYPE_REAL_IEEE (%d) (IEEE)\n", __func__,
-              FST_TYPE_REAL_IEEE | FST_TYPE_TURBOPACK, FST_TYPE_REAL_IEEE);
+      if (! dejavu[4]) {
+        Lib_Log(APP_LIBFST, APP_WARNING, "%s: extra compression not supported for IEEE when nbits > 32, "
+                "data type FST_TYPE_REAL_IEEE | FST_TYPE_TURBOPACK (%d) reset to FST_TYPE_REAL_IEEE (%d) (IEEE)\n", __func__,
+                FST_TYPE_REAL_IEEE | FST_TYPE_TURBOPACK, FST_TYPE_REAL_IEEE);
+        dejavu[4] = 1;
+      }
       datyp = FST_TYPE_REAL_IEEE;
       is_turbo = 0 ;      // extra compression not supported
   }
 
   if (is_turbo && (nk > 1)) {
-      Lib_Log(APP_LIBFST, APP_WARNING, "%s: extra compression not supported for 3D data. We will disable it.\n", __func__);
+      if (! dejavu[3]) {
+        Lib_Log(APP_LIBFST, APP_WARNING, "%s: extra compression not supported for 3D data. It will be disabled.\n", __func__);
+        dejavu[3] = 1;
+      }
       is_turbo = 0 ;                       // cancel turbo compression
   }
 
@@ -184,7 +192,7 @@ RANGE(int32_t) fst98_encode(
           field_u32 = field_missing;
       } else {
           field_u32 = field_in;
-          Lib_Log(APP_LIBFST, APP_INFO, "%s: NO missing value, data type to %d\n", __func__, datyp);
+          Lib_Log(APP_LIBFST, APP_INFO, "%s: NO missing value, data type reset to %d\n", __func__, datyp);
           is_missing = 0;      // no missing value detected, cancel missing data flag
       }
   }
@@ -200,8 +208,11 @@ RANGE(int32_t) fst98_encode(
           packfunc = &compact_p_float;                    // will pack from floats
           field_u32 = (uint32_t*)field_f;
       }else if (nbits != 64) {
-          Lib_Log(APP_LIBFST, APP_WARNING, "%s: Requested %d packed bits for 64-bit reals, but we can only do"
-                  " 64 or less than 32. Will use 64 bits.\n", __func__, nbits);
+          if (! dejavu[2]) {
+            Lib_Log(APP_LIBFST, APP_WARNING, "%s: Requested %d packed bits for 64-bit reals, but we can only do"
+                    " 64 or less than 32. Will use 64 bits.\n", __func__, nbits);
+            dejavu[2] = 1;
+          }
           nbits = 64;
       }
     }
@@ -214,17 +225,17 @@ RANGE(int32_t) fst98_encode(
 
   if (datyp == FST_TYPE_REAL) {                                       // type F, new float quantification
       if (nbits > 24) {
-          if (! dejafait_1) {
+          if (! dejavu[0]) {
               Lib_Log(APP_LIBFST, APP_INFO, "%s: nbits > 24, using E32 instead of F%2d\n", __func__, nbits);
-              dejafait_1 = 1;
+              dejavu[0] = 1;
           }
           datyp = FST_TYPE_REAL_IEEE ;                                // keep turbo and/or missing flag
           nbits = 32;
       }
       else if (nbits > 16) {
-          if (! dejafait_2) {
+          if (! dejavu[1]) {
               Lib_Log(APP_LIBFST, APP_INFO, "%s: nbits > 16, using R%2d instead of F%2d\n", __func__, nbits, nbits);
-              dejafait_2 = 1;
+              dejavu[1] = 1;
           }
           datyp = FST_TYPE_REAL_OLD_QUANT;     // type F cannot use more than 16 bits, revert to type R
           is_turbo = 0 ;                       // cancel turbo compression
@@ -346,7 +357,11 @@ RANGE(int32_t) fst98_encode(
 
     case FST_TYPE_SIGNED:            // integers, short integers or bytes (signed)
         if (is_turbo) {
-            Lib_Log(APP_LIBFST, APP_WARNING, "%s: extra compression not supported, data type reset to FST_TYPE_SIGNED (%d)\n", __func__, is_missing | FST_TYPE_SIGNED);
+            if (! dejavu[6]) {
+              Lib_Log(APP_LIBFST, APP_WARNING, "%s: extra compression not supported for signed integers, data type reset to FST_TYPE_SIGNED (%d)\n",
+                      __func__, is_missing | FST_TYPE_SIGNED);
+              dejavu[6] = 1;
+            }
             is_turbo = 0;
         }
 #ifdef use_old_signed_pack_unpack_code
@@ -402,8 +417,11 @@ RANGE(int32_t) fst98_encode(
 
     case FST_TYPE_CHAR:            // character data, R4A items (4 chars in an unsigned integer)
         if (is_turbo) {
-            Lib_Log(APP_LIBFST,APP_WARNING, "%s: extra compression not available, data type reset to FST_TYPE_CHAR (%d)\n",
-                    __func__, FST_TYPE_CHAR);
+            if (! dejavu[7]) {
+              Lib_Log(APP_LIBFST,APP_WARNING, "%s: extra compression not available for characters, data type reset to FST_TYPE_CHAR (%d)\n",
+                      __func__, FST_TYPE_CHAR);
+              dejavu[7] = 1;
+            }
             is_turbo = 0;
         }
         int nc4 = (ni*nj*nk + 3) / 4;
@@ -414,8 +432,11 @@ RANGE(int32_t) fst98_encode(
 
     case FST_TYPE_STRING:                                 // character string
         if (is_turbo) {
-            Lib_Log(APP_LIBFST, APP_WARNING, "%s: extra compression not available, data type reset to FST_TYPE_STRING (%d)\n",
-                    __func__, FST_TYPE_STRING);
+            if (! dejavu[8]) {
+              Lib_Log(APP_LIBFST, APP_WARNING, "%s: extra compression not available for strings, data type reset to FST_TYPE_STRING (%d)\n",
+                      __func__, FST_TYPE_STRING);
+              dejavu[8] = 1;
+            }
             is_turbo = 0;
         }
         compact_p_char(field_u32, (void *) NULL, buffer, ni*nj*nk, 8, 0, xdf_stride);
@@ -687,3 +708,30 @@ int fst98_decode(
 end:
     return ier ;
 }
+
+int32_t fst98_codec(zmap *map, zmap_block block, zmap_stream stream, int encode){
+  struct{
+    uint32_t nbits ;      // item size
+    uint32_t datyp ;      // item type
+    uint64_t dummy ;      // not used for now
+  } fst98_codec_args;
+  CT_ASSERT(sizeof(fst98_codec_args) == CODEC_ARGS_SIZE, "sizeof(fst98_codec_args) != CODEC_ARGS_SIZE") ;
+  int32_t status = 0 ;
+
+  memcpy(&fst98_codec_args, ZMAP_CODEC_ARGS(map), CODEC_ARGS_SIZE) ;
+  if(encode){
+//     status = fst98_encode((void *)f_in, field_out, -nbits, ni, nj, 1, datyp, data_control, &data_kind) ;
+  }else{
+//     status = fst98_decode((void *)f_out,  encoded.bot, ni, nj, 1, data_kind, data_control) ;
+  }
+  return status ;
+}
+// typedef int32_t codec_fn(zmap *map, zmap_block block, zmap_stream stream, int encode) ;
+// codec_args args_codec ;     // for use by codec_fn
+// SET_CODEC_ARGS(map, c_args) ;                            // set encode/restore codec arguments
+// typedef struct{
+//   uint32_t nbits ;      // item size
+//   uint32_t datyp ;      // item type
+//   uint64_t dummy ;      // not used for now
+// } fst98_codec_args;
+// CT_ASSERT(sizeof(fst98_codec_args) == CODEC_ARGS_SIZE, "sizeof(fst98_codec_args) != CODEC_ARGS_SIZE") ;
