@@ -289,20 +289,25 @@ RANGE(int32_t) fst98_encode(
   }
   switch (datyp) {
 
-    case FST_TYPE_BINARY:                   // transparent bit stream data, nbits per item
+    // transparent bit stream data, nbits per item
+    case FST_TYPE_BINARY:
       nw = (ni*nj*nk * nbits + 31) / 32 ;
       for (int i = 0; i < nw; i++) { buffer[i] = field_u32[i]; }
+      is_turbo = 0;
       break;                      // nw = actual length of "encoded" stream
 
-    case FST_TYPE_REAL_OLD_QUANT: {          // floating point, old style packers
+    // floating point, old style packers
+    case FST_TYPE_REAL_OLD_QUANT: {
       double tempfloat = 99999.0;
       // straight quantifier, no turbo, pack with offset 24 (120 bit header)
       packfunc(field_u32, buffer, buffer+3, ni*nj*nk, nbits, 24, xdf_stride, 0, &tempfloat, &dmin, &dmax);
       nw = (ni*nj*nk * nbits + 96 + 24 + 31) / 32;
+      is_turbo = 0;
       break;                      // nw = actual length of "encoded" stream
     }
 
-    case FST_TYPE_REAL:                                 // floating point, new packers
+    // floating point, new packers
+    case FST_TYPE_REAL:
       nw = ((header_size + stream_size) * 8 + 31) / 32;      // length if turbo packing not used
       header_size /= sizeof(int32_t);
       if (is_turbo && (nbits <= 16)) {    // use turbo compression scheme
@@ -321,7 +326,8 @@ RANGE(int32_t) fst98_encode(
       }
       break;
 
-    case FST_TYPE_UNSIGNED:            // integers, short integers or bytes (unsigned)
+    // integers, short integers or bytes (unsigned)
+    case FST_TYPE_UNSIGNED:
       if (is_turbo) {
         const int offset = 1;
         if (XdfShort) {               // 16 bits to 16 bits copy
@@ -359,7 +365,8 @@ RANGE(int32_t) fst98_encode(
       xdf_short = xdf_byte = 0 ;
       break;                      // nw = actual length of "encoded" stream
 
-    case FST_TYPE_SIGNED:            // integers, short integers or bytes (signed)
+    // integers, short integers or bytes (signed)
+    case FST_TYPE_SIGNED:
       if (is_turbo) {
         if (! dejavu[6]) {
           Lib_Log(APP_LIBFST, APP_WARNING, "%s: extra compression not supported for signed integers, data type reset to FST_TYPE_SIGNED (%d)\n",
@@ -393,7 +400,8 @@ RANGE(int32_t) fst98_encode(
 #endif
       break;
 
-    case FST_TYPE_REAL_IEEE:            // IEEE and IEEE complex representation
+    // IEEE and IEEE complex representation
+    case FST_TYPE_REAL_IEEE:
     case FST_TYPE_COMPLEX: {
       int32_t f_ni = (int32_t) ni;
       int32_t f_njnk = nj * nk;
@@ -419,7 +427,8 @@ RANGE(int32_t) fst98_encode(
       break;
     }
 
-    case FST_TYPE_CHAR:            // character data, R4A items (4 chars in an unsigned integer)
+    // character data, R4A items (4 chars in an unsigned integer)
+    case FST_TYPE_CHAR:
       if (is_turbo) {
         if (! dejavu[7]) {
           Lib_Log(APP_LIBFST,APP_WARNING, "%s: extra compression not available for characters, data type reset to FST_TYPE_CHAR (%d)\n",
@@ -434,7 +443,8 @@ RANGE(int32_t) fst98_encode(
       nw = ((ni*nj*nk * nbits) + 32 - 1) / 32;                 // nw = actual length of "encoded" stream (use possibly revised nbits)
       break;
 
-    case FST_TYPE_STRING:                                 // character string
+    // character string
+    case FST_TYPE_STRING:
       if (is_turbo) {
         if (! dejavu[8]) {
           Lib_Log(APP_LIBFST, APP_WARNING, "%s: extra compression not available for strings, data type reset to FST_TYPE_STRING (%d)\n",
@@ -699,16 +709,23 @@ end:
 
 int32_t fst98_codec(zmap *map, zmap_block block, zmap_stream stream, int encode){
   struct{
-    uint32_t nbits ;      // item size
-    uint32_t datyp ;      // item type
-    uint64_t dummy ;      // not used for now
+    uint32_t nbits ;         // item size
+    uint32_t datyp ;         // item type
+    uint32_t data_control ;  // output item length
+    uint32_t dummy ;         // not used for now
   } fst98_codec_args;
   CT_ASSERT(sizeof(fst98_codec_args) == CODEC_ARGS_SIZE, "sizeof(fst98_codec_args) != CODEC_ARGS_SIZE") ;
   int32_t status = 0 ;
 
-  memcpy(&fst98_codec_args, ZMAP_CODEC_ARGS(map), CODEC_ARGS_SIZE) ;
+  memcpy(&fst98_codec_args, ZMAP_CODEC_ARGS(map), CODEC_ARGS_SIZE) ;  // get codec arguments
   if(encode){
-//     status = fst98_encode((void *)f_in, field_out, -nbits, ni, nj, 1, datyp, data_control, &data_kind) ;
+    int ni = map->fhead.gni ;
+    int nj = map->fhead.gnj ;
+    int nk = map->fhead.gnk ;
+    void *f_in = block.mem ;
+//     RANGE(zmap_t) field_out = RANGE_KIND(zmap_t, stream, stream+ni*nj*nk) ;
+    RANGE(zmap_t) field_out = stream ;
+//     status = fst98_encode((void *)f_in, field_out, -nbits, ni, nj, nk, datyp, data_control, &data_kind) ;
   }else{
 //     status = fst98_decode((void *)f_out,  encoded.bot, ni, nj, 1, data_kind, data_control) ;
   }

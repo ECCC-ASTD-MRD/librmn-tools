@@ -19,7 +19,6 @@
 //
 #include <stdint.h>
 //
-#include <rmn/mem_range.h>
 // import as little as possible from fstd 98 code
 #include <rmn/fst98.h>
 // source / destination flags
@@ -31,6 +30,10 @@
 #define DST_BYTE      (32 << 16)
 
 #include <rmn/fst_missing.h>
+#include <rmn/data_map.h>
+// already included by rmn/data_map.h
+// #include <rmn/mem_range.h>
+
 extern  int downgrade_32, xdf_double, xdf_short, xdf_byte, xdf_stride ; 
 
 // 3D block[nk][nj][ni] containing data to encode

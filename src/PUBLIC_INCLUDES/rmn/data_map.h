@@ -120,8 +120,11 @@ typedef struct{
 }zmap_block ;
 CT_ASSERT(sizeof(zmap_block) == 2*sizeof(uint64_t), "zmap_block struct not 128 bits")
 #define ZMAP_BLOCK(PTR, NI, NJ, NK, ETYPE, ESIZE) (zmap_block){ { (void *)PTR }, NI, NJ, NK, ETYPE, ESIZE }
-
-typedef uint32_t *zmap_stream ;     // pointer to a stream of 32 bit unsigned words (encoded data)
+#if 0
+typedef zmap_t *zmap_stream ;     // pointer to a stream of 32 bit unsigned words (encoded data)
+#else
+typedef RANGE(zmap_t) zmap_stream ; // range describing an encoded stream (start and size)
+#endif
 typedef int32_t codec_fn(zmap *map, zmap_block block, zmap_stream stream, int encode) ;
 
 // NOTE: components not needed/used are nullified
