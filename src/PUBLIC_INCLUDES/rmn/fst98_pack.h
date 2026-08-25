@@ -14,20 +14,19 @@
 // Author:
 //     M. Valin,   Environnement Canada, 2026
 //
-#if !defined(_FST98_PACK_)
-#define _FST98_PACK_
+#if !defined(SRC_DOUBLE)
 //
 #include <stdint.h>
 //
 // import as little as possible from fstd 98 code
 #include <rmn/fst98.h>
-// source / destination flags
-#define SRC_DOUBLE    ( 1 << 16)
-#define SRC_SHORT     ( 2 << 16)
-#define SRC_BYTE      ( 4 << 16)
-#define DST_DOUBLE    ( 8 << 16)
-#define DST_SHORT     (16 << 16)
-#define DST_BYTE      (32 << 16)
+// source / destination flags (upper 8 bits in word)
+#define SRC_DOUBLE    ( 1 << 24)
+#define SRC_SHORT     ( 2 << 24)
+#define SRC_BYTE      ( 4 << 24)
+#define DST_DOUBLE    ( 8 << 24)
+#define DST_SHORT     (16 << 24)
+#define DST_BYTE      (32 << 24)
 
 #include <rmn/fst_missing.h>
 #include <rmn/data_map.h>
@@ -49,179 +48,7 @@ extern  int downgrade_32, xdf_double, xdf_short, xdf_byte, xdf_stride ;
 //   uint8_t  esize ;                  // element size in bytes -1  (1 <= element size <= 256)
 // }block_3d ;
 
-typedef void *(*PackFunctionPointer)(
-    const void * const unpackedArrayOfFloat,
-    void * const packedHeader,
-    void * const packedArrayOfInt,
-    const int elementCount,
-    const int packedTokenBitSize,
-    const int offset,
-    const int stride,
-    const int hasMissing,
-    const void * const missingTag,
-    void * const min,
-    void * const max
-);
-
-void * compact_p_float(
-    const void * const unpackedArrayOfFloat,
-    void * const packedHeader,
-    void * const packedArrayOfInt,
-    const int elementCount,
-    const int packedTokenBitSize,
-    const int offset,
-    const int stride,
-    const int hasMissing,
-    const void * const missingTag,
-    void * const min,
-    void * const max
-);
-
-void * compact_p_double(
-    const void * const unpackedArrayOfFloat,
-    void * const packedHeader,
-    void * const packedArrayOfInt,
-    const int elementCount,
-    const int packedTokenBitSize,
-    const int offset,
-    const int stride,
-    const int hasMissing,
-    const void * const missingTag,
-    void * const min,
-    void * const max
-);
-
-typedef void *(*UnpackFunctionPointer)(
-    void * const unpackedArrayOfFloat,
-    const void * const packedHeader,
-    const void * const packedArrayOfInt,
-    const int elementCount,
-    const int packedTokenBitSize,
-    const int offset,
-    const int stride,
-    const int hasMissing,
-    const void * const missingTag,
-    void * const min,
-    void * const max
-);
-
-void * compact_u_float(
-    void * const unpackedArrayOfFloat,
-    const void * const packedHeader,
-    const void * const packedArrayOfInt,
-    const int elementCount,
-    const int packedTokenBitSize,
-    const int offset,
-    const int stride,
-    const int hasMissing,
-    const void * const missingTag,
-    void * const min,
-    void * const max
-);
-
-void * compact_u_double(
-    void * const unpackedArrayOfFloat,
-    const void * const packedHeader,
-    const void * const packedArrayOfInt,
-    const int elementCount,
-    const int packedTokenBitSize,
-    const int offset,
-    const int stride,
-    const int hasMissing,
-    const void * const missingTag,
-    void * const min,
-    void * const max
-);
-
-int compact_p_char(
-    const void * const unpackedArrayOfBytes,
-    void * const packedHeader,
-    void * const packedArrayOfInt,
-    int intCount,
-    int bitSizeOfPackedToken,
-    const int offset,
-    const int stride
-);
-
-int compact_u_char(
-    void * const unpackedArrayOfBytes,
-    const void * const packedHeader,
-    const void * const packedArrayOfInt,
-    int intCount,
-    int bitSizeOfPackedToken,
-    const int offset,
-    const int stride
-);
-
-int compact_p_short(
-    const void * const unpackedArray,
-    void * const packedHeader,
-    void * const packedArray,
-    int intCount,
-    const int bitSizeOfPackedToken,
-    const int offset,
-    const int stride
-);
-
-int compact_u_short(
-    void * const unpackedArray,
-    void * const packedHeader,
-    const void * const packedArray,
-    int intCount,
-    const int bitSizeOfPackedToken,
-    const int offset,
-    const int stride
-);
-
-int compact_p_integer(
-    const void * const unpackedArrayOfInt,
-    void * const packedHeader,
-    void * const packedArrayOfInt,
-    int intCount,
-    int bitSizeOfPackedToken,
-    int offset,
-    int stride,
-    const int sign
-);
-
-int compact_u_integer(
-    void * const unpackedArrayOfInt,
-    const void * const packedHeader,
-    const void * const packedArrayOfInt,
-    int intCount,
-    int bitSizeOfPackedToken,
-    int offset,
-    int stride,
-    const int sign
-);
-
-// borrow some function prototypes
-void c_float_packer_params(int32_t *header_size, int32_t *stream_size, int32_t *p1, int32_t *p2, int32_t npts);
-int32_t c_float_packer(float *source, int32_t nbits, int32_t *header, int32_t *stream, int32_t npts);
-int32_t c_float_unpacker(float *dest, int32_t *header, int32_t *stream, int32_t npts, int32_t *nbits );
-
-void f77name(ieeepak)(int32_t *IFLD, int32_t *IPK, const int32_t *NI, const int32_t *NJ, const int32_t *NPAK, const int32_t *serpas, const int32_t *mode);
-
-int c_armn_compress32(unsigned char *, float *, int, int, int, int);
-int  c_armn_uncompress32(float *fld, unsigned char *zstream, int ni, int nj, int nk, int nchiffres_sign);
-int armn_compress(unsigned char *fld, int ni, int nj, int nk, int nbits, int op_code, const int swap_stream);
-
-void resize_int(
-    void* restrict dest,        //!< Destination array
-    const int dest_size,        //!< Element size of destination array (in bits)
-    const void* restrict src,   //!< Source array
-    const int src_size,         //!< Element size of source array (in bits)
-    const int64_t num_elem      //!< Number of elements to convert
-);
-void upgrade_size(
-    void* dest,                 //!< [out] Destination array, into which the items are copied
-    const int dest_size,        //!< [in] Size of items in destination array, in bits
-    void* src,                  //!< [in] Source array, from which the items are copied
-    const int src_size,         //!< [in] Size of items in source array, in bits
-    const int64_t num_elem,     //!< [in] Number of items to copy
-    const int is_integer        //!< [in] Whether we are copying integers (or float)
-);
-
+//! legacy encoders (data types 0,1,2,3,4,5,6,7,8), including turbo and missing values options
 RANGE(int32_t) fst98_encode(
   //! [in] Field to encode
   const void * const field_in,
@@ -235,14 +62,12 @@ RANGE(int32_t) fst98_encode(
   int nj,
   //! [in] Third dimension of the data field
   int nk,
-  //! [in] Data type of elements
+  //! [in] Data type of elements (including flags used to control xdf_double/xdf_short/xdf_byte)
   const int datyp,
-  //! [in] used to control xdf_double/xdf_short/xdf_byte
-  int datasize,
   //! [out] effective datyp + nbits
   int *data_kind) ;
 
-//! XDF version
+//! legacy decoders (data types 0,1,2,3,4,5,6,7,8), including turbo and missing values options
 int fst98_decode(
   //! [out] Pointer to where the data read will be placed.  Must be already allocated!
   void * const data_out,
@@ -254,10 +79,8 @@ int fst98_decode(
   int nj,
   //! [in] Dimension 3 of the data field
   int nk,
-  //! [in] effective datyp + nbits
-  int data_kind,
-  //! [in] used to control xdf_double/xdf_short/xdf_byte
-  int datasize
+  //! [in] datyp + nbits + control for XdfDouble/XdfShort/XdfByte
+  int data_kind
 ) ;
 
 #endif
