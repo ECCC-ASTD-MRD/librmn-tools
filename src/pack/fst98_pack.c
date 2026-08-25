@@ -281,10 +281,17 @@ RANGE(int32_t) fst98_encode(
 
   int is_missing = datyp_in & FSTD_MISSING_FLAG;      // flag : missing value feature is requested
 
-  // TODO : use turbo a priori (backtrack later if impractical) ?
+// TODO : use turbo a priori (backtrack later if impractical) ?
   // datyp_in |= FST_TYPE_TURBOPACK ;
   int is_turbo   = datyp_in & FST_TYPE_TURBOPACK;     // flag : turbo packing activated
   int in_datyp   = base_fst_type(datyp_in);           // suppress flags, only retain base type
+
+// TODO: data type 6 with nbits <= 16 automatically activates turbo
+  if(in_datyp == FST_TYPE_REAL && nbits <= 16 && is_turbo == 0){
+fprintf(stderr, "DEBUG :  FST_TYPE_REAL && nbits <= 16  turbo activated, datyp_in = %d\n", datyp_in) ;
+    is_turbo = FST_TYPE_TURBOPACK ;                     // activate turbo
+    datyp_in = FST_TYPE_REAL | is_turbo | is_missing ;  // keep flags
+  }
 
 // TODO: data type 1 with nbits <= 16 becomes data type 6 with same nbits
   if(in_datyp == FST_TYPE_REAL_OLD_QUANT && nbits <= 16){

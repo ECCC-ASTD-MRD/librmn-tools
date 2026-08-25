@@ -223,6 +223,9 @@ if(argc > 100)
 goto strings;
 if(argc > 100)
 goto uint;
+  fprintf(stderr, "========== FST_TYPE_REAL (8 bits) ==========\n") ;
+  encode_decode_float(ni, nj, (void *)f_data, (void *)rf_data, 8, FST_TYPE_REAL, 0, 0) ;
+//
   fprintf(stderr, "========== FST_TYPE_REAL (16 bits) ==========\n") ;
   encode_decode_float(ni, nj, (void *)f_data, (void *)rf_data, 16, FST_TYPE_REAL, 0, 0) ;
 //
