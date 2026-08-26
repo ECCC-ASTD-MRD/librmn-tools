@@ -21,12 +21,17 @@
 // import as little as possible from fstd 98 code
 #include <rmn/fst98.h>
 // source / destination flags (upper 8 bits in word)
-#define SRC_DOUBLE    ( 1 << 24)
+#define SRC_DOUBLE    ( 8 << 24)
+#define SRC_WORD      ( 4 << 24)
 #define SRC_SHORT     ( 2 << 24)
-#define SRC_BYTE      ( 4 << 24)
-#define DST_DOUBLE    ( 8 << 24)
-#define DST_SHORT     (16 << 24)
-#define DST_BYTE      (32 << 24)
+#define SRC_BYTE      ( 1 << 24)
+#define DST_DOUBLE    ( 8 << 28)
+#define DST_WORD      ( 4 << 28)
+#define DST_SHORT     ( 2 << 28)
+#define DST_BYTE      ( 1 << 28)
+// length from flag
+#define SRC_LENGTH(FLAG) ((FLAG >> 24) & 0xF)
+#define DST_LENGTH(FLAG) ((FLAG >> 28) & 0xF)
 
 #include <rmn/fst_missing.h>
 #include <rmn/data_map.h>

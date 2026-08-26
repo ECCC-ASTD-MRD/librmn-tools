@@ -275,19 +275,19 @@ RANGE(int32_t) fst98_encode(
   double dmin = 0.0, dmax = 0.0;            // by_product of some encoders
   int nbits = (npak < 0) ? (-npak) : ( Max(1, 32 / Max(1, npak)) );    // npak == 0 or 1 will set nbits to 32
 
+// TODO : use turbo a priori (backtrack later if impractical) ?
+  // datyp_in |= FST_TYPE_TURBOPACK ;
+
   // FST_TYPE_MAGIC: 512+256+32+1 no interference with turbo pack (128) and missing value (64) flags
-  int is_magic   = (datyp_in & FST_TYPE_MAGIC) == FST_TYPE_MAGIC ;
+  int is_magic   = ((datyp_in & FST_TYPE_MAGIC) == FST_TYPE_MAGIC) ;
 //   if(is_magic) goto fail ;         // TODO : disallow FST_TYPE_MAGIC ?
 
   int is_missing = datyp_in & FSTD_MISSING_FLAG;      // flag : missing value feature is requested
-
-// TODO : use turbo a priori (backtrack later if impractical) ?
-  // datyp_in |= FST_TYPE_TURBOPACK ;
   int is_turbo   = datyp_in & FST_TYPE_TURBOPACK;     // flag : turbo packing activated
   int in_datyp   = base_fst_type(datyp_in);           // suppress flags, only retain base type
 
 // TODO: data type 6 with nbits <= 16 automatically activates turbo
-  if(in_datyp == FST_TYPE_REAL && nbits <= 16 && is_turbo == 0){
+  if((in_datyp == FST_TYPE_REAL) && (nbits <= 16) && (is_turbo == 0)){
 fprintf(stderr, "DEBUG :  FST_TYPE_REAL && nbits <= 16  turbo activated, datyp_in = %d\n", datyp_in) ;
     is_turbo = FST_TYPE_TURBOPACK ;                     // activate turbo
     datyp_in = FST_TYPE_REAL | is_turbo | is_missing ;  // keep flags
@@ -302,12 +302,12 @@ fprintf(stderr, "DEBUG :  FST_TYPE_REAL_OLD_QUANT && nbits <= 16  > FST_TYPE_REA
 
 // TODO : real type with nbits > ieee_turbo_threshold ====> type 5 + turbo
   if( (is_type_real(in_datyp)) && (nbits > ieee_turbo_threshold) && is_turbo) {
-fprintf(stderr, "DEBUG :  type 1, 5 or 6 with nbits > %d ====> type 5 + turbo (32 bits), datyp_in = %d\n", ieee_turbo_threshold, datyp_in) ;
-    in_datyp = FST_TYPE_REAL_IEEE ;                          // set data type to IEEE (6)
-    is_turbo = FST_TYPE_TURBOPACK ;                          // force turbo
-    datyp_in = FST_TYPE_REAL_IEEE | is_turbo | is_missing ;  // keep is_missing if it was present
     nbits += 9 ;                                             // add 9 to bit count
     nbits = (nbits > 32) ? 32 : nbits ;                      // at most 32 bits
+    in_datyp = FST_TYPE_REAL_IEEE ;                          // set data type to IEEE (6)
+    is_turbo = FST_TYPE_TURBOPACK ;                          // force turbo
+fprintf(stderr, "DEBUG :  type 1, 5 or 6 with nbits > %d ====> type 5 + turbo (%d bits), datyp_in = %d\n", ieee_turbo_threshold, nbits, datyp_in) ;
+    datyp_in = FST_TYPE_REAL_IEEE | is_turbo | is_missing ;  // keep is_missing if it was present
   }
 
   int datyp = is_magic ? 1 : in_datyp;                // base data type, is_magic means source array is double (type 1 + XdfDouble)
@@ -366,14 +366,17 @@ fprintf(stderr, "DEBUG :  type 1, 5 or 6 with nbits > %d ====> type 5 + turbo (3
   // flag 64 bit IEEE (type 5 or 8)
   if ( (is_type_real(datyp))    && (nbits > 32) ) IEEE_64 = 1;        // 64 bits real IEEE
   if ( (is_type_complex(datyp)) && (nbits > 32) ) IEEE_64 = 1;        // 64 bits complex IEEE
-  if(IEEE_64) nbits = 64 ;
+  if(IEEE_64){
+    nbits = 64 ;
+//     XdfDouble = 0 ;
+  }
   if ((npak == 0) || (npak == 1)) { datyp = FST_TYPE_BINARY; }        // no compaction, nbits is already 32
 
   // fudge field if missing value feature is used, 
   int sizefactor = 4;
   if (XdfByte)  sizefactor = 1;                  // source is a byte array (8 bit integer values)
   if (XdfShort) sizefactor = 2;                  // source is a halfword array (16 bit integer values)
-  if (XdfDouble || IEEE_64) sizefactor = 8;      // source is a double array (64 bit floating point values)
+  if (XdfDouble || IEEE_64) sizefactor = 8;      // source is a double array (64 bit values)
   // put appropriate values into field_missing after allocating it
   if (is_missing) {
     field_missing = malloc(ni*nj*nk * sizefactor);       // allocate temporary field for missing values flagging
@@ -395,6 +398,7 @@ fprintf(stderr, "DEBUG :  type 1, 5 or 6 with nbits > %d ====> type 5 + turbo (3
         field_f = malloc(ni * nj * _nk * sizeof(float));
 //           const double * const field_d = field_in;
         memcpy_d_f(field_f, (const double *)field_in, ni*nj*_nk) ;
+fprintf(stderr, "downgrade_size, nelm = %d\n", ni*nj*_nk);
         packfunc = &compact_p_float;                    // will pack from floats
         field_u32 = (uint32_t*)field_f;
       }else if (nbits != 64) {
@@ -457,6 +461,7 @@ fprintf(stderr, "DEBUG :  type 1, 5 or 6 with nbits > %d ====> type 5 + turbo (3
   if(IEEE_64){
     nw = 2 * ni*nj*nk ;
     if(datyp == FST_TYPE_COMPLEX) nw *= 2 ;
+// fprintf(stderr, "DEBUG : nw = %d, datyp = %d, nbits = %d\n", nw, datyp, nbits) ;
   }
 
   buffer = NULL ;
@@ -470,7 +475,15 @@ fprintf(stderr, "DEBUG :  type 1, 5 or 6 with nbits > %d ====> type 5 + turbo (3
 
 // TODO : handle 64 bit straight IEEE (IEEE_64). add endian swap ?
   if(IEEE_64){
-    for(int i = 0 ; i<nw ; i++) { buffer[i] = field_u32[i]; } ;
+// double *buf64 = (double *)field_u32 ;
+// fprintf(stderr, "DEBUG : datyp = %d, buf64 = %f %f %f\n", datyp, buf64[0], buf64[nw/4-1], buf64[nw/2-1]);
+#if defined(Little_Endian)
+    uint64_t *bui64 = (uint64_t *)field_u32 ;
+    uint64_t *buo64 = (uint64_t *)buffer ;
+    for(int i = 0 ; i<nw/2 ; i++) { buo64[i] = (bui64[i] >> 32) | (bui64[i] << 32) ; } ;  // swap 32/32
+#else
+    for(int i = 0 ; i<nw ; i++) { buffer[i] = field_u32[i] ; } ;                          // copy 64
+#endif
     goto end ;
   }
   switch (datyp) {
@@ -688,6 +701,7 @@ int fst98_decode(
   int XdfDouble = xdf_double || (data_control & DST_DOUBLE) ;
   int XdfShort  = xdf_short  || (data_control & DST_SHORT) ;
   int XdfByte   = xdf_byte   || (data_control & DST_BYTE);
+  int Downgrade32 = (data_control & DST_WORD);
   uint32_t *field = data_out;
   int ier = 0 ;
   int datyp = data_kind & 0xFFFF ;
@@ -798,9 +812,9 @@ int fst98_decode(
 
       case FST_TYPE_REAL_IEEE:                // IEEE representation
       case FST_TYPE_COMPLEX: {
-
+// fprintf(stderr, "FST_TYPE_IEEE : nelm = %d, nbits_in = %d\n", nelm, nbits_in) ;
         register int32_t temp32, *src, *dest;
-        if ((downgrade_32) && (nbits_in == 64)) {
+        if ((downgrade_32 || Downgrade32) && (nbits_in == 64)) {
           // Downgrade 64 bit to 32 bit
           float * ptr_real = (float *) field;
           double * ptr_double = (double *) buf;
@@ -816,12 +830,24 @@ int fst98_decode(
           for (int i = 0; i < nelm; i++) {
             *ptr_real++ = *ptr_double++;
           }
+fprintf(stderr, "FST_TYPE_IEEE : downgrading\n") ;
         }else{
           int32_t f_one = 1;
           int32_t f_zero = 0;
           int32_t f_mode = 2;
           int f_minus_nbits = (-nbits_in);
-          f77name(ieeepak)((int32_t *)field, (int32_t *)buf, &nelm, &f_one, &f_minus_nbits, &f_zero, &f_mode);
+          if(nbits_in == 64){
+            double *ptr_in = (double *)buf, *ptr_out = (double *)field;
+#if defined(Little_Endian)
+            uint64_t *t64 = (uint64_t *)buf ;
+            for (int i = 0; i < nelm; i++) { t64[i] = (t64[i] >> 32) | (t64[i] << 32) ; }
+#endif
+fprintf(stderr, "FST_TYPE_IEEE :copying\n") ;
+            for (int i = 0; i < nelm; i++) { ptr_out[i] = ptr_in[i] ; }
+          }else{
+// fprintf(stderr, "FST_TYPE_IEEE : calling ieeepak, f_minus_nbits = %d\n", f_minus_nbits) ;
+            f77name(ieeepak)((int32_t *)field, (int32_t *)buf, &nelm, &f_one, &f_minus_nbits, &f_zero, &f_mode);
+          }
         }
 
         break;
@@ -876,7 +902,7 @@ int fst98_decode(
   }
 
     // Upgrade size, if necessary
-    if (XdfDouble) {
+    if (XdfDouble && (nbits_in != 64)) {
       const int base_type = base_fst_type(datyp);
       if (base_type == FST_TYPE_REAL_IEEE || base_type == FST_TYPE_REAL) {
         float f[nelm], *ff = (float *)field;
@@ -898,7 +924,7 @@ int32_t fst98_codec(zmap *map, zmap_block block, zmap_stream stream, int encode)
   struct{
     uint32_t nbits ;         // item size
     uint32_t datyp ;         // item type
-    uint32_t data_control ;  // output item length
+    uint32_t data_control ;  // SRC_DOUBLE/SRC_SHORT/SRC_BYTE/DST_DOUBLE/DST_SHORT/DST_BYTE
     uint32_t dummy ;         // not used for now
   } fst98_codec_args;
   CT_ASSERT(sizeof(fst98_codec_args) == CODEC_ARGS_SIZE, "sizeof(fst98_codec_args) != CODEC_ARGS_SIZE") ;
