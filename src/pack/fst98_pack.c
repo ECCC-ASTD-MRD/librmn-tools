@@ -201,25 +201,25 @@ void resize_int(
 
 typedef uint8_t byte ;
 
-// byte to halfword signed copy
-static void memcpy_8_16(int16_t *p16, const int8_t *p8, int nb) {
+// byte to halfword unsigned copy
+static void memcpy_8_16(uint16_t *p16, const uint8_t *p8, int nb) {
   for (int i = 0; i < nb; i++) { p16[i] = p8[i]; }
 }
 
-// halfword to byte signed copy
-static void memcpy_16_8(int8_t *p8, const int16_t *p16, int nb) {
+// halfword to byte unsigned copy
+static void memcpy_16_8(uint8_t *p8, const uint16_t *p16, int nb) {
   for (int i = 0; i < nb; i++) { p8[i] = p16[i]; }
 }
 
-// halfword to word signed copy
-static void memcpy_16_32(int32_t *p32, const int16_t *p16, int nbits, int nb) {
-  int16_t mask = ~ (0xffff << nbits);        // keep lower nbits bits only
+// halfword to word unsigned copy
+static void memcpy_16_32(uint32_t *p32, const uint16_t *p16, int nbits, int nb) {
+  uint16_t mask = ~ (0xffff << nbits);        // keep lower nbits bits only
   for (int i = 0; i < nb; i++) { p32[i] = p16[i] & mask; }
 }
 
-// word to halfword signed copy
-static void memcpy_32_16(int16_t *p16, const int32_t * p32, int nbits, int nb) {
-  int32_t mask = ~ (0xffffffff << nbits);    // keep lower nbits bits only
+// word to halfword unsigned copy
+static void memcpy_32_16(uint16_t *p16, const uint32_t * p32, int nbits, int nb) {
+  uint32_t mask = ~ (0xffffffff << nbits);    // keep lower nbits bits only
   for (int i = 0; i < nb; i++) { p16[i] = p32[i] & mask; }
 }
 
@@ -259,9 +259,13 @@ RANGE(int32_t) fst98_encode(
   //! [out] effective data type and nbits
   int *data_kind
 ) {
-  // account for legacy xdf_double / xdf_short / xdf_byte
+  if(base_fst_type(datyp_in) == FST_TYPE_BINARY){    // cancel all features if FST_TYPE_BINARY
+    datyp_in = FST_TYPE_BINARY ;
+    xdf_double = xdf_short = xdf_byte = 0 ;
+  }
   int data_control = datyp_in & 0xFF000000 ;  // keep upper 8 bits
   datyp_in &= 0xFFFFFF ;                      // lower 24 bits ;
+  // account for legacy xdf_double / xdf_short / xdf_byte
   int XdfDouble = xdf_double || (data_control & SRC_DOUBLE) ;
   int XdfShort  = xdf_short  || (data_control & SRC_SHORT) ;
   int XdfByte   = xdf_byte   || (data_control & SRC_BYTE);
@@ -398,7 +402,7 @@ fprintf(stderr, "DEBUG :  type 1, 5 or 6 with nbits > %d ====> type 5 + turbo (%
         field_f = malloc(ni * nj * _nk * sizeof(float));
 //           const double * const field_d = field_in;
         memcpy_d_f(field_f, (const double *)field_in, ni*nj*_nk) ;
-fprintf(stderr, "downgrade_size, nelm = %d\n", ni*nj*_nk);
+fprintf(stderr, "encoder : XdfDouble, downgrade_size, nelm = %d\n", ni*nj*_nk);
         packfunc = &compact_p_float;                    // will pack from floats
         field_u32 = (uint32_t*)field_f;
       }else if (nbits != 64) {
@@ -471,7 +475,7 @@ fprintf(stderr, "downgrade_size, nelm = %d\n", ni*nj*_nk);
   local_buffer = (buffer == NULL) ;
   if(local_buffer){ buffer = (int32_t *) malloc(nw * sizeof(int32_t)); }      // need to allocate buffer
   if(buffer == NULL) goto fail ;
-//   if(local_buffer) fprintf(stderr,"DEBUG : need %d words, have %ld, allocated buffer with size %d words\n", nw, RANGE_ITEMS(field_out), nw);
+  if(local_buffer) fprintf(stderr,"DEBUG : need %d words, have %ld, allocated buffer with size %d words\n", nw, RANGE_ITEMS(field_out), nw);
 
 // TODO : handle 64 bit straight IEEE (IEEE_64). add endian swap ?
   if(IEEE_64){
@@ -527,16 +531,17 @@ fprintf(stderr, "downgrade_size, nelm = %d\n", ni*nj*_nk);
 
     // integers, short integers or bytes (unsigned)
     case FST_TYPE_UNSIGNED:
+//       if(nbits > 16) is_turbo = 0 ;
       if (is_turbo) {
         const int offset = 1;
         if (XdfShort) {               // 16 bits to 16 bits copy
-          nbits = Min(16, nbits);    // at most 16 bits
+          nbits = Min(16, nbits);     // at most 16 bits
           memcpy((int16_t *)(buffer + offset), field_u32, ni*nj*nk * 2);
         } else if (XdfByte) {         // 8 bits to 16 bits expansion
-          nbits = Min(8, nbits);     // at most 8 bits
-          memcpy_8_16((int16_t *)(buffer + offset), (int8_t *)field_u32, ni*nj*nk);
-        }else{                       // 32 bits to 16 bits truncation
-          memcpy_32_16((int16_t *)(buffer + offset), (const int32_t *)field_u32, nbits, ni*nj*nk);
+          nbits = Min(8, nbits);      // at most 8 bits
+          memcpy_8_16((uint16_t *)(buffer + offset), (uint8_t *)field_u32, ni*nj*nk);
+        }else{                        // 32 bits to 16 bits truncation
+          memcpy_32_16((uint16_t *)(buffer + offset), (const uint32_t *)field_u32, nbits, ni*nj*nk);
         }
         int compressed_lng = armn_compress((byte *)(buffer + offset), ni, nj, nk, nbits, 1, 0);
         if (compressed_lng < 0) {     // no gain from turbo, repack
@@ -695,30 +700,35 @@ int fst98_decode(
   //! [in] datyp + nbits + control for XdfDouble/XdfShort/XdfByte
   int data_kind
 ) {
-//   int data_control = data_kind & 0xFF000000 ;  // keep upper 8 bits
-  int data_control = data_kind & 0xFF000000 ;  // keep upper 8 bits
-  data_kind = data_kind & 0xFFFFFF ;       // lower 24 bits
-  int XdfDouble = xdf_double || (data_control & DST_DOUBLE) ;
-  int XdfShort  = xdf_short  || (data_control & DST_SHORT) ;
-  int XdfByte   = xdf_byte   || (data_control & DST_BYTE);
-  int Downgrade32 = (data_control & DST_WORD);
+  int data_control = data_kind & 0xFF000000 ;  // upper 8 bits
+  data_kind = data_kind & 0xFFFFFF ;           // keep lower 24 bits
+  // account for legacy xdf_double / xdf_short / xdf_byte / downgrade_32
+  int XdfDouble   = xdf_double   || (data_control & DST_DOUBLE) ;     // output will be 64 bit doubles
+  int XdfShort    = xdf_short    || (data_control & DST_SHORT) ;      // output will be 16 bit
+  int XdfByte     = xdf_byte     || (data_control & DST_BYTE);        // output will be 8 bit
+  int Downgrade32 = downgrade_32 || (data_control & DST_WORD);        // output will be 32 bit floats
   uint32_t *field = data_out;
   int ier = 0 ;
   int datyp = data_kind & 0xFFFF ;
   int nbits_in = (data_kind >> 16) & 0xFF ;
 
-    // Get missing data flag
-    int is_missing = datyp & FSTD_MISSING_FLAG;
-    // Suppress missing data flag
-    datyp = datyp & ~FSTD_MISSING_FLAG;
+  if(base_fst_type(datyp) == FST_TYPE_BINARY){    // cancel all features if FST_TYPE_BINARY, only keep nbits
+    datyp = FST_TYPE_BINARY ;
+    xdf_double = xdf_short = xdf_byte = 0 ;
+    XdfDouble = XdfShort = XdfByte = Downgrade32 = 0 ;
+  }
+  // Get missing data flag
+  int is_missing = datyp & FSTD_MISSING_FLAG;
+  // Suppress missing data flag
+  datyp = datyp & ~FSTD_MISSING_FLAG;
 //     int xdf_datatyp = datyp;
 
-    UnpackFunctionPointer packfunc = XdfDouble ? &compact_u_double : &compact_u_float;
-    double dmin=0.0, dmax=0.0;
+  UnpackFunctionPointer packfunc = XdfDouble ? &compact_u_double : &compact_u_float;
+  double dmin=0.0, dmax=0.0;
 
-    int nelm = ni*nj*nk ;
-    uint32_t *buf = (uint32_t *) data_in ;
-    if (datyp == 8) nelm *= 2;    // complex data, double number of values
+  int nelm = ni*nj*nk ;
+  uint32_t *buf = (uint32_t *) data_in ;
+  if (datyp == 8) nelm *= 2;    // complex data, double number of values
 #if 0
     // TODO : take care of IEEE case, nbits > 16 O.K. with turbo
     // nbits > 16, remove FST_TYPE_TURBOPACK, replace FST_TYPE_REAL with FST_TYPE_REAL_OLD_QUANT
@@ -737,187 +747,187 @@ int fst98_decode(
     }
 #endif
 // TODO : handle 64 bit straight IEEE correctly
-    ier = nbits_in ;
-    switch (datyp) {
-      case FST_TYPE_BINARY: {            // Raw binary
-        int lngw = ((nelm * nbits_in) + 32 - 1) / 32;
-        for (int i = 0; i < lngw; i++) {
-            field[i] = buf[i];
-        }
-        break;
+  ier = nbits_in ;
+  switch (datyp) {
+    case FST_TYPE_BINARY: {            // Raw binary
+      int lngw = ((nelm * nbits_in) + 32 - 1) / 32;
+      for (int i = 0; i < lngw; i++) {
+          field[i] = buf[i];
       }
+      break;
+    }
 
-      case FST_TYPE_REAL_OLD_QUANT: {          // Floating Point, old style packers
-        double tempfloat = 99999.0;
-        packfunc(field, buf, buf + 3, nelm, nbits_in, 24, xdf_stride, 0, &tempfloat, &dmin , &dmax);
-        break;
-      }
+    case FST_TYPE_REAL_OLD_QUANT: {          // Floating Point, old style packers
+      double tempfloat = 99999.0;
+      packfunc(field, buf, buf + 3, nelm, nbits_in, 24, xdf_stride, 0, &tempfloat, &dmin , &dmax);
+      break;
+    }
 
-      case FST_TYPE_UNSIGNED:                // Integers, short integers or bytes (unsigned)
-      case FST_TYPE_UNSIGNED | FST_TYPE_TURBOPACK: {
-        int offset = is_type_turbopack(datyp) ? 1 : 0;
-        if (XdfShort) {
-          if (is_type_turbopack(datyp)) {
-            int nbytes = armn_compress((byte *)(buf + offset), ni, nj, nk, nbits_in, 2, 0);
-            memcpy(field, buf + offset, nbytes);
-          }else{
-            ier = compact_u_short(field, (void *) NULL, buf + offset, nelm, nbits_in, 0, xdf_stride);
-          }
-        } else if(XdfByte) {
-          if (is_type_turbopack(datyp)) {
-            armn_compress((byte *)(buf + offset), ni, nj, nk, nbits_in, 2, 0);
-            memcpy_16_8((int8_t *)field, (int16_t *)(buf + offset), nelm);
-          }else{
-            ier = compact_u_char(field, (void *) NULL, buf, nelm, nbits_in, 0, xdf_stride);
-          }
+    case FST_TYPE_UNSIGNED:                // Integers, short integers or bytes (unsigned)
+    case FST_TYPE_UNSIGNED | FST_TYPE_TURBOPACK: {
+      int offset = is_type_turbopack(datyp) ? 1 : 0;
+      if (XdfShort) {
+        if (is_type_turbopack(datyp)) {
+          int nbytes = armn_compress((byte *)(buf + offset), ni, nj, nk, nbits_in, 2, 0);
+          memcpy(field, buf + offset, nbytes);
         }else{
-          if (is_type_turbopack(datyp)) {
-            armn_compress((byte *)(buf + offset), ni, nj, nk, nbits_in, 2, 0);
-            memcpy_16_32((int32_t *)field, (int16_t *)(buf + offset), nbits_in, nelm);
-          }else{
-            ier = compact_u_integer(field, (void *) NULL, buf + offset, nelm, nbits_in, 0, xdf_stride, 0);
-          }
+          ier = compact_u_short(field, (void *) NULL, buf + offset, nelm, nbits_in, 0, xdf_stride);
         }
-        break;
+      } else if(XdfByte) {
+        if (is_type_turbopack(datyp)) {
+          armn_compress((byte *)(buf + offset), ni, nj, nk, nbits_in, 2, 0);
+          memcpy_16_8((uint8_t *)field, (uint16_t *)(buf + offset), nelm);
+        }else{
+          ier = compact_u_char(field, (void *) NULL, buf, nelm, nbits_in, 0, xdf_stride);
+        }
+      }else{
+        if (is_type_turbopack(datyp)) {
+          armn_compress((byte *)(buf + offset), ni, nj, nk, nbits_in, 2, 0);
+          memcpy_16_32((uint32_t *)field, (uint16_t *)(buf + offset), nbits_in, nelm);
+        }else{
+          ier = compact_u_integer(field, (void *) NULL, buf + offset, nelm, nbits_in, 0, xdf_stride, 0);
+        }
       }
+      break;
+    }
 
-      case FST_TYPE_SIGNED: {                // Integers, short integers or bytes (signed)
+    case FST_TYPE_SIGNED: {                // Integers, short integers or bytes (signed)
 #ifdef use_old_signed_pack_unpack_code
-        int32_t *field_out;
+      int32_t *field_out;
+      if (XdfShort || XdfByte || XdfDouble) {                // need temporary array to unpack
+        field_out = malloc(nelm * sizeof(int));
+      }else{
+        field_out = (int32_t *)field;
+      }
+      // unpack into field_out
+      ier = compact_u_integer(field_out, (void *) NULL, buf, nelm, nbits_in, 0, xdf_stride, 1);
+      if (XdfShort) {                           // copy into "short" destination
         short *s_field_out = (short *)field;
+        for (int i = 0; i < nelm; i++) {
+          s_field_out[i] = field_out[i];
+        }
+      }
+      else if (XdfByte) {                       // copy into "byte" destination
         signed char *b_field_out = (signed char *)field;
-        if (XdfShort || XdfByte) {                // need temporary array to unpack
-          field_out = malloc(nelm * sizeof(int));
-        }else{
-          field_out = (int32_t *)field;
-        }
-        // unpack into field_out
-        ier = compact_u_integer(field_out, (void *) NULL, buf, nelm, nbits_in, 0, xdf_stride, 1);
-        if (XdfShort) {                           // copy into "short" destination
-          for (int i = 0; i < nelm; i++) {
-            s_field_out[i] = field_out[i];
+        for (int i = 0; i < nelm; i++) {
+          b_field_out[i] = field_out[i];
           }
-        }
-        else if (XdfByte) {                       // copy into "byte" destination
-          for (int i = 0; i < nelm; i++) {
-            b_field_out[i] = field_out[i];
-            }
-        }
-        if (field_out != (int32_t*)field) free(field_out); // needed temporary array
+      }
+      if (field_out != (int32_t*)field) free(field_out); // needed temporary array
 #else
 #error "use_old_signed_pack_unpack_code not defined"
 #endif
-        break;
-      }
-
-      case FST_TYPE_REAL_IEEE:                // IEEE representation
-      case FST_TYPE_COMPLEX: {
-// fprintf(stderr, "FST_TYPE_IEEE : nelm = %d, nbits_in = %d\n", nelm, nbits_in) ;
-        register int32_t temp32, *src, *dest;
-        if ((downgrade_32 || Downgrade32) && (nbits_in == 64)) {
-          // Downgrade 64 bit to 32 bit
-          float * ptr_real = (float *) field;
-          double * ptr_double = (double *) buf;
-#if defined(Little_Endian)
-          src = (int32_t *) buf;
-          dest = (int32_t *) buf;
-          for (int i = 0; i < nelm; i++) {    // 32/32 endian swap
-            temp32 = *src++;
-            *dest++ = *src++;
-            *dest++ = temp32;
-          }
-#endif
-          for (int i = 0; i < nelm; i++) {
-            *ptr_real++ = *ptr_double++;
-          }
-fprintf(stderr, "FST_TYPE_IEEE : downgrading\n") ;
-        }else{
-          int32_t f_one = 1;
-          int32_t f_zero = 0;
-          int32_t f_mode = 2;
-          int f_minus_nbits = (-nbits_in);
-          if(nbits_in == 64){
-            double *ptr_in = (double *)buf, *ptr_out = (double *)field;
-#if defined(Little_Endian)
-            uint64_t *t64 = (uint64_t *)buf ;
-            for (int i = 0; i < nelm; i++) { t64[i] = (t64[i] >> 32) | (t64[i] << 32) ; }
-#endif
-fprintf(stderr, "FST_TYPE_IEEE :copying\n") ;
-            for (int i = 0; i < nelm; i++) { ptr_out[i] = ptr_in[i] ; }
-          }else{
-// fprintf(stderr, "FST_TYPE_IEEE : calling ieeepak, f_minus_nbits = %d\n", f_minus_nbits) ;
-            f77name(ieeepak)((int32_t *)field, (int32_t *)buf, &nelm, &f_one, &f_minus_nbits, &f_zero, &f_mode);
-          }
-        }
-
-        break;
-      }
-
-      case FST_TYPE_REAL_IEEE | FST_TYPE_TURBOPACK: {
-        // IEEE Floating point direct packers
-        c_armn_uncompress32((float *)field, (byte *)(buf + 1), ni, nj, nk, nbits_in);
-        break;
-      }
-
-      case FST_TYPE_REAL:
-      case FST_TYPE_REAL | FST_TYPE_TURBOPACK: {
-        // Floating point, new packers
-        // printf("Debug+ fstluk - Floating point, new packers (6, 134)\n");
-        int nbits, header_size, stream_size, p1out, p2out;
-        c_float_packer_params(&header_size, &stream_size, &p1out, &p2out, ni*nj*nk);
-        header_size /= sizeof(int32_t);
-        if (is_type_turbopack(datyp)) {
-          armn_compress((byte *)(buf + 1 + header_size), ni, nj, nk, nbits_in, 2, 1);
-          c_float_unpacker((float *)field, (int32_t *)(buf + 1), (int32_t *)(buf + 1 + header_size), nelm, &nbits);
-        }else{
-          c_float_unpacker((float *)field, (int32_t *)buf, (int32_t *)(buf + header_size), nelm, &nbits);
-        }
-        break;
-      }
-
-      case FST_TYPE_CHAR: {
-        // Character data, R4A style (4 chars in a 32 bit integer)
-        int nc = (nelm + 3) / 4;
-        ier = compact_u_integer(field, (void *) NULL, buf, nc, 32, 0, xdf_stride, 0);
-        break;
-      }
-
-      case FST_TYPE_STRING:
-        // Character string
-        ier = compact_u_char(field, (void *) NULL, buf, nelm, 8, 0, xdf_stride);
-        break;
-
-      default:
-        Lib_Log(APP_LIBFST, APP_ERROR, "%s: invalid datyp=%d\n", __func__, datyp);
-        ier = -1;
-        goto end ;
-    } // switch
-
-    if (is_missing) {
-      // Replace "missing" data points with the appropriate values given the type of data (int/float)
-      // if nbits = 64 and IEEE , set XdfDouble
-      if ((datyp & 0xF) == 5 && nbits_in == 64 ) XdfDouble = 1;
-      int sz=(XdfDouble?64:(XdfShort?16:(XdfByte?8:32)));
-      DecodeMissingValue(field , (ni) * (nj) * (nk) , datyp & 0x3F, sz);
-  }
-
-    // Upgrade size, if necessary
-    if (XdfDouble && (nbits_in != 64)) {
-      const int base_type = base_fst_type(datyp);
-      if (base_type == FST_TYPE_REAL_IEEE || base_type == FST_TYPE_REAL) {
-        float f[nelm], *ff = (float *)field;
-        memcpy(f, field, nelm * sizeof(float));
-fprintf(stderr, "upgrade_size, nelm = %d, f[0] = %f, ff[0] = %f\n", nelm, f[0], ff[0]);
-        upgrade_size(field, 64, f, 32, nelm, 0);
-      }
-      else if (base_type == FST_TYPE_SIGNED || base_type == FST_TYPE_UNSIGNED) {
-        int32_t x[nelm];
-        memcpy(x, field, nelm * sizeof(int32_t));
-        resize_int(field, 64, x, 32, nelm);
-      }
+      break;
     }
+
+    case FST_TYPE_REAL_IEEE:                // IEEE representation
+    case FST_TYPE_COMPLEX: {
+// fprintf(stderr, "FST_TYPE_IEEE : nelm = %d, nbits_in = %d\n", nelm, nbits_in) ;
+      register int32_t temp32, *src, *dest;
+      if ((downgrade_32 || Downgrade32) && (nbits_in == 64)) {
+        // Downgrade 64 bit to 32 bit
+        float * ptr_real = (float *) field;
+        double * ptr_double = (double *) buf;
+#if defined(Little_Endian)
+        src = (int32_t *) buf;
+        dest = (int32_t *) buf;
+        for (int i = 0; i < nelm; i++) {    // 32/32 endian swap
+          temp32 = *src++;
+          *dest++ = *src++;
+          *dest++ = temp32;
+        }
+#endif
+        for (int i = 0; i < nelm; i++) {
+          *ptr_real++ = *ptr_double++;
+        }
+fprintf(stderr, "FST_TYPE_IEEE : downgrading double -> float\n") ;
+      }else{
+        int32_t f_one = 1;
+        int32_t f_zero = 0;
+        int32_t f_mode = 2;
+        int f_minus_nbits = (-nbits_in);
+        if(nbits_in == 64){
+          double *ptr_in = (double *)buf, *ptr_out = (double *)field;
+#if defined(Little_Endian)
+          uint64_t *t64 = (uint64_t *)buf ;
+          for (int i = 0; i < nelm; i++) { t64[i] = (t64[i] >> 32) | (t64[i] << 32) ; }   // 32/32 endian swap
+#endif
+fprintf(stderr, "FST_TYPE_IEEE :copying double -> double\n") ;
+          for (int i = 0; i < nelm; i++) { ptr_out[i] = ptr_in[i] ; }
+        }else{
+fprintf(stderr, "FST_TYPE_IEEE : calling ieeepak, f_minus_nbits = %d\n", f_minus_nbits) ;
+          f77name(ieeepak)((int32_t *)field, (int32_t *)buf, &nelm, &f_one, &f_minus_nbits, &f_zero, &f_mode);
+        }
+      }
+
+      break;
+    }
+
+    case FST_TYPE_REAL_IEEE | FST_TYPE_TURBOPACK: {
+      // IEEE Floating point direct packers
+      c_armn_uncompress32((float *)field, (byte *)(buf + 1), ni, nj, nk, nbits_in);
+      break;
+    }
+
+    case FST_TYPE_REAL:
+    case FST_TYPE_REAL | FST_TYPE_TURBOPACK: {
+      // Floating point, new packers
+      // printf("Debug+ fstluk - Floating point, new packers (6, 134)\n");
+      int nbits, header_size, stream_size, p1out, p2out;
+      c_float_packer_params(&header_size, &stream_size, &p1out, &p2out, ni*nj*nk);
+      header_size /= sizeof(int32_t);
+      if (is_type_turbopack(datyp)) {
+        armn_compress((byte *)(buf + 1 + header_size), ni, nj, nk, nbits_in, 2, 1);
+        c_float_unpacker((float *)field, (int32_t *)(buf + 1), (int32_t *)(buf + 1 + header_size), nelm, &nbits);
+      }else{
+        c_float_unpacker((float *)field, (int32_t *)buf, (int32_t *)(buf + header_size), nelm, &nbits);
+      }
+      break;
+    }
+
+    case FST_TYPE_CHAR: {
+      // Character data, R4A style (4 chars in a 32 bit integer)
+      int nc = (nelm + 3) / 4;
+      ier = compact_u_integer(field, (void *) NULL, buf, nc, 32, 0, xdf_stride, 0);
+      break;
+    }
+
+    case FST_TYPE_STRING:
+      // Character string
+      ier = compact_u_char(field, (void *) NULL, buf, nelm, 8, 0, xdf_stride);
+      break;
+
+    default:
+      Lib_Log(APP_LIBFST, APP_ERROR, "%s: invalid datyp=%d\n", __func__, datyp);
+      ier = -1;
+      goto end ;
+  } // switch
+
+  if (is_missing) {
+    // Replace "missing" data points with the appropriate values given the type of data (int/float)
+    // if nbits = 64 and IEEE , set XdfDouble
+    if ((datyp & 0xF) == 5 && nbits_in == 64 ) XdfDouble = 1;
+    int sz=(XdfDouble?64:(XdfShort?16:(XdfByte?8:32)));
+    DecodeMissingValue(field , (ni) * (nj) * (nk) , datyp & 0x3F, sz);
+}
+
+  // Upgrade size, if necessary
+  if (XdfDouble && (nbits_in != 64)) {
+    const int base_type = base_fst_type(datyp);
+    if (base_type == FST_TYPE_REAL_IEEE || base_type == FST_TYPE_REAL) {         // float -> double copy
+      float f[nelm], *ff = (float *)field;
+      memcpy(f, field, nelm * sizeof(float));
+fprintf(stderr, "decoder : XdfDouble upgrade_size, nelm = %d, f[0] = %f, ff[0] = %f\n", nelm, f[0], ff[0]);
+      upgrade_size(field, 64, f, 32, nelm, 0);
+    }
+//     else if (base_type == FST_TYPE_SIGNED || base_type == FST_TYPE_UNSIGNED) {   // int -> long copy
+//       int32_t x[nelm];
+//       memcpy(x, field, nelm * sizeof(int32_t));
+//       resize_int(field, 64, x, 32, nelm);
+//     }
+  }
 end:
-    return ier ;   // token size (normally > 0)
+  return ier ;   // token size (normally > 0)
 }
 
 int32_t fst98_codec(zmap *map, zmap_block block, zmap_stream stream, int encode){
