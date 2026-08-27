@@ -53,11 +53,11 @@ void encode_decode_int(int ni, int nj, void *f_in, void *f_out, int nbits, int d
   if( base_fst_type(datyp) == FST_TYPE_BINARY ) { src_byte = src_short = dst_byte = dst_short = 0 ; } ;
 
   if( (src_byte || dst_byte) && (nbits > 8) ){
-    fprintf(stderr, "ERROR: cannot use nbits = %d with byte input or output\n", nbits) ;
+    fprintf(stderr, "WARNING: should use nbits = %d with byte input or output\n", nbits) ;
 //     return ;
   }
   if( (src_short || dst_short) && (nbits > 16) ){
-    fprintf(stderr, "ERROR: cannot use nbits = %d with byte input or output\n", nbits) ;
+    fprintf(stderr, "WARNING: should use nbits = %d with byte input or output\n", nbits) ;
 //     return ;
   }
 
@@ -81,22 +81,24 @@ void encode_decode_int(int ni, int nj, void *f_in, void *f_out, int nbits, int d
   int8_t *o8  = (int8_t *)f_out ;
   if(src_byte){                              // bytes
     int8_t *t = (int8_t *)f_in ;
+    if(nbits > 8) mask = 0xFF ;
     for(int i=0 ; i<ninj ; i++){
       int32_t       out = o32[i] ;
       if(dst_byte ) out = o8[i] ;
       if(dst_short) out = o16[i] ;
-      if(t[i] != out) errors++ ;
-//       if(t[i] != o32[i]) errors++ ;
+      if((t[i] & mask) != (out & mask)) errors++ ;
+//       if(t[i] != out) errors++ ;
     }
   }
   if(src_short){                             // short integers
     int16_t *t = (int16_t *)f_in ;
+    if(nbits > 16) mask = 0xFFFF ;
     for(int i=0 ; i<ninj ; i++){
       int32_t       out = o32[i] ;
       if(dst_byte ) out = o8[i] ;
       if(dst_short) out = o16[i] ;
-      if(t[i] != out) errors++ ;
-//       if(t[i] != o32[i]) errors++ ;
+      if((t[i] & mask) != (out & mask)) errors++ ;
+//       if(t[i] != out) errors++ ;
     }
   }
   if((src_short == 0) && (src_byte == 0) ){  // normal integers
@@ -107,7 +109,6 @@ void encode_decode_int(int ni, int nj, void *f_in, void *f_out, int nbits, int d
       if(dst_short) out = o16[i] ;
       if((t[i] & mask) != (out & mask)) errors++ ;
 //       if(t[i] != out) errors++ ;
-//       if(t[i] != o32[i]) errors++ ;
     }
   }
   fprintf(stderr, "number of errors = %d / %d, src = [%s%s%s] dst = [%s%s%s]\n",
@@ -361,6 +362,18 @@ goto sint ;
 
   fprintf(stderr, "========== FST_TYPE_UNSIGNED (24 bits) ==========\n") ;
   encode_decode_int(ni, nj, i_data, (void *)rf_data, 24, FST_TYPE_UNSIGNED, 0, 0) ;
+
+  fprintf(stderr, "========== FST_TYPE_SIGNED(SRC_SHORT) (24 bits) ==========\n") ;
+  encode_decode_int(ni, nj, i_data, (void *)rf_data, 24, FST_TYPE_SIGNED, 0, SRC_SHORT) ;
+
+  fprintf(stderr, "========== FST_TYPE_UNSIGNED(SRC_SHORT) (24 bits) ==========\n") ;
+  encode_decode_int(ni, nj, i_data, (void *)rf_data, 24, FST_TYPE_UNSIGNED, 0, SRC_SHORT) ;
+
+  fprintf(stderr, "========== FST_TYPE_SIGNED(SRC_BYTE) (24 bits) ==========\n") ;
+  encode_decode_int(ni, nj, i_data, (void *)rf_data, 24, FST_TYPE_SIGNED, 0, SRC_BYTE) ;
+
+  fprintf(stderr, "========== FST_TYPE_UNSIGNED(SRC_BYTE) (24 bits) ==========\n") ;
+  encode_decode_int(ni, nj, i_data, (void *)rf_data, 24, FST_TYPE_UNSIGNED, 0, SRC_BYTE) ;
 
 //   fprintf(stderr, "========== FST_TYPE_UNSIGNED | FST_TYPE_TURBOPACK (24 bits) ==========\n") ;
 //   encode_decode_int(ni, nj, u_data, (void *)rf_data, 24, FST_TYPE_UNSIGNED | FST_TYPE_TURBOPACK, 0, 0) ;
