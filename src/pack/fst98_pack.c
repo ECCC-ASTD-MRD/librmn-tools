@@ -490,6 +490,8 @@ fprintf(stderr, "encoder : XdfDouble, downgrade_size, nelm = %d\n", ni*nj*_nk);
 #endif
     goto end ;
   }
+
+redo_switch_datyp:
   switch (datyp) {
 
     // transparent bit stream data, nbits per item
@@ -547,8 +549,10 @@ fprintf(stderr, "encoder : XdfDouble, downgrade_size, nelm = %d\n", ni*nj*_nk);
         if (compressed_lng < 0) {     // no gain from turbo, repack
           datyp = FST_TYPE_UNSIGNED;
           is_turbo = 0 ;
-          compact_p_integer(field_u32, (void *) NULL, buffer + offset, ni*nj*nk, nbits, 0, xdf_stride, 0);
-          nw = (ni*nj*nk * nbits + 31) / 32 ;              // recompute nw using possibly revised nbits
+fprintf(stderr, "DEBUG: goto redo_switch_datyp\n");
+          goto redo_switch_datyp ;
+//           compact_p_integer(field_u32, (void *) NULL, buffer /*+ offset*/, ni*nj*nk, nbits, 0, xdf_stride, 0);
+//           nw = (ni*nj*nk * nbits + 31) / 32 ;              // recompute nw using possibly revised nbits
         }else{
           int nbytes = 4 + compressed_lng;
           buffer[0] = nw = (nbytes * 8 + 31) / 32;
@@ -771,7 +775,7 @@ int fst98_decode(
           int nbytes = armn_compress((byte *)(buf + offset), ni, nj, nk, nbits_in, 2, 0);
           memcpy(field, buf + offset, nbytes);
         }else{
-          ier = compact_u_short(field, (void *) NULL, buf + offset, nelm, nbits_in, 0, xdf_stride);
+          ier = compact_u_short(field, (void *) NULL, buf, nelm, nbits_in, 0, xdf_stride);
         }
       } else if(XdfByte) {
         if (is_type_turbopack(datyp)) {
@@ -785,7 +789,7 @@ int fst98_decode(
           armn_compress((byte *)(buf + offset), ni, nj, nk, nbits_in, 2, 0);
           memcpy_16_32((uint32_t *)field, (uint16_t *)(buf + offset), nbits_in, nelm);
         }else{
-          ier = compact_u_integer(field, (void *) NULL, buf + offset, nelm, nbits_in, 0, xdf_stride, 0);
+          ier = compact_u_integer(field, (void *) NULL, buf, nelm, nbits_in, 0, xdf_stride, 0);
         }
       }
       break;
