@@ -26,6 +26,8 @@
 
 #include <rmn/fst98_pack.h>
 
+#include <rmn/tile_encoders.h>
+
 #define Max(x,y) ((x > y) ? x : y)
 #define Min(x,y) ((x < y) ? x : y)
 
@@ -333,7 +335,7 @@ fprintf(stderr, "DEBUG :  type 1, 5 or 6 with nbits > %d ====> type 5 + turbo (%
     }
   }
 
-  // is_magic means source array is double
+// is_magic means source array is double
   PackFunctionPointer packfunc = ((XdfDouble) || (is_magic)) ? compact_p_double : compact_p_float;
 
   if (base_fst_type(datyp) == FST_TYPE_REAL_IEEE && nbits < 16) {
@@ -402,7 +404,6 @@ fprintf(stderr, "DEBUG :  type 1, 5 or 6 with nbits > %d ====> type 5 + turbo (%
         field_f = malloc(ni * nj * _nk * sizeof(float));
 //           const double * const field_d = field_in;
         memcpy_d_f(field_f, (const double *)field_in, ni*nj*_nk) ;
-fprintf(stderr, "encoder : XdfDouble, downgrade_size, nelm = %d\n", ni*nj*_nk);
         packfunc = &compact_p_float;                    // will pack from floats
         field_u32 = (uint32_t*)field_f;
       }else if (nbits != 64) {
@@ -441,7 +442,7 @@ fprintf(stderr, "encoder : XdfDouble, downgrade_size, nelm = %d\n", ni*nj*_nk);
   }
 
   // cancel turbo compression if nbits > 16 (except for IEEE reals)
-  if ( (nbits > 16) && (datyp != FST_TYPE_REAL_IEEE) ) is_turbo = 0 ;
+  if ( (nbits > 16) && (datyp != FST_TYPE_REAL_IEEE) && (datyp < 16) ) is_turbo = 0 ;
   // if nbits <= 16 and turbo compression is requested, use FST_TYPE_REAL instead
   if( (nbits <= 16) && (datyp == FST_TYPE_REAL_OLD_QUANT) && is_turbo ){
     datyp = FST_TYPE_REAL ;                    // replace base type FST_TYPE_REAL_OLD_QUANT with FST_TYPE_REAL
@@ -511,6 +512,11 @@ redo_switch_datyp:
       break;                      // nw = actual length of "encoded" stream
     }
 
+    // floating point, last gen style packers and encoders
+    case FST_TYPE_REAL+16:
+fprintf(stderr,"FST_TYPE_REAL+16 : is_turbo = %d\n", is_turbo) ;
+      break;
+
     // floating point, new packers
     case FST_TYPE_REAL:
       nw = ((header_size + stream_size) * 8 + 31) / 32;      // length if turbo packing not used
@@ -528,6 +534,32 @@ redo_switch_datyp:
         }
       }else{                // no turbo compression
         c_float_packer((float *)field_u32, nbits, (int32_t *)buffer, (int32_t *)(buffer+header_size), ni*nj*nk);
+      }
+      break;
+
+    // integers, short integers or bytes (unsigned), last gen encoders
+    case FST_TYPE_UNSIGNED+16:{
+        uint32_t *d32 = (uint32_t *)buffer ;
+        const void *source = (XdfShort || XdfByte) ? buffer : (const void *)field_u32 ;   // 32 bit source for packing
+        if (XdfShort) {               // 16 bits to 32 bits expansion
+          nbits = Min(16, nbits);     // at most 16 bits
+          uint16_t *s16 = (uint16_t *)field_u32 ;
+          for(int i=0 ; i<ni*nj*nk ; i++) { d32[i] = s16[i] ; } ;
+        } else if (XdfByte) {         // 8 bits to 32 bits expansion
+          nbits = Min(8, nbits);      // at most 8 bits
+          uint8_t *s8 = (uint8_t *)field_u32 ;
+          for(int i=0 ; i<ni*nj*nk ; i++) { d32[i] = s8[i] ; } ;
+        }else{                        // 32 bits to 32 bits
+          memcpy(buffer, field_u32, ni*nj*nk*sizeof(uint32_t)) ;
+        }
+        bitstream stream ;
+        InitStream(&stream, buffer, nw*sizeof(uint32_t), BIT_FULL_INIT|BIT_INSERT|SET_BIG_ENDIAN) ;
+        int nwords = encode_block(&stream, (int32_t *)source, ni, ni, nj, 8, ENCODE_DRY_RUN);
+        nwords = (nwords+31)/32 ;
+//      int encode_block(bitstream *s_in, int32_t *block, int lnis, int ni, int nj, int tsize, int options);
+        compact_p_integer(source, (void *) NULL, buffer, ni*nj*nk, nbits, 0, xdf_stride, 0);
+        nw = ((ni*nj*nk * nbits) + 31) / 32;                 // recompute nw using possibly revised nbits
+fprintf(stderr,"FST_TYPE_UNSIGNED+16 : is_turbo = %d, datyp = %d, nw = %d, nwords = %d\n", is_turbo, datyp, nw, nwords) ;
       }
       break;
 
@@ -549,7 +581,6 @@ redo_switch_datyp:
         if (compressed_lng < 0) {     // no gain from turbo, repack
           datyp = FST_TYPE_UNSIGNED;
           is_turbo = 0 ;
-fprintf(stderr, "DEBUG: goto redo_switch_datyp\n");
           goto redo_switch_datyp ;
 //           compact_p_integer(field_u32, (void *) NULL, buffer /*+ offset*/, ni*nj*nk, nbits, 0, xdf_stride, 0);
 //           nw = (ni*nj*nk * nbits + 31) / 32 ;              // recompute nw using possibly revised nbits
@@ -572,6 +603,27 @@ fprintf(stderr, "DEBUG: goto redo_switch_datyp\n");
       }
       xdf_short = xdf_byte = 0 ;
       break;                      // nw = actual length of "encoded" stream
+
+    // integers, short integers or bytes (signed), last gen encoders
+    case FST_TYPE_SIGNED+16:{
+fprintf(stderr,"FST_TYPE_SIGNED+16 : is_turbo = %d, nbits = %d\n", is_turbo, nbits) ; nw = (ni*nj*nk*nbits + 31) / 32 ;
+        int32_t *d32 = (int32_t *)buffer ;
+        const void *source = (XdfShort || XdfByte) ? buffer : (const void *)field_u32 ;   // 32 bit source for packing
+        if (XdfShort) {               // 16 bits to 32 bits expansion
+          nbits = Min(16, nbits);     // at most 16 bits
+          int16_t *s16 = (int16_t *)field_u32 ;
+          for(int i=0 ; i<ni*nj*nk ; i++) { d32[i] = s16[i] ; } ;
+        } else if (XdfByte) {         // 8 bits to 32 bits expansion
+          nbits = Min(8, nbits);      // at most 8 bits
+          int8_t *s8 = (int8_t *)field_u32 ;
+          for(int i=0 ; i<ni*nj*nk ; i++) { d32[i] = s8[i] ; } ;
+        }else{                        // 32 bits to 32 bits
+          memcpy(buffer, field_u32, ni*nj*nk*sizeof(int32_t)) ;
+        }
+        compact_p_integer(source, (void *) NULL, buffer, ni*nj*nk, nbits, 0, xdf_stride, 1);
+        nw = ((ni*nj*nk * nbits) + 31) / 32;                 // recompute nw using possibly revised nbits
+      }
+      break;
 
     // integers, short integers or bytes (signed)
     case FST_TYPE_SIGNED:
@@ -606,6 +658,11 @@ fprintf(stderr, "DEBUG: goto redo_switch_datyp\n");
 #else
 #error "use_old_signed_pack_unpack_code not defined"
 #endif
+      break;
+
+    // floats with max relative error, last gen encoders
+    case FST_TYPE_REAL_IEEE+16:
+fprintf(stderr,"FST_TYPE_REAL_IEEE+16 : is_turbo = %d\n", is_turbo) ;
       break;
 
     // IEEE and IEEE complex representation
@@ -714,6 +771,7 @@ int fst98_decode(
   uint32_t *field = data_out;
   int ier = 0 ;
   int datyp = data_kind & 0xFFFF ;
+  int is_turbo = (datyp & FST_TYPE_TURBOPACK) ;
   int nbits_in = (data_kind >> 16) & 0xFF ;
 
   if(base_fst_type(datyp) == FST_TYPE_BINARY){    // cancel all features if FST_TYPE_BINARY, only keep nbits
@@ -767,6 +825,31 @@ int fst98_decode(
       break;
     }
 
+    // integers, short integers or bytes (unsigned), last gen encoders
+    case FST_TYPE_UNSIGNED+16:
+    case (FST_TYPE_UNSIGNED+16) | FST_TYPE_TURBOPACK:
+fprintf(stderr,"FST_TYPE_UNSIGNED+16 : is_turbo = %d\n", is_turbo) ;
+      bitstream stream ;
+//       int decoded ;
+      InitStream(&stream, buf, nelm*sizeof(uint32_t), BIT_FULL_INIT|BIT_XTRACT|SET_BIG_ENDIAN) ;
+//    int decode_block(bitstream *s_in, int32_t *block, int lnid, int ni, int nj, int tsize);
+      if(XdfShort || XdfByte){
+        uint32_t t[nelm] ;
+//         decoded = decode_block(&stream, (int32_t *)field, ni, ni, nj, 8) ;
+        ier = compact_u_integer(t, (void *) NULL, buf, nelm, nbits_in, 0, xdf_stride, 0);
+        if (XdfShort) {
+          uint16_t *d16 = (uint16_t *)field ;
+          for(int i=0 ; i<nelm ; i++){ d16[i] = t[i] ; } ;
+        }else if(XdfByte) {
+          uint8_t *d8 = (uint8_t *)field ;
+          for(int i=0 ; i<nelm ; i++){ d8[i] = t[i] ; } ;
+        }
+      }else{
+//         decoded = decode_block(&stream, (int32_t *)field, ni, ni, nj, 8) ;
+        ier = compact_u_integer(field, (void *) NULL, buf, nelm, nbits_in, 0, xdf_stride, 0);
+      }
+      break;
+
     case FST_TYPE_UNSIGNED:                // Integers, short integers or bytes (unsigned)
     case FST_TYPE_UNSIGNED | FST_TYPE_TURBOPACK: {
       int offset = is_type_turbopack(datyp) ? 1 : 0;
@@ -794,6 +877,25 @@ int fst98_decode(
       }
       break;
     }
+
+    // integers, short integers or bytes (signed), last gen encoders
+    case FST_TYPE_SIGNED+16:
+    case (FST_TYPE_SIGNED+16) | FST_TYPE_TURBOPACK:
+fprintf(stderr,"FST_TYPE_SIGNED+16 : is_turbo = %d\n", is_turbo) ;
+      if(XdfShort || XdfByte){
+        int32_t t[nelm] ;
+        ier = compact_u_integer(t, (void *) NULL, buf, nelm, nbits_in, 0, xdf_stride, 1);
+        if (XdfShort) {
+          int16_t *d16 = (int16_t *)field ;
+          for(int i=0 ; i<nelm ; i++){ d16[i] = t[i] ; } ;
+        }else if(XdfByte) {
+          int8_t *d8 = (int8_t *)field ;
+          for(int i=0 ; i<nelm ; i++){ d8[i] = t[i] ; } ;
+        }
+      }else{
+        ier = compact_u_integer(field, (void *) NULL, buf, nelm, nbits_in, 0, xdf_stride, 1);
+      }
+      break;
 
     case FST_TYPE_SIGNED: {                // Integers, short integers or bytes (signed)
 #ifdef use_old_signed_pack_unpack_code
@@ -823,6 +925,12 @@ int fst98_decode(
 #endif
       break;
     }
+
+    // floats with max relative error, last gen encoders
+    case FST_TYPE_REAL_IEEE+16:
+    case (FST_TYPE_REAL_IEEE+16) | FST_TYPE_TURBOPACK:
+fprintf(stderr,"FST_TYPE_REAL_IEEE+16 : is_turbo = %d\n", is_turbo) ;
+      break;
 
     case FST_TYPE_REAL_IEEE:                // IEEE representation
     case FST_TYPE_COMPLEX: {
@@ -872,6 +980,12 @@ fprintf(stderr, "FST_TYPE_IEEE : calling ieeepak, f_minus_nbits = %d\n", f_minus
       c_armn_uncompress32((float *)field, (byte *)(buf + 1), ni, nj, nk, nbits_in);
       break;
     }
+
+    // floating point, last gen style packers and encoders
+    case FST_TYPE_REAL+16:
+    case (FST_TYPE_REAL+16) | FST_TYPE_TURBOPACK:
+fprintf(stderr,"FST_TYPE_REAL+16 : is_turbo = %d\n", is_turbo) ;
+      break;
 
     case FST_TYPE_REAL:
     case FST_TYPE_REAL | FST_TYPE_TURBOPACK: {
