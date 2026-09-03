@@ -556,35 +556,38 @@ fprintf(stderr,"FST_TYPE_REAL+16 : is_turbo = %d\n", is_turbo) ;
         }
         int32_t pred[ni*nj] ;
         LorenzoPredict((int32_t *)d32, pred, ni, ni, ni, nj) ;
-        int32_t mi1, ma1 ;
-        uint32_t mi0, ma0 ;
-        mi0 = ma0 = d32[0] ; mi1 = ma1 = pred[0] ;
-        for(int i=0 ; i<ni*nj ; i++){
-          mi0 = (d32[i]  < mi0) ? d32[i]  : mi0 ;
-          ma0 = (d32[i]  > ma0) ? d32[i]  : ma0 ;
-          mi1 = (pred[i] < mi1) ? pred[i] : mi1 ;
-          ma1 = (pred[i] > ma1) ? pred[i] : ma1 ;
-        }
-        fprintf(stderr,"encode FST_TYPE_UNSIGNED+16 : mi0, ma0, mi1, ma1, %8.8x %8.8x %8.8x %8.8x \n", mi0, ma0, mi1, ma1) ;
-uint32_t t[ni*nj], dec[ni*nj] ;
-LorenzoUnpredict((int32_t *)t , pred, ni, ni, ni, nj) ;
-int err=0 ;
-for(int i=0 ; i<ni*nj ; i++){ if(t[i] != d32[i]) err++ ; } ;
-fprintf(stderr,"encode FST_TYPE_UNSIGNED+16 : prediction errors = %d\n", err) ;
+// //         int32_t mi1, ma1 ;
+// //         uint32_t mi0, ma0 ;
+// //         mi0 = ma0 = d32[0] ; mi1 = ma1 = pred[0] ;
+// //         for(int i=0 ; i<ni*nj ; i++){
+// //           mi0 = (d32[i]  < mi0) ? d32[i]  : mi0 ;
+// //           ma0 = (d32[i]  > ma0) ? d32[i]  : ma0 ;
+// //           mi1 = (pred[i] < mi1) ? pred[i] : mi1 ;
+// //           ma1 = (pred[i] > ma1) ? pred[i] : ma1 ;
+// //         }
+// //         fprintf(stderr,"encode FST_TYPE_UNSIGNED+16 : mi0, ma0, mi1, ma1, %8.8x %8.8x %8.8x %8.8x \n", mi0, ma0, mi1, ma1) ;
+// int encode_block(bitstream *s_in, int32_t *block, int lnis, int ni, int nj, int basic_size, int options);
+// int decode_block(bitstream *s_in, int32_t *block, int lnid, int ni, int nj, int basic_size);
+// // uint32_t t[ni*nj], dec[ni*nj] ;
+// // LorenzoUnpredict((int32_t *)t , pred, ni, ni, ni, nj) ;
+// // int err=0 ;
+// // for(int i=0 ; i<ni*nj ; i++){ if(t[i] != d32[i]) err++ ; } ;
+// // fprintf(stderr,"encode FST_TYPE_UNSIGNED+16 : prediction errors = %d\n", err) ;
 
 //         memcpy(pred, d32, ni*nj*sizeof(int32_t)) ;    // cancel prediction
 //         LorenzoPredict((int32_t *)((XdfShort || XdfByte) ? buffer : (const void *)field_u32), pred, ni, ni, ni, nj) ;
         int encoded = encode_block(&stream, (int32_t *)pred, ni, ni, nj, 8, 0 /*ENCODE_DRY_RUN*/);
         int nwords = (encoded+31)/32 ;
-fprintf(stderr, "DEBUG STREAM_BITS_AVAIL(s) = %d\n", STREAM_BITS_AVAIL(stream)) ;
-StreamRewind(&stream, 1);
-fprintf(stderr, "DEBUG STREAM_BITS_AVAIL(s) = %d\n", STREAM_BITS_AVAIL(stream)) ;
-int decoded = decode_block(&stream, (int32_t *)dec, ni, ni, nj, 8) ;
-err=0 ;
-for(int i=0 ; i<ni*nj ; i++){ if(pred[i] != dec[i]) err++ ; if(err == 1)fprintf(stderr,"first error at %d, expected %8.8x, got %8.8x\n", i, pred[i], dec[i]); } ;
-fprintf(stderr,"encode FST_TYPE_UNSIGNED+16 : decoding errors = %d\n", err) ;
-fprintf(stderr,"encode FST_TYPE_UNSIGNED+16 : is_turbo = %d, datyp = %d, nw = %d, nwords = %d, encoded = %d, decoded = %d\n", is_turbo, datyp, nw, nwords, encoded, decoded) ;
-if(err > 0) exit(1) ;
+// // fprintf(stderr, "DEBUG STREAM_BITS_AVAIL(s) = %d\n", STREAM_BITS_AVAIL(stream)) ;
+// // StreamRewind(&stream, 1);
+// // fprintf(stderr, "DEBUG STREAM_BITS_AVAIL(s) = %d\n", STREAM_BITS_AVAIL(stream)) ;
+// // int decoded = decode_block(&stream, (int32_t *)dec, ni, ni, nj, 8) ;
+// // err=0 ;
+// // for(int i=0 ; i<ni*nj ; i++){ if(pred[i] != dec[i]) err++ ; if(err == 1)fprintf(stderr,"first error at %d, expected %8.8x, got %8.8x\n", i, pred[i], dec[i]); } ;
+// // fprintf(stderr,"encode FST_TYPE_UNSIGNED+16 : decoding errors = %d\n", err) ;
+// // fprintf(stderr,"encode FST_TYPE_UNSIGNED+16 : is_turbo = %d, datyp = %d, nw = %d, nwords = %d, encoded = %d, decoded = %d\n", is_turbo, datyp, nw, nwords, encoded, decoded) ;
+// // if(err > 0) exit(1) ;
+        fprintf(stderr,"encode FST_TYPE_UNSIGNED+16 : is_turbo = %d, datyp = %d, nw = %d, nwords = %d, encoded = %d\n", is_turbo, datyp, nw, nwords, encoded) ;
         nw = nwords ;
       }
       break;
@@ -861,7 +864,7 @@ int fst98_decode(
       decoded = decode_block(&stream, (int32_t *)t, ni, ni, nj, 8) ;
 fprintf(stderr,"decode FST_TYPE_UNSIGNED+16 : is_turbo = %d, decoded = %d\n", is_turbo, decoded) ;
       LorenzoUnpredict( (XdfShort || XdfByte) ? t : (int32_t *)field , t, ni, ni, ni, nj) ;
-      memcpy(           (XdfShort || XdfByte) ? t : (int32_t *)field , t, nelm*sizeof(int32_t)) ;    // cancel prediction
+//       memcpy(           (XdfShort || XdfByte) ? t : (int32_t *)field , t, nelm*sizeof(int32_t)) ;    // cancel prediction
       if (XdfShort) {
         uint16_t *d16 = (uint16_t *)field ;
         for(int i=0 ; i<nelm ; i++){ d16[i] = t[i] ; } ;

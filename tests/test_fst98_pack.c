@@ -113,7 +113,7 @@ void encode_decode_int(int ni, int nj, void *f_in_, void *f_out, int nbits, int 
 
   // encode f_in_ (original data)
   encoded = fst98_encode((void *)f_in_, r_int, -nbits, ni, nj, 1, datyp | data_control, &data_kind) ;
-  fprintf(stderr, "encoded size = %ld items (%ld bytes), datyp = %d(%d), nbits = %d\n", RANGE_ITEMS(encoded), RANGE_BYTES(encoded), data_kind&0xFFFF, datyp, data_kind>>16);
+  fprintf(stderr, "encoded size = %ld words (%ld bytes), datyp = %d(%d), nbits = %d\n", RANGE_ITEMS(encoded), RANGE_BYTES(encoded), data_kind&0xFFFF, datyp, data_kind>>16);
   // decode into f_out
   size_t sizeout = sizeof(int32_t) ;
   if (src_short) sizeout = sizeof(int16_t) ;
@@ -656,7 +656,7 @@ newstyle:
   fprintf(stderr, "\n");
 
   fprintf(stderr, "========== FST_TYPE_UNSIGNED | FST_TYPE_TURBOPACK (24 bits) ==========\n") ;
-  encode_decode_int(ni, nj, u_data, (void *)rf_data, 24, FST_TYPE_UNSIGNED | FST_TYPE_TURBOPACK, 0, 0) ;
+  encode_decode_int(ni, nj, f_data, (void *)rf_data, 24, FST_TYPE_UNSIGNED | FST_TYPE_TURBOPACK, 0, 0) ;
 
   fprintf(stderr, "========== FST_TYPE_UNSIGNED | 16 | FST_TYPE_TURBOPACK (24 bits) ==========\n") ;
   encode_decode_int(ni, nj, u_data, (void *)rf_data, 24, FST_TYPE_UNSIGNED | 16 | FST_TYPE_TURBOPACK, 0, 0) ;

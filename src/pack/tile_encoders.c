@@ -82,6 +82,16 @@ void print_encode_stats(int reset){
   }
 }
 
+static void print_block(int ni, int nj, uint32_t b[nj][ni]){
+  for(int j=nj-1 ; j >= 0 ; j--){
+    fprintf(stderr,"%2d ", j) ;
+    for(int i=0 ; i<ni ; i++){
+      fprintf(stderr, "%8.8x ", b[j][i]);
+    }
+    fprintf(stderr,"\n") ;
+  }
+}
+
 // decode nval values into tile[nval] from a bit stream
 // tile   [OUT] : decoded values
 // nval    [IN] : number of values
@@ -89,8 +99,8 @@ void print_encode_stats(int reset){
 // return nuber of bits extracted from bitstream
 // a safety check is performed to make sure we had enough data available in stream
 int decode_tile(bitstream *s_in, int32_t *tile, int32_t nval){
-  int i, nbits, totbits, offset, SS, M, E, allminus, iszigzag, lhead, status = 0 ;
-  uint32_t token, ee, nboffset, uvalue, *u_tile = (uint32_t *)tile;
+  int i, totbits, offset, SS, M, E, allminus, iszigzag, lhead, status = 0 ;
+  uint32_t nbits, token, ee, nboffset, uvalue, *u_tile = (uint32_t *)tile;
   bitstream s ;
 
   if(s_in != NULL) s = *s_in ;
@@ -106,6 +116,7 @@ int decode_tile(bitstream *s_in, int32_t *tile, int32_t nval){
   M  = (token >> 5) & 1 ;
   E  = (token >> 4) & 1 ;
   nbits = 1 + (token & 0xF) ;
+
   switch(SS){
     case 0b00 :
       if(M == 0){                      // constant tile  000bbbbb, SS == 0, M == 0
@@ -131,7 +142,6 @@ int decode_tile(bitstream *s_in, int32_t *tile, int32_t nval){
       iszigzag = 1 ;                   // unless M was used : iszigzag = (M == 0) ? 1 : 0 ;
       break ;
   }
-// fprintf(stderr, "decode_tile : SS = %d, M = %d, E= %d, nbits = %d\n", SS, M, E, nbits) ;
   totbits = lhead ;
   if(E != 0){
     STREAM_GET_NBITS(s, ee, 2) ;
@@ -372,11 +382,13 @@ int encode_tile(bitstream *s_in, int32_t *tile_in, int32_t nval, block_propertie
   }
   // at this point nbitsmax is equal to the number or bits needed for encoding the values
   // =============================== store header ===============================
+// fprintf(stderr, "encode_tile : SS = %d, M = %d, E= %d, nbits = %d\n", SS, M, E, nbits) ;
   SSME = (SS << 2) | (M << 1) | E ;
   if(nbits > 16){                              // more than 16 bits, use 0011 prefix (long header)
     token = (0b0011 << 4) | SSME ;             // 0011SSME
     ntoken = 8 ;
     CONCAT_TOKENS(token,ntoken,(nbits-17),4) ;  // 0011SSMEbbbb (8 bits + 4 bits))
+// fprintf(stderr, "encode_tile :  header 0b0011, token = %8.8x\n", token);
   }else{                                       // 16 bits or less, use short header
     token = (SSME << 4) | (nbits-1)  ;         // SSMEbbbb (8 bits)
     ntoken = 8 ;
@@ -429,6 +441,7 @@ end:
   *s_in = s ;        // propagate stream state
 
 dry_end:             // only return number of bits needed if dry run
+// print_encode_stats(1) ;
   return totbits ;
 
 error:
@@ -542,7 +555,6 @@ int encode_block(bitstream *s_in, int32_t *block, int lnis, int ni, int nj, int 
       status = encode_tile(s_in, tile, lni*lnj, &bp, options) ;         // encode tile
       if(status <= 0) goto error ;
       totbits += status ;
-fprintf(stderr, "encode_block : block %3d %3d, bits = %d\n", i0, j0, status) ;
       src += lni ;
     }
     block += lnj * lnis ;
@@ -641,7 +653,6 @@ code:
       if(status <= 0) goto error ;
       totbits += status ;
       dst += lni ;
-fprintf(stderr, "decode_block : block %3d %3d, bits = %d\n", i0, j0, status) ;
     }
     block += lnj * lnid ;
   }
