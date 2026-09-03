@@ -262,13 +262,13 @@ int encode_tile(bitstream *s_in, int32_t *tile_in, int32_t nval, block_propertie
   block_properties bp_ ;
   int dry_run = ( (options & ENCODE_DRY_RUN) != 0 ) ;  // a dry run only evaluates the number of bits needed for encoding
 
-  if(tile_in == NULL || nval <= 0) goto error ;        // invalid arguments
-  if(s_in == NULL && (! dry_run)) goto error ;         // s_in can only be NULL for a dry run
+  if(tile_in == NULL || nval <= 0) return -2 ; /* goto error ; */        // invalid arguments
+  if(s_in == NULL && (! dry_run)) return -3 ; /* goto error ; */         // s_in can only be NULL for a dry run
 
   if(! dry_run){
     s = *s_in ;                                        // local copy of stream state (in case of error)
-    if(s.endian != PACK_ENDIAN) goto error ;           // stream has the wrong endianness
-    if(StreamAvailableSpace(s_in) < 64) goto error ;   // not enough room for header + basic encoding information
+    if(s.endian != PACK_ENDIAN) return -4 ; /* goto error ; */           // stream has the wrong endianness
+    if(StreamAvailableSpace(s_in) < 64) return -5 ; /* goto error ; */   // not enough room for header + basic encoding information
   }
 
   if(bp == NULL){                            // block properties not available, compute them
@@ -276,7 +276,8 @@ int encode_tile(bitstream *s_in, int32_t *tile_in, int32_t nval, block_propertie
     status = analyze_data32_block(tile_in, nval, nval, 1, bp);
     if(status != nval){                      // error detected in analyze_data32_block
       fprintf(stderr, "ERROR: analyze_data32_block status = %d, expected %d\n", status, nval) ;
-      goto error ;
+      return -6 ;
+      /* goto error ; */
     }
     bp_.kind = int_data ;                    // no need to call adjust_block_properties for signed integer data
   }
@@ -411,8 +412,11 @@ int encode_tile(bitstream *s_in, int32_t *tile_in, int32_t nval, block_propertie
   totbits += nbitsmax ;
   if(dry_run) goto dry_end ;                   // dry run, job is done
 
-  if(StreamAvailableSpace(&s) < nbitsmax)      // not enough room for encoded data
-    goto error ;
+  if(StreamAvailableSpace(&s) < nbitsmax){      // not enough room for encoded data
+fprintf(stderr, "StreamAvailableSpace(&s) = %ld, nbitsmax = %d\n", StreamAvailableSpace(&s), nbitsmax) ;
+return -7 ;
+  }
+    /* goto error ; */
 
   if(E == 0){                                  // no short/long encoding, all tokens will be nbits long
     for(i=0 ; i<nval ; i++){
@@ -444,8 +448,9 @@ dry_end:             // only return number of bits needed if dry run
 // print_encode_stats(1) ;
   return totbits ;
 
-error:
-  return -1 ;
+// error:
+// return -8 ;
+//   return -1 ;
 }
 
 // encode a block as multiple tiles into a bit stream
@@ -553,6 +558,7 @@ int encode_block(bitstream *s_in, int32_t *block, int lnis, int ni, int nj, int 
     for(i0=0, lni = ri.ln0 ; i0<ni ; i0+=lni, lni = tsize){
       move_w32_block(src, lnis, tile, lni, lni, lnj, &bp) ;             // get tile from block
       status = encode_tile(s_in, tile, lni*lnj, &bp, options) ;         // encode tile
+// fprintf(stderr, "encode_tile = %d\n", status);
       if(status <= 0) goto error ;
       totbits += status ;
       src += lni ;
