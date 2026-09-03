@@ -213,6 +213,7 @@ end:
 // print_tile(tile, nval, "decode_tile :") ;
 // fprintf(stderr, "available bits = %ld, used %d\n", available_data, totbits) ;
   if(available_data < totbits){    // bogus bits were used during decoding
+    fprintf(stderr, "available bits = %ld, wanted bits = %d\n", available_data, totbits) ;
     status = -3 ;
     goto error ;
   }
@@ -541,6 +542,7 @@ int encode_block(bitstream *s_in, int32_t *block, int lnis, int ni, int nj, int 
       status = encode_tile(s_in, tile, lni*lnj, &bp, options) ;         // encode tile
       if(status <= 0) goto error ;
       totbits += status ;
+fprintf(stderr, "encode_block : block %3d %3d, bits = %d\n", i0, j0, status) ;
       src += lni ;
     }
     block += lnj * lnis ;
@@ -639,6 +641,7 @@ code:
       if(status <= 0) goto error ;
       totbits += status ;
       dst += lni ;
+fprintf(stderr, "decode_block : block %3d %3d, bits = %d\n", i0, j0, status) ;
     }
     block += lnj * lnid ;
   }

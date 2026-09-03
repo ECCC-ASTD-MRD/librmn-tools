@@ -25,6 +25,7 @@
 #include <App.h>
 
 #include <rmn/fst98_pack.h>
+#include <rmn/lorenzo.h>
 
 #include <rmn/tile_encoders.h>
 
@@ -539,8 +540,9 @@ fprintf(stderr,"FST_TYPE_REAL+16 : is_turbo = %d\n", is_turbo) ;
 
     // integers, short integers or bytes (unsigned), last gen encoders
     case FST_TYPE_UNSIGNED+16:{
+        bitstream stream ;
+        InitStream(&stream, buffer, nw*sizeof(uint32_t), BIT_FULL_INIT|BIT_INSERT|SET_BIG_ENDIAN|BIT_XTRACT) ;
         uint32_t *d32 = (uint32_t *)buffer ;
-        const void *source = (XdfShort || XdfByte) ? buffer : (const void *)field_u32 ;   // 32 bit source for packing
         if (XdfShort) {               // 16 bits to 32 bits expansion
           nbits = Min(16, nbits);     // at most 16 bits
           uint16_t *s16 = (uint16_t *)field_u32 ;
@@ -549,17 +551,41 @@ fprintf(stderr,"FST_TYPE_REAL+16 : is_turbo = %d\n", is_turbo) ;
           nbits = Min(8, nbits);      // at most 8 bits
           uint8_t *s8 = (uint8_t *)field_u32 ;
           for(int i=0 ; i<ni*nj*nk ; i++) { d32[i] = s8[i] ; } ;
-        }else{                        // 32 bits to 32 bits
-          memcpy(buffer, field_u32, ni*nj*nk*sizeof(uint32_t)) ;
+        }else{
+          d32 = (uint32_t *)field_u32 ;
         }
-        bitstream stream ;
-        InitStream(&stream, buffer, nw*sizeof(uint32_t), BIT_FULL_INIT|BIT_INSERT|SET_BIG_ENDIAN) ;
-        int nwords = encode_block(&stream, (int32_t *)source, ni, ni, nj, 8, ENCODE_DRY_RUN);
-        nwords = (nwords+31)/32 ;
-//      int encode_block(bitstream *s_in, int32_t *block, int lnis, int ni, int nj, int tsize, int options);
-        compact_p_integer(source, (void *) NULL, buffer, ni*nj*nk, nbits, 0, xdf_stride, 0);
-        nw = ((ni*nj*nk * nbits) + 31) / 32;                 // recompute nw using possibly revised nbits
-fprintf(stderr,"FST_TYPE_UNSIGNED+16 : is_turbo = %d, datyp = %d, nw = %d, nwords = %d\n", is_turbo, datyp, nw, nwords) ;
+        int32_t pred[ni*nj] ;
+        LorenzoPredict((int32_t *)d32, pred, ni, ni, ni, nj) ;
+        int32_t mi1, ma1 ;
+        uint32_t mi0, ma0 ;
+        mi0 = ma0 = d32[0] ; mi1 = ma1 = pred[0] ;
+        for(int i=0 ; i<ni*nj ; i++){
+          mi0 = (d32[i]  < mi0) ? d32[i]  : mi0 ;
+          ma0 = (d32[i]  > ma0) ? d32[i]  : ma0 ;
+          mi1 = (pred[i] < mi1) ? pred[i] : mi1 ;
+          ma1 = (pred[i] > ma1) ? pred[i] : ma1 ;
+        }
+        fprintf(stderr,"encode FST_TYPE_UNSIGNED+16 : mi0, ma0, mi1, ma1, %8.8x %8.8x %8.8x %8.8x \n", mi0, ma0, mi1, ma1) ;
+uint32_t t[ni*nj], dec[ni*nj] ;
+LorenzoUnpredict((int32_t *)t , pred, ni, ni, ni, nj) ;
+int err=0 ;
+for(int i=0 ; i<ni*nj ; i++){ if(t[i] != d32[i]) err++ ; } ;
+fprintf(stderr,"encode FST_TYPE_UNSIGNED+16 : prediction errors = %d\n", err) ;
+
+//         memcpy(pred, d32, ni*nj*sizeof(int32_t)) ;    // cancel prediction
+//         LorenzoPredict((int32_t *)((XdfShort || XdfByte) ? buffer : (const void *)field_u32), pred, ni, ni, ni, nj) ;
+        int encoded = encode_block(&stream, (int32_t *)pred, ni, ni, nj, 8, 0 /*ENCODE_DRY_RUN*/);
+        int nwords = (encoded+31)/32 ;
+fprintf(stderr, "DEBUG STREAM_BITS_AVAIL(s) = %d\n", STREAM_BITS_AVAIL(stream)) ;
+StreamRewind(&stream, 1);
+fprintf(stderr, "DEBUG STREAM_BITS_AVAIL(s) = %d\n", STREAM_BITS_AVAIL(stream)) ;
+int decoded = decode_block(&stream, (int32_t *)dec, ni, ni, nj, 8) ;
+err=0 ;
+for(int i=0 ; i<ni*nj ; i++){ if(pred[i] != dec[i]) err++ ; if(err == 1)fprintf(stderr,"first error at %d, expected %8.8x, got %8.8x\n", i, pred[i], dec[i]); } ;
+fprintf(stderr,"encode FST_TYPE_UNSIGNED+16 : decoding errors = %d\n", err) ;
+fprintf(stderr,"encode FST_TYPE_UNSIGNED+16 : is_turbo = %d, datyp = %d, nw = %d, nwords = %d, encoded = %d, decoded = %d\n", is_turbo, datyp, nw, nwords, encoded, decoded) ;
+if(err > 0) exit(1) ;
+        nw = nwords ;
       }
       break;
 
@@ -827,28 +853,24 @@ int fst98_decode(
 
     // integers, short integers or bytes (unsigned), last gen encoders
     case FST_TYPE_UNSIGNED+16:
-    case (FST_TYPE_UNSIGNED+16) | FST_TYPE_TURBOPACK:
-fprintf(stderr,"FST_TYPE_UNSIGNED+16 : is_turbo = %d\n", is_turbo) ;
+    case (FST_TYPE_UNSIGNED+16) | FST_TYPE_TURBOPACK: {
       bitstream stream ;
-//       int decoded ;
+      int32_t decoded, t[nelm] ;
       InitStream(&stream, buf, nelm*sizeof(uint32_t), BIT_FULL_INIT|BIT_XTRACT|SET_BIG_ENDIAN) ;
-//    int decode_block(bitstream *s_in, int32_t *block, int lnid, int ni, int nj, int tsize);
-      if(XdfShort || XdfByte){
-        uint32_t t[nelm] ;
-//         decoded = decode_block(&stream, (int32_t *)field, ni, ni, nj, 8) ;
-        ier = compact_u_integer(t, (void *) NULL, buf, nelm, nbits_in, 0, xdf_stride, 0);
-        if (XdfShort) {
-          uint16_t *d16 = (uint16_t *)field ;
-          for(int i=0 ; i<nelm ; i++){ d16[i] = t[i] ; } ;
-        }else if(XdfByte) {
-          uint8_t *d8 = (uint8_t *)field ;
-          for(int i=0 ; i<nelm ; i++){ d8[i] = t[i] ; } ;
-        }
-      }else{
-//         decoded = decode_block(&stream, (int32_t *)field, ni, ni, nj, 8) ;
-        ier = compact_u_integer(field, (void *) NULL, buf, nelm, nbits_in, 0, xdf_stride, 0);
+      StreamSetFilledBytes(&stream, nelm*sizeof(uint32_t)) ;
+      decoded = decode_block(&stream, (int32_t *)t, ni, ni, nj, 8) ;
+fprintf(stderr,"decode FST_TYPE_UNSIGNED+16 : is_turbo = %d, decoded = %d\n", is_turbo, decoded) ;
+      LorenzoUnpredict( (XdfShort || XdfByte) ? t : (int32_t *)field , t, ni, ni, ni, nj) ;
+      memcpy(           (XdfShort || XdfByte) ? t : (int32_t *)field , t, nelm*sizeof(int32_t)) ;    // cancel prediction
+      if (XdfShort) {
+        uint16_t *d16 = (uint16_t *)field ;
+        for(int i=0 ; i<nelm ; i++){ d16[i] = t[i] ; } ;
+      }else if(XdfByte) {
+        uint8_t *d8 = (uint8_t *)field ;
+        for(int i=0 ; i<nelm ; i++){ d8[i] = t[i] ; } ;
       }
       break;
+    }
 
     case FST_TYPE_UNSIGNED:                // Integers, short integers or bytes (unsigned)
     case FST_TYPE_UNSIGNED | FST_TYPE_TURBOPACK: {
