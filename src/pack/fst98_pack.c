@@ -628,12 +628,21 @@ fprintf(stderr,"encode FST_TYPE_SIGNED+16 : is_turbo = %d, nbits = %d, nw = %d\n
         }else{                        // 32 bits to 32 bits
           d32 = (int32_t *)field_u32 ;
         }
-        int32_t pred[ni*nj] ;
-        LorenzoPredict((int32_t *)d32, pred, ni, ni, ni, nj) ;
-        int encoded = encode_block(&stream, (int32_t *)pred, ni, ni, nj, 8, 0 /*ENCODE_DRY_RUN*/);
-        int nwords = (encoded+31)/32 ;
-        fprintf(stderr,"encode FST_TYPE_SIGNED+16 : is_turbo = %d, datyp = %d, nw = %d, nwords = %d, encoded = %d\n", is_turbo, datyp, nw, nwords, encoded) ;
-        nw = nwords ;
+        int32_t pred[ni*nj], encoded, nwords ;
+        compact_p_integer(d32, (void *) NULL, buffer, ni*nj*nk, nbits, 0, xdf_stride, 1);
+        nw = nwords = (ni*nj*nk*nbits + 31) / 32 ;
+        encoded = ni*nj*nk*nbits ;
+//         encoded = encode_block(&stream, (int32_t *)d32, ni, ni, nj, 8, 0 | ENCODE_DRY_RUN);
+//         nwords = (encoded+31)/32 ;
+//         fprintf(stderr,"encode FST_TYPE_SIGNED+16 : is_turbo = %d, datyp = %d, nw = %d, nwords = %d, d32 encoded = %d\n", is_turbo, datyp, nw, nwords, encoded) ;
+//         LorenzoPredict((int32_t *)d32, pred, ni, ni, ni, nj) ;
+//         encoded = encode_block(&stream, (int32_t *)pred, ni, ni, nj, 8, 0 | ENCODE_DRY_RUN);
+//         nwords = (encoded+31)/32 ;
+//         encoded = encode_block(&stream, (int32_t *)pred, ni, ni, nj, 8, 0 /*ENCODE_DRY_RUN*/);
+        fprintf(stderr,"encode FST_TYPE_SIGNED+16 : is_turbo = %d, datyp = %d, nw = %d, nwords = %d, compacted = %d\n", is_turbo, datyp, nw, nwords, encoded) ;
+        encoded = encode_block(&stream, (int32_t *)d32, ni, ni, nj, 8, 0 | ENCODE_DRY_RUN);
+        nwords = (encoded+31)/32 ;
+        fprintf(stderr,"encode FST_TYPE_SIGNED+16 : is_turbo = %d, datyp = %d, nw = %d, nwords = %d, encoded = %d\n", is_turbo, datyp, nwords, nwords, encoded) ;
       }
       break;
 
@@ -891,11 +900,12 @@ fprintf(stderr,"decode FST_TYPE_UNSIGNED+16 : is_turbo = %d, decoded = %d\n", is
     case (FST_TYPE_SIGNED+16) | FST_TYPE_TURBOPACK:{
       bitstream stream ;
       int32_t decoded, t[nelm] ;
-      InitStream(&stream, buf, nelm*sizeof(uint32_t), BIT_FULL_INIT|BIT_XTRACT|SET_BIG_ENDIAN) ;
-      StreamSetFilledBytes(&stream, nelm*sizeof(uint32_t)) ;
-      decoded = decode_block(&stream, (int32_t *)t, ni, ni, nj, 8) ;
+      compact_u_integer((XdfShort || XdfByte) ? t : field, (void *) NULL, buf, nelm, nbits_in, 0, xdf_stride, 1);
+//       InitStream(&stream, buf, nelm*sizeof(uint32_t), BIT_FULL_INIT|BIT_XTRACT|SET_BIG_ENDIAN) ;
+//       StreamSetFilledBytes(&stream, nelm*sizeof(uint32_t)) ;
+//       decoded = decode_block(&stream, (int32_t *)t, ni, ni, nj, 8) ;
 fprintf(stderr,"decode FST_TYPE_SIGNED+16 : is_turbo = %d\n", is_turbo) ;
-      LorenzoUnpredict( (XdfShort || XdfByte) ? t : (int32_t *)field , t, ni, ni, ni, nj) ;
+//       LorenzoUnpredict( (XdfShort || XdfByte) ? t : (int32_t *)field , t, ni, ni, ni, nj) ;
       if (XdfShort) {
         int16_t *d16 = (int16_t *)field ;
         for(int i=0 ; i<nelm ; i++){ d16[i] = t[i] ; } ;
