@@ -291,6 +291,7 @@ int main(int argc, char **argv){
   for(int i=0 ; i<GNI ; i++){ x[i] = (i - ci) * fi * .95f ; }
   for(int j=0 ; j<GNI ; j++){ y[j] = (j - cj) * fj * .95f ; }
 
+  int ineg = 0 ;
   for(int j=0 ; j<GNI ; j++){
     for(int i=0 ; i<GNI ; i++){
       f_data[j][i] = ( x[i]*x[i] + y[j]*y[j] ) * .5f + 1.0f ;
@@ -298,12 +299,15 @@ int main(int argc, char **argv){
       rf_data[j][i] = 999.999f ;
       rd_data[j][i] = 999.999f ;
       u_data[j][i] = f_data[j][i] * 128 ;
+      i_data[j][i] = u_data[j][i] - 128 ;
       u_data[j][i] = u_data[j][i] | 0x800000u ;
+      i_data[j][i] = (f_data[j][i] - 1.25f) * 12800000 ;
       hu_data[j][i] = u_data[j][i]/2 | 0x8000 ;
       bu_data[j][i] = u_data[j][i]/2 | 0x80 ;
-      i_data[j][i] = ((i+j)&1) ? u_data[j][i] : (-u_data[j][i]) ;
+//       i_data[j][i] = ((i+j)&1) ? u_data[j][i] : (-u_data[j][i]) ;
       h_data[j][i] = i_data[j][i]/2 ;
       b_data[j][i] = i_data[j][i]/2 ;
+      if(i_data[j][i] < 0) ineg++ ;
     }
   }
 //   fprintf(stderr, "X %10f -> %10f\n", x[0], x[GNI-1]) ;
@@ -315,13 +319,14 @@ int main(int argc, char **argv){
   fprintf(stderr, "F %10f %10f |", f_data[    0][0], f_data[    0][GNI-1]) ;
   fprintf(stderr, "I %10d %10d |", i_data[    0][0], i_data[    0][GNI-1]) ;
   fprintf(stderr, "U %10d %10d\n", u_data[    0][0], u_data[    0][GNI-1]) ;
+  fprintf(stderr, "there are %d negative values in i_data\n", ineg) ;
 //
   fprintf(stderr, "f_data = %p, if_data = %p\n", f_data, if_data) ;
   hex_print((void *)if_data, (void *)if_data, 8) ;
   hex_print((void *)i_data, (void *)i_data, 8) ;
 if(argc > 100)
 goto oldquant;
-goto newstyle;
+// goto newstyle;
 
   fprintf(stderr, "========== FST_TYPE_REAL (8 bits) ==========\n") ;
   encode_decode_float(ni, nj, (void *)f_data, (void *)rf_data, 8, FST_TYPE_REAL, 0, 0) ;
@@ -421,8 +426,8 @@ goto sint0 ;
   encode_decode_int(ni, nj, hu_data, (void *)rf_data, 16, FST_TYPE_UNSIGNED | FST_TYPE_TURBOPACK, 0, SRC_SHORT + DST_SHORT) ;
   encode_decode_int(ni, nj, f_data, (void *)rf_data, 16, FST_TYPE_UNSIGNED | FST_TYPE_TURBOPACK, 0, SRC_SHORT + DST_SHORT) ;
 
-//   fprintf(stderr, "========== FST_TYPE_UNSIGNED(SRC_SHORT + DST_BYTE) | FST_TYPE_TURBOPACK (16 bits) ==========\n") ;
-//   encode_decode_int(ni, nj, hu_data, (void *)rf_data, 16, FST_TYPE_UNSIGNED | FST_TYPE_TURBOPACK, 0, SRC_SHORT + DST_BYTE) ;
+//   fprintf(stderr, "========== FST_TYPE_UNSIGNED(SRC_SHORT + DST_BYTE) | FST_TYPE_TURBOPACK (8 bits) ==========\n") ;
+//   encode_decode_int(ni, nj, hu_data, (void *)rf_data, 8, FST_TYPE_UNSIGNED | FST_TYPE_TURBOPACK, 0, SRC_SHORT + DST_BYTE) ;
 
   fprintf(stderr, "========== FST_TYPE_UNSIGNED(SRC_BYTE) | FST_TYPE_TURBOPACK (16 bits) ==========\n") ;
   encode_decode_int(ni, nj, bu_data, (void *)rf_data, 16, FST_TYPE_UNSIGNED | FST_TYPE_TURBOPACK, 0, SRC_BYTE) ;
@@ -458,8 +463,8 @@ goto sint;
   encode_decode_int(ni, nj, b_data, (void *)rf_data, 24, FST_TYPE_SIGNED, 0, SRC_BYTE + DST_SHORT ) ;
   encode_decode_int(ni, nj, f_data, (void *)rf_data, 24, FST_TYPE_SIGNED, 0, SRC_BYTE + DST_SHORT ) ;
 
-  fprintf(stderr, "========== FST_TYPE_SIGNED(SRC_SHORT + DST_BYTE) (24 bits) ==========\n") ;
-  encode_decode_int(ni, nj, h_data, (void *)rf_data, 24, FST_TYPE_SIGNED, 0, SRC_SHORT + DST_BYTE ) ;
+  fprintf(stderr, "========== FST_TYPE_SIGNED(SRC_SHORT + DST_BYTE) (8 bits) ==========\n") ;
+  encode_decode_int(ni, nj, h_data, (void *)rf_data, 8, FST_TYPE_SIGNED, 0, SRC_SHORT + DST_BYTE ) ;
 
   fprintf(stderr, "========== FST_TYPE_UNSIGNED (24 bits) ==========\n") ;
   encode_decode_int(ni, nj, i_data, (void *)rf_data, 24, FST_TYPE_UNSIGNED, 0, 0) ;
@@ -500,8 +505,9 @@ goto strings;
   encode_decode_int(ni, nj, h_data, (void *)rf_data, 12, FST_TYPE_SIGNED, 0, SRC_SHORT + DST_SHORT) ;
   encode_decode_int(ni, nj, f_data, (void *)rf_data, 12, FST_TYPE_SIGNED, 0, SRC_SHORT + DST_SHORT) ;
 
-  fprintf(stderr, "========== FST_TYPE_SIGNED(SRC_SHORT + DST_BYTE) (12 bits) ==========\n") ;
-  encode_decode_int(ni, nj, h_data, (void *)rf_data, 12, FST_TYPE_SIGNED, 0, SRC_SHORT + DST_BYTE) ;
+  fprintf(stderr, "========== FST_TYPE_SIGNED(SRC_SHORT + DST_BYTE) (8 bits) ==========\n") ;
+  encode_decode_int(ni, nj, h_data, (void *)rf_data, 8, FST_TYPE_SIGNED, 0, SRC_SHORT + DST_BYTE) ;
+  encode_decode_int(ni, nj, f_data, (void *)rf_data, 8, FST_TYPE_SIGNED, 0, SRC_SHORT + DST_BYTE) ;
 
   fprintf(stderr, "========== FST_TYPE_SIGNED(SRC_BYTE) (12 bits) ==========\n") ;
   encode_decode_int(ni, nj, b_data, (void *)rf_data, 12, FST_TYPE_SIGNED, 0, SRC_BYTE) ;
@@ -642,6 +648,8 @@ if(argc > 100)
 goto end;
 
 newstyle:
+if(argc > 100)
+goto newstyle_s ;
   fprintf(stderr, "\n");
 
   fprintf(stderr, "========== FST_TYPE_UNSIGNED (16 bits) ==========\n") ;
@@ -672,19 +680,23 @@ newstyle:
 
   fprintf(stderr, "========== FST_TYPE_UNSIGNED(SRC_BYTE+DST_SHORT) | 16 | FST_TYPE_TURBOPACK (24 bits) ==========\n") ;
   encode_decode_int(ni, nj, f_data, (void *)rf_data, 24, FST_TYPE_UNSIGNED | 16 | FST_TYPE_TURBOPACK, 0, SRC_BYTE+DST_SHORT) ;
-  fprintf(stderr, "\n");
 
+newstyle_s:
+  fprintf(stderr, "\n");
   fprintf(stderr, "========== FST_TYPE_SIGNED | 16 | FST_TYPE_TURBOPACK (24 bits) ==========\n") ;
   encode_decode_int(ni, nj, i_data, (void *)rf_data, 24, FST_TYPE_SIGNED | 16 | FST_TYPE_TURBOPACK, 0, 0) ;
 
-//   fprintf(stderr, "========== FST_TYPE_SIGNED(SRC_SHORT) | 16 | FST_TYPE_TURBOPACK (24 bits) ==========\n") ;
-//   encode_decode_int(ni, nj, f_data, (void *)rf_data, 24, FST_TYPE_SIGNED | 16 | FST_TYPE_TURBOPACK, 0, SRC_SHORT) ;
+  fprintf(stderr, "========== FST_TYPE_SIGNED(SRC_SHORT) | 16 | FST_TYPE_TURBOPACK (24 bits) ==========\n") ;
+  encode_decode_int(ni, nj, h_data, (void *)rf_data, 24, FST_TYPE_SIGNED | 16 | FST_TYPE_TURBOPACK, 0, SRC_SHORT) ;
 
-//   fprintf(stderr, "========== FST_TYPE_SIGNED(SRC_SHORT+DST_SHORT) | 16 | FST_TYPE_TURBOPACK (24 bits) ==========\n") ;
-//   encode_decode_int(ni, nj, f_data, (void *)rf_data, 24, FST_TYPE_SIGNED | 16 | FST_TYPE_TURBOPACK, 0, SRC_SHORT+DST_SHORT) ;
+  fprintf(stderr, "========== FST_TYPE_SIGNED(SRC_BYTE) | 16 | FST_TYPE_TURBOPACK (24 bits) ==========\n") ;
+  encode_decode_int(ni, nj, b_data, (void *)rf_data, 24, FST_TYPE_SIGNED | 16 | FST_TYPE_TURBOPACK, 0, SRC_BYTE) ;
 
-//   fprintf(stderr, "========== FST_TYPE_SIGNED(SRC_BYTE+DST_SHORT) | 16 | FST_TYPE_TURBOPACK (24 bits) ==========\n") ;
-//   encode_decode_int(ni, nj, f_data, (void *)rf_data, 24, FST_TYPE_SIGNED | 16 | FST_TYPE_TURBOPACK, 0, SRC_BYTE+DST_SHORT) ;
+  fprintf(stderr, "========== FST_TYPE_SIGNED(SRC_SHORT+DST_SHORT) | 16 | FST_TYPE_TURBOPACK (24 bits) ==========\n") ;
+  encode_decode_int(ni, nj, h_data, (void *)rf_data, 24, FST_TYPE_SIGNED | 16 | FST_TYPE_TURBOPACK, 0, SRC_SHORT+DST_SHORT) ;
+
+  fprintf(stderr, "========== FST_TYPE_SIGNED(SRC_BYTE+DST_SHORT) | 16 | FST_TYPE_TURBOPACK (24 bits) ==========\n") ;
+  encode_decode_int(ni, nj, b_data, (void *)rf_data, 24, FST_TYPE_SIGNED | 16 | FST_TYPE_TURBOPACK, 0, SRC_BYTE+DST_SHORT) ;
 
 //   fprintf(stderr, "========== FST_TYPE_REAL_IEEE | 16 | FST_TYPE_TURBOPACK (24 bits) ==========\n") ;
 //   encode_decode_int(ni, nj, f_data, (void *)rf_data, 24, FST_TYPE_REAL_IEEE | 16 | FST_TYPE_TURBOPACK, 0, 0) ;
