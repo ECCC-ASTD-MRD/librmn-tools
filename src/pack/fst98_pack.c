@@ -280,6 +280,13 @@ RANGE(int32_t) fst98_encode(
   int32_t *buffer = NULL ;                  // used for encoding if field_out not large enough
   int nw;                                   // worst case number of 32 bit words needed for encoded stream
   double dmin = 0.0, dmax = 0.0;            // by_product of some encoders
+  // TODO: npak & 0x0000FF00 != 0 : IEEE exponent << 8 of quantum or rel error for new style float packer
+  //       npak & 0x000000FF      : nbits + 128 for old style packers, nbits = (npak & 0x000000FF) - 128
+  //                                nbits for new style packers
+  //       npak > 0x0000FFFF      : new style float packers
+  //       npak & 0x00010000 != 0 : max ABS error mode
+  //       npak & 0x00020000 != 0 : max REL error mode
+  //       if quantum exponent is present, nbits is optional (both cannot 
   int nbits = (npak < 0) ? (-npak) : ( Max(1, 32 / Max(1, npak)) );    // npak == 0 or 1 will set nbits to 32
 
 // TODO : use turbo a priori (backtrack later if impractical) ?
@@ -521,6 +528,7 @@ redo_switch_datyp:
     // floating point, last gen style packers and encoders
     case FST_TYPE_REAL+16:
 fprintf(stderr,"FST_TYPE_REAL+16 : is_turbo = %d\n", is_turbo) ;
+// have to put offset and exponent base into stream
       break;
 
     // floating point, new packers
@@ -997,6 +1005,7 @@ fprintf(stderr, "FST_TYPE_IEEE : calling ieeepak, f_minus_nbits = %d\n", f_minus
     case FST_TYPE_REAL+16:
     case (FST_TYPE_REAL+16) | FST_TYPE_TURBOPACK:
 fprintf(stderr,"FST_TYPE_REAL+16 : is_turbo = %d\n", is_turbo) ;
+// have to get offset and exponent base from stream
       break;
 
     case FST_TYPE_REAL:
