@@ -33,6 +33,10 @@
 #define SRC_LENGTH(FLAG) ((FLAG >> 24) & 0xF)
 #define DST_LENGTH(FLAG) ((FLAG >> 28) & 0xF)
 
+// use Big Endian stream encoding
+#include <rmn/be_stream.h>
+#include <rmn/tile_encoders.h>
+
 #include <rmn/fst_missing.h>
 #include <rmn/data_map.h>
 // already included by rmn/data_map.h
@@ -59,6 +63,8 @@ RANGE(int32_t) fst98_encode(
   const void * const field_in,
   //! [out] encoded field
   RANGE(int32_t) field_out,
+  //! [out] encoded stream
+  bitstream *stream_out,
   //! [in] Number of bits kept for the elements of the field
   int npak,
   //! [in] First dimension of the data field
@@ -78,6 +84,8 @@ int fst98_decode(
   void * const data_out,
   //! [in] Pointer to the encoded data
   void * const data_in,
+  //! [in] encoded stream
+  bitstream *stream_in,
   //! [in] Dimension 1 of the data field
   int ni,
   //! [in] Dimension 2 of the data field
