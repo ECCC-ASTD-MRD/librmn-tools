@@ -39,8 +39,6 @@
 
 #include <rmn/fst_missing.h>
 #include <rmn/data_map.h>
-// already included by rmn/data_map.h
-// #include <rmn/mem_range.h>
 
 extern  int downgrade_32, xdf_double, xdf_short, xdf_byte, xdf_stride ; 
 
@@ -58,11 +56,9 @@ extern  int downgrade_32, xdf_double, xdf_short, xdf_byte, xdf_stride ;
 // }block_3d ;
 
 //! legacy encoders (data types 0,1,2,3,4,5,6,7,8), including turbo and missing values options
-RANGE(int32_t) fst98_encode(
+int32_t fst98_encode(
   //! [in] Field to encode
   const void * const field_in,
-  //! [out] encoded field
-  RANGE(int32_t) field_out,
   //! [out] encoded stream
   bitstream *stream_out,
   //! [in] Number of bits kept for the elements of the field
@@ -82,8 +78,6 @@ RANGE(int32_t) fst98_encode(
 int fst98_decode(
   //! [out] Pointer to where the data read will be placed.  Must be already allocated!
   void * const data_out,
-  //! [in] Pointer to the encoded data
-  void * const data_in,
   //! [in] encoded stream
   bitstream *stream_in,
   //! [in] Dimension 1 of the data field
