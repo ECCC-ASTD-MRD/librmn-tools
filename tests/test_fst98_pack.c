@@ -332,6 +332,7 @@ goto oldquant;
 // goto binary ;
 goto realieee ;
 // goto newstyle;
+// goto realturbo;
 
   fprintf(stderr, "========== FST_TYPE_REAL (8 bits) ==========\n") ;
   encode_decode_float(ni, nj, (void *)f_data, (void *)rf_data, 8, FST_TYPE_REAL, 0, 0) ;
@@ -350,6 +351,7 @@ goto realieee ;
 //
 if(argc > 100)
 goto end;
+realturbo:
   fprintf(stderr, "\n");
 //
   fprintf(stderr, "========== FST_TYPE_REAL | FST_TYPE_TURBOPACK (8 bits) ==========\n") ;
@@ -376,7 +378,7 @@ goto end;
 //
   fprintf(stderr, "========== FST_TYPE_REAL(SRC_DOUBLE + DST_DOUBLE) | FST_TYPE_TURBOPACK (20 bits) ==========\n") ;
   encode_decode_float(ni, nj, d_data, rd_data, 20, FST_TYPE_REAL | FST_TYPE_TURBOPACK, 0, SRC_DOUBLE + DST_DOUBLE) ;
-// if(argc > 100)
+if(argc > 100)
 goto end;
 
 oldquant:
@@ -386,7 +388,10 @@ goto uint;
 //
   fprintf(stderr, "========== FST_TYPE_REAL_OLD_QUANT (20 bits) ==========\n") ;
   encode_decode_float(ni, nj, f_data, rf_data, 20, FST_TYPE_REAL_OLD_QUANT, 0, 0) ;
-goto end;
+//
+  fprintf(stderr, "========== FST_TYPE_REAL_OLD_QUANT(SRC_DOUBLE + DST_DOUBLE) (20 bits) ==========\n") ;
+  encode_decode_float(ni, nj, d_data, rd_data, 20, FST_TYPE_REAL_OLD_QUANT, 0, SRC_DOUBLE + DST_DOUBLE) ;
+// goto end;
 //
   fprintf(stderr, "========== FST_TYPE_REAL_OLD_QUANT (15 bits) ==========\n") ;
   encode_decode_float(ni, nj, f_data, rf_data, 15, FST_TYPE_REAL_OLD_QUANT, 0, 0) ;
@@ -565,9 +570,12 @@ goto ieee64;
   fprintf(stderr, "========== FST_TYPE_REAL_IEEE (32 bits) ==========\n") ;
   encode_decode_float(ni, nj, f_data, rf_data, 32, FST_TYPE_REAL_IEEE, 0, 0) ;
 //
+  fprintf(stderr, "========== FST_TYPE_REAL_IEEE (64 bits) ==========\n") ;
+  encode_decode_float(ni, nj, d_data, rd_data, 64, FST_TYPE_REAL_IEEE, 0, 0) ;
+goto end;
+//
   fprintf(stderr, "========== FST_TYPE_REAL_IEEE | FST_TYPE_TURBOPACK (32 bits) ==========\n") ;
   encode_decode_float(ni, nj, f_data, rf_data, 32, FST_TYPE_REAL_IEEE | FST_TYPE_TURBOPACK, 0, 0) ;
-goto end;
 //
   fprintf(stderr, "========== FST_TYPE_REAL_IEEE (24 bits) ==========\n") ;
   encode_decode_float(ni, nj, f_data, rf_data, 24, FST_TYPE_REAL_IEEE, 0, 0) ;

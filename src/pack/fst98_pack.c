@@ -227,6 +227,7 @@ static void memcpy_32_16(uint16_t *p16, const uint32_t * p32, int nbits, int nb)
 // double to float copy
 static void memcpy_d_f(float * restrict f, const double *restrict d, int nb) {
   for (int i = 0; i < nb; i++) { f[i] = d[i] ; }
+fprintf(stderr,"memcpy_d_f : double -> float copy\n");
 }
 
 // be consistent with legacy fstd98 code
@@ -260,6 +261,8 @@ int32_t fst98_encode(
   //! [out] effective data type and nbits
   int *data_kind
 ) {
+  bitstream stream_out_ = *stream_out ;             // save output stream state
+
   if(base_fst_type(datyp_in) == FST_TYPE_BINARY){    // cancel all features if FST_TYPE_BINARY
     datyp_in = FST_TYPE_BINARY ;
     xdf_double = xdf_short = xdf_byte = 0 ;
@@ -277,6 +280,7 @@ int32_t fst98_encode(
   uint32_t* field_missing = NULL;           // data with missing values transformed
   int32_t *buffer = NULL ;                  // used for encoding if field_out not large enough
   int nw;                                   // number of 32 bit words needed for encoded stream
+  double tempfloat = 99999.0;               // by_product of some encoders
   double dmin = 0.0, dmax = 0.0;            // by_product of some encoders
   // TODO: npak & 0x0000FF00 != 0 : IEEE exponent << 8 of quantum or rel error for new style float packer
   //       npak & 0x000000FF      : nbits + 128 for old style packers, nbits = (npak & 0x000000FF) - 128
@@ -491,6 +495,7 @@ fprintf(stderr, "DEBUG :  type 1, 5 or 6 with nbits > %d ====> type 5 + turbo (%
   if(datyp == FST_TYPE_COMPLEX) nw *= 2 ;
 #define USE_STREAM_AS_BUFFER
 #if ! defined(USE_STREAM_AS_BUFFER)
+#error "USE_STREAM_AS_BUFFER is not defined"
   buffer = NULL ;
   if(VALID_RANGE(field_out)){      // is field_out valid and large enough for encoded stream ?
     if( nw <= RANGE_ITEMS(field_out) ) buffer = (int32_t *) RANGE_BOT(field_out) ;    // large enough, use field_out
@@ -511,53 +516,61 @@ fprintf(stderr,"DEBUG : need %d words, have %ld\n", nw, navail) ;
 
 // TODO : handle 64 bit straight IEEE (IEEE_64). add endian swap ?
   if(IEEE_64){
-// double *buf64 = (double *)field_u32 ;
-// fprintf(stderr, "DEBUG : datyp = %d, buf64 = %f %f %f\n", datyp, buf64[0], buf64[nw/4-1], buf64[nw/2-1]);
+double *buf64 = (double *)field_u32 ;
+fprintf(stderr, "DEBUG IEEE_64 : datyp = %d, buf64 = %f %f %f\n", datyp, buf64[0], buf64[nw/4-1], buf64[nw/2-1]);
+    uint32_t *buf = (uint32_t *)STREAM_IN(*stream_out) ;
+    buf[0] = (datyp << 24) | ((nbits-1)<<16) | ((nw/2) & 0xFFFF) ;
+    buf++ ;
 #if defined(Little_Endian)
     uint64_t *bui64 = (uint64_t *)field_u32 ;
-    uint64_t *buo64 = (uint64_t *)buffer ;
+    uint64_t *buo64 = (uint64_t *)buf ;
     for(int i = 0 ; i<nw/2 ; i++) { buo64[i] = (bui64[i] >> 32) | (bui64[i] << 32) ; } ;  // swap 32/32
 #else
-    for(int i = 0 ; i<nw ; i++) { buffer[i] = field_u32[i] ; } ;                          // copy 64
+    for(int i = 0 ; i<nw ; i++) { buf[i] = field_u32[i] ; } ;                             // copy 64
 #endif
     goto end ;
   }
 
 redo_switch_datyp:
+  StreamFlush(stream_out) ;
+  navail = STREAM_BITS_EMPTY(*stream_out)/32 ;
+
   switch (datyp) {
 
     // transparent bit stream data, nbits per item
-    case FST_TYPE_BINARY:
-      nw = (ni*nj*nk * nbits + 31) / 32 ;
-if(navail < nw) exit(1) ;
-      StreamFlush(stream_out) ;
-      buffer = (void *)STREAM_IN(*stream_out) ;
-      for (int i = 0; i < nw; i++) { buffer[i] = field_u32[i]; }
-      STREAM_IN(*stream_out) += nw ;                           // added nw words to stream
-//       STREAM_PUT_NBITS(*stream_out, 0xBEBEFADA, 32) ;
-      STREAM_FLUSH(*stream_out) ;
+    case FST_TYPE_BINARY:{
+      nw = (ni*nj*nk * nbits + 31) / 32 ;     // needed space in 32 bit units for data
+      if(navail < nw+1) goto fail ;           // insufficient space ?
+
+      uint32_t *buf = (uint32_t *)STREAM_IN(*stream_out) ;
+      uint32_t header = (datyp << 24) | ((nbits-1)<<16) | (nw & 0xFFFF) ;
+      buf[0] = header ;                       // insert packing header into stream
+
+      buf++ ;
+      for (int i = 0; i < nw; i++) { buf[i] = field_u32[i]; }      // copy data into stream
+      STREAM_IN(*stream_out) += (nw+1) ;                           // inserted nw+1 32 bit words into stream
       is_turbo = 0;
       break;                      // nw = actual length of "encoded" stream
+    }
 
     // floating point, old style packers
     case FST_TYPE_REAL_OLD_QUANT: {
-      double tempfloat = 99999.0;
       // straight quantifier, no turbo, pack with offset 24 (96+24 = 120 bit header)
-      nw = (ni*nj*nk * nbits + (96 + 24) + 31) / 32;
-if(navail < nw) exit(1) ;
-fprintf(stderr, "FST_TYPE_REAL_OLD_QUANT : navail = %ld", STREAM_BITS_EMPTY(*stream_out)/32) ;
-      StreamFlush(stream_out) ;                                // flush stream
-fprintf(stderr, ", %ld", STREAM_BITS_EMPTY(*stream_out)/32) ;
-      buffer = (void *)STREAM_IN(*stream_out) ;
-      packfunc(field_u32, buffer, buffer+3, ni*nj*nk, nbits, 24, xdf_stride, 0, &tempfloat, &dmin, &dmax);
-      STREAM_IN(*stream_out) += nw ;                           // added nw words to stream
+      nw = (ni*nj*nk * nbits + (96 + 24) + 31) / 32;  // needed space in 32 bit units for data
+      if(navail < nw+1) goto fail ;                   // insufficient space ?
 
-fprintf(stderr, ", %ld", STREAM_BITS_EMPTY(*stream_out)/32) ;
-//       STREAM_PUT_NBITS(*stream_out, 0xDEADBEEF, 32) ;          // add trailer
-      STREAM_FLUSH(*stream_out) ;                              // flush stream
-fprintf(stderr, ", %ld\n", STREAM_BITS_EMPTY(*stream_out)/32) ;
+      uint32_t *buf = (uint32_t *)STREAM_IN(*stream_out) ;
+      uint32_t header = (datyp << 24) | ((nbits-1)<<16) | (nw & 0xFFFF) ;
+      buf[0] = header ;                       // insert packing header into stream
+
+// fprintf(stderr, "FST_TYPE_REAL_OLD_QUANT : navail = %ld", STREAM_BITS_EMPTY(*stream_out)/32) ;
+// fprintf(stderr, ", %ld", STREAM_BITS_EMPTY(*stream_out)/32) ;
+      buf++ ;
+      packfunc(field_u32, buf, buf+3, ni*nj*nk, nbits, 24, xdf_stride, 0, &tempfloat, &dmin, &dmax);
+      STREAM_IN(*stream_out) += (nw+1) ;                        // inserted nw+1 32 bit words into stream
+
+// fprintf(stderr, ", %ld\n", STREAM_BITS_EMPTY(*stream_out)/32) ;
       is_turbo = 0;
-// fprintf(stderr, "FST_TYPE_REAL_OLD_QUANT : buffer[0] = %8.8x\n", buffer[0]);
       break;                      // nw = actual length of "encoded" stream
     }
 
@@ -568,69 +581,77 @@ fprintf(stderr,"FST_TYPE_REAL+16 : is_turbo = %d\n", is_turbo) ;
       break;
 
     // floating point, new packers
-    case FST_TYPE_REAL:
-      StreamFlush(stream_out) ;
+    case FST_TYPE_REAL:{
 fprintf(stderr, "FST_TYPE_REAL : empty = %ld", STREAM_BITS_EMPTY(*stream_out)/32) ;
-      c_float_packer_params(&header_size, &stream_size, &p1out, &p2out, ni*nj*nk);
-      nw = ((header_size + stream_size) * 8 + 31) / 32;      // length if turbo packing not used, worst case if it is
-      header_size /= sizeof(int32_t);
-      buffer = (void *)STREAM_IN(*stream_out) ;
-if(navail < nw) exit(1) ;
+      c_float_packer_params(&header_size, &stream_size, &p1out, &p2out, ni*nj*nk);    // 16 bits per value + headers
+      nw = ((header_size + stream_size) * 8 + 31) / 32;      // worst case length
+      if(navail < nw+1) goto fail ;                          // insufficient space for worst case length ?
 
+      header_size /= sizeof(int32_t);
+      uint32_t *buf = (void *)STREAM_IN(*stream_out), *header = buf ;
+
+      buf++ ;
       if (is_turbo && (nbits <= 16)) {    // use turbo compression scheme
-        c_float_packer((float *)field_u32, nbits, buffer + 1, buffer + 1 + header_size, ni*nj*nk);
-        int compressed_lng = armn_compress((byte *)(buffer+1+header_size), ni, nj, nk, nbits, 1, 1);
+        c_float_packer((float *)field_u32, nbits, (int32_t *)(buf + 1), (int32_t *)(buf + 1 + header_size), ni*nj*nk);
+        int compressed_lng = armn_compress((byte *)(buf + 1 + header_size), ni, nj, nk, nbits, 1, 1);
         if (compressed_lng < 0) {
           is_turbo = 0 ;
-          c_float_packer((float *)field_u32, nbits, (int32_t *)buffer, (int32_t *)(buffer+header_size), ni*nj*nk);
+          c_float_packer((float *)field_u32, nbits, (int32_t *)buf, (int32_t *)(buf + header_size), ni*nj*nk);
         }else{
           int nbytes = 16 + (header_size*4) + compressed_lng;
-          buffer[0] = nw = (nbytes * 8 + 31) / 32 ;          // length if turbo packing is used
+          buf[0] = nw = (nbytes * 8 + 31) / 32 ;          // length if turbo packing is used
           nw ++ ;    // turbo extra header, bump nw ;
         }
       }else{                // no turbo compression
-        c_float_packer((float *)field_u32, nbits, (int32_t *)buffer, (int32_t *)(buffer+header_size), ni*nj*nk);
+        is_turbo = 0 ;
+        c_float_packer((float *)field_u32, nbits, (int32_t *)buf, (int32_t *)(buf + header_size), ni*nj*nk);
       }
-//       StreamSetFilledBytes(stream_out, nw * sizeof(int32_t)) ;
-      STREAM_IN(*stream_out) += nw ;
-fprintf(stderr, ", %ld", STREAM_BITS_EMPTY(*stream_out)/32) ;
-      STREAM_PUT_NBITS(*stream_out, 0xEFF00000, 32) ;
-      STREAM_FLUSH(*stream_out) ;
-fprintf(stderr, ", %ld\n", STREAM_BITS_EMPTY(*stream_out)/32) ;
+      *header = ((datyp | is_turbo)  << 24) | ((nbits-1)<<16) | (nw & 0xFFFF) ;
+      STREAM_IN(*stream_out) += (nw+1) ;
+fprintf(stderr, ", %ld, nw = %d\n", STREAM_BITS_EMPTY(*stream_out)/32, nw) ;
       break;
+    }
 
     // IEEE and IEEE complex representation
     case FST_TYPE_REAL_IEEE:
     case FST_TYPE_COMPLEX: {
-      StreamFlush(stream_out) ;
 fprintf(stderr, "FST_TYPE_REAL_IEEE : empty = %ld\n", STREAM_BITS_EMPTY(*stream_out)/32) ;
       int32_t f_ni = (int32_t) ni;
       int32_t f_njnk = nj * nk;
       int32_t f_zero = 0;
       int32_t f_one = 1;
       int32_t f_minus_nbits = (- nbits);
-      // worst case length = (f_ni*f_njnk * nbits + 31) / 32
-      nw = (f_ni*f_njnk * nbits + 31) / 32 ;
+
+      uint32_t *buf = (void *)STREAM_IN(*stream_out), *header = buf ;
+      buf++ ;
+
       if ( (datyp == FST_TYPE_REAL_IEEE) && is_turbo) {    // use turbo compression scheme for FST_TYPE_REAL_IEEE
-        int compressed_lng = c_armn_compress32((byte *)&(buffer[1]), (float *)field_u32, ni, nj, nk, nbits);
+        nw = f_ni*f_njnk ;                    // worst case length
+        if(navail < nw+1) goto fail ;         // insufficient space for worst case length ?
+        int compressed_lng = c_armn_compress32((byte *)&(buf[1]), (float *)field_u32, ni, nj, nk, nbits);
         if (compressed_lng < 0) {     // no gain with turbo compression
           is_turbo = 0 ;
-          f77name(ieeepak)((int32_t *)field_u32, (int32_t *)buffer, &f_ni, &f_njnk, &f_minus_nbits, &f_zero, &f_one);
-// fprintf(stderr, "FST_TYPE_REAL_IEEE(1) : buffer[0-3] = %8.8x %8.8x %8.8x %8.8x\n", buffer[0], buffer[1], buffer[2], buffer[3]);
+          nw = (f_ni*f_njnk * nbits + 31) / 32 ;                 // actual length
+          f77name(ieeepak)((int32_t *)field_u32, (int32_t *)buf, &f_ni, &f_njnk, &f_minus_nbits, &f_zero, &f_one);
+fprintf(stderr, "FST_TYPE_REAL_IEEE(1) : buf[0-3] = %8.8x %8.8x %8.8x %8.8x\n", buf[0], buf[1], buf[2], buf[3]);
         }else{
             int nbytes = 16 + compressed_lng;
-            buffer[0] = nw = (nbytes * 8 + 31) / 32;        // compressed length
+            buf[0] = nw = (nbytes * 8 + 31) / 32;        // compressed length
             nw ++ ;    // turbo used, bump nw ;
-// fprintf(stderr, "FST_TYPE_REAL_IEEE(2) : buffer[0-3] = %8.8x %8.8x %8.8x %8.8x\n", buffer[0], buffer[1], buffer[2], buffer[3]);
+fprintf(stderr, "FST_TYPE_REAL_IEEE(2) : buf[0-3] = %8.8x %8.8x %8.8x %8.8x\n", buf[0], buf[1], buf[2], buf[3]);
         }
       }else{                // no turbo or FST_TYPE_COMPLEX
+        is_turbo = 0 ;
+        nw = (f_ni*f_njnk * nbits + 31) / 32 ;                 // needed length
+        if(navail < nw+1) goto fail ;                          // insufficient space ?
         if (datyp == FST_TYPE_COMPLEX) f_ni = f_ni * 2;
-        f77name(ieeepak)((int32_t*)field_u32, (int32_t *)buffer, &f_ni, &f_njnk, &f_minus_nbits, &f_zero, &f_one);
-// fprintf(stderr, "FST_TYPE_REAL_IEEE(3) : buffer[0-3] = %8.8x %8.8x %8.8x %8.8x\n", buffer[0], buffer[1], buffer[2], buffer[3]);
+        f77name(ieeepak)((int32_t*)field_u32, (int32_t *)buf, &f_ni, &f_njnk, &f_minus_nbits, &f_zero, &f_one);
+fprintf(stderr, "FST_TYPE_REAL_IEEE(3) : buf[0-3] = %8.8x %8.8x %8.8x %8.8x\n", buf[0], buf[1], buf[2], buf[3]);
       }
-      STREAM_IN(*stream_out) += nw ;
-      STREAM_FLUSH(*stream_out) ;
-fprintf(stderr, "FST_TYPE_REAL_IEEE : empty = %ld\n", STREAM_BITS_EMPTY(*stream_out)/32) ;
+
+      header[0] = ((datyp | is_turbo)  << 24) | ((nbits-1)<<16) | (nw & 0xFFFF) ;
+      STREAM_IN(*stream_out) += (nw+1) ;
+fprintf(stderr, "FST_TYPE_REAL_IEEE : empty = %ld, header = %8.8x\n", STREAM_BITS_EMPTY(*stream_out)/32, header[0]) ;
       break;
     }
 
@@ -803,6 +824,8 @@ fprintf(stderr,"FST_TYPE_REAL_IEEE+16 : is_turbo = %d\n", is_turbo) ;
         goto fail ;
   } // end switch
 
+  StreamFlush(stream_out) ;
+
 end:
   // free temporary arrays if they were used
   if (field_f       != NULL) free(field_f);
@@ -819,6 +842,8 @@ fail :
   buffer = NULL ;
   nw = nbits = 0 ;
   datyp = is_missing = is_turbo = 0 ;
+  *stream_out = stream_out_ ;                 // restore output stream state
+exit(1) ;                     // when debugging
   goto end ;
 }
 
@@ -849,6 +874,8 @@ int fst98_decode(
   int datyp = data_kind & 0xFFFF ;
   int is_turbo = (datyp & FST_TYPE_TURBOPACK) ;
   int nbits_in = (data_kind >> 16) & 0xFF ;
+  ssize_t navail ;
+  bitstream stream_in_ = *stream_in ;              // save input stream state
 
   if(base_fst_type(datyp) == FST_TYPE_BINARY){    // cancel all features if FST_TYPE_BINARY, only keep nbits
     datyp = FST_TYPE_BINARY ;
@@ -862,7 +889,7 @@ int fst98_decode(
 //     int xdf_datatyp = datyp;
 
   UnpackFunctionPointer packfunc = XdfDouble ? &compact_u_double : &compact_u_float;
-  double dmin=0.0, dmax=0.0;
+  double dmin=0.0, dmax=0.0, tempfloat = 99999.0 ;
 
   int nelm = ni*nj*nk ;
 //   uint32_t *buf = (uint32_t *) data_in ;
@@ -889,42 +916,44 @@ int fst98_decode(
 #endif
 // TODO : handle 64 bit straight IEEE correctly
   ier = nbits_in ;
+  STREAM_XTRACT_ALIGN32(*stream_in) ;                 // align to 32 bit boundary
+  navail = StreamAvailableBits(stream_in)/32 ;        // get number of available 32 bit words
+
   switch (datyp) {
     case FST_TYPE_BINARY: {            // Raw binary
-      int lngw = ((nelm * nbits_in) + 32 - 1) / 32;
-      STREAM_XTRACT_ALIGN32(*stream_in) ;
+      int32_t lngw = ((nelm * nbits_in) + 32 - 1) / 32 ;    // number of 32 bit words to extract
+      if(lngw+1 > navail) goto fail ;                       // more than what is available ?
+
       buf = STREAM_OUT(*stream_in) ;
-fprintf(stderr,"fst98_decode : navail = %ld, lngw = %d\n", StreamAvailableBits(stream_in)/32, lngw) ;
-      for (int i = 0; i < lngw; i++) { field[i] = buf[i]; }
-      STREAM_OUT(*stream_in) += lngw ;
-fprintf(stderr,"fst98_decode : navail = %ld, lngw = %d\n", StreamAvailableBits(stream_in)/32, lngw) ;
-//       STREAM_GET_NBITS(*stream_in, lngw, 32) ;
-// fprintf(stderr,"fst98_decode : navail = %ld, trailer = %8.8x\n", StreamAvailableBits(stream_in)/32, lngw) ;
+      uint32_t header = buf[0] ;                            // get and check header
+      int32_t datyp_ = header >> 24, nbits_ = ((header >> 16) & 0xFF)+1 , lngw_ = header & 0xFFFF ;
+      if(datyp_ != datyp || nbits_ != nbits_in || (lngw & 0xFFFF) != lngw_) goto fail ;
+
+      buf++ ;
+      for (int32_t i = 0; i < lngw; i++) { field[i] = buf[i]; }
+      STREAM_OUT(*stream_in) += (lngw + 1) ;                // extracted lngw + 1 32 bit words from stream
+
       break;
     }
 
     case FST_TYPE_REAL_OLD_QUANT: {          // Floating Point, old style packers
-      double tempfloat = 99999.0;
-      uint32_t lngw ;
+      uint32_t lngw = ((nelm * nbits_in) + (96+24) + 31) / 32;
 
-      STREAM_XTRACT_ALIGN32(*stream_in) ;
-//       STREAM_PEEK_NBITS(*stream_in, lngw, 32) ;
 fprintf(stderr,"FST_TYPE_REAL_OLD_QUANT decode : navail = %ld, header = %8.8x", StreamAvailableBits(stream_in)/32, lngw) ;
 fprintf(stderr,", xtract = %d\n", stream_in->xtract) ;
-//       STREAM_OUT(*stream_in)-- ; stream_in->xtract = 0 ; stream_in->acc_x = 0 ;
 
       buf = STREAM_OUT(*stream_in) ;
-//       STREAM_GET_NBITS(*stream_in, lngw, 32) ;
-fprintf(stderr,"FST_TYPE_REAL_OLD_QUANT decode : navail = %ld, header = %8.8x\n", StreamAvailableBits(stream_in)/32, buf[0]) ;
+      uint32_t header = buf[0] ;                            // get and check header
+      int32_t datyp_ = header >> 24, nbits_ = ((header >> 16) & 0xFF)+1 , lngw_ = header & 0xFFFF ;
+      if(datyp_ != datyp || nbits_ != nbits_in || (lngw & 0xFFFF) != lngw_) goto fail ;
+
+fprintf(stderr,"FST_TYPE_REAL_OLD_QUANT decode : navail = %ld, header = %8.8x, decoder = %s\n",
+        StreamAvailableBits(stream_in)/32, header, (packfunc==compact_u_double) ? "compact_u_double" : "compact_u_float") ;
+      buf++ ;
       packfunc(field, buf, buf + 3, nelm, nbits_in, 24, xdf_stride, 0, &tempfloat, &dmin , &dmax);
 
-      lngw = ((nelm * nbits_in) + (96+24) + 31) / 32 ;
-      STREAM_OUT(*stream_in) += (lngw) ;
+      STREAM_OUT(*stream_in) += (lngw+1) ;
 fprintf(stderr,"FST_TYPE_REAL_OLD_QUANT decode : navail = %ld, lngw = %d\n", StreamAvailableBits(stream_in)/32, lngw) ;
-
-//       uint32_t trailer ;
-//       STREAM_GET_NBITS(*stream_in, trailer, 32) ;
-// fprintf(stderr,"FST_TYPE_REAL_OLD_QUANT decode : navail = %ld, trailer = %8.8x\n", StreamAvailableBits(stream_in)/32, trailer) ;
       break;
     }
 
@@ -936,30 +965,46 @@ fprintf(stderr,"FST_TYPE_REAL_OLD_QUANT decode : navail = %ld, lngw = %d\n", Str
       c_float_packer_params(&header_size, &stream_size, &p1out, &p2out, ni*nj*nk);
       header_size /= sizeof(int32_t);
       stream_size /= sizeof(int32_t);
-      buf = STREAM_OUT(*stream_in) ;
-fprintf(stderr,"FST_TYPE_REAL decode : navail = %ld, buf[0] = %8.8x, in = %p\n", StreamAvailableBits(stream_in)/32, buf[0], STREAM_OUT(*stream_in)) ;
 
+      buf = STREAM_OUT(*stream_in) ;
+      uint32_t header = buf[0] ;
+      int32_t datyp_ = header >> 24, nbits_ = ((header >> 16) & 0xFF)+1 , lngw_ = header & 0xFFFF ;
+// fprintf(stderr,"FST_TYPE_REAL decode : navail = %ld, buf[0] = %8.8x, in = %p, header = %8.8x\n", StreamAvailableBits(stream_in)/32, buf[0], STREAM_OUT(*stream_in), header) ;
+// fprintf(stderr,"FST_TYPE_REAL decode : datyp_ = %d, nbits_ = %d, lngw_ = %d\n", datyp_, nbits_, lngw_) ;
+// fprintf(stderr,"FST_TYPE_REAL decode : datyp  = %d, nbits  = %d\n", datyp, nbits_in) ;
+      if(datyp_ != datyp || nbits_ != nbits_in) goto fail ;
+
+      buf++ ;
       if (is_type_turbopack(datyp)) {
         int32_t tbuf[ni*nj*nk + 16] ;
-        STREAM_GET_NBITS(*stream_in, lngw, 32) ; lngw++ ;   // we are really getting lngw - 1
+        lngw = buf[0] + 1 ;
+// fprintf(stderr,"FST_TYPE_REAL decode : turbo lngw = %d\n", lngw) ;
+        if((lngw & 0xFFFF) != lngw_) goto fail ;
         memcpy(tbuf, buf, (lngw+1)*sizeof(int32_t)) ;
-        STREAM_OUT(*stream_in) += (lngw - 1) ;
         armn_compress((byte *)(tbuf + 1 + header_size), ni, nj, nk, nbits_in, 2, 1);
         c_float_unpacker((float *)field, (int32_t *)(tbuf + 1), (int32_t *)(tbuf + 1 + header_size), nelm, &nbits);
 
       }else{
         lngw = header_size + stream_size ;   // header + data
+        if((lngw & 0xFFFF) != lngw_) goto fail ;
+// fprintf(stderr,"FST_TYPE_REAL decode : lngw = %d\n", lngw) ;
         c_float_unpacker((float *)field, (int32_t *)buf, (int32_t *)(buf + header_size), nelm, &nbits);
-        STREAM_OUT(*stream_in) += lngw ;
       }
-STREAM_GET_NBITS(*stream_in, lngw, 32) ;
-fprintf(stderr,"FST_TYPE_REAL decode : navail = %ld, trailer = %8.8x, xtract = %d, in = %p\n", StreamAvailableBits(stream_in)/32, lngw, stream_in->xtract, STREAM_OUT(*stream_in)) ;
+      STREAM_OUT(*stream_in) += (lngw+1) ;
+// fprintf(stderr,"FST_TYPE_REAL decode : navail = %ld, xtract = %d, in = %p\n", StreamAvailableBits(stream_in)/32, stream_in->xtract, STREAM_OUT(*stream_in)) ;
       break;
     }
 
     case FST_TYPE_REAL_IEEE:                // IEEE representation
     case FST_TYPE_COMPLEX: {
-// fprintf(stderr, "FST_TYPE_IEEE : nelm = %d, nbits_in = %d\n", nelm, nbits_in) ;
+      buf = STREAM_OUT(*stream_in) ;
+      uint32_t header = buf[0] ;
+      buf++ ;
+fprintf(stderr, "FST_TYPE_IEEE : nelm = %d, nbits_in = %d, header = %8.8x\n", nelm, nbits_in, header) ;
+      int32_t datyp_ = header >> 24, nbits_ = ((header >> 16) & 0xFF)+1 , nelm_ = header & 0xFFFF ;
+fprintf(stderr, "FST_TYPE_IEEE : datyp_ = %d, nbits_ = %d, nelm_ = %d\n", datyp_, nbits_, nelm_ ) ;
+      if(datyp_ != datyp || nbits_ != nbits_in) goto fail ;
+
       register int32_t temp32, *src, *dest;
       if ((downgrade_32 || Downgrade32) && (nbits_in == 64)) {
         // Downgrade 64 bit to 32 bit
@@ -984,13 +1029,16 @@ fprintf(stderr, "FST_TYPE_IEEE : downgrading double -> float\n") ;
         int32_t f_mode = 2;
         int f_minus_nbits = (-nbits_in);
         if(nbits_in == 64){
-          double *ptr_in = (double *)buf, *ptr_out = (double *)field;
+//           double *ptr_in = (double *)buf, *ptr_out = (double *)field;
+        uint64_t *t64 = (uint64_t *)buf, *o64 = (uint64_t *)field ;
 #if defined(Little_Endian)
-          uint64_t *t64 = (uint64_t *)buf ;
-          for (int i = 0; i < nelm; i++) { t64[i] = (t64[i] >> 32) | (t64[i] << 32) ; }   // 32/32 endian swap
+          for (int i = 0; i < nelm; i++) { o64[i] = (t64[i] >> 32) | (t64[i] << 32) ; }   // 32/32 endian swap
+fprintf(stderr, "FST_TYPE_IEEE :endian swap 64\n") ;
+#else
+          for (int i = 0; i < nelm; i++) { o64[i] = t64[i] ; }                            // sraight copy 64 -> 64
 #endif
 fprintf(stderr, "FST_TYPE_IEEE :copying double -> double\n") ;
-          for (int i = 0; i < nelm; i++) { ptr_out[i] = ptr_in[i] ; }
+//           for (int i = 0; i < nelm; i++) { ptr_out[i] = ptr_in[i] ; }
         }else{
 fprintf(stderr, "FST_TYPE_IEEE : calling ieeepak, f_minus_nbits = %d\n", f_minus_nbits) ;
           f77name(ieeepak)((int32_t *)field, (int32_t *)buf, &nelm, &f_one, &f_minus_nbits, &f_zero, &f_mode);
@@ -1137,6 +1185,7 @@ fprintf(stderr,"FST_TYPE_REAL+16 : is_turbo = %d\n", is_turbo) ;
       ier = -1;
       goto end ;
   } // switch
+  STREAM_XTRACT_ALIGN32(*stream_in) ;   // align to 32 bit boundary
 
   if (is_missing) {
     // Replace "missing" data points with the appropriate values given the type of data (int/float)
@@ -1161,8 +1210,15 @@ fprintf(stderr, "decoder : XdfDouble upgrade_size, nelm = %d, f[0] = %f, ff[0] =
 //       resize_int(field, 64, x, 32, nelm);
 //     }
   }
+
 end:
   return ier ;   // token size (normally > 0)
+
+fail:
+  ier = -1 ;
+  *stream_in = stream_in_ ;   // restore state of input stream to state at function entry
+exit(1) ;                     // when debugging
+  goto end ;
 }
 
 int32_t fst98_codec(zmap *map, zmap_block block, zmap_stream stream, int encode){
