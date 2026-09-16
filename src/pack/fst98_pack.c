@@ -729,7 +729,7 @@ fprintf(stderr,"FST_TYPE_REAL+16 : is_turbo = %d\n", is_turbo) ;
 
       header[0] = ((datyp | is_turbo)  << 24) | ((nbits-1)<<16) | (nw & 0xFFFF) ;
       STREAM_IN(*stream_out) += (nw+1) ;
-fprintf(stderr, "FST_TYPE_UNSIGNED encode : header = %8.8x at %p, nw = %d, buf[0] = %d, next = %p\n", header[0], header, nw, buf[0], STREAM_IN(*stream_out)) ;
+// fprintf(stderr, "FST_TYPE_UNSIGNED encode : header = %8.8x at %p, nw = %d, buf[0] = %d, next = %p\n", header[0], header, nw, buf[0], STREAM_IN(*stream_out)) ;
       break;                      // nw = actual length of "encoded" stream
 
     // integers, short integers or bytes (unsigned), last gen encoders
@@ -1096,43 +1096,58 @@ tagada
 
     case FST_TYPE_UNSIGNED:                // Integers, short integers or bytes (unsigned)
     case FST_TYPE_UNSIGNED | FST_TYPE_TURBOPACK: {
+uint32_t *next ;
       int lngw ;
       uint32_t header = buf[0] ;
       int32_t datyp_ = header >> 24, nbits_ = ((header >> 16) & 0x3F)+1 , nw_ = header & 0xFFFF ;
-fprintf(stderr, "FST_TYPE_UNSIGNED decode : header = %8.8x at %p, datyp_ = %d, nbits_ = %d, nw_ = %d\n", header, buf, datyp_, nbits_, nw_ ) ;
+// fprintf(stderr, "FST_TYPE_UNSIGNED decode : header = %8.8x at %p, datyp_ = %d, nbits_ = %d, nw_ = %d\n", header, buf, datyp_, nbits_, nw_ ) ;
 
       lngw = nw_ ;   // TEMPORARY
       buf++ ;
       if (is_type_turbopack(datyp)) lngw = buf[0] + 1 ;
-// fprintf(stderr, "FST_TYPE_UNSIGNED decode : lngw = %d\n", lngw);
+// next = buf+lngw;
+// fprintf(stderr, "FST_TYPE_UNSIGNED decode : lngw = %d, next header = %8.8x at %p\n", lngw,*next, next );
       if(datyp_ != datyp || nbits_ != nbits_in) goto fail ;
 
       int offset = is_type_turbopack(datyp) ? 1 : 0;
+// TODO : fix turbopack, buf/stream get overwritten when unpacking, temporary storage needed
       if (XdfShort) {
         if (is_type_turbopack(datyp)) {
-          int nbytes = armn_compress((byte *)(buf + offset), ni, nj, nk, nbits_in, 2, 0);
-          memcpy(field, buf + offset, nbytes);
+          uint32_t t[ni*nj*nk] ;
+          memcpy(t, buf, lngw*sizeof(uint32_t)) ;
+//           int nbytes = armn_compress((byte *)(buf + offset), ni, nj, nk, nbits_in, 2, 0);
+//           memcpy(field, buf + offset, nbytes);
+          int nbytes = armn_compress((byte *)(t + offset), ni, nj, nk, nbits_in, 2, 0);
+          memcpy(field, t + offset, nbytes);
         }else{
           ier = compact_u_short(field, (void *) NULL, buf, nelm, nbits_in, 0, xdf_stride);
         }
       } else if(XdfByte) {
         if (is_type_turbopack(datyp)) {
-          armn_compress((byte *)(buf + offset), ni, nj, nk, nbits_in, 2, 0);
-          memcpy_16_8((uint8_t *)field, (uint16_t *)(buf + offset), nelm);
+          uint32_t t[ni*nj*nk] ;
+          memcpy(t, buf, lngw*sizeof(uint32_t)) ;
+//           armn_compress((byte *)(buf + offset), ni, nj, nk, nbits_in, 2, 0);
+//           memcpy_16_8((uint8_t *)field, (uint16_t *)(buf + offset), nelm);
+          armn_compress((byte *)(t + offset), ni, nj, nk, nbits_in, 2, 0);
+          memcpy_16_8((uint8_t *)field, (uint16_t *)(t + offset), nelm);
         }else{
           ier = compact_u_char(field, (void *) NULL, buf, nelm, nbits_in, 0, xdf_stride);
         }
       }else{
         if (is_type_turbopack(datyp)) {
-          armn_compress((byte *)(buf + offset), ni, nj, nk, nbits_in, 2, 0);
-          memcpy_16_32((uint32_t *)field, (uint16_t *)(buf + offset), nbits_in, nelm);
+          uint32_t t[ni*nj*nk] ;
+          memcpy(t, buf, lngw*sizeof(uint32_t)) ;
+//           armn_compress((byte *)(buf + offset), ni, nj, nk, nbits_in, 2, 0);
+//           memcpy_16_32((uint32_t *)field, (uint16_t *)(buf + offset), nbits_in, nelm);
+          armn_compress((byte *)(t + offset), ni, nj, nk, nbits_in, 2, 0);
+          memcpy_16_32((uint32_t *)field, (uint16_t *)(t + offset), nbits_in, nelm);
         }else{
           ier = compact_u_integer(field, (void *) NULL, buf, nelm, nbits_in, 0, xdf_stride, 0);
         }
       }
       STREAM_OUT(*stream_in) += (lngw+1) ;
-uint32_t *next = STREAM_OUT(*stream_in) ;
-fprintf(stderr, "FST_TYPE_UNSIGNED decode : next = %8.8x at %p\n", *next, next);
+// next = STREAM_OUT(*stream_in) ;
+// fprintf(stderr, "FST_TYPE_UNSIGNED decode : next = %8.8x at %p\n", *next, next);
       break;
     }
 

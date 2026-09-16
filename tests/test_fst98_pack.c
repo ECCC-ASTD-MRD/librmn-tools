@@ -435,7 +435,7 @@ goto sint0 ;
   fprintf(stderr, "========== FST_TYPE_UNSIGNED | FST_TYPE_TURBOPACK (16 bits) ==========\n") ;
   encode_decode_int(ni, nj, u_data, (void *)rf_data, 16, FST_TYPE_UNSIGNED | FST_TYPE_TURBOPACK, 0, 0) ;
   encode_decode_int(ni, nj, f_data, (void *)rf_data, 16, FST_TYPE_UNSIGNED | FST_TYPE_TURBOPACK, 0, 0) ;
-goto end ;
+
   fprintf(stderr, "========== FST_TYPE_UNSIGNED | FST_TYPE_TURBOPACK (12 bits) ==========\n") ;
   encode_decode_int(ni, nj, u_data, (void *)rf_data, 12, FST_TYPE_UNSIGNED | FST_TYPE_TURBOPACK, 0, 0) ;
   encode_decode_int(ni, nj, f_data, (void *)rf_data, 12, FST_TYPE_UNSIGNED | FST_TYPE_TURBOPACK, 0, 0) ;
