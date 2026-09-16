@@ -632,7 +632,7 @@ fprintf(stderr,"FST_TYPE_REAL+16 : is_turbo = %d\n", is_turbo) ;
         is_turbo = 0 ;
         c_float_packer((float *)field_u32, nbits, (int32_t *)buf, (int32_t *)(buf + header_size), ni*nj*nk);
       }
-      *header = ((datyp | is_turbo)  << 24) | ((nbits-1)<<16) | (nw & 0xFFFF) ;
+      header[0] = ((datyp | is_turbo)  << 24) | ((nbits-1)<<16) | (nw & 0xFFFF) ;
       STREAM_IN(*stream_out) += (nw+1) ;
 // fprintf(stderr, ", %ld, nw = %d\n", STREAM_BITS_EMPTY(*stream_out)/32, nw) ;
       break;
@@ -653,7 +653,7 @@ fprintf(stderr,"FST_TYPE_REAL+16 : is_turbo = %d\n", is_turbo) ;
 
       if ( (datyp == FST_TYPE_REAL_IEEE) && is_turbo) {    // use turbo compression scheme for FST_TYPE_REAL_IEEE
         nw = f_ni*f_njnk ;                    // worst case length
-        if(navail < nw+1) goto fail ;         // insufficient space for worst case length ?
+        if(navail < nw+1) goto fail ;         // insufficient space for worst case length
         int compressed_lng = c_armn_compress32((byte *)&(buf[1]), (float *)field_u32, ni, nj, nk, nbits);
         if (compressed_lng < 0) {     // no gain with turbo compression
           is_turbo = 0 ;
@@ -672,7 +672,7 @@ fprintf(stderr,"FST_TYPE_REAL+16 : is_turbo = %d\n", is_turbo) ;
         nw = (f_ni*f_njnk * nbits + 31) / 32 ;                 // needed length
         if(navail < nw+1) goto fail ;                          // insufficient space ?
         f77name(ieeepak)((int32_t*)field_u32, (int32_t *)buf, &f_ni, &f_njnk, &f_minus_nbits, &f_zero, &f_one);
-fprintf(stderr, "FST_TYPE_REAL_IEEE(3) : buf[0-3] = %8.8x %8.8x %8.8x %8.8x\n", buf[0], buf[1], buf[2], buf[3]);
+// fprintf(stderr, "FST_TYPE_REAL_IEEE(3) : buf[0-3] = %8.8x %8.8x %8.8x %8.8x\n", buf[0], buf[1], buf[2], buf[3]);
       }
 
       header[0] = ((datyp | is_turbo)  << 24) | ((nbits-1)<<16) | (nw & 0xFFFF) ;
@@ -680,6 +680,57 @@ fprintf(stderr, "FST_TYPE_REAL_IEEE(3) : buf[0-3] = %8.8x %8.8x %8.8x %8.8x\n", 
 // fprintf(stderr, "FST_TYPE_REAL_IEEE : empty = %ld, header = %8.8x\n", STREAM_BITS_EMPTY(*stream_out)/32, header[0]) ;
       break;
     }
+
+    // integers, short integers or bytes (unsigned)
+    case FST_TYPE_UNSIGNED:
+//       if(nbits > 16) is_turbo = 0 ;
+      nw = ni*nj*nk ;
+      if(navail < nw+1) goto fail ;         // insufficient space for worst case length
+
+      uint32_t *buf = (void *)STREAM_IN(*stream_out), *header = buf ;
+      buf++ ;
+
+      if (is_turbo) {
+        const int offset = 1;
+        if (XdfShort) {               // 16 bits to 16 bits copy
+          nbits = Min(16, nbits);     // at most 16 bits
+          memcpy((int16_t *)(buf + offset), field_u32, ni*nj*nk * 2);
+        } else if (XdfByte) {         // 8 bits to 16 bits expansion
+          nbits = Min(8, nbits);      // at most 8 bits
+          memcpy_8_16((uint16_t *)(buf + offset), (uint8_t *)field_u32, ni*nj*nk);
+        }else{                        // 32 bits to 16 bits truncation
+          memcpy_32_16((uint16_t *)(buf + offset), (const uint32_t *)field_u32, nbits, ni*nj*nk);
+        }
+        int compressed_lng = armn_compress((byte *)(buf + offset), ni, nj, nk, nbits, 1, 0);
+        if (compressed_lng < 0) {     // no gain from turbo, redo packing
+          datyp = FST_TYPE_UNSIGNED;
+          is_turbo = 0 ;
+          goto redo_switch_datyp ;
+//           compact_p_integer(field_u32, (void *) NULL, buf /*+ offset*/, ni*nj*nk, nbits, 0, xdf_stride, 0);
+//           nw = (ni*nj*nk * nbits + 31) / 32 ;              // recompute nw using possibly revised nbits
+        }else{
+          int nbytes = 4 + compressed_lng;
+          buf[0] = nw = (nbytes * 8 + 31) / 32;
+          nw ++ ;    // turbo header, bump nw ;
+        }
+      }else{    // straight packing, no turbo
+        if (XdfShort) {
+          nbits = Min(16, nbits);    // at most 16 bits
+          compact_p_short(field_u32, (void *) NULL, buf, ni*nj*nk, nbits, 0, xdf_stride);
+        } else if (XdfByte) {
+          nbits = Min(8, nbits);     // at most 8 bits
+          compact_p_char(field_u32, (void *) NULL, buf, ni*nj*nk, nbits, 0, xdf_stride);
+        }else{
+          compact_p_integer(field_u32, (void *) NULL, buf, ni*nj*nk, nbits, 0, xdf_stride, 0);
+        }
+        nw = ((ni*nj*nk * nbits) + 31) / 32;                 // recompute nw using possibly revised nbits
+      }
+      xdf_short = xdf_byte = 0 ;
+
+      header[0] = ((datyp | is_turbo)  << 24) | ((nbits-1)<<16) | (nw & 0xFFFF) ;
+      STREAM_IN(*stream_out) += (nw+1) ;
+fprintf(stderr, "FST_TYPE_UNSIGNED encode : header = %8.8x at %p, nw = %d, buf[0] = %d, next = %p\n", header[0], header, nw, buf[0], STREAM_IN(*stream_out)) ;
+      break;                      // nw = actual length of "encoded" stream
 
     // integers, short integers or bytes (unsigned), last gen encoders
     case FST_TYPE_UNSIGNED+16:{
@@ -706,47 +757,6 @@ fprintf(stderr, "FST_TYPE_REAL_IEEE(3) : buf[0-3] = %8.8x %8.8x %8.8x %8.8x\n", 
         nw = nwords ;
       }
       break;
-
-    // integers, short integers or bytes (unsigned)
-    case FST_TYPE_UNSIGNED:
-//       if(nbits > 16) is_turbo = 0 ;
-      if (is_turbo) {
-        const int offset = 1;
-        if (XdfShort) {               // 16 bits to 16 bits copy
-          nbits = Min(16, nbits);     // at most 16 bits
-          memcpy((int16_t *)(buffer + offset), field_u32, ni*nj*nk * 2);
-        } else if (XdfByte) {         // 8 bits to 16 bits expansion
-          nbits = Min(8, nbits);      // at most 8 bits
-          memcpy_8_16((uint16_t *)(buffer + offset), (uint8_t *)field_u32, ni*nj*nk);
-        }else{                        // 32 bits to 16 bits truncation
-          memcpy_32_16((uint16_t *)(buffer + offset), (const uint32_t *)field_u32, nbits, ni*nj*nk);
-        }
-        int compressed_lng = armn_compress((byte *)(buffer + offset), ni, nj, nk, nbits, 1, 0);
-        if (compressed_lng < 0) {     // no gain from turbo, redo packing
-          datyp = FST_TYPE_UNSIGNED;
-          is_turbo = 0 ;
-          goto redo_switch_datyp ;
-//           compact_p_integer(field_u32, (void *) NULL, buffer /*+ offset*/, ni*nj*nk, nbits, 0, xdf_stride, 0);
-//           nw = (ni*nj*nk * nbits + 31) / 32 ;              // recompute nw using possibly revised nbits
-        }else{
-          int nbytes = 4 + compressed_lng;
-          buffer[0] = nw = (nbytes * 8 + 31) / 32;
-          nw ++ ;    // turbo header, bump nw ;
-        }
-      }else{    // straight packing, no turbo
-        if (XdfShort) {
-          nbits = Min(16, nbits);    // at most 16 bits
-          compact_p_short(field_u32, (void *) NULL, buffer, ni*nj*nk, nbits, 0, xdf_stride);
-        } else if (XdfByte) {
-          nbits = Min(8, nbits);     // at most 8 bits
-          compact_p_char(field_u32, (void *) NULL, buffer, ni*nj*nk, nbits, 0, xdf_stride);
-        }else{
-          compact_p_integer(field_u32, (void *) NULL, buffer, ni*nj*nk, nbits, 0, xdf_stride, 0);
-        }
-        nw = ((ni*nj*nk * nbits) + 31) / 32;                 // recompute nw using possibly revised nbits
-      }
-      xdf_short = xdf_byte = 0 ;
-      break;                      // nw = actual length of "encoded" stream
 
     // integers, short integers or bytes (signed), last gen encoders
     case FST_TYPE_SIGNED+16:{
@@ -1084,29 +1094,19 @@ tagada
       break;
     }
 
-    // integers, short integers or bytes (unsigned), last gen encoders
-    case FST_TYPE_UNSIGNED+16:
-    case (FST_TYPE_UNSIGNED+16) | FST_TYPE_TURBOPACK: {
-      bitstream stream ;
-      int32_t decoded, t[nelm] ;
-      InitStream(&stream, buf, nelm*sizeof(uint32_t), BIT_FULL_INIT|BIT_XTRACT|SET_BIG_ENDIAN) ;
-      StreamSetFilledBytes(&stream, nelm*sizeof(uint32_t)) ;
-      decoded = decode_block(&stream, (int32_t *)t, ni, ni, nj, 8) ;
-fprintf(stderr,"decode FST_TYPE_UNSIGNED+16 : is_turbo = %d, decoded = %d\n", is_turbo, decoded) ;
-      LorenzoUnpredict( (XdfShort || XdfByte) ? t : (int32_t *)field , t, ni, ni, ni, nj) ;
-//       memcpy(           (XdfShort || XdfByte) ? t : (int32_t *)field , t, nelm*sizeof(int32_t)) ;    // cancel prediction
-      if (XdfShort) {
-        uint16_t *d16 = (uint16_t *)field ;
-        for(int i=0 ; i<nelm ; i++){ d16[i] = t[i] ; } ;
-      }else if(XdfByte) {
-        uint8_t *d8 = (uint8_t *)field ;
-        for(int i=0 ; i<nelm ; i++){ d8[i] = t[i] ; } ;
-      }
-      break;
-    }
-
     case FST_TYPE_UNSIGNED:                // Integers, short integers or bytes (unsigned)
     case FST_TYPE_UNSIGNED | FST_TYPE_TURBOPACK: {
+      int lngw ;
+      uint32_t header = buf[0] ;
+      int32_t datyp_ = header >> 24, nbits_ = ((header >> 16) & 0x3F)+1 , nw_ = header & 0xFFFF ;
+fprintf(stderr, "FST_TYPE_UNSIGNED decode : header = %8.8x at %p, datyp_ = %d, nbits_ = %d, nw_ = %d\n", header, buf, datyp_, nbits_, nw_ ) ;
+
+      lngw = nw_ ;   // TEMPORARY
+      buf++ ;
+      if (is_type_turbopack(datyp)) lngw = buf[0] + 1 ;
+// fprintf(stderr, "FST_TYPE_UNSIGNED decode : lngw = %d\n", lngw);
+      if(datyp_ != datyp || nbits_ != nbits_in) goto fail ;
+
       int offset = is_type_turbopack(datyp) ? 1 : 0;
       if (XdfShort) {
         if (is_type_turbopack(datyp)) {
@@ -1129,6 +1129,30 @@ fprintf(stderr,"decode FST_TYPE_UNSIGNED+16 : is_turbo = %d, decoded = %d\n", is
         }else{
           ier = compact_u_integer(field, (void *) NULL, buf, nelm, nbits_in, 0, xdf_stride, 0);
         }
+      }
+      STREAM_OUT(*stream_in) += (lngw+1) ;
+uint32_t *next = STREAM_OUT(*stream_in) ;
+fprintf(stderr, "FST_TYPE_UNSIGNED decode : next = %8.8x at %p\n", *next, next);
+      break;
+    }
+
+    // integers, short integers or bytes (unsigned), last gen encoders
+    case FST_TYPE_UNSIGNED+16:
+    case (FST_TYPE_UNSIGNED+16) | FST_TYPE_TURBOPACK: {
+      bitstream stream ;
+      int32_t decoded, t[nelm] ;
+      InitStream(&stream, buf, nelm*sizeof(uint32_t), BIT_FULL_INIT|BIT_XTRACT|SET_BIG_ENDIAN) ;
+      StreamSetFilledBytes(&stream, nelm*sizeof(uint32_t)) ;
+      decoded = decode_block(&stream, (int32_t *)t, ni, ni, nj, 8) ;
+fprintf(stderr,"decode FST_TYPE_UNSIGNED+16 : is_turbo = %d, decoded = %d\n", is_turbo, decoded) ;
+      LorenzoUnpredict( (XdfShort || XdfByte) ? t : (int32_t *)field , t, ni, ni, ni, nj) ;
+//       memcpy(           (XdfShort || XdfByte) ? t : (int32_t *)field , t, nelm*sizeof(int32_t)) ;    // cancel prediction
+      if (XdfShort) {
+        uint16_t *d16 = (uint16_t *)field ;
+        for(int i=0 ; i<nelm ; i++){ d16[i] = t[i] ; } ;
+      }else if(XdfByte) {
+        uint8_t *d8 = (uint8_t *)field ;
+        for(int i=0 ; i<nelm ; i++){ d8[i] = t[i] ; } ;
       }
       break;
     }

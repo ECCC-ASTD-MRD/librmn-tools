@@ -119,9 +119,9 @@ fprintf(stderr, "encode_decode_int : size of estream = %ld words\n", STREAM_BITS
   size_t sizeout = sizeof(int32_t) ;
   if (src_short) sizeout = sizeof(int16_t) ;
   if (src_byte) sizeout = sizeof(int8_t) ;
-  memset(f_out, 0, (ninj)*sizeout) ;
+//   memset(f_out, 0, (ninj)*sizeout) ;
   fst98_decode(f_out, &estream, ni, nj, 1, data_kind | data_control) ;
-  memset(f_out, 0, (ninj)*sizeout) ;
+//   memset(f_out, 0, (ninj)*sizeout) ;
   fst98_decode(f_out, &estream, ni, nj, 1, data_kind | data_control) ;
 
   if(nodiag) return ;
@@ -338,7 +338,8 @@ if(argc > 100)
 goto oldquant;
 // goto binary ;
 // goto realieee ;
-goto cmplx ;
+goto uint;
+// goto cmplx ;
 // goto newstyle;
 // goto realturbo;
 
@@ -434,7 +435,7 @@ goto sint0 ;
   fprintf(stderr, "========== FST_TYPE_UNSIGNED | FST_TYPE_TURBOPACK (16 bits) ==========\n") ;
   encode_decode_int(ni, nj, u_data, (void *)rf_data, 16, FST_TYPE_UNSIGNED | FST_TYPE_TURBOPACK, 0, 0) ;
   encode_decode_int(ni, nj, f_data, (void *)rf_data, 16, FST_TYPE_UNSIGNED | FST_TYPE_TURBOPACK, 0, 0) ;
-
+goto end ;
   fprintf(stderr, "========== FST_TYPE_UNSIGNED | FST_TYPE_TURBOPACK (12 bits) ==========\n") ;
   encode_decode_int(ni, nj, u_data, (void *)rf_data, 12, FST_TYPE_UNSIGNED | FST_TYPE_TURBOPACK, 0, 0) ;
   encode_decode_int(ni, nj, f_data, (void *)rf_data, 12, FST_TYPE_UNSIGNED | FST_TYPE_TURBOPACK, 0, 0) ;
@@ -463,7 +464,7 @@ goto sint0 ;
   encode_decode_int(ni, nj, f_data, (void *)rf_data, 16, FST_TYPE_UNSIGNED | FST_TYPE_TURBOPACK, 0, SRC_BYTE + DST_SHORT) ;
 
   fprintf(stderr, "\n");
-if(argc > 100)
+// if(argc > 100)
 goto end;
 sint0:
 if(argc > 100)
