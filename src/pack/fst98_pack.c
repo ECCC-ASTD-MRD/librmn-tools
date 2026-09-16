@@ -529,6 +529,7 @@ fprintf(stderr,"DEBUG : need %d words, have %ld\n", nw, navail) ;
   }
 #endif
 #endif
+  int64_t navail = STREAM_BITS_EMPTY(*stream_out)/32 ;
 
 // handle 64 bit straight IEEE (IEEE_64). add endian swap
   if(IEEE_64){
@@ -536,6 +537,12 @@ fprintf(stderr,"DEBUG : need %d words, have %ld\n", nw, navail) ;
 // fprintf(stderr, "DEBUG IEEE_64 : datyp = %d, buf64 = %f %f %f\n", datyp, buf64[0], buf64[nw/4-1], buf64[nw/2-1]);
 // fprintf(stderr, "DEBUG IEEE_64 : datyp = %d\n", datyp);
     nw = 2 * ni*nj*nk ;
+    if(is_type_complex(datyp)){   // 64 bit complex
+      nw *= 2 ;
+// fprintf(stderr,"DEBUG : IEEE64 + COMPLEX, ni = %d, nj = %d, nk = %d, nw = %d, navail = %ld\n", ni, nj, nk, nw, navail);
+    }
+    if(navail < nw+1) goto fail ;           // insufficient space
+//     if(is_type_complex(datyp)) nw *= 2 ;
     uint32_t *buf = (uint32_t *)STREAM_IN(*stream_out) ;
     buf[0] = (datyp << 24) | ((nbits-1)<<16) | ((nw) & 0xFFFF) ;
     buf++ ;
@@ -552,7 +559,7 @@ fprintf(stderr,"DEBUG : need %d words, have %ld\n", nw, navail) ;
 
 redo_switch_datyp:
   StreamFlush(stream_out) ;
-  int64_t navail = STREAM_BITS_EMPTY(*stream_out)/32 ;
+  navail = STREAM_BITS_EMPTY(*stream_out)/32 ;
 
   switch (datyp) {
 
@@ -661,11 +668,11 @@ fprintf(stderr,"FST_TYPE_REAL+16 : is_turbo = %d\n", is_turbo) ;
         }
       }else{                // no turbo or FST_TYPE_COMPLEX
         is_turbo = 0 ;
+        if (datyp == FST_TYPE_COMPLEX) f_ni = f_ni * 2;
         nw = (f_ni*f_njnk * nbits + 31) / 32 ;                 // needed length
         if(navail < nw+1) goto fail ;                          // insufficient space ?
-        if (datyp == FST_TYPE_COMPLEX) f_ni = f_ni * 2;
         f77name(ieeepak)((int32_t*)field_u32, (int32_t *)buf, &f_ni, &f_njnk, &f_minus_nbits, &f_zero, &f_one);
-// fprintf(stderr, "FST_TYPE_REAL_IEEE(3) : buf[0-3] = %8.8x %8.8x %8.8x %8.8x\n", buf[0], buf[1], buf[2], buf[3]);
+fprintf(stderr, "FST_TYPE_REAL_IEEE(3) : buf[0-3] = %8.8x %8.8x %8.8x %8.8x\n", buf[0], buf[1], buf[2], buf[3]);
       }
 
       header[0] = ((datyp | is_turbo)  << 24) | ((nbits-1)<<16) | (nw & 0xFFFF) ;

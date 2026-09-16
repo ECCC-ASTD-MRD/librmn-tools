@@ -186,7 +186,7 @@ fprintf(stderr, "encode_decode_int : size of estream = %ld words\n", STREAM_BITS
 // void encode_decode_float(int ni, int nj, float f_in[nj][ni], float f_out[nj][ni], int nbits, int datyp, int nodiag, int data_control){
 void encode_decode_float(int ni, int nj, void *f_in, void *f_out, int nbits, int datyp, int nodiag, int data_control){
   (void) (nodiag) ;
-  int32_t buffer[ni*nj*4+32] ;
+  int32_t buffer[ni*nj*8+32] ;
   bitstream estream = NULL_BITSTREAM ;
   InitStream(&estream, buffer, sizeof(buffer), BIT_FULL_INIT|BIT_INSERT|BIT_XTRACT|SET_BIG_ENDIAN) ;
 // fprintf(stderr, "encode_decode_float : size of estream = %ld words\n", STREAM_BITS_EMPTY(estream)/32) ;
@@ -338,6 +338,7 @@ if(argc > 100)
 goto oldquant;
 // goto binary ;
 // goto realieee ;
+goto cmplx ;
 // goto newstyle;
 // goto realturbo;
 
@@ -655,9 +656,9 @@ goto binary ;
   fprintf(stderr, "========== FST_TYPE_COMPLEX | FST_TYPE_TURBOPACK | FSTD_MISSING_FLAG (48 bits) ==========\n") ;
   encode_decode_float(ni/2, nj, d_data, rd_data, 48, FST_TYPE_COMPLEX | FST_TYPE_TURBOPACK | FSTD_MISSING_FLAG, 0, 0) ;
 //
-  fprintf(stderr, "========== FST_TYPE_COMPLEX | FST_TYPE_TURBOPACK | FSTD_MISSING_FLAG (48 bits) ==========\n") ;
+  fprintf(stderr, "========== FST_TYPE_COMPLEX | FST_TYPE_TURBOPACK | FSTD_MISSING_FLAG (48 bits)(DST_WORD) ==========\n") ;
   encode_decode_float(ni/2, nj, d_data, rf_data, 48, FST_TYPE_COMPLEX | FST_TYPE_TURBOPACK | FSTD_MISSING_FLAG, 0, DST_WORD) ;
-if(argc > 100)
+// if(argc > 100)
 goto end;
 
 binary:
