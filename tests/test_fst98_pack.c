@@ -189,7 +189,7 @@ void encode_decode_float(int ni, int nj, void *f_in, void *f_out, int nbits, int
   int32_t buffer[ni*nj*4+32] ;
   bitstream estream = NULL_BITSTREAM ;
   InitStream(&estream, buffer, sizeof(buffer), BIT_FULL_INIT|BIT_INSERT|BIT_XTRACT|SET_BIG_ENDIAN) ;
-fprintf(stderr, "encode_decode_float : size of estream = %ld words\n", STREAM_BITS_EMPTY(estream)/32) ;
+// fprintf(stderr, "encode_decode_float : size of estream = %ld words\n", STREAM_BITS_EMPTY(estream)/32) ;
 
   int32_t encoded, encodet ;
   int data_kind ;
@@ -250,6 +250,7 @@ fprintf(stderr, "encode_decode_float : size of estream = %ld words\n", STREAM_BI
       err = (err < 0.0f) ? (-err) : err ;
       rel = (rel < 0.0f) ? (-rel) : rel ;
       maxabs = (err > maxabs) ? err : maxabs ;
+// if(j == 0 && i < 4) fprintf(stderr, "%f %f\n", fin, fout);
     }
   }
   iuf.f = (fmax - fmin) ;       // float values range
@@ -281,6 +282,8 @@ int main(int argc, char **argv){
   double d_data[GNJ][GNI] ;
   double rd_data[GNJ][GNI] ;
   float f_data[GNJ][GNI] ;
+  float fu_data[GNJ][GNI] ;
+  uint32_t *uf_data = (uint32_t *)fu_data ;
   float rf_data[GNJ][GNI] ;
   char *rs_data = (char *)rf_data ;
   uint32_t *if_data = (uint32_t *)f_data ;
@@ -292,12 +295,13 @@ int main(int argc, char **argv){
   int ni = GNI, nj = GNJ ;
 
   for(int i=0 ; i<GNI ; i++){ x[i] = (i - ci) * fi * .95f ; }
-  for(int j=0 ; j<GNI ; j++){ y[j] = (j - cj) * fj * .95f ; }
+  for(int j=0 ; j<GNJ ; j++){ y[j] = (j - cj) * fj * .95f ; }
 
   int ineg = 0 ;
-  for(int j=0 ; j<GNI ; j++){
+  for(int j=0 ; j<GNJ ; j++){
     for(int i=0 ; i<GNI ; i++){
       f_data[j][i] = ( x[i]*x[i] + y[j]*y[j] ) * .5f + 1.0f ;
+      fu_data[j][i] = f_data[j][i] ;
       d_data[j][i] = f_data[j][i] ;
       rf_data[j][i] = 999.999f ;
       rd_data[j][i] = 999.999f ;
@@ -312,6 +316,9 @@ int main(int argc, char **argv){
       b_data[j][i] = i_data[j][i]/2 ;
       if(i_data[j][i] < 0) ineg++ ;
     }
+  }
+  for(int i=0 ; i<GNI*GNJ ; i++){
+    uf_data[i] = uf_data[i] & 0xFFFFF000 ;     // keep upper 20 bits
   }
 //   fprintf(stderr, "X %10f -> %10f\n", x[0], x[GNI-1]) ;
 //   fprintf(stderr, "Y %10f -> %10f\n", y[0], y[GNJ-1]) ;
@@ -330,7 +337,7 @@ int main(int argc, char **argv){
 if(argc > 100)
 goto oldquant;
 // goto binary ;
-goto realieee ;
+// goto realieee ;
 // goto newstyle;
 // goto realturbo;
 
@@ -567,12 +574,20 @@ if(argc > 100)
 goto ieee64;
   fprintf(stderr, "\n");
 //
+  fprintf(stderr, "========== FST_TYPE_REAL_IEEE (fu) (20 bits) ==========\n") ;
+  encode_decode_float(ni, nj, fu_data, rf_data, 20, FST_TYPE_REAL_IEEE, 0, 0) ;
+//
+  fprintf(stderr, "========== FST_TYPE_REAL_IEEE (20 bits) ==========\n") ;
+  encode_decode_float(ni, nj, f_data, rf_data, 20, FST_TYPE_REAL_IEEE, 0, 0) ;
+//
   fprintf(stderr, "========== FST_TYPE_REAL_IEEE (32 bits) ==========\n") ;
   encode_decode_float(ni, nj, f_data, rf_data, 32, FST_TYPE_REAL_IEEE, 0, 0) ;
 //
   fprintf(stderr, "========== FST_TYPE_REAL_IEEE (64 bits) ==========\n") ;
   encode_decode_float(ni, nj, d_data, rd_data, 64, FST_TYPE_REAL_IEEE, 0, 0) ;
-goto end;
+//
+  fprintf(stderr, "========== FST_TYPE_REAL_IEEE(DST_WORD) (64 bits) ==========\n") ;
+  encode_decode_float(ni, nj, d_data, rd_data, 64, FST_TYPE_REAL_IEEE, 0, 0 | DST_WORD) ;
 //
   fprintf(stderr, "========== FST_TYPE_REAL_IEEE | FST_TYPE_TURBOPACK (32 bits) ==========\n") ;
   encode_decode_float(ni, nj, f_data, rf_data, 32, FST_TYPE_REAL_IEEE | FST_TYPE_TURBOPACK, 0, 0) ;
