@@ -664,8 +664,6 @@ fprintf(stderr,"FST_TYPE_REAL+16 : is_turbo = %d\n", is_turbo) ;
 
     // integers, short integers or bytes (unsigned), last gen encoders
     case FST_TYPE_UNSIGNED+16:{
-//         bitstream stream ;
-//         InitStream(&stream, buffer, nw*sizeof(uint32_t), BIT_FULL_INIT|BIT_INSERT|SET_BIG_ENDIAN|BIT_XTRACT) ;
         uint32_t *d32 = (uint32_t *)STREAM_IN(*stream_out) ;
         if(navail < ni*nj*nk) goto fail ;
         if (XdfShort) {               // 16 bits to 32 bits expansion
@@ -1085,7 +1083,6 @@ uint32_t *next ;
     // integers, short integers or bytes (unsigned), last gen encoders
     case FST_TYPE_UNSIGNED+16:
     case (FST_TYPE_UNSIGNED+16) | FST_TYPE_TURBOPACK: {
-//       bitstream stream ;
       int32_t decoded, t[nelm] ;
       InitStream(stream_in, buf, nelm*sizeof(uint32_t), BIT_FULL_INIT|BIT_XTRACT|SET_BIG_ENDIAN) ;
       StreamSetFilledBytes(stream_in, nelm*sizeof(uint32_t)) ;
@@ -1185,7 +1182,8 @@ fprintf(stderr,"FST_TYPE_REAL+16 : is_turbo = %d\n", is_turbo) ;
       ier = -1;
       goto end ;
   } // switch
-  STREAM_XTRACT_ALIGN32(*stream_in) ;   // align to 32 bit boundary
+
+  STREAM_XTRACT_ALIGN32(*stream_in) ;   // align stream to 32 bit boundary
 
   if (is_missing) {
     // Replace "missing" data points with the appropriate values given the type of data (int/float)
