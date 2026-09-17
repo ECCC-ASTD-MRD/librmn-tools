@@ -338,9 +338,9 @@ if(argc > 100)
 goto oldquant;
 // goto binary ;
 // goto realieee ;
-goto uint;
+// goto uint;
 // goto cmplx ;
-// goto newstyle;
+goto newstyle;
 // goto realturbo;
 
   fprintf(stderr, "========== FST_TYPE_REAL (8 bits) ==========\n") ;
@@ -703,6 +703,9 @@ goto newstyle_s ;
   fprintf(stderr, "========== FST_TYPE_UNSIGNED | 16 | FST_TYPE_TURBOPACK (24 bits) ==========\n") ;
   encode_decode_int(ni, nj, u_data, (void *)rf_data, 24, FST_TYPE_UNSIGNED | 16 | FST_TYPE_TURBOPACK, 0, 0) ;
 
+  fprintf(stderr, "========== FST_TYPE_UNSIGNED(SRC_SHORT) | 16 (24 bits) ==========\n") ;
+  encode_decode_int(ni, nj, u_data, (void *)rf_data, 24, FST_TYPE_UNSIGNED | 16, 0, SRC_SHORT) ;
+
   fprintf(stderr, "========== FST_TYPE_UNSIGNED(SRC_SHORT) | 16 | FST_TYPE_TURBOPACK (24 bits) ==========\n") ;
   encode_decode_int(ni, nj, u_data, (void *)rf_data, 24, FST_TYPE_UNSIGNED | 16 | FST_TYPE_TURBOPACK, 0, SRC_SHORT) ;
 
@@ -714,7 +717,7 @@ goto newstyle_s ;
 
   fprintf(stderr, "========== FST_TYPE_UNSIGNED(SRC_BYTE+DST_SHORT) | 16 | FST_TYPE_TURBOPACK (24 bits) ==========\n") ;
   encode_decode_int(ni, nj, f_data, (void *)rf_data, 24, FST_TYPE_UNSIGNED | 16 | FST_TYPE_TURBOPACK, 0, SRC_BYTE+DST_SHORT) ;
-
+goto end ;
 newstyle_s:
   fprintf(stderr, "\n");
   fprintf(stderr, "========== FST_TYPE_SIGNED | 16 | FST_TYPE_TURBOPACK (24 bits) ==========\n") ;
