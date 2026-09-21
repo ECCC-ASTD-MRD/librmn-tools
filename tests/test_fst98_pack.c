@@ -338,14 +338,15 @@ int main(int argc, char **argv){
   hex_print((void *)if_data, (void *)if_data, 8) ;
   hex_print((void *)i_data, (void *)i_data, 8) ;
 if(argc > 100)
-goto oldquant;
+goto realturbo;
+// goto oldquant;
+// goto strings;
 // goto binary ;
 // goto realieee ;
 // goto uint;
 // goto cmplx ;
 // goto newstyle;
-goto newstyle_s;
-// goto realturbo;
+// goto newstyle_s;
 // goto sint ;
 // goto sint0 ;
 
@@ -366,7 +367,10 @@ goto newstyle_s;
 //
 if(argc > 100)
 goto end;
+
 realturbo:
+if(argc > 100)
+goto oldquant;
   fprintf(stderr, "\n");
 //
   fprintf(stderr, "========== FST_TYPE_REAL | FST_TYPE_TURBOPACK (8 bits) ==========\n") ;
@@ -419,7 +423,7 @@ goto uint;
 //
   fprintf(stderr, "========== FST_TYPE_REAL_OLD_QUANT(SRC_DOUBLE + DST_DOUBLE) | FST_TYPE_TURBOPACK (20 bits) ==========\n") ;
   encode_decode_float(ni, nj, d_data, rd_data, 20, FST_TYPE_REAL_OLD_QUANT | FST_TYPE_TURBOPACK, 0, SRC_DOUBLE + DST_DOUBLE) ;
-// if(argc > 100)
+if(argc > 100)
 goto end;
 
 uint :
@@ -470,7 +474,7 @@ goto sint0 ;
   encode_decode_int(ni, nj, f_data, (void *)rf_data, 16, FST_TYPE_UNSIGNED | FST_TYPE_TURBOPACK, 0, SRC_BYTE + DST_SHORT) ;
 
   fprintf(stderr, "\n");
-// if(argc > 100)
+if(argc > 100)
 goto end;
 sint0:
 if(argc > 100)
@@ -521,7 +525,7 @@ goto sint;
   fprintf(stderr, "========== FST_TYPE_UNSIGNED(SRC_BYTE) (24 bits) ==========\n") ;
   encode_decode_int(ni, nj, i_data, (void *)rf_data, 24, FST_TYPE_UNSIGNED, 0, SRC_BYTE) ;
 
-// if(argc > 100)
+if(argc > 100)
 goto end;
 
 sint :
@@ -560,7 +564,7 @@ goto strings;
   fprintf(stderr, "========== FST_TYPE_SIGNED(SRC_BYTE + DST_SHORT) (12 bits) ==========\n") ;
   encode_decode_int(ni, nj, b_data, (void *)rf_data, 12, FST_TYPE_SIGNED, 0, SRC_BYTE + DST_SHORT) ;
   encode_decode_int(ni, nj, f_data, (void *)rf_data, 12, FST_TYPE_SIGNED, 0, SRC_BYTE + DST_SHORT) ;
-// if(argc > 100)
+if(argc > 100)
 goto end;
 
 strings:
@@ -569,21 +573,35 @@ goto realieee;
   fprintf(stderr, "\n");
 
   fprintf(stderr, "========== FST_TYPE_STRING | FST_TYPE_TURBOPACK (18 chars) ==========\n") ;
-  memset(rs_data,0,sizeof(rf_data)) ;
+  memset(rs_data,0,sizeof(rf_data)) ;    // rs_data points to rf_data
   char *c_data = "0123456789ABCDEF0123456789ABCDEF" ;
   encode_decode_int(18, 1, (void *)c_data, (void *)rs_data, 8, FST_TYPE_STRING | FST_TYPE_TURBOPACK, 1, 0) ;
   fprintf(stderr, "src = '%s' [%ld]\ndst = '%s' [%ld]\n", c_data, strnlen(c_data, 1024), rs_data, strnlen(rs_data, 1024)) ;
   if(strnlen(rs_data, 1024) != 18) exit(1) ;
 
   fprintf(stderr, "========== FST_TYPE_CHAR | FST_TYPE_TURBOPACK (18 chars) ==========\n") ;
-  memset(rs_data,0,sizeof(rf_data)) ;
-  encode_decode_int(18, 1, (void *)c_data, (void *)rs_data, 8, FST_TYPE_CHAR | FST_TYPE_TURBOPACK, 1, 0) ;
-  fprintf(stderr, "src(%ld) = '%s'\ndst(%ld) = '%s'\n", strlen(c_data), c_data, strlen(rs_data), rs_data) ;
-  if(strnlen(rs_data, 1024) != 20) exit(1) ;
+void strgr4a_(char *strg, char *r4a, int32_t *posdeb, int32_t *posfin, int64_t lstrg);
+void r4astrg_(char *strg, char *r4a, int32_t *posdeb, int32_t *posfin, int64_t lstrg);
+  uint32_t r4a_data[6] ; memset(r4a_data,0xFF,sizeof(r4a_data)) ;
+  uint8_t  rc_data[32] ; memset(rc_data,0xFF,sizeof(rc_data)) ;
+
+  memset(rs_data,0xFF,sizeof(rf_data)) ;
+
+  int32_t posdeb = 0, posfin = 17 ;
+  strgr4a_(c_data, (char *)r4a_data, &posdeb, &posfin, strlen(c_data)) ;                                                  // string -> R4A, 18 characters
+  fprintf(stderr,"R4A[0:4] = ") ; for(int i=0 ; i<5 ; i++) { fprintf(stderr,"%8.8x ", r4a_data[i]) ; } ; fprintf(stderr,"\n") ;
+  encode_decode_int(18, 1, (void *)r4a_data, (void *)rs_data, 8, FST_TYPE_CHAR | FST_TYPE_TURBOPACK, 1, 0) ;  // R4A <-> R4A
+  uint32_t *ri_data = (uint32_t *)rs_data ;
+  fprintf(stderr,"R4A[0:4] = ") ; for(int i=0 ; i<5 ; i++) { fprintf(stderr,"%8.8x ", ri_data[i]) ; } ; fprintf(stderr,"\n") ;
+  posfin = 19 ;
+  r4astrg_((char *)rc_data, (char *)rs_data, &posdeb, &posfin, sizeof(rc_data)) ;                                                 // R4A -> string
+  fprintf(stderr, "src(%ld) = '%s'\ndst(%ld) = '%s'\nrs_data(%ld)\n", strlen((char *)c_data), (char *)c_data, strlen((char *)rc_data), (char *)rc_data, strlen((char *)rs_data)) ;
+  if(strnlen((char *)rc_data, sizeof(rc_data)) != 18) exit(1) ;
 
   fprintf(stderr, "========== FST_TYPE_BINARY | FST_TYPE_TURBOPACK | FSTD_MISSING_FLAG (24 x 8 bits) ==========\n") ;
+  // must use a size that is a multiple of 4 and initialize the restore target to 0 for this test to be successful
   memset(rf_data,0,sizeof(rf_data)) ;
-  encode_decode_int(24, 1, (void *)c_data, (void *)rf_data, 8, FST_TYPE_BINARY | FST_TYPE_TURBOPACK | FSTD_MISSING_FLAG, 1, 0) ;
+  encode_decode_int(23, 1, (void *)c_data, (void *)rf_data, 8, FST_TYPE_BINARY | FST_TYPE_TURBOPACK | FSTD_MISSING_FLAG, 1, 0) ;
   fprintf(stderr, "src(%ld) = '%s'\ndst(%ld) = '%s'\n", strlen(c_data), c_data, strlen((char *)rf_data), (char *)rf_data) ;
   if(strnlen((void *)rf_data, 1024) != 24) exit(1) ;
 if(argc > 100)
@@ -630,7 +648,7 @@ goto ieee64;
   fprintf(stderr, "========== FST_TYPE_REAL_OLD_QUANT | FST_TYPE_TURBOPACK (17 bits) ==========\n") ;
   encode_decode_float(ni, nj, f_data, rf_data, 17, FST_TYPE_REAL_OLD_QUANT | FST_TYPE_TURBOPACK, 0, 0) ;
 //
-// if(argc > 100)
+if(argc > 100)
 goto end;
 
 ieee64:
@@ -677,7 +695,7 @@ goto binary ;
 //
   fprintf(stderr, "========== FST_TYPE_COMPLEX | FST_TYPE_TURBOPACK | FSTD_MISSING_FLAG (48 bits)(DST_WORD) ==========\n") ;
   encode_decode_float(ni/2, nj, d_data, rf_data, 48, FST_TYPE_COMPLEX | FST_TYPE_TURBOPACK | FSTD_MISSING_FLAG, 0, DST_WORD) ;
-// if(argc > 100)
+if(argc > 100)
 goto end;
 
 binary:
@@ -696,7 +714,7 @@ goto newstyle ;
 
   fprintf(stderr, "========== FST_TYPE_BINARY (64 bits) ==========\n") ;
   encode_decode_int(ni, nj, (void *)d_data, (void *)rd_data, 64, FST_TYPE_BINARY, 0, SRC_DOUBLE | DST_DOUBLE) ;
-// if(argc > 100)
+if(argc > 100)
 goto end;
 
 newstyle:
@@ -747,6 +765,7 @@ goto newstyle_s ;
 
   fprintf(stderr, "========== FST_TYPE_UNSIGNED(SRC_BYTE+DST_SHORT) | 16 | FST_TYPE_TURBOPACK (24 bits) ==========\n") ;
   encode_decode_int(ni, nj, f_data, (void *)rf_data, 24, FST_TYPE_UNSIGNED | 16 | FST_TYPE_TURBOPACK, 0, SRC_BYTE+DST_SHORT) ;
+if(argc > 100)
 goto end ;
 newstyle_s:
 
