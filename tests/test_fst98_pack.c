@@ -339,6 +339,7 @@ int main(int argc, char **argv){
   hex_print((void *)i_data, (void *)i_data, 8) ;
 if(argc > 100)
 goto realturbo;
+goto real16;
 // goto oldquant;
 // goto strings;
 // goto binary ;
@@ -796,6 +797,17 @@ newstyle_s:
 
 //   fprintf(stderr, "========== FST_TYPE_SIGNED | 16 | FST_TYPE_TURBOPACK (24 bits) ==========\n") ;
 //   encode_decode_int(ni, nj, f_data, (void *)rf_data, 24, FST_TYPE_SIGNED | 16 | FST_TYPE_TURBOPACK, 0, 0) ;
+if(argc > 100)
+goto end ;
+real16:
+
+  fprintf(stderr, "\n");
+//
+  fprintf(stderr, "========== FST_TYPE_REAL | 16 (32 bits) ==========\n") ;
+  encode_decode_float(ni, nj, f_data, rf_data, 32, FST_TYPE_REAL | 16, 0, 0) ;
+//
+  fprintf(stderr, "========== FST_TYPE_REAL | 16 | FST_TYPE_TURBOPACK (32 bits) ==========\n") ;
+  encode_decode_float(ni, nj, f_data, rf_data, 32, FST_TYPE_REAL | 16 | FST_TYPE_TURBOPACK, 0, 0) ;
 
 end:
   fprintf(stderr, "\nSUCCESS\n");

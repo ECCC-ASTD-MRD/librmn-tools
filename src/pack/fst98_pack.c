@@ -26,6 +26,7 @@
 
 #include <rmn/fst98_pack.h>
 #include <rmn/lorenzo.h>
+#include <rmn/fp_qlin.h>
 
 #define Max(x,y) ((x > y) ? x : y)
 #define Min(x,y) ((x < y) ? x : y)
@@ -329,7 +330,7 @@ int32_t fst98_encode(
     is_turbo = FST_TYPE_TURBOPACK ;                     // activate turbo
     datyp_in = FST_TYPE_REAL | is_turbo | is_missing ;  // keep flags
   }
-  // real type with nbits > ieee_turbo_threshold (normally 16) ====> type 5 + turbo
+  // real type with nbits > ieee_turbo_threshold (normally 16) ====> FST_TYPE_REAL_IEEE + turbo with nbits + 9
   if( (is_type_real(in_datyp)) && (nbits > ieee_turbo_threshold) && is_turbo) {
     nbits += 9 ;                                             // add 9 to bit count
     nbits = (nbits > 32) ? 32 : nbits ;                      // at most 32 bits
@@ -342,7 +343,7 @@ int32_t fst98_encode(
   int datyp = is_magic ? 1 : in_datyp;                // base data type, is_magic means source array is double (type 1 + XdfDouble)
 //
   int header_size, stream_size, p1out, p2out;
-  int IEEE_64 = 0;                            // 64 bit IEEE (type 5 or 8) flag
+  int IEEE_64 = 0;                            // flag for 64 bit IEEE (FST_TYPE_REAL_IEEE or FST_TYPE_COMPLEX)
 
   if (datyp == FST_TYPE_COMPLEX) {
     if (is_missing || is_turbo) {
@@ -390,8 +391,8 @@ int32_t fst98_encode(
   }
 
   // flag 64 bit IEEE (type 5 or 8)
-  if ( (is_type_real(datyp))    && (nbits > 32) ) IEEE_64 = 1;        // 64 bits real IEEE
-  if ( (is_type_complex(datyp)) && (nbits > 32) ) IEEE_64 = 1;        // 64 bits complex IEEE
+  if ( (is_type_real(datyp))    && (nbits > 32) ) IEEE_64 = 1;        // use 64 bits real IEEE
+  if ( (is_type_complex(datyp)) && (nbits > 32) ) IEEE_64 = 1;        // use 64 bits complex IEEE
   if(IEEE_64){ nbits = 64 ; is_turbo = 0 ; }
 
 
@@ -433,7 +434,7 @@ int32_t fst98_encode(
     }
   }
 
-  if (is_type_real(datyp) && nbits > 32) {                          // floating point and more than 32 bits
+  if (is_type_real(datyp) && nbits > 32) {                          // floating point, not complex and more than 32 bits
     datyp = FST_TYPE_REAL_IEEE;                                     // force 64 bits IEEE
     nbits = 64;
   }
@@ -458,11 +459,11 @@ int32_t fst98_encode(
     }
   }
 
-  // cancel turbo compression if nbits > 16 (except for IEEE reals)
-  if ( (nbits > 16) && (datyp != FST_TYPE_REAL_IEEE) && (datyp < 16) ) is_turbo = 0 ;
+  // cancel turbo compression if nbits > 16 (except for IEEE reals) for old data types
+  if ( (nbits > 16) && (datyp != FST_TYPE_REAL_IEEE) && (datyp < 9) ) is_turbo = 0 ;
   // if nbits <= 16 and turbo compression is requested, use FST_TYPE_REAL instead
   if( (nbits <= 16) && (datyp == FST_TYPE_REAL_OLD_QUANT) && is_turbo ){
-    datyp = FST_TYPE_REAL ;                    // replace base type FST_TYPE_REAL_OLD_QUANT with FST_TYPE_REAL
+    datyp = FST_TYPE_REAL ;        // replace base type FST_TYPE_REAL_OLD_QUANT with FST_TYPE_REAL
   }
 
 // handle 64 bit straight IEEE (IEEE_64). add endian swap
@@ -488,7 +489,7 @@ int32_t fst98_encode(
     goto end ;
   }
 
-  StreamFlush(stream_out) ;
+  StreamFlush(stream_out) ;     // make sure we start on a proper stream boundary
 
 redo_switch_datyp:
 
@@ -515,7 +516,7 @@ redo_switch_datyp:
       // straight quantifier, no turbo, pack with offset 24 (96+24 = 120 bit header)
       is_turbo = 0;
       nw = (ni*nj*nk * nbits + (96 + 24) + 31) / 32;  // needed space in 32 bit units for data
-      if(navail < nw+1) goto fail ;                   // insufficient space ?
+      if(navail < nw+1) goto fail ;                   // insufficient space
 
       uint32_t *buf = (uint32_t *)STREAM_IN(*stream_out) ;
       uint32_t header = (datyp << 24) | ((nbits-1) << 18) | (nw & 0x3FFFF) ;
@@ -529,10 +530,28 @@ redo_switch_datyp:
     }
 
     // floating point, last gen style packers and encoders
-    case FST_TYPE_REAL+16:
+    case FST_TYPE_REAL+16:{
 fprintf(stderr,"FST_TYPE_REAL+16 : is_turbo = %d\n", is_turbo) ;
-// have to put offset and exponent base into stream
+      nw = (ni*nj*nk * nbits + 31) / 32;              // worst case
+      if(navail < nw+1) goto fail ;                   // insufficient space
+
+      uint32_t *buf = (uint32_t *)STREAM_IN(*stream_out), *header = buf ;
+      buf+=2 ;
+
+//       memcpy(buf, field_u32, nw*sizeof(float)) ;
+      int32_t t[ni*nj*nk] ;
+      float maxerr = 0.0f ;
+      int32_t offset = 0, e_base = 0 ;
+      block_properties *bp = NULL ;
+      e_base = fp_to_qlin((float *)field_u32, buf, ni*nj*nk, maxerr, nbits, &offset, bp) ;
+fprintf(stderr,"FST_TYPE_REAL+16 encode : e_base = %d\n", e_base) ;
+
+      header[0] = ((datyp | is_turbo) << 24) | ((nbits-1) << 18) | (nw & 0x3FFFF) ;                       // insert packing header into stream
+      header[1] = e_base ;
+      STREAM_IN(*stream_out) += (nw+2) ;                        // inserted nw+2 32 bit words into stream
+      // will have to put offset and exponent base into stream
       break;
+    }
 
     // floating point, new packers
     case FST_TYPE_REAL:{
@@ -803,7 +822,7 @@ fprintf(stderr,"FST_TYPE_REAL_IEEE+16 : is_turbo = %d\n", is_turbo) ;
         goto fail ;
   } // end switch
 
-  StreamFlush(stream_out) ;
+  StreamFlush(stream_out) ;     // make sure we end on a proper stream boundary
 
 end:
   // free temporary arrays if they were used
@@ -1126,14 +1145,27 @@ fprintf(stderr,"decode FST_TYPE_SIGNED+16 : is_turbo = %d, decoded = %d\n", is_t
     case FST_TYPE_REAL_IEEE+16:
     case (FST_TYPE_REAL_IEEE+16) | FST_TYPE_TURBOPACK:
 fprintf(stderr,"FST_TYPE_REAL_IEEE+16 : is_turbo = %d\n", is_turbo) ;
+      // will have to get extra decoding info from stream
       break;
 
     // floating point, last gen style packers and encoders
     case FST_TYPE_REAL+16:
-    case (FST_TYPE_REAL+16) | FST_TYPE_TURBOPACK:
-fprintf(stderr,"FST_TYPE_REAL+16 : is_turbo = %d\n", is_turbo) ;
-// have to get offset and exponent base from stream
+    case (FST_TYPE_REAL+16) | FST_TYPE_TURBOPACK:{
+fprintf(stderr,"FST_TYPE_REAL+16 decode : is_turbo = %d\n", is_turbo) ;
+      int32_t lngw = nelm, e_base = buf[1] ;
+      uint32_t header = buf[0] ;
+      int32_t datyp_ = header >> 24, nbits_ = ((header >> 18) & 0x3F)+1 , nw_ = header & 0x3FFFF ;
+      if(datyp_ != datyp || nbits_ != nbits_in || (lngw & 0x3FFFF) != nw_) goto fail ;
+fprintf(stderr,"FST_TYPE_REAL+16 decode : e_base = %d\n", e_base) ;
+
+      // will have to get offset and exponent base from stream
+      buf+=2 ;
+      int32_t offset = 0 ;
+      qflin_to_fp((float *)field, (int32_t *)buf, nelm, e_base, offset) ;
+//       memcpy(field, buf, nelm*sizeof(float)) ;
+      STREAM_OUT(*stream_in) += (lngw+2) ;                // lngw + 1 32 bit words extracted from stream
       break;
+    }
 
     case FST_TYPE_CHAR: {
       // Character data, R4A style (4 chars in a 32 bit integer)
