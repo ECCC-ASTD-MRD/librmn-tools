@@ -339,7 +339,7 @@ int main(int argc, char **argv){
   hex_print((void *)i_data, (void *)i_data, 8) ;
 if(argc > 100)
 goto realturbo;
-goto real16;
+goto real_new;
 // goto oldquant;
 // goto strings;
 // goto binary ;
@@ -799,16 +799,59 @@ newstyle_s:
 //   encode_decode_int(ni, nj, f_data, (void *)rf_data, 24, FST_TYPE_SIGNED | 16 | FST_TYPE_TURBOPACK, 0, 0) ;
 if(argc > 100)
 goto end ;
-real16:
-
+real_new:
+//
   fprintf(stderr, "\n");
 //
-  fprintf(stderr, "========== FST_TYPE_REAL | 16 (32 bits) ==========\n") ;
-  encode_decode_float(ni, nj, f_data, rf_data, 32, FST_TYPE_REAL | 16, 0, 0) ;
+  fprintf(stderr, "========== FST_TYPE_REAL (18 bits) ==========\n") ;
+  encode_decode_float(ni, nj, f_data, rf_data, 18, FST_TYPE_REAL, 0, 0) ;
 //
-  fprintf(stderr, "========== FST_TYPE_REAL | 16 | FST_TYPE_TURBOPACK (32 bits) ==========\n") ;
-  encode_decode_float(ni, nj, f_data, rf_data, 32, FST_TYPE_REAL | 16 | FST_TYPE_TURBOPACK, 0, 0) ;
-
+  fprintf(stderr, "========== FST_TYPE_REAL | FST_TYPE_TURBOPACK (18 bits) ==========\n") ;
+  encode_decode_float(ni, nj, f_data, rf_data, 18, FST_TYPE_REAL | FST_TYPE_TURBOPACK, 0, 0) ;
+//
+  fprintf(stderr, "========== FST_TYPE_REAL | 16 (18 bits) ==========\n") ;
+  encode_decode_float(ni, nj, f_data, rf_data, 18, FST_TYPE_REAL | 16, 0, 0) ;
+//
+  fprintf(stderr, "========== FST_TYPE_REAL | 16 | FST_TYPE_TURBOPACK (18 bits) ==========\n") ;
+  encode_decode_float(ni, nj, f_data, rf_data, 18, FST_TYPE_REAL | 16 | FST_TYPE_TURBOPACK, 0, 0) ;
+//
+//   fprintf(stderr, "========== FST_TYPE_REAL(SRC_DOUBLE) | 16 (18 bits) ==========\n") ;
+//   encode_decode_float(ni, nj, d_data, rf_data, 18, FST_TYPE_REAL | 16, 0, SRC_DOUBLE) ;
+//
+//   fprintf(stderr, "========== FST_TYPE_REAL(DST_DOUBLE) | 16 (18 bits) ==========\n") ;
+//   encode_decode_float(ni, nj, f_data, rd_data, 18, FST_TYPE_REAL | 16, 0, DST_DOUBLE) ;
+//
+  fprintf(stderr, "========== FST_TYPE_REAL(SRC_DOUBLE+DST_DOUBLE) | 16 (18 bits) ==========\n") ;
+  encode_decode_float(ni, nj, d_data, rd_data, 18, FST_TYPE_REAL | 16, 0, SRC_DOUBLE+DST_DOUBLE) ;
+//
+  fprintf(stderr, "\n");
+//
+  fprintf(stderr, "========== FST_TYPE_REAL (12 bits) ==========\n") ;
+  encode_decode_float(ni, nj, f_data, rf_data, 12, FST_TYPE_REAL, 0, 0) ;
+//
+  fprintf(stderr, "========== FST_TYPE_REAL | FST_TYPE_TURBOPACK (12 bits) ==========\n") ;
+  encode_decode_float(ni, nj, f_data, rf_data, 12, FST_TYPE_REAL | FST_TYPE_TURBOPACK, 0, 0) ;
+//
+  fprintf(stderr, "========== FST_TYPE_REAL | 16 | FST_NO_TURBOPACK (13 bits) ==========\n") ;
+  encode_decode_float(ni, nj, f_data, rf_data, 13, FST_TYPE_REAL | FST_NO_TURBOPACK | 16, 0, 0) ;
+//
+  fprintf(stderr, "========== FST_TYPE_REAL | 16 (13 bits) ==========\n") ;
+  encode_decode_float(ni, nj, f_data, rf_data, 13, FST_TYPE_REAL | 16, 0, 0) ;
+//
+  fprintf(stderr, "========== FST_TYPE_REAL | 16 | FST_TYPE_TURBOPACK (13 bits) ==========\n") ;
+  encode_decode_float(ni, nj, f_data, rf_data, 13, FST_TYPE_REAL | 16 | FST_TYPE_TURBOPACK, 0, 0) ;
+//
+  fprintf(stderr, "\n");
+//
+  fprintf(stderr, "========== FST_TYPE_REAL_IEEE | 16 | FST_NO_TURBOPACK (12 bits) ==========\n") ;
+  encode_decode_float(ni, nj, f_data, rf_data, 12, FST_TYPE_REAL_IEEE | 16 | FST_NO_TURBOPACK, 0, 0) ;
+//
+  fprintf(stderr, "========== FST_TYPE_REAL_IEEE | 16 (12 bits) ==========\n") ;
+  encode_decode_float(ni, nj, f_data, rf_data, 12, FST_TYPE_REAL_IEEE | 16, 0, 0) ;
+//
+  fprintf(stderr, "========== FST_TYPE_REAL_IEEE(SRC_DOUBLE+DST_DOUBLE) | 16 (12 bits) ==========\n") ;
+  encode_decode_float(ni, nj, d_data, rd_data, 12, FST_TYPE_REAL_IEEE | 16, 0, SRC_DOUBLE+DST_DOUBLE) ;
+//
 end:
   fprintf(stderr, "\nSUCCESS\n");
   return 0 ;

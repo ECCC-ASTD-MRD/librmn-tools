@@ -27,6 +27,7 @@
 #include <rmn/fst98_pack.h>
 #include <rmn/lorenzo.h>
 #include <rmn/fp_qlin.h>
+#include <rmn/fp_qflog.h>
 
 #define Max(x,y) ((x > y) ? x : y)
 #define Min(x,y) ((x < y) ? x : y)
@@ -277,7 +278,7 @@ int32_t fst98_encode(
 ) {
   bitstream stream_out_ = *stream_out ;                  // save output stream state
   int64_t navail = STREAM_BITS_EMPTY(*stream_out)/32 ;   // available space in stream for encoded data (32 bit units)
-  int data_control = datyp_in & 0xFF000000 ;  // keep upper 8 bits
+  int data_control = datyp_in & 0xFF000000 ;  // upper 8 bits
   datyp_in &= 0xFFFFFF ;                      // lower 24 bits ;
   // account for legacy xdf_double / xdf_short / xdf_byte
   int XdfDouble = xdf_double || (data_control & SRC_DOUBLE) ;
@@ -298,6 +299,7 @@ int32_t fst98_encode(
   //       npak & 0x00020000 != 0 : max REL error mode
   //       if quantum exponent is present, nbits is optional (both cannot be 0)
   //       may need a function to produce "npak" from quantum/nbits/ABS/REL
+  //       npak > 64              : NEW STYLE PACKERS
   int nbits = (npak < 0) ? (-npak) : ( Max(1, 32 / Max(1, npak)) );    // npak == 0 or 1 will set nbits to 32
   if ((npak == 0) || (npak == 1)) { datyp_in = FST_TYPE_BINARY; }        // no compaction, nbits is already 32
 
@@ -310,6 +312,8 @@ int32_t fst98_encode(
 
   int is_missing = datyp_in & FSTD_MISSING_FLAG;      // flag : missing value feature is requested
   int is_turbo   = datyp_in & FST_TYPE_TURBOPACK;     // flag : turbo packing activated
+  int no_turbo   = datyp_in & FST_NO_TURBOPACK;       // disable turbo
+  if(no_turbo) is_turbo = 0 ;
   int in_datyp   = base_fst_type(datyp_in);           // suppress flags, only retain base type
 
 // TODO: new style float coding can probably jump directly to redo_switch_datyp after fixing a few variables
@@ -414,8 +418,8 @@ int32_t fst98_encode(
     }
   }
 
-  // handle double real / complex type
-  if ( (is_type_real(datyp) || is_type_complex(datyp)) && (is_missing == 0) ) {
+  // handle double real / complex type (ignore bit with value 16)
+  if ( (is_type_real(datyp & 0x2F) || is_type_complex(datyp & 0x2F)) && (is_missing == 0) ) {
     if (XdfDouble || IEEE_64) {
       int _nk = is_type_complex(datyp) ? (2 * nk) : nk ;
       if (nbits <= 32) {                // convert from double to float if nbits not larger than 32
@@ -531,25 +535,39 @@ redo_switch_datyp:
 
     // floating point, last gen style packers and encoders
     case FST_TYPE_REAL+16:{
-fprintf(stderr,"FST_TYPE_REAL+16 : is_turbo = %d\n", is_turbo) ;
-      nw = (ni*nj*nk * nbits + 31) / 32;              // worst case
-      if(navail < nw+1) goto fail ;                   // insufficient space
+      if(navail < ni*nj*nk+1) goto fail ;                   // insufficient space for worst case
 
-      uint32_t *buf = (uint32_t *)STREAM_IN(*stream_out), *header = buf ;
-      buf+=2 ;
-
-//       memcpy(buf, field_u32, nw*sizeof(float)) ;
       int32_t t[ni*nj*nk] ;
       float maxerr = 0.0f ;
-      int32_t offset = 0, e_base = 0 ;
+      int32_t offset = is_turbo ? 0 : 0x7FFFFFFF, e_base = 0 ;
       block_properties *bp = NULL ;
-      e_base = fp_to_qlin((float *)field_u32, buf, ni*nj*nk, maxerr, nbits, &offset, bp) ;
-fprintf(stderr,"FST_TYPE_REAL+16 encode : e_base = %d\n", e_base) ;
+      e_base = fp_to_qlin((float *)field_u32, (int32_t *)t, ni*nj*nk, maxerr, nbits, &offset, bp) ;    // quantize field_u32[] -> t[]
+      is_turbo = no_turbo ? 0 : FST_TYPE_TURBOPACK ;                                                   // turbo on except if prohibited
+      if(is_turbo) LorenzoPredict((int32_t *)t, (int32_t *)t, ni, ni, ni, nj);                         // predict t[] in place
 
-      header[0] = ((datyp | is_turbo) << 24) | ((nbits-1) << 18) | (nw & 0x3FFFF) ;                       // insert packing header into stream
-      header[1] = e_base ;
-      STREAM_IN(*stream_out) += (nw+2) ;                        // inserted nw+2 32 bit words into stream
-      // will have to put offset and exponent base into stream
+      uint32_t head = ((datyp | is_turbo) << 24) | ((nbits-1) << 18) | (e_base & 0xFF) ;
+      STREAM_PUT_NBITS(*stream_out,   head, 32) ;
+      STREAM_PUT_NBITS(*stream_out, offset, 32) ;
+      int32_t encoded = encode_block(stream_out, t, ni, ni, nj, 8, 0 ) ;                               // encode t[]
+      nw = (encoded+31)/32 ;
+      break;
+    }
+
+    // floats with max relative error, last gen encoders.  keep nbits bits from mantissa
+    case FST_TYPE_REAL_IEEE+16:{
+      if(navail < ni*nj*nk+1) goto fail ;                   // insufficient space for worst case
+
+      int32_t t[ni*nj*nk] ;
+      float maxerr = 0.0f ;
+      block_properties *bp = NULL ;
+      fp_to_flog((float *)field_u32, (int32_t *)t, ni*nj*nk, nbits) ;                                  // "quantize" field_u32[] -> t[]
+      is_turbo = no_turbo ? 0 : FST_TYPE_TURBOPACK ;                                                   // turbo on except if prohibited
+      if(is_turbo) LorenzoPredict((int32_t *)t, (int32_t *)t, ni, ni, ni, nj);                         // predict t[] in place
+
+      uint32_t head = ((datyp | is_turbo) << 24) | ((nbits-1) << 18) ;
+      STREAM_PUT_NBITS(*stream_out,   head, 32) ;
+      int32_t encoded = encode_block(stream_out, t, ni, ni, nj, 8, 0 ) ;                               // encode t[]
+      nw = (encoded+31)/32 ;
       break;
     }
 
@@ -764,11 +782,6 @@ fprintf(stderr,"FST_TYPE_REAL+16 encode : e_base = %d\n", e_base) ;
 #else
 #error "use_old_signed_pack_unpack_code not defined"
 #endif
-      break;
-
-    // floats with max relative error, last gen encoders
-    case FST_TYPE_REAL_IEEE+16:
-fprintf(stderr,"FST_TYPE_REAL_IEEE+16 : is_turbo = %d\n", is_turbo) ;
       break;
 
     // character data, R4A items (4 chars in an unsigned integer)
@@ -1143,27 +1156,35 @@ fprintf(stderr,"decode FST_TYPE_SIGNED+16 : is_turbo = %d, decoded = %d\n", is_t
 
     // floats with max relative error, last gen encoders
     case FST_TYPE_REAL_IEEE+16:
-    case (FST_TYPE_REAL_IEEE+16) | FST_TYPE_TURBOPACK:
-fprintf(stderr,"FST_TYPE_REAL_IEEE+16 : is_turbo = %d\n", is_turbo) ;
-      // will have to get extra decoding info from stream
+    case (FST_TYPE_REAL_IEEE+16) | FST_TYPE_TURBOPACK:{
+      int32_t t[ni*nj], offset = 0 ;
+      uint32_t header ;
+      STREAM_GET_NBITS(*stream_in, header, 32) ;
+      int32_t datyp_ = header >> 24, nbits_ = ((header >> 18) & 0x3F)+1 ;
+      if(datyp_ != datyp || nbits_ != nbits_in) goto fail ;
+
+      int32_t decoded = decode_block(stream_in, (int32_t *)t, ni, ni, nj, 8) ;
+      if(is_turbo)LorenzoUnpredict((int32_t *)t, (int32_t *)t, ni, ni, ni, nj);
+      flog_to_fp((float *)field, (int32_t *)t, nelm, nbits_in) ;
+
       break;
+    }
 
     // floating point, last gen style packers and encoders
     case FST_TYPE_REAL+16:
     case (FST_TYPE_REAL+16) | FST_TYPE_TURBOPACK:{
-fprintf(stderr,"FST_TYPE_REAL+16 decode : is_turbo = %d\n", is_turbo) ;
-      int32_t lngw = nelm, e_base = buf[1] ;
-      uint32_t header = buf[0] ;
-      int32_t datyp_ = header >> 24, nbits_ = ((header >> 18) & 0x3F)+1 , nw_ = header & 0x3FFFF ;
-      if(datyp_ != datyp || nbits_ != nbits_in || (lngw & 0x3FFFF) != nw_) goto fail ;
-fprintf(stderr,"FST_TYPE_REAL+16 decode : e_base = %d\n", e_base) ;
+      int32_t t[ni*nj], offset = 0 ;
+      uint32_t header ;
+      STREAM_GET_NBITS(*stream_in, header, 32) ;
+      int32_t datyp_ = header >> 24, nbits_ = ((header >> 18) & 0x3F)+1 ;
+      if(datyp_ != datyp || nbits_ != nbits_in) goto fail ;
+      uint32_t e_base = header & 0xFF ;
+      STREAM_GET_NBITS(*stream_in, offset, 32) ;
 
-      // will have to get offset and exponent base from stream
-      buf+=2 ;
-      int32_t offset = 0 ;
-      qflin_to_fp((float *)field, (int32_t *)buf, nelm, e_base, offset) ;
-//       memcpy(field, buf, nelm*sizeof(float)) ;
-      STREAM_OUT(*stream_in) += (lngw+2) ;                // lngw + 1 32 bit words extracted from stream
+      int32_t decoded = decode_block(stream_in, (int32_t *)t, ni, ni, nj, 8) ;
+      if(is_turbo)LorenzoUnpredict((int32_t *)t, (int32_t *)t, ni, ni, ni, nj);
+      qflin_to_fp((float *)field, (int32_t *)t, nelm, e_base, offset) ;
+
       break;
     }
 
@@ -1219,7 +1240,7 @@ fprintf(stderr,"FST_TYPE_REAL+16 decode : e_base = %d\n", e_base) ;
   // Upgrade size, if necessary
   if (XdfDouble && (nbits_in != 64)) {
     const int base_type = base_fst_type(datyp);
-    if (base_type == FST_TYPE_REAL_IEEE || base_type == FST_TYPE_REAL) {         // float -> double copy
+    if ((base_type & 0x2F) == FST_TYPE_REAL_IEEE || (base_type & 0x2F) == FST_TYPE_REAL) {         // float -> double copy
       float f[nelm], *ff = (float *)field;
       memcpy(f, field, nelm * sizeof(float));
 // fprintf(stderr, "decoder : XdfDouble upgrade_size, nelm = %d, f[0] = %f, ff[0] = %f\n", nelm, f[0], ff[0]);

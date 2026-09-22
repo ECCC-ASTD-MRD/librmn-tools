@@ -32,6 +32,8 @@
 // length from flag
 #define SRC_LENGTH(FLAG) ((FLAG >> 24) & 0xF)
 #define DST_LENGTH(FLAG) ((FLAG >> 28) & 0xF)
+// disable turbo
+#define FST_NO_TURBOPACK  0x800000
 
 // use Big Endian stream encoding
 #include <rmn/be_stream.h>
