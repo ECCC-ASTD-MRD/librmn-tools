@@ -298,8 +298,9 @@ int32_t fst98_encode(
   //       npak & 0x00010000 != 0 : max ABS error mode
   //       npak & 0x00020000 != 0 : max REL error mode
   //       if quantum exponent is present, nbits is optional (both cannot be 0)
-  //       may need a function to produce "npak" from quantum/nbits/ABS/REL
   //       npak > 64              : NEW STYLE PACKERS
+  //       npak to be used to pass minabs/zval ?
+  //       will need a function to produce "npak" from quantum(8)/nbits(6)/ABS(1)/REL(1)/minabs(8)/zval(8)  (32 bits total)
   int nbits = (npak < 0) ? (-npak) : ( Max(1, 32 / Max(1, npak)) );    // npak == 0 or 1 will set nbits to 32
   if ((npak == 0) || (npak == 1)) { datyp_in = FST_TYPE_BINARY; }        // no compaction, nbits is already 32
 
@@ -533,7 +534,7 @@ redo_switch_datyp:
       break;
     }
 
-    // floating point, last gen style packers and encoders
+    // floating point with max absolute error, last gen style packers and encoders
     case FST_TYPE_REAL+16:{
       if(navail < ni*nj*nk+1) goto fail ;                   // insufficient space for worst case
 
@@ -561,11 +562,15 @@ redo_switch_datyp:
       float maxerr = 0.0f ;
       block_properties *bp = NULL ;
       fp_to_flog((float *)field_u32, (int32_t *)t, ni*nj*nk, nbits) ;                                  // "quantize" field_u32[] -> t[]
+//       minabs and zval will be stored as biased IEEE exponents in header
+//       minabs [IN] : smallest signicant absolute value (will be truncated to power of 2 <= minabs)
+//       zval   [IN] : replace absolute value < minabs with zval (truncated to power of 2 <= zval)
+//       fp_to_qlog((float *)field_u32, (int32_t *)t, ni*nj*nk, nbits, float minabs, float zval) ;
       is_turbo = no_turbo ? 0 : FST_TYPE_TURBOPACK ;                                                   // turbo on except if prohibited
       if(is_turbo) LorenzoPredict((int32_t *)t, (int32_t *)t, ni, ni, ni, nj);                         // predict t[] in place
 
-      uint32_t head = ((datyp | is_turbo) << 24) | ((nbits-1) << 18) ;
-      STREAM_PUT_NBITS(*stream_out,   head, 32) ;
+      uint32_t header = ((datyp | is_turbo) << 24) | ((nbits-1) << 18) ;
+      STREAM_PUT_NBITS(*stream_out,   header, 32) ;
       int32_t encoded = encode_block(stream_out, t, ni, ni, nj, 8, 0 ) ;                               // encode t[]
       nw = (encoded+31)/32 ;
       break;
@@ -1166,6 +1171,10 @@ fprintf(stderr,"decode FST_TYPE_SIGNED+16 : is_turbo = %d, decoded = %d\n", is_t
       int32_t decoded = decode_block(stream_in, (int32_t *)t, ni, ni, nj, 8) ;
       if(is_turbo)LorenzoUnpredict((int32_t *)t, (int32_t *)t, ni, ni, ni, nj);
       flog_to_fp((float *)field, (int32_t *)t, nelm, nbits_in) ;
+//     minabs and zval will come as biased IEEE exponents (in header)
+//     minabs [IN] : smallest signicant absolute value (should match minabs/zval from fp_to_qlog_n)
+//     zval   [IN] : an absolute value < |minabs| gets replaced with |zval| (sign of value is preserved)
+//     qlog_to_fp(float * restrict z, int32_t * restrict q, int n, int32_t nbits, float minabs, float zval)
 
       break;
     }
