@@ -235,14 +235,14 @@ static int32_t qlog_cycles(int ni, int nj, float f[nj][ni], int nbits, float msi
   zval = fix_zval(msig, zval) ;
   // quantize f to q, restore q to ref
   memset((void *)q  , 0, sizeof(int32_t)*ni*nj) ;   // preset q to 0
-  fp_to_qlog((float *)f  , (int32_t *)q, ni*nj, nbits, msig, zval) ;  // quantize
+  fp_to_qlog((float *)f  , (int32_t *)q, ni*nj, nbits, msig) ;  // quantize
   memset((void *)ref, 0, sizeof(float)*ni*nj) ;     // preset ref to 0
   qlog_to_fp((float *)ref, (int32_t *)q, ni*nj, nbits, msig, zval) ;  // restore
   // loop for NCYCLES
   for(iter=0 ; iter<NCYCLES ; iter++){
     // quantize ref to q
     memset((void *)q, 0, sizeof(int32_t)*ni*nj) ;     // set q to 0
-    fp_to_qlog((float *)ref, (int32_t *)q, ni*nj, nbits, msig, zval) ;
+    fp_to_qlog((float *)ref, (int32_t *)q, ni*nj, nbits, msig) ;
     // restore q to t
     memset((void *)t, 0, sizeof(float)*ni*nj) ;      // set t to 0
     qlog_to_fp((float *)t, (int32_t *)q, ni*nj, nbits, msig, zval) ;
@@ -277,7 +277,7 @@ static int32_t synthetic_qlog(float quant, int nbits, float msig, float zval){
   int i ;
   fprintf(stderr, "quant = %f, msig = %f, zval = %f, nbits = %d\n", quant, msig, zval, nbits) ;
   for(i=0 ; i<npts ; i++) f[i] = quant * i ;
-  fp_to_qlog((float *)f  , (int32_t *)q, npts, nbits, msig, zval) ;
+  fp_to_qlog((float *)f  , (int32_t *)q, npts, nbits, msig) ;
   qlog_to_fp((float *)r, (int32_t *)q, npts, nbits, msig, zval) ;
   for(i=0 ; i<npts ; i++){ fprintf(stderr, "%9f ", f[i]) ; } ; fprintf(stderr, "\n") ;
   for(i=0 ; i<npts ; i++){ fprintf(stderr, "%9d ", q[i]) ; } ; fprintf(stderr, "\n") ;

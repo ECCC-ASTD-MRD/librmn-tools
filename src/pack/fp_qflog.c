@@ -73,9 +73,9 @@ void fp_to_flog(float * restrict z, int32_t * restrict q, int n, int nbits){
 // return fake integer
 // if the absolute value of an input float is <= minabs, it is forced to zval
 // (zval would usually be equal to minabs or 0.0)
-static inline int32_t fp_to_qlog_(float f, int nbits, float minabs, float zval){
+// if absolute value < truncated |minabs| , an integer with abs value < minimum will be returned
+static inline int32_t fp_to_qlog_(float f, int nbits, float minabs){
   union{ int32_t i ; float f ; } r, m, z ;
-  (void) (zval) ;
 
   r.f = f ;                       // value to process
   int32_t s = (r.i >> 31) ;       // 0 or 0xFFFFFFFF (extended sign)
@@ -83,8 +83,27 @@ static inline int32_t fp_to_qlog_(float f, int nbits, float minabs, float zval){
   m.i &= 0x7F800000 ;             // truncate to power of 2 <= |value|
 //   z.f = zval   ;
 //   z.i &= 0x7F800000 ;             // truncate to power of 2 <= |value|
-  z.i = m.i - (1<<nbits) ;        // transform(|minabs|) - 1
+  z.i = m.i - (1<<nbits) ;        // largest value < |minabs|
   int32_t round = (1 << nbits) ;  // rounding term (0 if nbits == 0)
+  round >>= 1 ;
+  r.i &= 0x7FFFFFFF ;             // absolute value of f
+  r.i = (r.i < m.i) ? z.i : r.i ; // replace values below minimum significant value with z.i
+  r.i = (r.i + round) ;           // apply rounding term to absolute value
+  r.i >>= nbits ;                 // scale the absolute value (eliminate lower nbits bits), then apply saved sign
+//   r.i &= round_to_even_mask       // eventual round to even
+  r.i ^= s ;                      // no-op if s == 0, negate if s == 0xFFFFFFFF
+  r.i -= s ;                      // complement and add 1 is 2's complement negate
+  return r.i ;                    // float represented as a signed integer
+}
+static inline int32_t fp_to_qlog_i(float f, int nbits, uint32_t minabs){
+  union{ int32_t i ; float f ; } r, m, z ;
+
+  r.f = f ;                       // value to process
+  int32_t s = (r.i >> 31) ;       // 0 or 0xFFFFFFFF (extended sign)
+  m.i = minabs ;
+//   z.i = zval ;
+  z.i = m.i - (1<<nbits) ;        // largest value < |minabs|
+  int32_t round = (1 << nbits) ;  // rounding term (will be 0 if nbits == 0)
   round >>= 1 ;
   r.i &= 0x7FFFFFFF ;             // absolute value of f
   r.i = (r.i < m.i) ? z.i : r.i ; // replace values below minimum significant value
@@ -107,7 +126,7 @@ static inline int32_t fp_to_qlog_(float f, int nbits, float minabs, float zval){
 // nbits  [IN] : number of desired significant mantissa bits ( forcing 0 <= nbits <= 23 )
 // minabs [IN] : smallest signicant absolute value (will be truncated to power of 2 <= minabs)
 // zval   [IN] : replace absolute value < minabs with zval (truncated to power of 2 <= zval)
-void fp_to_qlog(float * restrict z, int32_t * restrict q, int n, int32_t nbits, float minabs, float zval){
+void fp_to_qlog(float * restrict z, int32_t * restrict q, int n, int32_t nbits, float minabs){
   int32_t i ;
 
   if(minabs == 0.0f){
@@ -119,7 +138,25 @@ void fp_to_qlog(float * restrict z, int32_t * restrict q, int n, int32_t nbits, 
   nbits = 23 - nbits ;                      // number of mantissa bits to eliminate
   nbits = (nbits < 0) ? 0 : nbits ;
   for(i=0 ; i<n ; i++){
-    q[i] = fp_to_qlog_(z[i], nbits, minabs, zval) ;
+    q[i] = fp_to_qlog_(z[i], nbits, minabs) ;
+  }
+}
+// minabs [IN] : biased exponent of smallest signicant absolute value (to be passed to fp_to_qlog_n)
+// zval   [IN] : biased exponent of replacement value
+void fp_to_qlogi(float * restrict z, int32_t * restrict q, int n, int32_t nbits, uint32_t minabs){
+  int32_t i ;
+
+  if(minabs == 0){
+    fp_to_flog(z, q, n, nbits) ;
+    return ;
+  }
+
+  nbits = (nbits < 0) ? 0 : nbits ;
+  nbits = 23 - nbits ;                      // number of mantissa bits to eliminate
+  nbits = (nbits < 0) ? 0 : nbits ;
+  minabs <<= 23 ;
+  for(i=0 ; i<n ; i++){
+    q[i] = fp_to_qlog_(z[i], nbits, minabs/*, zval*/) ;
   }
 }
 
@@ -226,6 +263,20 @@ static inline float qlog_to_fp_(int32_t i, int nbits, float minabs, float zval){
   r.i |= (s << 31) ;              // restore the sign bit
   return r.f ;                    // restored float
 }
+static inline float qlog_to_fp_i(int32_t i, int nbits, uint32_t minabs, uint32_t zval){
+  union{ int32_t i ; float f ; } r, m, z ;
+  m.i = minabs ;
+  z.i = zval ;
+  z.i = (z.i > m.i) ? m.i : z.i ; // shall not be larger than |minabs|
+  int32_t s = (i >> 31) ;         // 0 or 0xFFFFFFFF (extended sign)
+  r.i = i ;                       // absolute value of i
+  r.i ^= s ;                      // no-op if s == 0, negate if s == 0xFFFFFFFF
+  r.i -= s ;                      // complement and add 1 is 2's complement negate
+  r.i <<= nbits ;                 // unscale the absolute value
+  r.i = (r.i < m.i) ? z.i : r.i ; // replace values where |value| < minimum significant value
+  r.i |= (s << 31) ;              // restore the sign bit
+  return r.f ;                    // restored float
+}
 // float qlog_to_fp_1(int32_t i, int nbits, float minabs){
 //   return qlog_to_fp_(i, nbits, minabs) ;
 // }
@@ -250,6 +301,26 @@ void qlog_to_fp(float * restrict z, int32_t * restrict q, int n, int32_t nbits, 
   nbits = (nbits < 0) ? 0 : nbits ;         // number of bits eliminated during quantization
   for(i=0 ; i<n ; i++){
     z[i] = qlog_to_fp_(q[i], nbits, minabs, zval) ;
+  }
+}
+// minabs [IN] : biased exponent of smallest signicant absolute value (should match minabs/zval from fp_to_qlog_n)
+// zval   [IN] : biased exponent of replacement value
+//               an absolute value < |minabs| gets replaced with |zval| (sign of value is preserved)
+void qlog_to_fpi(float * restrict z, int32_t * restrict q, int n, int32_t nbits, uint32_t minabs, uint32_t zval){
+  int32_t i ;
+
+  if(minabs == 0){
+    flog_to_fp(z, q, n, nbits) ;            // no check/replacement needed
+    return ;
+  }
+
+  nbits = (nbits < 0) ? 0 : nbits ;
+  nbits = 23 - nbits ;
+  nbits = (nbits < 0) ? 0 : nbits ;         // number of bits eliminated during quantization
+  minabs <<= 23 ;
+  zval <<= 23 ;
+  for(i=0 ; i<n ; i++){
+    z[i] = qlog_to_fp_i(q[i], nbits, minabs, zval) ;
   }
 }
 

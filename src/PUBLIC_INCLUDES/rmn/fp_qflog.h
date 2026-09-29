@@ -34,7 +34,7 @@ void flog_to_e5m10(_Float16 * restrict z, int16_t * restrict q, int n, int nbits
 void e8m7_to_flog(__bf16 * restrict z, int16_t * restrict q, int n, int nbits);      // 16 bit brain floats
 void flog_to_e8m7(__bf16 * restrict z, int16_t * restrict q, int n, int nbits);
 
-void fp_to_qlog(float * restrict z, int32_t * restrict q, int n, int32_t nbits, float minabs, float zval);
+void fp_to_qlog(float * restrict z, int32_t * restrict q, int n, int32_t nbits, float minabs);
 void qlog_to_fp(float * restrict z, int32_t * restrict q, int n, int32_t nbits, float minabs, float zval);
 
 // COMPILE_TEST_CODE is expected to be NOT DEFINED

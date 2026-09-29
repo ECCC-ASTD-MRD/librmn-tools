@@ -562,7 +562,7 @@ forward :
 //     errmsg = "\025mode == FP_2_QFLOG, not supported yet" ;
 //     goto fail ;        // this fake log quantizer not supported yet
     nbits = (nbits > 23) ? 23 : 0 ;
-    fp_to_qlog((float *)array, (int32_t *)array, nvalues, nbits, minabs, zval);
+    fp_to_qlog((float *)array, (int32_t *)array, nvalues, nbits, minabs/*, zval*/);
     a->type = int_data ;
 
   }else{
