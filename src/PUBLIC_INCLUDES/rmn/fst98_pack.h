@@ -35,6 +35,11 @@
 // disable turbo
 #define FST_NO_TURBOPACK  0x800000
 
+#define FST_TYPE_REAL_ABS_ERR 12
+#define FST_TYPE_REAL_REL_ERR 11
+#define FST_TYPE_SIGNED_NG    10
+#define FST_TYPE_UNSIGNED_NG   9
+
 // use Big Endian stream encoding
 #include <rmn/be_stream.h>
 #include <rmn/tile_encoders.h>
@@ -57,6 +62,16 @@ extern  int downgrade_32, xdf_double, xdf_short, xdf_byte, xdf_stride ;
 //   uint8_t  esize ;                  // element size in bytes -1  (1 <= element size <= 256)
 // }block_3d ;
 
+typedef struct{
+  uint32_t datyp ;
+  uint32_t nbits ;
+  float maxerr ;
+  float minabs ;
+  float zval ;
+} fst_encoding ;
+static const fst_encoding fst_encoding_null = {.datyp = 0, .nbits = 0, .maxerr = 0.0f, .minabs = 0.0f, .zval = 0.0f } ;
+
+// TODO : eliminate npak, replace datyp with fst_encoding
 //! legacy encoders (data types 0,1,2,3,4,5,6,7,8), including turbo and missing values options
 int32_t fst98_encode(
   //! [in] Field to encode
@@ -76,6 +91,7 @@ int32_t fst98_encode(
   //! [out] effective datyp + nbits
   int *data_kind) ;
 
+// TODO : replace data_kind with 64 bit metadata datyp:8, control:8, nbits:8, maxerr:8, minabs:8, zval:8, spare:16 ;
 //! legacy decoders (data types 0,1,2,3,4,5,6,7,8), including turbo and missing values options
 int fst98_decode(
   //! [out] Pointer to where the data read will be placed.  Must be already allocated!

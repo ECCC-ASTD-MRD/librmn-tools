@@ -122,7 +122,7 @@ static inline int32_t fp_to_qlog_i(float f, int nbits, uint32_t minabs){
 // nbits  [IN] : number of desired significant mantissa bits ( forcing 0 <= nbits <= 23 )
 // minabs [IN] : smallest signicant absolute value (will be truncated to power of 2 <= minabs)
 void fp_to_qlog(float * restrict z, int32_t * restrict q, int n, int32_t nbits, float minabs){
-  union{ int32_t i ; float f ; } m ;
+  union{ uint32_t i ; float f ; } m ;
   int32_t i ;
 
   if(minabs == 0.0f){
@@ -137,7 +137,7 @@ void fp_to_qlog(float * restrict z, int32_t * restrict q, int n, int32_t nbits, 
   m.i &= 0x7F800000 ;                       // truncate to power of 2 <= |value|
   for(i=0 ; i<n ; i++){
 //     q[i] = fp_to_qlog_(z[i], nbits, minabs) ;
-    q[i] = fp_to_qlog_i(z[i], nbits, minabs) ;
+    q[i] = fp_to_qlog_i(z[i], nbits, m.i) ;
   }
 }
 

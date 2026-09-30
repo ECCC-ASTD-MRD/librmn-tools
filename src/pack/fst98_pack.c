@@ -28,6 +28,7 @@
 #include <rmn/lorenzo.h>
 #include <rmn/fp_qlin.h>
 #include <rmn/fp_qflog.h>
+#include <rmn/ieee_extras.h>
 
 #define Max(x,y) ((x > y) ? x : y)
 #define Min(x,y) ((x < y) ? x : y)
@@ -234,15 +235,23 @@ static void memcpy_d_f(void * restrict f_, const void *restrict d_, int nb) {
 // fprintf(stderr,"memcpy_d_f : double -> float copy\n");
 }
 
-static void print_d(const void *restrict d_, int nb){
-  double *d = (double *)d_ ;
-  for (int i = 0; i < nb; i++) { fprintf(stderr," %g", d[i]) ; }
-  fprintf(stderr,"\n") ;
-}
+// static void print_d(const void *restrict d_, int nb){
+//   double *d = (double *)d_ ;
+//   for (int i = 0; i < nb; i++) { fprintf(stderr," %g", d[i]) ; }
+//   fprintf(stderr,"\n") ;
+// }
 
-static void swap_64(void *out_, void *in_, int32_t n){
-  uint64_t *in = (uint64_t *)in_, *out = (uint64_t *)out_ ;
-  for(int i=0 ; i<n ; i++) { out[i] = (in[i] >> 32) | (in[i] << 32) ; }
+// static void swap_64(void *out_, void *in_, int32_t n){
+//   uint64_t *in = (uint64_t *)in_, *out = (uint64_t *)out_ ;
+//   for(int i=0 ; i<n ; i++) { out[i] = (in[i] >> 32) | (in[i] << 32) ; }
+// }
+
+static inline int32_t type_is_real(const int32_t type_flag) {
+    return ((base_fst_type(type_flag) == FST_TYPE_REAL_IEEE) ||
+            (base_fst_type(type_flag) == FST_TYPE_REAL_OLD_QUANT) ||
+            (base_fst_type(type_flag) == FST_TYPE_REAL_ABS_ERR) ||
+            (base_fst_type(type_flag) == FST_TYPE_REAL_REL_ERR) ||
+            (base_fst_type(type_flag) == FST_TYPE_REAL));
 }
 
 // be consistent with legacy fstd98 code
@@ -289,7 +298,6 @@ int32_t fst98_encode(
   const uint32_t *field_u32 = field_in;
   float* field_f = NULL;                    // float version of the data
   uint32_t* field_missing = NULL;           // data with missing values transformed
-  int32_t *buffer = NULL ;                  // used for encoding if field_out not large enough
   int nw;                                   // number of 32 bit words needed for encoded stream
   // TODO: npak & 0x0000FF00 != 0 : IEEE exponent << 8 of quantum or rel error for new style float packer
   //       npak & 0x000000FF      : nbits + 128 for old style packers, nbits = (npak & 0x000000FF) - 128
@@ -317,12 +325,11 @@ int32_t fst98_encode(
   if(no_turbo) is_turbo = 0 ;
   int in_datyp   = base_fst_type(datyp_in);           // suppress flags, only retain base type
 
-// TODO: new style float coding can probably jump directly to redo_switch_datyp after fixing a few variables
-
-  // cancel all features if FST_TYPE_BINARY
+  // cancel all options if FST_TYPE_BINARY
   if(base_fst_type(datyp_in) == FST_TYPE_BINARY){
     in_datyp = datyp_in = FST_TYPE_BINARY ;
     xdf_double = xdf_short = xdf_byte = 0 ;
+    XdfDouble = XdfShort = XdfByte = 0 ;
     is_missing = is_turbo = 0 ;
   }
   // data type 1 with nbits <= 16 becomes data type 6 with same nbits
@@ -336,7 +343,7 @@ int32_t fst98_encode(
     datyp_in = FST_TYPE_REAL | is_turbo | is_missing ;  // keep flags
   }
   // real type with nbits > ieee_turbo_threshold (normally 16) ====> FST_TYPE_REAL_IEEE + turbo with nbits + 9
-  if( (is_type_real(in_datyp)) && (nbits > ieee_turbo_threshold) && is_turbo) {
+  if( (type_is_real(in_datyp)) && (nbits > ieee_turbo_threshold) && is_turbo) {
     nbits += 9 ;                                             // add 9 to bit count
     nbits = (nbits > 32) ? 32 : nbits ;                      // at most 32 bits
     in_datyp = FST_TYPE_REAL_IEEE ;                          // set data type to IEEE (6)
@@ -396,7 +403,7 @@ int32_t fst98_encode(
   }
 
   // flag 64 bit IEEE (type 5 or 8)
-  if ( (is_type_real(datyp))    && (nbits > 32) ) IEEE_64 = 1;        // use 64 bits real IEEE
+  if ( (type_is_real(datyp))    && (nbits > 32) ) IEEE_64 = 1;        // use 64 bits floating point IEEE
   if ( (is_type_complex(datyp)) && (nbits > 32) ) IEEE_64 = 1;        // use 64 bits complex IEEE
   if(IEEE_64){ nbits = 64 ; is_turbo = 0 ; }
 
@@ -405,29 +412,36 @@ int32_t fst98_encode(
   int sizefactor = 4;
   if (XdfByte)  sizefactor = 1;                  // source is a byte array (8 bit integer values)
   if (XdfShort) sizefactor = 2;                  // source is a halfword array (16 bit integer values)
-  if (XdfDouble || IEEE_64) sizefactor = 8;      // source is a double array (64 bit values)
+  if (XdfDouble || IEEE_64) sizefactor = 8;      // source is a double array (64 bit IEEE floating point values)
   // put appropriate values into field_missing after allocating it
   if (is_missing) {
     field_missing = malloc(ni*nj*nk * sizefactor);       // allocate temporary field for missing values flagging
     if(field_missing == NULL) goto fail ;
-    if (EncodeMissingValue(field_missing, field_in, ni*nj*nk, datyp, sizefactor*8, nbits) > 0) {
+    // fudge datyp for call to DecodeMissingValue
+    int mdatyp = base_fst_type(datyp) ;
+    if(type_is_real(mdatyp))           mdatyp = FST_TYPE_REAL_IEEE ;   // float (32 or 64 bits)
+    if(mdatyp == FST_TYPE_SIGNED_NG)   mdatyp = FST_TYPE_SIGNED ;      // signed integer (8 / 16 / 32) bits
+    if(mdatyp == FST_TYPE_UNSIGNED_NG) mdatyp = FST_TYPE_UNSIGNED ;    // unsigned integer (8 / 16 / 32) bits
+    if (EncodeMissingValue(field_missing, field_in, ni*nj*nk, mdatyp, sizefactor*8, nbits) > 0) {
       field_u32 = field_missing;
     }else{
       field_u32 = field_in;
+      free(field_missing) ;
+      field_missing = NULL ;
       Lib_Log(APP_LIBFST, APP_INFO, "%s: NO missing value, data type reset to %d\n", __func__, datyp);
       is_missing = 0;      // no missing value detected, cancel missing data flag
     }
   }
 
   // handle double real / complex type (ignore bit with value 16)
-  if ( (is_type_real(datyp & 0x2F) || is_type_complex(datyp & 0x2F)) && (is_missing == 0) ) {
+  if ( (type_is_real(datyp) || is_type_complex(datyp)) && (is_missing == 0) ) {
     if (XdfDouble || IEEE_64) {
       int _nk = is_type_complex(datyp) ? (2 * nk) : nk ;
       if (nbits <= 32) {                // convert from double to float if nbits not larger than 32
         field_f = malloc(ni * nj * _nk * sizeof(float));
         memcpy_d_f(field_f, (const double *)field_in, ni*nj*_nk) ;     // copy doubles into floats
         packfunc = &compact_p_float;                                   // will pack from floats
-        field_u32 = (uint32_t*)field_f;
+        field_u32 = (uint32_t*)field_f;                                // source is now new float array
       }else if (nbits != 64) {
         if (! dejavu[2]) {
           Lib_Log(APP_LIBFST, APP_WARNING, "%s: Requested %d packed bits for 64-bit reals, but we can only do"
@@ -439,7 +453,7 @@ int32_t fst98_encode(
     }
   }
 
-  if (is_type_real(datyp) && nbits > 32) {                          // floating point, not complex and more than 32 bits
+  if (type_is_real(datyp) && nbits > 32) {                          // floating point, not complex and more than 32 bits
     datyp = FST_TYPE_REAL_IEEE;                                     // force 64 bits IEEE
     nbits = 64;
   }
@@ -535,7 +549,7 @@ redo_switch_datyp:
     }
 
     // floating point with max absolute error, last gen style packers and encoders
-    case FST_TYPE_REAL+16:{
+    case FST_TYPE_REAL_ABS_ERR:{
       if(navail < ni*nj*nk+1) goto fail ;                   // insufficient space for worst case
 
       int32_t t[ni*nj*nk] ;
@@ -543,11 +557,13 @@ redo_switch_datyp:
       int32_t offset = is_turbo ? 0 : 0x7FFFFFFF, e_base = 0 ;
       block_properties *bp = NULL ;
       e_base = fp_to_qlin((float *)field_u32, (int32_t *)t, ni*nj*nk, maxerr, nbits, &offset, bp) ;    // quantize field_u32[] -> t[]
+      if(e_base < 0 || e_base > 254) goto fail ;                                                       // linear quantizer error
+
       is_turbo = no_turbo ? 0 : FST_TYPE_TURBOPACK ;                                                   // turbo on except if prohibited
       if(is_turbo) LorenzoPredict((int32_t *)t, (int32_t *)t, ni, ni, ni, nj);                         // predict t[] in place
 
-      uint32_t head = ((datyp | is_turbo) << 24) | ((nbits-1) << 18) | (e_base & 0xFF) ;
-      STREAM_PUT_NBITS(*stream_out,   head, 32) ;
+      uint32_t header = ((datyp | is_turbo) << 24) | ((nbits-1) << 18) | (e_base & 0xFF) ;
+      STREAM_PUT_NBITS(*stream_out,   header, 32) ;
       STREAM_PUT_NBITS(*stream_out, offset, 32) ;
       int32_t encoded = encode_block(stream_out, t, ni, ni, nj, 8, 0 ) ;                               // encode t[]
       nw = (encoded+31)/32 ;
@@ -555,12 +571,12 @@ redo_switch_datyp:
     }
 
     // floats with max relative error, last gen encoders.  keep nbits bits from mantissa
-    case FST_TYPE_REAL_IEEE+16:{
+    case FST_TYPE_REAL_REL_ERR:{
       if(navail < ni*nj*nk+1) goto fail ;                   // insufficient space for worst case
 
       int32_t t[ni*nj*nk] ;
-      float maxerr = 0.0f ;
-      block_properties *bp = NULL ;
+      float /*maxerr = 1.0E-6f,*/ minabs = 1.0E-20f, zabs = 1.0E-30f ;
+//       block_properties *bp = NULL ;
       fp_to_flog((float *)field_u32, (int32_t *)t, ni*nj*nk, nbits) ;                                  // "quantize" field_u32[] -> t[]
 //       minabs and zval will be stored as biased IEEE exponents in header
 //       minabs [IN] : smallest signicant absolute value (will be truncated to power of 2 <= minabs)
@@ -569,7 +585,8 @@ redo_switch_datyp:
       is_turbo = no_turbo ? 0 : FST_TYPE_TURBOPACK ;                                                   // turbo on except if prohibited
       if(is_turbo) LorenzoPredict((int32_t *)t, (int32_t *)t, ni, ni, ni, nj);                         // predict t[] in place
 
-      uint32_t header = ((datyp | is_turbo) << 24) | ((nbits-1) << 18) ;
+      uint32_t zexp = fp32_exp_raw(zabs), minexp = fp32_exp_raw(minabs) ;
+      uint32_t header = ((datyp | is_turbo) << 24) | ((nbits-1) << 18) | (minexp << 8) | zexp ;
       STREAM_PUT_NBITS(*stream_out,   header, 32) ;
       int32_t encoded = encode_block(stream_out, t, ni, ni, nj, 8, 0 ) ;                               // encode t[]
       nw = (encoded+31)/32 ;
@@ -695,7 +712,7 @@ redo_switch_datyp:
     }
 
     // integers, short integers or bytes (unsigned), next gen encoders
-    case FST_TYPE_UNSIGNED+16:{
+    case FST_TYPE_UNSIGNED_NG:{
         uint32_t t_[ni*nj], *t = t_ ;
         if(navail < ni*nj*nk) goto fail ;
         if (XdfShort) {               // 16 bits to 32 bits expansion
@@ -718,13 +735,13 @@ redo_switch_datyp:
         int32_t encoded = encode_block(stream_out, (int32_t *)pred, ni, ni, nj, 8, 0 /*ENCODE_DRY_RUN*/);
         int nwords = (encoded+31)/32 ;
         nw = nwords ;
-        fprintf(stderr,"encode FST_TYPE_UNSIGNED+16 : is_turbo = %d, datyp = %d, nw = %d, nwords = %d, encoded = %d\n", is_turbo, datyp, nw, nwords, encoded) ;
+        fprintf(stderr,"encode FST_TYPE_UNSIGNED_NG : is_turbo = %d, datyp = %d, nw = %d, nwords = %d, encoded = %d\n", is_turbo, datyp, nw, nwords, encoded) ;
       }
       break;
 
     // integers, short integers or bytes (signed), next gen encoders
-    case FST_TYPE_SIGNED+16:{
-// fprintf(stderr,"encode FST_TYPE_SIGNED+16 : is_turbo = %d, nbits = %d, nw = %d\n", is_turbo, nbits, nw) ;
+    case FST_TYPE_SIGNED_NG:{
+// fprintf(stderr,"encode FST_TYPE_SIGNED_NG : is_turbo = %d, nbits = %d, nw = %d\n", is_turbo, nbits, nw) ;
         int32_t t[ni*nj] ;
         if (XdfShort) {               // 16 bits to 32 bits expansion
           nbits = Min(16, nbits);     // at most 16 bits
@@ -746,7 +763,7 @@ redo_switch_datyp:
         }
         encoded = encode_block(stream_out, pred, ni, ni, nj, 8, 0 ) ;            // encode pred[]
         nw = nwords = (encoded+31)/32 ;
-        fprintf(stderr,"encode FST_TYPE_SIGNED+16 : is_turbo = %d, datyp = %d, nw = %d, nwords = %d, encoded = %d, raw = %d\n", is_turbo, datyp, nwords, nwords, encoded, ni*nj*nk*nbits) ;
+        fprintf(stderr,"encode FST_TYPE_SIGNED_NG : is_turbo = %d, datyp = %d, nw = %d, nwords = %d, encoded = %d, raw = %d\n", is_turbo, datyp, nwords, nwords, encoded, ni*nj*nk*nbits) ;
       }
       break;
 
@@ -845,7 +862,7 @@ redo_switch_datyp:
 end:
   // free temporary arrays if they were used
   if (field_f       != NULL) free(field_f);
-  if (field_missing != NULL) free(field_missing);
+//   if (field_missing != NULL) free(field_missing);
 
   xdf_byte = xdf_short = xdf_double = 0 ;               // reset other than 32 bits flags
   datyp = datyp | is_missing | is_turbo ;               // restore missing and turbo flags, use possibly revised datyp
@@ -854,13 +871,11 @@ end:
 
 fail :
   // cleanup before failing
-//   if(buffer && local_buffer) free(buffer) ;   // free buffer if it was allocated locally
-//   buffer = NULL ;
   nbits = 0 ;
   nw = -1 ;
   datyp = is_missing = is_turbo = 0 ;
   *stream_out = stream_out_ ;                 // restore output stream state
-exit(1) ;                     // when debugging
+exit(1) ;                     // while debugging
   goto end ;
 }
 
@@ -1076,14 +1091,15 @@ int fst98_decode(
     }
 
     // integers, short integers or bytes (unsigned), last gen encoders
-    case FST_TYPE_UNSIGNED+16:
-    case (FST_TYPE_UNSIGNED+16) | FST_TYPE_TURBOPACK: {
+    case FST_TYPE_UNSIGNED_NG:
+    case (FST_TYPE_UNSIGNED_NG) | FST_TYPE_TURBOPACK: {
       int32_t decoded, t[nelm] ;
       if(XdfShort == 0 && XdfByte == 0 && is_turbo == 0){
         decoded = decode_block(stream_in, (int32_t *)field, ni, ni, nj, 8) ;  // 32 bit delivery, no turbo, decode into destination
       }else{
         decoded = decode_block(stream_in, (int32_t *)t, ni, ni, nj, 8) ;      // decode into temporary array t
       }
+      if(decoded < 0) goto fail ;
       if(is_turbo){
         LorenzoUnpredict( (XdfShort || XdfByte) ? t : (int32_t *)field , t, ni, ni, ni, nj) ;     // unpredict into temporary or destination
       }
@@ -1098,8 +1114,8 @@ int fst98_decode(
     }
 
     // integers, short integers or bytes (signed), last gen encoders
-    case FST_TYPE_SIGNED+16:
-    case (FST_TYPE_SIGNED+16) | FST_TYPE_TURBOPACK:{
+    case FST_TYPE_SIGNED_NG:
+    case (FST_TYPE_SIGNED_NG) | FST_TYPE_TURBOPACK:{
       int32_t decoded = 0 ;
 
       if(XdfShort == 0 && XdfByte == 0){
@@ -1117,11 +1133,12 @@ int fst98_decode(
           for(int i=0 ; i<nelm ; i++){ d8[i] = t[i] ; } ;
         }
       }
-fprintf(stderr,"decode FST_TYPE_SIGNED+16 : is_turbo = %d, decoded = %d\n", is_turbo, decoded) ;
+fprintf(stderr,"decode FST_TYPE_SIGNED_NG : is_turbo = %d, decoded = %d\n", is_turbo, decoded) ;
       break;
     }
 
-    case FST_TYPE_SIGNED: {                // Integers, short integers or bytes (signed)
+    // Integers, short integers or bytes (signed)
+    case FST_TYPE_SIGNED: {
 #ifdef use_old_signed_pack_unpack_code
       int lngw ;
       uint32_t header = buf[0] ;
@@ -1160,18 +1177,19 @@ fprintf(stderr,"decode FST_TYPE_SIGNED+16 : is_turbo = %d, decoded = %d\n", is_t
     }
 
     // floats with max relative error, last gen encoders
-    case FST_TYPE_REAL_IEEE+16:
-    case (FST_TYPE_REAL_IEEE+16) | FST_TYPE_TURBOPACK:{
-      int32_t t[ni*nj], offset = 0 ;
+    case FST_TYPE_REAL_REL_ERR:
+    case (FST_TYPE_REAL_REL_ERR) | FST_TYPE_TURBOPACK:{
+      int32_t t[ni*nj] ;
       uint32_t header ;
       STREAM_GET_NBITS(*stream_in, header, 32) ;
-      int32_t datyp_ = header >> 24, nbits_ = ((header >> 18) & 0x3F)+1 ;
+      int32_t datyp_ = header >> 24, nbits_ = ((header >> 18) & 0x3F)+1, minexp = (header >> 8) & 0xFF, zexp = header & 0xFF ;
       if(datyp_ != datyp || nbits_ != nbits_in) goto fail ;
-
+fprintf(stderr, "decoding FST_TYPE_REAL_REL_ERR, minexp = %d, zexp = %d\n", minexp, zexp) ;
       int32_t decoded = decode_block(stream_in, (int32_t *)t, ni, ni, nj, 8) ;
       if(is_turbo)LorenzoUnpredict((int32_t *)t, (int32_t *)t, ni, ni, ni, nj);
       flog_to_fp((float *)field, (int32_t *)t, nelm, nbits_in) ;
-//     minabs and zval will come as biased IEEE exponents (in header)
+//    TODO :
+//     minabs and zval will be passed as biased IEEE exponents (in header)
 //     minabs [IN] : smallest signicant absolute value (should match minabs/zval from fp_to_qlog_n)
 //     zval   [IN] : an absolute value < |minabs| gets replaced with |zval| (sign of value is preserved)
 //     qlog_to_fp(float * restrict z, int32_t * restrict q, int n, int32_t nbits, float minabs, float zval)
@@ -1180,8 +1198,8 @@ fprintf(stderr,"decode FST_TYPE_SIGNED+16 : is_turbo = %d, decoded = %d\n", is_t
     }
 
     // floating point, last gen style packers and encoders
-    case FST_TYPE_REAL+16:
-    case (FST_TYPE_REAL+16) | FST_TYPE_TURBOPACK:{
+    case FST_TYPE_REAL_ABS_ERR:
+    case (FST_TYPE_REAL_ABS_ERR) | FST_TYPE_TURBOPACK:{
       int32_t t[ni*nj], offset = 0 ;
       uint32_t header ;
       STREAM_GET_NBITS(*stream_in, header, 32) ;
@@ -1196,9 +1214,8 @@ fprintf(stderr,"decode FST_TYPE_SIGNED+16 : is_turbo = %d, decoded = %d\n", is_t
 
       break;
     }
-
+    // Character data, R4A style (4 chars in a 32 bit integer)
     case FST_TYPE_CHAR: {
-      // Character data, R4A style (4 chars in a 32 bit integer)
       int32_t lngw = (nelm + 3) / 4;
       uint32_t header = buf[0] ;
       int32_t datyp_ = header >> 24, nbits_ = ((header >> 18) & 0x3F)+1 , nw_ = header & 0x3FFFF ;
@@ -1215,9 +1232,8 @@ fprintf(stderr,"decode FST_TYPE_SIGNED+16 : is_turbo = %d, decoded = %d\n", is_t
       STREAM_OUT(*stream_in) += (lngw+1) ;                // lngw + 1 32 bit words extracted from stream
       break;
     }
-
-    case FST_TYPE_STRING:{
-      // Character string
+    // Character string
+    case FST_TYPE_STRING: {
       int32_t lngw = (nelm*8 + 31)/32 ;
       uint32_t header = buf[0] ;
       int32_t datyp_ = header >> 24, nbits_ = ((header >> 18) & 0x3F)+1 , nw_ = header & 0x3FFFF ;
@@ -1239,18 +1255,24 @@ fprintf(stderr,"decode FST_TYPE_SIGNED+16 : is_turbo = %d, decoded = %d\n", is_t
   STREAM_XTRACT_ALIGN32(*stream_in) ;   // align stream to 32 bit boundary
 
   if (is_missing) {
-    // Replace "missing" data points with the appropriate values given the type of data (int/float)
-    // if nbits = 64 and IEEE , set XdfDouble
-    if ((datyp & 0xF) == 5 && nbits_in == 64 ) XdfDouble = 1;
+    // Replace "missing" data points with the appropriate values given the type of data (int/uint/float)
+    // if nbits = 64 and IEEE , set XdfDouble (it may already be set)
+    // handle new types properly
+    int mdatyp = base_fst_type(datyp) ;
+    if (mdatyp == FST_TYPE_REAL_IEEE && nbits_in == 64 ) XdfDouble = 1;
     int sz=(XdfDouble?64:(XdfShort?16:(XdfByte?8:32)));
-    DecodeMissingValue(field , (ni) * (nj) * (nk) , datyp & 0x3F, sz);
-}
+    // fudge datyp for call to DecodeMissingValue
+    if(type_is_real(mdatyp))           mdatyp = FST_TYPE_REAL_IEEE ;   // float (32 or 64 bits)
+    if(mdatyp == FST_TYPE_SIGNED_NG)   mdatyp = FST_TYPE_SIGNED ;      // signed integer (8 / 16 / 32) bits
+    if(mdatyp == FST_TYPE_UNSIGNED_NG) mdatyp = FST_TYPE_UNSIGNED ;    // unsigned integer (8 / 16 / 32) bits
+    DecodeMissingValue(field , (ni) * (nj) * (nk) , mdatyp, sz);
+  }
 
-  // Upgrade size, if necessary
-  if (XdfDouble && (nbits_in != 64)) {
+  // Upgrade size, if necessary (FST_TYPE_REAL_OLD_QUANT has already been taken care of)
+  if (XdfDouble && (nbits_in != 64) && base_fst_type(datyp) != FST_TYPE_REAL_OLD_QUANT) {
     const int base_type = base_fst_type(datyp);
-    if ((base_type & 0x2F) == FST_TYPE_REAL_IEEE || (base_type & 0x2F) == FST_TYPE_REAL) {         // float -> double copy
-      float f[nelm], *ff = (float *)field;
+    if(type_is_real(base_type)) {          // float -> double copy
+      float f[nelm]/*, *ff = (float *)field*/;
       memcpy(f, field, nelm * sizeof(float));
 // fprintf(stderr, "decoder : XdfDouble upgrade_size, nelm = %d, f[0] = %f, ff[0] = %f\n", nelm, f[0], ff[0]);
       upgrade_size(field, 64, f, 32, nelm, 0);
@@ -1283,18 +1305,20 @@ int32_t fst98_codec(zmap *map, zmap_block block, zmap_stream stream, int encode)
   } fst98_codec_args;
   CT_ASSERT(sizeof(fst98_codec_args) == CODEC_ARGS_SIZE, "sizeof(fst98_codec_args) != CODEC_ARGS_SIZE") ;
   int32_t status = 0 ;
+  (void) (block) ;
+  (void) (stream) ;
 
   memcpy(&fst98_codec_args, ZMAP_CODEC_ARGS(map), CODEC_ARGS_SIZE) ;  // get codec arguments
   if(encode){
-    int ni = map->fhead.gni ;
-    int nj = map->fhead.gnj ;
-    int nk = map->fhead.gnk ;
-    void *f_in = block.mem ;
-//     RANGE(zmap_t) field_out = RANGE_KIND(zmap_t, stream, stream+ni*nj*nk) ;
-    RANGE(zmap_t) field_out = stream ;
-//     status = fst98_encode((void *)f_in, field_out, -nbits, ni, nj, nk, datyp, data_control, &data_kind) ;
+//     int ni = map->fhead.gni ;
+//     int nj = map->fhead.gnj ;
+//     int nk = map->fhead.gnk ;
+//     void *f_in = block.mem ;
+// //     RANGE(zmap_t) field_out = RANGE_KIND(zmap_t, stream, stream+ni*nj*nk) ;
+//     RANGE(zmap_t) field_out = stream ;
+// //     status = fst98_encode((void *)f_in, field_out, -nbits, ni, nj, nk, datyp, data_control, &data_kind) ;
   }else{
-//     status = fst98_decode((void *)f_out,  encoded.bot, ni, nj, 1, data_kind, data_control) ;
+// //     status = fst98_decode((void *)f_out,  encoded.bot, ni, nj, 1, data_kind, data_control) ;
   }
   return status ;
 }
