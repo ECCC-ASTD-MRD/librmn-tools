@@ -889,6 +889,7 @@ goto rel_err ;
   fprintf(stderr, "========== FST_TYPE_REAL_ABS_ERR (13 bits) ==========\n") ;
   encode_decode_float(ni, nj, f_data, rf_data, 13, FST_TYPE_REAL_ABS_ERR, 0, 0) ;
 //
+  maxerr = 0.0f ;
   fprintf(stderr, "\n");
 //
 if(argc > 100)

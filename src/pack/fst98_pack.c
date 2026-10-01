@@ -260,6 +260,8 @@ static inline int32_t type_is_real(const int32_t type_flag) {
 #if ! defined(Little_Endian)
 #define Little_Endian YES
 #endif
+static int endian_int = 1 ;
+static uint8_t *little_endian = (uint8_t *) &endian_int ;
 
 // flags to avoid unnecessary warning messages
 static uint8_t dejavu[16] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 } ;
@@ -283,6 +285,10 @@ int32_t fst98_encode(
   //! [out] effective data type and nbits
   int *data_kind
 ) {
+  if(*little_endian == 0){
+    Lib_Log(APP_LIBFST, APP_FATAL, "%s: CPU is not Little Endian.\n", __func__);
+    exit(3) ;
+  }
   int datyp_in = dtypef.type ;
   int npak = -dtypef.nbits ;                                             // keep legacy behavior for npak
   int nbits = (npak < 0) ? (-npak) : ( Max(1, 32 / Max(1, npak)) );      // npak == 0 or 1 will set nbits to 32
@@ -886,6 +892,10 @@ int fst98_decode(
   //! [in] control for XdfDouble/XdfShort/XdfByte
   int data_control
 ) {
+  if(*little_endian == 0){
+    Lib_Log(APP_LIBFST, APP_FATAL, "%s: CPU is not Little Endian.\n", __func__);
+    exit(3) ;
+  }
   data_control = DST_SIZE(data_control) ;
   // account for legacy xdf_double / xdf_short / xdf_byte / downgrade_32
   int XdfDouble   = xdf_double   || (data_control == FST_DOUBLE) ;     // output will be 64 bit doubles
@@ -1183,7 +1193,7 @@ fprintf(stderr,"decode FST_TYPE_SIGNED_NG : is_turbo = %d, decoded = %d\n", is_t
       int32_t decoded = decode_block(stream_in, (int32_t *)t, ni, ni, nj, 8) ;
       if(is_turbo)LorenzoUnpredict((int32_t *)t, (int32_t *)t, ni, ni, ni, nj);
 //       flog_to_fp((float *)field, (int32_t *)t, nelm, nbits_in) ;
-      qlog_to_fp((float *)field, (int32_t *)t, nelm, nbits_in, fp32_pow2(minexp-127), fp32_pow2(zexp-127)) ;
+      qlog_to_fp((float *)field, (int32_t *)t, nelm, nbits_in, fp32_from_exp(minexp), fp32_from_exp(zexp)) ;
 
       break;
     }
