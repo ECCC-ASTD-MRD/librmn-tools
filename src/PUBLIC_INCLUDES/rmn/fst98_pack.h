@@ -21,23 +21,32 @@
 // import as little as possible from fstd 98 code
 #include <rmn/fst98.h>
 // source / destination flags (upper 8 bits in word)
-#define SRC_DOUBLE    ( 8 << 24)
-#define SRC_WORD      ( 4 << 24)
-#define SRC_SHORT     ( 2 << 24)
-#define SRC_BYTE      ( 1 << 24)
-#define DST_DOUBLE    ( 8 << 28)
-#define DST_WORD      ( 4 << 28)
-#define DST_SHORT     ( 2 << 28)
-#define DST_BYTE      ( 1 << 28)
-// length from flag
-#define SRC_LENGTH(FLAG) ((FLAG >> 24) & 0xF)
-#define DST_LENGTH(FLAG) ((FLAG >> 28) & 0xF)
-// disable turbo
-#define FST_NO_TURBOPACK  0x800000
+#define FST_DOUBLE   8
+#define FST_WORD     4
+#define FST_SHORT    2
+#define FST_BYTE     1
+// src/dst size from compound flag
+#define SRC_SIZE(FLAG)  ( (FLAG)       & 0xF)
+#define DST_SIZE(FLAG)  (((FLAG) >> 4) & 0xF)
 
+#define SRC_DOUBLE    (8)
+#define SRC_WORD      (4)
+#define SRC_SHORT     (2)
+#define SRC_BYTE      (1)
+#define DST_DOUBLE    (8 << 4)
+#define DST_WORD      (4 << 4)
+#define DST_SHORT     (2 << 4)
+#define DST_BYTE      (1 << 4)
+// disable turbo (for types where turbo is on by default)
+#define FST_NO_TURBOPACK  0x800000
+// new data types
+// floating point with absolute error criteria
 #define FST_TYPE_REAL_ABS_ERR 12
+// floating point with relative error criteria
 #define FST_TYPE_REAL_REL_ERR 11
+// signed integers, new encoders and prediction
 #define FST_TYPE_SIGNED_NG    10
+// unsigned integers, new encoders and prediction
 #define FST_TYPE_UNSIGNED_NG   9
 
 // use Big Endian stream encoding
@@ -46,6 +55,7 @@
 
 #include <rmn/fst_missing.h>
 #include <rmn/data_map.h>
+#include <rmn/ct_assert.h>
 
 extern  int downgrade_32, xdf_double, xdf_short, xdf_byte, xdf_stride ; 
 
@@ -63,13 +73,16 @@ extern  int downgrade_32, xdf_double, xdf_short, xdf_byte, xdf_stride ;
 // }block_3d ;
 
 typedef struct{
-  uint32_t datyp ;
-  uint32_t nbits ;
+  uint8_t optn;
+  uint8_t size ;
+  uint8_t type ;
+  uint8_t nbits ;
   float maxerr ;
   float minabs ;
   float zval ;
-} fst_encoding ;
-static const fst_encoding fst_encoding_null = {.datyp = 0, .nbits = 0, .maxerr = 0.0f, .minabs = 0.0f, .zval = 0.0f } ;
+} fst_datyp ;
+CT_ASSERT(sizeof(fst_datyp) == 16, "ERROR: sizeof(fst_datyp) MUST BE 16")
+static const fst_datyp fst_datyp_null = {.optn = 0, .size = 0, .type = 0, .nbits = 0, .maxerr = 0.0f, .minabs = 0.0f, .zval = 0.0f } ;
 
 // TODO : eliminate npak, replace datyp with fst_encoding
 //! legacy encoders (data types 0,1,2,3,4,5,6,7,8), including turbo and missing values options
@@ -78,17 +91,15 @@ int32_t fst98_encode(
   const void * const field_in,
   //! [out] encoded stream
   bitstream *stream_out,
-  //! [in] Number of bits kept for the elements of the field
-  int npak,
   //! [in] First dimension of the data field
   int ni,
   //! [in] Second dimension of the data field
   int nj,
   //! [in] Third dimension of the data field
   int nk,
-  //! [in] Data type of elements (including flags used to control xdf_double/xdf_short/xdf_byte)
-  const int datyp,
-  //! [out] effective datyp + nbits
+  //! [in] Data type of elements (including flags used to control xdf_double/xdf_short/xdf_byte and encoding behavior)
+  const fst_datyp dtypef,
+  //! [out] effective data type and nbits
   int *data_kind) ;
 
 // TODO : replace data_kind with 64 bit metadata datyp:8, control:8, nbits:8, maxerr:8, minabs:8, zval:8, spare:16 ;
@@ -104,8 +115,10 @@ int fst98_decode(
   int nj,
   //! [in] Dimension 3 of the data field
   int nk,
-  //! [in] datyp + nbits + control for XdfDouble/XdfShort/XdfByte
-  int data_kind
+  //! [in] datyp , nbits
+  int data_kind,
+  //! [in] control for XdfDouble/XdfShort/XdfByte
+  int data_control
 ) ;
 
 #endif

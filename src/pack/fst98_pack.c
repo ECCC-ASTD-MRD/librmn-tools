@@ -272,45 +272,36 @@ int32_t fst98_encode(
   const void * const field_in,
   //! [out] encoded stream
   bitstream *stream_out,
-  //! [in] Number of bits kept for the elements of the field (npak < 0), packing ratio (npak >= 0)
-  int npak,
   //! [in] First dimension of the data field
   int ni,
   //! [in] Second dimension of the data field
   int nj,
   //! [in] Third dimension of the data field
   int nk,
-  //! [in] Data type of elements (including flags used to control xdf_double/xdf_short/xdf_byte)
-  int datyp_in,
+  //! [in] Data type of elements (including flags used to control xdf_double/xdf_short/xdf_byte and encoding behavior)
+  const fst_datyp dtypef,
   //! [out] effective data type and nbits
   int *data_kind
 ) {
+  int datyp_in = dtypef.type ;
+  int npak = -dtypef.nbits ;                                             // keep legacy behavior for npak
+  int nbits = (npak < 0) ? (-npak) : ( Max(1, 32 / Max(1, npak)) );      // npak == 0 or 1 will set nbits to 32
+  if ((npak == 0) || (npak == 1)) { datyp_in = FST_TYPE_BINARY; }        // no compaction, nbits is already 32
+
   bitstream stream_out_ = *stream_out ;                  // save output stream state
   int64_t navail = STREAM_BITS_EMPTY(*stream_out)/32 ;   // available space in stream for encoded data (32 bit units)
-  int data_control = datyp_in & 0xFF000000 ;  // upper 8 bits
-  datyp_in &= 0xFFFFFF ;                      // lower 24 bits ;
+  datyp_in = dtypef.type ;
   // account for legacy xdf_double / xdf_short / xdf_byte
-  int XdfDouble = xdf_double || (data_control & SRC_DOUBLE) ;
-  int XdfShort  = xdf_short  || (data_control & SRC_SHORT) ;
-  int XdfByte   = xdf_byte   || (data_control & SRC_BYTE);
+  int src_control = SRC_SIZE(dtypef.size) ;
+  int XdfDouble = xdf_double || (src_control == FST_DOUBLE) ;
+  int XdfShort  = xdf_short  || (src_control == FST_SHORT) ;
+  int XdfByte   = xdf_byte   || (src_control == FST_BYTE);
 
   nk = Max(1, nk);                          // take care of nk == 0
   const uint32_t *field_u32 = field_in;
   float* field_f = NULL;                    // float version of the data
   uint32_t* field_missing = NULL;           // data with missing values transformed
   int nw;                                   // number of 32 bit words needed for encoded stream
-  // TODO: npak & 0x0000FF00 != 0 : IEEE exponent << 8 of quantum or rel error for new style float packer
-  //       npak & 0x000000FF      : nbits + 128 for old style packers, nbits = (npak & 0x000000FF) - 128
-  //                                nbits for new style packers
-  //       npak > 0x0000FFFF      : new style float packers
-  //       npak & 0x00010000 != 0 : max ABS error mode
-  //       npak & 0x00020000 != 0 : max REL error mode
-  //       if quantum exponent is present, nbits is optional (both cannot be 0)
-  //       npak > 64              : NEW STYLE PACKERS
-  //       npak to be used to pass minabs/zval ?
-  //       will need a function to produce "npak" from quantum(8)/nbits(6)/ABS(1)/REL(1)/minabs(8)/zval(8)  (32 bits total)
-  int nbits = (npak < 0) ? (-npak) : ( Max(1, 32 / Max(1, npak)) );    // npak == 0 or 1 will set nbits to 32
-  if ((npak == 0) || (npak == 1)) { datyp_in = FST_TYPE_BINARY; }        // no compaction, nbits is already 32
 
 // TODO : use turbo a priori (backtrack later if impractical) ?
   // datyp_in |= FST_TYPE_TURBOPACK ;
@@ -553,10 +544,10 @@ redo_switch_datyp:
       if(navail < ni*nj*nk+1) goto fail ;                   // insufficient space for worst case
 
       int32_t t[ni*nj*nk] ;
-      float maxerr = 0.0f ;
+      float maxerr = dtypef.maxerr ;
       int32_t offset = is_turbo ? 0 : 0x7FFFFFFF, e_base = 0 ;
-      block_properties *bp = NULL ;
-      e_base = fp_to_qlin((float *)field_u32, (int32_t *)t, ni*nj*nk, maxerr, nbits, &offset, bp) ;    // quantize field_u32[] -> t[]
+
+      e_base = fp_to_qlin((float *)field_u32, (int32_t *)t, ni*nj*nk, maxerr, ((maxerr != 0) ? 0 : nbits), &offset, NULL) ;    // quantize field_u32[] -> t[]
       if(e_base < 0 || e_base > 254) goto fail ;                                                       // linear quantizer error
 
       is_turbo = no_turbo ? 0 : FST_TYPE_TURBOPACK ;                                                   // turbo on except if prohibited
@@ -571,17 +562,16 @@ redo_switch_datyp:
     }
 
     // floats with max relative error, last gen encoders.  keep nbits bits from mantissa
+    // minabs and zval will be stored as biased IEEE exponents in header
+    // minabs : smallest signicant absolute value (will be truncated to power of 2 <= minabs)
+    // zval   : replace absolute value < minabs with zval (truncated to power of 2 <= zval)
     case FST_TYPE_REAL_REL_ERR:{
       if(navail < ni*nj*nk+1) goto fail ;                   // insufficient space for worst case
 
       int32_t t[ni*nj*nk] ;
-      float /*maxerr = 1.0E-6f,*/ minabs = 1.0E-20f, zabs = 1.0E-30f ;
-//       block_properties *bp = NULL ;
-      fp_to_flog((float *)field_u32, (int32_t *)t, ni*nj*nk, nbits) ;                                  // "quantize" field_u32[] -> t[]
-//       minabs and zval will be stored as biased IEEE exponents in header
-//       minabs [IN] : smallest signicant absolute value (will be truncated to power of 2 <= minabs)
-//       zval   [IN] : replace absolute value < minabs with zval (truncated to power of 2 <= zval)
-//       fp_to_qlog((float *)field_u32, (int32_t *)t, ni*nj*nk, nbits, float minabs, float zval) ;
+      float minabs = dtypef.minabs , zabs = dtypef.zval ;
+//       fp_to_flog((float *)field_u32, (int32_t *)t, ni*nj*nk, nbits) ;                                  // "quantize" field_u32[] -> t[]
+      fp_to_qlog((float *)field_u32, (int32_t *)t, ni*nj*nk, nbits, minabs) ;                             // "quantize" field_u32[] -> t[]
       is_turbo = no_turbo ? 0 : FST_TYPE_TURBOPACK ;                                                   // turbo on except if prohibited
       if(is_turbo) LorenzoPredict((int32_t *)t, (int32_t *)t, ni, ni, ni, nj);                         // predict t[] in place
 
@@ -866,7 +856,7 @@ end:
 
   xdf_byte = xdf_short = xdf_double = 0 ;               // reset other than 32 bits flags
   datyp = datyp | is_missing | is_turbo ;               // restore missing and turbo flags, use possibly revised datyp
-  *data_kind = datyp | (nbits << 16) ;                  // compound information for decoder
+  *data_kind = datyp | (nbits << 8) ;                  // compound information for decoder
   return nw ;
 
 fail :
@@ -891,21 +881,23 @@ int fst98_decode(
   int nj,
   //! [in] Dimension 3 of the data field
   int nk,
-  //! [in] datyp + nbits + control for XdfDouble/XdfShort/XdfByte
-  int data_kind
+  //! [in] datyp , nbits
+  int data_kind,
+  //! [in] control for XdfDouble/XdfShort/XdfByte
+  int data_control
 ) {
-  int data_control = data_kind & 0xFF000000 ;  // upper 8 bits
-  data_kind = data_kind & 0xFFFFFF ;           // keep lower 24 bits
+  data_control = DST_SIZE(data_control) ;
   // account for legacy xdf_double / xdf_short / xdf_byte / downgrade_32
-  int XdfDouble   = xdf_double   || (data_control & DST_DOUBLE) ;     // output will be 64 bit doubles
-  int XdfShort    = xdf_short    || (data_control & DST_SHORT) ;      // output will be 16 bit
-  int XdfByte     = xdf_byte     || (data_control & DST_BYTE);        // output will be 8 bit
-  int Downgrade32 = downgrade_32 || (data_control & DST_WORD);        // output will be 32 bit floats
+  int XdfDouble   = xdf_double   || (data_control == FST_DOUBLE) ;     // output will be 64 bit doubles
+  int XdfShort    = xdf_short    || (data_control == FST_SHORT) ;      // output will be 16 bit
+  int XdfByte     = xdf_byte     || (data_control == FST_BYTE);        // output will be 8 bit
+  int Downgrade32 = downgrade_32 || (data_control == FST_WORD);        // output will be 32 bit floats
+
   uint32_t *field = data_out;
   int ier = 0 ;
-  int datyp = data_kind & 0xFFFF ;
+  int datyp = data_kind & 0xFF ;
   int is_turbo = (datyp & FST_TYPE_TURBOPACK) ;
-  int nbits_in = (data_kind >> 16) & 0xFF ;
+  int nbits_in = (data_kind >> 8) & 0xFF ;
   ssize_t navail ;
   bitstream stream_in_ = *stream_in ;              // save input stream state
 
@@ -1177,22 +1169,21 @@ fprintf(stderr,"decode FST_TYPE_SIGNED_NG : is_turbo = %d, decoded = %d\n", is_t
     }
 
     // floats with max relative error, last gen encoders
+    // minabs and zval are passed as biased IEEE exponents (in header)
+    // minabs : smallest signicant absolute value (should match minabs/zval from fp_to_qlog_n)
+    // zval   : an absolute value < |minabs| gets replaced with |zval| (sign of value is preserved)
     case FST_TYPE_REAL_REL_ERR:
     case (FST_TYPE_REAL_REL_ERR) | FST_TYPE_TURBOPACK:{
       int32_t t[ni*nj] ;
       uint32_t header ;
-      STREAM_GET_NBITS(*stream_in, header, 32) ;
+      STREAM_GET_NBITS(*stream_in, header, 32) ;    // get 32 bit header
       int32_t datyp_ = header >> 24, nbits_ = ((header >> 18) & 0x3F)+1, minexp = (header >> 8) & 0xFF, zexp = header & 0xFF ;
       if(datyp_ != datyp || nbits_ != nbits_in) goto fail ;
-fprintf(stderr, "decoding FST_TYPE_REAL_REL_ERR, minexp = %d, zexp = %d\n", minexp, zexp) ;
+
       int32_t decoded = decode_block(stream_in, (int32_t *)t, ni, ni, nj, 8) ;
       if(is_turbo)LorenzoUnpredict((int32_t *)t, (int32_t *)t, ni, ni, ni, nj);
-      flog_to_fp((float *)field, (int32_t *)t, nelm, nbits_in) ;
-//    TODO :
-//     minabs and zval will be passed as biased IEEE exponents (in header)
-//     minabs [IN] : smallest signicant absolute value (should match minabs/zval from fp_to_qlog_n)
-//     zval   [IN] : an absolute value < |minabs| gets replaced with |zval| (sign of value is preserved)
-//     qlog_to_fp(float * restrict z, int32_t * restrict q, int n, int32_t nbits, float minabs, float zval)
+//       flog_to_fp((float *)field, (int32_t *)t, nelm, nbits_in) ;
+      qlog_to_fp((float *)field, (int32_t *)t, nelm, nbits_in, fp32_pow2(minexp-127), fp32_pow2(zexp-127)) ;
 
       break;
     }

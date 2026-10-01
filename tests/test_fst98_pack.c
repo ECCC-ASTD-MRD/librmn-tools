@@ -77,7 +77,11 @@ void *mask_bits(void *in_, int ninj, int nbits, int data_control, int is_signed)
 }
 
 // void encode_decode_int(int ni, int nj, int32_t f_in[nj][ni], int32_t f_out[nj][ni], int nbits, int datyp, int nodiag, int data_control){
-void encode_decode_int(int ni, int nj, void *f_in_, void *f_out, int nbits, int datyp, int nodiag, int data_control){
+void encode_decode_int(int ni, int nj, void *f_in_, void *f_out, int nbits, int data_type, int nodiag, int data_control){
+
+  int datyp = data_type ;
+  fst_datyp dtypef = fst_datyp_null ;
+
   int ninj = ni*nj ;
   int32_t buffer[ninj*4+32] ;    // large enough for 64 bit items
   bitstream estream = NULL_BITSTREAM ;
@@ -107,14 +111,20 @@ fprintf(stderr, "encode_decode_int : size of estream = %ld words\n", STREAM_BITS
 
   void *f_in = f_in_ ;
   int b_datyp = base_fst_type(datyp) ;
-  if(b_datyp ==  FST_TYPE_SIGNED     || b_datyp ==  FST_TYPE_UNSIGNED || b_datyp == (FST_TYPE_SIGNED+16) || b_datyp == (FST_TYPE_UNSIGNED+16)){
+  if(b_datyp ==  FST_TYPE_SIGNED     || b_datyp ==  FST_TYPE_UNSIGNED || b_datyp == FST_TYPE_SIGNED_NG || b_datyp == FST_TYPE_UNSIGNED_NG){
     f_in = mask_bits(f_in_, ninj, maxbits, data_control, is_signed) ;
   }
 // fprintf(stderr, "mask_bits, ninj = %d, nbits = %d, signed = %d, f_in[0] = %8.8x\n", ninj, nbits, is_signed, ((uint32_t *)f_in)[0]);
 
+  dtypef.size  = data_control ;
+  dtypef.type  = data_type ;
+  dtypef.nbits = nbits ;
+
   // encode f_in_ (original data)
-  encoded = fst98_encode((void *)f_in_, &estream, -nbits, ni, nj, 1, datyp | data_control, &data_kind) ;
-  encodet = fst98_encode((void *)f_in_, &estream, -nbits, ni, nj, 1, datyp | data_control, &data_kind) ;
+//   encoded = fst98_encode((void *)f_in_, &estream, -nbits, ni, nj, 1, datyp | data_control, &data_kind) ;
+//   encodet = fst98_encode((void *)f_in_, &estream, -nbits, ni, nj, 1, datyp | data_control, &data_kind) ;
+  encoded = fst98_encode((void *)f_in_, &estream/*, -nbits*/, ni, nj, 1, dtypef, &data_kind) ;
+  encodet = fst98_encode((void *)f_in_, &estream/*, -nbits*/, ni, nj, 1, dtypef, &data_kind) ;
   if(encoded != encodet) exit(2) ;
   StreamRewind(&estream, 1);
   fprintf(stderr, "encoded size = %d words (%ld bytes), datyp = %d(%d), nbits = %d\n", encoded, encoded*sizeof(int32_t), data_kind&0xFFFF, datyp, data_kind>>16);
@@ -123,9 +133,9 @@ fprintf(stderr, "encode_decode_int : size of estream = %ld words\n", STREAM_BITS
 //   if (src_short) sizeout = sizeof(int16_t) ;
 //   if (src_byte) sizeout = sizeof(int8_t) ;
 //   memset(f_out, 0, (ninj)*sizeout) ;
-  fst98_decode(f_out, &estream, ni, nj, 1, data_kind | data_control) ;
+  fst98_decode(f_out, &estream, ni, nj, 1, data_kind, data_control) ;
 //   memset(f_out, 0, (ninj)*sizeout) ;
-  fst98_decode(f_out, &estream, ni, nj, 1, data_kind | data_control) ;
+  fst98_decode(f_out, &estream, ni, nj, 1, data_kind, data_control) ;
 
   if(nodiag) return ;
   // check output of decoder against f_in
@@ -186,20 +196,27 @@ fprintf(stderr, "encode_decode_int : size of estream = %ld words\n", STREAM_BITS
   if(f_in != f_in_) free(f_in) ;
 }
 
+static float maxerr = 0.0f ;
+static float minabs = 1.0E-16f ;
+static float zval   = 1.0E-35f ;
+
 // void encode_decode_float(int ni, int nj, float f_in[nj][ni], float f_out[nj][ni], int nbits, int datyp, int nodiag, int data_control){
-void encode_decode_float(int ni, int nj, void *f_in, void *f_out, int nbits, int datyp, int nodiag, int data_control){
+void encode_decode_float(int ni, int nj, void *f_in, void *f_out, int nbits, int data_type, int nodiag, int data_control){
   (void) (nodiag) ;
   int32_t buffer[ni*nj*8+32] ;
   bitstream estream = NULL_BITSTREAM ;
   InitStream(&estream, buffer, sizeof(buffer), BIT_FULL_INIT|BIT_INSERT|BIT_XTRACT|SET_BIG_ENDIAN) ;
 // fprintf(stderr, "encode_decode_float : size of estream = %ld words\n", STREAM_BITS_EMPTY(estream)/32) ;
 
+  int datyp = data_type ;
+  fst_datyp dtypef = fst_datyp_null ;
   int32_t encoded, encodet ;
   int data_kind ;
   union{
     uint32_t u ;
     float    f ;
   }iuf ;
+
   int ieee_data = ( (datyp & 0x3f) == 5) || ( (datyp & 0x3f) == 8) ;
   if(ieee_data && (nbits > 32)){
     nbits = 64 ;
@@ -208,14 +225,24 @@ void encode_decode_float(int ni, int nj, void *f_in, void *f_out, int nbits, int
 // double *f64 = (double *)f_in ;
 // fprintf(stderr, "DEBUG : data in %f %f %f, data_control = %8.8x\n", f64[0], f64[ni*nj/2-1], f64[ni*nj-1], data_control);
   }
+
+  dtypef.size  = data_control ;
+  dtypef.type  = data_type ;
+  dtypef.nbits = nbits ;
+  dtypef.maxerr = maxerr ;
+  dtypef.minabs = minabs ;
+  dtypef.zval   = zval ;
+
   size_t sizeout = (data_control & DST_DOUBLE) ? sizeof(double) : sizeof(float) ;
   size_t sizein  = (data_control & SRC_DOUBLE) ? sizeof(double) : sizeof(float) ;
 // fprintf(stderr, "encode_decode_float : datyp = %8.8x(%d), nbits = %d, sizein = %ld, sizeout = %ld, in stream = %ld words\n",
 //         data_kind&0xFFFF, datyp, nbits, sizein, sizeout, StreamAvailableBits(&estream)/32);
-  encoded = fst98_encode((void *)f_in, &estream, -nbits, ni, nj, 1, datyp | data_control, &data_kind) ;
-  fprintf(stderr, "encoded size = %d items (%ld bytes), datyp = %d(%d), nbits = %d, sizein = %ld, sizeout = %ld, in stream = %ld words\n",
-          encoded, encoded*sizeof(int32_t), data_kind&0xFFFF, datyp, data_kind>>16, sizein, sizeout, StreamAvailableBits(&estream)/32);
-  encodet = fst98_encode((void *)f_in, &estream, -nbits, ni, nj, 1, datyp | data_control, &data_kind) ;
+//   encoded = fst98_encode((void *)f_in, &estream, -nbits, ni, nj, 1, datyp | data_control, &data_kind) ;
+  encoded = fst98_encode((void *)f_in, &estream/*, -nbits*/, ni, nj, 1, dtypef, &data_kind) ;
+//   fprintf(stderr, "encoded size = %d items (%ld bytes), datyp = %d(%d), nbits = %d, sizein = %ld, sizeout = %ld, in stream = %ld words\n",
+//           encoded, encoded*sizeof(int32_t), data_kind&0xFFFF, datyp, data_kind>>16, sizein, sizeout, StreamAvailableBits(&estream)/32);
+//   encodet = fst98_encode((void *)f_in, &estream, -nbits, ni, nj, 1, datyp | data_control, &data_kind) ;
+  encodet = fst98_encode((void *)f_in, &estream/*, -nbits*/, ni, nj, 1, dtypef, &data_kind) ;
   fprintf(stderr, "encoded size = %d items (%ld bytes), datyp = %d(%d), nbits = %d, sizein = %ld, sizeout = %ld, in stream = %ld words\n",
           encodet, encodet*sizeof(int32_t), data_kind&0xFFFF, datyp, data_kind>>16, sizein, sizeout, StreamAvailableBits(&estream)/32);
   if(encoded != encodet) exit(2) ;
@@ -226,9 +253,9 @@ void encode_decode_float(int ni, int nj, void *f_in, void *f_out, int nbits, int
 // }
 
   memset(f_out, 0, (ni*nj)*sizeout) ;
-  fst98_decode((void *)f_out, &estream, ni, nj, 1, data_kind | data_control) ;
-  fst98_decode((void *)f_out, &estream, ni, nj, 1, data_kind | data_control) ;
-  datyp = data_kind&0xFFFF ;
+  fst98_decode((void *)f_out, &estream, ni, nj, 1, data_kind, data_control) ;
+  fst98_decode((void *)f_out, &estream, ni, nj, 1, data_kind, data_control) ;
+  datyp = data_kind & 0xFFFF ;
   ieee_data = ( (datyp & 0x3f) == 5) || ( (datyp & 0x3f) == 8) ;
 
 // if(ieee_data && (nbits == 64)){
@@ -852,6 +879,15 @@ goto rel_err ;
 //
   fprintf(stderr, "========== FST_TYPE_REAL_ABS_ERR | FST_TYPE_TURBOPACK (13 bits) ==========\n") ;
   encode_decode_float(ni, nj, f_data, rf_data, 13, FST_TYPE_REAL_ABS_ERR | FST_TYPE_TURBOPACK, 0, 0) ;
+//
+  maxerr = 0.0001f ;
+  fprintf(stderr, "\n========== max absolute error set to %f ==========\n", maxerr) ;
+//
+  fprintf(stderr, "========== FST_TYPE_REAL_ABS_ERR | FST_NO_TURBOPACK (13 bits) ==========\n") ;
+  encode_decode_float(ni, nj, f_data, rf_data, 13, FST_TYPE_REAL_ABS_ERR | FST_NO_TURBOPACK, 0, 0) ;
+//
+  fprintf(stderr, "========== FST_TYPE_REAL_ABS_ERR (13 bits) ==========\n") ;
+  encode_decode_float(ni, nj, f_data, rf_data, 13, FST_TYPE_REAL_ABS_ERR, 0, 0) ;
 //
   fprintf(stderr, "\n");
 //
