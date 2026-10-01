@@ -475,8 +475,8 @@ int32_t fst98_encode(
     }
   }
 
-  // cancel turbo compression if nbits > 16 (except for IEEE reals) for old data types
-  if ( (nbits > 16) && (datyp != FST_TYPE_REAL_IEEE) && (datyp < 9) ) is_turbo = 0 ;
+  // cancel turbo compression if nbits > 16 for old data types (except for IEEE reals and integer types)
+  if ( (nbits > 16) && (datyp < 9) && (datyp != FST_TYPE_REAL_IEEE) && (datyp != FST_TYPE_UNSIGNED) && (datyp != FST_TYPE_SIGNED)) is_turbo = 0 ;
   // if nbits <= 16 and turbo compression is requested, use FST_TYPE_REAL instead
   if( (nbits <= 16) && (datyp == FST_TYPE_REAL_OLD_QUANT) && is_turbo ){
     datyp = FST_TYPE_REAL ;        // replace base type FST_TYPE_REAL_OLD_QUANT with FST_TYPE_REAL
@@ -659,7 +659,11 @@ redo_switch_datyp:
 
     // integers, short integers or bytes (unsigned)
     case FST_TYPE_UNSIGNED:{
-//       if(nbits > 16) is_turbo = 0 ;
+      if(nbits > 16 && is_turbo){
+        datyp = FST_TYPE_UNSIGNED_NG ;
+// fprintf(stderr, "encode FST_TYPE_UNSIGNED->FST_TYPE_UNSIGNED_NG, nbits = %d, turbo = %d\n", nbits, is_turbo) ;
+        goto redo_switch_datyp ;
+      }
       nw = ni*nj*nk + 8 ;
       if(navail < nw+1) goto fail ;         // insufficient space for worst case length
 
@@ -731,7 +735,7 @@ redo_switch_datyp:
         int32_t encoded = encode_block(stream_out, (int32_t *)pred, ni, ni, nj, 8, 0 /*ENCODE_DRY_RUN*/);
         int nwords = (encoded+31)/32 ;
         nw = nwords ;
-        fprintf(stderr,"encode FST_TYPE_UNSIGNED_NG : is_turbo = %d, datyp = %d, nw = %d, nwords = %d, encoded = %d\n", is_turbo, datyp, nw, nwords, encoded) ;
+//         fprintf(stderr,"encode FST_TYPE_UNSIGNED_NG : is_turbo = %d, datyp = %d, nw = %d, nwords = %d, encoded = %d\n", is_turbo, datyp, nw, nwords, encoded) ;
       }
       break;
 
@@ -751,20 +755,24 @@ redo_switch_datyp:
           int32_t *s32 = (int32_t *)field_u32 ;
           for(int i=0 ; i<ni*nj*nk ; i++) { t[i] = (s32[i] << (32-nbits)) >> (32-nbits) ; }
         }
-        int32_t pred_[ni*nj], *pred = pred_, encoded=-1, nwords ;
+        int32_t pred_[ni*nj], *pred = pred_, encoded=-1 ;
         if(is_turbo){
           LorenzoPredict((int32_t *)t, pred, ni, ni, ni, nj) ;                  // predict t[] -> pred
         }else{
           pred = t ;                                                            // point pred -> t
         }
         encoded = encode_block(stream_out, pred, ni, ni, nj, 8, 0 ) ;            // encode pred[]
-        nw = nwords = (encoded+31)/32 ;
-        fprintf(stderr,"encode FST_TYPE_SIGNED_NG : is_turbo = %d, datyp = %d, nw = %d, nwords = %d, encoded = %d, raw = %d\n", is_turbo, datyp, nwords, nwords, encoded, ni*nj*nk*nbits) ;
+        nw = (encoded+31)/32 ;
+//         fprintf(stderr,"encode FST_TYPE_SIGNED_NG : is_turbo = %d, datyp = %d, nw = %d, nwords = %d, encoded = %d, raw = %d\n", is_turbo, datyp, nwords, nwords, encoded, ni*nj*nk*nbits) ;
       }
       break;
 
     // integers, short integers or bytes (signed)
     case FST_TYPE_SIGNED:{
+      if(is_turbo){
+        datyp = FST_TYPE_SIGNED_NG ;
+        goto redo_switch_datyp ;
+      }
       uint32_t *buf = (void *)STREAM_IN(*stream_out), *header = buf ;
       buf++ ;
 
@@ -1135,7 +1143,8 @@ int fst98_decode(
           for(int i=0 ; i<nelm ; i++){ d8[i] = t[i] ; } ;
         }
       }
-fprintf(stderr,"decode FST_TYPE_SIGNED_NG : is_turbo = %d, decoded = %d\n", is_turbo, decoded) ;
+      if(decoded < 0) goto fail ;
+// fprintf(stderr,"decode FST_TYPE_SIGNED_NG : is_turbo = %d, decoded = %d\n", is_turbo, decoded) ;
       break;
     }
 
