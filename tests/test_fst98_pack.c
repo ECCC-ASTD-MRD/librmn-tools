@@ -298,8 +298,8 @@ void encode_decode_float(int ni, int nj, void *f_in, void *f_out, int nbits, int
     if(maxabs != 0) fprintf(stderr, ", maxrel = 1 part in %d", relpart) ;
     fprintf(stderr, "\n");
   }else{
-    fprintf(stderr, "maxabs = %10f, maxrel = 1 part in %d (expected 1 in %d)\n", maxabs, relpart, 1<<(nbits+1)) ;
-    if( relpart < (1<<(nbits+1)) ) exit(1) ;
+    fprintf(stderr, "maxabs = %10f, maxrel = 1 part in %d (expected 1 in %d)\n", maxabs, relpart, 1<<(nbits+2)) ;
+    if( relpart < (1<<(nbits+2)) ) exit(1) ;
   }
 }
 
@@ -378,11 +378,33 @@ goto realturbo;
 // goto realieee ;
 // goto uint;
 // goto cmplx ;
-goto newstyle;
+// goto newstyle;
 // goto newstyle_s;
 // goto sint ;
 // goto sint0 ;
+int   float_types[5] = { FST_TYPE_REAL_OLD_QUANT ,  FST_TYPE_REAL ,  FST_TYPE_REAL_IEEE ,  FST_TYPE_REAL_ABS_ERR ,  FST_TYPE_REAL_REL_ERR  };
+char *float_names[5] = {"FST_TYPE_REAL_OLD_QUANT", "FST_TYPE_REAL", "FST_TYPE_REAL_IEEE", "FST_TYPE_REAL_ABS_ERR", "FST_TYPE_REAL_REL_ERR" };
+uint8_t nbits_tab[] = {8, 12, 16, 24, 32, 48, 64} ;
 
+  for(uint32_t j = 0 ; j < sizeof(nbits_tab) && j < 10 ; j++){
+    int nbits = nbits_tab[j] ;
+    for(uint32_t i = 0 ; i<5 ; i++){
+      fprintf(stderr, "========== %s (%d bits) ==========\n", float_names[i], nbits) ;
+      encode_decode_float(ni, nj, (void *)f_data, (void *)rf_data, nbits, float_types[i], 0, 0) ;
+      fprintf(stderr, "           %s | FST_NO_TURBOPACK (%d bits) \n", float_names[i], nbits) ;
+      encode_decode_float(ni, nj, (void *)f_data, (void *)rf_data, nbits, float_types[i] | FST_NO_TURBOPACK, 0, 0) ;
+      if(nbits <= 32 && nbits >= 16){
+      fprintf(stderr, "           %s(SRC_DOUBLE) (%d bits) \n", float_names[i], nbits) ;
+      encode_decode_float(ni, nj, (void *)d_data, (void *)rd_data, nbits, float_types[i], 0, SRC_DOUBLE) ;
+      fprintf(stderr, "           %s(DST_DOUBLE) (%d bits) \n", float_names[i], nbits) ;
+      encode_decode_float(ni, nj, (void *)f_data, (void *)rd_data, nbits, float_types[i], 0, DST_DOUBLE) ;
+      fprintf(stderr, "           %s(SRC_DOUBLE + DST_DOUBLE) (%d bits) \n", float_names[i], nbits) ;
+      encode_decode_float(ni, nj, (void *)d_data, (void *)rd_data, nbits, float_types[i], 0, SRC_DOUBLE + DST_DOUBLE) ;
+      }
+    }
+    fprintf(stderr, "\n");
+  }
+goto end ;
   fprintf(stderr, "========== FST_TYPE_REAL (8 bits) ==========\n") ;
   encode_decode_float(ni, nj, (void *)f_data, (void *)rf_data, 8, FST_TYPE_REAL, 0, 0) ;
 //
@@ -398,7 +420,7 @@ goto newstyle;
   fprintf(stderr, "========== FST_TYPE_REAL(SRC_DOUBLE + DST_DOUBLE) (16 bits) ==========\n") ;
   encode_decode_float(ni, nj, (void *)d_data, (void *)rd_data, 16, FST_TYPE_REAL, 0, SRC_DOUBLE + DST_DOUBLE) ;
 //
-if(argc > 100)
+// if(argc > 100)
 goto end;
 
 realturbo:
@@ -820,7 +842,7 @@ goto real_ng ;
 
   fprintf(stderr, "========== FST_TYPE_SIGNED_NG | FST_TYPE_TURBOPACK (24 bits) ==========\n") ;
   encode_decode_int(ni, nj, i_data, (void *)rf_data, 24, FST_TYPE_SIGNED_NG | FST_TYPE_TURBOPACK, 0, 0) ;
-goto end ;
+
   fprintf(stderr, "========== FST_TYPE_SIGNED_NG(SRC_SHORT) | FST_TYPE_TURBOPACK (24 bits) ==========\n") ;
   encode_decode_int(ni, nj, h_data, (void *)rf_data, 24, FST_TYPE_SIGNED_NG | FST_TYPE_TURBOPACK, 0, SRC_SHORT) ;
 
@@ -881,23 +903,23 @@ goto rel_err ;
   fprintf(stderr, "========== FST_TYPE_REAL | FST_TYPE_TURBOPACK (12 bits) ==========\n") ;
   encode_decode_float(ni, nj, f_data, rf_data, 12, FST_TYPE_REAL | FST_TYPE_TURBOPACK, 0, 0) ;
 //
-  fprintf(stderr, "========== FST_TYPE_REAL_ABS_ERR | FST_NO_TURBOPACK (13 bits) ==========\n") ;
-  encode_decode_float(ni, nj, f_data, rf_data, 13, FST_TYPE_REAL_ABS_ERR | FST_NO_TURBOPACK, 0, 0) ;
+  fprintf(stderr, "========== FST_TYPE_REAL_ABS_ERR | FST_NO_TURBOPACK (12 bits) ==========\n") ;
+  encode_decode_float(ni, nj, f_data, rf_data, 12, FST_TYPE_REAL_ABS_ERR | FST_NO_TURBOPACK, 0, 0) ;
 //
-  fprintf(stderr, "========== FST_TYPE_REAL_ABS_ERR (13 bits) ==========\n") ;
-  encode_decode_float(ni, nj, f_data, rf_data, 13, FST_TYPE_REAL_ABS_ERR, 0, 0) ;
+  fprintf(stderr, "========== FST_TYPE_REAL_ABS_ERR (12 bits) ==========\n") ;
+  encode_decode_float(ni, nj, f_data, rf_data, 12, FST_TYPE_REAL_ABS_ERR, 0, 0) ;
 //
-  fprintf(stderr, "========== FST_TYPE_REAL_ABS_ERR | FST_TYPE_TURBOPACK (13 bits) ==========\n") ;
-  encode_decode_float(ni, nj, f_data, rf_data, 13, FST_TYPE_REAL_ABS_ERR | FST_TYPE_TURBOPACK, 0, 0) ;
+  fprintf(stderr, "========== FST_TYPE_REAL_ABS_ERR | FST_TYPE_TURBOPACK (12 bits) ==========\n") ;
+  encode_decode_float(ni, nj, f_data, rf_data, 12, FST_TYPE_REAL_ABS_ERR | FST_TYPE_TURBOPACK, 0, 0) ;
 //
   maxerr = 0.0001f ;
   fprintf(stderr, "\n========== max absolute error set to %f ==========\n", maxerr) ;
 //
-  fprintf(stderr, "========== FST_TYPE_REAL_ABS_ERR | FST_NO_TURBOPACK (13 bits) ==========\n") ;
-  encode_decode_float(ni, nj, f_data, rf_data, 13, FST_TYPE_REAL_ABS_ERR | FST_NO_TURBOPACK, 0, 0) ;
+  fprintf(stderr, "========== FST_TYPE_REAL_ABS_ERR | FST_NO_TURBOPACK (12 bits) ==========\n") ;
+  encode_decode_float(ni, nj, f_data, rf_data, 12, FST_TYPE_REAL_ABS_ERR | FST_NO_TURBOPACK, 0, 0) ;
 //
-  fprintf(stderr, "========== FST_TYPE_REAL_ABS_ERR (13 bits) ==========\n") ;
-  encode_decode_float(ni, nj, f_data, rf_data, 13, FST_TYPE_REAL_ABS_ERR, 0, 0) ;
+  fprintf(stderr, "========== FST_TYPE_REAL_ABS_ERR (12 bits) ==========\n") ;
+  encode_decode_float(ni, nj, f_data, rf_data, 12, FST_TYPE_REAL_ABS_ERR, 0, 0) ;
 //
   maxerr = 0.0f ;
   fprintf(stderr, "\n");

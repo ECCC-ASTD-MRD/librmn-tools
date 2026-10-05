@@ -38,7 +38,7 @@
 #define DST_SHORT     (2 << 4)
 #define DST_BYTE      (1 << 4)
 // disable turbo (for types where turbo is on by default)
-#define FST_NO_TURBOPACK  0x800000
+#define FST_NO_TURBOPACK  0x0100
 // new data types
 // floating point with absolute error criteria
 #define FST_TYPE_REAL_ABS_ERR 12
@@ -73,16 +73,15 @@ extern  int downgrade_32, xdf_double, xdf_short, xdf_byte, xdf_stride ;
 // }block_3d ;
 
 typedef struct{
-  uint8_t optn;
-  uint8_t size ;
-  uint8_t type ;
-  uint8_t nbits ;
+  uint16_t type ;
+  uint8_t  size ;
+  uint8_t  nbits ;
   float maxerr ;
   float minabs ;
   float zval ;
 } fst_datyp ;
 CT_ASSERT(sizeof(fst_datyp) == 16, "ERROR: sizeof(fst_datyp) MUST BE 16")
-static const fst_datyp fst_datyp_null = {.optn = 0, .size = 0, .type = 0, .nbits = 0, .maxerr = 0.0f, .minabs = 0.0f, .zval = 0.0f } ;
+static const fst_datyp fst_datyp_null = {.type = 0, .size = 0, .nbits = 0, .maxerr = 0.0f, .minabs = 0.0f, .zval = 0.0f } ;
 
 // TODO : eliminate npak, replace datyp with fst_encoding
 //! legacy encoders (data types 0,1,2,3,4,5,6,7,8), including turbo and missing values options
@@ -98,7 +97,7 @@ int32_t fst98_encode(
   //! [in] Third dimension of the data field
   int nk,
   //! [in] Data type of elements (including flags used to control xdf_double/xdf_short/xdf_byte and encoding behavior)
-  const fst_datyp dtypef,
+  fst_datyp dtypef,
   //! [out] effective data type and nbits
   int *data_kind) ;
 
