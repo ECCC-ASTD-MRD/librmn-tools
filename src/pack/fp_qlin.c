@@ -109,7 +109,9 @@ int32_t fp_to_qlin(float *f, int32_t *q, int n, float max_err, int32_t nbits, in
       analyze_data32_block((void *)f, n, n, 1, bp) ;  // get data properties
       adjust_block_properties(bp, float_data) ;       // adjust properties for float data
     }
-    max_abs = FLOAT_MAX_ABS(*bp) ;                    // float with largest absolute value
+//     max_abs = FLOAT_MAX_ABS(*bp) ;                    // float with largest absolute value
+    // use max - min instead of max abs value i.e. FLOAT_MAX_VALUE(*bp) - FLOAT_MIN_VALUE(*bp)
+    max_abs = FLOAT_MAX_VALUE(*bp) - FLOAT_MIN_VALUE(*bp) ;
     dq = fp_to_q_quantum(max_abs, max_err, nbits) ;   // compute quantum
     if(dq == 0.0f) return -1 ;
   }
