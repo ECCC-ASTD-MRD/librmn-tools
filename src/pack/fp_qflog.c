@@ -210,7 +210,8 @@ float flog_to_fp_1(int32_t i, int nbits){
 void flog_to_fp(float * restrict z, int32_t * restrict q, int n, int32_t nbits){
   int32_t i ;
 
-  nbits = (nbits < 0) ? 0 : nbits ;         // number of significant bits kept during quantization
+  nbits = (nbits <  0) ?  0 : nbits ;         // number of significant bits kept during quantization
+  nbits = (nbits > 23) ? 23 : nbits ;         // 0 <= nbits <= 23
   for(i=0 ; i<n ; i++){
     z[i] = flog_to_fp_(q[i], nbits) ;
   }
