@@ -394,17 +394,17 @@ uint8_t nbits_tab[] = {8, 12, 16, 24, 32, 48, 64} ;
       fprintf(stderr, "           %s | FST_NO_TURBOPACK (%d bits) \n", float_names[i], nbits) ;
       encode_decode_float(ni, nj, (void *)f_data, (void *)rf_data, nbits, float_types[i] | FST_NO_TURBOPACK, 0, 0) ;
       if(nbits <= 32 && nbits >= 16){
-      fprintf(stderr, "           %s(SRC_DOUBLE) (%d bits) \n", float_names[i], nbits) ;
-      encode_decode_float(ni, nj, (void *)d_data, (void *)rd_data, nbits, float_types[i], 0, SRC_DOUBLE) ;
-      fprintf(stderr, "           %s(DST_DOUBLE) (%d bits) \n", float_names[i], nbits) ;
-      encode_decode_float(ni, nj, (void *)f_data, (void *)rd_data, nbits, float_types[i], 0, DST_DOUBLE) ;
-      fprintf(stderr, "           %s(SRC_DOUBLE + DST_DOUBLE) (%d bits) \n", float_names[i], nbits) ;
-      encode_decode_float(ni, nj, (void *)d_data, (void *)rd_data, nbits, float_types[i], 0, SRC_DOUBLE + DST_DOUBLE) ;
+        fprintf(stderr, "           %s(SRC_DOUBLE) (%d bits) \n", float_names[i], nbits) ;
+        encode_decode_float(ni, nj, (void *)d_data, (void *)rd_data, nbits, float_types[i], 0, SRC_DOUBLE) ;
+        fprintf(stderr, "           %s(DST_DOUBLE) (%d bits) \n", float_names[i], nbits) ;
+        encode_decode_float(ni, nj, (void *)f_data, (void *)rd_data, nbits, float_types[i], 0, DST_DOUBLE) ;
+        fprintf(stderr, "           %s(SRC_DOUBLE + DST_DOUBLE) (%d bits) \n", float_names[i], nbits) ;
+        encode_decode_float(ni, nj, (void *)d_data, (void *)rd_data, nbits, float_types[i], 0, SRC_DOUBLE + DST_DOUBLE) ;
       }
     }
     fprintf(stderr, "\n");
   }
-goto end ;
+// goto end ;
   fprintf(stderr, "========== FST_TYPE_REAL (8 bits) ==========\n") ;
   encode_decode_float(ni, nj, (void *)f_data, (void *)rf_data, 8, FST_TYPE_REAL, 0, 0) ;
 //
@@ -420,7 +420,7 @@ goto end ;
   fprintf(stderr, "========== FST_TYPE_REAL(SRC_DOUBLE + DST_DOUBLE) (16 bits) ==========\n") ;
   encode_decode_float(ni, nj, (void *)d_data, (void *)rd_data, 16, FST_TYPE_REAL, 0, SRC_DOUBLE + DST_DOUBLE) ;
 //
-// if(argc > 100)
+if(argc > 100)
 goto end;
 
 realturbo:
