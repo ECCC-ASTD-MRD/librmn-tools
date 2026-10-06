@@ -351,11 +351,10 @@ int32_t fst98_encode(
 // is_magic means source array is double. set packing funtion for floating point numbers appropriately
   PackFunctionPointer packfunc = ((XdfDouble) || (is_magic)) ? compact_p_double : compact_p_float;
 
-  if (base_fst_type(datyp) == FST_TYPE_REAL_IEEE && nbits < 16) {
-    Lib_Log(APP_LIBFST, APP_WARNING, "%s: IEEE float with < 16 bits is not allowed, bumping to 16 bits\n", __func__);
-    nbits = 16 ;
-//     goto fail ;
-  }
+//   if (base_fst_type(datyp) == FST_TYPE_REAL_IEEE && nbits < 16) {
+//     Lib_Log(APP_LIBFST, APP_WARNING, "%s: IEEE float with < 16 bits is not allowed, bumping to 16 bits\n", __func__);
+//     nbits = 16 ;
+//   }
 
 //   if ( (datyp_in == (FST_TYPE_REAL_IEEE | FST_TYPE_TURBOPACK)) && (nbits > 32) ) {
   if ( is_turbo && (nbits > 32) ) {
