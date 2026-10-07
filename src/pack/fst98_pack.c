@@ -783,23 +783,24 @@ int fst98_decode(
       lngw++ ;
       break;
     }
-
+#if 0
     case FST_TYPE_REAL_OLD_QUANT: {          // Floating Point, old style packers
 exit(4) ;
       uint32_t lngw = ((nelm * nbits_in) + (96+24) + 31) / 32;
 
-      uint32_t header = buf[0] ;                            // get and check header
-      int32_t datyp_ = header >> 24, nbits_ = ((header >> 18) & 0x3F)+1 , lngw_ = header & 0x3FFFF ;
-      if(datyp_ != datyp || nbits_ != nbits_in || (lngw & 0x3FFFF) != lngw_) goto fail ;
-
-      buf++ ;                                               // skip header
+//       uint32_t header = buf[0] ;                            // get and check header
+//       int32_t datyp_ = header >> 24, nbits_ = ((header >> 18) & 0x3F)+1 , lngw_ = header & 0x3FFFF ;
+//       if(datyp_ != datyp || nbits_ != nbits_in || (lngw & 0x3FFFF) != lngw_) goto fail ;
+// 
+//       buf++ ;                                               // skip header
       double dmin = 0.0, dmax = 0.0, tempfloat = 99999.0;   // by_product of decoder
       packfunc(field, buf, buf + 3, nelm, nbits_in, 24, xdf_stride, 0, &tempfloat, &dmin , &dmax);
 
-      STREAM_OUT(*stream_in) += (lngw+1) ;                // lngw + 1 32 bit words extracted from stream
+      STREAM_OUT(*stream_in) += (lngw/*+1*/) ;                // lngw + 1 32 bit words extracted from stream
       break;
     }
-
+#endif
+#if 0
     case FST_TYPE_REAL:
     case FST_TYPE_REAL | FST_TYPE_TURBOPACK: {
 exit(4) ;
@@ -809,31 +810,31 @@ exit(4) ;
       header_size /= sizeof(int32_t);
       stream_size /= sizeof(int32_t);
 
-      uint32_t header = buf[0] ;                            // get and check header
-      int32_t datyp_ = header >> 24, nbits_ = ((header >> 18) & 0x3F)+1 , lngw_ = header & 0x3FFFF ;
-      if(datyp_ != datyp || nbits_ != nbits_in) goto fail ;
-
-      buf++ ;                                               // skip header
+//       uint32_t header = buf[0] ;                            // get and check header
+//       int32_t datyp_ = header >> 24, nbits_ = ((header >> 18) & 0x3F)+1 , lngw_ = header & 0x3FFFF ;
+//       if(datyp_ != datyp || nbits_ != nbits_in) goto fail ;
+// 
+//       buf++ ;                                               // skip header
       if (is_type_turbopack(datyp)) {
         int32_t tbuf[ni*nj*nk + 16] ;
         lngw = buf[0] + 1 ;
-        if((lngw & 0x3FFFF) != lngw_) goto fail ;
+//         if((lngw & 0x3FFFF) != lngw_) goto fail ;
         memcpy(tbuf, buf, (lngw+1)*sizeof(int32_t)) ;       // copy stream into temporary buffer to avoid overwriting input stream
         armn_compress((byte *)(tbuf + 1 + header_size), ni, nj, nk, nbits_in, 2, 1);
         c_float_unpacker((float *)field, (int32_t *)(tbuf + 1), (int32_t *)(tbuf + 1 + header_size), nelm, &nbits);
 
       }else{
         lngw = header_size + stream_size ;   // header + data
-        if((lngw & 0x3FFFF) != lngw_) goto fail ;
+//         if((lngw & 0x3FFFF) != lngw_) goto fail ;
         c_float_unpacker((float *)field, (int32_t *)buf, (int32_t *)(buf + header_size), nelm, &nbits);
       }
 
-      STREAM_OUT(*stream_in) += (lngw+1) ;                // lngw + 1 32 bit words extracted from stream
+      STREAM_OUT(*stream_in) += (lngw/*+1*/) ;                // lngw + 1 32 bit words extracted from stream
       break;
     }
-
+#endif
     case FST_TYPE_REAL_IEEE:                // IEEE (normally replaced with FST_TYPE_REAL_REL_ERR, except for IEEE_64)
-if(nbits_in != 64)exit(4) ;
+if(nbits_in != 64) goto fail ;
     case FST_TYPE_COMPLEX: {                // complex numbers (encoded as IEEE)
       if (datyp == FST_TYPE_COMPLEX) nelm *= 2;             // complex data, double number of values
       lngw = (nelm * nbits_in + 31)/32 ;
@@ -871,31 +872,32 @@ if(nbits_in != 64)exit(4) ;
       lngw++ ;
       break;
     }
-
+#if 0
     case FST_TYPE_REAL_IEEE | FST_TYPE_TURBOPACK: {
 exit(4) ;
-      uint32_t header = buf[0] ;
-      int32_t datyp_ = header >> 24, nbits_ = ((header >> 18) & 0x3F)+1 , nw_ = header & 0x3FFFF ;
-      if(datyp_ != datyp || nbits_ != nbits_in) goto fail ;
-
-      buf++ ;                                               // skip header
+//       uint32_t header = buf[0] ;
+//       int32_t datyp_ = header >> 24, nbits_ = ((header >> 18) & 0x3F)+1 , nw_ = header & 0x3FFFF ;
+//       if(datyp_ != datyp || nbits_ != nbits_in) goto fail ;
+// 
+//       buf++ ;                                               // skip header
       int32_t lngw = buf[0] + 1 ;
-      if( (lngw & 0x3FFFF) != nw_ ) goto fail ;
+//       if( (lngw & 0x3FFFF) != nw_ ) goto fail ;
       // IEEE Floating point direct packers
       c_armn_uncompress32((float *)field, (byte *)(buf + 1), ni, nj, nk, nbits_in);
-      STREAM_OUT(*stream_in) += (lngw+1) ;                // lngw + 1 32 bit words extracted from stream
+      STREAM_OUT(*stream_in) += (lngw/*+1*/) ;                // lngw + 1 32 bit words extracted from stream
       break;
     }
-
+#endif
+#if 0
     case FST_TYPE_UNSIGNED:                // Integers, short integers or bytes (unsigned)
     case FST_TYPE_UNSIGNED | FST_TYPE_TURBOPACK: {
 exit(4) ;
-      uint32_t header = buf[0] ;
-      int32_t datyp_ = header >> 24, nbits_ = ((header >> 18) & 0x3F)+1 , nw_ = header & 0x3FFFF ;
-      if(datyp_ != datyp || nbits_ != nbits_in) goto fail ;
-
-      int32_t lngw = nw_ ;   // TEMPORARY
-      buf++ ;                                               // skip header
+//       uint32_t header = buf[0] ;
+//       int32_t datyp_ = header >> 24, nbits_ = ((header >> 18) & 0x3F)+1 , nw_ = header & 0x3FFFF ;
+//       if(datyp_ != datyp || nbits_ != nbits_in) goto fail ;
+// 
+//       lngw = nw_ ;   // TEMPORARY
+//       buf++ ;                                               // skip header
       if (is_type_turbopack(datyp)) lngw = buf[0] + 1 ;
 
       int offset = is_type_turbopack(datyp) ? 1 : 0;
@@ -927,10 +929,10 @@ exit(4) ;
           ier = compact_u_integer(field, (void *) NULL, buf, nelm, nbits_in, 0, xdf_stride, 0);
         }
       }
-      STREAM_OUT(*stream_in) += (lngw+1) ;                // lngw + 1 32 bit words extracted from stream
+      STREAM_OUT(*stream_in) += (lngw/*+1*/) ;                // lngw + 1 32 bit words extracted from stream
       break;
     }
-
+#endif
     // integers, short integers or bytes (unsigned), last gen encoders
     case FST_TYPE_UNSIGNED_NG:
     case (FST_TYPE_UNSIGNED_NG) | FST_TYPE_TURBOPACK: {
@@ -992,18 +994,18 @@ exit(4) ;
       lngw = 1 + (decoded + 31)/32 ;
       break;
     }
-
+#if 0
     // Integers, short integers or bytes (signed)
     case FST_TYPE_SIGNED: {
 exit(4) ;
 #ifdef use_old_signed_pack_unpack_code
-      int lngw ;
-      uint32_t header = buf[0] ;
-      int32_t datyp_ = header >> 24, nbits_ = ((header >> 18) & 0x3F)+1 , nw_ = header & 0x3FFFF ;
-      if(datyp_ != datyp || nbits_ != nbits_in) goto fail ;
-
-      lngw = nw_ ;   // TEMPORARY
-      buf++ ;                                               // skip header
+//       int lngw ;
+//       uint32_t header = buf[0] ;
+//       int32_t datyp_ = header >> 24, nbits_ = ((header >> 18) & 0x3F)+1 , nw_ = header & 0x3FFFF ;
+//       if(datyp_ != datyp || nbits_ != nbits_in) goto fail ;
+// 
+//       lngw = nw_ ;   // TEMPORARY
+//       buf++ ;                                               // skip header
 
       int32_t *field_out ;
       if (XdfShort || XdfByte || XdfDouble) {                // need temporary array to unpack
@@ -1026,13 +1028,14 @@ exit(4) ;
           }
       }
       if (field_out != (int32_t*)field) free(field_out); // needed temporary array
-      STREAM_OUT(*stream_in) += (lngw+1) ;                // lngw + 1 32 bit words extracted from stream
+      lngw = (nelm*nbits_in + 31)/32 ;
+      STREAM_OUT(*stream_in) += (lngw/*+1*/) ;                // lngw + 1 32 bit words extracted from stream
 #else
 #error "use_old_signed_pack_unpack_code not defined"
 #endif
       break;
     }
-
+#endif
     // floats with max relative error, last gen encoders
     // minabs and zval are passed as biased IEEE exponents (in header)
     // minabs : smallest signicant absolute value (should match minabs/zval from fp_to_qlog_n)
@@ -1081,6 +1084,7 @@ exit(4) ;
 
       buf++ ;                                               // skip header
       ier = compact_u_integer(field, (void *) NULL, buf, lngw, 32, 0, xdf_stride, 0);
+      if(ier < 0) goto fail ;
       if(nelm & 3){    // not a multiple of 4, null terminate
         int shift = (4 - (nelm & 3)) * 8 ;
         field[lngw-1] >>= shift ;
@@ -1100,6 +1104,7 @@ exit(4) ;
 
       buf++ ;                                               // skip header
       ier = compact_u_char(field, (void *) NULL, buf, nelm, 8, 0, xdf_stride);
+      if(ier < 0) goto fail ;
 
       STREAM_OUT(*stream_in) += (lngw+1) ;                // lngw + 1 32 bit words extracted from stream
       lngw++ ;
@@ -1107,9 +1112,8 @@ exit(4) ;
     }
 
     default:
-      Lib_Log(APP_LIBFST, APP_ERROR, "%s: invalid datyp=%d\n", __func__, datyp);
-      ier = -1;
-      goto end ;
+      Lib_Log(APP_LIBFST, APP_ERROR, "%s: invalid datyp = %d\n", __func__, datyp);
+      goto fail ;
   } // end of switch (datyp)
 
   STREAM_XTRACT_ALIGN32(*stream_in) ;   // align stream to 32 bit boundary
@@ -1150,7 +1154,7 @@ end:
   return lngw ;   // "decoded" words
 
 fail:
-  ier = -1 ;
+  lngw = -1 ;
   *stream_in = stream_in_ ;   // restore state of input stream to state at function entry
 exit(1) ;                     // when debugging
   goto end ;
