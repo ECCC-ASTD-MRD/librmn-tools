@@ -555,7 +555,7 @@ redo_switch_datyp:
       break;
     }
 
-    // integers, short integers or bytes (unsigned)
+    // integers, short integers or bytes (unsigned), encode as next-gen unsigned
     case FST_TYPE_UNSIGNED:{
       datyp = FST_TYPE_UNSIGNED_NG ;
       goto redo_switch_datyp ;
@@ -624,7 +624,7 @@ redo_switch_datyp:
       }
       break;
 
-    // integers, short integers or bytes (signed)
+    // integers, short integers or bytes (signed), encode as next-gen signed
     case FST_TYPE_SIGNED:{
       datyp = FST_TYPE_SIGNED_NG ;
       goto redo_switch_datyp ;
@@ -663,8 +663,8 @@ redo_switch_datyp:
                   __func__, FST_TYPE_STRING);
           dejavu[8] = 1;
         }
-        turbo_on = 0;
-    }
+      }
+      turbo_on = 0;
 
       uint32_t *buf = (void *)STREAM_IN(*stream_out) ;
       nw = (ni*nj*nk * 8 + 31) / 32 ;
@@ -680,20 +680,20 @@ redo_switch_datyp:
     }
 
     default:
-        Lib_Log(APP_LIBFST, APP_ERROR, "%s: invalid datyp=%d\n", __func__, datyp);
+        Lib_Log(APP_LIBFST, APP_ERROR, "%s: unsupported data type (%d)\n", __func__, datyp);
         goto fail ;
   } // end switch
 
   StreamFlush(stream_out) ;     // make sure we end on a proper stream boundary
 
 end:
-  // free temporary arrays if they were used
+  // free temporary arrays if allocated
   if (field_f       != NULL) free(field_f);
-//   if (field_missing != NULL) free(field_missing);
+  if (field_missing != NULL) free(field_missing);
 
   xdf_byte = xdf_short = xdf_double = 0 ;               // reset other than 32 bits flags
   datyp = datyp | missing_on | turbo_on ;               // restore missing and turbo flags, use possibly revised datyp
-  *data_kind = datyp | (nbits << 8) ;                  // compound information for decoder
+  *data_kind = datyp | (nbits << 8) ;                   // compound information for decoder
   return nw ;
 
 fail :
@@ -783,59 +783,10 @@ int fst98_decode(
       lngw++ ;
       break;
     }
-#if 0
-    case FST_TYPE_REAL_OLD_QUANT: {          // Floating Point, old style packers
-exit(4) ;
-      uint32_t lngw = ((nelm * nbits_in) + (96+24) + 31) / 32;
 
-//       uint32_t header = buf[0] ;                            // get and check header
-//       int32_t datyp_ = header >> 24, nbits_ = ((header >> 18) & 0x3F)+1 , lngw_ = header & 0x3FFFF ;
-//       if(datyp_ != datyp || nbits_ != nbits_in || (lngw & 0x3FFFF) != lngw_) goto fail ;
-// 
-//       buf++ ;                                               // skip header
-      double dmin = 0.0, dmax = 0.0, tempfloat = 99999.0;   // by_product of decoder
-      packfunc(field, buf, buf + 3, nelm, nbits_in, 24, xdf_stride, 0, &tempfloat, &dmin , &dmax);
-
-      STREAM_OUT(*stream_in) += (lngw/*+1*/) ;                // lngw + 1 32 bit words extracted from stream
-      break;
-    }
-#endif
-#if 0
-    case FST_TYPE_REAL:
-    case FST_TYPE_REAL | FST_TYPE_TURBOPACK: {
-exit(4) ;
-      // Floating point, new packers
-      int nbits, header_size, stream_size, p1out, p2out, lngw;
-      c_float_packer_params(&header_size, &stream_size, &p1out, &p2out, ni*nj*nk);
-      header_size /= sizeof(int32_t);
-      stream_size /= sizeof(int32_t);
-
-//       uint32_t header = buf[0] ;                            // get and check header
-//       int32_t datyp_ = header >> 24, nbits_ = ((header >> 18) & 0x3F)+1 , lngw_ = header & 0x3FFFF ;
-//       if(datyp_ != datyp || nbits_ != nbits_in) goto fail ;
-// 
-//       buf++ ;                                               // skip header
-      if (is_type_turbopack(datyp)) {
-        int32_t tbuf[ni*nj*nk + 16] ;
-        lngw = buf[0] + 1 ;
-//         if((lngw & 0x3FFFF) != lngw_) goto fail ;
-        memcpy(tbuf, buf, (lngw+1)*sizeof(int32_t)) ;       // copy stream into temporary buffer to avoid overwriting input stream
-        armn_compress((byte *)(tbuf + 1 + header_size), ni, nj, nk, nbits_in, 2, 1);
-        c_float_unpacker((float *)field, (int32_t *)(tbuf + 1), (int32_t *)(tbuf + 1 + header_size), nelm, &nbits);
-
-      }else{
-        lngw = header_size + stream_size ;   // header + data
-//         if((lngw & 0x3FFFF) != lngw_) goto fail ;
-        c_float_unpacker((float *)field, (int32_t *)buf, (int32_t *)(buf + header_size), nelm, &nbits);
-      }
-
-      STREAM_OUT(*stream_in) += (lngw/*+1*/) ;                // lngw + 1 32 bit words extracted from stream
-      break;
-    }
-#endif
     case FST_TYPE_REAL_IEEE:                // IEEE (normally replaced with FST_TYPE_REAL_REL_ERR, except for IEEE_64)
-if(nbits_in != 64) goto fail ;
-    case FST_TYPE_COMPLEX: {                // complex numbers (encoded as IEEE)
+      if(nbits_in != 64) goto fail ;
+    case FST_TYPE_COMPLEX: {                // complex numbers (encoded as IEEE <= 32 or == 64)
       if (datyp == FST_TYPE_COMPLEX) nelm *= 2;             // complex data, double number of values
       lngw = (nelm * nbits_in + 31)/32 ;
       uint32_t header = buf[0] ;
@@ -872,67 +823,7 @@ if(nbits_in != 64) goto fail ;
       lngw++ ;
       break;
     }
-#if 0
-    case FST_TYPE_REAL_IEEE | FST_TYPE_TURBOPACK: {
-exit(4) ;
-//       uint32_t header = buf[0] ;
-//       int32_t datyp_ = header >> 24, nbits_ = ((header >> 18) & 0x3F)+1 , nw_ = header & 0x3FFFF ;
-//       if(datyp_ != datyp || nbits_ != nbits_in) goto fail ;
-// 
-//       buf++ ;                                               // skip header
-      int32_t lngw = buf[0] + 1 ;
-//       if( (lngw & 0x3FFFF) != nw_ ) goto fail ;
-      // IEEE Floating point direct packers
-      c_armn_uncompress32((float *)field, (byte *)(buf + 1), ni, nj, nk, nbits_in);
-      STREAM_OUT(*stream_in) += (lngw/*+1*/) ;                // lngw + 1 32 bit words extracted from stream
-      break;
-    }
-#endif
-#if 0
-    case FST_TYPE_UNSIGNED:                // Integers, short integers or bytes (unsigned)
-    case FST_TYPE_UNSIGNED | FST_TYPE_TURBOPACK: {
-exit(4) ;
-//       uint32_t header = buf[0] ;
-//       int32_t datyp_ = header >> 24, nbits_ = ((header >> 18) & 0x3F)+1 , nw_ = header & 0x3FFFF ;
-//       if(datyp_ != datyp || nbits_ != nbits_in) goto fail ;
-// 
-//       lngw = nw_ ;   // TEMPORARY
-//       buf++ ;                                               // skip header
-      if (is_type_turbopack(datyp)) lngw = buf[0] + 1 ;
 
-      int offset = is_type_turbopack(datyp) ? 1 : 0;
-      if (XdfShort) {
-        if (is_type_turbopack(datyp)) {
-          uint32_t t[ni*nj*nk] ;
-          memcpy(t, buf, lngw*sizeof(uint32_t)) ;  // copy to temporary storage to avoid overwriting stream when unpacking
-          int nbytes = armn_compress((byte *)(t + offset), ni, nj, nk, nbits_in, 2, 0);
-          memcpy(field, t + offset, nbytes);
-        }else{
-          ier = compact_u_short(field, (void *) NULL, buf, nelm, nbits_in, 0, xdf_stride);
-        }
-      } else if(XdfByte) {
-        if (is_type_turbopack(datyp)) {
-          uint32_t t[ni*nj*nk] ;
-          memcpy(t, buf, lngw*sizeof(uint32_t)) ;  // copy to temporary storage to avoid overwriting stream when unpacking
-          armn_compress((byte *)(t + offset), ni, nj, nk, nbits_in, 2, 0);
-          memcpy_16_8((uint8_t *)field, (uint16_t *)(t + offset), nelm);
-        }else{
-          ier = compact_u_char(field, (void *) NULL, buf, nelm, nbits_in, 0, xdf_stride);
-        }
-      }else{
-        if (is_type_turbopack(datyp)) {
-          uint32_t t[ni*nj*nk] ;
-          memcpy(t, buf, lngw*sizeof(uint32_t)) ;  // copy to temporary storage to avoid overwriting stream when unpacking
-          armn_compress((byte *)(t + offset), ni, nj, nk, nbits_in, 2, 0);
-          memcpy_16_32((uint32_t *)field, (uint16_t *)(t + offset), nbits_in, nelm);
-        }else{
-          ier = compact_u_integer(field, (void *) NULL, buf, nelm, nbits_in, 0, xdf_stride, 0);
-        }
-      }
-      STREAM_OUT(*stream_in) += (lngw/*+1*/) ;                // lngw + 1 32 bit words extracted from stream
-      break;
-    }
-#endif
     // integers, short integers or bytes (unsigned), last gen encoders
     case FST_TYPE_UNSIGNED_NG:
     case (FST_TYPE_UNSIGNED_NG) | FST_TYPE_TURBOPACK: {
@@ -994,48 +885,7 @@ exit(4) ;
       lngw = 1 + (decoded + 31)/32 ;
       break;
     }
-#if 0
-    // Integers, short integers or bytes (signed)
-    case FST_TYPE_SIGNED: {
-exit(4) ;
-#ifdef use_old_signed_pack_unpack_code
-//       int lngw ;
-//       uint32_t header = buf[0] ;
-//       int32_t datyp_ = header >> 24, nbits_ = ((header >> 18) & 0x3F)+1 , nw_ = header & 0x3FFFF ;
-//       if(datyp_ != datyp || nbits_ != nbits_in) goto fail ;
-// 
-//       lngw = nw_ ;   // TEMPORARY
-//       buf++ ;                                               // skip header
 
-      int32_t *field_out ;
-      if (XdfShort || XdfByte || XdfDouble) {                // need temporary array to unpack
-        field_out = malloc(nelm * sizeof(int));
-      }else{
-        field_out = (int32_t *)field;
-      }
-      // unpack into field_out
-      ier = compact_u_integer(field_out, (void *) NULL, buf, nelm, nbits_in, 0, xdf_stride, 1);
-      if (XdfShort) {                           // copy into "short" destination
-        int16_t *out = (int16_t *)field;
-        for (int i = 0; i < nelm; i++) {
-          out[i] = field_out[i];
-        }
-      }
-      else if (XdfByte) {                       // copy into "byte" destination
-        int8_t *out = (int8_t *)field;
-        for (int i = 0; i < nelm; i++) {
-          out[i] = field_out[i];
-          }
-      }
-      if (field_out != (int32_t*)field) free(field_out); // needed temporary array
-      lngw = (nelm*nbits_in + 31)/32 ;
-      STREAM_OUT(*stream_in) += (lngw/*+1*/) ;                // lngw + 1 32 bit words extracted from stream
-#else
-#error "use_old_signed_pack_unpack_code not defined"
-#endif
-      break;
-    }
-#endif
     // floats with max relative error, last gen encoders
     // minabs and zval are passed as biased IEEE exponents (in header)
     // minabs : smallest signicant absolute value (should match minabs/zval from fp_to_qlog_n)
@@ -1141,11 +991,6 @@ exit(4) ;
 // fprintf(stderr, "decoder : XdfDouble upgrade_size, nelm = %d, f[0] = %f, ff[0] = %f\n", nelm, f[0], ff[0]);
       upgrade_size(field, 64, f, 32, nelm, 0);
     }
-//     else if (base_type == FST_TYPE_SIGNED || base_type == FST_TYPE_UNSIGNED) {   // int -> long copy
-//       int32_t x[nelm];
-//       memcpy(x, field, nelm * sizeof(int32_t));
-//       resize_int(field, 64, x, 32, nelm);
-//     }
   }
 
 // TODO : instead of token size, return decoded length (same as encoder) ?
