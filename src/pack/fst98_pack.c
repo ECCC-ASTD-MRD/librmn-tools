@@ -206,26 +206,26 @@ void resize_int(
 typedef uint8_t byte ;
 
 // byte to halfword unsigned copy
-static void memcpy_8_16(uint16_t *p16, const uint8_t *p8, int nb) {
-  for (int i = 0; i < nb; i++) { p16[i] = p8[i]; }
-}
+// static void memcpy_8_16(uint16_t *p16, const uint8_t *p8, int nb) {
+//   for (int i = 0; i < nb; i++) { p16[i] = p8[i]; }
+// }
 
 // halfword to byte unsigned copy
-static void memcpy_16_8(uint8_t *p8, const uint16_t *p16, int nb) {
-  for (int i = 0; i < nb; i++) { p8[i] = p16[i]; }
-}
+// static void memcpy_16_8(uint8_t *p8, const uint16_t *p16, int nb) {
+//   for (int i = 0; i < nb; i++) { p8[i] = p16[i]; }
+// }
 
 // halfword to word unsigned copy
-static void memcpy_16_32(uint32_t *p32, const uint16_t *p16, int nbits, int nb) {
-  uint16_t mask = ~ (0xffff << nbits);        // keep lower nbits bits only
-  for (int i = 0; i < nb; i++) { p32[i] = p16[i] & mask; }
-}
+// static void memcpy_16_32(uint32_t *p32, const uint16_t *p16, int nbits, int nb) {
+//   uint16_t mask = ~ (0xffff << nbits);        // keep lower nbits bits only
+//   for (int i = 0; i < nb; i++) { p32[i] = p16[i] & mask; }
+// }
 
 // word to halfword unsigned copy
-static void memcpy_32_16(uint16_t *p16, const uint32_t * p32, int nbits, int nb) {
-  uint32_t mask = ~ (0xffffffff << nbits);    // keep lower nbits bits only
-  for (int i = 0; i < nb; i++) { p16[i] = p32[i] & mask; }
-}
+// static void memcpy_32_16(uint16_t *p16, const uint32_t * p32, int nbits, int nb) {
+//   uint32_t mask = ~ (0xffffffff << nbits);    // keep lower nbits bits only
+//   for (int i = 0; i < nb; i++) { p16[i] = p32[i] & mask; }
+// }
 
 // double to float copy
 static void memcpy_d_f(void * restrict f_, const void *restrict d_, int nb) {
@@ -291,7 +291,9 @@ int32_t fst98_encode(
     Lib_Log(APP_LIBFST, APP_FATAL, "%s: CPU is not Little Endian.\n", __func__);
     exit(3) ;
   }
-  int datyp_in = dtypef.type ;
+  int datyp_in = dtypef.type ;     // data type + turbo/missing/mask flags
+//   int nbits = dtypef.nbits ;
+//   npak is no longer acceptable ?
   int npak = -dtypef.nbits ;                                             // stick to legacy behavior for npak
   int nbits = (npak < 0) ? (-npak) : ( Max(1, 32 / Max(1, npak)) );      // npak == 0 or 1 will set nbits to 32
   if ((npak == 0) || (npak == 1)) { datyp_in = FST_TYPE_BINARY; }        // no compaction, nbits is already 32
@@ -316,14 +318,22 @@ int32_t fst98_encode(
   // FST_TYPE_MAGIC: 512+256+32+1 no interference with turbo pack (128) and missing value (64) flags
   int is_magic   = ((datyp_in & FST_TYPE_MAGIC) == FST_TYPE_MAGIC) ;
   //   if(is_magic) goto fail ;         // TODO : disallow FST_TYPE_MAGIC ?
+
   int missing_on = datyp_in & FSTD_MISSING_FLAG;      // flag : missing value feature is requested
+  int masked_on  = FST_GET_NMASKS(dtypef.type) ;      // get number of active masks
+  if(masked_on){
+    missing_on = 0 ;                                  // masks and missing are mutually exclusive
+    datyp_in = datyp_in & (~FSTD_MISSING_FLAG) ;      // remove missing flag
+  }
+
   int turbo_on   = datyp_in & FST_TYPE_TURBOPACK;     // flag : turbo packing activated
   int no_turbo   = datyp_in & FST_NO_TURBOPACK;       // disable turbo if flag is present
   if(no_turbo) turbo_on = 0 ;
+
   int in_datyp   = base_fst_type(datyp_in);           // suppress flags, only retain base type
 
-  if(base_fst_type(datyp_in) == FST_TYPE_BINARY){     // cancel all options if FST_TYPE_BINARY
-    in_datyp = datyp_in = FST_TYPE_BINARY ;
+  if(in_datyp == FST_TYPE_BINARY){                    // cancel all options if FST_TYPE_BINARY
+    datyp_in = FST_TYPE_BINARY ;
     xdf_double = xdf_short = xdf_byte = 0 ;
     XdfDouble = XdfShort = XdfByte = 0 ;
     missing_on = turbo_on = 0 ;
@@ -347,7 +357,7 @@ int32_t fst98_encode(
   }
 
 // is_magic means source array is double. set packing funtion for floating point numbers appropriately
-  PackFunctionPointer packfunc = ((XdfDouble) || (is_magic)) ? compact_p_double : compact_p_float;
+//   PackFunctionPointer packfunc = ((XdfDouble) || (is_magic)) ? compact_p_double : compact_p_float;
 
   if ( turbo_on && (nbits > 32) ) {
     if (! dejavu[4]) {
@@ -411,7 +421,7 @@ int32_t fst98_encode(
       if (nbits <= 32) {                // convert from double to float if nbits not larger than 32
         field_f = malloc(ni * nj * _nk * sizeof(float));
         memcpy_d_f(field_f, (const double *)field_in, ni*nj*_nk) ;     // copy doubles into floats
-        packfunc = &compact_p_float;                                   // will pack from floats
+//         packfunc = &compact_p_float;                                   // will pack from floats
         field_u32 = (uint32_t*)field_f;                                // source is now new float array
       }else if (nbits != 64) {
         if (! dejavu[2]) {
@@ -446,7 +456,11 @@ int32_t fst98_encode(
     nw++ ;
     goto end ;
   }
+
 // fprintf(stderr, "turbo_on = %d, no_turbo = %d\n", turbo_on, no_turbo);
+// mask array will have a useful dimension of ((ni*nj*nk + 7)/8) * masked_on  bytes
+  uint32_t masks_size   = (masked_on == 0) ? 1 : ((ni*nj*nk + 7)/8) ;
+  uint32_t masks_number = (masked_on == 0) ? 1 : masked_on ;
 redo_switch_datyp:
 
   switch (datyp) {
@@ -473,7 +487,7 @@ redo_switch_datyp:
       dtypef.maxerr = 0.0f ;
       datyp = FST_TYPE_REAL_ABS_ERR ;
       goto redo_switch_datyp ;
-      break;
+//       break;
     }
 
     // floating point with max absolute error, last gen style packers and encoders
@@ -481,6 +495,10 @@ redo_switch_datyp:
       if(navail < ni*nj*nk+1) goto fail ;                   // insufficient space for worst case
 
       int32_t t[ni*nj*nk] ;
+      uint8_t masks[masks_number][masks_size], masks_rle[masks_size] ;
+      if(masked_on != 0){
+        // build and RLE compress masks, replace masked values with high predictability values
+      }
       float maxerr = dtypef.maxerr ;
       int32_t offset = turbo_on ? 0 : 0x7FFFFFFF, e_base = 0 ;
       e_base = fp_to_qlin((float *)field_u32, (int32_t *)t, ni*nj*nk, maxerr, ((maxerr != 0) ? 0 : nbits), &offset, NULL) ;    // quantize field_u32[] -> t[]
@@ -505,6 +523,7 @@ redo_switch_datyp:
     case FST_TYPE_REAL_REL_ERR:{
       if(navail < ni*nj*nk+1) goto fail ;                   // insufficient space for worst case
 
+      uint8_t masks[masks_number][masks_size], masks_rle[masks_size] ;
       int32_t t[ni*nj*nk] ;
       float minabs = dtypef.minabs , zabs = dtypef.zval ;
       fp_to_qlog((float *)field_u32, (int32_t *)t, ni*nj*nk, nbits, minabs) ;                          // "quantize" field_u32[] -> t[]
@@ -525,7 +544,7 @@ redo_switch_datyp:
       dtypef.maxerr = 0.0f ;
       datyp = FST_TYPE_REAL_ABS_ERR ;
       goto redo_switch_datyp ;
-      break;
+//       break;
     }
 
     // IEEE and IEEE complex representation
@@ -535,7 +554,7 @@ redo_switch_datyp:
       dtypef.zval = 0.0f ;
       datyp = FST_TYPE_REAL_REL_ERR ;
       goto redo_switch_datyp ;
-      break ;
+//       break ;
 
     case FST_TYPE_COMPLEX: {
       int32_t f_ni   = 2 * ni;
@@ -559,7 +578,7 @@ redo_switch_datyp:
     case FST_TYPE_UNSIGNED:{
       datyp = FST_TYPE_UNSIGNED_NG ;
       goto redo_switch_datyp ;
-      break;
+//       break;
     }
 
     // integers, short integers or bytes (unsigned), next gen encoders
@@ -628,7 +647,7 @@ redo_switch_datyp:
     case FST_TYPE_SIGNED:{
       datyp = FST_TYPE_SIGNED_NG ;
       goto redo_switch_datyp ;
-      break;
+//       break;
     }
 
     // character data, R4A items (4 chars in an unsigned integer)
@@ -754,7 +773,7 @@ int fst98_decode(
   // Suppress missing data flag
   datyp = datyp & (~FSTD_MISSING_FLAG) ;
 
-  UnpackFunctionPointer packfunc = XdfDouble ? &compact_u_double : &compact_u_float;
+//   UnpackFunctionPointer packfunc = XdfDouble ? &compact_u_double : &compact_u_float;
 
   int nelm = ni*nj*nk ;
   uint32_t *buf = NULL ;
@@ -986,7 +1005,7 @@ int fst98_decode(
   if (XdfDouble && (nbits_in != 64) && base_fst_type(datyp) != FST_TYPE_REAL_OLD_QUANT) {
     const int base_type = base_fst_type(datyp);
     if(type_is_real(base_type)) {          // float -> double copy
-      float f[nelm], *ff = (float *)field;
+      float f[nelm]/*, *ff = (float *)field*/;
       memcpy(f, field, nelm * sizeof(float));
 // fprintf(stderr, "decoder : XdfDouble upgrade_size, nelm = %d, f[0] = %f, ff[0] = %f\n", nelm, f[0], ff[0]);
       upgrade_size(field, 64, f, 32, nelm, 0);

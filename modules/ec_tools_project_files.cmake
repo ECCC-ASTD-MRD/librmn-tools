@@ -26,6 +26,7 @@ set(PROJECT_C_FILES
   src/pack/float_block_encoders.c
   src/pack/fp_qflog.c
   src/pack/fp_qlin.c
+  src/pack/fst98_mask.c
   src/id/identify_compiler.c
   src/id/identify_mpi_child.c
 #   src/pack/ieee_quantize.c

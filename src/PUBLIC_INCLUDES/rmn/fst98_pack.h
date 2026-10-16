@@ -39,6 +39,12 @@
 #define DST_BYTE      (1 << 4)
 // disable turbo (for types where turbo is on by default)
 #define FST_NO_TURBOPACK  0x0100
+// masked record (variant of "missing") (1->7 special values)
+#define FST_MASKED_FLAG   0x0E00
+// set number of "masked" values
+#define FST_SET_NMASKS(TYPE, N)  TYPE = ((TYPE & 0xF100) | ((N & 0x7) << 9)) ;
+// get number of "masked" values
+#define FST_GET_NMASKS(TYPE)  ((TYPE >> 9) & 0x7)
 // new data types
 // floating point with absolute error criteria
 #define FST_TYPE_REAL_ABS_ERR 12
@@ -72,16 +78,29 @@ extern  int downgrade_32, xdf_double, xdf_short, xdf_byte, xdf_stride ;
 //   uint8_t  esize ;                  // element size in bytes -1  (1 <= element size <= 256)
 // }block_3d ;
 
+typedef union{
+    float f32 ;
+    int32_t  i32 ;
+    uint32_t u32 ;
+    int16_t  i16 ;
+    uint16_t u16 ;
+    int8_t   i08 ;
+    uint8_t  u08 ;
+  } maskflag ;
+typedef maskflag flag_array[7] ;  // largest possible array of mask values
+#define FLAG_ARRAY_NULL {{0},{0},{0},{0},{0},{0},{0}}
+
 typedef struct{
-  uint16_t type ;
-  uint8_t  size ;
-  uint8_t  nbits ;
-  float maxerr ;
-  float minabs ;
-  float zval ;
+  uint16_t type ;    // type and options (lower 12 bits used for now)
+  uint8_t  size ;    // one of SRC_DOUBLE .. DST_BYTE
+  int8_t  nbits ;    // 0 -> 64
+  float maxerr ;     // max error (absolute or relative)
+  float minabs ;     // smallest significant absolute value
+  float zval ;       // replacement if |value| < minabs
+  flag_array flag ;
 } fst_datyp ;
-CT_ASSERT(sizeof(fst_datyp) == 16, "ERROR: sizeof(fst_datyp) MUST BE 16")
-static const fst_datyp fst_datyp_null = {.type = 0, .size = 0, .nbits = 0, .maxerr = 0.0f, .minabs = 0.0f, .zval = 0.0f } ;
+CT_ASSERT(sizeof(fst_datyp) == 44, "ERROR: sizeof(fst_datyp) MUST BE 44")
+static const fst_datyp fst_datyp_null = {.type = 0, .size = 0, .nbits = 0, .maxerr = 0.0f, .minabs = 0.0f, .zval = 0.0f, .flag = FLAG_ARRAY_NULL } ;
 
 // TODO : eliminate npak, replace datyp with fst_encoding
 //! legacy encoders (data types 0,1,2,3,4,5,6,7,8), including turbo and missing values options

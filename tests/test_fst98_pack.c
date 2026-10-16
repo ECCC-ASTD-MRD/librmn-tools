@@ -227,9 +227,9 @@ void encode_decode_float(int ni, int nj, void *f_in, void *f_out, int nbits, int
 // fprintf(stderr, "DEBUG : data in %f %f %f, data_control = %8.8x\n", f64[0], f64[ni*nj/2-1], f64[ni*nj-1], data_control);
   }
 
-  dtypef.size  = data_control ;
-  dtypef.type  = data_type ;
-  dtypef.nbits = nbits ;
+  dtypef.size   = data_control ;
+  dtypef.type   = data_type ;
+  dtypef.nbits  = nbits ;
   dtypef.maxerr = maxerr ;
   dtypef.minabs = minabs ;
   dtypef.zval   = zval ;
