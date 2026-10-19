@@ -89,7 +89,8 @@ typedef union{
   } maskflag ;
 typedef maskflag flag_array[7] ;  // largest possible array of mask values
 #define FLAG_ARRAY_NULL {{0},{0},{0},{0},{0},{0},{0}}
-
+// TODO : add a bitmask for equality check between value and maskflag ?
+//        (maskflag & bitmask) == (value & bitmask)
 typedef struct{
   uint16_t type ;    // type and options (lower 12 bits used for now)
   uint8_t  size ;    // one of SRC_DOUBLE .. DST_BYTE

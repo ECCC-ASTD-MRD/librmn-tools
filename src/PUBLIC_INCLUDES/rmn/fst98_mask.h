@@ -16,8 +16,8 @@
 // 101n   n = rep count - 1
 #define RLE_MICRO_0 0xA
 // 110n
-#define RLE_MICRO_1 0xD
-#define RLE_MICRO_OFFSET 0
+#define RLE_MICRO_1 0xC
+#define RLE_MICRO_OFFSET 1
 
 // 1001nnnn   nnnnnnnn = rep count - 3
 #define RLE_SMALL_0 0x90
@@ -39,12 +39,19 @@
 
 typedef struct{
   uint32_t code ;    // encoded repeat count and 0x00 / 0xFF byte marker
-  uint16_t left ;    // leftover repeat count
+  union{
+    uint16_t left ;  // leftover repeat count
+    uint16_t count ; // repeat count
+  };
   uint8_t  bits ;    // number of bits needed for code
   uint8_t  byte ;    // repeated byte (0x00 / 0xFF)
 }fst_rle_code ;
 
 fst_rle_code fst_rle_token(uint8_t byte, uint32_t count);
-int32_t fst_rle_encode(uint8_t byte, uint32_t count, bitstream *stream);
+int32_t put_rle_count(uint8_t byte, uint32_t count, bitstream *stream);
+// properly terminate an RLE stream with a special token (count == 0)
+#define CLOSE_RLE_STREAM(S) put_rle_count(0, 0, S)
+
+fst_rle_code get_rle_token(bitstream *stream);
 
 #endif
