@@ -24,7 +24,7 @@
 
 #include <App.h>
 
-#include <rmn/fst98_pack.h>
+#include <rmn/fst_pack.h>
 #include <rmn/lorenzo.h>
 #include <rmn/fp_qlin.h>
 #include <rmn/fp_qflog.h>

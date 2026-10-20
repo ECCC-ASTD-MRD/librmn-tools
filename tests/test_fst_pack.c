@@ -20,7 +20,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include <rmn/fst98_pack.h>
+#include <rmn/fst_pack.h>
 #include <rmn/misc_helpers.h>
 
 #define GNI 63

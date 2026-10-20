@@ -205,7 +205,6 @@ add_project_test(test_endian_bitstream     test_endian_bitstream.c     LINK_LIBS
 add_project_test(test_copy_swap            test_copy_swap.c            LINK_LIBS "rmn::rmn"        NODIAG)
 
 add_project_test(test_data_map             test_data_map.c             LINK_LIBS "rmn::rmn"        NODIAG)
-add_project_test(test_fst98_pack           test_fst98_pack.c           LINK_LIBS "rmn::rmn"        NODIAG)
 
 add_project_test(test_readlx               test_readlx.F90             LINK_LIBS "rmn::rmn-shared" NODIAG)
 
@@ -241,7 +240,8 @@ add_project_test(test_array_nd             test_array_nd.c             LINK_LIBS
 # add_project_test(test_tile_encoders        test_tile_encoders.c        LINK_LIBS "rmn::rmn;libaec::aec"                 NODIAG)
 add_project_test(test_tile_encoders        test_tile_encoders.c        LINK_LIBS "rmn::rmn"                 NODIAG)
 add_project_test(test_move_bhwd_blocks     test_move_bhwd_blocks.c     LINK_LIBS "rmn::rmn"                 NODIAG)
-add_project_test(test_fst98_mask           test_fst98_mask.c           LINK_LIBS "rmn::rmn"                 NODIAG)
+add_project_test(test_fst_mask             test_fst_mask.c             LINK_LIBS "rmn::rmn"                 NODIAG)
+add_project_test(test_fst_pack             test_fst_pack.c             LINK_LIBS "rmn::rmn"                 NODIAG)
 
 # added to librmn tests
 add_project_test(test_move_blocks          test_move_blocks.c          LINK_LIBS "rmn::rmn"        NO_TOOLS NODIAG)

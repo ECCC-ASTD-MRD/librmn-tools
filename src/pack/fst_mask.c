@@ -11,7 +11,7 @@
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
 // Library General Public License for more details.
 //
-#include <rmn/fst98_mask.h>
+#include <rmn/fst_mask.h>
 
 // partial encoding of a single byte repeat count
 // byte  [IN] : byte to be repeated

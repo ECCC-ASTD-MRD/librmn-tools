@@ -26,14 +26,14 @@ set(PROJECT_C_FILES
   src/pack/float_block_encoders.c
   src/pack/fp_qflog.c
   src/pack/fp_qlin.c
-  src/pack/fst98_mask.c
+  src/pack/fst_mask.c
   src/id/identify_compiler.c
   src/id/identify_mpi_child.c
 #   src/pack/ieee_quantize.c
 #   src/pred/dwt_i_lgt53.c
 #   src/pred/lorenzo_c.c
   src/diag/misc_analyze.c
-  src/pack/fst98_pack.c
+  src/pack/fst_pack.c
   src/pack/misc_operators.c
   src/pack/misc_pack.c
 #   src/pack/move_blocks.c
@@ -115,7 +115,8 @@ set(PROJECT_H_FILES
   src/PUBLIC_INCLUDES/rmn/float_block_encoders.h
   src/PUBLIC_INCLUDES/rmn/fp_qflog.h
   src/PUBLIC_INCLUDES/rmn/fp_qlin.h
-  src/PUBLIC_INCLUDES/rmn/fst98_pack.h
+  src/PUBLIC_INCLUDES/rmn/fst_mask.h
+  src/PUBLIC_INCLUDES/rmn/fst_pack.h
   src/PUBLIC_INCLUDES/rmn/function_pointers.h
   src/PUBLIC_INCLUDES/rmn/identify_c_compiler.h
   src/PUBLIC_INCLUDES/rmn/identify_fortran_compiler.hf

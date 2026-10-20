@@ -1,8 +1,8 @@
 #include <stdio.h>
 #include <stdint.h>
 
-#include <rmn/fst98_mask.h>
-#include <rmn/fst98_mask.h>
+#include <rmn/fst_mask.h>
+#include <rmn/fst_mask.h>
 
 int main(int argc, char **argv){
   (void) (argc) ;
