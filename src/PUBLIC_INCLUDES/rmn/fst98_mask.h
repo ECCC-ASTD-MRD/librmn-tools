@@ -11,6 +11,8 @@
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
 // Library General Public License for more details.
 //
+// RLE encoding/decoding for use in fst record bit masks
+//
 #if ! defined(RLE_MICRO_0)
 
 // 101n   n = rep count - 1
@@ -53,5 +55,7 @@ int32_t put_rle_count(uint8_t byte, uint32_t count, bitstream *stream);
 #define CLOSE_RLE_STREAM(S) put_rle_count(0, 0, S)
 
 fst_rle_code get_rle_token(bitstream *stream);
+
+int32_t load_expand(uint32_t * restrict d, uint32_t * restrict s, uint32_t plug, uint32_t * restrict mask, uint32_t n);
 
 #endif

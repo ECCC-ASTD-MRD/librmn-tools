@@ -76,7 +76,7 @@ static int32_t put_rle_count_(uint8_t byte, uint32_t count, bitstream *stream){
 int32_t put_rle_count(uint8_t byte, uint32_t count, bitstream *stream){
   int32_t totbits = 0 ;
 
-  if(count == 0) STREAM_PUT_NBITS(*stream, 0xFF, 9) ;  // end of sequence code
+  if(count == 0) STREAM_PUT_NBITS(*stream, 0x00, 9) ;  // end of sequence code (byte == 0x00)
 
   while(count > 0xFFFF){
     totbits += put_rle_count_(byte, 0xFFFF, stream) ;
@@ -131,4 +131,83 @@ fst_rle_code get_rle_token(bitstream *stream){
     }
   }
   return r ;
+}
+
+// used to prevent compiler from calling memcpy
+static uint32_t dummy = 0 ;
+void set_useless_symbol(void){
+  dummy++ ;
+}
+// expand using mask, up to 32 values
+// d   [OUT] : destination array
+// s    [IN] : source array
+// mask [IN] : 32 bit control mask
+// n    [IN] : number of valid bits in mask (up to 32)
+// return number of values copied from source to destination
+static int32_t load_expand_n(uint32_t * restrict d, uint32_t * restrict s, uint32_t plug, uint32_t mask, uint32_t n){
+  if(n == 0) return 0 ;     // nothing to do
+  uint32_t *s0 = s ;        // start of source
+  n = (n > 32) ? 32 : n ;
+  uint32_t emask = 0xFFFFFFFF >> (32 - n) ;
+
+  if(mask == 0){                 // copy all values from source
+    if(n == 32){
+      for(uint32_t i=0 ; i<32 ; i++) { d[i] = s[i] ; }
+    }else{
+      for(uint32_t i=0 ; i<32 ; i++) { if(i == n) break ; d[i] = s[i] + dummy ; }
+    }
+    return n ;
+  }
+  if((mask & emask) == emask){   // plug all values
+    if(n == 32){
+      for(uint32_t i=0 ; i<32 ; i++) { d[i] = plug ; }
+    }else if(n == 8){
+      for(uint32_t i=0 ; i<8 ; i++) { if(i == n) break ; d[i] = plug ; }
+    }else{
+      for(uint32_t i=0 ; i<32 ; i++) { if(i == n) break ; d[i] = plug ; }
+    }
+    return 0 ;
+  }
+
+  for(uint32_t i=0 ; i<32 ; i++){         // plug if mask bit is 1, copy otherwise
+    if(i == n) break ;
+    if((mask >> i) & 1){
+      d[i] = plug ;                  // plug destination
+    }else{
+      d[i] = *s ; s++ ;              // copy, then bump source pointer
+    }
+  }
+  return (s - s0) ;
+}
+// specialized (n == 32) version of above
+static int32_t load_expand_32(uint32_t * restrict d, uint32_t * restrict s, uint32_t plug, uint32_t mask){
+  uint32_t *s0 = s ;        // start of source
+  if(mask == 0         ){ for(uint32_t i=0 ; i<32 ; i++) { d[i] = s[i] ; return 32 ; } }
+  if(mask == 0xFFFFFFFF){ for(uint32_t i=0 ; i<32 ; i++) { d[i] = plug ; return  0 ; } }
+  for(int i=0 ; i<32 ; i++){
+    if((mask >> i) & 1){
+      d[i] = plug ;                  // plug destination
+    }else{
+      d[i] = *s ; s++ ;              // copy, then bump source pointer
+    }
+  }
+  return (s - s0) ;
+}
+
+// expand using mask
+// d   [OUT] : destination array
+// s    [IN] : source array
+// mask [IN] : control mask array (32 bit items)
+// n    [IN] : number of valid bits in mask array
+// return number of values copied from source to destination
+int32_t load_expand(uint32_t * restrict d, uint32_t * restrict s, uint32_t plug, uint32_t * restrict mask, uint32_t n){
+  int32_t total = 0 ;
+  while(n > 31){
+    int32_t partial = load_expand_32(d, s, plug, *mask) ; // 32 values slice
+    s += partial ; d += 32 ; mask++ ;
+    n -= 32 ;
+    total += partial ;
+  }
+  if(n > 0) total += load_expand_n(d, s, plug, *mask, n) ;          // remaining (< 32) values
+  return total ;
 }
