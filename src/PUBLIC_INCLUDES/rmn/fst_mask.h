@@ -36,6 +36,7 @@
 #define RLE_MAX_COUNT (RLE_LARGE_OFFSET + 255)
 
 #include <stdint.h>
+#include <stdio.h>
 // use Big Endian stream encoding
 #include <rmn/be_stream.h>
 
@@ -51,11 +52,28 @@ typedef struct{
 
 fst_rle_code fst_rle_token(uint8_t byte, uint32_t count);
 int32_t put_rle_count(uint8_t byte, uint32_t count, bitstream *stream);
-// properly terminate an RLE stream with a special token (count == 0)
-#define CLOSE_RLE_STREAM(S) put_rle_count(0, 0, S)
+// properly terminate an RLE stream with a special token (count == 0, byte == 0x00)
+#define CLOSE_RLE_STREAM(S) put_rle_count(0x00, 0, S)
 
 fst_rle_code get_rle_token(bitstream *stream);
 
-int32_t load_expand(uint32_t * restrict d, uint32_t * restrict s, uint32_t plug, uint32_t * restrict mask, uint32_t n);
+typedef union{
+  float f32 ;
+  int32_t i32 ;
+  uint32_t u32 ;
+  int16_t i16 ;
+  uint16_t u16 ;
+  int8_t i8 ;
+  uint8_t u8 ;
+} special_value ;
+
+int32_t build_mask_w(uint32_t * restrict m, uint32_t * restrict s, uint32_t value, int n);
+
+int32_t compress_masked_w(uint32_t * restrict d, uint32_t * restrict m, uint32_t * restrict s, uint32_t value, int n);
+int32_t store_masked_w(uint32_t * restrict d, uint32_t * restrict m, uint32_t * restrict s, int n);
+
+int32_t expand_masked_w(uint32_t * restrict d, uint32_t * restrict m, uint32_t * restrict s, uint32_t value, int n);
+
+void print_mask_w(FILE *f, char *header, uint32_t *m, int n);
 
 #endif
