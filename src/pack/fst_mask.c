@@ -139,24 +139,24 @@ int32_t build_mask_w(uint32_t * restrict m, uint32_t * restrict s, uint32_t valu
     *m = build_mask_w32(s, value) ;
     s += 32 ; m++ ; n -= 32 ;
   }
-  uint8_t *c = (uint8_t *)m ;       // LITTLE ENDIAN MEMORY STORAGE IS ASSUMED
-  if(n > 0){
-    *m = 0 ;                        // initialize mask element to 32 zero bits
-    for(int i=0 ; i< 3 ; i++){      // blocks of 8 values, at most 3 rounds
-      if(n < 8) break ;
-      *c = build_mask_w08(s, value) ;
-      s += 8 ; c++ ; n -= 8 ;
-    }
-  }
+//   uint8_t *c = (uint8_t *)m ;       // LITTLE ENDIAN MEMORY STORAGE IS ASSUMED
+//   if(n > 0){
+//     *m = 0 ;                        // initialize mask element to 32 zero bits
+//     for(int i=0 ; i< 3 ; i++){      // blocks of 8 values, at most 3 rounds
+//       if(n < 8) break ;
+//       *c = build_mask_w08(s, value) ;
+//       s += 8 ; c++ ; n -= 8 ;
+//     }
+//   }
   if(n > 0){                        // up to 7 values left
-    uint32_t m8 = 0 ;
-    for(int i=0 ; i<8 ; i++){
+    uint32_t mask = 0 ;
+    for(int i=0 ; i<31 ; i++){
       if(i == n) break ;
       if(s[i] == value){
-        m8 |= (1 << i) ;
+        mask |= (1 << i) ;
       }
     }
-    *c = m8 ;
+    *m = mask ;
   }
   return n ;
 }
