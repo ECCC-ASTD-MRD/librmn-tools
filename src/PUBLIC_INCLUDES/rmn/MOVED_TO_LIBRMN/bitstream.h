@@ -80,7 +80,10 @@
 // bits left to fill in stream (usable if insertion mode is active)
 #define STREAM_BITS_EMPTY(s) ( ((s).insert >= 0) ? ( ((s).limit - (s).in) * 32l - (s).insert ) : 0 )
 
-// bits available in stream (usable if extraction mode is active)
+// stream is full (or more than full)
+#define STREAM_IS_FULL(s) ( (s).in >= (s).limit )
+// stream is dry
+#define STREAM_IS_EMPTY(s) ( STREAM_BITS_AVAIL(s) <= 0 )
 
 #include <stdint.h>
 #include <stdlib.h>
@@ -174,11 +177,11 @@ uint32_t stream_unpack_i32(bitstream *s, void *in, int nbits, int n, uint32_t op
 // all fields set to 0, makes for a fast initialization with xxx = NULL_BITSTREAM
 #define NULL_BITSTREAM (bitstream) { .acc_i = 0, .acc_x = 0 , .insert = 0 , .xtract = 0, \
                                      .first = NULL, .in = NULL, .out = NULL, .limit = NULL, .full = 0, \
-                                     .alloc = 0, .user = 0, .endian = PACK_ENDIAN, .spare = 0, .valid = 0 } ;
+                                     .alloc = 0, .user = 0, .endian = PACK_ENDIAN, .spare = 0, .valid = 0 }
 #else
 #define NULL_BITSTREAM (bitstream) { .acc_i = 0, .acc_x = 0 , .insert = 0 , .xtract = 0, \
                                      .first = NULL, .in = NULL, .out = NULL, .limit = NULL, .full = 0, \
-                                     .alloc = 0, .user = 0, .endian = 0, .spare = 0, .valid = 0 } ;
+                                     .alloc = 0, .user = 0, .endian = 0, .spare = 0, .valid = 0 }
 #endif
 
-#define SET_NULL_BITSTREAM(s) (s) = NULL_BITSTREAM
+#define SET_NULL_BITSTREAM(s) (s) = NULL_BITSTREAM ;
