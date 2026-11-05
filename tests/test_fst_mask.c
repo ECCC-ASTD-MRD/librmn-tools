@@ -4,6 +4,10 @@
 #include <rmn/fst_mask.h>
 #include <rmn/fst_mask.h>
 
+#define NI 32
+#define NJ 16
+#define NINJ (NI*NJ)
+
 int main(int argc, char **argv){
   (void) (argc) ;
   (void) (argv) ;
@@ -149,6 +153,26 @@ int main(int argc, char **argv){
         break ;
       }
       case 3:{
+        int32_t orig[NJ][NI], packed[NINJ], restored[NJ][NI], mask[1 + NINJ/32], count ;
+        for(int j=0 ; j<NJ ; j++){
+          for(int i=0 ; i<NI ; i++){
+            orig[j][i] = 1 + i*j ;
+          }
+        }
+        for(int i=0 ; i<NI ; i++){ orig[0][i] = orig[NJ-1][i] = 0 ; }  // top and bottom rows
+        for(int j=0 ; j<NJ ; j++){ orig[j][0] = orig[j][NI-1] = 0 ; }  // first and last column
+        for(int j=NJ/4 ; j<3*NJ/4 ; j++){
+          for(int i=NI/4 ; i<3*NI/4 ; i++){
+             orig[j][i] = 0 ;
+          }
+        }
+//         for(int j=NJ-1 ; j>=0 ; j--){
+//           for(int i=0 ; i<NI ; i++){ fprintf(stderr, "%c", (orig[j][i] == 0) ? '*' : ' '); }
+//           fprintf(stderr, "\n") ;
+//         }
+        count = build_mask_w((uint32_t *)mask, (uint32_t *)orig, 0, NINJ) ;
+        fprintf(stderr, "count = %d\n", count) ;
+        print_mask_2D(stderr, "row : ", (uint32_t *)mask, NI, NJ);
         break ;
       }
       case 4:{

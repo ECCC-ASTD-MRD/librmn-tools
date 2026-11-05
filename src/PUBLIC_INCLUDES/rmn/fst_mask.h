@@ -75,5 +75,6 @@ int32_t store_masked_w(uint32_t * restrict d, uint32_t * restrict m, uint32_t * 
 int32_t expand_masked_w(uint32_t * restrict d, uint32_t * restrict m, uint32_t * restrict s, uint32_t value, int n);
 
 void print_mask_w(FILE *f, char *header, uint32_t *m, int n);
+void print_mask_2D(FILE *f, char *header, uint32_t *m, int ni, int nj);
 
 #endif

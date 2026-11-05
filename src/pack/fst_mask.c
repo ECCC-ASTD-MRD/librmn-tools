@@ -132,23 +132,14 @@ int32_t compress_masked_w(uint32_t * restrict d, uint32_t * restrict m, uint32_t
 // s     [IN] : source array
 // value [IN] : special value
 // n     [IN] : number of values in source array
-// return number of values copied from s into d
+// return number of values
 int32_t build_mask_w(uint32_t * restrict m, uint32_t * restrict s, uint32_t value, int n){
-  int32_t total = 0 ;
+  int32_t total = 0, n0 = n ;
   while(n > 31){                    // blocks of 32 values
     *m = build_mask_w32(s, value) ;
     s += 32 ; m++ ; n -= 32 ;
   }
-//   uint8_t *c = (uint8_t *)m ;       // LITTLE ENDIAN MEMORY STORAGE IS ASSUMED
-//   if(n > 0){
-//     *m = 0 ;                        // initialize mask element to 32 zero bits
-//     for(int i=0 ; i< 3 ; i++){      // blocks of 8 values, at most 3 rounds
-//       if(n < 8) break ;
-//       *c = build_mask_w08(s, value) ;
-//       s += 8 ; c++ ; n -= 8 ;
-//     }
-//   }
-  if(n > 0){                        // up to 7 values left
+  if(n > 0){                        // up to 31 values left
     uint32_t mask = 0 ;
     for(int i=0 ; i<31 ; i++){
       if(i == n) break ;
@@ -158,7 +149,25 @@ int32_t build_mask_w(uint32_t * restrict m, uint32_t * restrict s, uint32_t valu
     }
     *m = mask ;
   }
-  return n ;
+  return n0 ;
+}
+
+void print_mask_2D(FILE *f, char *header, uint32_t *m, int ni, int nj){
+  uint8_t mask[nj][ni] ;
+  int col = 0, row = 0, ninj = ni*nj ;
+  while(ninj > 0){
+    for(int i=0 ; i<32 && i<ninj ; i++) {
+      mask[row][col] = ((m[0] >> i) & 1) ;
+      col++ ;
+      if(col == ni){row++ ; col = 0; }
+    }
+    m++ ; ninj -= 32 ;
+  }
+  for(int j=nj-1 ; j>=0 ; j--){
+    fprintf(f, "%s%3d ", header, j) ;
+    for(int i=0 ; i<ni ; i++) { fprintf(f, "%1d", mask[j][i] ? 1 : 0) ; }
+    fprintf(f, "\n") ;
+  }
 }
 
 // print mask in big endian style (LSB left)
@@ -173,6 +182,115 @@ void print_mask_w(FILE *f, char *header, uint32_t *m, int n){
     fprintf(f, " %8.8x\n", m[0]) ;
     n -= 32 ; m++ ;
   }
+}
+
+#define ZEN4_SAFE
+// this function may store up to 16 extra 32 bit words in dst in ZEN4_SAFE mode
+// but dst should be large enough anyway as all 16 words could have to be stored
+static int32_t compress_store_32(uint32_t* restrict dst, uint32_t mask, uint32_t* restrict src) {
+#if defined(__AVX512F__)
+  __mmask16 m0 = mask & 0xFF, m1 = mask >> 16 ;
+  __m512i v0, v1 ;
+  v0 = _mm512_loadu_epi32 (src) ;
+  v1 = _mm512_loadu_epi32 (src + 16) ;
+#if defined(ZEN4_SAFE)
+  v0 = _mm512_maskz_compress_epi32(m0, v0) ;             // much faster on ZEN4, O.K. on Intel
+  _mm512_storeu_epi32 (dst, v0) ;                        // may store up to 16 extra elements in dst
+#else
+  _mm512_mask_compressstoreu_epi32 (dst, m0, v0) ;       // very slow on ZEN4, O.K. on Intel
+#endif
+  dst += _mm_popcnt_u32(m0) ;
+#if defined(ZEN4_SAFE)
+  v1 = _mm512_maskz_compress_epi32(m1, v1) ;             // much faster on ZEN4, O.K. on Intel
+  _mm512_storeu_epi32 (dst, v1) ;                        // may store up to 16 extra elements in dst
+#else
+  _mm512_mask_compressstoreu_epi32 (dst, m1, v1) ;       // very slow on ZEN4, O.K. on Intel
+#endif
+  return _mm_popcnt_u32(mask) ;
+#else
+  uint32_t* dst0 = dst ;
+  for(int i=0 ; i<32 ; i++){
+    if(mask & (1 << i)) *dst++ = src[i] ;
+  }
+  return (dst - dst0) ;
+#endif
+}
+
+static int32_t compress_store_n32(uint32_t* restrict dst, uint32_t mask, uint32_t* restrict src, int n) {
+  if(n < 0 || n > 32) return -1 ;
+  uint32_t* dst0 = dst ;
+  for(int i=0 ; i<32 ; i++){
+    if(i == n) break ;
+    if(mask & (1 << i)) *dst++ = src[i] ;
+  }
+  return (dst - dst0) ;
+}
+
+int32_t compress_store(uint32_t* restrict dst, uint32_t *mask, uint32_t* restrict src, int n) {
+  uint32_t* dst0 = dst ;
+  while(n > 31){
+    dst += compress_store_32(dst, mask[0], src) ;
+    src += 32 ; mask++ ; n -=32 ;
+  }
+  if(n > 0){
+    dst += compress_store_n32(dst, mask[0], src, n) ;
+  }
+  return (dst - dst0) ;
+}
+
+static int32_t expand_load_32(uint32_t* restrict dst, uint32_t mask, uint32_t* restrict src, uint32_t value) {
+#if defined(__AVX512F__)
+  __m512i v0, v1, vc ;
+  __mmask16 m0 = mask & 0xFFFF, m1 = mask >> 16 ;
+  v0 = _mm512_maskz_expandloadu_epi32 (m0, src) ;
+  vc = _mm512_set1_epi32(value) ;
+  v1 = _mm512_mask_mov_epi32 (vc, m0, v0) ;
+  _mm512_storeu_epi32 (dst, v1) ;
+  src += _mm_popcnt_u32(m0) ;
+  dst += 16 ;
+  v0 = _mm512_maskz_expandloadu_epi32 (m0, src) ;
+  v1 = _mm512_mask_mov_epi32 (vc, m1, v0) ;
+  _mm512_storeu_epi32 (dst, v1) ;
+  return _mm_popcnt_u32(mask) ;
+#else
+  uint32_t* src0 = src ;
+  for(int i=0 ; i<32 ; i++){
+    if(mask & (1 << i)){
+      dst[i] = *src ; src++ ;
+    }else{
+      dst[i] = value ;
+    }
+  }
+  return (src - src0) ;
+#endif
+}
+
+static int32_t expand_load_n32(uint32_t* restrict dst, uint32_t mask, uint32_t* restrict src, uint32_t value, int n) {
+  if(n < 0 || n > 32) return -1 ;
+  uint32_t* src0 = src ;
+  for(int i=0 ; i<32 ; i++){
+    if(i == n) break ;
+    if(mask & (1 << i)){
+      dst[i] = *src ; src++ ;
+    }else{
+      dst[i] = value ;
+    }
+  }
+  return (src - src0) ;
+}
+
+int32_t expand_load(uint32_t* restrict dst, uint32_t *mask, uint32_t* restrict src, uint32_t value, int n) {
+  uint32_t* src0 = src ;
+  while(n > 31){
+    src += expand_load_32(dst, mask[0], src, value) ;
+    dst += 32 ;
+    mask++ ;
+    n -=32 ;
+  }
+  if(n > 0){
+    src += expand_load_n32(dst, mask[0], src, value, n) ;
+  }
+  return (src - src0) ;
 }
 
 // where mask bit [0..7] != 1, copy s[i] into destination array d
