@@ -204,9 +204,9 @@ void print_mask32(FILE *f, char *header, uint32_t *m, int n){
 #define ZEN4_SAFE
 // this function may store up to 16 extra 32 bit words in dst in ZEN4_SAFE mode
 // but dst should be large enough anyway as all 16 words could have to be stored
-static int32_t compress_store_32(uint32_t* restrict dst, uint32_t mask, uint32_t* restrict src) {
+static int32_t compress_store_32(uint32_t * restrict dst, uint32_t mask, uint32_t * restrict src) {
 #if defined(__AVX512F__)
-  __mmask16 m0 = mask & 0xFF, m1 = mask >> 16 ;
+  __mmask16 m0 = mask & 0xFFFF, m1 = (mask >> 16) ;
   __m512i v0, v1 ;
   v0 = _mm512_loadu_epi32 (src) ;
   v1 = _mm512_loadu_epi32 (src + 16) ;
@@ -265,7 +265,7 @@ static int32_t expand_load_32(uint32_t* restrict dst, uint32_t mask, uint32_t* r
   _mm512_storeu_epi32 (dst, v1) ;
   src += _mm_popcnt_u32(m0) ;
   dst += 16 ;
-  v0 = _mm512_maskz_expandloadu_epi32 (m0, src) ;
+  v0 = _mm512_maskz_expandloadu_epi32 (m1, src) ;
   v1 = _mm512_mask_mov_epi32 (vc, m1, v0) ;
   _mm512_storeu_epi32 (dst, v1) ;
   return _mm_popcnt_u32(mask) ;
