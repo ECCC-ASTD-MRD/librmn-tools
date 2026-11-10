@@ -77,12 +77,23 @@ STATIC uint32_t build_mask_w32(uint32_t *s, uint32_t value){
 // s     [IN] : source array
 // value [IN] : special value
 // return number of values copied from s into d, set m[0] to 32 bit mask value
-STATIC int32_t compress_masked_w32(uint32_t * restrict d, uint32_t * restrict m, uint32_t * restrict s, uint32_t value){
+STATIC int32_t compress_mask32_w32(uint32_t * restrict d, uint32_t * restrict m, uint32_t * restrict s, uint32_t value){
   uint32_t mask = build_mask_w32(s, value), count = 0 ;
   *m = mask ;
   if(mask == 0xFFFFFFFF) return 0 ;
 
   for(int i=0 ; i<32 ; i++){
+    if( (mask & (1 << i)) == 0 ) { *d = s[i] ; d++ ; count++ ; }
+  }
+  return count ;
+}
+STATIC int32_t compress_mask32_w31(uint32_t * restrict d, uint32_t * restrict m, uint32_t * restrict s, uint32_t value, int n){
+  uint32_t mask = build_mask_w32(s, value), count = 0 ;
+  *m = mask ;
+  if(mask == 0xFFFFFFFF) return 0 ;
+
+  for(int i=0 ; i<32 ; i++){
+    if(i == n) break ;
     if( (mask & (1 << i)) == 0 ) { *d = s[i] ; d++ ; count++ ; }
   }
   return count ;
@@ -96,34 +107,38 @@ STATIC int32_t compress_masked_w32(uint32_t * restrict d, uint32_t * restrict m,
 // n     [IN] : number of values in source array
 // return number of values copied from s into d
 // this function should work "in place" as destination array is at worst the same length as the source array
-int32_t compress_masked_w(uint32_t * restrict d, uint32_t * restrict m, uint32_t * restrict s, uint32_t value, int n){
+int32_t compress_mask32_w(uint32_t * restrict d, uint32_t * restrict m, uint32_t * restrict s, uint32_t value, int n, int opt){
+  (void) (opt) ;
   int32_t total = 0 ;
   while(n > 31){                    // blocks of 32 values
-    int32_t count = compress_masked_w32(d, m, s, value) ;
+    int32_t count = compress_mask32_w32(d, m, s, value) ;
     s += 32 ; d += count ; m++ ; n -= 32 ; total += count ;
   }
-  uint8_t *c = (uint8_t *)m ;       // LITTLE ENDIAN MEMORY STORAGE IS ASSUMED
   if(n > 0){
-    *m = 0 ;                        // initialize mask element to 32 zero bits
-    for(int i=0 ; i< 3 ; i++){      // blocks of 8 values, at most 3 rounds
-      if(n < 8) break ;
-      int32_t count = compress_masked_w08(d, c, s, value) ;
-      s += 8 ; d += count ; c++ ; n -= 8 ; total += count ;
-    }
+    total += compress_mask32_w31(d, m, s, value, n) ;
   }
-  if(n > 0){                        // up to 7 values left
-    uint32_t m8 = 0 ;
-    for(int i=0 ; i<8 ; i++){
-      if(i == n) break ;
-      if(s[i] == value){
-        m8 |= (1 << i) ;
-      }else{
-        total++ ;
-        *d = s[i] ; d ++ ;
-      }
-    }
-    *c = m8 ;
-  }
+//   uint8_t *c = (uint8_t *)m ;       // LITTLE ENDIAN MEMORY STORAGE IS ASSUMED
+//   if(n > 0){
+//     *m = 0 ;                        // initialize mask element to 32 zero bits
+//     for(int i=0 ; i< 3 ; i++){      // blocks of 8 values, at most 3 rounds
+//       if(n < 8) break ;
+//       int32_t count = compress_masked_w08(d, c, s, value) ;
+//       s += 8 ; d += count ; c++ ; n -= 8 ; total += count ;
+//     }
+//   }
+//   if(n > 0){                        // up to 7 values left
+//     uint32_t m8 = 0 ;
+//     for(int i=0 ; i<8 ; i++){
+//       if(i == n) break ;
+//       if(s[i] == value){
+//         m8 |= (1 << i) ;
+//       }else{
+//         total++ ;
+//         *d = s[i] ; d ++ ;
+//       }
+//     }
+//     *c = m8 ;
+//   }
   return total ;
 }
 
@@ -133,10 +148,12 @@ int32_t compress_masked_w(uint32_t * restrict d, uint32_t * restrict m, uint32_t
 // value [IN] : special value
 // n     [IN] : number of values in source array
 // return number of values
-int32_t build_mask_w(uint32_t * restrict m, uint32_t * restrict s, uint32_t value, int n){
+int32_t build_mask32(uint32_t * restrict m, uint32_t * restrict s, uint32_t value, int n, int opt){
+  (void) (opt) ;
+  uint32_t negate = (opt & INVERT_MASK) ? (~0) : 0 ;
   int32_t total = 0, n0 = n ;
   while(n > 31){                    // blocks of 32 values
-    *m = build_mask_w32(s, value) ;
+    *m = build_mask_w32(s, value) ^ negate ;
     s += 32 ; m++ ; n -= 32 ;
   }
   if(n > 0){                        // up to 31 values left
@@ -147,12 +164,12 @@ int32_t build_mask_w(uint32_t * restrict m, uint32_t * restrict s, uint32_t valu
         mask |= (1 << i) ;
       }
     }
-    *m = mask ;
+    *m = mask ^ negate ;
   }
   return n0 ;
 }
 
-void print_mask_2D(FILE *f, char *header, uint32_t *m, int ni, int nj){
+void print_mask32_2D(FILE *f, char *header, uint32_t *m, int ni, int nj){
   uint8_t mask[nj][ni] ;
   int col = 0, row = 0, ninj = ni*nj ;
   while(ninj > 0){
@@ -171,7 +188,7 @@ void print_mask_2D(FILE *f, char *header, uint32_t *m, int ni, int nj){
 }
 
 // print mask in big endian style (LSB left)
-void print_mask_w(FILE *f, char *header, uint32_t *m, int n){
+void print_mask32(FILE *f, char *header, uint32_t *m, int n){
   fprintf(f, "%s0123456789ABCDEF0123456789ABCDEF\n", header) ;
   char bits[32] ;
   while(n > 0){
@@ -330,7 +347,8 @@ STATIC int32_t store_masked_w32(uint32_t * restrict d, uint32_t mask, uint32_t *
 // n     [IN] : number of values in source array (and number of bits from m)
 // return number of values copied from s into d
 // this function should work "in place" as destination array is at worst the same length as the source array
-int32_t store_masked_w(uint32_t * restrict d, uint32_t * restrict m, uint32_t * restrict s, int n){
+int32_t store_masked_w(uint32_t * restrict d, uint32_t * restrict m, uint32_t * restrict s, int n, int opt){
+  (void) (opt) ;
   uint32_t *d0 = d ;
   int32_t total = 0 ;
   while(n > 31){                    // blocks of 32 values
@@ -408,7 +426,8 @@ STATIC int32_t expand_masked_w32(uint32_t * restrict d, uint32_t mask, uint32_t 
 // value [IN] : special value stored in d[] if corresponding mask bit is set
 // n     [IN] : number of values copied from source array (<= n)
 // return number of values copied from s into d
-int32_t expand_masked_w(uint32_t * restrict d, uint32_t * restrict m, uint32_t * restrict s, uint32_t value, int n){
+int32_t expand_masked_w(uint32_t * restrict d, uint32_t * restrict m, uint32_t * restrict s, uint32_t value, int n, int opt){
+  (void) (opt) ;
   int32_t total = 0 ;
   while(n > 31){                    // blocks of 32 values
     int32_t count = expand_masked_w32(d, *m, s, value) ;

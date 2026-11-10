@@ -67,14 +67,25 @@ typedef union{
   uint8_t u8 ;
 } special_value ;
 
-int32_t build_mask_w(uint32_t * restrict m, uint32_t * restrict s, uint32_t value, int n);
+// mask options
+#define INVERT_MASK   1024
+#define COMPUTE_MASK   512
+#define MASK_EQ          1
+#define MASK_GT          2
+#define MASK_GE          3
+#define MASK_LT          4
+#define MASK_LE          5
 
-int32_t compress_masked_w(uint32_t * restrict d, uint32_t * restrict m, uint32_t * restrict s, uint32_t value, int n);
-int32_t store_masked_w(uint32_t * restrict d, uint32_t * restrict m, uint32_t * restrict s, int n);
+int32_t build_mask32(uint32_t * restrict m, uint32_t * restrict s, uint32_t value, int n, int opt);
+int32_t compress_store(uint32_t * restrict dst, uint32_t * mask, uint32_t * restrict src, int n);
+int32_t expand_load(uint32_t * restrict dst, uint32_t * mask, uint32_t * restrict src, uint32_t value, int n);
 
-int32_t expand_masked_w(uint32_t * restrict d, uint32_t * restrict m, uint32_t * restrict s, uint32_t value, int n);
+int32_t compress_mask32_w(uint32_t * restrict d, uint32_t * restrict m, uint32_t * restrict s, uint32_t value, int n, int opt);
+int32_t store_masked_w(uint32_t * restrict d, uint32_t * restrict m, uint32_t * restrict s, int n, int opt);
 
-void print_mask_w(FILE *f, char *header, uint32_t *m, int n);
-void print_mask_2D(FILE *f, char *header, uint32_t *m, int ni, int nj);
+int32_t expand_masked_w(uint32_t * restrict d, uint32_t * restrict m, uint32_t * restrict s, uint32_t value, int n, int opt);
+
+void print_mask32(FILE *f, char *header, uint32_t *m, int n);
+void print_mask32_2D(FILE *f, char *header, uint32_t *m, int ni, int nj);
 
 #endif
