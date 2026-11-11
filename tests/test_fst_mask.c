@@ -6,8 +6,8 @@
 #include <rmn/fst_mask.h>
 #include <rmn/timers.h>
 
-#define NI 32
-#define NJ 16
+#define NI 64
+#define NJ 32
 #define NINJ (NI*NJ)
 
 int main(int argc, char **argv){
@@ -22,9 +22,10 @@ int main(int argc, char **argv){
 
 //   fprintf(stderr,"fst98 mask test\n");
 
-  int test = 0, test_1 = 0, test_n = 0 ;
+  int test = 0, test_1 = 0, test_n = 0, verbose = 1 ;
   if(argc > 1){ test_1 = test_n = atoi(argv[1]) ; }
   if(argc > 2){ test_n = atoi(argv[2]) ; }
+  if(argc > 3) verbose = 0 ;
 
   for(test = test_1 ; test <= test_n ; test++){
     switch (test) {
@@ -175,7 +176,7 @@ int main(int argc, char **argv){
         }
         count = build_mask32((void *)mask, (void *)orig, svalue, NINJ, MASK_EQ | INVERT_MASK) ;
         fprintf(stderr, "build count = %d\n", count) ;
-        print_mask32_2D(stderr, "row : ", (void *)mask, NI, NJ);
+        if(verbose) print_mask32_2D(stderr, "row : ", (void *)mask, NI, NJ);
         count = compress_store((void *)packed, (void *)mask, (void *)orig, NINJ) ;
         fprintf(stderr, "store count = %d, expected = %d\n", count, expected) ;
         memset(restored, 0xFF, sizeof(restored)) ;

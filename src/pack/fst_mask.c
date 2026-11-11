@@ -84,6 +84,36 @@ STATIC uint32_t build_mask_w32(uint32_t *s, uint32_t value){
 #endif
 }
 
+// build mask array from n values (1 where s[x] == value, 0 elsewhere
+// where s[0..n-1] == value, set bit i in mask to 1
+// m    [OUT] : result 32 bit mask array
+// s     [IN] : source array
+// value [IN] : special value
+// n     [IN] : number of values in source array
+// opt   [IN] : options (see fst_mask.h)
+// return number of values
+// LSB is associated with s[0]
+int32_t build_mask32(uint32_t * restrict m, uint32_t * restrict s, uint32_t value, int n, int opt){
+  (void) (opt) ;
+  uint32_t negate = (opt & INVERT_MASK) ? (~0) : 0 ;
+  int32_t total = 0, n0 = n ;
+  while(n > 31){                    // blocks of 32 values
+    *m = build_mask_w32(s, value) ^ negate ;
+    s += 32 ; m++ ; n -= 32 ;
+  }
+  if(n > 0){                        // up to 31 values left
+    uint32_t mask = 0 ;
+    for(int i=0 ; i<31 ; i++){
+      if(i == n) break ;
+      if(s[i] == value){
+        mask |= (1 << i) ;
+      }
+    }
+    *m = mask ^ negate ;
+  }
+  return n0 ;
+}
+
 #if 0
 // build 8 bit mask from 8 values (1 where s[x] == value, 0 elsewhere
 // s     [IN] : source array
@@ -204,33 +234,6 @@ int32_t compress_mask32_w(uint32_t * restrict d, uint32_t * restrict m, uint32_t
 //     *c = m8 ;
 //   }
   return total ;
-}
-
-// where s[0..n-1] != value, set bit i in mask
-// m    [OUT] : result 32 bit mask array
-// s     [IN] : source array
-// value [IN] : special value
-// n     [IN] : number of values in source array
-// return number of values
-int32_t build_mask32(uint32_t * restrict m, uint32_t * restrict s, uint32_t value, int n, int opt){
-  (void) (opt) ;
-  uint32_t negate = (opt & INVERT_MASK) ? (~0) : 0 ;
-  int32_t total = 0, n0 = n ;
-  while(n > 31){                    // blocks of 32 values
-    *m = build_mask_w32(s, value) ^ negate ;
-    s += 32 ; m++ ; n -= 32 ;
-  }
-  if(n > 0){                        // up to 31 values left
-    uint32_t mask = 0 ;
-    for(int i=0 ; i<31 ; i++){
-      if(i == n) break ;
-      if(s[i] == value){
-        mask |= (1 << i) ;
-      }
-    }
-    *m = mask ^ negate ;
-  }
-  return n0 ;
 }
 
 void print_mask32_2D(FILE *f, char *header, uint32_t *m, int ni, int nj){
