@@ -114,57 +114,6 @@ int32_t build_mask32(uint32_t * restrict m, uint32_t * restrict s, uint32_t valu
   return n0 ;
 }
 
-#if 0
-// build 8 bit mask from 8 values (1 where s[x] == value, 0 elsewhere
-// s     [IN] : source array
-// value [IN] : special value
-// return 8 bit mask (LittleEndian style) in lower 8 bits of 32 bit integer
-// LSB is associated with s[0]
-STATIC  uint32_t build_mask_w08(uint32_t *s, uint32_t value){
-#if defined(__AVX2__)
-  __m256i s8 = _mm256_loadu_si256 ((__m256i const *)s) ;
-  __m256i v8 = _mm256_set1_epi32(value) ;
-  __m256i t8 = _mm256_cmpeq_epi32(s8, v8) ;
-  int32_t m8 = _mm256_movemask_ps((__m256)t8) ;
-#else
-  uint32_t m8 = 0 ;
-  for(int i=0 ; i<8 ; i++){
-    m8 |= ( (s[i] == value) ? (1 << i) : 0 ) ;
-  }
-#endif
-  return m8 ;
-}
-
-// where s[0..7] != value, copy s[i] into destination array d
-// d    [OUT] : destination array
-// m    [OUT] : result 8 bit mask
-// s     [IN] : source array
-// value [IN] : special value
-// return number of values copied from s into d, set m[0] to 8 bit mask value
-STATIC int32_t compress_masked_w08(uint32_t * restrict d, uint8_t * restrict m, uint32_t * restrict s, uint32_t value){
-  uint32_t mask = build_mask_w08(s, value), count = 0 ;
-  *m = mask ;
-  if(mask == 0xFF) return 0 ;
-
-  for(int i=0 ; i<8 ; i++){
-    if( (mask & (1 << i)) == 0 ) { *d = s[i] ; d ++ ; count++ ; }
-  }
-  return count ;
-}
-
-// build 32 bit mask from 32 values (1 where s[x] == value, 0 elsewhere
-// s     [IN] : source array
-// value [IN] : special value
-// return 32 bit mask (LittleEndian style)
-// LSB is associated with s[0]
-STATIC uint32_t build_mask_w32(uint32_t *s, uint32_t value){
-  int32_t m0 = build_mask_w08(s     , value) ;
-  int32_t m1 = build_mask_w08(s +  8, value) ;
-  int32_t m2 = build_mask_w08(s + 16, value) ;
-  int32_t m3 = build_mask_w08(s + 24, value) ;
-  return ( m0 | (m1 << 8) | (m2 << 16) | (m3 << 24) ) ;
-}
-#endif
 // where s[0..31] != value, copy s[i] into destination array d
 // d    [OUT] : destination array
 // m    [OUT] : result 32 bit mask
@@ -172,7 +121,7 @@ STATIC uint32_t build_mask_w32(uint32_t *s, uint32_t value){
 // value [IN] : special value
 // return number of values copied from s into d, set m[0] to 32 bit mask value
 STATIC int32_t compress_mask32_w32(uint32_t * restrict d, uint32_t * restrict m, uint32_t * restrict s, uint32_t value){
-  uint32_t mask = build_mask_w32(s, value), count = 0 ;
+  uint32_t mask = build_mask_w32(s, value), count = 0 ;  // build 32 bit mask
   *m = mask ;
   if(mask == 0xFFFFFFFF) return 0 ;
 
@@ -181,10 +130,12 @@ STATIC int32_t compress_mask32_w32(uint32_t * restrict d, uint32_t * restrict m,
   }
   return count ;
 }
+// special case of above if n < 32 (n == 32 O.K.)
 STATIC int32_t compress_mask32_w31(uint32_t * restrict d, uint32_t * restrict m, uint32_t * restrict s, uint32_t value, int n){
-  uint32_t mask = build_mask_w32(s, value), count = 0 ;
+  if(n == 0) return 0 ;                                  // nothing to do
+  uint32_t mask = build_mask_w32(s, value), count = 0 ;  // build <= 32 bit mask
   *m = mask ;
-  if(mask == 0xFFFFFFFF) return 0 ;
+  if( mask == (0xFFFFFFFF >> (32-n)) ) return 0 ;        // all relevant values == value
 
   for(int i=0 ; i<32 ; i++){
     if(i == n) break ;
@@ -211,28 +162,6 @@ int32_t compress_mask32_w(uint32_t * restrict d, uint32_t * restrict m, uint32_t
   if(n > 0){
     total += compress_mask32_w31(d, m, s, value, n) ;
   }
-//   uint8_t *c = (uint8_t *)m ;       // LITTLE ENDIAN MEMORY STORAGE IS ASSUMED
-//   if(n > 0){
-//     *m = 0 ;                        // initialize mask element to 32 zero bits
-//     for(int i=0 ; i< 3 ; i++){      // blocks of 8 values, at most 3 rounds
-//       if(n < 8) break ;
-//       int32_t count = compress_masked_w08(d, c, s, value) ;
-//       s += 8 ; d += count ; c++ ; n -= 8 ; total += count ;
-//     }
-//   }
-//   if(n > 0){                        // up to 7 values left
-//     uint32_t m8 = 0 ;
-//     for(int i=0 ; i<8 ; i++){
-//       if(i == n) break ;
-//       if(s[i] == value){
-//         m8 |= (1 << i) ;
-//       }else{
-//         total++ ;
-//         *d = s[i] ; d ++ ;
-//       }
-//     }
-//     *c = m8 ;
-//   }
   return total ;
 }
 
@@ -269,8 +198,15 @@ void print_mask32(FILE *f, char *header, uint32_t *m, int n){
 }
 
 #define ZEN4_SAFE
+
 // this function may store up to 16 extra 32 bit words in dst in ZEN4_SAFE mode
 // but dst should be large enough anyway as all 16 words could have to be stored
+// copy from src[i] into dst[] where corresponding mask bit is 1
+// dst  [OUT] : output array
+// mask  [IN] : mask array
+// src   [IN] : source array
+// return number of useful values stored into dst
+// mask bits are LittleEndian style, bit 0 is LSB
 static int32_t compress_store_32(uint32_t * restrict dst, uint32_t mask, uint32_t * restrict src) {
 #if defined(__AVX512F__)
   __mmask16 m0 = mask & 0xFFFF, m1 = (mask >> 16) ;
@@ -299,8 +235,14 @@ static int32_t compress_store_32(uint32_t * restrict dst, uint32_t mask, uint32_
   return (dst - dst0) ;
 #endif
 }
-
-static int32_t compress_store_n32(uint32_t* restrict dst, uint32_t mask, uint32_t* restrict src, int n) {
+// copy from src[i] into dst[] where mask bit is 1
+// variant of above if n <= 32
+// dst  [OUT] : output array
+// mask  [IN] : mask array
+// src   [IN] : source array
+// return number of useful values stored into dst
+// mask bits are LittleEndian style, bit 0 is LSB
+static int32_t compress_store_31(uint32_t* restrict dst, uint32_t mask, uint32_t* restrict src, int n) {
   if(n < 0 || n > 32) return -1 ;
   uint32_t* dst0 = dst ;
   for(int i=0 ; i<32 ; i++){
@@ -310,6 +252,13 @@ static int32_t compress_store_n32(uint32_t* restrict dst, uint32_t mask, uint32_
   return (dst - dst0) ;
 }
 
+// copy from src[i] into dst[] where mask bit is 1
+// dst  [OUT] : output array
+// mask  [IN] : mask array
+// src   [IN] : source array
+// n     [IN] : number of values in src
+// return number of useful values stored into dst
+// mask bits are LittleEndian style, bit 0 is LSB
 int32_t compress_store(uint32_t* restrict dst, uint32_t *mask, uint32_t* restrict src, int n) {
   uint32_t* dst0 = dst ;
   while(n > 31){
@@ -317,11 +266,17 @@ int32_t compress_store(uint32_t* restrict dst, uint32_t *mask, uint32_t* restric
     src += 32 ; mask++ ; n -=32 ;
   }
   if(n > 0){
-    dst += compress_store_n32(dst, mask[0], src, n) ;
+    dst += compress_store_31(dst, mask[0], src, n) ;
   }
   return (dst - dst0) ;
 }
 
+// dst  [OUT] : output array
+// mask  [IN] : mask array
+// src   [IN] : source array
+// n     [IN] : number of values in src
+// return number of values copied from src
+// mask bits are LittleEndian style, bit 0 is LSB
 static int32_t expand_load_32(uint32_t* restrict dst, uint32_t mask, uint32_t* restrict src, uint32_t value) {
 #if defined(__AVX512F__)
   __m512i v0, v1, vc ;
@@ -348,9 +303,10 @@ static int32_t expand_load_32(uint32_t* restrict dst, uint32_t mask, uint32_t* r
   return (src - src0) ;
 #endif
 }
-
-static int32_t expand_load_n32(uint32_t* restrict dst, uint32_t mask, uint32_t* restrict src, uint32_t value, int n) {
+// variant of above where n <= 32
+static int32_t expand_load_31(uint32_t* restrict dst, uint32_t mask, uint32_t* restrict src, uint32_t value, int n) {
   if(n < 0 || n > 32) return -1 ;
+  if(n == 0) return 0 ;             // nothing to do
   uint32_t* src0 = src ;
   for(int i=0 ; i<32 ; i++){
     if(i == n) break ;
@@ -372,152 +328,9 @@ int32_t expand_load(uint32_t* restrict dst, uint32_t *mask, uint32_t* restrict s
     n -=32 ;
   }
   if(n > 0){
-    src += expand_load_n32(dst, mask[0], src, value, n) ;
+    src += expand_load_31(dst, mask[0], src, value, n) ;
   }
   return (src - src0) ;
-}
-
-// where mask bit [0..7] != 1, copy s[i] into destination array d
-// d    [OUT] : destination array
-// mask  [IN] : 8 bit control mask
-// s     [IN] : source array
-// return number of values copied from s into d
-STATIC int32_t store_masked_w08(uint32_t * restrict d, uint32_t mask, uint32_t * restrict s){
-  uint32_t *d0 = d ;
-  if(mask == 0xFFFFFFFF) return 0 ;    // all values are masked
-
-  for(int i=0 ; i<8 ; i++){
-    if( (mask & (1 << i)) == 0 ) { *d = s[i] ; d++ ; }
-  }
-  return (d - d0) ;
-}
-
-// where mask bit [0..31] != 1, copy s[i] into destination array d
-// d    [OUT] : destination array
-// mask  [IN] : 32 bit control mask
-// s     [IN] : source array
-// return number of values copied from s into d
-STATIC int32_t store_masked_w32(uint32_t * restrict d, uint32_t mask, uint32_t * restrict s){
-  uint32_t *d0 = d ;
-  if(mask == 0xFFFFFFFF) return 0 ;    // all values are masked
-
-  for(int i=0 ; i<32 ; i++){
-    if( (mask & (1 << i)) == 0 ) { *d = s[i] ; d++ ; }
-  }
-  return (d - d0) ;
-}
-
-// where s[0..n-1] != value, copy s[i] into destination array d
-// d    [OUT] : destination array
-// m     [IN] : 32 bit mask array
-// s     [IN] : source array
-// n     [IN] : number of values in source array (and number of bits from m)
-// return number of values copied from s into d
-// this function should work "in place" as destination array is at worst the same length as the source array
-int32_t store_masked_w(uint32_t * restrict d, uint32_t * restrict m, uint32_t * restrict s, int n, int opt){
-  (void) (opt) ;
-  uint32_t *d0 = d ;
-  int32_t total = 0 ;
-  while(n > 31){                    // blocks of 32 values
-    int32_t count = store_masked_w32(d, *m, s) ;
-    s += 32 ; d += count ; m++ ; n -= 32 ;
-  }
-  uint8_t *c = (uint8_t *)m ;       // LITTLE ENDIAN MEMORY STORAGE IS ASSUMED
-  if(n > 0){
-    for(int i=0 ; i< 3 ; i++){      // blocks of 8 values, at most 3 rounds
-      if(n < 8) break ;
-      int32_t count = store_masked_w08(d, *c, s) ;
-      s += 8 ; d += count ; c++ ; n -= 8 ;
-    }
-  }
-  if(n > 0){                        // up to 7 values left
-    uint32_t m8 = *c ;
-    for(int i=0 ; i<8 ; i++){
-      if(i == n) break ;
-      if( (m8 & (1 << i)) == 0){
-        *d = s[i] ; d ++ ;
-      }
-    }
-  }
-  return (d - d0) ;
-}
-
-// d    [OUT] : destination array
-// mask  [IN] : 8 bit control mask (lower 8 bits)
-// s     [IN] : source array
-// value [IN] : special value stored in d[] if corresponding mask bit is set
-// return number of values copied from s into d (<= 8)
-STATIC int32_t expand_masked_w08(uint32_t * restrict d, uint32_t mask, uint32_t * restrict s, uint32_t value){
-  int32_t count = 0 ;
-  mask &= 0xFF ;
-  if(mask == 0){ for(int i=0 ; i<8 ; i++){ d[i] = s[i] ; } return 8 ; }
-
-  for(int i=0 ; i<8 ; i++){ d[i] = value ; }
-  if(mask == 0xFF) return 0 ;
-
-  for(int i=0 ; i<8 ; i++){
-    if( ( mask & (1 << i) ) == 0 ){
-      d[i] = s[count] ;                   // destination = source
-      count++ ;                           // bump source count
-    }
-  }
-  return count ;
-}
-
-// d    [OUT] : destination array
-// mask  [IN] : 32 bit control mask
-// s     [IN] : source array
-// value [IN] : special value stored in d[] if corresponding mask bit is set
-// return number of values copied from s into d (<= 32)
-STATIC int32_t expand_masked_w32(uint32_t * restrict d, uint32_t mask, uint32_t * restrict s, uint32_t value){
-  int32_t total = 0, count ;
-  if(mask == 0){
-    for(int i=0 ; i<32 ; i++){ d[i] = s[i] ; }
-    return 32 ;
-  }
-  if(mask == 0xFFFFFFFF){
-    for(int i=0 ; i<32 ; i++){ d[i] = value ; }
-    return 32 ;
-  }
-  count = expand_masked_w08(d, mask      , s, value) ; d += 8 ; s += count ; total += count ;
-  count = expand_masked_w08(d, mask >>  8, s, value) ; d += 8 ; s += count ; total += count ;
-  count = expand_masked_w08(d, mask >> 16, s, value) ; d += 8 ; s += count ; total += count ;
-  count = expand_masked_w08(d, mask >> 24, s, value) ; d += 8 ; s += count ; total += count ;
-  return total ;
-}
-
-// copy s[i] or value into destination array d according to mask
-// d    [OUT] : destination array
-// m     [IN] : control mask
-// s     [IN] : source array
-// value [IN] : special value stored in d[] if corresponding mask bit is set
-// n     [IN] : number of values copied from source array (<= n)
-// return number of values copied from s into d
-int32_t expand_masked_w(uint32_t * restrict d, uint32_t * restrict m, uint32_t * restrict s, uint32_t value, int n, int opt){
-  (void) (opt) ;
-  int32_t total = 0 ;
-  while(n > 31){                    // blocks of 32 values
-    int32_t count = expand_masked_w32(d, *m, s, value) ;
-    d += 32 ; s += count ; m++ ; n -= 32 ; total += count ;
-  }
-  uint8_t *c = (uint8_t *)m ;       // LITTLE ENDIAN MEMORY STORAGE IS ASSUMED
-  while(n > 7){                     // blocks of 8 values
-    int32_t count = expand_masked_w08(d, *c, s, value) ;
-    d += 8 ; s += count ; c++ ; n -= 8 ; total += count ;
-  }
-  if(n > 0){                        // up to 7 values left
-    uint32_t m8 = *c ;
-    int32_t count = 0 ;
-    for(int i=0 ; i<8 ; i++){
-      if(i == n) break ;
-      if( ( m8 & (1 << i) ) == 0 ){
-        d[i] = s[count] ;           // destination = source
-        count++ ;                   // bump source count
-      }
-    }
-    total += count ;
-  }
-  return total ;
 }
 
 // partial encoding of a single byte repeat count
