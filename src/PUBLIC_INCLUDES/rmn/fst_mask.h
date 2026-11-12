@@ -77,7 +77,7 @@ typedef union{
 #define MASK_LE          5
 
 // compress/expand using a mask
-int32_t build_mask32(uint32_t * restrict m, uint32_t * restrict s, uint32_t value, int n, int opt);
+int32_t mask32_eq(uint32_t * restrict m, uint32_t * restrict s, uint32_t value, int n, int opt);
 int32_t compress_store(uint32_t * restrict dst, uint32_t * mask, uint32_t * restrict src, int n);
 int32_t expand_load(uint32_t * restrict dst, uint32_t * mask, uint32_t * restrict src, uint32_t value, int n);
 // print a bit mask

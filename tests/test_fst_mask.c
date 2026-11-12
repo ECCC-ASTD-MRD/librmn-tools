@@ -151,7 +151,7 @@ int main(int argc, char **argv){
         for(uint64_t i=0 ; i<sizeof(array)/sizeof(uint32_t) ; i+=8) array[i] = 0 ;
         for(uint64_t i=7 ; i<sizeof(array)/sizeof(uint32_t) ; i+=8) array[i] = 0 ;
         fprintf(stderr, "array size %ld words, mask size %ld bits\n", sizeof(array)/sizeof(uint32_t), sizeof(mask)*8) ;
-        build_mask32(mask, array, 0, sizeof(array)/sizeof(uint32_t), 0);
+        mask32_eq(mask, array, 0, sizeof(array)/sizeof(uint32_t), 0);
         print_mask32(stderr, "mask 1 :", mask, sizeof(array)/sizeof(uint32_t)) ;
         fprintf(stderr, "\nSUCCESS\n");
         break ;
@@ -174,7 +174,7 @@ int main(int argc, char **argv){
              expected-- ;
           }
         }
-        count = build_mask32((void *)mask, (void *)orig, svalue, NINJ, MASK_EQ | INVERT_MASK) ;
+        count = mask32_eq((void *)mask, (void *)orig, svalue, NINJ, MASK_EQ | INVERT_MASK) ;
         fprintf(stderr, "build count = %d\n", count) ;
         if(verbose) print_mask32_2D(stderr, "row : ", (void *)mask, NI, NJ);
         count = compress_store((void *)packed, (void *)mask, (void *)orig, NINJ) ;
@@ -189,8 +189,8 @@ int main(int argc, char **argv){
           }
         }
         fprintf(stderr, "restore errors = %d\n", errors) ;
-        TIME_LOOP_EZ(100, NINJ, count = build_mask32((void *)mask, (void *)orig, svalue, NINJ, MASK_EQ | INVERT_MASK) ) ;
-        fprintf(stderr, "build_mask32       : %s\n",timer_msg);
+        TIME_LOOP_EZ(100, NINJ, count = mask32_eq((void *)mask, (void *)orig, svalue, NINJ, MASK_EQ | INVERT_MASK) ) ;
+        fprintf(stderr, "mask32_eq       : %s\n",timer_msg);
         TIME_LOOP_EZ(100, NINJ, count = compress_store((void *)packed, (void *)mask, (void *)orig, NINJ) ) ;
         fprintf(stderr, "compress_store     : %s\n",timer_msg);
         TIME_LOOP_EZ(100, NINJ, count = expand_load((void *)restored, (void *)mask, (void *)packed, svalue, NINJ) ) ;

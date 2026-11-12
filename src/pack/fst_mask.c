@@ -27,7 +27,7 @@
 // value [IN] : special value
 // return 8 bit mask (LittleEndian style) in lower 8 bits of 32 bit integer
 // LSB is associated with s[0]
-STATIC  uint32_t build_mask_w08(uint32_t *s, uint32_t value){
+STATIC  uint32_t make_mask_w08(uint32_t *s, uint32_t value){
 #if defined(__AVX2__)
   __m256i s8 = _mm256_loadu_si256 ((__m256i const *)s) ;      // 8 values slice
   __m256i v8 = _mm256_set1_epi32(value) ;
@@ -47,7 +47,7 @@ STATIC  uint32_t build_mask_w08(uint32_t *s, uint32_t value){
 // value [IN] : special value
 // return 16 bit mask (LittleEndian style) in lower 16 bits of 32 bit integer
 // LSB is associated with s[0]
-STATIC uint32_t build_mask_w16(uint32_t *s, uint32_t value){
+STATIC uint32_t make_mask_w16(uint32_t *s, uint32_t value){
   uint32_t m16 ;
 #if defined(__AVX512F__)
   __mmask16 m0 ;
@@ -56,8 +56,8 @@ STATIC uint32_t build_mask_w16(uint32_t *s, uint32_t value){
   m0 = _mm512_cmpeq_epi32_mask(v0, vc) ;    // 16 bits mask
   m16 = m0 ;
 #else
-  int32_t m0 = build_mask_w08(s     , value) ;  // 8 values slice
-  int32_t m1 = build_mask_w08(s +  8, value) ;  // 8 values slice
+  int32_t m0 = make_mask_w08(s     , value) ;  // 8 values slice
+  int32_t m1 = make_mask_w08(s +  8, value) ;  // 8 values slice
   m16 = ( m0 | (m1 << 8) ) ;
 #endif
   return m16 ;
@@ -68,18 +68,18 @@ STATIC uint32_t build_mask_w16(uint32_t *s, uint32_t value){
 // value [IN] : special value
 // return 32 bit mask (LittleEndian style) in 32 bit integer
 // LSB is associated with s[0]
-STATIC uint32_t build_mask_w32(uint32_t *s, uint32_t value){
+STATIC uint32_t make_mask_w32(uint32_t *s, uint32_t value){
 #if defined(__AVX512F__)
   // 16 value slices if AVX512 is available
-  int32_t m0 = build_mask_w16(s     , value) ;
-  int32_t m1 = build_mask_w16(s + 16, value) ;
+  int32_t m0 = make_mask_w16(s     , value) ;
+  int32_t m1 = make_mask_w16(s + 16, value) ;
   return ( m0 | (m1 << 16) ) ;
 #else
   // 8 value slices otherwise
-  int32_t m0 = build_mask_w08(s     , value) ;
-  int32_t m1 = build_mask_w08(s +  8, value) ;
-  int32_t m2 = build_mask_w08(s + 16, value) ;
-  int32_t m3 = build_mask_w08(s + 24, value) ;
+  int32_t m0 = make_mask_w08(s     , value) ;
+  int32_t m1 = make_mask_w08(s +  8, value) ;
+  int32_t m2 = make_mask_w08(s + 16, value) ;
+  int32_t m3 = make_mask_w08(s + 24, value) ;
   return ( m0 | (m1 << 8) | (m2 << 16) | (m3 << 24) ) ;
 #endif
 }
@@ -93,12 +93,12 @@ STATIC uint32_t build_mask_w32(uint32_t *s, uint32_t value){
 // opt   [IN] : options (see fst_mask.h)
 // return number of values
 // LSB is associated with s[0]
-int32_t build_mask32(uint32_t * restrict m, uint32_t * restrict s, uint32_t value, int n, int opt){
+int32_t mask32_eq(uint32_t * restrict m, uint32_t * restrict s, uint32_t value, int n, int opt){
   (void) (opt) ;
   uint32_t negate = (opt & INVERT_MASK) ? (~0) : 0 ;
   int32_t total = 0, n0 = n ;
   while(n > 31){                    // blocks of 32 values
-    *m = build_mask_w32(s, value) ^ negate ;
+    *m = make_mask_w32(s, value) ^ negate ;
     s += 32 ; m++ ; n -= 32 ;
   }
   if(n > 0){                        // up to 31 values left
@@ -121,7 +121,7 @@ int32_t build_mask32(uint32_t * restrict m, uint32_t * restrict s, uint32_t valu
 // value [IN] : special value
 // return number of values copied from s into d, set m[0] to 32 bit mask value
 STATIC int32_t compress_mask32_w32(uint32_t * restrict d, uint32_t * restrict m, uint32_t * restrict s, uint32_t value){
-  uint32_t mask = build_mask_w32(s, value), count = 0 ;  // build 32 bit mask
+  uint32_t mask = make_mask_w32(s, value), count = 0 ;  // build 32 bit mask
   *m = mask ;
   if(mask == 0xFFFFFFFF) return 0 ;
 
@@ -133,7 +133,7 @@ STATIC int32_t compress_mask32_w32(uint32_t * restrict d, uint32_t * restrict m,
 // special case of above if n < 32 (n == 32 O.K.)
 STATIC int32_t compress_mask32_w31(uint32_t * restrict d, uint32_t * restrict m, uint32_t * restrict s, uint32_t value, int n){
   if(n == 0) return 0 ;                                  // nothing to do
-  uint32_t mask = build_mask_w32(s, value), count = 0 ;  // build <= 32 bit mask
+  uint32_t mask = make_mask_w32(s, value), count = 0 ;  // build <= 32 bit mask
   *m = mask ;
   if( mask == (0xFFFFFFFF >> (32-n)) ) return 0 ;        // all relevant values == value
 
