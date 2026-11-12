@@ -11,7 +11,8 @@
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
 // Library General Public License for more details.
 //
-#if defined(__x86_64__)
+// #define USE_C_CODE
+#if defined(__x86_64__) && ! defined(USE_C_CODE)
 #include <immintrin.h>
 #else
 #undef __AVX2__
@@ -27,16 +28,46 @@
 // value [IN] : special value
 // return 8 bit mask (LittleEndian style) in lower 8 bits of 32 bit integer
 // LSB is associated with s[0]
-STATIC  uint32_t make_mask_w08(uint32_t *s, uint32_t value){
+STATIC  uint32_t mask32_eq_w08(uint32_t *s, uint32_t value){
 #if defined(__AVX2__)
   __m256i s8 = _mm256_loadu_si256 ((__m256i const *)s) ;      // 8 values slice
-  __m256i v8 = _mm256_set1_epi32(value) ;
-  __m256i t8 = _mm256_cmpeq_epi32(s8, v8) ;
+  __m256i v8 = _mm256_set1_epi32(value) ;                     // special value
+  __m256i t8 = _mm256_cmpeq_epi32(s8, v8) ;                   // s[] == value
   int32_t m8 = _mm256_movemask_ps((__m256)t8) ;               // 8 bits mask
 #else
   uint32_t m8 = 0 ;
   for(int i=0 ; i<8 ; i++){                                   // 1 bit at a time
     m8 |= ( (s[i] == value) ? (1 << i) : 0 ) ;
+  }
+#endif
+  return m8 ;
+}
+// build 8 bit mask from 8 float values (1 where s[x] > value, 0 elsewhere
+STATIC  uint32_t mask32_gt_f08(float *s, float value){
+#if defined(__AVX2__)
+  __m256 s8 = _mm256_loadu_ps (s) ;                           // 8 values slice
+  __m256 v8 = _mm256_set1_ps(value) ;                         // special value
+  __m256 t8 = _mm256_cmp_ps(s8, v8, _CMP_GT_OQ) ;             // s[] > value
+  int32_t m8 = _mm256_movemask_ps(t8) ;                       // 8 bits mask
+#else
+  uint32_t m8 = 0 ;
+  for(int i=0 ; i<8 ; i++){                                   // 1 bit at a time
+    m8 |= ( (s[i] > value) ? (1 << i) : 0 ) ;
+  }
+#endif
+  return m8 ;
+}
+// build 8 bit mask from 8 float values (1 where s[x] > value, 0 elsewhere
+STATIC  uint32_t mask32_lt_f08(float *s, float value){
+#if defined(__AVX2__)
+  __m256 s8 = _mm256_loadu_ps (s) ;                           // 8 values slice
+  __m256 v8 = _mm256_set1_ps(value) ;                         // special value
+  __m256 t8 = _mm256_cmp_ps(v8, s8, _CMP_GT_OQ) ;             // s[] < value (value > s[])
+  int32_t m8 = _mm256_movemask_ps(t8) ;                       // 8 bits mask
+#else
+  uint32_t m8 = 0 ;
+  for(int i=0 ; i<8 ; i++){                                   // 1 bit at a time
+    m8 |= ( (s[i] > value) ? (1 << i) : 0 ) ;
   }
 #endif
   return m8 ;
@@ -47,17 +78,49 @@ STATIC  uint32_t make_mask_w08(uint32_t *s, uint32_t value){
 // value [IN] : special value
 // return 16 bit mask (LittleEndian style) in lower 16 bits of 32 bit integer
 // LSB is associated with s[0]
-STATIC uint32_t make_mask_w16(uint32_t *s, uint32_t value){
+STATIC uint32_t mask32_eq_w16(uint32_t *s, uint32_t value){
   uint32_t m16 ;
 #if defined(__AVX512F__)
   __mmask16 m0 ;
   __m512i v0 = _mm512_loadu_epi32(s) ;      // 16 values slice
-  __m512i vc = _mm512_set1_epi32(value) ;
-  m0 = _mm512_cmpeq_epi32_mask(v0, vc) ;    // 16 bits mask
+  __m512i vc = _mm512_set1_epi32(value) ;   // special value
+  m0 = _mm512_cmpeq_epi32_mask(v0, vc) ;    // 16 bits mask ( s[] == value )
   m16 = m0 ;
 #else
-  int32_t m0 = make_mask_w08(s     , value) ;  // 8 values slice
-  int32_t m1 = make_mask_w08(s +  8, value) ;  // 8 values slice
+  int32_t m0 = mask32_eq_w08(s     , value) ;  // 8 values slice
+  int32_t m1 = mask32_eq_w08(s +  8, value) ;  // 8 values slice
+  m16 = ( m0 | (m1 << 8) ) ;
+#endif
+  return m16 ;
+}
+// build 16 bit mask from 16 float values (1 where s[x] > value, 0 elsewhere
+STATIC uint32_t mask32_gt_f16(float *s, float value){
+  uint32_t m16 ;
+#if defined(__AVX512F__)
+  __mmask16 m0 ;
+  __m512 v0 = _mm512_loadu_ps(s) ;          // 16 values slice
+  __m512 vc = _mm512_set1_ps(value) ;       // special value
+  m0 = _mm512_cmplt_ps_mask(vc, v0) ;       // 16 bits mask s[] > value (value < s[] )
+  m16 = m0 ;
+#else
+  int32_t m0 = mask32_gt_f08(s     , value) ;  // 8 values slice
+  int32_t m1 = mask32_gt_f08(s +  8, value) ;  // 8 values slice
+  m16 = ( m0 | (m1 << 8) ) ;
+#endif
+  return m16 ;
+}
+// build 16 bit mask from 16 float values (1 where s[x] < value, 0 elsewhere
+STATIC uint32_t mask32_lt_f16(float *s, float value){
+  uint32_t m16 ;
+#if defined(__AVX512F__)
+  __mmask16 m0 ;
+  __m512 v0 = _mm512_loadu_ps(s) ;          // 16 values slice
+  __m512 vc = _mm512_set1_ps(value) ;       // special value
+  m0 = _mm512_cmplt_ps_mask(v0, vc) ;       // 16 bits mask ( s[] < value )
+  m16 = m0 ;
+#else
+  int32_t m0 = mask32_lt_f08(s     , value) ;  // 8 values slice
+  int32_t m1 = mask32_lt_f08(s +  8, value) ;  // 8 values slice
   m16 = ( m0 | (m1 << 8) ) ;
 #endif
   return m16 ;
@@ -68,20 +131,60 @@ STATIC uint32_t make_mask_w16(uint32_t *s, uint32_t value){
 // value [IN] : special value
 // return 32 bit mask (LittleEndian style) in 32 bit integer
 // LSB is associated with s[0]
-STATIC uint32_t make_mask_w32(uint32_t *s, uint32_t value){
+STATIC uint32_t mask32_eq_w32(uint32_t *s, uint32_t value){
 #if defined(__AVX512F__)
   // 16 value slices if AVX512 is available
-  int32_t m0 = make_mask_w16(s     , value) ;
-  int32_t m1 = make_mask_w16(s + 16, value) ;
+  int32_t m0 = mask32_eq_w16(s     , value) ;
+  int32_t m1 = mask32_eq_w16(s + 16, value) ;
   return ( m0 | (m1 << 16) ) ;
 #else
   // 8 value slices otherwise
-  int32_t m0 = make_mask_w08(s     , value) ;
-  int32_t m1 = make_mask_w08(s +  8, value) ;
-  int32_t m2 = make_mask_w08(s + 16, value) ;
-  int32_t m3 = make_mask_w08(s + 24, value) ;
+  int32_t m0 = mask32_eq_w08(s     , value) ;
+  int32_t m1 = mask32_eq_w08(s +  8, value) ;
+  int32_t m2 = mask32_eq_w08(s + 16, value) ;
+  int32_t m3 = mask32_eq_w08(s + 24, value) ;
   return ( m0 | (m1 << 8) | (m2 << 16) | (m3 << 24) ) ;
 #endif
+}
+// build 32 bit mask from 32 float values (1 where s[x] > value, 0 elsewhere
+STATIC uint32_t mask32_gt_f32(float *s, float value){
+#if defined(__AVX512F__)
+  // 16 value slices if AVX512 is available
+  int32_t m0 = mask32_gt_f16(s     , value) ;
+  int32_t m1 = mask32_gt_f16(s + 16, value) ;
+  return ( m0 | (m1 << 16) ) ;
+#else
+  // 8 value slices otherwise
+  int32_t m0 = mask32_gt_f08(s     , value) ;
+  int32_t m1 = mask32_gt_f08(s +  8, value) ;
+  int32_t m2 = mask32_gt_f08(s + 16, value) ;
+  int32_t m3 = mask32_gt_f08(s + 24, value) ;
+  return ( m0 | (m1 << 8) | (m2 << 16) | (m3 << 24) ) ;
+#endif
+}
+// build 32 bit mask from 32 float values (1 where s[x] < value, 0 elsewhere
+STATIC uint32_t mask32_lt_f32(float *s, float value){
+#if defined(__AVX512F__)
+  // 16 value slices if AVX512 is available
+  int32_t m0 = mask32_lt_f16(s     , value) ;
+  int32_t m1 = mask32_lt_f16(s + 16, value) ;
+  return ( m0 | (m1 << 16) ) ;
+#else
+  // 8 value slices otherwise
+  int32_t m0 = mask32_lt_f08(s     , value) ;
+  int32_t m1 = mask32_lt_f08(s +  8, value) ;
+  int32_t m2 = mask32_lt_f08(s + 16, value) ;
+  int32_t m3 = mask32_lt_f08(s + 24, value) ;
+  return ( m0 | (m1 << 8) | (m2 << 16) | (m3 << 24) ) ;
+#endif
+}
+// build 32 bit mask from 32 float values (1 where s[x] >= value, 0 elsewhere
+STATIC uint32_t mask32_ge_f32(float *s, float value){
+  return (~ mask32_lt_f32(s, value)) ;   // >= ==> NOT <
+}
+// build 32 bit mask from 32 float values (1 where s[x] <= value, 0 elsewhere
+STATIC uint32_t mask32_le_f32(float *s, float value){
+  return (~ mask32_gt_f32(s, value)) ;   // <= ==> NOT >
 }
 
 // build mask array from n values (1 where s[x] == value, 0 elsewhere
@@ -98,7 +201,7 @@ int32_t mask32_eq(uint32_t * restrict m, uint32_t * restrict s, uint32_t value, 
   uint32_t negate = (opt & INVERT_MASK) ? (~0) : 0 ;
   int32_t total = 0, n0 = n ;
   while(n > 31){                    // blocks of 32 values
-    *m = make_mask_w32(s, value) ^ negate ;
+    *m = mask32_eq_w32(s, value) ^ negate ;
     s += 32 ; m++ ; n -= 32 ;
   }
   if(n > 0){                        // up to 31 values left
@@ -121,7 +224,7 @@ int32_t mask32_eq(uint32_t * restrict m, uint32_t * restrict s, uint32_t value, 
 // value [IN] : special value
 // return number of values copied from s into d, set m[0] to 32 bit mask value
 STATIC int32_t compress_mask32_w32(uint32_t * restrict d, uint32_t * restrict m, uint32_t * restrict s, uint32_t value){
-  uint32_t mask = make_mask_w32(s, value), count = 0 ;  // build 32 bit mask
+  uint32_t mask = mask32_eq_w32(s, value), count = 0 ;  // build 32 bit mask
   *m = mask ;
   if(mask == 0xFFFFFFFF) return 0 ;
 
@@ -133,7 +236,7 @@ STATIC int32_t compress_mask32_w32(uint32_t * restrict d, uint32_t * restrict m,
 // special case of above if n < 32 (n == 32 O.K.)
 STATIC int32_t compress_mask32_w31(uint32_t * restrict d, uint32_t * restrict m, uint32_t * restrict s, uint32_t value, int n){
   if(n == 0) return 0 ;                                  // nothing to do
-  uint32_t mask = make_mask_w32(s, value), count = 0 ;  // build <= 32 bit mask
+  uint32_t mask = mask32_eq_w32(s, value), count = 0 ;  // build <= 32 bit mask
   *m = mask ;
   if( mask == (0xFFFFFFFF >> (32-n)) ) return 0 ;        // all relevant values == value
 

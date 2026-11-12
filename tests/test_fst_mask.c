@@ -7,7 +7,7 @@
 #include <rmn/timers.h>
 
 #define NI 64
-#define NJ 32
+#define NJ 64
 #define NINJ (NI*NJ)
 
 int main(int argc, char **argv){
@@ -160,7 +160,7 @@ int main(int argc, char **argv){
         int32_t orig[NJ][NI], packed[NINJ], restored[NJ][NI], mask[1 + NINJ/32], count, svalue = 0, expected ;
         for(int j=0 ; j<NJ ; j++){
           for(int i=0 ; i<NI ; i++){
-            orig[j][i] = 1 + i*j ;
+            orig[j][i] = 1 + i + NI*j ;
           }
         }
         expected = NI*NJ ;
