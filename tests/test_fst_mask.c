@@ -6,15 +6,37 @@
 #include <rmn/fst_mask.h>
 #include <rmn/timers.h>
 
-#define NI 64
-#define NJ 64
+#define NI 65
+#define NJ 65
 #define NINJ (NI*NJ)
+
+int32_t fill_array(int32_t orig[NJ][NI], int32_t svalue){
+  int32_t expected ;
+  svalue = 0 ;
+  for(int j=0 ; j<NJ ; j++){
+    for(int i=0 ; i<NI ; i++){
+      orig[j][i] = 1 + i + NI*j ;
+    }
+  }
+  expected = NI*NJ ;
+  for(int i=0 ; i<NI ; i++){ orig[0][i] = orig[NJ-1][i] = svalue ; }  // top and bottom rows
+  expected -= (2*NI) ;
+  for(int j=0 ; j<NJ ; j++){ orig[j][0] = orig[j][NI-1] = svalue ; }  // first and last column
+  expected -= (2*(NJ-2)) ;
+  for(int j=NJ/4 ; j<3*NJ/4 ; j++){
+    for(int i=NI/4 ; i<3*NI/4 ; i++){                                 // centered square
+        orig[j][i] = svalue ;
+        expected-- ;
+    }
+  }
+  return expected ;
+}
 
 int main(int argc, char **argv){
   (void) (argc) ;
   (void) (argv) ;
   TIME_LOOP_DATA ;
-  fst_rle_code r ;
+  rle_token r ;
   int32_t count = 0, lastcount ;
   uint32_t totbits = 0 ;
   ssize_t navail = 0, ssize = 0 ;
@@ -37,7 +59,7 @@ int main(int argc, char **argv){
           if(byte > 128) byte = 0xFF ;
           uint32_t nbits = 0 ;
           for(count=1 ; count<4096 ; count++){
-            r = fst_rle_token(byte, count) ;
+            r = set_rle8_token(byte, count) ;
             if(r.bits != nbits){
               fprintf(stderr,"r.bits != nbits : count %4d, byte %2.2x, code %6.1x, nbits %2d, left %4d\n",
                       count, r.byte, r.code, r.bits, r.left);
@@ -80,7 +102,7 @@ int main(int argc, char **argv){
           for(count=0 ; count<=80*1024 ; count+=1024){
             if(count == 0) continue ;  // skip count == 0
             uint32_t kount = ((byte == 0x00) || (byte == 0xFF)) ? count : count/1024 ;
-            totbits += put_rle_count(byte, kount, &stream) ;
+            totbits += put_rle8_count(byte, kount, &stream) ;
             navail = StreamAvailableBits(&stream) ;
             if(navail != totbits){
               fprintf(stderr, "test_rle : bits available in stream = %ld, totbits = %d\n", navail, totbits) ;
@@ -109,10 +131,10 @@ int main(int argc, char **argv){
           fprintf(stderr, "write_rle : byte = %2.2x\n", byte);
           for(count=1 ; count<275 ; count++){
             uint32_t kount = ((byte == 0x00) || (byte == 0xFF)) ? count : 1 ;
-            put_rle_count(byte, kount, &stream) ;
+            put_rle8_count(byte, kount, &stream) ;
           }
         }
-        CLOSE_RLE_STREAM(&stream) ;
+        TERMINATE_RLE8_STREAM(&stream) ;
 
         fprintf(stderr, "\n");
         STREAM_REWIND(stream, 1) ;
@@ -122,7 +144,7 @@ int main(int argc, char **argv){
           fprintf(stderr, "read_rle : byte = %2.2x\n", byte);
           for(count=1 ; count<275 ; count++){
             uint32_t kount = ((byte == 0x00) || (byte == 0xFF)) ? count : 1 ;
-            r = get_rle_token(&stream) ;
+            r = get_rle8_token(&stream) ;
             if(r.byte != byte || r.count != kount){
               fprintf(stderr, "r.code = %4.4x\n", r.code) ;
               fprintf(stderr, "count = %d, byte = %2.2x, got r.count = %d, r.byte = %2.2x\n",
@@ -131,7 +153,7 @@ int main(int argc, char **argv){
             }
           }
         }
-        r = get_rle_token(&stream) ;    // get terminator token
+        r = get_rle8_token(&stream) ;    // get terminator token
         fprintf(stderr, "END TOKEN = %2.2x, count = %d\n", r.byte, r.count) ;
         if( ((r.byte != 0) && (r.byte != 0xFF)) || (r.count != 0) ){
           fprintf(stderr, "r.code = %4.4x\n", r.code) ;
@@ -158,22 +180,7 @@ int main(int argc, char **argv){
       }
       case 3:{
         int32_t orig[NJ][NI], packed[NINJ], restored[NJ][NI], mask[1 + NINJ/32], count, svalue = 0, expected ;
-        for(int j=0 ; j<NJ ; j++){
-          for(int i=0 ; i<NI ; i++){
-            orig[j][i] = 1 + i + NI*j ;
-          }
-        }
-        expected = NI*NJ ;
-        for(int i=0 ; i<NI ; i++){ orig[0][i] = orig[NJ-1][i] = svalue ; }  // top and bottom rows
-        expected -= (2*NI) ;
-        for(int j=0 ; j<NJ ; j++){ orig[j][0] = orig[j][NI-1] = svalue ; }  // first and last column
-        expected -= (2*(NJ-2)) ;
-        for(int j=NJ/4 ; j<3*NJ/4 ; j++){
-          for(int i=NI/4 ; i<3*NI/4 ; i++){                                 // centered square
-             orig[j][i] = svalue ;
-             expected-- ;
-          }
-        }
+        expected = fill_array(orig, svalue) ;
         count = mask32_eq((void *)mask, (void *)orig, svalue, NINJ, MASK_EQ | INVERT_MASK) ;
         fprintf(stderr, "build count = %d\n", count) ;
         if(verbose) print_mask32_2D(stderr, "row : ", (void *)mask, NI, NJ);
@@ -195,9 +202,84 @@ int main(int argc, char **argv){
         fprintf(stderr, "compress_store     : %s\n",timer_msg);
         TIME_LOOP_EZ(100, NINJ, count = expand_load((void *)restored, (void *)mask, (void *)packed, svalue, NINJ) ) ;
         fprintf(stderr, "expand_load        : %s\n",timer_msg);
+        if(timer_min > timer_max) fprintf(stderr, "timer_min > timer_max\n") ;  // get rid of unwanted warning
         break ;
       }
       case 4:{
+        int errors = 0 ;
+        fprintf(stderr, "===== RLE8 test =====\n");
+        bitstream stream = NULL_BITSTREAM ;
+        ssize_t navail = 0, ssize = 0 ;
+        InitStream(&stream, NULL, NINJ, BIT_FULL_INIT|BIT_INSERT|BIT_XTRACT|SET_BIG_ENDIAN) ;
+        ssize = STREAM_BITS_EMPTY(stream) ;
+        fprintf(stderr, "test_rle8 (after create) : size of stream = %ld bits", ssize) ;
+        navail = StreamAvailableBits(&stream) ;
+        fprintf(stderr, ", bits available in stream = %ld\n", navail) ;
+
+        int32_t orig[NJ][NI], mask[1 + NINJ/32], /*rle[NINJ],*/ restored[1 + NINJ/32], count, rcount, svalue = 0, expected ;
+        expected = fill_array(orig, svalue) ;
+        count = mask32_eq((void *)mask, (void *)orig, svalue, NINJ, MASK_EQ) ;
+        fprintf(stderr, "mask32_eq : %d elements, mask size = %ld, count = %d, expected = %d\n",
+                NINJ, sizeof(mask), count, NINJ - expected) ;
+
+        rcount = fst_rle8_encode((void *)mask, NINJ, &stream) ;
+        rle_stats("encoding stats8 :") ;
+        navail = StreamAvailableBits(&stream) ;
+        fprintf(stderr, "test_rle8 (after encode) : available in stream = %ld bits, rcount = %d\n", navail, rcount) ;
+
+        STREAM_REWIND(stream, 1) ;
+        memset(restored, 0, sizeof(restored));
+        rcount = fst_rle8_decode((void *)restored,  sizeof(restored) /*(rcount + 7 + 9)/8*/, &stream) ;
+        rle_stats("decoding stats8 :") ;
+        navail = StreamAvailableBits(&stream) ;
+        fprintf(stderr, "test_rle8 (after decode) : available in stream = %ld bits, rcount = %d\n", navail, rcount) ;
+        errors = 0 ;
+        for(int i=0 ; i< (NINJ+31)/32 ; i++){
+          if(mask[i] != restored[i]) errors++ ;
+        }
+        fprintf(stderr, "test_rle8 (after decode) : %d errors\n", errors) ;
+
+        TIME_LOOP_EZ(100, NINJ, fst_rle8_encode((void *)mask, NINJ, &stream) ; STREAM_REWRITE(stream, 1) ; ) ;
+        fprintf(stderr, "fst_rle8_encode : %s\n",timer_msg);
+        STREAM_REWIND(stream, 1) ; STREAM_REWRITE(stream, 1) ;
+        fst_rle8_encode((void *)mask, NINJ, &stream) ;
+        TIME_LOOP_EZ(100, NINJ, STREAM_REWIND(stream, 1) ; fst_rle8_decode((void *)restored,  sizeof(restored), &stream) ;) ;
+        fprintf(stderr, "fst_rle8_decode : %s\n",timer_msg);
+
+        fprintf(stderr, "===== RLE4 test =====\n");
+        STREAM_REWIND(stream, 1) ; STREAM_REWRITE(stream, 1) ;
+        navail = StreamAvailableBits(&stream) ;
+        ssize = STREAM_BITS_EMPTY(stream) ;
+        fprintf(stderr, "test_rle4 (after rewrite) : size of stream = %ld bits", ssize) ;
+        navail = StreamAvailableBits(&stream) ;
+        fprintf(stderr, ", bits available in stream = %ld\n", navail) ;
+
+        rcount = fst_rle4_encode((void *)mask, NINJ, &stream) ;
+        rle_stats("encoding stats4 :") ;
+        navail = StreamAvailableBits(&stream) ;
+        fprintf(stderr, "test_rle4 (after encode) : available in stream = %ld bits, rcount = %d\n", navail, rcount) ;
+
+        STREAM_REWIND(stream, 1) ;
+        memset(restored, 0, sizeof(restored));
+        rcount = fst_rle4_decode((void *)restored,  sizeof(restored) /*(rcount + 7 + 9)/8*/, &stream) ;
+        rle_stats("decoding stats4 :") ;
+        navail = StreamAvailableBits(&stream) ;
+        fprintf(stderr, "test_rle4 (after decode) : available in stream = %ld bits, rcount = %d\n", navail, rcount) ;
+        errors = 0 ;
+        for(int i=0 ; i< (NINJ+31)/32 ; i++){
+          if(mask[i] != restored[i]) errors++ ;
+          if(errors == 1){
+            fprintf(stderr, "i = %d, expected %8.8x, got %8.8x\n", i, mask[i], restored[i]) ;
+          }
+        }
+        fprintf(stderr, "test_rle4 (after decode) : %d errors\n", errors) ;
+
+        TIME_LOOP_EZ(100, NINJ, fst_rle4_encode((void *)mask, NINJ, &stream) ; STREAM_REWRITE(stream, 1) ; ) ;
+        fprintf(stderr, "fst_rle4_encode : %s\n",timer_msg);
+        STREAM_REWIND(stream, 1) ; STREAM_REWRITE(stream, 1) ;
+        fst_rle4_encode((void *)mask, NINJ, &stream) ;
+        TIME_LOOP_EZ(100, NINJ, STREAM_REWIND(stream, 1) ; fst_rle4_decode((void *)restored,  sizeof(restored), &stream) ;) ;
+        fprintf(stderr, "fst_rle4_decode : %s\n",timer_msg);
         break ;
       }
       case 5:{

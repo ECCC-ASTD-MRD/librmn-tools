@@ -16,21 +16,27 @@
 #if ! defined(RLE_MICRO_0)
 
 // 101n   n = rep count - 1
-#define RLE_MICRO_0 0xA
+// #define RLE_MICRO_0 0xA
+#define RLE_MICRO_0 0b1010
 // 110n
-#define RLE_MICRO_1 0xC
+// #define RLE_MICRO_1 0xC
+#define RLE_MICRO_1 0b1100
 #define RLE_MICRO_OFFSET 1
 
 // 1001nnnn   nnnnnnnn = rep count - 3
-#define RLE_SMALL_0 0x90
+// #define RLE_SMALL_0 0x90
+#define RLE_SMALL_0 0b10010000
 // 1110nnnn
-#define RLE_SMALL_1 0xE0
+// #define RLE_SMALL_1 0xE0
+#define RLE_SMALL_1 0b11100000
 #define RLE_SMALL_OFFSET 3
 
 // 1000nnnnnnnn   nnnnnnnn = rep count - 19
-#define RLE_LARGE_0 0x800
+// #define RLE_LARGE_0 0x800
+#define RLE_LARGE_0 0b100000000000
 // 1111nnnnnnnn
-#define RLE_LARGE_1 0xF00
+// #define RLE_LARGE_1 0xF00
+#define RLE_LARGE_1 0b111100000000
 #define RLE_LARGE_OFFSET 19
 
 #define RLE_MAX_COUNT (RLE_LARGE_OFFSET + 255)
@@ -40,22 +46,33 @@
 // use Big Endian stream encoding
 #include <rmn/be_stream.h>
 
+// 64 bit item
 typedef struct{
   uint32_t code ;    // encoded repeat count and 0x00 / 0xFF byte marker
   union{
-    uint16_t left ;  // leftover repeat count
-    uint16_t count ; // repeat count
+    uint16_t left ;  // leftover repeat count (used when encoding)
+    uint16_t count ; // repeat count (used when decoding)
   };
   uint8_t  bits ;    // number of bits needed for code
   uint8_t  byte ;    // repeated byte (0x00 / 0xFF)
-}fst_rle_code ;
+}rle_token ;
 
-fst_rle_code fst_rle_token(uint8_t byte, uint32_t count);
-int32_t put_rle_count(uint8_t byte, uint32_t count, bitstream *stream);
+rle_token set_rle8_token(uint8_t byte, uint32_t count);
+rle_token set_rle4_token(uint8_t byte, uint32_t count);
+int32_t put_rle8_count(uint8_t byte, uint32_t count, bitstream *stream);
+int32_t put_rle4_count(uint8_t byte, uint32_t count, bitstream *stream);
 // properly terminate an RLE stream with a special token (count == 0, byte == 0x00)
-#define CLOSE_RLE_STREAM(S) put_rle_count(0x00, 0, S)
+#define RLE_END 0x00
+#define TERMINATE_RLE8_STREAM(S) put_rle8_count(RLE_END, 0, S)
+#define TERMINATE_RLE4_STREAM(S) put_rle4_count(RLE_END, 0, S)
 
-fst_rle_code get_rle_token(bitstream *stream);
+rle_token get_rle8_token(bitstream *stream);
+rle_token get_rle4_token(bitstream *stream);
+int32_t fst_rle8_encode(uint8_t * restrict mask, int32_t n   , bitstream * restrict stream);
+int32_t fst_rle4_encode(uint8_t * restrict mask, int32_t n   , bitstream * restrict stream);
+int32_t fst_rle8_decode(uint8_t * restrict mask, int32_t nmax, bitstream * restrict stream);
+int32_t fst_rle4_decode(uint8_t * restrict mask, int32_t nmax, bitstream * restrict stream);
+void rle_stats(char *msg);
 
 typedef union{
   float f32 ;

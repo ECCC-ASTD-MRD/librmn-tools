@@ -42,6 +42,8 @@ STATIC  uint32_t mask32_eq_w08(uint32_t *s, uint32_t value){
 #endif
   return m8 ;
 }
+
+#if defined(WITH_FLOAT_MASKS)
 // build 8 bit mask from 8 float values (1 where s[x] > value, 0 elsewhere
 STATIC  uint32_t mask32_gt_f08(float *s, float value){
 #if defined(__AVX2__)
@@ -72,7 +74,10 @@ STATIC  uint32_t mask32_lt_f08(float *s, float value){
 #endif
   return m8 ;
 }
+#endif
 
+// for now only used on AVX512 capable CPUs
+#if defined(__AVX512F__)
 // build 16 bit mask from 16 values (1 where s[x] == value, 0 elsewhere
 // s     [IN] : source array
 // value [IN] : special value
@@ -93,6 +98,9 @@ STATIC uint32_t mask32_eq_w16(uint32_t *s, uint32_t value){
 #endif
   return m16 ;
 }
+#endif
+
+#if defined(WITH_FLOAT_MASKS)
 // build 16 bit mask from 16 float values (1 where s[x] > value, 0 elsewhere
 STATIC uint32_t mask32_gt_f16(float *s, float value){
   uint32_t m16 ;
@@ -125,6 +133,7 @@ STATIC uint32_t mask32_lt_f16(float *s, float value){
 #endif
   return m16 ;
 }
+#endif
 
 // build 32 bit mask from 32 values (1 where s[x] == value, 0 elsewhere
 // s     [IN] : source array
@@ -146,6 +155,8 @@ STATIC uint32_t mask32_eq_w32(uint32_t *s, uint32_t value){
   return ( m0 | (m1 << 8) | (m2 << 16) | (m3 << 24) ) ;
 #endif
 }
+
+#if defined(WITH_FLOAT_MASKS)
 // build 32 bit mask from 32 float values (1 where s[x] > value, 0 elsewhere
 STATIC uint32_t mask32_gt_f32(float *s, float value){
 #if defined(__AVX512F__)
@@ -186,6 +197,7 @@ STATIC uint32_t mask32_ge_f32(float *s, float value){
 STATIC uint32_t mask32_le_f32(float *s, float value){
   return (~ mask32_gt_f32(s, value)) ;   // <= ==> NOT >
 }
+#endif
 
 // build mask array from n values (1 where s[x] == value, 0 elsewhere
 // where s[0..n-1] == value, set bit i in mask to 1
@@ -199,9 +211,10 @@ STATIC uint32_t mask32_le_f32(float *s, float value){
 int32_t mask32_eq(uint32_t * restrict m, uint32_t * restrict s, uint32_t value, int n, int opt){
   (void) (opt) ;
   uint32_t negate = (opt & INVERT_MASK) ? (~0) : 0 ;
-  int32_t total = 0, n0 = n ;
+  int32_t n0 = 0 ;
   while(n > 31){                    // blocks of 32 values
     *m = mask32_eq_w32(s, value) ^ negate ;
+    n0 += _mm_popcnt_u32(*m) ;
     s += 32 ; m++ ; n -= 32 ;
   }
   if(n > 0){                        // up to 31 values left
@@ -213,9 +226,12 @@ int32_t mask32_eq(uint32_t * restrict m, uint32_t * restrict s, uint32_t value, 
       }
     }
     *m = mask ^ negate ;
+    n0 += _mm_popcnt_u32(*m) ;
   }
   return n0 ;
 }
+
+// ======================================= compress_mask =======================================
 
 // where s[0..31] != value, copy s[i] into destination array d
 // d    [OUT] : destination array
@@ -286,6 +302,8 @@ void print_mask32_2D(FILE *f, char *header, uint32_t *m, int ni, int nj){
   }
 }
 
+// ======================================= print_mask =======================================
+
 // print mask in big endian style (LSB left)
 void print_mask32(FILE *f, char *header, uint32_t *m, int n){
   fprintf(f, "%s0123456789ABCDEF0123456789ABCDEF\n", header) ;
@@ -300,6 +318,10 @@ void print_mask32(FILE *f, char *header, uint32_t *m, int n){
   }
 }
 
+// ======================================= compress_store =======================================
+
+// ZEN4 has a very slow _mm512_mask_compressstoreu_epi32, use _mm512_maskz_compress_epi32
+// this should also be O.K. performance wise for Intel CPUs
 #define ZEN4_SAFE
 
 // this function may store up to 16 extra 32 bit words in dst in ZEN4_SAFE mode
@@ -311,6 +333,7 @@ void print_mask32(FILE *f, char *header, uint32_t *m, int n){
 // return number of useful values stored into dst
 // mask bits are LittleEndian style, bit 0 is LSB
 static int32_t compress_store_32(uint32_t * restrict dst, uint32_t mask, uint32_t * restrict src) {
+//   if(mask == 0) return 0 ;
 #if defined(__AVX512F__)
   __mmask16 m0 = mask & 0xFFFF, m1 = (mask >> 16) ;
   __m512i v0, v1 ;
@@ -331,6 +354,7 @@ static int32_t compress_store_32(uint32_t * restrict dst, uint32_t mask, uint32_
 #endif
   return _mm_popcnt_u32(mask) ;
 #else
+//   if(mask == 0xFFFFFFFF) { for(int i=0 ; i<32 ; i++) { dst[i] = src[i] ; } ; return 32 ; } ;
   uint32_t* dst0 = dst ;
   for(int i=0 ; i<32 ; i++){
     if(mask & (1 << i)) *dst++ = src[i] ;
@@ -373,6 +397,8 @@ int32_t compress_store(uint32_t* restrict dst, uint32_t *mask, uint32_t* restric
   }
   return (dst - dst0) ;
 }
+
+// ======================================= expand_load =======================================
 
 // dst  [OUT] : output array
 // mask  [IN] : mask array
@@ -436,54 +462,138 @@ int32_t expand_load(uint32_t* restrict dst, uint32_t *mask, uint32_t* restrict s
   return (src - src0) ;
 }
 
+// ======================================= RLE encoder =======================================
+
+static int32_t micro  = 0, small  = 0, large  = 0, xlarge  = 0, arb  = 0 ;
+static int32_t micro_ = 0, small_ = 0, large_ = 0, xlarge_ = 0 ;
+static int32_t token_no = 0 ;
+
+// #define DEBUG_STATS(CODE)  CODE
+#define DEBUG_STATS(CODE)
+
+void rle_stats(char *msg){
+  if(token_no == 0) return ;
+  fprintf(stderr, "%s : counts = %6d %6d %6d %6d %6d, pop = %6d %6d %6d %6d, total = %d, tokens = %d\n",
+          msg, micro, small, large, xlarge, arb, micro_, small_, large_, xlarge_, micro_+small_+large_+xlarge_+arb, token_no) ;
+  micro  = small  = large  = xlarge   = arb  = 0 ;
+  micro_ = small_ = large_ = xlarge_  = 0 ;
+  token_no = 0 ;
+}
+
 // partial encoding of a single byte repeat count
 // byte  [IN] : byte to be repeated
 // count [IN] : repeat count (up to 
 // return byte/encoded token/length in bits of encoded token/residual repeat count
-// in a fst_rle_code struct
+// in a rle_token struct
 // in case of error, all members of the returned struc will be 0
-fst_rle_code fst_rle_token(uint8_t byte, uint32_t count){
-  fst_rle_code r = (fst_rle_code) { 0, 0, 0, 0} ;
+static rle_token _set_rle8_token_(uint8_t byte, uint32_t count){
+  rle_token r = (rle_token) { 0, {0}, 0, 0} ;   // NULL TOKEN
   if(count == 0)     goto end ;       // ERROR : zero count
-  if(count > 0xFFFF) goto end ;       // ERROR : count needs more than 16 bits
+  if(count > 0xFFFF) goto end ;       // ERROR : count cannot use more than 16 bits
   r.byte = byte ;
   if(byte != 0x00 && byte != 0xFF){   // byte not eligible for repeat count
     r.code = byte ;                   // 0bbyyttee : 0 bit followed by byte
-    r.bits = 9 ;
-    r.left = count - 1 ;              // count is automatically 1
+    r.bits = 9 ;                      // token needs 9 bits
+    r.left = count - 1 ;              // count must be 1 for byte that cannot be repeated
+DEBUG_STATS(arb++ ;)
     goto end ;
   }
-// code 000000000b or 011111111 will never be returned
+// codes 000000000b or 011111111 will never be returned (used for special functions)
 // 1010b or 1011b would be the returned code
-  if(count < RLE_SMALL_OFFSET){           // 4 bit micro RLE count (1 - 2)
-    r.code = ((byte == 0) ? RLE_MICRO_0 : RLE_MICRO_1) | (count - RLE_MICRO_OFFSET) ;
+  if(count < RLE_SMALL_OFFSET){           //  4 bit micro RLE count (1 - 2)
+    r.code = ((byte == 0) ? RLE_MICRO_0 : RLE_MICRO_1) + (count - RLE_MICRO_OFFSET) ;
     r.bits = 4 ;
-  }else if(count < RLE_LARGE_OFFSET){     // 8 bit small RLE count (3 - 18)
-    r.code = ((byte == 0) ? RLE_SMALL_0 : RLE_SMALL_1) | (count - RLE_SMALL_OFFSET) ;
+DEBUG_STATS(micro++ ; micro_ += count ;)
+  }else if(count < RLE_LARGE_OFFSET){     //  8 bit small RLE count (3 - 18)
+    r.code = ((byte == 0) ? RLE_SMALL_0 : RLE_SMALL_1) + (count - RLE_SMALL_OFFSET) ;
     r.bits = 8 ;
-  }else if(count <= RLE_MAX_COUNT){        // 12 bit large RLE count (RLE_LARGE_OFFSET - RLE_MAX_COUNT)
-    r.code = ((byte == 0) ? RLE_LARGE_0 : RLE_LARGE_1) | (count - RLE_LARGE_OFFSET) ;
+DEBUG_STATS(small++ ; small_ += count ;)
+  }else if(count <= RLE_MAX_COUNT){       // 12 bit large RLE count (19 - 274)
+    r.code = ((byte == 0) ? RLE_LARGE_0 : RLE_LARGE_1) + (count - RLE_LARGE_OFFSET) ;
     r.bits = 12 ;
+DEBUG_STATS(large++ ; large_ += count ;)
   }else{                                  // > RLE_MAX_COUNT,  12 bit large RLE count (RLE_MAX_COUNT)
-    r.code = ((byte == 0) ? RLE_LARGE_0 : RLE_LARGE_1) | 0xFF ;
+    r.code = ((byte == 0) ? RLE_LARGE_0 : RLE_LARGE_1) + (RLE_MAX_COUNT - RLE_LARGE_OFFSET) ;
     r.bits = 12 ;
     r.left = count - (RLE_MAX_COUNT) ;    // we have leftovers
+DEBUG_STATS(xlarge++ ; xlarge_ += RLE_MAX_COUNT ;)
+  }
+end:
+  return r ;
+}
+// partial encoding of a single nibble (4 bits) repeat count
+static rle_token _set_rle4_token_(uint8_t byte, uint32_t count){
+  rle_token r = (rle_token) { 0, {0}, 0, 0} ;   // NULL TOKEN
+  if(count == 0)     goto end ;       // ERROR : zero count
+  if(count > 0xFFFF) goto end ;       // ERROR : count cannot use more than 16 bits
+  r.byte = byte ;
+  if(byte != 0x0 && byte != 0xF){     // byte not eligible for repeat count
+    r.code = byte ;                   // 0nibl : 0 bit followed by nibble
+    r.bits = 5 ;                      // token needs 5 bits
+    r.left = count - 1 ;              // count must be 1 for byte that cannot be repeated
+DEBUG_STATS(arb++ ;)
+    goto end ;
+  }
+// codes 000000000b or 011111111 will never be returned (used for special functions)
+// 1010b or 1011b would be the returned code
+  if(count < RLE_SMALL_OFFSET){           //  4 bit micro RLE count (1 - 2)
+    r.code = ((byte == 0) ? RLE_MICRO_0 : RLE_MICRO_1) + (count - RLE_MICRO_OFFSET) ;
+    r.bits = 4 ;
+DEBUG_STATS(micro++ ; micro_ += count ;)
+  }else if(count < RLE_LARGE_OFFSET){     //  8 bit small RLE count (3 - 18)
+    r.code = ((byte == 0) ? RLE_SMALL_0 : RLE_SMALL_1) + (count - RLE_SMALL_OFFSET) ;
+    r.bits = 8 ;
+DEBUG_STATS(small++ ; small_ += count ;)
+  }else if(count <= RLE_MAX_COUNT){       // 12 bit large RLE count (19 - 274)
+    r.code = ((byte == 0) ? RLE_LARGE_0 : RLE_LARGE_1) + (count - RLE_LARGE_OFFSET) ;
+    r.bits = 12 ;
+DEBUG_STATS(large++ ; large_ += count ;)
+  }else{                                  // > RLE_MAX_COUNT,  12 bit large RLE count (RLE_MAX_COUNT)
+    r.code = ((byte == 0) ? RLE_LARGE_0 : RLE_LARGE_1) + (RLE_MAX_COUNT - RLE_LARGE_OFFSET) ;
+    r.bits = 12 ;
+    r.left = count - (RLE_MAX_COUNT) ;    // we have leftovers
+DEBUG_STATS(xlarge++ ; xlarge_ += RLE_MAX_COUNT ;)
   }
 end:
   return r ;
 }
 
 // partial encoding of a single byte repeat count
+// byte  [IN] : byte to be repeated
+// count [IN] : repeat count (up to 
+// return byte/encoded token/length in bits of encoded token/residual repeat count
+// in a rle_token struct
+// in case of error, all members of the returned struc will be 0
+rle_token set_rle8_token(uint8_t byte, uint32_t count){
+  return _set_rle8_token_(byte, count) ;
+}
+rle_token set_rle4_token(uint8_t byte, uint32_t count){
+  return _set_rle4_token_(byte, count) ;
+}
+// partial encoding of a single byte repeat count
 // byte      [IN] : byte to be repeated
 // count     [IN] : repeat count (MUST BE <= 0xFF)
 // stream [INOUT] : bit stream to receive encoded data
 // returns the total number of bits used for encoding
-static int32_t put_rle_count_(uint8_t byte, uint32_t count, bitstream *stream){
+static int32_t _put_rle8_count_(uint8_t byte, uint32_t count, bitstream *stream){
   int32_t totbits = 0 ;
   while(count > 0){
-    fst_rle_code r = fst_rle_token(byte, count) ;
+    rle_token r = _set_rle8_token_(byte, count) ;
     uint32_t code = r.code ;
     STREAM_PUT_NBITS(*stream, code, r.bits) ;
+DEBUG_STATS(token_no++ ;)
+    count = r.left ;
+    totbits += r.bits ;
+  }
+  return totbits ;
+}
+static int32_t _put_rle4_count_(uint8_t byte, uint32_t count, bitstream *stream){
+  int32_t totbits = 0 ;
+  while(count > 0){
+    rle_token r = _set_rle4_token_(byte, count) ;
+    uint32_t code = r.code ;
+    STREAM_PUT_NBITS(*stream, code, r.bits) ;
+DEBUG_STATS(token_no++ ;)
     count = r.left ;
     totbits += r.bits ;
   }
@@ -496,67 +606,266 @@ static int32_t put_rle_count_(uint8_t byte, uint32_t count, bitstream *stream){
 // stream [INOUT] : bit stream to receive encoded data
 // returns the total number of bits used for encoding
 // if count == 0, put end of sequence code into stream
-int32_t put_rle_count(uint8_t byte, uint32_t count, bitstream *stream){
+int32_t put_rle8_count(uint8_t byte, uint32_t count, bitstream *stream){
   int32_t totbits = 0 ;
 
   if(count == 0){
-    byte =  byte ? 0xFF : 0 ;
-    STREAM_PUT_NBITS(*stream, byte, 9) ;  // end of sequence code (byte == 0x00)
+    byte =  byte ? 0xFF : 0 ;             // end of sequence byte can only be 0x00 or 0xFF
+    STREAM_PUT_NBITS(*stream, byte, 9) ;  // end of sequence code (0 bit followed by 8 bit byte)
+    return 9 ;
   }
 
-  while(count > 0xFFFF){
-    totbits += put_rle_count_(byte, 0xFFFF, stream) ;
-    count -= 0xFFFF ;
+  while(count > RLE_MAX_COUNT){
+    totbits += _put_rle8_count_(byte, RLE_MAX_COUNT, stream) ;
+    count -= RLE_MAX_COUNT ;
   }
-  if(count > 0) totbits += put_rle_count_(byte, count, stream) ;
+  if(count > 0) totbits += _put_rle8_count_(byte, count, stream) ;
+
+  return totbits ;
+}
+int32_t put_rle4_count(uint8_t byte, uint32_t count, bitstream *stream){
+  int32_t totbits = 0 ;
+
+  if(count == 0){
+    byte =  byte ? 0xF : 0 ;             // end of sequence byte can only be 0x00 or 0xFF
+    STREAM_PUT_NBITS(*stream, byte, 5) ;  // end of sequence code (0 bit followed by 8 bit byte)
+    return 5 ;
+  }
+
+  while(count > RLE_MAX_COUNT){
+    totbits += _put_rle4_count_(byte, RLE_MAX_COUNT, stream) ;
+    count -= RLE_MAX_COUNT ;
+  }
+  if(count > 0) totbits += _put_rle4_count_(byte, count, stream) ;
 
   return totbits ;
 }
 
+// encode a mask byte array
+// mask      [IN] : mask byte array
+// n         [IN] : number of mask bits
+// stream [INOUT] : bit stream to receive encoded data
+// returns the total number of bits used for encoding
+// add end of sequence code into stream
+int32_t fst_rle8_encode(uint8_t * restrict mask, int32_t n, bitstream * restrict stream){
+  uint32_t old = 0xFFFF ;   // impossible previous byte
+  uint32_t count = 0 ;      // no count
+  uint32_t totbits = 0 ;
+  n = (n+7) / 8 ;
+  while(n > 0){
+    uint32_t current = mask[0] ;
+    if(current == old){     // same as previous byte, bump count
+      count++ ;
+    }else{
+      if(count > 0){        // emit count
+        totbits += put_rle8_count(old, count, stream) ;
+      }
+      old = current ;       // set previous byte to current byte
+      count = 1 ;           // reset count
+    }
+    n-- ;
+    mask++ ;                // point to next mask byte
+  }
+  if(count > 0) totbits += put_rle8_count(old, count, stream) ;
+  TERMINATE_RLE8_STREAM(stream) ;
+  return totbits ;
+}
+int32_t fst_rle4_encode(uint8_t * restrict mask, int32_t n, bitstream * restrict stream){
+  uint32_t old = 0xFFFF ;   // impossible previous byte
+  uint32_t count = 0 ;      // no count
+  uint32_t totbits = 0, current ;
+  n = (n+3) / 4 ;           // number of nibbles
+//   while(n > 0){
+  for(int i=0 ; i<n ; i++){
+    if(i&1){
+      current = mask[0] >> 4 ;     // get upper nibble
+      mask++ ;                     // point to next mask byte
+    }else{
+      current = mask[0] & 0xF ;    // get lower nibble
+    }
+    if(current == old){     // same as previous byte, bump count
+      count++ ;
+    }else{
+      if(count > 0){        // emit count
+        totbits += put_rle4_count(old, count, stream) ;
+      }
+      old = current ;       // set previous byte to current byte
+      count = 1 ;           // reset count
+    }
+  }
+  if(count > 0) totbits += put_rle4_count(old, count, stream) ;
+  TERMINATE_RLE4_STREAM(stream) ;
+  return totbits ;
+}
+
+// ======================================= RLE decoder =======================================
+
 // decode a single byte repeat count
 // stream [INOUT] : bit stream containing encoded data
-// return fst_rle_code struct
+// return rle_token struct
 // if an end of sequence code is detected, a count of 0 is returned
-fst_rle_code get_rle_token(bitstream *stream){
-  fst_rle_code r = (fst_rle_code) { 0, 0, 0, 0} ;
-  uint32_t bits, token ;
+rle_token get_rle8_token(bitstream *stream){
+  rle_token r = (rle_token) { 0, 0, 0, 0} ;
+  uint32_t bits ;
   STREAM_PEEK_NBITS(*stream, bits, 4) ;
-  if(0 == (bits >> 3)){
+  if(0 == (bits >> 3)){                   // byte transmitted "as is" with no repeat count
     STREAM_FAST_GET_NBITS(*stream, bits, 9) ;
+    if(bits == 0){
+      DEBUG_STATS( fprintf(stderr, "END marker detected\n"); )
+      goto end ;
+    }
 //     if(bits == 0xFF) bits = 0 ;        // 000000000 or 011111111 are equivalent
     r.bits = 9 ;
     r.code = r.byte = bits ;
-    r.count = ((bits == 0) || (bits == 0xFF)) ? 0 : 1 ;
+    r.count = (bits == RLE_END) ? 0 : 1 ;    // count is set to 0 for terminating code
+DEBUG_STATS(arb++ ;)
   }else{
     r.byte = (bits & 0x4) ? 0xFF : 0x00 ;  // 11xx is a repeat count for 0xFF, 10xx is a repeat count for 0x00
     bits &= 0x7 ;
-    token = 0 ;
+    uint32_t token = 0 ;
     switch(bits){
-      case 2:    // 1010b
-      case 3:    // 1011b
-      case 4:    // 1100b
-      case 5:    // 1101b
+      case 0b010:    // 1010b RLE_MICRO_0
+      case 0b011:    // 1011b RLE_MICRO_0
+      case 0b100:    // 1100b RLE_MICRO_1
+      case 0b101:    // 1101b RLE_MICRO_1
         STREAM_FAST_GET_NBITS(*stream, token, 4) ;
-        r.code = token ;
         r.count = 1 + (token & 1) ;
         r.bits = 4 ;
+DEBUG_STATS(micro++ ; micro_ += r.count ;)
         break ;
-      case 1:    // 1001b
-      case 6:    // 1110b
+      case 0b001:    // 1001b RLE_SMALL_0
+      case 0b110:    // 1110b RLE_SMALL_1
         STREAM_FAST_GET_NBITS(*stream, token, 8) ;
-        r.code = token ;
         r.count = 3 + (token & 0xF) ;
         r.bits = 8 ;
+DEBUG_STATS(small++ ; small_ += r.count ;)
         break ;
-      case 0:    // 1000b
-      case 7:    // 1111b
+      case 0b000:    // 1000b RLE_LARGE_0
+      case 0b111:    // 1111b RLE_LARGE_1
         STREAM_FAST_GET_NBITS(*stream, token, 12) ;
-        r.code = token ;
         r.count = 19 + (token & 0xFF) ;
         r.bits = 12 ;
+DEBUG_STATS(large++ ; large_ += r.count ;)
+        break ;
     }
+    r.code = token ;
   }
+end:
   return r ;
+}
+rle_token get_rle4_token(bitstream *stream){
+  rle_token r = (rle_token) { 0, 0, 0, 0} ;
+  uint32_t bits ;
+  STREAM_PEEK_NBITS(*stream, bits, 4) ;
+  if(0 == (bits >> 3)){                   // byte transmitted "as is" with no repeat count
+    STREAM_FAST_GET_NBITS(*stream, bits, 5) ;
+    if(bits == 0){
+      DEBUG_STATS( fprintf(stderr, "END marker detected\n"); )
+      goto end ;
+    }
+//     if(bits == 0xFF) bits = 0 ;        // 000000000 or 011111111 are equivalent
+    r.bits = 5 ;
+    r.code = r.byte = bits ;
+    r.count = (bits == RLE_END) ? 0 : 1 ;    // count is set to 0 for terminating code
+DEBUG_STATS(arb++ ;)
+  }else{
+    r.byte = (bits & 0x4) ? 0xF : 0x0 ;    // 11xx is a repeat count for 0xF, 10xx is a repeat count for 0x0
+    bits &= 0x7 ;
+    uint32_t token = 0 ;
+    switch(bits){
+      case 0b010:    // 1010b RLE_MICRO_0
+      case 0b011:    // 1011b RLE_MICRO_0
+      case 0b100:    // 1100b RLE_MICRO_1
+      case 0b101:    // 1101b RLE_MICRO_1
+        STREAM_FAST_GET_NBITS(*stream, token, 4) ;
+        r.count = 1 + (token & 1) ;
+        r.bits = 4 ;
+DEBUG_STATS(micro++ ; micro_ += r.count ;)
+        break ;
+      case 0b001:    // 1001b RLE_SMALL_0
+      case 0b110:    // 1110b RLE_SMALL_1
+        STREAM_FAST_GET_NBITS(*stream, token, 8) ;
+        r.count = 3 + (token & 0xF) ;
+        r.bits = 8 ;
+DEBUG_STATS(small++ ; small_ += r.count ;)
+        break ;
+      case 0b000:    // 1000b RLE_LARGE_0
+      case 0b111:    // 1111b RLE_LARGE_1
+        STREAM_FAST_GET_NBITS(*stream, token, 12) ;
+        r.count = 19 + (token & 0xFF) ;
+        r.bits = 12 ;
+DEBUG_STATS(large++ ; large_ += r.count ;)
+        break ;
+    }
+    r.code = token ;
+  }
+end:
+DEBUG_STATS(token_no++ ;)
+  return r ;
+}
+
+// decode RLE stream
+// mask     [OUT] : decoded mask array
+// nmax      [IN] : max number of mask bytes
+// stream [INOUT] : bit stream representing RLE encoded mask array
+// return number of bytes decoded (-1 in case of error)
+int32_t fst_rle8_decode(uint8_t * restrict mask, int32_t nmax, bitstream * restrict stream){
+  bitstream stream_save = *stream ;          // save stream state
+  int32_t count = 0, totbits = 0, nrep ;
+
+  rle_token code = get_rle8_token(stream) ;   // get first token
+  totbits = code.bits ;
+  // loop until END marker is detected
+  while(code.count > 0){                     // count is 0 for END marker
+    nrep = code.count ;                      // repeat count for this token
+    count += nrep ;                          // bump total count
+    if(count > nmax) goto fail ;             // error, excess count
+    for(int i=0 ; i<nrep ; i++) {            // copy byte into mask according to repeat count
+      mask[i] = code.byte ;
+    }
+    mask += nrep ;                           // bump mask pointer
+    code = get_rle8_token(stream) ;           // get next token
+    totbits += code.bits ;
+  }
+// fprintf(stderr, "fst_rle8_decode : totbits = %d, code.count = %d\n", totbits, code.count) ;
+  return count ;                             // total byte count
+
+fail:
+// fprintf(stderr, "fst_rle8_decode : totbits = %d, nmax = %d, count = %d, nrep = %d\n", totbits, nmax, count, nrep) ;
+  *stream = stream_save ;                    // restore stream state in case of error
+  return -1 ;
+}
+int32_t fst_rle4_decode(uint8_t * restrict mask, int32_t nmax, bitstream * restrict stream){
+  bitstream stream_save = *stream ;          // save stream state
+  int32_t count = 0, totbits = 0, nrep, low_nibble = 1 ;
+
+  nmax *= 2 ;                                // covert into nibbles (4 bits)
+  rle_token code = get_rle4_token(stream) ;  // get first token
+  totbits = code.bits ;
+  // loop until END marker is detected
+  while(code.count > 0){                     // count is 0 for END marker
+    nrep = code.count ;                      // repeat count for this token
+    count += nrep ;                          // bump total count
+    if(count > nmax) goto fail ;             // error, excess count
+    for(int i=0 ; i<nrep ; i++) {            // copy byte into mask according to repeat count
+      if(low_nibble){
+        mask[0] = code.byte & 0xF ;          // set mask value to lower nibble
+      }else{
+        mask[0] |= ((code.byte & 0xF) << 4) ;       // add upper nibble to previous lower nibble
+        mask++ ;
+      }
+      low_nibble = 1 - low_nibble ;                      // alternate low/high nibble
+    }
+    code = get_rle4_token(stream) ;          // get next token
+    totbits += code.bits ;
+  }
+// fprintf(stderr, "fst_rle4_decode : totbits = %d, code.count = %d\n", totbits, code.count) ;
+  return count ;                             // total byte count
+
+fail:
+// fprintf(stderr, "fst_rle4_decode : totbits = %d, nmax = %d, count = %d, nrep = %d\n", totbits, nmax, count, nrep) ;
+  *stream = stream_save ;                    // restore stream state in case of error
+  return -1 ;
 }
 
 #if 0
