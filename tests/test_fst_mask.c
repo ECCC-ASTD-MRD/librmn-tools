@@ -283,6 +283,23 @@ int main(int argc, char **argv){
         break ;
       }
       case 5:{
+        fprintf(stderr, "===== RLE1 test =====\n");
+        uint32_t totbits ;
+        uint32_t mask[] = {               0xFFFC07E3 ,
+                               0x00000001,
+                    0x40FF000F,
+          0x00003FFF } ;
+        bitstream stream = NULL_BITSTREAM ;
+        InitStream(&stream, NULL, NINJ, BIT_FULL_INIT|BIT_INSERT|BIT_XTRACT|SET_BIG_ENDIAN) ;
+        totbits = fst_rle1_encode(mask, sizeof(mask)*8, &stream) ;
+        STREAM_REWIND(stream, 1) ;
+        navail = StreamAvailableBits(&stream) ;
+        fprintf(stderr, "bits available in stream = %ld\n", navail) ;
+        totbits = fst_rle1_decode(mask, navail-1, &stream) ;
+        fprintf(stderr, "decode mask bits = %d\n", totbits) ;
+        fprintf(stderr, "\n") ;
+        for(int i=0 ; i<sizeof(mask)/sizeof(mask[0]) ; i++) { mask[i] ^= 0xFFFFFFFFu ; } ;
+//         totbits = fst_rle1_encode(mask, sizeof(mask)*8, &stream) ;
         break ;
       }
       default:{

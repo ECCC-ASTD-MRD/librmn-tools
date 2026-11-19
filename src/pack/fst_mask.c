@@ -231,7 +231,7 @@ int32_t mask32_eq(uint32_t * restrict m, uint32_t * restrict s, uint32_t value, 
   return n0 ;
 }
 
-// ======================================= compress_mask =======================================
+// ======================================= compress and mask =======================================
 
 // where s[0..31] != value, copy s[i] into destination array d
 // d    [OUT] : destination array
@@ -462,7 +462,7 @@ int32_t expand_load(uint32_t* restrict dst, uint32_t *mask, uint32_t* restrict s
   return (src - src0) ;
 }
 
-// ======================================= RLE encoder =======================================
+// ======================================= RLE encoders =======================================
 
 static int32_t micro  = 0, small  = 0, large  = 0, xlarge  = 0, arb  = 0 ;
 static int32_t micro_ = 0, small_ = 0, large_ = 0, xlarge_ = 0 ;
@@ -698,7 +698,95 @@ int32_t fst_rle4_encode(uint8_t * restrict mask, int32_t n, bitstream * restrict
   return totbits ;
 }
 
-// ======================================= RLE decoder =======================================
+static int iter = 1 ;
+
+int32_t rle1_count(mask_stream *s, uint32_t mode){
+  uint32_t totbits = 0 ;
+  mode = mode ? 0xFFFFFFFF : 0 ;
+// fprintf(stderr,"[rle1_count %2d] < mode = %8.8x ", iter, mode);
+  while(1){
+    if(s->avail == 0){
+      if(s->out >= s->limit) break ;   // end of mask stream
+      s->token = *(s->out) ;
+      (s->out)++ ;
+      s->avail = 32 ;
+    }
+    uint32_t target = s->token ^ mode ;
+    uint32_t count = (target == 0) ? s->avail : __builtin_ctz(target) ;
+// fprintf(stderr,"%d ", count);
+    s->avail = s->avail - count ;
+    s->token >>= count ;
+    totbits += count ;
+    if(count == 0 || s->avail > 0) break ;
+  }
+end:
+// fprintf(stderr,">[%d]\n", totbits);
+  return totbits ;
+}
+
+static void printBits(size_t const size, void const * const ptr)
+{
+  uint32_t *b = (uint32_t*) ptr;
+  uint32_t c = *b ;
+  for (int i = size-1; i >= 0; i--)  fprintf(stderr, "%c", (c & (1 << i)) ? '1' : '0') ;
+}
+
+static uint32_t fst_rle1_put(uint32_t count, bitstream * restrict stream){
+  uint32_t bits = 32 - __builtin_clz((count+1)/2) ;
+  uint32_t token1 = ( ~(0xFFFFFFFF << (bits-1)) ) << 1 ;
+  uint32_t offset = ~(0xFFFFFFFF << bits) ;
+  uint32_t token2 = count - offset ;
+  fprintf(stderr,"fst_rle1_put : count = %2d, bits = %2d, offset = %3d ", count, bits * 2, offset) ;
+  uint32_t token3 = (token1 << bits) | token2 ;
+  printBits(32, &token3) ;
+  fprintf(stderr," : ") ;
+  printBits(bits, &token1) ;
+  fprintf(stderr,"|") ;
+  printBits(bits, &token2) ;
+  fprintf(stderr,"\n") ;
+  STREAM_PUT_NBITS(*stream, token1, bits) ;
+  STREAM_PUT_NBITS(*stream, token2, bits) ;
+  return bits*2 ;
+}
+
+int32_t fst_rle1_encode(uint32_t * restrict mask, int32_t n, bitstream * restrict stream){
+  uint32_t totbits = 0, count = 1, avail = 0, token, putbits = 1 ; ;
+  n = (n + (8 * sizeof(int32_t)) - 1) / (8 * sizeof(int32_t)) ;
+  uint32_t *limit = mask + n, *out = mask ;
+  uint32_t target = mask[0] & 1 ;
+  STREAM_PUT_NBITS(*stream, target, 1) ;
+  uint32_t mode = target ? 0xFFFFFFFF : 0 ;
+
+iter = 0 ;
+  while(count > 0){
+    count = 0 ;
+    while(1){
+      if(avail == 0){
+        if(out >= limit) break ;
+        token = *out ;
+        out++ ;
+        avail = 32 ;
+      }
+      target = token ^ mode ;
+      uint32_t count0 = (target == 0) ? avail : __builtin_ctz(target) ;
+      avail -= count0 ;
+      token >>= count0 ;
+      count += count0 ;
+      if(count0 == 0 || avail > 0) break ;
+    }
+//     count = rle1_count(&mstream, target) ;
+    totbits += count ;
+    if(count > 0) putbits += fst_rle1_put(count, stream) ;
+iter++ ;
+// fprintf(stderr,"fst_rle1_encode[%2d] : mode = %8.8x, count = %3d, totbits = %d\n", iter, mode, count, totbits) ;
+//     target = target ^ 1 ;      // invert target bit
+    mode = mode ^ 0xFFFFFFFF ;    // invert target
+  }
+fprintf(stderr,"fst_rle1_encode : putbits = %d\n", putbits) ;
+  return totbits ;
+}
+
+// ======================================= RLE decoders =======================================
 
 // decode a single byte repeat count
 // stream [INOUT] : bit stream containing encoded data
@@ -866,6 +954,28 @@ fail:
 // fprintf(stderr, "fst_rle4_decode : totbits = %d, nmax = %d, count = %d, nrep = %d\n", totbits, nmax, count, nrep) ;
   *stream = stream_save ;                    // restore stream state in case of error
   return -1 ;
+}
+
+int32_t fst_rle1_decode(uint32_t * restrict mask, int32_t nbits, bitstream * restrict stream){
+  int32_t totbits = 0, maskbits = 0 ;
+  uint32_t mode ;
+  STREAM_GET_NBITS(*stream, mode, 1) ;
+fprintf(stderr, "available = %d, first bit = %d\n", nbits, mode) ;
+  while(totbits < nbits){
+    uint32_t tbits, token, token1, token2 ;
+    STREAM_PEEK_NBITS(*stream, token, 32) ;
+    tbits = __builtin_clz(~token) + 1 ;
+    STREAM_GET_NBITS(*stream, token1, tbits) ;
+    STREAM_GET_NBITS(*stream, token2, tbits) ;
+    uint32_t offset = ~(0xFFFFFFFF << tbits) ;
+    token2 += offset ;
+    totbits += (2 * tbits) ;
+    maskbits += token2 ;
+fprintf(stderr, "bits = %2d, count = %3d, mode = %d\n", tbits*2, token2, mode) ;
+    mode ^= 1 ;
+  }
+
+  return maskbits ;
 }
 
 #if 0

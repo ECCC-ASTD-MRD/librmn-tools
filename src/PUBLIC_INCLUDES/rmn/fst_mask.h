@@ -68,11 +68,29 @@ int32_t put_rle4_count(uint8_t byte, uint32_t count, bitstream *stream);
 
 rle_token get_rle8_token(bitstream *stream);
 rle_token get_rle4_token(bitstream *stream);
-int32_t fst_rle8_encode(uint8_t * restrict mask, int32_t n   , bitstream * restrict stream);
-int32_t fst_rle4_encode(uint8_t * restrict mask, int32_t n   , bitstream * restrict stream);
-int32_t fst_rle8_decode(uint8_t * restrict mask, int32_t nmax, bitstream * restrict stream);
-int32_t fst_rle4_decode(uint8_t * restrict mask, int32_t nmax, bitstream * restrict stream);
+int32_t fst_rle8_encode(uint8_t  * restrict mask, int32_t n, bitstream * restrict stream);
+int32_t fst_rle4_encode(uint8_t  * restrict mask, int32_t n, bitstream * restrict stream);
+int32_t fst_rle1_encode(uint32_t * restrict mask, int32_t n, bitstream * restrict stream);
+
+int32_t fst_rle8_decode(uint8_t  * restrict mask, int32_t nmax, bitstream * restrict stream);
+int32_t fst_rle4_decode(uint8_t  * restrict mask, int32_t nmax, bitstream * restrict stream);
+int32_t fst_rle1_decode(uint32_t * restrict mask, int32_t nmax, bitstream * restrict stream);
+
 void rle_stats(char *msg);
+
+typedef struct{
+  uint32_t *first ;
+  uint32_t *limit ;
+  union{
+    uint32_t *in ;    // used for insertion
+    uint32_t *out ;   // used for extraction
+  } ;
+  union{
+    int32_t empty ;     // used for insertion
+    int32_t avail ;     // used for extraction
+  } ;
+  uint32_t token ;
+} mask_stream ;
 
 typedef union{
   float f32 ;
