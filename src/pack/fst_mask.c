@@ -641,7 +641,7 @@ int32_t put_rle4_count(uint8_t byte, uint32_t count, bitstream *stream){
   return totbits ;
 }
 
-// encode a mask byte array
+// encode a mask array, run length of 8 bit elements
 // mask      [IN] : mask byte array
 // n         [IN] : number of mask bits
 // stream [INOUT] : bit stream to receive encoded data
@@ -670,6 +670,7 @@ int32_t fst_rle8_encode(uint8_t * restrict mask, int32_t n, bitstream * restrict
   TERMINATE_RLE8_STREAM(stream) ;
   return totbits ;
 }
+// encode a mask array, run length of 4 bit elements
 int32_t fst_rle4_encode(uint8_t * restrict mask, int32_t n, bitstream * restrict stream){
   uint32_t old = 0xFFFF ;   // impossible previous byte
   uint32_t count = 0 ;      // no count
@@ -736,27 +737,29 @@ static uint32_t fst_rle1_put(uint32_t count, bitstream * restrict stream){
   uint32_t token1 = ( ~(0xFFFFFFFF << (bits-1)) ) << 1 ;
   uint32_t offset = ~(0xFFFFFFFF << bits) ;
   uint32_t token2 = count - offset ;
-  fprintf(stderr,"fst_rle1_put : count = %2d, bits = %2d, offset = %3d ", count, bits * 2, offset) ;
+//   fprintf(stderr,"fst_rle1_put : count = %2d, bits = %2d, offset = %3d ", count, bits * 2, offset) ;
   uint32_t token3 = (token1 << bits) | token2 ;
-  printBits(32, &token3) ;
-  fprintf(stderr," : ") ;
-  printBits(bits, &token1) ;
-  fprintf(stderr,"|") ;
-  printBits(bits, &token2) ;
-  fprintf(stderr,"\n") ;
+//   printBits(32, &token3) ;
+//   fprintf(stderr," : ") ;
+//   printBits(bits, &token1) ;
+//   fprintf(stderr,"|") ;
+//   printBits(bits, &token2) ;
+//   fprintf(stderr,"\n") ;
   STREAM_PUT_NBITS(*stream, token1, bits) ;
   STREAM_PUT_NBITS(*stream, token2, bits) ;
   return bits*2 ;
 }
 
+// encode a mask array, run length of 1 bit elements
 int32_t fst_rle1_encode(uint32_t * restrict mask, int32_t n, bitstream * restrict stream){
+  int32_t nmask = n ;
   uint32_t totbits = 0, count = 1, avail = 0, token, putbits = 1 ; ;
   n = (n + (8 * sizeof(int32_t)) - 1) / (8 * sizeof(int32_t)) ;
   uint32_t *limit = mask + n, *out = mask ;
   uint32_t target = mask[0] & 1 ;
   STREAM_PUT_NBITS(*stream, target, 1) ;
   uint32_t mode = target ? 0xFFFFFFFF : 0 ;
-
+// TODO : make sure the count never exceeds nmask
 iter = 0 ;
   while(count > 0){
     count = 0 ;
@@ -765,6 +768,7 @@ iter = 0 ;
         if(out >= limit) break ;
         token = *out ;
         out++ ;
+        // TODO : for last mask word there may be less than 32 bits available
         avail = 32 ;
       }
       target = token ^ mode ;
@@ -892,7 +896,7 @@ DEBUG_STATS(token_no++ ;)
   return r ;
 }
 
-// decode RLE stream
+// decode RLE stream (8 bit elements)
 // mask     [OUT] : decoded mask array
 // nmax      [IN] : max number of mask bytes
 // stream [INOUT] : bit stream representing RLE encoded mask array
@@ -923,6 +927,7 @@ fail:
   *stream = stream_save ;                    // restore stream state in case of error
   return -1 ;
 }
+// decode RLE stream (4 bit elements)
 int32_t fst_rle4_decode(uint8_t * restrict mask, int32_t nmax, bitstream * restrict stream){
   bitstream stream_save = *stream ;          // save stream state
   int32_t count = 0, totbits = 0, nrep, low_nibble = 1 ;
@@ -956,6 +961,7 @@ fail:
   return -1 ;
 }
 
+// decode RLE stream (1 bit elements)
 int32_t fst_rle1_decode(uint32_t * restrict mask, int32_t nbits, bitstream * restrict stream){
   int32_t totbits = 0, maskbits = 0 ;
   uint32_t mode ;
@@ -971,6 +977,7 @@ fprintf(stderr, "available = %d, first bit = %d\n", nbits, mode) ;
     token2 += offset ;
     totbits += (2 * tbits) ;
     maskbits += token2 ;
+    // TODO: inject into mask
 fprintf(stderr, "bits = %2d, count = %3d, mode = %d\n", tbits*2, token2, mode) ;
     mode ^= 1 ;
   }

@@ -280,6 +280,17 @@ int main(int argc, char **argv){
         fst_rle4_encode((void *)mask, NINJ, &stream) ;
         TIME_LOOP_EZ(100, NINJ, STREAM_REWIND(stream, 1) ; fst_rle4_decode((void *)restored,  sizeof(restored), &stream) ;) ;
         fprintf(stderr, "fst_rle4_decode : %s\n",timer_msg);
+
+        fprintf(stderr, "===== RLE1 test =====\n");
+        STREAM_REWIND(stream, 1) ; STREAM_REWRITE(stream, 1) ;
+        ssize = STREAM_BITS_EMPTY(stream) ;
+        fprintf(stderr, "test_rle1 (after rewrite) : size of stream = %ld bits", ssize) ;
+        navail = StreamAvailableBits(&stream) ;
+        fprintf(stderr, ", bits available in stream = %ld\n", navail) ;
+
+        rcount = fst_rle1_encode((void *)mask, NINJ, &stream) ;
+        navail = StreamAvailableBits(&stream) ;
+        fprintf(stderr, "test_rle1 (after encode) : available in stream = %ld bits, rcount = %d\n", navail, rcount) ;
         break ;
       }
       case 5:{
